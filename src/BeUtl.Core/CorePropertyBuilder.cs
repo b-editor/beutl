@@ -229,8 +229,8 @@ public sealed class CorePropertyBuilder<T, TOwner>
     }
 
     public CorePropertyBuilder<T, TOwner> Validator(
-        Func<ICoreObject, T?, bool>? validate = null,
-        Func<ICoreObject, T?, T?>? coerce = null,
+        Func<ICoreObject?, T?, bool>? validate = null,
+        Func<ICoreObject?, T?, T?>? coerce = null,
         bool merge = false)
     {
         IValidator<T> validator1 = new FuncValidator<T>

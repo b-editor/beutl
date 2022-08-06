@@ -11,12 +11,12 @@ namespace BeUtl.Validation
             Minimum = System.Byte.MinValue;
         }
 
-        public override System.Byte Coerce(ICoreObject obj, System.Byte value)
+        public override System.Byte Coerce(ICoreObject? obj, System.Byte value)
         {
             return Math.Clamp(value, Minimum, Maximum);
         }
 
-        public override bool Validate(ICoreObject obj, System.Byte value)
+        public override bool Validate(ICoreObject? obj, System.Byte value)
         {
             return value >= Minimum && value <= Maximum;
         }
@@ -29,12 +29,12 @@ namespace BeUtl.Validation
             Minimum = System.Decimal.MinValue;
         }
 
-        public override System.Decimal Coerce(ICoreObject obj, System.Decimal value)
+        public override System.Decimal Coerce(ICoreObject? obj, System.Decimal value)
         {
             return Math.Clamp(value, Minimum, Maximum);
         }
 
-        public override bool Validate(ICoreObject obj, System.Decimal value)
+        public override bool Validate(ICoreObject? obj, System.Decimal value)
         {
             return value >= Minimum && value <= Maximum;
         }
@@ -47,12 +47,12 @@ namespace BeUtl.Validation
             Minimum = System.Double.MinValue;
         }
 
-        public override System.Double Coerce(ICoreObject obj, System.Double value)
+        public override System.Double Coerce(ICoreObject? obj, System.Double value)
         {
             return Math.Clamp(value, Minimum, Maximum);
         }
 
-        public override bool Validate(ICoreObject obj, System.Double value)
+        public override bool Validate(ICoreObject? obj, System.Double value)
         {
             return value >= Minimum && value <= Maximum;
         }
@@ -65,12 +65,12 @@ namespace BeUtl.Validation
             Minimum = System.Single.MinValue;
         }
 
-        public override System.Single Coerce(ICoreObject obj, System.Single value)
+        public override System.Single Coerce(ICoreObject? obj, System.Single value)
         {
             return Math.Clamp(value, Minimum, Maximum);
         }
 
-        public override bool Validate(ICoreObject obj, System.Single value)
+        public override bool Validate(ICoreObject? obj, System.Single value)
         {
             return value >= Minimum && value <= Maximum;
         }
@@ -83,12 +83,12 @@ namespace BeUtl.Validation
             Minimum = System.Int16.MinValue;
         }
 
-        public override System.Int16 Coerce(ICoreObject obj, System.Int16 value)
+        public override System.Int16 Coerce(ICoreObject? obj, System.Int16 value)
         {
             return Math.Clamp(value, Minimum, Maximum);
         }
 
-        public override bool Validate(ICoreObject obj, System.Int16 value)
+        public override bool Validate(ICoreObject? obj, System.Int16 value)
         {
             return value >= Minimum && value <= Maximum;
         }
@@ -101,12 +101,12 @@ namespace BeUtl.Validation
             Minimum = System.Int32.MinValue;
         }
 
-        public override System.Int32 Coerce(ICoreObject obj, System.Int32 value)
+        public override System.Int32 Coerce(ICoreObject? obj, System.Int32 value)
         {
             return Math.Clamp(value, Minimum, Maximum);
         }
 
-        public override bool Validate(ICoreObject obj, System.Int32 value)
+        public override bool Validate(ICoreObject? obj, System.Int32 value)
         {
             return value >= Minimum && value <= Maximum;
         }
@@ -119,12 +119,12 @@ namespace BeUtl.Validation
             Minimum = System.Int64.MinValue;
         }
 
-        public override System.Int64 Coerce(ICoreObject obj, System.Int64 value)
+        public override System.Int64 Coerce(ICoreObject? obj, System.Int64 value)
         {
             return Math.Clamp(value, Minimum, Maximum);
         }
 
-        public override bool Validate(ICoreObject obj, System.Int64 value)
+        public override bool Validate(ICoreObject? obj, System.Int64 value)
         {
             return value >= Minimum && value <= Maximum;
         }
@@ -137,12 +137,12 @@ namespace BeUtl.Validation
             Minimum = System.SByte.MinValue;
         }
 
-        public override System.SByte Coerce(ICoreObject obj, System.SByte value)
+        public override System.SByte Coerce(ICoreObject? obj, System.SByte value)
         {
             return Math.Clamp(value, Minimum, Maximum);
         }
 
-        public override bool Validate(ICoreObject obj, System.SByte value)
+        public override bool Validate(ICoreObject? obj, System.SByte value)
         {
             return value >= Minimum && value <= Maximum;
         }
@@ -155,12 +155,12 @@ namespace BeUtl.Validation
             Minimum = System.UInt16.MinValue;
         }
 
-        public override System.UInt16 Coerce(ICoreObject obj, System.UInt16 value)
+        public override System.UInt16 Coerce(ICoreObject? obj, System.UInt16 value)
         {
             return Math.Clamp(value, Minimum, Maximum);
         }
 
-        public override bool Validate(ICoreObject obj, System.UInt16 value)
+        public override bool Validate(ICoreObject? obj, System.UInt16 value)
         {
             return value >= Minimum && value <= Maximum;
         }
@@ -173,12 +173,12 @@ namespace BeUtl.Validation
             Minimum = System.UInt32.MinValue;
         }
 
-        public override System.UInt32 Coerce(ICoreObject obj, System.UInt32 value)
+        public override System.UInt32 Coerce(ICoreObject? obj, System.UInt32 value)
         {
             return Math.Clamp(value, Minimum, Maximum);
         }
 
-        public override bool Validate(ICoreObject obj, System.UInt32 value)
+        public override bool Validate(ICoreObject? obj, System.UInt32 value)
         {
             return value >= Minimum && value <= Maximum;
         }
@@ -191,12 +191,12 @@ namespace BeUtl.Validation
             Minimum = System.UInt64.MinValue;
         }
 
-        public override System.UInt64 Coerce(ICoreObject obj, System.UInt64 value)
+        public override System.UInt64 Coerce(ICoreObject? obj, System.UInt64 value)
         {
             return Math.Clamp(value, Minimum, Maximum);
         }
 
-        public override bool Validate(ICoreObject obj, System.UInt64 value)
+        public override bool Validate(ICoreObject? obj, System.UInt64 value)
         {
             return value >= Minimum && value <= Maximum;
         }
@@ -211,14 +211,14 @@ namespace BeUtl.Validation
             Minimum = new(System.Single.MinValue, System.Single.MinValue);
         }
 
-        public override System.Numerics.Vector2 Coerce(ICoreObject obj, System.Numerics.Vector2 value)
+        public override System.Numerics.Vector2 Coerce(ICoreObject? obj, System.Numerics.Vector2 value)
         {
             return new System.Numerics.Vector2(
                 Math.Clamp(value.X, Minimum.X, Maximum.X),
                 Math.Clamp(value.Y, Minimum.Y, Maximum.Y));
         }
         
-        public override bool Validate(ICoreObject obj, System.Numerics.Vector2 value)
+        public override bool Validate(ICoreObject? obj, System.Numerics.Vector2 value)
         {
             return value.X >= Minimum.X && value.X <= Maximum.X
                 && value.Y >= Minimum.Y && value.Y <= Maximum.Y;
@@ -234,7 +234,7 @@ namespace BeUtl.Validation
             Minimum = new(System.Single.MinValue, System.Single.MinValue, System.Single.MinValue);
         }
 
-        public override System.Numerics.Vector3 Coerce(ICoreObject obj, System.Numerics.Vector3 value)
+        public override System.Numerics.Vector3 Coerce(ICoreObject? obj, System.Numerics.Vector3 value)
         {
             return new System.Numerics.Vector3(
                 Math.Clamp(value.X, Minimum.X, Maximum.X),
@@ -242,7 +242,7 @@ namespace BeUtl.Validation
                 Math.Clamp(value.Z, Minimum.Z, Maximum.Z));
         }
         
-        public override bool Validate(ICoreObject obj, System.Numerics.Vector3 value)
+        public override bool Validate(ICoreObject? obj, System.Numerics.Vector3 value)
         {
             return value.X >= Minimum.X && value.X <= Maximum.X
                 && value.Y >= Minimum.Y && value.Y <= Maximum.Y
@@ -259,7 +259,7 @@ namespace BeUtl.Validation
             Minimum = new(System.Single.MinValue, System.Single.MinValue, System.Single.MinValue, System.Single.MinValue);
         }
 
-        public override System.Numerics.Vector4 Coerce(ICoreObject obj, System.Numerics.Vector4 value)
+        public override System.Numerics.Vector4 Coerce(ICoreObject? obj, System.Numerics.Vector4 value)
         {
             return new System.Numerics.Vector4(
                 Math.Clamp(value.X, Minimum.X, Maximum.X),
@@ -268,7 +268,7 @@ namespace BeUtl.Validation
                 Math.Clamp(value.W, Minimum.W, Maximum.W));
         }
         
-        public override bool Validate(ICoreObject obj, System.Numerics.Vector4 value)
+        public override bool Validate(ICoreObject? obj, System.Numerics.Vector4 value)
         {
             return value.X >= Minimum.X && value.X <= Maximum.X
                 && value.Y >= Minimum.Y && value.Y <= Maximum.Y

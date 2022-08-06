@@ -49,12 +49,12 @@ namespace BeUtl.Validation
             Minimum = <#= t.FullName #>.MinValue;
         }
 
-        public override <#= t.FullName #> Coerce(ICoreObject obj, <#= t.FullName #> value)
+        public override <#= t.FullName #> Coerce(ICoreObject? obj, <#= t.FullName #> value)
         {
             return Math.Clamp(value, Minimum, Maximum);
         }
 
-        public override bool Validate(ICoreObject obj, <#= t.FullName #> value)
+        public override bool Validate(ICoreObject? obj, <#= t.FullName #> value)
         {
             return value >= Minimum && value <= Maximum;
         }
@@ -72,14 +72,14 @@ namespace BeUtl.Validation
             Minimum = new(<#= t.Element #>.MinValue, <#= t.Element #>.MinValue);
         }
 
-        public override <#= fullName #> Coerce(ICoreObject obj, <#= fullName #> value)
+        public override <#= fullName #> Coerce(ICoreObject? obj, <#= fullName #> value)
         {
             return new <#= fullName #>(
                 Math.Clamp(value.<#= t.FieldX #>, Minimum.<#= t.FieldX #>, Maximum.<#= t.FieldX #>),
                 Math.Clamp(value.<#= t.FieldY #>, Minimum.<#= t.FieldY #>, Maximum.<#= t.FieldY #>));
         }
         
-        public override bool Validate(ICoreObject obj, <#= fullName #> value)
+        public override bool Validate(ICoreObject? obj, <#= fullName #> value)
         {
             return value.<#= t.FieldX #> >= Minimum.<#= t.FieldX #> && value.<#= t.FieldX #> <= Maximum.<#= t.FieldX #>
                 && value.<#= t.FieldY #> >= Minimum.<#= t.FieldY #> && value.<#= t.FieldY #> <= Maximum.<#= t.FieldY #>;
@@ -98,7 +98,7 @@ namespace BeUtl.Validation
             Minimum = new(<#= t.Element #>.MinValue, <#= t.Element #>.MinValue, <#= t.Element #>.MinValue);
         }
 
-        public override <#= fullName #> Coerce(ICoreObject obj, <#= fullName #> value)
+        public override <#= fullName #> Coerce(ICoreObject? obj, <#= fullName #> value)
         {
             return new <#= fullName #>(
                 Math.Clamp(value.<#= t.FieldX #>, Minimum.<#= t.FieldX #>, Maximum.<#= t.FieldX #>),
@@ -106,7 +106,7 @@ namespace BeUtl.Validation
                 Math.Clamp(value.<#= t.FieldZ #>, Minimum.<#= t.FieldZ #>, Maximum.<#= t.FieldZ #>));
         }
         
-        public override bool Validate(ICoreObject obj, <#= fullName #> value)
+        public override bool Validate(ICoreObject? obj, <#= fullName #> value)
         {
             return value.<#= t.FieldX #> >= Minimum.<#= t.FieldX #> && value.<#= t.FieldX #> <= Maximum.<#= t.FieldX #>
                 && value.<#= t.FieldY #> >= Minimum.<#= t.FieldY #> && value.<#= t.FieldY #> <= Maximum.<#= t.FieldY #>
@@ -126,7 +126,7 @@ namespace BeUtl.Validation
             Minimum = new(<#= t.Element #>.MinValue, <#= t.Element #>.MinValue, <#= t.Element #>.MinValue, <#= t.Element #>.MinValue);
         }
 
-        public override <#= fullName #> Coerce(ICoreObject obj, <#= fullName #> value)
+        public override <#= fullName #> Coerce(ICoreObject? obj, <#= fullName #> value)
         {
             return new <#= fullName #>(
                 Math.Clamp(value.<#= t.FieldX #>, Minimum.<#= t.FieldX #>, Maximum.<#= t.FieldX #>),
@@ -135,7 +135,7 @@ namespace BeUtl.Validation
                 Math.Clamp(value.<#= t.FieldW #>, Minimum.<#= t.FieldW #>, Maximum.<#= t.FieldW #>));
         }
         
-        public override bool Validate(ICoreObject obj, <#= fullName #> value)
+        public override bool Validate(ICoreObject? obj, <#= fullName #> value)
         {
             return value.<#= t.FieldX #> >= Minimum.<#= t.FieldX #> && value.<#= t.FieldX #> <= Maximum.<#= t.FieldX #>
                 && value.<#= t.FieldY #> >= Minimum.<#= t.FieldY #> && value.<#= t.FieldY #> <= Maximum.<#= t.FieldY #>

@@ -4,12 +4,12 @@ public sealed class FilePathExtensionValidator : IValidator<string?>
 {
     public string[] FileExtensions { get; set; } = Array.Empty<string>();
 
-    public string? Coerce(ICoreObject obj, string? value)
+    public string? Coerce(ICoreObject? obj, string? value)
     {
         return value;
     }
 
-    public bool Validate(ICoreObject obj, string? value)
+    public bool Validate(ICoreObject? obj, string? value)
     {
         if (value != null)
         {

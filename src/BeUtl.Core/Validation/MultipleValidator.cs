@@ -9,7 +9,7 @@ public sealed class MultipleValidator<T> : IValidator<T>
 
     public IValidator<T>[] Items { get; }
 
-    public T? Coerce(ICoreObject obj, T? value)
+    public T? Coerce(ICoreObject? obj, T? value)
     {
         foreach (IValidator<T> item in Items)
         {
@@ -19,7 +19,7 @@ public sealed class MultipleValidator<T> : IValidator<T>
         return value;
     }
 
-    public bool Validate(ICoreObject obj, T? value)
+    public bool Validate(ICoreObject? obj, T? value)
     {
         foreach (IValidator<T> item in Items)
         {

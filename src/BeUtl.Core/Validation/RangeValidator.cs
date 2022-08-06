@@ -6,7 +6,7 @@ public abstract class RangeValidator<T> : IValidator<T>
 
     public T? Minimum { get; set; }
 
-    public abstract T? Coerce(ICoreObject obj, T? value);
+    public abstract T? Coerce(ICoreObject? obj, T? value);
 
-    public abstract bool Validate(ICoreObject obj, T? value);
+    public abstract bool Validate(ICoreObject? obj, T? value);
 }

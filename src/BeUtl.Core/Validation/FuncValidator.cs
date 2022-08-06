@@ -2,11 +2,11 @@
 
 public sealed class FuncValidator<T> : IValidator<T>
 {
-    public Func<ICoreObject, T?, T?>? CoerceFunc { get; set; }
+    public Func<ICoreObject?, T?, T?>? CoerceFunc { get; set; }
 
-    public Func<ICoreObject, T?, bool>? ValidateFunc { get; set; }
+    public Func<ICoreObject?, T?, bool>? ValidateFunc { get; set; }
 
-    public T? Coerce(ICoreObject obj, T? value)
+    public T? Coerce(ICoreObject? obj, T? value)
     {
         if (CoerceFunc != null)
         {
@@ -18,7 +18,7 @@ public sealed class FuncValidator<T> : IValidator<T>
         }
     }
 
-    public bool Validate(ICoreObject obj, T? value)
+    public bool Validate(ICoreObject? obj, T? value)
     {
         return ValidateFunc?.Invoke(obj, value) ?? true;
     }
