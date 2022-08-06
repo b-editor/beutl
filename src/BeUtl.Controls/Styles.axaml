@@ -41,4 +41,5 @@
     <StyleInclude Source="avares://BeUtl.Controls/Styling/Player.axaml" />
     <StyleInclude Source="avares://BeUtl.Controls/Styling/NavigationView.axaml" />
     <StyleInclude Source="avares://BeUtl.Controls/Styling/OptionsDisplayItem.axaml" />
+    <StyleInclude Source="avares://BeUtl.Controls/Styling/ListRadioButton.axaml" />
 </Styles>

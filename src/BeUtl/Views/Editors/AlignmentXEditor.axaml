@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="using:BeUtl.Views.Editors"
+             xmlns:viewModel="using:BeUtl.ViewModels.Editors"
+             xmlns:ic="using:FluentIcons.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="300"
+             x:DataType="viewModel:AlignmentXEditorViewModel"
+             x:Class="BeUtl.Views.Editors.AlignmentXEditor">
+    <Grid ColumnDefinitions="2*,3*,Auto">
+        <TextBlock
+            Margin="10,0,0,0"
+            Text="{Binding Header.Value}"
+            ClipToBounds="False"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center" />
+
+        <WrapPanel Orientation="Horizontal"
+                   Grid.Column="1"
+                   Margin="4,2"
+                   HorizontalAlignment="Right"
+                   IsEnabled="{Binding CanEdit.Value}">
+            <WrapPanel.Styles>
+                <Style Selector="RadioButton.list">
+                    <Setter Property="Padding" Value="12,4" />
+                </Style>
+            </WrapPanel.Styles>
+            <RadioButton CornerRadius="4,0,0,4"
+                         Classes="list"
+                         Checked="Left_Checked"
+                         IsChecked="{CompiledBinding IsLeft.Value}">
+                <ic:SymbolIcon Symbol="AlignLeft" />
+            </RadioButton>
+            <RadioButton CornerRadius="0"
+                         Classes="list"
+                         Checked="Center_Checked"
+                         IsChecked="{CompiledBinding IsCenter.Value}">
+                <ic:SymbolIcon Symbol="AlignCenterVertical" />
+            </RadioButton>
+            <RadioButton CornerRadius="0,4,4,0"
+                         Classes="list"
+                         Checked="Right_Checked"
+                         IsChecked="{CompiledBinding IsRight.Value}">
+                <ic:SymbolIcon Symbol="AlignRight" />
+            </RadioButton>
+        </WrapPanel>
+
+        <local:EditorBadge Grid.Column="2" />
+    </Grid>
+</UserControl>
