@@ -32,6 +32,18 @@
                     Header="{DynamicResource S.Common.Delete}" />
             </ContextMenu>
         </Button.ContextMenu>
-        <ic:SymbolIcon Symbol="MoreVertical" />
+        <ic:SymbolIcon Classes.hasAnimation="{CompiledBinding HasAnimation.Value}">
+            <ic:SymbolIcon.Styles>
+                <Style Selector="ic|SymbolIcon">
+                    <Setter Property="Symbol" Value="MoreVertical" />
+                </Style>
+                <Style Selector="ic|SymbolIcon.hasAnimation">
+                    <Setter Property="Symbol" Value="Flow" />
+                    <Setter Property="IsFilled" Value="True" />
+                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
+                    <Setter Property="ToolTip.Tip" Value="アニメーションが有効です" />
+                </Style>
+            </ic:SymbolIcon.Styles>
+        </ic:SymbolIcon>
     </Button>
 </UserControl>

@@ -18,16 +18,25 @@ public abstract class BaseEditorViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
-        IObservable<bool> observable = property is IWrappedProperty.IAnimatable anm
-            ? anm.HasAnimation.Select(x => !x)
-            : Observable.Return(true);
+        IObservable<bool> hasAnimation = property is IWrappedProperty.IAnimatable anm
+            ? anm.HasAnimation
+            : Observable.Return(false);
 
+        IObservable<bool>? observable;
         if (property.AssociatedProperty is IStaticProperty { CanWrite: false })
         {
             observable = Observable.Return(false);
         }
+        else
+        {
+            observable = hasAnimation.Select(x => !x);
+        }
 
         CanEdit = observable
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(Disposables);
+
+        HasAnimation = hasAnimation
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
     }
@@ -45,6 +54,8 @@ public abstract class BaseEditorViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<string?> Header { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> HasAnimation { get; }
 
     public bool IsAnimatable => WrappedProperty.GetMetadataExt<CorePropertyMetadata>()?.PropertyFlags.HasFlag(PropertyFlags.Animatable) == true;
 
