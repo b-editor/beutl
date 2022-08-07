@@ -34,7 +34,7 @@ public sealed partial class SettingsPage : UserControl
         {
             new NavigationViewItem()
             {
-                [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.Account"),
+                [!ContentProperty] = S.SettingsPage.AccountObservable.ToBinding(),
                 Tag = typeof(AccountSettingsPage),
                 Icon = new SymbolIcon
                 {
@@ -43,7 +43,7 @@ public sealed partial class SettingsPage : UserControl
             },
             new NavigationViewItem()
             {
-                [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.View"),
+                [!ContentProperty] = S.SettingsPage.ViewObservable.ToBinding(),
                 Tag = typeof(ViewSettingsPage),
                 Icon = new SymbolIcon
                 {
@@ -52,7 +52,7 @@ public sealed partial class SettingsPage : UserControl
             },
             new NavigationViewItem()
             {
-                [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.Font"),
+                [!ContentProperty] = S.SettingsPage.FontObservable.ToBinding(),
                 Tag = typeof(FontSettingsPage),
                 Icon = new SymbolIcon
                 {
@@ -61,7 +61,7 @@ public sealed partial class SettingsPage : UserControl
             },
             new NavigationViewItem()
             {
-                [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.Extensions"),
+                [!ContentProperty] = S.SettingsPage.ExtensionsObservable.ToBinding(),
                 Tag = typeof(ExtensionsSettingsPage),
                 Icon = new CompatSymbolIcon()
                 {
@@ -70,7 +70,7 @@ public sealed partial class SettingsPage : UserControl
             },
             new NavigationViewItem()
             {
-                [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.Backup"),
+                [!ContentProperty] = S.SettingsPage.BackupObservable.ToBinding(),
                 Tag = typeof(BackupSettingsPage),
                 Icon = new SymbolIcon
                 {
@@ -79,7 +79,7 @@ public sealed partial class SettingsPage : UserControl
             },
             new NavigationViewItem()
             {
-                [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.Info"),
+                [!ContentProperty] = S.SettingsPage.InfoObservable.ToBinding(),
                 Tag = typeof(InfomationPage),
                 Icon = new CompatSymbolIcon()
                 {

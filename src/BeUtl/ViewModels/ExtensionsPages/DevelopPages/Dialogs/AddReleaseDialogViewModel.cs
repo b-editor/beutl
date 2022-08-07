@@ -6,7 +6,7 @@ public sealed class AddReleaseDialogViewModel
 {
     public AddReleaseDialogViewModel()
     {
-        Version.SetValidateNotifyError(str => System.Version.TryParse(str, out _) ? null : StringResources.Message.InvalidString);
+        Version.SetValidateNotifyError(str => System.Version.TryParse(str, out _) ? null : S.Message.InvalidString);
 
         Title.SetValidateNotifyError(NotNullOrWhitespace);
         Body.SetValidateNotifyError(NotNullOrWhitespace);
@@ -33,7 +33,7 @@ public sealed class AddReleaseDialogViewModel
         }
         else
         {
-            return StringResources.Message.PleaseEnterString;
+            return S.Message.PleaseEnterString;
         }
     }
 }

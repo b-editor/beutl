@@ -155,7 +155,6 @@
     <!--Views-->
     <StyleInclude Source="/ja-JP/Views/MainViewResources.axaml" />
     <StyleInclude Source="/ja-JP/Views/EditViewResources.axaml" />
-    <StyleInclude Source="/ja-JP/Views/LibraryResources.axaml" />
     <StyleInclude Source="/ja-JP/Views/TimelineResources.axaml" />
     <StyleInclude Source="/ja-JP/Views/TimelineLayerResources.axaml" />
 

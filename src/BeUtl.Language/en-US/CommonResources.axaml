@@ -142,18 +142,19 @@
         <x:String x:Key="S.Common.Backup">Backup</x:String>
         <x:String x:Key="S.Common.KernelSize">Kernel size</x:String>
         <x:String x:Key="S.Common.FixImageSize">Fix image size</x:String>
-        <x:String x:Key="S.Common.Operations">Operations</x:String>
-        <x:String x:Key="S.Common.Style">Style</x:String>
         <x:String x:Key="S.Common.Offset">Offset</x:String>
         <x:String x:Key="S.Common.Thickness">Thickness</x:String>
         <x:String x:Key="S.Common.MaskType">MaskType</x:String>
         <x:String x:Key="S.Common.BorderStyle">BorderStyle</x:String>
+        <x:String x:Key="S.Common.Operations">Operations</x:String>
+        <x:String x:Key="S.Common.Style">Style</x:String>
+        <x:String x:Key="S.Common.StreamOperators">Stream Operators</x:String>
+        <x:String x:Key="S.Common.Animation">Animation</x:String>
     </Styles.Resources>
 
     <!--Views-->
     <StyleInclude Source="/en-US/Views/MainViewResources.axaml" />
     <StyleInclude Source="/en-US/Views/EditViewResources.axaml" />
-    <StyleInclude Source="/en-US/Views/LibraryResources.axaml" />
     <StyleInclude Source="/en-US/Views/TimelineResources.axaml" />
     <StyleInclude Source="/en-US/Views/TimelineLayerResources.axaml" />
 

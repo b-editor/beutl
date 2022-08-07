@@ -35,7 +35,6 @@
             Doing so will prevent others from downloading this release.
         </x:String>
 
-        <!---->
         <x:String x:Key="S.DevelopPage.AddRelease.Title">Add release</x:String>
         <x:String x:Key="S.DevelopPage.EditRelease.Title">Edit release</x:String>
         <x:String x:Key="S.DevelopPage.Release.Fields.Title">Title</x:String>

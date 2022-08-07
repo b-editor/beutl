@@ -9,5 +9,5 @@ global using BeUtl.Collections;
 global using BeUtl.Language;
 
 global using Notification = BeUtl.Framework.Service.Notification;
-global using S = BeUtl.Language.StringResources;
+global using S = BeUtl.Language.Resources.S;
 global using FA = FluentAvalonia.UI.Controls;

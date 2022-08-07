@@ -24,7 +24,7 @@ public sealed class EditReleaseResourceDialogViewModel
                 catch { }
             }
 
-            return StringResources.Message.InvalidString;
+            return S.Message.InvalidString;
         });
 
         Culture = CultureInput.Select(str =>
@@ -80,7 +80,7 @@ public sealed class EditReleaseResourceDialogViewModel
         }
         else
         {
-            return StringResources.Message.PleaseEnterString;
+            return S.Message.PleaseEnterString;
         }
     }
 }

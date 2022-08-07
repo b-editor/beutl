@@ -54,7 +54,7 @@ public sealed class ReleasePageViewModel : IDisposable
             .ToReactiveProperty(release.Version.ToString())
             .DisposeWith(_disposables);
 
-        VersionInput.SetValidateNotifyError(str => System.Version.TryParse(str, out _) ? null : StringResources.Message.InvalidString);
+        VersionInput.SetValidateNotifyError(str => System.Version.TryParse(str, out _) ? null : S.Message.InvalidString);
 
         Version = VersionInput.Select(str => System.Version.TryParse(str, out Version? v) ? v : null)
             .ToReadOnlyReactivePropertySlim();
@@ -176,7 +176,7 @@ public sealed class ReleasePageViewModel : IDisposable
         }
         else
         {
-            return StringResources.Message.PleaseEnterString;
+            return S.Message.PleaseEnterString;
         }
     }
 }

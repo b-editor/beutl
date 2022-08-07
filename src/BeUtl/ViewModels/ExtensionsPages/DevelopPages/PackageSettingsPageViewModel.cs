@@ -395,7 +395,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
         }
         else
         {
-            return StringResources.Message.PleaseEnterString;
+            return S.Message.PleaseEnterString;
         }
     }
 }
