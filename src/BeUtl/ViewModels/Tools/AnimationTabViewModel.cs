@@ -43,7 +43,7 @@ public sealed class AnimationTabViewModel : IToolContext
 
     public Action<IAnimationSpan>? RequestScroll { get; set; }
 
-    public ReactiveProperty<IWrappedProperty.IAnimatable?> Animation { get; } = new();
+    public ReactiveProperty<IAbstractAnimatableProperty?> Animation { get; } = new();
 
     public CoreList<AnimationSpanEditorViewModel?> Items { get; } = new();
 

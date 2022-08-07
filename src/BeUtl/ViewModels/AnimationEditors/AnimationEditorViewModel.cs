@@ -3,6 +3,7 @@
 using BeUtl.Animation;
 using BeUtl.Animation.Easings;
 using BeUtl.Commands;
+using BeUtl.Framework;
 using BeUtl.ProjectSystem;
 using BeUtl.Services.Editors.Wrappers;
 using BeUtl.ViewModels.Editors;
@@ -18,7 +19,7 @@ public sealed class AnimationEditorViewModel : IDisposable
 
     public AnimationEditorViewModel(
         IAnimationSpan animationSpan,
-        IWrappedProperty.IAnimatable property,
+        IAbstractAnimatableProperty property,
         ITimelineOptionsProvider optionsProvider)
     {
         Model = animationSpan;
@@ -34,10 +35,18 @@ public sealed class AnimationEditorViewModel : IDisposable
         Width.Subscribe(w => animationSpan.Duration = w.ToTimeSpan(optionsProvider.Options.Value.Scale))
             .AddTo(_disposables);
 
-        RemoveCommand.Subscribe(() => WrappedProperty.Remove(Model))
+        RemoveCommand.Subscribe(() =>
+            {
+                if (WrappedProperty.Animation.Children is IList list)
+                {
+                    new RemoveCommand(list, Model)
+                        .DoAndRecord(CommandRecorder.Default);
+                }
+            })
             .AddTo(_disposables);
 
-        Header = property.Header
+        // Todo: プロパティの表示名ここを変更
+        Header = Observable.Return(property.Property.Name)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
     }
@@ -51,9 +60,9 @@ public sealed class AnimationEditorViewModel : IDisposable
 
     public IAnimation Animation => WrappedProperty.Animation;
 
-    public IWrappedProperty.IAnimatable WrappedProperty { get; }
+    public IAbstractAnimatableProperty WrappedProperty { get; }
 
-    public bool CanReset => WrappedProperty.GetDefaultValue() != null;
+    public bool CanReset => GetDefaultValue() != null;
 
     public ReadOnlyReactivePropertySlim<string?> Header { get; }
 
@@ -82,28 +91,52 @@ public sealed class AnimationEditorViewModel : IDisposable
 
     public void Move(int newIndex, int oldIndex)
     {
-        WrappedProperty.Move(newIndex, oldIndex);
+        if (WrappedProperty.Animation.Children is IList list)
+        {
+            new MoveCommand(list, newIndex, oldIndex)
+                .DoAndRecord(CommandRecorder.Default);
+        }
     }
 
     public void InsertForward(Easing easing)
     {
-        int index = WrappedProperty.IndexOf(Model);
+        if (WrappedProperty.Animation.Children is IList list)
+        {
+            int index = list.IndexOf(Model);
 
-        IAnimationSpan item = WrappedProperty.CreateSpan(easing);
-        WrappedProperty.Insert(index, item);
+            IAnimationSpan item = WrappedProperty.CreateSpan(easing);
+            new AddCommand(list, item, index)
+                .DoAndRecord(CommandRecorder.Default);
+        }
     }
 
     public void InsertBackward(Easing easing)
     {
-        int index = WrappedProperty.IndexOf(Model);
+        if (WrappedProperty.Animation.Children is IList list)
+        {
+            int index = list.IndexOf(Model);
 
-        IAnimationSpan item = WrappedProperty.CreateSpan(easing);
-        WrappedProperty.Insert(index + 1, item);
+            IAnimationSpan item = WrappedProperty.CreateSpan(easing);
+            new AddCommand(list, item, index + 1)
+                .DoAndRecord(CommandRecorder.Default);
+        }
     }
 
     public void Dispose()
     {
         _disposables.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    private object? GetDefaultValue()
+    {
+        ICorePropertyMetadata metadata = GetMetadata<ICorePropertyMetadata>();
+        return metadata.GetDefaultValue();
+    }
+
+    private TMetadata GetMetadata<TMetadata>()
+        where TMetadata : ICorePropertyMetadata
+    {
+        return WrappedProperty.Property.GetMetadata<TMetadata>(WrappedProperty.ImplementedType);
     }
 }

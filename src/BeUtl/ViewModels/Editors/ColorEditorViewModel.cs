@@ -1,5 +1,5 @@
-﻿using BeUtl.Media;
-using BeUtl.Services.Editors.Wrappers;
+﻿using BeUtl.Framework;
+using BeUtl.Media;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -10,7 +10,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class ColorEditorViewModel : BaseEditorViewModel<Color>
 {
-    public ColorEditorViewModel(IWrappedProperty<Color> property)
+    public ColorEditorViewModel(IAbstractProperty<Color> property)
         : base(property)
     {
         Value = property.GetObservable()

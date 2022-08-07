@@ -1,4 +1,4 @@
-﻿using BeUtl.Services.Editors.Wrappers;
+﻿using BeUtl.Framework;
 
 using Reactive.Bindings;
 
@@ -6,7 +6,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class OpacityEditorViewModel : BaseEditorViewModel<float>
 {
-    public OpacityEditorViewModel(IWrappedProperty<float> property)
+    public OpacityEditorViewModel(IAbstractProperty<float> property)
         : base(property)
     {
         Value = property.GetObservable()

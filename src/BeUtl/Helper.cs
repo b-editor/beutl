@@ -108,44 +108,6 @@ internal static class Helper
         return filename;
     }
 
-    public static object? GetDefaultValue(this IWrappedProperty wrappedProp, Type? type = null)
-    {
-        return wrappedProp.GetMetadataExt<ICorePropertyMetadata>(type)?.GetDefaultValue();
-    }
-
-    public static TMetadata? GetMetadataExt<TMetadata>(this IWrappedProperty wrappedProp, Type? type = null)
-        where TMetadata : ICorePropertyMetadata
-    {
-        TMetadata? result;
-        if (type != null)
-        {
-            wrappedProp.AssociatedProperty.TryGetMetadata(type, out result);
-        }
-        else
-        {
-            if (wrappedProp.Tag is CoreObject obj)
-            {
-                wrappedProp.AssociatedProperty.TryGetMetadata(obj.GetType(), out result);
-            }
-            else if (wrappedProp.Tag is ISetter setter
-                && setter.FindStylingParent<IStyle>() is { TargetType: { } ownerType1 })
-            {
-                wrappedProp.AssociatedProperty.TryGetMetadata(ownerType1, out result);
-            }
-            else if (wrappedProp.Tag is AnimationSpan anmSpan
-                && anmSpan.FindLogicalParent(wrappedProp.AssociatedProperty.OwnerType)?.GetType() is { } ownerType2)
-            {
-                wrappedProp.AssociatedProperty.TryGetMetadata(ownerType2, out result);
-            }
-            else
-            {
-                wrappedProp.AssociatedProperty.TryGetMetadata(wrappedProp.AssociatedProperty.OwnerType, out result);
-            }
-        }
-
-        return result;
-    }
-
     private static string RandomString()
     {
         const string characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";

@@ -1,7 +1,7 @@
 ﻿using System.Reflection;
 
+using BeUtl.Framework;
 using BeUtl.Media;
-using BeUtl.Services.Editors.Wrappers;
 
 using Reactive.Bindings;
 
@@ -11,10 +11,10 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 {
     private static readonly NullabilityInfoContext s_context = new();
 
-    public BrushEditorViewModel(IWrappedProperty property)
+    public BrushEditorViewModel(IAbstractProperty property)
         : base(property)
     {
-        CoreProperty coreProperty = property.AssociatedProperty;
+        CoreProperty coreProperty = property.Property;
         PropertyInfo propertyInfo = coreProperty.OwnerType.GetProperty(coreProperty.Name)!;
         NullabilityInfo? nullabilityInfo = s_context.Create(propertyInfo);
 
@@ -64,11 +64,11 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 
     private sealed class SetCommand : IRecordableCommand
     {
-        private readonly IWrappedProperty _setter;
+        private readonly IAbstractProperty _setter;
         private readonly object? _oldValue;
         private readonly object? _newValue;
 
-        public SetCommand(IWrappedProperty setter, object? oldValue, object? newValue)
+        public SetCommand(IAbstractProperty setter, object? oldValue, object? newValue)
         {
             _setter = setter;
             _oldValue = oldValue;

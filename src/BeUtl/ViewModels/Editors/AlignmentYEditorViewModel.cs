@@ -1,5 +1,5 @@
-﻿using BeUtl.Media;
-using BeUtl.Services.Editors.Wrappers;
+﻿using BeUtl.Framework;
+using BeUtl.Media;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class AlignmentYEditorViewModel : BaseEditorViewModel<AlignmentY>
 {
-    public AlignmentYEditorViewModel(IWrappedProperty<AlignmentY> property)
+    public AlignmentYEditorViewModel(IAbstractProperty<AlignmentY> property)
         : base(property)
     {
         Value = property.GetObservable()

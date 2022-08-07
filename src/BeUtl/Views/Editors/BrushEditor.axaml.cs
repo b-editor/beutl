@@ -111,10 +111,9 @@ public sealed partial class BrushEditor : UserControl
         {
             if (this.FindLogicalAncestorOfType<StyleEditor>()?.DataContext is StyleEditorViewModel parentViewModel
                 && viewModel.WrappedProperty is IStylingSetterWrapper wrapper
-                && parentViewModel.Style.Value is Style style
-                && wrapper.Tag is ISetter setter)
+                && parentViewModel.Style.Value is Style style)
             {
-                new RemoveCommand<ISetter>(style.Setters, setter).DoAndRecord(CommandRecorder.Default);
+                new RemoveCommand<ISetter>(style.Setters, wrapper.Setter).DoAndRecord(CommandRecorder.Default);
             }
             else
             {

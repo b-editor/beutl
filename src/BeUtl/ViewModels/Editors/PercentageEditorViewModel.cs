@@ -1,5 +1,4 @@
-﻿using BeUtl.Services.Editors;
-using BeUtl.Services.Editors.Wrappers;
+﻿using BeUtl.Framework;
 
 using Reactive.Bindings;
 
@@ -7,7 +6,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class PercentageEditorViewModel : BaseEditorViewModel<float>
 {
-    public PercentageEditorViewModel(IWrappedProperty<float> property)
+    public PercentageEditorViewModel(IAbstractProperty<float> property)
         : base(property)
     {
         Text = property.GetObservable()

@@ -1,5 +1,5 @@
-﻿using BeUtl.Services.Editors;
-using BeUtl.Services.Editors.Wrappers;
+﻿using BeUtl.Framework;
+using BeUtl.Services.Editors;
 
 using Reactive.Bindings;
 
@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 public sealed class NumberEditorViewModel<T> : BaseEditorViewModel<T>, INumberEditorViewModel<T>
     where T : struct
 {
-    public NumberEditorViewModel(IWrappedProperty<T> property)
+    public NumberEditorViewModel(IAbstractProperty<T> property)
         : base(property)
     {
         Text = property.GetObservable()

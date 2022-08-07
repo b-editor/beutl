@@ -23,7 +23,7 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
     private readonly ReactivePropertySlim<Layer?> _layerObservable = new();
 
     public AnimationTimelineViewModel(
-        IWrappedProperty.IAnimatable setter,
+        IAbstractAnimatableProperty setter,
         ITimelineOptionsProvider optionsProvider)
     {
         WrappedProperty = setter;
@@ -68,8 +68,8 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
 
         Header = LayerObservable
             .SelectMany(x => x?.GetObservable(CoreObject.NameProperty) ?? Observable.Return(string.Empty))
-            .Select(n => string.IsNullOrWhiteSpace(n) ? WrappedProperty.AssociatedProperty.Name : $"{n} / {WrappedProperty.AssociatedProperty.Name}")
-            .ToReadOnlyReactivePropertySlim(WrappedProperty.AssociatedProperty.Name)
+            .Select(n => string.IsNullOrWhiteSpace(n) ? WrappedProperty.Property.Name : $"{n} / {WrappedProperty.Property.Name}")
+            .ToReadOnlyReactivePropertySlim(WrappedProperty.Property.Name)
             .AddTo(_disposables);
     }
 
@@ -81,7 +81,7 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
         init => _layerObservable.Value = value;
     }
 
-    public IWrappedProperty.IAnimatable WrappedProperty { get; }
+    public IAbstractAnimatableProperty WrappedProperty { get; }
 
     public ITimelineOptionsProvider OptionsProvider { get; }
 
@@ -115,7 +115,7 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
 
     public void AddAnimation(Easing easing)
     {
-        CoreProperty? property = WrappedProperty.AssociatedProperty;
+        CoreProperty? property = WrappedProperty.Property;
         Type type = typeof(AnimationSpan<>).MakeGenericType(property.PropertyType);
 
         if (WrappedProperty.Animation.Children is IList list

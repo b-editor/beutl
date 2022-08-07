@@ -3,6 +3,7 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
 using BeUtl.Commands;
+using BeUtl.Framework;
 using BeUtl.Services.Editors.Wrappers;
 using BeUtl.Styling;
 using BeUtl.ViewModels;
@@ -33,7 +34,7 @@ public sealed partial class EditorBadge : UserControl
     {
         if (this.FindLogicalAncestorOfType<EditView>().DataContext is EditViewModel editViewModel
             && DataContext is BaseEditorViewModel viewModel
-            && viewModel.WrappedProperty is IWrappedProperty.IAnimatable animatableProperty)
+            && viewModel.WrappedProperty is IAbstractAnimatableProperty animatableProperty)
         {
             // 右側のタブを開く
             AnimationTabViewModel anmViewModel
@@ -70,10 +71,9 @@ public sealed partial class EditorBadge : UserControl
         if (DataContext is BaseEditorViewModel viewModel
             && this.FindLogicalAncestorOfType<StyleEditor>()?.DataContext is StyleEditorViewModel parentViewModel
             && viewModel.WrappedProperty is IStylingSetterWrapper wrapper
-            && parentViewModel.Style.Value is Style style
-            && wrapper.Tag is ISetter setter)
+            && parentViewModel.Style.Value is Style style)
         {
-            new RemoveCommand<ISetter>(style.Setters, setter).DoAndRecord(CommandRecorder.Default);
+            new RemoveCommand<ISetter>(style.Setters, wrapper.Setter).DoAndRecord(CommandRecorder.Default);
         }
     }
 }

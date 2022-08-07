@@ -1,6 +1,6 @@
 ﻿using BeUtl.Commands;
+using BeUtl.Framework;
 using BeUtl.Media;
-using BeUtl.Services.Editors.Wrappers;
 using BeUtl.Utilities;
 
 using Reactive.Bindings;
@@ -13,7 +13,7 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
 {
     private IDisposable? _disposable;
 
-    public GradientStopsEditorViewModel(IWrappedProperty<GradientStops> property)
+    public GradientStopsEditorViewModel(IAbstractProperty<GradientStops> property)
         : base(property)
     {
         GradientStops? initValue = property.GetValue();

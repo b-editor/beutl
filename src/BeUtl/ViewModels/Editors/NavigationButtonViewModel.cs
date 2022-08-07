@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 
-using BeUtl.Services.Editors.Wrappers;
+using BeUtl.Framework;
 
 using Reactive.Bindings;
 
@@ -15,10 +15,10 @@ public sealed class NavigationButtonViewModel<T> : BaseEditorViewModel<T>, INavi
 {
     private static readonly NullabilityInfoContext s_context = new();
 
-    public NavigationButtonViewModel(IWrappedProperty<T> property)
+    public NavigationButtonViewModel(IAbstractProperty<T> property)
         : base(property)
     {
-        CoreProperty<T> coreProperty = property.AssociatedProperty;
+        CoreProperty<T> coreProperty = property.Property;
         PropertyInfo propertyInfo = coreProperty.OwnerType.GetProperty(coreProperty.Name)!;
         NullabilityInfo? nullabilityInfo = s_context.Create(propertyInfo);
 
