@@ -1,12 +1,13 @@
 ﻿using BeUtl.Animation;
 using BeUtl.Animation.Easings;
+using BeUtl.Framework;
 using BeUtl.Reactive;
 
 using Reactive.Bindings.Extensions;
 
 namespace BeUtl.Services.Editors.Wrappers;
 
-public sealed class AnimatableCorePropertyWrapper<T> : CorePropertyWrapper<T>, IWrappedProperty<T>.IAnimatable
+public sealed class AnimatableCorePropertyClientImpl<T> : CorePropertyClientImpl<T>, IAbstractAnimatableProperty<T>
 {
     private sealed class HasAnimationObservable : LightweightObservableBase<bool>
     {
@@ -74,7 +75,7 @@ public sealed class AnimatableCorePropertyWrapper<T> : CorePropertyWrapper<T>, I
         }
     }
 
-    public AnimatableCorePropertyWrapper(CoreProperty<T> property, Animatable obj)
+    public AnimatableCorePropertyClientImpl(CoreProperty<T> property, Animatable obj)
         : base(property, obj)
     {
         HasAnimation = new HasAnimationObservable(property, obj);
@@ -84,9 +85,9 @@ public sealed class AnimatableCorePropertyWrapper<T> : CorePropertyWrapper<T>, I
 
     public IObservable<bool> HasAnimation { get; }
 
-    public IAnimationSpan CreateSpan(Easing easing)
+    IAnimationSpan IAbstractAnimatableProperty.CreateSpan(Easing easing)
     {
-        CoreProperty<T> property = AssociatedProperty;
+        CoreProperty<T> property = Property;
         Type ownerType = property.OwnerType;
         ILogicalElement? owner = Animation.FindLogicalParent(ownerType);
         T? defaultValue = default;
@@ -124,18 +125,18 @@ public sealed class AnimatableCorePropertyWrapper<T> : CorePropertyWrapper<T>, I
 
     private Animation<T> GetAnimation()
     {
-        var animatable = (Animatable)Tag;
+        var animatable = (Animatable)Object;
 
         foreach (IAnimation item in animatable.Animations.GetMarshal().Value)
         {
-            if (item.Property.Id == AssociatedProperty.Id
+            if (item.Property.Id == Property.Id
                 && item is Animation<T> animation1)
             {
                 return animation1;
             }
         }
 
-        var animation2 = new Animation<T>(AssociatedProperty);
+        var animation2 = new Animation<T>(Property);
         animatable.Animations.Add(animation2);
         return animation2;
     }
