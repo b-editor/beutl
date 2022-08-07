@@ -203,15 +203,11 @@ public sealed class MainViewModel
                 StreamOperatorsTabExtension.Instance,
                 EasingsTabExtension.Instance,
                 AnimationTabExtension.Instance,
+                PropertyEditorExtension.Instance,
+                AlignmentsPropertyEditorExtension.Instance,
             });
 
             manager.LoadPackages(manager.GetPackageInfos());
-
-            manager.ExtensionProvider._allExtensions.Add(Package.s_nextId++, new Extension[]
-            {
-                AlignmentsPropertyEditorExtension.Instance,
-                PropertyEditorExtension.Instance,
-            });
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {

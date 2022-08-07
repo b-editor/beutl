@@ -25,8 +25,10 @@ public static class PropertyEditorService
     {
         ExtensionProvider extp = PackageManager.Instance.ExtensionProvider;
 
-        foreach (PropertyEditorExtension item in extp.GetExtensions<PropertyEditorExtension>().AsSpan())
+        PropertyEditorExtension[] items = extp.GetExtensions<PropertyEditorExtension>();
+        for (int i = items.Length - 1; i >= 0; i--)
         {
+            PropertyEditorExtension item = items[i];
             CoreProperty[] array = item.MatchProperty(properties).ToArray();
             if (array.Length > 0)
             {
