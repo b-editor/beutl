@@ -9,6 +9,7 @@ public sealed class ExtensionProvider
 {
     internal readonly Dictionary<int, Extension[]> _allExtensions = new();
     private readonly ExtensionConfig _config = GlobalConfiguration.Instance.ExtensionConfig;
+    private readonly Dictionary<Type, Array> _cache = new();
 
     public ExtensionProvider(PackageManager packageManager)
     {
@@ -18,6 +19,21 @@ public sealed class ExtensionProvider
     public PackageManager PackageManager { get; }
 
     public IEnumerable<Extension> AllExtensions => _allExtensions.Values.SelectMany(ext => ext);
+
+    public TExtension[] GetExtensions<TExtension>()
+        where TExtension : Extension
+    {
+        if (_cache.TryGetValue(typeof(TExtension), out Array? result))
+        {
+            return (TExtension[])result;
+        }
+        else
+        {
+            TExtension[] exts = AllExtensions.OfType<TExtension>().ToArray();
+            _cache[typeof(TExtension)] = exts;
+            return exts;
+        }
+    }
 
     public EditorExtension? MatchEditorExtension(string file)
     {
