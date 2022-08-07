@@ -5,6 +5,7 @@ using BeUtl.Animation.Easings;
 using BeUtl.Commands;
 using BeUtl.Framework;
 using BeUtl.ProjectSystem;
+using BeUtl.Services;
 using BeUtl.Services.Editors.Wrappers;
 using BeUtl.ViewModels.Editors;
 
@@ -45,8 +46,7 @@ public sealed class AnimationEditorViewModel : IDisposable
             })
             .AddTo(_disposables);
 
-        // Todo: プロパティの表示名ここを変更
-        Header = Observable.Return(property.Property.Name)
+        Header = PropertyEditorService.GetPropertyName(property.Property)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
     }

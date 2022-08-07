@@ -11,7 +11,7 @@
             Classes="clearButton"
             InputMethod.IsInputMethodEnabled="True"
             Margin="8"
-            Watermark="{DynamicResource S.Library.Search}" />
+            Watermark="{DynamicResource S.Common.Search}" />
 
         <!--<ProgressBar
             Grid.Row="1"
