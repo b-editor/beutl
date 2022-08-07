@@ -113,6 +113,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Workflows", "Workflows", "{
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Operators", "src\BeUtl.Operators\BeUtl.Operators.csproj", "{5B97917E-A771-496A-80C9-4F3B87FB443D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ResourcesGenerator", "build\generators\ResourcesGenerator\ResourcesGenerator.csproj", "{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -337,6 +339,14 @@ Global
 		{5B97917E-A771-496A-80C9-4F3B87FB443D}.Release|Any CPU.Build.0 = Release|Any CPU
 		{5B97917E-A771-496A-80C9-4F3B87FB443D}.Release|x64.ActiveCfg = Release|Any CPU
 		{5B97917E-A771-496A-80C9-4F3B87FB443D}.Release|x64.Build.0 = Release|Any CPU
+		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Debug|x64.Build.0 = Debug|Any CPU
+		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Release|x64.ActiveCfg = Release|Any CPU
+		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -360,6 +370,7 @@ Global
 		{6610F46B-2135-4759-8068-5D260FA5F014} = {E7ED6BF0-EEC7-48F3-A6AD-00B5C8052ABE}
 		{B06ADC65-3AC3-4A23-AF58-AD5A5194E524} = {E7ED6BF0-EEC7-48F3-A6AD-00B5C8052ABE}
 		{ED8EECC3-4BDC-4B29-A17B-1044C7534BB2} = {464CEA08-D77A-4CB8-9B03-BEF0C852B907}
+		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0} = {D6C0F32B-62A6-48BA-867E-BCDD88B71748}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {CC3F8F37-EB22-4418-978D-C844095F8C4D}
