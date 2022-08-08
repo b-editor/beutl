@@ -203,17 +203,19 @@ public class Layer : Element, IStorable, ILogicalElement
     public void Save(string filename)
     {
         _fileName = filename;
-        LastSavedTime = DateTime.Now;
+        LastSavedTime = DateTime.UtcNow;
         this.JsonSave(filename);
+        File.SetLastWriteTimeUtc(filename, LastSavedTime);
+
         _saved?.Invoke(this, EventArgs.Empty);
     }
 
     public void Restore(string filename)
     {
         _fileName = filename;
-        LastSavedTime = DateTime.Now;
 
         this.JsonRestore(filename);
+        LastSavedTime = File.GetLastWriteTimeUtc(filename);
 
         _restored?.Invoke(this, EventArgs.Empty);
     }

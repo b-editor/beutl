@@ -109,9 +109,9 @@ public sealed class Project : Element, IStorable, ILogicalElement, IWorkspace
     {
         _fileName = filename;
         _rootDirectory = Path.GetDirectoryName(filename);
-        LastSavedTime = DateTime.Now;
 
         this.JsonRestore(filename);
+        LastSavedTime = File.GetLastWriteTimeUtc(filename);
 
         _restored?.Invoke(this, EventArgs.Empty);
     }
@@ -120,9 +120,10 @@ public sealed class Project : Element, IStorable, ILogicalElement, IWorkspace
     {
         _fileName = filename;
         _rootDirectory = Path.GetDirectoryName(filename);
-        LastSavedTime = DateTime.Now;
+        LastSavedTime = DateTime.UtcNow;
 
         this.JsonSave(filename);
+        File.SetLastWriteTimeUtc(filename, LastSavedTime);
 
         _saved?.Invoke(this, EventArgs.Empty);
     }
