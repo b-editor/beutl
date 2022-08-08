@@ -146,19 +146,32 @@ public class CoreList<T> : ICoreList<T>
     {
         if (Count > 0)
         {
+            List<T>? items = null;
+            NotifyCollectionChangedEventArgs? eventArgs = null;
+
+            if ((CollectionChanged != null && ResetBehavior == ResetBehavior.Reset)
+                || Detached != null)
+            {
+                items = Inner.ToList();
+            }
+
             if (CollectionChanged != null)
             {
-                NotifyCollectionChangedEventArgs e = ResetBehavior == ResetBehavior.Reset ?
-                    s_resetCollectionChanged :
-                    new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, Inner.ToList(), 0);
-
-                Inner.Clear();
-
-                CollectionChanged(this, e);
+                eventArgs = ResetBehavior == ResetBehavior.Reset
+                    ? s_resetCollectionChanged
+                    : new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, items, 0);
             }
-            else
+
+            Inner.Clear();
+
+            foreach (T item in CollectionsMarshal.AsSpan(items))
             {
-                Inner.Clear();
+                Detached?.Invoke(item);
+            }
+
+            if (eventArgs != null)
+            {
+                CollectionChanged!(this, eventArgs);
             }
 
             NotifyCountChanged();
@@ -222,7 +235,7 @@ public class CoreList<T> : ICoreList<T>
     {
         Inner.CopyTo(array, arrayIndex);
     }
-    
+
     public void CopyTo(Span<T> array)
     {
         Span<T> span = CollectionsMarshal.AsSpan(Inner);
