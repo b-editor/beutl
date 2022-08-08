@@ -32,8 +32,14 @@ public sealed class WorkspaceItemContainer : IWorkspaceItemContainer
             ?.TryGetTarget(out IWorkspaceItem? target) ?? false
             ? target as T
             : null;
+
         if (item != null)
         {
+            if (item.LastSavedTime.ToUniversalTime() < File.GetLastWriteTimeUtc(file))
+            {
+                item.Restore(file);
+            }
+
             return true;
         }
 
@@ -59,6 +65,11 @@ public sealed class WorkspaceItemContainer : IWorkspaceItemContainer
             : default;
         if (item != null)
         {
+            if (item.LastSavedTime.ToUniversalTime() < File.GetLastWriteTimeUtc(file))
+            {
+                item.Restore(file);
+            }
+
             return true;
         }
 

@@ -53,11 +53,12 @@ public sealed class ProjectService : IProjectService
 
     public void CloseProject()
     {
-        if (CurrentProject.Value != null)
+        if (CurrentProject.Value is { } project)
         {
             // 値を発行
-            _projectObservable.OnNext((New: null, CurrentProject.Value));
+            _projectObservable.OnNext((New: null, project));
             CurrentProject.Value = null;
+            project.Dispose();
         }
     }
 

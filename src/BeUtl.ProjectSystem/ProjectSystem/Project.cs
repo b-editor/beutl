@@ -11,7 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BeUtl.ProjectSystem;
 
-public interface IWorkspace : ITopLevel
+public interface IWorkspace : ITopLevel, IDisposable
 {
     ICoreList<IWorkspaceItem> Items { get; }
 
@@ -47,7 +47,7 @@ public static class ProjectVariableKeys
 }
 
 // Todo: IResourceProviderを実装
-public class Project : Element, IStorable, ILogicalElement, IWorkspace
+public sealed class Project : Element, IStorable, ILogicalElement, IWorkspace
 {
     public static readonly CoreProperty<Version> AppVersionProperty;
     public static readonly CoreProperty<Version> MinAppVersionProperty;
@@ -191,6 +191,12 @@ public class Project : Element, IStorable, ILogicalElement, IWorkspace
 
             jobject["variables"] = variables;
         }
+    }
+
+    public void Dispose()
+    {
+        _items.CollectionChanged -= Items_CollectionChanged;
+        _items.Clear();
     }
 
     private void Items_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

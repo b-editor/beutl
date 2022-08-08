@@ -329,7 +329,7 @@ public class Scene : Element, IStorable, IWorkspaceItem
     public void Save(string filename)
     {
         _fileName = filename;
-        LastSavedTime = DateTime.Now;
+        LastSavedTime = DateTime.UtcNow;
         string? directory = Path.GetDirectoryName(_fileName);
 
         if (directory != null && !Directory.Exists(directory))
@@ -338,6 +338,7 @@ public class Scene : Element, IStorable, IWorkspaceItem
         }
 
         this.JsonSave(filename);
+        File.SetLastWriteTimeUtc(filename, LastSavedTime);
 
         _saved?.Invoke(this, EventArgs.Empty);
     }
@@ -345,9 +346,9 @@ public class Scene : Element, IStorable, IWorkspaceItem
     public void Restore(string filename)
     {
         _fileName = filename;
-        LastSavedTime = DateTime.Now;
 
         this.JsonRestore(filename);
+        LastSavedTime = File.GetLastWriteTimeUtc(filename);
 
         _restored?.Invoke(this, EventArgs.Empty);
     }
