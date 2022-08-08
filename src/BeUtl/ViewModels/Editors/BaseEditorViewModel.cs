@@ -1,29 +1,33 @@
-﻿using BeUtl.Services.Editors.Wrappers;
+﻿using System.Diagnostics.CodeAnalysis;
+
+using BeUtl.Framework;
+using BeUtl.Services.Editors.Wrappers;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels.Editors;
 
-public abstract class BaseEditorViewModel : IDisposable
+public abstract class BaseEditorViewModel : IPropertyEditorContext
 {
     protected CompositeDisposable Disposables = new();
     private bool _disposedValue;
 
-    protected BaseEditorViewModel(IWrappedProperty property)
+    protected BaseEditorViewModel(IAbstractProperty property)
     {
         WrappedProperty = property;
 
-        Header = WrappedProperty.Header
+        // Todo: プロパティの表示名ここを変更
+        Header = Observable.Return(property.Property.Name)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
-        IObservable<bool> hasAnimation = property is IWrappedProperty.IAnimatable anm
+        IObservable<bool> hasAnimation = property is IAbstractAnimatableProperty anm
             ? anm.HasAnimation
             : Observable.Return(false);
 
         IObservable<bool>? observable;
-        if (property.AssociatedProperty is IStaticProperty { CanWrite: false })
+        if (property.Property is IStaticProperty { CanWrite: false })
         {
             observable = Observable.Return(false);
         }
@@ -47,9 +51,9 @@ public abstract class BaseEditorViewModel : IDisposable
             Dispose(false);
     }
 
-    public IWrappedProperty WrappedProperty { get; }
+    public IAbstractProperty WrappedProperty { get; }
 
-    public bool CanReset => WrappedProperty.GetDefaultValue() != null;
+    public bool CanReset => GetDefaultValue() != null;
 
     public ReadOnlyReactivePropertySlim<string?> Header { get; }
 
@@ -57,9 +61,12 @@ public abstract class BaseEditorViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<bool> HasAnimation { get; }
 
-    public bool IsAnimatable => WrappedProperty.GetMetadataExt<CorePropertyMetadata>()?.PropertyFlags.HasFlag(PropertyFlags.Animatable) == true;
+    public bool IsAnimatable => WrappedProperty.Property.GetMetadata<CorePropertyMetadata>(WrappedProperty.ImplementedType).PropertyFlags.HasFlag(PropertyFlags.Animatable) == true;
 
     public bool IsStylingSetter => WrappedProperty is IStylingSetterWrapper;
+
+    [AllowNull]
+    public PropertyEditorExtension Extension { get; set; }
 
     public void Dispose()
     {
@@ -71,6 +78,12 @@ public abstract class BaseEditorViewModel : IDisposable
         }
     }
 
+    protected object? GetDefaultValue()
+    {
+        ICorePropertyMetadata metadata = WrappedProperty.Property.GetMetadata<ICorePropertyMetadata>(WrappedProperty.ImplementedType);
+        return metadata.GetDefaultValue();
+    }
+
     protected virtual void Dispose(bool disposing)
     {
         Disposables.Dispose();
@@ -79,17 +92,16 @@ public abstract class BaseEditorViewModel : IDisposable
 
 public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 {
-    protected BaseEditorViewModel(IWrappedProperty<T> property)
+    protected BaseEditorViewModel(IAbstractProperty<T> property)
         : base(property)
     {
     }
 
-    public new IWrappedProperty<T> WrappedProperty => (IWrappedProperty<T>)base.WrappedProperty;
+    public new IAbstractProperty<T> WrappedProperty => (IAbstractProperty<T>)base.WrappedProperty;
 
     public void Reset()
     {
-        object? defaultValue = WrappedProperty.GetDefaultValue();
-        if (defaultValue != null)
+        if (GetDefaultValue() is { } defaultValue)
         {
             SetValue(WrappedProperty.GetValue(), (T?)defaultValue);
         }
@@ -105,11 +117,11 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     private sealed class SetCommand : IRecordableCommand
     {
-        private readonly IWrappedProperty<T> _setter;
+        private readonly IAbstractProperty<T> _setter;
         private readonly T? _oldValue;
         private readonly T? _newValue;
 
-        public SetCommand(IWrappedProperty<T> setter, T? oldValue, T? newValue)
+        public SetCommand(IAbstractProperty<T> setter, T? oldValue, T? newValue)
         {
             _setter = setter;
             _oldValue = oldValue;

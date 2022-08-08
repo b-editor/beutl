@@ -10,6 +10,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 
 using BeUtl.Configuration;
+using BeUtl.Framework;
 using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
 using BeUtl.Operators;
@@ -106,6 +107,7 @@ public sealed class App : Application
         ServiceLocator.Current
             .BindToSelfSingleton<EditorService>()
             .BindToSelfSingleton<HttpClient>()
+            .Bind<IPropertyEditorExtensionImpl>().ToSingleton<PropertyEditorService.PropertyEditorExtensionImpl>()
             .BindToSelf(new AccountService())
             .Bind<PackageController>().ToLazy(() => new PackageController(ServiceLocator.Current.GetRequiredService<AccountService>()))
             .BindToSelf<IWorkspaceItemContainer>(new WorkspaceItemContainer())

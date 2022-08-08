@@ -1,8 +1,11 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Buffers;
+using System.Collections;
+using System.Text.Json.Nodes;
 
 using BeUtl.Animation;
 using BeUtl.Animation.Easings;
 using BeUtl.Commands;
+using BeUtl.Framework;
 using BeUtl.Services;
 using BeUtl.Services.Editors.Wrappers;
 using BeUtl.ViewModels.Editors;
@@ -13,18 +16,29 @@ namespace BeUtl.ViewModels.Tools;
 
 public sealed class AnimationSpanEditorViewModel : IDisposable
 {
-    public AnimationSpanEditorViewModel(IAnimationSpan model, IWrappedProperty.IAnimatable property)
+    public AnimationSpanEditorViewModel(IAnimationSpan model, IAbstractAnimatableProperty property)
     {
+        static IPropertyEditorContext? CreateContext(IAbstractProperty[] property)
+        {
+            return PropertyEditorExtension.Instance.TryCreateContext(property, out IPropertyEditorContext? ctx) ? ctx : null;
+        }
+
         Model = model;
         WrappedProperty = property;
 
-        (IWrappedProperty prev, IWrappedProperty next) = property.CreateSpanWrapper(model);
-        Properties.Add(PropertyEditorService.CreateEditorViewModel(prev));
-        Properties.Add(PropertyEditorService.CreateEditorViewModel(next));
-        Properties.Add(PropertyEditorService.CreateEditorViewModel(
-            new CorePropertyWrapper<TimeSpan>(AnimationSpan.DurationProperty, model)));
-        Properties.Add(PropertyEditorService.CreateEditorViewModel(
-            new CorePropertyWrapper<Easing>(AnimationSpan.EasingProperty, model)));
+        var tmp = new IAbstractProperty[1];
+        (IAbstractProperty prev, IAbstractProperty next) = property.CreateSpanWrapper(model);
+
+        tmp[0] = prev;
+        Properties.Add(CreateContext(tmp));
+        tmp[0] = next;
+        Properties.Add(CreateContext(tmp));
+
+        tmp[0] = new CorePropertyClientImpl<TimeSpan>(AnimationSpan.DurationProperty, model);
+        Properties.Add(CreateContext(tmp));
+
+        tmp[0] = new CorePropertyClientImpl<Easing>(AnimationSpan.EasingProperty, model);
+        Properties.Add(CreateContext(tmp));
 
         Header = model.GetObservable(AnimationSpan.EasingProperty)
             .Select(x => x.GetType().Name)
@@ -33,13 +47,13 @@ public sealed class AnimationSpanEditorViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<string> Header { get; }
 
-    public IWrappedProperty.IAnimatable WrappedProperty { get; }
+    public IAbstractAnimatableProperty WrappedProperty { get; }
 
     public IAnimationSpan Model { get; }
 
     public ReactiveProperty<bool> IsExpanded { get; } = new(true);
 
-    public CoreList<BaseEditorViewModel?> Properties { get; } = new();
+    public CoreList<IPropertyEditorContext?> Properties { get; } = new();
 
     public void RestoreState(JsonNode json)
     {
@@ -72,28 +86,44 @@ public sealed class AnimationSpanEditorViewModel : IDisposable
 
     public void RemoveItem()
     {
-        WrappedProperty.Remove(Model);
+        if (WrappedProperty.Animation is IList list)
+        {
+            new RemoveCommand(list, Model)
+                .DoAndRecord(CommandRecorder.Default);
+        }
     }
 
     public void Move(int newIndex, int oldIndex)
     {
-        WrappedProperty.Move(newIndex, oldIndex);
+        if (WrappedProperty.Animation is IList list)
+        {
+            new MoveCommand(list, newIndex, oldIndex)
+                .DoAndRecord(CommandRecorder.Default);
+        }
     }
 
     public void InsertForward(Easing easing)
     {
-        int index = WrappedProperty.IndexOf(Model);
+        if (WrappedProperty.Animation is IList list)
+        {
+            int index = list.IndexOf(Model);
 
-        IAnimationSpan item = WrappedProperty.CreateSpan(easing);
-        WrappedProperty.Insert(index, item);
+            IAnimationSpan item = WrappedProperty.CreateSpan(easing);
+            new AddCommand(list, item, index)
+                .DoAndRecord(CommandRecorder.Default);
+        }
     }
 
     public void InsertBackward(Easing easing)
     {
-        int index = WrappedProperty.IndexOf(Model);
+        if (WrappedProperty.Animation is IList list)
+        {
+            int index = list.IndexOf(Model);
 
-        IAnimationSpan item = WrappedProperty.CreateSpan(easing);
-        WrappedProperty.Insert(index + 1, item);
+            IAnimationSpan item = WrappedProperty.CreateSpan(easing);
+            new AddCommand(list, item, index + 1)
+                .DoAndRecord(CommandRecorder.Default);
+        }
     }
 
     public void SetEasing(Easing old, Easing @new)

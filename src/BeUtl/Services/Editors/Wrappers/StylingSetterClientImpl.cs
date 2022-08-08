@@ -1,5 +1,6 @@
 ﻿using BeUtl.Animation;
 using BeUtl.Animation.Easings;
+using BeUtl.Framework;
 using BeUtl.Reactive;
 using BeUtl.Streaming;
 using BeUtl.Styling;
@@ -8,11 +9,12 @@ using Reactive.Bindings.Extensions;
 
 namespace BeUtl.Services.Editors.Wrappers;
 
-public interface IStylingSetterWrapper : IWrappedProperty
+public interface IStylingSetterWrapper : IAbstractProperty
 {
+    ISetter Setter { get; }
 }
 
-public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, IStylingSetterWrapper
+public sealed class StylingSetterClientImpl<T> : IAbstractAnimatableProperty<T>, IStylingSetterWrapper
 {
     private sealed class HasAnimationObservable : LightweightObservableBase<bool>
     {
@@ -58,58 +60,57 @@ public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, I
         }
     }
 
-    public StylingSetterWrapper(Setter<T> setter)
+    public StylingSetterClientImpl(Setter<T> setter)
     {
-        AssociatedProperty = setter.Property;
-        Tag = setter;
-
-        Header = Observable.Return(setter.Property.Name);
+        Property = setter.Property;
+        Setter = setter;
 
         HasAnimation = new HasAnimationObservable(setter);
     }
 
-    public CoreProperty<T> AssociatedProperty { get; }
+    public CoreProperty<T> Property { get; }
 
-    public object Tag { get; }
-
-    public IObservable<string> Header { get; }
+    public Setter<T> Setter { get; }
 
     public Animation<T> Animation
     {
         get
         {
-            var setter = (Setter<T>)Tag;
-            setter.Animation ??= new Animation<T>(AssociatedProperty);
-            return setter.Animation;
+            Setter.Animation ??= new Animation<T>(Property);
+            return Setter.Animation;
         }
     }
 
     public IObservable<bool> HasAnimation { get; }
 
+    public Type ImplementedType => Animation.FindStylingParent<IStyle>()?.TargetType ?? Property.OwnerType;
+
+    ISetter IStylingSetterWrapper.Setter => Setter;
+
     public IObservable<T?> GetObservable()
     {
-        return (Setter<T>)Tag;
+        return Setter;
     }
 
     public T? GetValue()
     {
-        return ((Setter<T>)Tag).Value;
+        return Setter.Value;
     }
 
     public void SetValue(T? value)
     {
-        CorePropertyMetadata<T>? metadata = this.GetMetadataExt<CorePropertyMetadata<T>>();
+        CorePropertyMetadata<T>? metadata = Property.GetMetadata<CorePropertyMetadata<T>>(ImplementedType);
         if (metadata?.Validator != null)
         {
             value = metadata.Validator.Coerce(null, value);
         }
 
-        ((Setter<T>)Tag).Value = value;
+        Setter.Value = value;
     }
 
-    IAnimationSpan IWrappedProperty.IAnimatable.CreateSpan(Easing easing)
+    IAnimationSpan IAbstractAnimatableProperty.CreateSpan(Easing easing)
     {
-        CoreProperty<T> property = AssociatedProperty;
+        CoreProperty<T> property = Property;
         IStyle? style = Animation.FindStylingParent<IStyle>();
         T? defaultValue = GetValue();
         bool hasDefaultValue = true;

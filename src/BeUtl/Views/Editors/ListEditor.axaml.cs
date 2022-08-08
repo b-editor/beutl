@@ -69,7 +69,7 @@ public partial class ListEditor : UserControl
         {
             await Task.Run(async () =>
             {
-                Type type = viewModel.WrappedProperty.AssociatedProperty.PropertyType;
+                Type type = viewModel.WrappedProperty.Property.PropertyType;
                 Type? interfaceType = Array.Find(type.GetInterfaces(), x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IList<>));
                 Type? itemtype = interfaceType?.GenericTypeArguments?.FirstOrDefault();
                 if (itemtype != null)

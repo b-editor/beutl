@@ -18,8 +18,8 @@ public sealed partial class FileInfoEditor : UserControl
         if (DataContext is not FileInfoEditorViewModel vm || VisualRoot is not Window window) return;
 
         string? filterName = vm.Header.Value;
-        string[] exts = vm.WrappedProperty
-            .GetMetadataExt<CorePropertyMetadata<FileInfo?>>()?
+        string[] exts = vm.WrappedProperty.Property
+            .GetMetadata<CorePropertyMetadata<FileInfo?>>(vm.WrappedProperty.ImplementedType)?
             .FindValidator<FileInfoExtensionValidator>()?
             .FileExtensions ?? Array.Empty<string>();
 

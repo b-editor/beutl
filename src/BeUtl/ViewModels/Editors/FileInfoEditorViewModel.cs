@@ -1,10 +1,10 @@
-﻿using BeUtl.Services.Editors.Wrappers;
+﻿using BeUtl.Framework;
 
 namespace BeUtl.ViewModels.Editors;
 
 public sealed class FileInfoEditorViewModel : BaseEditorViewModel<FileInfo>
 {
-    public FileInfoEditorViewModel(IWrappedProperty<FileInfo> property)
+    public FileInfoEditorViewModel(IAbstractProperty<FileInfo> property)
         : base(property)
     {
     }

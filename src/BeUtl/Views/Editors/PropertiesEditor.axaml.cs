@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 
+using BeUtl.Framework;
 using BeUtl.Services;
 using BeUtl.ViewModels.Editors;
 
@@ -22,16 +23,21 @@ public partial class PropertiesEditor : UserControl
 
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
-            if (value is BaseEditorViewModel viewModel)
+            if (value is IPropertyEditorContext viewModel)
             {
-                Control? editor = PropertyEditorService.CreateEditor(viewModel.WrappedProperty);
-
-                return editor ?? new Label
+                if(viewModel.Extension.TryCreateControl(viewModel, out var control))
                 {
-                    Height = 24,
-                    Margin = new Thickness(0, 4),
-                    Content = viewModel.WrappedProperty.AssociatedProperty.Name
-                };
+                    return control;
+                }
+                else
+                {
+                    return new Label
+                    {
+                        Height = 24,
+                        Margin = new Thickness(0, 4),
+                        Content = viewModel.Extension.DisplayName
+                    };
+                }
             }
             else
             {

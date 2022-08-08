@@ -1,6 +1,6 @@
 ﻿using System.Collections;
 
-using BeUtl.Services.Editors.Wrappers;
+using BeUtl.Framework;
 
 using Reactive.Bindings;
 
@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class ListEditorViewModel : BaseEditorViewModel
 {
-    public ListEditorViewModel(IWrappedProperty property)
+    public ListEditorViewModel(IAbstractProperty property)
         : base(property)
     {
         List = property.GetObservable()

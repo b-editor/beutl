@@ -58,17 +58,30 @@ public sealed class StyleEditorViewModel : IToolContext
                 _disposable1 = style.Setters.ForEachItem(
                     (idx, item) =>
                     {
-                        Type wrapperType = typeof(StylingSetterWrapper<>);
+                        Type wrapperType = typeof(StylingSetterClientImpl<>);
                         wrapperType = wrapperType.MakeGenericType(item.Property.PropertyType);
-                        var wrapper = (IWrappedProperty)Activator.CreateInstance(wrapperType, item)!;
+                        var wrapper = (IAbstractProperty)Activator.CreateInstance(wrapperType, item)!;
+                        var tmp1 = ArrayPool<CoreProperty>.Shared.Rent(1);
+                        var tmp2 = new IAbstractProperty[1];
+                        tmp1[0] = item.Property;
+                        tmp2[0] = wrapper;
 
-                        BaseEditorViewModel? itemViewModel = PropertyEditorService.CreateEditorViewModel(wrapper);
+                        if (PropertyEditorService.MatchProperty(tmp1) is { Extension: { } ext, Properties: { Length: 1 } }
+                            && ext.TryCreateContext(tmp2, out IPropertyEditorContext? context))
+                        {
+                            Properties.Insert(idx, context);
+                        }
+                        else
+                        {
+                            Properties.Insert(idx, null);
+                        }
 
-                        Properties.Insert(idx, itemViewModel);
+                        ArrayPool<CoreProperty>.Shared.Return(tmp1);
+                        ArrayPool<IAbstractProperty>.Shared.Return(tmp2);
                     },
                     (idx, _) =>
                     {
-                        BaseEditorViewModel? vm = Properties[idx];
+                        IPropertyEditorContext? vm = Properties[idx];
                         Properties.RemoveAt(idx);
                         vm?.Dispose();
                     },
@@ -81,7 +94,7 @@ public sealed class StyleEditorViewModel : IToolContext
 
     public ReadOnlyReactivePropertySlim<bool> IsStyleNotNull { get; }
 
-    public CoreList<BaseEditorViewModel?> Properties { get; } = new();
+    public CoreList<IPropertyEditorContext?> Properties { get; } = new();
 
     public ReactivePropertySlim<Type[]?> StyleableTypes { get; } = new();
 
@@ -99,7 +112,7 @@ public sealed class StyleEditorViewModel : IToolContext
 
     private void ClearItems()
     {
-        foreach (BaseEditorViewModel? item in Properties.GetMarshal().Value)
+        foreach (IPropertyEditorContext? item in Properties.GetMarshal().Value)
         {
             item?.Dispose();
         }

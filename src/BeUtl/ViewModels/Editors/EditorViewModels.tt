@@ -30,6 +30,7 @@
         ("System.Numerics", "Vector4", "System.Single"),
     };
 #>
+using BeUtl.Framework;
 using BeUtl.Services.Editors;
 using BeUtl.Services.Editors.Wrappers;
 
@@ -45,7 +46,7 @@ namespace BeUtl.ViewModels.Editors
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
     public sealed class <#= t.Name #>EditorViewModel : BaseEditorViewModel<<#= fullName #>>
     {
-        public <#= t.Name #>EditorViewModel(IWrappedProperty<<#= fullName #>> property)
+        public <#= t.Name #>EditorViewModel(IAbstractProperty<<#= fullName #>> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -62,7 +63,7 @@ namespace BeUtl.ViewModels.Editors
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
     public sealed class <#= t.Name #>EditorViewModel : BaseEditorViewModel<<#= fullName #>>
     {
-        public <#= t.Name #>EditorViewModel(IWrappedProperty<<#= fullName #>> property)
+        public <#= t.Name #>EditorViewModel(IAbstractProperty<<#= fullName #>> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -79,7 +80,7 @@ namespace BeUtl.ViewModels.Editors
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
     public sealed class <#= t.Name #>EditorViewModel : BaseEditorViewModel<<#= fullName #>>
     {
-        public <#= t.Name #>EditorViewModel(IWrappedProperty<<#= fullName #>> property)
+        public <#= t.Name #>EditorViewModel(IAbstractProperty<<#= fullName #>> property)
             : base(property)
         {
             Value = property.GetObservable()

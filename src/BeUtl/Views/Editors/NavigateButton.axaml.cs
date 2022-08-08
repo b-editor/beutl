@@ -82,7 +82,7 @@ public sealed class NavigateButton<T> : NavigateButton
         {
             await Task.Run(async () =>
             {
-                Type type = viewModel.WrappedProperty.AssociatedProperty.PropertyType;
+                Type type = viewModel.WrappedProperty.Property.PropertyType;
                 Type[] types = AppDomain.CurrentDomain.GetAssemblies()
                     .SelectMany(x => x.GetTypes())
                     .Where(x => !x.IsAbstract
@@ -148,10 +148,9 @@ public sealed class NavigateButton<T> : NavigateButton
         {
             if (this.FindLogicalAncestorOfType<StyleEditor>()?.DataContext is StyleEditorViewModel parentViewModel
                 && viewModel.WrappedProperty is IStylingSetterWrapper wrapper
-                && parentViewModel.Style.Value is Style style
-                && wrapper.Tag is ISetter setter)
+                && parentViewModel.Style.Value is Style style)
             {
-                new RemoveCommand<ISetter>(style.Setters, setter).DoAndRecord(CommandRecorder.Default);
+                new RemoveCommand<ISetter>(style.Setters, wrapper.Setter).DoAndRecord(CommandRecorder.Default);
             }
             else if (viewModel.Value.Value is T obj)
             {

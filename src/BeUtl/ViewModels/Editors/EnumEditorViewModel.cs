@@ -1,4 +1,4 @@
-﻿using BeUtl.Services.Editors.Wrappers;
+﻿using BeUtl.Framework;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 public sealed class EnumEditorViewModel<T> : BaseEditorViewModel<T>
     where T : struct, Enum
 {
-    public EnumEditorViewModel(IWrappedProperty<T> property)
+    public EnumEditorViewModel(IAbstractProperty<T> property)
         : base(property)
     {
         Value = property.GetObservable()

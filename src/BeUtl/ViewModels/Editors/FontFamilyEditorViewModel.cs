@@ -1,5 +1,5 @@
-﻿using BeUtl.Media;
-using BeUtl.Services.Editors.Wrappers;
+﻿using BeUtl.Framework;
+using BeUtl.Media;
 
 using Reactive.Bindings;
 
@@ -7,7 +7,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class FontFamilyEditorViewModel : BaseEditorViewModel<FontFamily>
 {
-    public FontFamilyEditorViewModel(IWrappedProperty<FontFamily> property)
+    public FontFamilyEditorViewModel(IAbstractProperty<FontFamily> property)
         : base(property)
     {
         Value = property.GetObservable()
