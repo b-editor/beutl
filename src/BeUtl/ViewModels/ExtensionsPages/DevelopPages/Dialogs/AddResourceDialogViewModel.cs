@@ -22,7 +22,7 @@ public sealed class AddResourceDialogViewModel
                 catch { }
             }
 
-            return StringResources.Message.InvalidString;
+            return S.Message.InvalidString;
         });
 
         Culture = CultureInput.Select(str =>
@@ -101,7 +101,7 @@ public sealed class AddResourceDialogViewModel
         }
         else
         {
-            return StringResources.Message.PleaseEnterString;
+            return S.Message.PleaseEnterString;
         }
     }
 }

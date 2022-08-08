@@ -122,7 +122,7 @@ public sealed class AccountSettingsPageViewModel : IDisposable
             }
             else
             {
-                return StringResources.Warning.NameCannotBeLeftBlank;
+                return S.Warning.NameCannotBeLeftBlank;
             }
         });
         ChangeDisplayName = new AsyncReactiveCommand(DisplayNameInput.ObserveHasErrors.Select(b => !b));

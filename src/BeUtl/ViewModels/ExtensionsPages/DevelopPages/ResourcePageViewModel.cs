@@ -134,7 +134,7 @@ public sealed class ResourcePageViewModel : IDisposable
                 catch { }
             }
 
-            return StringResources.Message.InvalidString;
+            return S.Message.InvalidString;
         });
         DisplayName.SetValidateNotifyError(NotWhitespace);
         Description.SetValidateNotifyError(NotWhitespace);
@@ -433,7 +433,7 @@ public sealed class ResourcePageViewModel : IDisposable
         }
         else
         {
-            return StringResources.Message.PleaseEnterString;
+            return S.Message.PleaseEnterString;
         }
     }
 

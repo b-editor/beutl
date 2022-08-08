@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
 using BeUtl.Framework;
+using BeUtl.Services;
 using BeUtl.Services.Editors.Wrappers;
 
 using Reactive.Bindings;
@@ -17,8 +18,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext
     {
         WrappedProperty = property;
 
-        // Todo: プロパティの表示名ここを変更
-        Header = Observable.Return(property.Property.Name)
+        Header = PropertyEditorService.GetPropertyName(property.Property)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 

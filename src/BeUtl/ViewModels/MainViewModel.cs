@@ -205,6 +205,7 @@ public sealed class MainViewModel
                 AnimationTabExtension.Instance,
                 PropertyEditorExtension.Instance,
                 AlignmentsPropertyEditorExtension.Instance,
+                DefaultPropertyNameExtension.Instance,
             });
 
             manager.LoadPackages(manager.GetPackageInfos());

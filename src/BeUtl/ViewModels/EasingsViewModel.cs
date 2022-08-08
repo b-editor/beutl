@@ -12,7 +12,7 @@ public sealed class EasingsViewModel : IToolContext
 {
     public EasingsViewModel()
     {
-        Header = StringResources.Common.EasingsObservable.ToReadOnlyReactivePropertySlim(StringResources.Common.Easings);
+        Header = S.Common.EasingsObservable.ToReadOnlyReactivePropertySlim(S.Common.Easings);
     }
 
     public ReactiveCollection<Easing> Easings { get; } = new()
