@@ -508,6 +508,9 @@ public static class Resources {
             public static string Tools => "S.Common.Tools".GetStringResource("Tools");
             private static IObservable<string>? _ToolsObservable;
             public static IObservable<string> ToolsObservable => _ToolsObservable ??= "S.Common.Tools".GetStringObservable(global::BeUtl.Language.Resources.S.Common.Tools);
+            public static string AddToCurrentProject => "S.Common.AddToCurrentProject".GetStringResource("Add to current project");
+            private static IObservable<string>? _AddToCurrentProjectObservable;
+            public static IObservable<string> AddToCurrentProjectObservable => _AddToCurrentProjectObservable ??= "S.Common.AddToCurrentProject".GetStringObservable(global::BeUtl.Language.Resources.S.Common.AddToCurrentProject);
         }
         public static class Message {
             public static string ItemsSaved => "S.Message.ItemsSaved".GetStringResource("{0} items saved!");
@@ -666,14 +669,6 @@ public static class Resources {
             private static IObservable<string>? _NameCannotBeLeftBlankObservable;
             public static IObservable<string> NameCannotBeLeftBlankObservable => _NameCannotBeLeftBlankObservable ??= "S.Warning.NameCannotBeLeftBlank".GetStringObservable(global::BeUtl.Language.Resources.S.Warning.NameCannotBeLeftBlank);
         }
-        public static class EditPage {
-            public static string Open => global::BeUtl.Language.Resources.S.Common.Open;
-            public static IObservable<string> OpenObservable => global::BeUtl.Language.Resources.S.Common.OpenObservable;
-            public static string CreateNew => global::BeUtl.Language.Resources.S.Common.CreateNew;
-            public static IObservable<string> CreateNewObservable => global::BeUtl.Language.Resources.S.Common.CreateNewObservable;
-            public static string SceneFile => global::BeUtl.Language.Resources.S.Common.SceneFile;
-            public static IObservable<string> SceneFileObservable => global::BeUtl.Language.Resources.S.Common.SceneFileObservable;
-        }
         public static class DevelopPage {
             public static string Shortcuts => "S.DevelopPage.Shortcuts".GetStringResource("Shortcuts");
             private static IObservable<string>? _ShortcutsObservable;
@@ -693,8 +688,6 @@ public static class Resources {
             public static string Packages => "S.DevelopPage.Packages".GetStringResource("Packages");
             private static IObservable<string>? _PackagesObservable;
             public static IObservable<string> PackagesObservable => _PackagesObservable ??= "S.DevelopPage.Packages".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.Packages);
-            public static string EditPackage => global::BeUtl.Language.Resources.S.Common.Edit;
-            public static IObservable<string> EditPackageObservable => global::BeUtl.Language.Resources.S.Common.EditObservable;
             public static string DiscardChanges => "S.DevelopPage.DiscardChanges".GetStringResource("Discard changes");
             private static IObservable<string>? _DiscardChangesObservable;
             public static IObservable<string> DiscardChangesObservable => _DiscardChangesObservable ??= "S.DevelopPage.DiscardChanges".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.DiscardChanges);
@@ -891,12 +884,6 @@ public static class Resources {
             public static string Backup => global::BeUtl.Language.Resources.S.Common.Backup;
             public static IObservable<string> BackupObservable => global::BeUtl.Language.Resources.S.Common.BackupObservable;
         }
-        public static class FontSettingsPage {
-            public static string Add => global::BeUtl.Language.Resources.S.Common.Add;
-            public static IObservable<string> AddObservable => global::BeUtl.Language.Resources.S.Common.AddObservable;
-            public static string Remove => global::BeUtl.Language.Resources.S.Common.Remove;
-            public static IObservable<string> RemoveObservable => global::BeUtl.Language.Resources.S.Common.RemoveObservable;
-        }
         public static class InfomationPage {
             public static string Links => global::BeUtl.Language.Resources.S.Common.Links;
             public static IObservable<string> LinksObservable => global::BeUtl.Language.Resources.S.Common.LinksObservable;
@@ -940,27 +927,13 @@ public static class Resources {
                 public static string Lower => "S.ExtensionsSettingsPage.EditorExtensionPriority.Lower".GetStringResource("Lower");
                 private static IObservable<string>? _LowerObservable;
                 public static IObservable<string> LowerObservable => _LowerObservable ??= "S.ExtensionsSettingsPage.EditorExtensionPriority.Lower".GetStringObservable(global::BeUtl.Language.Resources.S.ExtensionsSettingsPage.EditorExtensionPriority.Lower);
-                public static string Remove => global::BeUtl.Language.Resources.S.Common.Remove;
-                public static IObservable<string> RemoveObservable => global::BeUtl.Language.Resources.S.Common.RemoveObservable;
-                public static string Add => global::BeUtl.Language.Resources.S.Common.Add;
-                public static IObservable<string> AddObservable => global::BeUtl.Language.Resources.S.Common.AddObservable;
                 public static string All => "S.ExtensionsSettingsPage.EditorExtensionPriority.All".GetStringResource("All Editor Extensions");
                 private static IObservable<string>? _AllObservable;
                 public static IObservable<string> AllObservable => _AllObservable ??= "S.ExtensionsSettingsPage.EditorExtensionPriority.All".GetStringObservable(global::BeUtl.Language.Resources.S.ExtensionsSettingsPage.EditorExtensionPriority.All);
-                public static class FileExtension {
-                    public static string Add => global::BeUtl.Language.Resources.S.Common.Add;
-                    public static IObservable<string> AddObservable => global::BeUtl.Language.Resources.S.Common.AddObservable;
-                    public static string Remove => global::BeUtl.Language.Resources.S.Common.Remove;
-                    public static IObservable<string> RemoveObservable => global::BeUtl.Language.Resources.S.Common.RemoveObservable;
-                }
                 public static class Dialog1 {
                     public static string Title => "S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Title".GetStringResource("Add file extension");
                     private static IObservable<string>? _TitleObservable;
                     public static IObservable<string> TitleObservable => _TitleObservable ??= "S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Title".GetStringObservable(global::BeUtl.Language.Resources.S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Title);
-                    public static string Add => global::BeUtl.Language.Resources.S.Common.Add;
-                    public static IObservable<string> AddObservable => global::BeUtl.Language.Resources.S.Common.AddObservable;
-                    public static string Cancel => global::BeUtl.Language.Resources.S.Common.Cancel;
-                    public static IObservable<string> CancelObservable => global::BeUtl.Language.Resources.S.Common.CancelObservable;
                 }
             }
         }
@@ -1008,10 +981,6 @@ public static class Resources {
                 public static string Content => "S.AccountSettingsPage.Dialog1.Content".GetStringResource("Delete the '{0}' account.\nThis operation cannot be undone.\n");
                 private static IObservable<string>? _ContentObservable;
                 public static IObservable<string> ContentObservable => _ContentObservable ??= "S.AccountSettingsPage.Dialog1.Content".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.Dialog1.Content);
-                public static string Yes => global::BeUtl.Language.Resources.S.Common.Yes;
-                public static IObservable<string> YesObservable => global::BeUtl.Language.Resources.S.Common.YesObservable;
-                public static string No => global::BeUtl.Language.Resources.S.Common.No;
-                public static IObservable<string> NoObservable => global::BeUtl.Language.Resources.S.Common.NoObservable;
             }
         }
         public static class BackupSettingsPage {
@@ -1019,15 +988,87 @@ public static class Resources {
             private static IObservable<string>? _BackupSettingsObservable;
             public static IObservable<string> BackupSettingsObservable => _BackupSettingsObservable ??= "S.BackupSettingsPage.BackupSettings".GetStringObservable(global::BeUtl.Language.Resources.S.BackupSettingsPage.BackupSettings);
         }
-        public static class EditView {
-            public static string Properties => global::BeUtl.Language.Resources.S.Common.Properties;
-            public static IObservable<string> PropertiesObservable => global::BeUtl.Language.Resources.S.Common.PropertiesObservable;
-            public static string Easings => global::BeUtl.Language.Resources.S.Common.Easings;
-            public static IObservable<string> EasingsObservable => global::BeUtl.Language.Resources.S.Common.EasingsObservable;
-            public static string Explorer => global::BeUtl.Language.Resources.S.Common.Explorer;
-            public static IObservable<string> ExplorerObservable => global::BeUtl.Language.Resources.S.Common.ExplorerObservable;
-            public static string Timeline => global::BeUtl.Language.Resources.S.Common.Timeline;
-            public static IObservable<string> TimelineObservable => global::BeUtl.Language.Resources.S.Common.TimelineObservable;
+        public static class Editors {
+            public static class PixelPoint {
+                public static string X => global::BeUtl.Language.Resources.S.Common.X;
+                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
+                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
+                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
+            }
+            public static class PixelRect {
+                public static string X => global::BeUtl.Language.Resources.S.Common.X;
+                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
+                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
+                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
+                public static string Z => global::BeUtl.Language.Resources.S.Common.Width;
+                public static IObservable<string> ZObservable => global::BeUtl.Language.Resources.S.Common.WidthObservable;
+                public static string W => global::BeUtl.Language.Resources.S.Common.Height;
+                public static IObservable<string> WObservable => global::BeUtl.Language.Resources.S.Common.HeightObservable;
+            }
+            public static class PixelSize {
+                public static string X => global::BeUtl.Language.Resources.S.Common.Width;
+                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.WidthObservable;
+                public static string Y => global::BeUtl.Language.Resources.S.Common.Height;
+                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.HeightObservable;
+            }
+            public static class Point {
+                public static string X => global::BeUtl.Language.Resources.S.Common.X;
+                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
+                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
+                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
+            }
+            public static class Rect {
+                public static string X => global::BeUtl.Language.Resources.S.Common.X;
+                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
+                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
+                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
+                public static string Z => global::BeUtl.Language.Resources.S.Common.Width;
+                public static IObservable<string> ZObservable => global::BeUtl.Language.Resources.S.Common.WidthObservable;
+                public static string W => global::BeUtl.Language.Resources.S.Common.Height;
+                public static IObservable<string> WObservable => global::BeUtl.Language.Resources.S.Common.HeightObservable;
+            }
+            public static class Size {
+                public static string X => global::BeUtl.Language.Resources.S.Common.Width;
+                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.WidthObservable;
+                public static string Y => global::BeUtl.Language.Resources.S.Common.Height;
+                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.HeightObservable;
+            }
+            public static class Vector2 {
+                public static string X => global::BeUtl.Language.Resources.S.Common.X;
+                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
+                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
+                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
+            }
+            public static class Vector3 {
+                public static string X => global::BeUtl.Language.Resources.S.Common.X;
+                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
+                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
+                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
+                public static string Z => global::BeUtl.Language.Resources.S.Common.Z;
+                public static IObservable<string> ZObservable => global::BeUtl.Language.Resources.S.Common.ZObservable;
+            }
+            public static class Vector4 {
+                public static string X => global::BeUtl.Language.Resources.S.Common.X;
+                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
+                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
+                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
+                public static string Z => global::BeUtl.Language.Resources.S.Common.Z;
+                public static IObservable<string> ZObservable => global::BeUtl.Language.Resources.S.Common.ZObservable;
+                public static string W => global::BeUtl.Language.Resources.S.Common.W;
+                public static IObservable<string> WObservable => global::BeUtl.Language.Resources.S.Common.WObservable;
+            }
+            public static class Vector {
+                public static string X => global::BeUtl.Language.Resources.S.Common.X;
+                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
+                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
+                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
+            }
+            public static class RelativePoint {
+                public static string X => global::BeUtl.Language.Resources.S.Common.X;
+                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
+                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
+                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
+            }
         }
         public static class MainView {
             public static string IndexFile => global::BeUtl.Language.Resources.S.Common.File;
@@ -1123,217 +1164,6 @@ public static class Resources {
                 public static IObservable<string> EditorsObservable => global::BeUtl.Language.Resources.S.Common.EditorsObservable;
                 public static string Tools => global::BeUtl.Language.Resources.S.Common.Tools;
                 public static IObservable<string> ToolsObservable => global::BeUtl.Language.Resources.S.Common.ToolsObservable;
-            }
-        }
-        public static class TimelineLayer {
-            public static string Split => global::BeUtl.Language.Resources.S.Common.Split;
-            public static IObservable<string> SplitObservable => global::BeUtl.Language.Resources.S.Common.SplitObservable;
-            public static string Cut => global::BeUtl.Language.Resources.S.Common.Cut;
-            public static IObservable<string> CutObservable => global::BeUtl.Language.Resources.S.Common.CutObservable;
-            public static string Copy => global::BeUtl.Language.Resources.S.Common.Copy;
-            public static IObservable<string> CopyObservable => global::BeUtl.Language.Resources.S.Common.CopyObservable;
-            public static string Delete => global::BeUtl.Language.Resources.S.Common.Delete;
-            public static IObservable<string> DeleteObservable => global::BeUtl.Language.Resources.S.Common.DeleteObservable;
-            public static string Exclude => global::BeUtl.Language.Resources.S.Common.Exclude;
-            public static IObservable<string> ExcludeObservable => global::BeUtl.Language.Resources.S.Common.ExcludeObservable;
-        }
-        public static class Timeline {
-            public static string LayerName => global::BeUtl.Language.Resources.S.Common.Name;
-            public static IObservable<string> LayerNameObservable => global::BeUtl.Language.Resources.S.Common.NameObservable;
-            public static string StartTime => global::BeUtl.Language.Resources.S.Common.StartTime;
-            public static IObservable<string> StartTimeObservable => global::BeUtl.Language.Resources.S.Common.StartTimeObservable;
-            public static string DurationTime => global::BeUtl.Language.Resources.S.Common.DurationTime;
-            public static IObservable<string> DurationTimeObservable => global::BeUtl.Language.Resources.S.Common.DurationTimeObservable;
-            public static string AddLayer => global::BeUtl.Language.Resources.S.Common.AddLayer;
-            public static IObservable<string> AddLayerObservable => global::BeUtl.Language.Resources.S.Common.AddLayerObservable;
-            public static string Paste => global::BeUtl.Language.Resources.S.Common.Paste;
-            public static IObservable<string> PasteObservable => global::BeUtl.Language.Resources.S.Common.PasteObservable;
-            public static string Settings => global::BeUtl.Language.Resources.S.Common.Settings;
-            public static IObservable<string> SettingsObservable => global::BeUtl.Language.Resources.S.Common.SettingsObservable;
-        }
-        public static class Dialogs {
-            public static class AddLayer {
-                public static string Title => global::BeUtl.Language.Resources.S.Common.AddLayer;
-                public static IObservable<string> TitleObservable => global::BeUtl.Language.Resources.S.Common.AddLayerObservable;
-                public static string Close => global::BeUtl.Language.Resources.S.Common.Close;
-                public static IObservable<string> CloseObservable => global::BeUtl.Language.Resources.S.Common.CloseObservable;
-                public static string Back => global::BeUtl.Language.Resources.S.Common.Back;
-                public static IObservable<string> BackObservable => global::BeUtl.Language.Resources.S.Common.BackObservable;
-                public static string Next => global::BeUtl.Language.Resources.S.Common.Next;
-                public static IObservable<string> NextObservable => global::BeUtl.Language.Resources.S.Common.NextObservable;
-                public static string StartTime => global::BeUtl.Language.Resources.S.Common.StartTime;
-                public static IObservable<string> StartTimeObservable => global::BeUtl.Language.Resources.S.Common.StartTimeObservable;
-                public static string DurationTime => global::BeUtl.Language.Resources.S.Common.DurationTime;
-                public static IObservable<string> DurationTimeObservable => global::BeUtl.Language.Resources.S.Common.DurationTimeObservable;
-                public static string Layer => global::BeUtl.Language.Resources.S.Common.Layer;
-                public static IObservable<string> LayerObservable => global::BeUtl.Language.Resources.S.Common.LayerObservable;
-                public static string Name => global::BeUtl.Language.Resources.S.Common.Name;
-                public static IObservable<string> NameObservable => global::BeUtl.Language.Resources.S.Common.NameObservable;
-                public static string Color => global::BeUtl.Language.Resources.S.Common.Color;
-                public static IObservable<string> ColorObservable => global::BeUtl.Language.Resources.S.Common.ColorObservable;
-                public static string Add => global::BeUtl.Language.Resources.S.Common.Add;
-                public static IObservable<string> AddObservable => global::BeUtl.Language.Resources.S.Common.AddObservable;
-            }
-            public static class CreateNewProject {
-                public static string Title => global::BeUtl.Language.Resources.S.Common.CreateNewProject;
-                public static IObservable<string> TitleObservable => global::BeUtl.Language.Resources.S.Common.CreateNewProjectObservable;
-                public static string Close => global::BeUtl.Language.Resources.S.Common.Close;
-                public static IObservable<string> CloseObservable => global::BeUtl.Language.Resources.S.Common.CloseObservable;
-                public static string Back => global::BeUtl.Language.Resources.S.Common.Back;
-                public static IObservable<string> BackObservable => global::BeUtl.Language.Resources.S.Common.BackObservable;
-                public static string Next => global::BeUtl.Language.Resources.S.Common.Next;
-                public static IObservable<string> NextObservable => global::BeUtl.Language.Resources.S.Common.NextObservable;
-                public static string CreateNew => global::BeUtl.Language.Resources.S.Common.CreateNew;
-                public static IObservable<string> CreateNewObservable => global::BeUtl.Language.Resources.S.Common.CreateNewObservable;
-                public static string Name => global::BeUtl.Language.Resources.S.Common.Name;
-                public static IObservable<string> NameObservable => global::BeUtl.Language.Resources.S.Common.NameObservable;
-                public static string Location => global::BeUtl.Language.Resources.S.Common.Location;
-                public static IObservable<string> LocationObservable => global::BeUtl.Language.Resources.S.Common.LocationObservable;
-                public static string Size => global::BeUtl.Language.Resources.S.Common.Size;
-                public static IObservable<string> SizeObservable => global::BeUtl.Language.Resources.S.Common.SizeObservable;
-                public static string FrameRate => global::BeUtl.Language.Resources.S.Common.FrameRate;
-                public static IObservable<string> FrameRateObservable => global::BeUtl.Language.Resources.S.Common.FrameRateObservable;
-                public static string SampleRate => global::BeUtl.Language.Resources.S.Common.SampleRate;
-                public static IObservable<string> SampleRateObservable => global::BeUtl.Language.Resources.S.Common.SampleRateObservable;
-            }
-            public static class CreateNewScene {
-                public static string Title => global::BeUtl.Language.Resources.S.Common.CreateNewScene;
-                public static IObservable<string> TitleObservable => global::BeUtl.Language.Resources.S.Common.CreateNewSceneObservable;
-                public static string CreateNew => global::BeUtl.Language.Resources.S.Common.CreateNew;
-                public static IObservable<string> CreateNewObservable => global::BeUtl.Language.Resources.S.Common.CreateNewObservable;
-                public static string Close => global::BeUtl.Language.Resources.S.Common.Close;
-                public static IObservable<string> CloseObservable => global::BeUtl.Language.Resources.S.Common.CloseObservable;
-                public static string Name => global::BeUtl.Language.Resources.S.Common.Name;
-                public static IObservable<string> NameObservable => global::BeUtl.Language.Resources.S.Common.NameObservable;
-                public static string Location => global::BeUtl.Language.Resources.S.Common.Location;
-                public static IObservable<string> LocationObservable => global::BeUtl.Language.Resources.S.Common.LocationObservable;
-                public static string Size => global::BeUtl.Language.Resources.S.Common.Size;
-                public static IObservable<string> SizeObservable => global::BeUtl.Language.Resources.S.Common.SizeObservable;
-                public static string AddToCurrentProject => "S.Dialogs.CreateNewScene.AddToCurrentProject".GetStringResource("Add to current project");
-                private static IObservable<string>? _AddToCurrentProjectObservable;
-                public static IObservable<string> AddToCurrentProjectObservable => _AddToCurrentProjectObservable ??= "S.Dialogs.CreateNewScene.AddToCurrentProject".GetStringObservable(global::BeUtl.Language.Resources.S.Dialogs.CreateNewScene.AddToCurrentProject);
-            }
-            public static class PickFontFamily {
-                public static string Title => global::BeUtl.Language.Resources.S.Common.PickFont;
-                public static IObservable<string> TitleObservable => global::BeUtl.Language.Resources.S.Common.PickFontObservable;
-                public static string Done => global::BeUtl.Language.Resources.S.Common.Done;
-                public static IObservable<string> DoneObservable => global::BeUtl.Language.Resources.S.Common.DoneObservable;
-                public static string Close => global::BeUtl.Language.Resources.S.Common.Close;
-                public static IObservable<string> CloseObservable => global::BeUtl.Language.Resources.S.Common.CloseObservable;
-                public static string Search => global::BeUtl.Language.Resources.S.Common.Search;
-                public static IObservable<string> SearchObservable => global::BeUtl.Language.Resources.S.Common.SearchObservable;
-            }
-            public static class SceneSettings {
-                public static string Title => global::BeUtl.Language.Resources.S.Common.SceneSettings;
-                public static IObservable<string> TitleObservable => global::BeUtl.Language.Resources.S.Common.SceneSettingsObservable;
-                public static string Apply => global::BeUtl.Language.Resources.S.Common.Apply;
-                public static IObservable<string> ApplyObservable => global::BeUtl.Language.Resources.S.Common.ApplyObservable;
-                public static string Close => global::BeUtl.Language.Resources.S.Common.Close;
-                public static IObservable<string> CloseObservable => global::BeUtl.Language.Resources.S.Common.CloseObservable;
-                public static string Size => global::BeUtl.Language.Resources.S.Common.Size;
-                public static IObservable<string> SizeObservable => global::BeUtl.Language.Resources.S.Common.SizeObservable;
-                public static string DurationTime => global::BeUtl.Language.Resources.S.Common.DurationTime;
-                public static IObservable<string> DurationTimeObservable => global::BeUtl.Language.Resources.S.Common.DurationTimeObservable;
-            }
-        }
-        public static class Editors {
-            public static class AnimationEditor {
-                public static string Remove => global::BeUtl.Language.Resources.S.Common.Remove;
-                public static IObservable<string> RemoveObservable => global::BeUtl.Language.Resources.S.Common.RemoveObservable;
-                public static string Edit => global::BeUtl.Language.Resources.S.Common.Edit;
-                public static IObservable<string> EditObservable => global::BeUtl.Language.Resources.S.Common.EditObservable;
-                public static string Close => global::BeUtl.Language.Resources.S.Common.Close;
-                public static IObservable<string> CloseObservable => global::BeUtl.Language.Resources.S.Common.CloseObservable;
-            }
-            public static class Badge {
-                public static string Reset => global::BeUtl.Language.Resources.S.Common.Reset;
-                public static IObservable<string> ResetObservable => global::BeUtl.Language.Resources.S.Common.ResetObservable;
-                public static string EditAnimation => global::BeUtl.Language.Resources.S.Common.EditAnimation;
-                public static IObservable<string> EditAnimationObservable => global::BeUtl.Language.Resources.S.Common.EditAnimationObservable;
-            }
-            public static class Operation {
-                public static string Remove => global::BeUtl.Language.Resources.S.Common.Remove;
-                public static IObservable<string> RemoveObservable => global::BeUtl.Language.Resources.S.Common.RemoveObservable;
-            }
-            public static class PixelPoint {
-                public static string X => global::BeUtl.Language.Resources.S.Common.X;
-                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
-                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
-                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
-            }
-            public static class PixelRect {
-                public static string X => global::BeUtl.Language.Resources.S.Common.X;
-                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
-                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
-                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
-                public static string Z => global::BeUtl.Language.Resources.S.Common.Width;
-                public static IObservable<string> ZObservable => global::BeUtl.Language.Resources.S.Common.WidthObservable;
-                public static string W => global::BeUtl.Language.Resources.S.Common.Height;
-                public static IObservable<string> WObservable => global::BeUtl.Language.Resources.S.Common.HeightObservable;
-            }
-            public static class PixelSize {
-                public static string X => global::BeUtl.Language.Resources.S.Common.Width;
-                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.WidthObservable;
-                public static string Y => global::BeUtl.Language.Resources.S.Common.Height;
-                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.HeightObservable;
-            }
-            public static class Point {
-                public static string X => global::BeUtl.Language.Resources.S.Common.X;
-                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
-                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
-                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
-            }
-            public static class Rect {
-                public static string X => global::BeUtl.Language.Resources.S.Common.X;
-                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
-                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
-                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
-                public static string Z => global::BeUtl.Language.Resources.S.Common.Width;
-                public static IObservable<string> ZObservable => global::BeUtl.Language.Resources.S.Common.WidthObservable;
-                public static string W => global::BeUtl.Language.Resources.S.Common.Height;
-                public static IObservable<string> WObservable => global::BeUtl.Language.Resources.S.Common.HeightObservable;
-            }
-            public static class Size {
-                public static string X => global::BeUtl.Language.Resources.S.Common.Width;
-                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.WidthObservable;
-                public static string Y => global::BeUtl.Language.Resources.S.Common.Height;
-                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.HeightObservable;
-            }
-            public static class Vector2 {
-                public static string X => global::BeUtl.Language.Resources.S.Common.X;
-                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
-                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
-                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
-            }
-            public static class Vector3 {
-                public static string X => global::BeUtl.Language.Resources.S.Common.X;
-                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
-                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
-                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
-                public static string Z => global::BeUtl.Language.Resources.S.Common.Z;
-                public static IObservable<string> ZObservable => global::BeUtl.Language.Resources.S.Common.ZObservable;
-            }
-            public static class Vector4 {
-                public static string X => global::BeUtl.Language.Resources.S.Common.X;
-                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
-                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
-                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
-                public static string Z => global::BeUtl.Language.Resources.S.Common.Z;
-                public static IObservable<string> ZObservable => global::BeUtl.Language.Resources.S.Common.ZObservable;
-                public static string W => global::BeUtl.Language.Resources.S.Common.W;
-                public static IObservable<string> WObservable => global::BeUtl.Language.Resources.S.Common.WObservable;
-            }
-            public static class Vector {
-                public static string X => global::BeUtl.Language.Resources.S.Common.X;
-                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
-                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
-                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
-            }
-            public static class RelativePoint {
-                public static string X => global::BeUtl.Language.Resources.S.Common.X;
-                public static IObservable<string> XObservable => global::BeUtl.Language.Resources.S.Common.XObservable;
-                public static string Y => global::BeUtl.Language.Resources.S.Common.Y;
-                public static IObservable<string> YObservable => global::BeUtl.Language.Resources.S.Common.YObservable;
             }
         }
     }

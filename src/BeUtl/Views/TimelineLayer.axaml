@@ -38,14 +38,14 @@
                 <MenuItem
                     Command="{CompiledBinding Split}"
                     CommandParameter="{Binding #root.GetClickedTime, Mode=OneTime}"
-                    Header="{DynamicResource S.TimelineLayer.Split}">
+                    Header="{DynamicResource S.Common.Split}">
                     <MenuItem.Icon>
                         <ic:SymbolIcon Symbol="SplitVertical" />
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem
                     Command="{CompiledBinding Cut}"
-                    Header="{DynamicResource S.TimelineLayer.Cut}"
+                    Header="{DynamicResource S.Common.Cut}"
                     InputGesture="{DynamicResource CutKeyGesture}">
                     <MenuItem.Icon>
                         <ic:SymbolIcon Symbol="Cut" />
@@ -53,7 +53,7 @@
                 </MenuItem>
                 <MenuItem
                     Command="{CompiledBinding Copy}"
-                    Header="{DynamicResource S.TimelineLayer.Copy}"
+                    Header="{DynamicResource S.Common.Copy}"
                     InputGesture="{DynamicResource CopyKeyGesture}">
                     <MenuItem.Icon>
                         <ic:SymbolIcon Symbol="Copy" />
@@ -61,7 +61,7 @@
                 </MenuItem>
                 <MenuItem
                     Command="{CompiledBinding Delete}"
-                    Header="{DynamicResource S.TimelineLayer.Delete}"
+                    Header="{DynamicResource S.Common.Delete}"
                     InputGesture="{DynamicResource LayerDeleteKeyGesture}">
                     <MenuItem.Icon>
                         <ic:SymbolIcon Symbol="DeleteDismiss" />
@@ -69,7 +69,7 @@
                 </MenuItem>
                 <MenuItem
                     Command="{CompiledBinding Exclude}"
-                    Header="{DynamicResource S.TimelineLayer.Exclude}"
+                    Header="{DynamicResource S.Common.Exclude}"
                     InputGesture="{DynamicResource DeleteKeyGesture}">
                     <MenuItem.Icon>
                         <ic:SymbolIcon Symbol="Delete" />

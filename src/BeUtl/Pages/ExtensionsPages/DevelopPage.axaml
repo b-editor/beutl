@@ -68,7 +68,7 @@
                                 </TextBlock>
                             </StackPanel>
 
-                            <ui:CommandBarButton Label="{DynamicResource S.DevelopPage.EditPackage}"
+                            <ui:CommandBarButton Label="{DynamicResource S.Common.Edit}"
                                                  Grid.Column="3"
                                                  Click="Edit_Click"
                                                  Icon="Edit" />

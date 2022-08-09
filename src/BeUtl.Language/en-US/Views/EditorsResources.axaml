@@ -2,14 +2,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
         <!--Strings-->
-
-        <!--EditorBadge.cs-->
-        <StaticResource x:Key="S.Editors.Badge.Reset" ResourceKey="S.Common.Reset" />
-        <StaticResource x:Key="S.Editors.Badge.EditAnimation" ResourceKey="S.Common.EditAnimation" />
-
-        <!--OperationEditor.cs-->
-        <StaticResource x:Key="S.Editors.Operation.Remove" ResourceKey="S.Common.Remove" />
-
         <!--PixelPointEditor.cs-->
         <StaticResource x:Key="S.Editors.PixelPoint.X" ResourceKey="S.Common.X" />
         <StaticResource x:Key="S.Editors.PixelPoint.Y" ResourceKey="S.Common.Y" />

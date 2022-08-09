@@ -193,27 +193,16 @@
         <x:String x:Key="S.Common.RemoveUnavailableSetters">Remove unavailable setters?</x:String>
         <x:String x:Key="S.Common.Editors">Editors</x:String>
         <x:String x:Key="S.Common.Tools">Tools</x:String>
+        <x:String x:Key="S.Common.AddToCurrentProject">Add to current project</x:String>
     </Styles.Resources>
 
     <!--Views-->
     <StyleInclude Source="/en-US/Views/MainViewResources.axaml" />
-    <StyleInclude Source="/en-US/Views/EditViewResources.axaml" />
-    <StyleInclude Source="/en-US/Views/TimelineResources.axaml" />
-    <StyleInclude Source="/en-US/Views/TimelineLayerResources.axaml" />
 
     <!--Views.Editors-->
-    <StyleInclude Source="/en-US/Views/Editors/AnimationEditorResources.axaml" />
-    <StyleInclude Source="/en-US/Views/Editors/EditorsResources.axaml" />
-
-    <!--Views.Dialogs-->
-    <StyleInclude Source="/en-US/Views/Dialogs/AddLayerResources.axaml" />
-    <StyleInclude Source="/en-US/Views/Dialogs/CreateNewProjectResources.axaml" />
-    <StyleInclude Source="/en-US/Views/Dialogs/CreateNewSceneResources.axaml" />
-    <StyleInclude Source="/en-US/Views/Dialogs/PickFontFamilyResources.axaml" />
-    <StyleInclude Source="/en-US/Views/Dialogs/SceneSettingsResources.axaml" />
+    <StyleInclude Source="/en-US/Views/EditorsResources.axaml" />
 
     <!--Pages-->
-    <StyleInclude Source="/en-US/Pages/EditPageResources.axaml" />
     <StyleInclude Source="/en-US/Pages/ExtensionsPageResources.axaml" />
     <StyleInclude Source="/en-US/Pages/SettingsPageResources.axaml" />
 

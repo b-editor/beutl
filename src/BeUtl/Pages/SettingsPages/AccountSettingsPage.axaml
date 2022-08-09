@@ -225,8 +225,8 @@
                           Title="{DynamicResource S.AccountSettingsPage.Dialog1.Title}"
                           DefaultButton="Close"
                           SecondaryButtonText="{DynamicResource S.AccountSettingsPage.WithGoogle}"
-                          CloseButtonText="{DynamicResource S.AccountSettingsPage.Dialog1.No}"
-                          PrimaryButtonText="{DynamicResource S.AccountSettingsPage.Dialog1.Yes}">
+                          CloseButtonText="{DynamicResource S.Common.No}"
+                          PrimaryButtonText="{DynamicResource S.Common.Yes}">
             <StackPanel>
                 <TextBlock x:Name="dialog1Text" />
                 <TextBlock Margin="0,12,0,8"
@@ -248,8 +248,8 @@
                           Title="{DynamicResource S.AccountSettingsPage.Dialog1.Title}"
                           DefaultButton="Close"
                           SecondaryButtonText="{DynamicResource S.AccountSettingsPage.WithPassword}"
-                          CloseButtonText="{DynamicResource S.AccountSettingsPage.Dialog1.No}"
-                          PrimaryButtonText="{DynamicResource S.AccountSettingsPage.Dialog1.Yes}">
+                          CloseButtonText="{DynamicResource S.Common.No}"
+                          PrimaryButtonText="{DynamicResource S.Common.Yes}">
             <StackPanel>
                 <TextBlock x:Name="dialog1GoogleText" />
 

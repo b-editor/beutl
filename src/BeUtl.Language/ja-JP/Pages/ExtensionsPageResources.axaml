@@ -8,7 +8,6 @@
         <x:String x:Key="S.DevelopPage.Documents">ドキュメント</x:String>
         <x:String x:Key="S.DevelopPage.DocumentsDescription">開発者向けのドキュメント</x:String>
         <x:String x:Key="S.DevelopPage.Packages">パッケージ</x:String>
-        <StaticResource x:Key="S.DevelopPage.EditPackage" ResourceKey="S.Common.Edit" />
 
         <x:String x:Key="S.DevelopPage.DeletePackage.Title">パッケージを削除</x:String>
         <x:String x:Key="S.DevelopPage.DeletePackage.Content">

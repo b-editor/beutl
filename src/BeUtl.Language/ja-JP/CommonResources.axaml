@@ -193,27 +193,16 @@
         <x:String x:Key="S.Common.RemoveUnavailableSetters">利用できないセッターを削除しますか？</x:String>
         <x:String x:Key="S.Common.Editors">エディタ</x:String>
         <x:String x:Key="S.Common.Tools">ツール</x:String>
+        <x:String x:Key="S.Common.AddToCurrentProject">現在のプロジェクトに追加する</x:String>
     </Styles.Resources>
 
     <!--Views-->
     <StyleInclude Source="/ja-JP/Views/MainViewResources.axaml" />
-    <StyleInclude Source="/ja-JP/Views/EditViewResources.axaml" />
-    <StyleInclude Source="/ja-JP/Views/TimelineResources.axaml" />
-    <StyleInclude Source="/ja-JP/Views/TimelineLayerResources.axaml" />
 
     <!--Views.Editors-->
-    <StyleInclude Source="/ja-JP/Views/Editors/AnimationEditorResources.axaml" />
-    <StyleInclude Source="/ja-JP/Views/Editors/EditorsResources.axaml" />
-
-    <!--Views.Dialogs-->
-    <StyleInclude Source="/ja-JP/Views/Dialogs/AddLayerResources.axaml" />
-    <StyleInclude Source="/ja-JP/Views/Dialogs/CreateNewProjectResources.axaml" />
-    <StyleInclude Source="/ja-JP/Views/Dialogs/CreateNewSceneResources.axaml" />
-    <StyleInclude Source="/ja-JP/Views/Dialogs/PickFontFamilyResources.axaml" />
-    <StyleInclude Source="/ja-JP/Views/Dialogs/SceneSettingsResources.axaml" />
+    <StyleInclude Source="/ja-JP/Views/EditorsResources.axaml" />
 
     <!--Pages-->
-    <StyleInclude Source="/ja-JP/Pages/EditPageResources.axaml" />
     <StyleInclude Source="/ja-JP/Pages/ExtensionsPageResources.axaml" />
     <StyleInclude Source="/ja-JP/Pages/SettingsPageResources.axaml" />
 

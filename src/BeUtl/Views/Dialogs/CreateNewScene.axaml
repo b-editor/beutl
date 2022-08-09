@@ -7,11 +7,11 @@
     xmlns:vm="using:BeUtl.ViewModels.Dialogs"
     xmlns:ic="using:FluentIcons.Avalonia"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    Title="{DynamicResource S.Dialogs.CreateNewScene.Title}"
-    PrimaryButtonText="{DynamicResource S.Dialogs.CreateNewScene.CreateNew}"
+    Title="{DynamicResource S.Common.CreateNewScene}"
+    PrimaryButtonText="{DynamicResource S.Common.CreateNew}"
     PrimaryButtonCommand="{CompiledBinding Create}"
     IsPrimaryButtonEnabled="{CompiledBinding CanCreate.Value}"
-    CloseButtonText="{DynamicResource S.Dialogs.CreateNewScene.Close}"
+    CloseButtonText="{DynamicResource S.Common.Close}"
     DefaultButton="Primary"
     x:DataType="vm:CreateNewSceneViewModel"
     x:Class="BeUtl.Views.Dialogs.CreateNewScene">
@@ -19,12 +19,12 @@
         <vm:CreateNewSceneViewModel />
     </ui:ContentDialog.DataContext>
     <StackPanel Spacing="8">
-        <TextBlock Text="{DynamicResource S.Dialogs.CreateNewScene.Name}" />
+        <TextBlock Text="{DynamicResource S.Common.Name}" />
         <TextBox InputMethod.IsInputMethodEnabled="True" Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
 
         <Separator />
 
-        <TextBlock Text="{DynamicResource S.Dialogs.CreateNewScene.Location}" />
+        <TextBlock Text="{DynamicResource S.Common.Location}" />
         <Panel>
             <TextBox Text="{CompiledBinding Location.Value, Mode=TwoWay}" />
 
@@ -39,12 +39,12 @@
 
         <Separator />
 
-        <TextBlock Text="{DynamicResource S.Dialogs.CreateNewScene.Size}" />
+        <TextBlock Text="{DynamicResource S.Common.Size}" />
         <TextBox Text="{CompiledBinding Size.Value, Mode=TwoWay, Converter={StaticResource PixelSizeConverter}}" />
 
         <Separator />
 
-        <CheckBox Content="{DynamicResource S.Dialogs.CreateNewScene.AddToCurrentProject}"
+        <CheckBox Content="{DynamicResource S.Common.AddToCurrentProject}"
                   IsChecked="{CompiledBinding AddToCurrentProject.Value}"
                   IsEnabled="{CompiledBinding CanAddToCurrentProject.Value}" />
     </StackPanel>

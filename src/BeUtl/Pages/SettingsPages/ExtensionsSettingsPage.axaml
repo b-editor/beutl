@@ -37,12 +37,12 @@
                                 </ui:CommandBarElementContainer>
                                 <ui:CommandBarButton Icon="Add"
                                                      Click="Add_FileExtension"
-                                                     Label="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.FileExtension.Add}"  />
+                                                     Label="{DynamicResource S.Common.Add}"  />
                             </ui:CommandBar.PrimaryCommands>
                             <ui:CommandBar.SecondaryCommands>
                                 <ui:CommandBarButton Icon="Delete"
                                                      Command="{CompiledBinding RemoveFileExtension}"
-                                                     Label="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.FileExtension.Remove}"  />
+                                                     Label="{DynamicResource S.Common.Remove}"  />
                             </ui:CommandBar.SecondaryCommands>
                         </ui:CommandBar>
 
@@ -81,7 +81,7 @@
                                                              Icon="Clear"
                                                              Command="{Binding #root.DataContext.RemoveExt}"
                                                              CommandParameter="{Binding}"
-                                                             Label="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.Remove}" />
+                                                             Label="{DynamicResource S.Common.Remove}" />
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
@@ -110,7 +110,7 @@
                                                              Icon="Add"
                                                              Command="{Binding #root.DataContext.AddExt}"
                                                              CommandParameter="{Binding}"
-                                                             Label="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.Add}" />
+                                                             Label="{DynamicResource S.Common.Add}" />
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
@@ -122,10 +122,10 @@
             <ui:ContentDialog x:Name="Dialog1"
                               DataContext="{Binding #root.DataContext}"
                               Title="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Title}"
-                              PrimaryButtonText="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Add}"
+                              PrimaryButtonText="{DynamicResource S.Common.Add}"
                               PrimaryButtonCommand="{Binding AddFileExtension}"
                               IsPrimaryButtonEnabled="{Binding CanAddFileExtension.Value}"
-                              CloseButtonText="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Cancel}">
+                              CloseButtonText="{DynamicResource S.Common.Cancel}">
                 <TextBox Text="{Binding FileExtensionInput.Value, Mode=TwoWay}" />
             </ui:ContentDialog>
         </StackPanel>
