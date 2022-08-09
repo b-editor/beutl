@@ -27,6 +27,7 @@
         ("System.Numerics", "Vector4", "System.Single", "X", "Y", "Z", "W"),
     };
 #>
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Markup.Xaml.MarkupExtensions;
@@ -42,8 +43,8 @@ namespace BeUtl.Views.Editors
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
     public sealed class <#= t.Name #>Editor : BaseVector2Editor<<#= fullName #>>
     {
-        private static readonly DynamicResourceExtension s_xResource = new("S.Editors.<#= t.Name #>.X");
-        private static readonly DynamicResourceExtension s_yResource = new("S.Editors.<#= t.Name #>.Y");
+        private static readonly IBinding s_xResource = S.Editors.<#= t.Name #>.XObservable.ToBinding();
+        private static readonly IBinding s_yResource = S.Editors.<#= t.Name #>.YObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.<#= t.FieldX #>", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.<#= t.FieldY #>", BindingMode.OneWay);
 
@@ -91,9 +92,9 @@ namespace BeUtl.Views.Editors
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
     public sealed class <#= t.Name #>Editor : BaseVector3Editor<<#= fullName #>>
     {
-        private static readonly DynamicResourceExtension s_xResource = new("S.Editors.<#= t.Name #>.X");
-        private static readonly DynamicResourceExtension s_yResource = new("S.Editors.<#= t.Name #>.Y");
-        private static readonly DynamicResourceExtension s_zResource = new("S.Editors.<#= t.Name #>.Z");
+        private static readonly IBinding s_xResource = S.Editors.<#= t.Name #>.XObservable.ToBinding();
+        private static readonly IBinding s_yResource = S.Editors.<#= t.Name #>.YObservable.ToBinding();
+        private static readonly IBinding s_zResource = S.Editors.<#= t.Name #>.ZObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.<#= t.FieldX #>", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.<#= t.FieldY #>", BindingMode.OneWay);
         private static readonly Binding s_z = new("Value.Value.<#= t.FieldZ #>", BindingMode.OneWay);
@@ -156,10 +157,10 @@ namespace BeUtl.Views.Editors
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
     public sealed class <#= t.Name #>Editor : BaseVector4Editor<<#= fullName #>>
     {
-        private static readonly DynamicResourceExtension s_xResource = new("S.Editors.<#= t.Name #>.X");
-        private static readonly DynamicResourceExtension s_yResource = new("S.Editors.<#= t.Name #>.Y");
-        private static readonly DynamicResourceExtension s_zResource = new("S.Editors.<#= t.Name #>.Z");
-        private static readonly DynamicResourceExtension s_wResource = new("S.Editors.<#= t.Name #>.W");
+        private static readonly IBinding s_xResource = S.Editors.<#= t.Name #>.XObservable.ToBinding();
+        private static readonly IBinding s_yResource = S.Editors.<#= t.Name #>.YObservable.ToBinding();
+        private static readonly IBinding s_zResource = S.Editors.<#= t.Name #>.ZObservable.ToBinding();
+        private static readonly IBinding s_wResource = S.Editors.<#= t.Name #>.WObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.<#= t.FieldX #>", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.<#= t.FieldY #>", BindingMode.OneWay);
         private static readonly Binding s_z = new("Value.Value.<#= t.FieldZ #>", BindingMode.OneWay);

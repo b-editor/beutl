@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
-using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Xaml.Interactivity;
 
 using BeUtl.Commands;
@@ -92,7 +91,7 @@ public sealed partial class StylingOperatorView : UserControl
 
             if (item != null)
             {
-                headerText[!TextBlock.TextProperty] = new DynamicResourceExtension(item.DisplayName.Key);
+                headerText[!TextBlock.TextProperty] = item.DisplayName.ToBinding();
             }
         }
     }

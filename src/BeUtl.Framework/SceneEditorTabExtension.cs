@@ -27,7 +27,7 @@ public abstract class ToolTabExtension : ViewExtension
 
     public abstract bool CanMultiple { get; }
 
-    public virtual ResourceReference<string>? Header => null;
+    public virtual IObservable<string>? Header => null;
 
     public abstract bool TryCreateContent(
         IEditorContext editorContext,

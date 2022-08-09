@@ -16,7 +16,7 @@ public sealed class SettingsPageExtension : PageExtension
 
     public override Geometry RegularIcon { get; } = FluentIconsRegular.Settings.GetGeometry();
 
-    public override ResourceReference<string> Header => "S.MainView.Settings";
+    public override IObservable<string> Header => S.MainView.SettingsObservable;
 
     public override Type Control => typeof(SettingsPage);
 

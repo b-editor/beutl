@@ -6,7 +6,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml.MarkupExtensions;
 
 using BeUtl.Streaming;
 
@@ -30,7 +29,7 @@ public sealed partial class Library : UserControl
         {
             var treeitem = new TreeViewItem
             {
-                [!HeaderedItemsControl.HeaderProperty] = new DynamicResourceExtension(item.DisplayName.Key),
+                [!HeaderedItemsControl.HeaderProperty] = item.DisplayName.ToBinding(),
                 DataContext = item,
             };
             treelist.Add(treeitem);
@@ -51,7 +50,7 @@ public sealed partial class Library : UserControl
         {
             var treeitem2 = new TreeViewItem
             {
-                [!HeaderedItemsControl.HeaderProperty] = new DynamicResourceExtension(item.DisplayName.Key),
+                [!HeaderedItemsControl.HeaderProperty] = item.DisplayName.ToBinding(),
                 DataContext = item,
             };
 
@@ -92,7 +91,7 @@ public sealed partial class Library : UserControl
             {
                 foreach (TreeViewItem item in items)
                 {
-                    item.IsVisible = SetIsVisible(item, _ => true);
+                    item.IsVisible = await SetIsVisible(item, _ => true);
                 }
             }
         }
@@ -104,14 +103,14 @@ public sealed partial class Library : UserControl
             {
                 foreach (TreeViewItem item in items)
                 {
-                    item.IsVisible = SetIsVisible(item, str => RegexHelper.IsMatch(regices, str));
+                    item.IsVisible = await SetIsVisible(item, str => RegexHelper.IsMatch(regices, str));
                 }
             }
         }
     }
 
     // 一つでもIsVisibleがtrueだったらtrueを返す
-    private bool SetIsVisible(TreeViewItem treeitem, Func<string, bool> validate)
+    private async ValueTask<bool> SetIsVisible(TreeViewItem treeitem, Func<string, bool> validate)
     {
         // IsVisible
         bool result = false;
@@ -122,21 +121,21 @@ public sealed partial class Library : UserControl
             {
                 if (item.DataContext is OperatorRegistry.BaseRegistryItem itemContext)
                 {
-                    item.IsVisible = validate(itemContext.DisplayName.FindOrDefault(string.Empty));
+                    item.IsVisible = validate(await itemContext.DisplayName.FirstOrDefaultAsync() ?? string.Empty);
                 }
                 else if (item.DataContext is OperatorRegistry.BaseRegistryItem itemContext2)
                 {
-                    item.IsVisible = validate(itemContext2.DisplayName.FindOrDefault(string.Empty));
+                    item.IsVisible = validate(await itemContext2.DisplayName.FirstOrDefaultAsync() ?? string.Empty);
                 }
                 v |= item.IsVisible;
 
-                result |= SetIsVisible(item, validate);
+                result |= await SetIsVisible(item, validate);
             }
         }
 
         if (treeitem.DataContext is OperatorRegistry.BaseRegistryItem treeItemContext2)
         {
-            v |= validate(treeItemContext2.DisplayName.FindOrDefault(string.Empty));
+            v |= validate(await treeItemContext2.DisplayName.FirstOrDefaultAsync() ?? string.Empty);
         }
 
         treeitem.IsVisible = v;

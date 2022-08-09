@@ -1,36 +1,34 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
-using Avalonia.Markup.Xaml.MarkupExtensions;
-
-using BeUtl.Graphics;
 
 namespace BeUtl.Views.Editors;
 
-public sealed class RelativePointEditor : BaseVector2Editor<RelativePoint>
+public sealed class RelativePointEditor : BaseVector2Editor<Graphics.RelativePoint>
 {
-    private static readonly DynamicResourceExtension s_xResource = new("S.Editors.RelativePoint.X");
-    private static readonly DynamicResourceExtension s_yResource = new("S.Editors.RelativePoint.Y");
+    private static readonly IBinding s_xResource = S.Editors.RelativePoint.XObservable.ToBinding();
+    private static readonly IBinding s_yResource = S.Editors.RelativePoint.YObservable.ToBinding();
     private static readonly Binding s_x = new("Value.Value", BindingMode.OneWay)
     {
-        Converter = new FuncValueConverter<RelativePoint, string>(p =>
+        Converter = new FuncValueConverter<Graphics.RelativePoint, string>(p =>
         {
             return p.Unit switch
             {
-                RelativeUnit.Relative => $"{p.Point.X * 100:f}%",
-                RelativeUnit.Absolute => p.Point.X.ToString(),
+                Graphics.RelativeUnit.Relative => $"{p.Point.X * 100:f}%",
+                Graphics.RelativeUnit.Absolute => p.Point.X.ToString(),
                 _ => p.Point.X.ToString(),
             };
         })
     };
     private static readonly Binding s_y = new("Value.Value", BindingMode.OneWay)
     {
-        Converter = new FuncValueConverter<RelativePoint, string>(p =>
+        Converter = new FuncValueConverter<Graphics.RelativePoint, string>(p =>
         {
             return p.Unit switch
             {
-                RelativeUnit.Relative => $"{p.Point.Y * 100:f}%",
-                RelativeUnit.Absolute => p.Point.Y.ToString(),
+                Graphics.RelativeUnit.Relative => $"{p.Point.Y * 100:f}%",
+                Graphics.RelativeUnit.Absolute => p.Point.Y.ToString(),
                 _ => p.Point.Y.ToString(),
             };
         })
@@ -44,27 +42,27 @@ public sealed class RelativePointEditor : BaseVector2Editor<RelativePoint>
         yTextBox[!TextBox.TextProperty] = s_y;
     }
 
-    protected override RelativePoint IncrementX(RelativePoint value, int increment)
+    protected override Graphics.RelativePoint IncrementX(Graphics.RelativePoint value, int increment)
     {
-        float a = value.Unit == RelativeUnit.Relative ? 100f : 1;
-        Point point = value.Point.WithX(value.Point.X + (increment / a));
+        float a = value.Unit == Graphics.RelativeUnit.Relative ? 100f : 1;
+        Graphics.Point point = value.Point.WithX(value.Point.X + (increment / a));
 
-        return new RelativePoint(point, value.Unit);
+        return new Graphics.RelativePoint(point, value.Unit);
     }
 
-    protected override RelativePoint IncrementY(RelativePoint value, int increment)
+    protected override Graphics.RelativePoint IncrementY(Graphics.RelativePoint value, int increment)
     {
-        float a = value.Unit == RelativeUnit.Relative ? 100f : 1;
-        Point point = value.Point.WithY(value.Point.Y + (increment / a));
+        float a = value.Unit == Graphics.RelativeUnit.Relative ? 100f : 1;
+        Graphics.Point point = value.Point.WithY(value.Point.Y + (increment / a));
 
-        return new RelativePoint(point, value.Unit);
+        return new Graphics.RelativePoint(point, value.Unit);
     }
 
-    protected override bool TryParse(string? x, string? y, out RelativePoint value)
+    protected override bool TryParse(string? x, string? y, out Graphics.RelativePoint value)
     {
         try
         {
-            value = RelativePoint.Parse($"{x}, {y}");
+            value = Graphics.RelativePoint.Parse($"{x}, {y}");
             return true;
         }
         catch

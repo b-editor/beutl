@@ -20,7 +20,7 @@ public sealed class ObjectPropertyTabExtension : ToolTabExtension
 
     public override string DisplayName => "Property editor";
 
-    public override ResourceReference<string>? Header => "S.Common.Properties";
+    public override IObservable<string>? Header => S.Common.PropertiesObservable;
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
     {

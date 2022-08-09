@@ -13,7 +13,6 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Xaml.Interactivity;
@@ -363,13 +362,15 @@ Error:
                 AllowMultiple = true,
             };
             List<FileDialogFilter> filters = dialog.Filters ??= new List<FileDialogFilter>();
-            filters.AddRange(PackageManager.Instance.ExtensionProvider.AllExtensions
-                .OfType<EditorExtension>()
-                .Select(e => new FileDialogFilter()
+
+            filters.AddRange(await PackageManager.Instance.ExtensionProvider.GetExtensions<EditorExtension>()
+                .ToAsyncEnumerable()
+                .SelectAwait(async e => new FileDialogFilter()
                 {
                     Extensions = e.FileExtensions.ToList(),
-                    Name = Application.Current?.FindResource(e.FileTypeName.Key) as string
-                }));
+                    Name = await e.FileTypeName.FirstOrDefaultAsync()
+                })
+                .ToArrayAsync());
 
             string[]? files = await dialog.ShowAsync(root);
             if (files != null)
@@ -606,12 +607,12 @@ Error:
         //       ForEachItemメソッドを使うかeventにする
         foreach (ToolTabExtension item in manager.ExtensionProvider.AllExtensions.OfType<ToolTabExtension>())
         {
-            if (!item.Header.HasValue)
+            if (item.Header == null)
                 continue;
 
             var menuItem = new MenuItem()
             {
-                [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension(item.Header.Value.Key),
+                [!HeaderedSelectingItemsControl.HeaderProperty] = item.Header.ToBinding(),
                 DataContext = item
             };
 

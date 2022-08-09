@@ -35,7 +35,7 @@ public abstract class EditorExtension : ViewExtension
 
     public abstract string[] FileExtensions { get; }
 
-    public abstract ResourceReference<string> FileTypeName { get; }
+    public abstract IObservable<string> FileTypeName { get; }
 
     public abstract bool TryCreateEditor(
         string file,

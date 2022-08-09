@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 
 using Avalonia.Controls;
@@ -20,7 +21,7 @@ public sealed class SSETExtenison : ToolTabExtension
 
     public override string DisplayName => "Sample tab";
 
-    public override ResourceReference<string>? Header => "S.SamplePackage.SSETExtension";
+    public override IObservable<string>? Header => Observable.Return("Sample tab");
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
     {

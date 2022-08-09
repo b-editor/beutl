@@ -19,7 +19,7 @@ public sealed class TimelineTabExtension : ToolTabExtension
 
     public override bool CanMultiple => false;
 
-    public override ResourceReference<string>? Header => "S.Common.Timeline";
+    public override IObservable<string>? Header => S.Common.TimelineObservable;
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
     {

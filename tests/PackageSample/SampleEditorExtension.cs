@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Reactive.Linq;
 
 using Avalonia.Controls;
 using Avalonia.Data;
@@ -99,7 +100,7 @@ public sealed class SampleEditorExtension : EditorExtension
         "scene",
     };
 
-    public override ResourceReference<string> FileTypeName => "S.SamplePackage.SampleEditorExtension.FileTypeName";
+    public override IObservable<string> FileTypeName => Observable.Return("Text File");
 
     public override string Name => "SampleEditorExtension";
 
