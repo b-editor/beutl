@@ -21,7 +21,7 @@ public sealed class StyleEditorViewModel : IToolContext
     public StyleEditorViewModel(EditViewModel editViewModel)
     {
         EditorContext = editViewModel;
-        Header = new ReactivePropertySlim<string>("Style");
+        Header = S.Common.StyleObservable.ToReadOnlyReactivePropertySlim(S.Common.Style);
 
         if (s_cache != null)
         {
@@ -61,12 +61,12 @@ public sealed class StyleEditorViewModel : IToolContext
                         Type wrapperType = typeof(StylingSetterClientImpl<>);
                         wrapperType = wrapperType.MakeGenericType(item.Property.PropertyType);
                         var wrapper = (IAbstractProperty)Activator.CreateInstance(wrapperType, item)!;
-                        var tmp1 = ArrayPool<CoreProperty>.Shared.Rent(1);
+                        CoreProperty[] tmp1 = ArrayPool<CoreProperty>.Shared.Rent(1);
                         var tmp2 = new IAbstractProperty[1];
                         tmp1[0] = item.Property;
                         tmp2[0] = wrapper;
 
-                        if (PropertyEditorService.MatchProperty(tmp1) is { Extension: { } ext, Properties: { Length: 1 } }
+                        if (PropertyEditorService.MatchProperty(tmp1) is { Extension: { } ext, Properties.Length: 1 }
                             && ext.TryCreateContext(tmp2, out IPropertyEditorContext? context))
                         {
                             Properties.Insert(idx, context);
@@ -123,6 +123,8 @@ public sealed class StyleEditorViewModel : IToolContext
     public void Dispose()
     {
         _disposable0.Dispose();
+        Header.Dispose();
+        ClearItems();
     }
 
     public void ReadFromJson(JsonNode json)

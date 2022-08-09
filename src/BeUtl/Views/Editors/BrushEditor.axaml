@@ -50,13 +50,13 @@
                 <ContextMenu>
                     <MenuItem Click="Navigate_Click"
                               IsEnabled="{Binding IsSet.Value}"
-                              Header="編集" />
+                              Header="{DynamicResource S.Common.Edit}" />
                     <MenuItem Click="New_Click"
                               IsEnabled="{Binding CanWrite}"
-                              Header="新規作成" />
+                              Header="{DynamicResource S.Common.CreateNew}" />
                     <MenuItem Click="Delete_Click"
                               IsEnabled="{Binding CanDelete}"
-                              Header="削除" />
+                              Header="{DynamicResource S.Common.Delete}" />
                 </ContextMenu>
             </Button.ContextMenu>
             <ic:SymbolIcon Symbol="MoreVertical" />

@@ -4,14 +4,10 @@ using System.Reflection;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
-using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-using Avalonia.Media.Transformation;
 using Avalonia.Threading;
-using Avalonia.Xaml.Interactivity;
 
 using BeUtl.Commands;
 using BeUtl.Controls.Behaviors;
@@ -101,9 +97,9 @@ public partial class ListEditor : UserControl
                             var dialog = new FA.ContentDialog
                             {
                                 Content = combobox,
-                                Title = "複数の型が利用可能です",
-                                PrimaryButtonText = "決定",
-                                CloseButtonText = "キャンセル"
+                                Title = S.Message.MultipleTypesAreAvailable,
+                                PrimaryButtonText = S.Common.OK,
+                                CloseButtonText = S.Common.Cancel
                             };
 
                             if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
@@ -133,6 +129,12 @@ public partial class ListEditor : UserControl
                     }
                 }
             });
+
+            // ListがINotifyProeprtyChangedを実装していない可能性があるので
+            if (viewModel.ObserveCount.Value != viewModel.List.Value.Count)
+            {
+                viewModel.ObserveCount.Value = viewModel.List.Value.Count;
+            }
         }
 
         progress.IsVisible = progress.IsIndeterminate = false;

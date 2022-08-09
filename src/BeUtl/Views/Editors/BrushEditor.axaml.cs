@@ -87,9 +87,9 @@ public sealed partial class BrushEditor : UserControl
             var dialog = new FA.ContentDialog
             {
                 Content = combobox,
-                Title = "複数の型が利用可能です",
-                PrimaryButtonText = "決定",
-                CloseButtonText = "キャンセル"
+                Title = S.Message.MultipleTypesAreAvailable,
+                PrimaryButtonText = S.Common.OK,
+                CloseButtonText = S.Common.Cancel
             };
 
             if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary

@@ -38,6 +38,9 @@
         <StaticResource x:Key="S.MainView.Scene.Layer.Paste" ResourceKey="S.Common.Paste" />
 
         <StaticResource x:Key="S.MainView.View" ResourceKey="S.Common.View" />
+        <StaticResource x:Key="S.MainView.View.Editors" ResourceKey="S.Common.Editors" />
+        <StaticResource x:Key="S.MainView.View.Tools" ResourceKey="S.Common.Tools" />
+
         <StaticResource x:Key="S.MainView.Object" ResourceKey="S.Common.Object" />
         <StaticResource x:Key="S.MainView.Help" ResourceKey="S.Common.Help" />
         <StaticResource x:Key="S.MainView.Extensions" ResourceKey="S.Common.Extensions" />

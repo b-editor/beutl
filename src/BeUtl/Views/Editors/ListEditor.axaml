@@ -194,7 +194,7 @@
                 <TextBlock
                     Margin="4,0"
                     Grid.Column="1"
-                    Text="{Binding List.Value.Count, StringFormat={}{0}個のアイテム}" />
+                    Text="{Binding CountString.Value}" />
             </Grid>
         </ToggleButton>
 
@@ -218,7 +218,7 @@
                         Margin="0,4,24,4">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <ui:SymbolIcon Symbol="Add" />
-                        <TextBlock Text="追加" />
+                        <TextBlock Text="{DynamicResource S.Common.Add}" />
                     </StackPanel>
                 </Button>
             </Grid>
@@ -264,9 +264,9 @@
                                 <Button.ContextMenu>
                                     <ContextMenu>
                                         <MenuItem Click="Edit_Click"
-                                                  Header="編集" />
+                                                  Header="{DynamicResource S.Common.Edit}" />
                                         <MenuItem Click="Delete_Click"
-                                                  Header="削除" />
+                                                  Header="{DynamicResource S.Common.Delete}" />
                                     </ContextMenu>
                                 </Button.ContextMenu>
                                 <ic:SymbolIcon Symbol="MoreVertical" />

@@ -151,8 +151,8 @@
                 </MenuItem>
                 <!--表示-->
                 <MenuItem Header="{DynamicResource S.MainView.View}" x:Name="viewMenuItem">
-                    <MenuItem Header="エディタータブ" x:Name="editorTabMenuItem" />
-                    <MenuItem Header="ツールタブ" x:Name="toolTabMenuItem" />
+                    <MenuItem Header="{DynamicResource S.MainView.View.Editors}" x:Name="editorTabMenuItem" />
+                    <MenuItem Header="{DynamicResource S.MainView.View.Tools}" x:Name="toolTabMenuItem" />
                 </MenuItem>
                 <!--プロジェクト-->
                 <MenuItem Header="{DynamicResource S.MainView.Project}">

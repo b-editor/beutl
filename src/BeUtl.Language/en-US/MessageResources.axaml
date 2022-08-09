@@ -23,5 +23,8 @@
         <x:String x:Key="S.Message.PasswordHasBeenChanged">Password has been changed.</x:String>
         <x:String x:Key="S.Message.PleaseEnterString">Please enter a string.</x:String>
         <x:String x:Key="S.Message.InvalidString">Invalid string.</x:String>
+        <x:String x:Key="S.Message.MultipleTypesAreAvailable">Multiple types are available.</x:String>
+        <x:String x:Key="S.Message.AnimationIsEnabled">Animation is enabled</x:String>
+        <x:String x:Key="S.Message.CountItems">{0} items</x:String>
     </Styles.Resources>
 </Styles>

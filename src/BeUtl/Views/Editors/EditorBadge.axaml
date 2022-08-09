@@ -41,7 +41,7 @@
                     <Setter Property="Symbol" Value="Flow" />
                     <Setter Property="IsFilled" Value="True" />
                     <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
-                    <Setter Property="ToolTip.Tip" Value="アニメーションが有効です" />
+                    <Setter Property="ToolTip.Tip" Value="{DynamicResource S.Message.AnimationIsEnabled}" />
                 </Style>
             </ic:SymbolIcon.Styles>
         </ic:SymbolIcon>

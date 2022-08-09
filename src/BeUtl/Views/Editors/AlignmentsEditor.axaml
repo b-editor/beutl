@@ -16,7 +16,7 @@
         </Grid.Styles>
         <TextBlock
             Margin="10,8,0,8"
-            Text="アライメント"
+            Text="{DynamicResource S.Common.Alignment}"
             ClipToBounds="False"
             HorizontalAlignment="Left"
             VerticalAlignment="Center" />

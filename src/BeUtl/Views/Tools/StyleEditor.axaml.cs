@@ -1,14 +1,11 @@
-﻿using Avalonia;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
-using Avalonia.Data.Converters;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 
 using BeUtl.Commands;
-using BeUtl.Services;
 using BeUtl.ViewModels.Tools;
 
 using FluentAvalonia.UI.Controls;
@@ -58,7 +55,7 @@ public sealed partial class StyleEditor : UserControl
                         {
                             var dialog = new ContentDialog
                             {
-                                Title = "利用できないセッターを削除しますか？",
+                                Title = S.Common.RemoveUnavailableSetters,
                                 Content = new ListBox
                                 {
                                     Items = mismatches,
@@ -70,8 +67,8 @@ public sealed partial class StyleEditor : UserControl
                                         };
                                     })
                                 },
-                                PrimaryButtonText = "はい",
-                                CloseButtonText = "いいえ"
+                                PrimaryButtonText = S.Common.Yes,
+                                CloseButtonText = S.Common.No
                             };
 
                             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
@@ -118,10 +115,10 @@ public sealed partial class StyleEditor : UserControl
                 {
                     Source = selectedItem.Select(x => x != null).ToReadOnlyReactivePropertySlim()
                 },
-                Title = "セッターを追加",
+                Title = S.Common.AddSetter,
                 Content = listBox,
-                PrimaryButtonText = "追加",
-                CloseButtonText = "キャンセル"
+                PrimaryButtonText = S.Common.Add,
+                CloseButtonText = S.Common.Cancel
             };
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary
