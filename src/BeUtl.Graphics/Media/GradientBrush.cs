@@ -1,8 +1,4 @@
-﻿using System.Text.Json.Nodes;
-
-using BeUtl.Styling;
-
-namespace BeUtl.Media;
+﻿namespace BeUtl.Media;
 
 /// <summary>
 /// Base class for brushes that draw with a gradient.
@@ -37,17 +33,6 @@ public abstract class GradientBrush : Brush, IGradientBrush
     public GradientBrush()
     {
         _gradientStops = new GradientStops();
-        _gradientStops.Attached += item =>
-        {
-            (item as ILogicalElement)?.NotifyAttachedToLogicalTree(new(this));
-            (item as IStylingElement)?.NotifyAttachedToStylingTree(new(this));
-        };
-        _gradientStops.Detached += item =>
-        {
-            (item as ILogicalElement)?.NotifyDetachedFromLogicalTree(new(this));
-            (item as IStylingElement)?.NotifyDetachedFromStylingTree(new(this));
-        };
-
         _gradientStops.Invalidated += (_, _) => RaiseInvalidated();
     }
 
@@ -67,17 +52,4 @@ public abstract class GradientBrush : Brush, IGradientBrush
 
     /// <inheritdoc/>
     IReadOnlyList<IGradientStop> IGradientBrush.GradientStops => GradientStops;
-
-    protected override IEnumerable<ILogicalElement> OnEnumerateChildren()
-    {
-        foreach (ILogicalElement item in base.OnEnumerateChildren())
-        {
-            yield return item;
-        }
-
-        foreach (GradientStop item in _gradientStops)
-        {
-            yield return item;
-        }
-    }
 }

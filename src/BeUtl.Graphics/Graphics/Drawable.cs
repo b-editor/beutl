@@ -1,14 +1,10 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-using BeUtl.Animation;
+﻿using BeUtl.Animation;
 using BeUtl.Graphics.Effects;
 using BeUtl.Graphics.Filters;
-using BeUtl.Graphics.Shapes;
 using BeUtl.Graphics.Transformation;
 using BeUtl.Media;
 using BeUtl.Media.Pixel;
 using BeUtl.Rendering;
-using BeUtl.Styling;
 
 namespace BeUtl.Graphics;
 
@@ -133,10 +129,6 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
             AlignmentXProperty, AlignmentYProperty,
             ForegroundProperty, OpacityMaskProperty,
             BlendModeProperty);
-
-        LogicalChild<Drawable>(
-            TransformProperty, FilterProperty, EffectProperty,
-            ForegroundProperty, OpacityMaskProperty);
     }
 
     public float Width
@@ -364,16 +356,6 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
         Draw(renderer.Graphics);
     }
 
-    public override void ApplyStyling(IClock clock)
-    {
-        base.ApplyStyling(clock);
-        (Transform as Styleable)?.ApplyStyling(clock);
-        (Filter as Styleable)?.ApplyStyling(clock);
-        (Effect as Styleable)?.ApplyStyling(clock);
-        (Foreground as Styleable)?.ApplyStyling(clock);
-        (OpacityMask as Styleable)?.ApplyStyling(clock);
-    }
-
     public override void ApplyAnimations(IClock clock)
     {
         base.ApplyAnimations(clock);
@@ -385,29 +367,6 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     }
 
     protected abstract void OnDraw(ICanvas canvas);
-
-    protected override IEnumerable<ILogicalElement> OnEnumerateChildren()
-    {
-        foreach (ILogicalElement item in base.OnEnumerateChildren())
-        {
-            yield return item;
-        }
-
-        if (Transform is ILogicalElement elm1)
-            yield return elm1;
-
-        if (Filter is ILogicalElement elm2)
-            yield return elm2;
-
-        if (Effect is ILogicalElement elm3)
-            yield return elm3;
-
-        if (Foreground is ILogicalElement elm4)
-            yield return elm4;
-
-        if (OpacityMask is ILogicalElement elm5)
-            yield return elm5;
-    }
 
     private Point CreateRelPoint(Size size)
     {

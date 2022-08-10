@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
 using BeUtl.Animation;
-using BeUtl.Styling;
 
 using SkiaSharp;
 
@@ -23,16 +22,6 @@ public sealed class ImageFilterGroup : ImageFilter
     public ImageFilterGroup()
     {
         _children = new ImageFilters();
-        _children.Attached += item =>
-        {
-            (item as ILogicalElement)?.NotifyAttachedToLogicalTree(new(this));
-            (item as IStylingElement)?.NotifyAttachedToStylingTree(new(this));
-        };
-        _children.Detached += item =>
-        {
-            (item as ILogicalElement)?.NotifyDetachedFromLogicalTree(new(this));
-            (item as IStylingElement)?.NotifyDetachedFromStylingTree(new(this));
-        };
         _children.Invalidated += (_, _) => RaiseInvalidated();
     }
 
@@ -46,7 +35,7 @@ public sealed class ImageFilterGroup : ImageFilter
     {
         Rect original = rect;
 
-        foreach (ImageFilter item in _children.GetMarshal().Value)
+        foreach (IImageFilter item in _children.GetMarshal().Value)
         {
             if (item.IsEnabled)
                 rect = item.TransformBounds(original).Union(rect);
@@ -91,25 +80,19 @@ public sealed class ImageFilterGroup : ImageFilter
         {
             var array = new JsonArray();
 
-            foreach (ImageFilter item in _children.GetMarshal().Value)
+            foreach (IImageFilter item in _children.GetMarshal().Value)
             {
-                JsonNode node = new JsonObject();
-                item.WriteToJson(ref node);
-                node["@type"] = TypeFormat.ToString(item.GetType());
+                if (item is ImageFilter obj)
+                {
+                    JsonNode node = new JsonObject();
+                    obj.WriteToJson(ref node);
+                    node["@type"] = TypeFormat.ToString(item.GetType());
 
-                array.Add(node);
+                    array.Add(node);
+                }
             }
 
             jobject["children"] = array;
-        }
-    }
-
-    public override void ApplyStyling(IClock clock)
-    {
-        base.ApplyStyling(clock);
-        foreach (IImageFilter item in Children.GetMarshal().Value)
-        {
-            (item as Styleable)?.ApplyStyling(clock);
         }
     }
 
@@ -126,7 +109,7 @@ public sealed class ImageFilterGroup : ImageFilter
     {
         var array = new SKImageFilter[ValidEffectCount()];
         int index = 0;
-        foreach (ImageFilter item in _children.GetMarshal().Value)
+        foreach (IImageFilter item in _children.GetMarshal().Value)
         {
             if (item.IsEnabled)
             {
@@ -148,7 +131,7 @@ public sealed class ImageFilterGroup : ImageFilter
     private int ValidEffectCount()
     {
         int count = 0;
-        foreach (ImageFilter item in _children.GetMarshal().Value)
+        foreach (IImageFilter item in _children.GetMarshal().Value)
         {
             if (item.IsEnabled)
             {

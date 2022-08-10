@@ -1,5 +1,4 @@
 ﻿using BeUtl.Media;
-using BeUtl.Styling;
 
 namespace BeUtl.Graphics.Transformation;
 
@@ -10,6 +9,7 @@ public interface ITransform
     Matrix Value { get; }
 }
 
-public interface IMutableTransform : IStyleable, ITransform, IAffectsRender
+// Todo: IAnimatable
+public interface IMutableTransform : ICoreObject, ITransform, IAffectsRender
 {
 }

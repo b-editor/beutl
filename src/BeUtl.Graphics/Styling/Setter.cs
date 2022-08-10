@@ -2,7 +2,6 @@
 using System.Reactive.Linq;
 
 using BeUtl.Animation;
-using BeUtl.Collections;
 using BeUtl.Media;
 using BeUtl.Reactive;
 
@@ -70,11 +69,9 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
         {
             if (_animation != value)
             {
-                var args = new StylingTreeAttachmentEventArgs(this);
                 if (_animation != null)
                 {
                     _animation.Invalidated -= Animation_Invalidated;
-                    (_animation as IStylingElement).NotifyDetachedFromStylingTree(args);
                 }
 
                 _animation = value;
@@ -82,7 +79,6 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
                 if (value != null)
                 {
                     value.Invalidated += Animation_Invalidated;
-                    (value as IStylingElement).NotifyAttachedToStylingTree(args);
                 }
             }
         }
@@ -94,8 +90,6 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
     {
         get
         {
-            if (Animation != null)
-                yield return Animation;
             if (Value is IStylingElement element)
                 yield return element;
         }

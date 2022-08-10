@@ -6,7 +6,7 @@ using BeUtl.Media;
 
 namespace BeUtl.Graphics.Transformation;
 
-public sealed class Transforms : CoreList<ITransform>
+public sealed class Transforms : CoreList<ITransform>, IAffectsRender
 {
     public Transforms()
     {

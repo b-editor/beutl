@@ -13,6 +13,8 @@ public interface IAnimationSpan : ICoreObject
 
     object Next { get; set; }
 
+    Animator Animator { get; }
+
     event EventHandler? Invalidated;
 
     object Interpolate(float progress);

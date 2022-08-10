@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
 using BeUtl.Animation;
-using BeUtl.Styling;
 
 namespace BeUtl.Graphics.Transformation;
 
@@ -21,16 +20,6 @@ public sealed class TransformGroup : Transform
     public TransformGroup()
     {
         _children = new Transforms();
-        _children.Attached += item =>
-        {
-            (item as ILogicalElement)?.NotifyAttachedToLogicalTree(new(this));
-            (item as IStylingElement)?.NotifyAttachedToStylingTree(new(this));
-        };
-        _children.Detached += item =>
-        {
-            (item as ILogicalElement)?.NotifyDetachedFromLogicalTree(new(this));
-            (item as IStylingElement)?.NotifyDetachedFromStylingTree(new(this));
-        };
         _children.Invalidated += (_, _) => RaiseInvalidated();
     }
 
@@ -91,26 +80,20 @@ public sealed class TransformGroup : Transform
         {
             var array = new JsonArray();
 
-            foreach (Transform item in _children.GetMarshal().Value)
+            foreach (ITransform item in _children.GetMarshal().Value)
             {
-                JsonNode node = new JsonObject();
-                item.WriteToJson(ref node);
+                if (item is Transform transform)
+                {
+                    JsonNode node = new JsonObject();
+                    transform.WriteToJson(ref node);
 
-                node["@type"] = TypeFormat.ToString(item.GetType());
+                    node["@type"] = TypeFormat.ToString(item.GetType());
 
-                array.Add(node);
+                    array.Add(node);
+                }
             }
 
             jobject["children"] = array;
-        }
-    }
-
-    public override void ApplyStyling(IClock clock)
-    {
-        base.ApplyStyling(clock);
-        foreach (ITransform item in Children.GetMarshal().Value)
-        {
-            (item as Styleable)?.ApplyStyling(clock);
         }
     }
 

@@ -1,8 +1,8 @@
-﻿using BeUtl.Styling;
+﻿using BeUtl.Animation;
 
 namespace BeUtl.Graphics.Effects;
 
-public abstract class BitmapEffect : Styleable, IBitmapEffect
+public abstract class BitmapEffect : Animatable, IBitmapEffect
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
     private bool _isEnabled;

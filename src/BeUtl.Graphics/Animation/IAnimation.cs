@@ -4,7 +4,7 @@ using BeUtl.Styling;
 
 namespace BeUtl.Animation;
 
-public interface IAnimation : IJsonSerializable, ILogicalElement, IStylingElement
+public interface IAnimation : IJsonSerializable
 {
     CoreProperty Property { get; }
 

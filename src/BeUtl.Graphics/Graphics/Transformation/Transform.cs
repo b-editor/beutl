@@ -1,10 +1,10 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-using BeUtl.Styling;
+using BeUtl.Animation;
 
 namespace BeUtl.Graphics.Transformation;
 
-public abstract class Transform : Styleable, IMutableTransform
+public abstract class Transform : Animatable, IMutableTransform
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
     private bool _isEnabled;

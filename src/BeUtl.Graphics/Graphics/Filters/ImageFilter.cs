@@ -1,22 +1,26 @@
-﻿using BeUtl.Media;
+﻿using BeUtl.Animation;
+using BeUtl.Media;
 using BeUtl.Styling;
 
 using SkiaSharp;
 
 namespace BeUtl.Graphics.Filters;
 
-public interface IImageFilter : IAffectsRender
+public interface IImageFilter
 {
+    bool IsEnabled { get; }
+
     Rect TransformBounds(Rect rect);
 
     SKImageFilter ToSKImageFilter();
 }
 
-public interface IMutableImageFilter : IStyleable, IImageFilter
+// Todo: IAnimatable
+public interface IMutableImageFilter : IImageFilter, ICoreObject, IAffectsRender
 {
 }
 
-public abstract class ImageFilter : Styleable, IMutableImageFilter
+public abstract class ImageFilter : Animatable, IMutableImageFilter
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
     private bool _isEnabled;

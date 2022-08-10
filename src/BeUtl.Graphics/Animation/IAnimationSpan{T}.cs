@@ -6,6 +6,8 @@ public interface IAnimationSpan<T> : IAnimationSpan
 
     new T Next { get; set; }
 
+    new Animator<T> Animator { get; }
+
     object IAnimationSpan.Previous
     {
         get => Previous!;
@@ -17,6 +19,8 @@ public interface IAnimationSpan<T> : IAnimationSpan
         get => Next!;
         set => Next = (T)value;
     }
+
+    Animator IAnimationSpan.Animator => Animator;
 
     new T Interpolate(float progress);
 
