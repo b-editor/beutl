@@ -126,15 +126,12 @@
         <x:String x:Key="S.Common.ProjectFile">プロジェクトファイル</x:String>
         <x:String x:Key="S.Common.StrokeWidth">ストローク幅</x:String>
         <x:String x:Key="S.Common.Language">言語</x:String>
-        <x:String x:Key="S.Common.Text">テキスト</x:String>
-        <x:String x:Key="S.Common.Rotation">回転</x:String>
         <x:String x:Key="S.Common.RecentFiles">最近使ったファイル</x:String>
         <x:String x:Key="S.Common.RecentProjects">最近使ったプロジェクト</x:String>
-        <x:String x:Key="S.Common.Scale">スケール</x:String>
         <x:String x:Key="S.Common.ScaleX">スケールX</x:String>
         <x:String x:Key="S.Common.ScaleY">スケールY</x:String>
-        <x:String x:Key="S.Common.SkewX">Skew x</x:String>
-        <x:String x:Key="S.Common.SkewY">Skew y</x:String>
+        <x:String x:Key="S.Common.SkewX">Skew X</x:String>
+        <x:String x:Key="S.Common.SkewY">Skew Y</x:String>
         <x:String x:Key="S.Common.Yes">はい</x:String>
         <x:String x:Key="S.Common.No">いいえ</x:String>
         <x:String x:Key="S.Common.Account">アカウント</x:String>
@@ -146,39 +143,74 @@
         <x:String x:Key="S.Common.Thickness">Thickness</x:String>
         <x:String x:Key="S.Common.MaskType">MaskType</x:String>
         <x:String x:Key="S.Common.BorderStyle">BorderStyle</x:String>
-        <x:String x:Key="S.Common.Operations">オペレーション</x:String>
         <x:String x:Key="S.Common.Style">スタイル</x:String>
         <x:String x:Key="S.Common.StreamOperators">ストリーム操作</x:String>
         <x:String x:Key="S.Common.Animation">アニメーション</x:String>
+        <x:String x:Key="S.Common.Alignment">整列</x:String>
+        <x:String x:Key="S.Common.Blend">ブレンド</x:String>
+        <x:String x:Key="S.Common.Foreground">フォアグラウンド</x:String>
+        <x:String x:Key="S.Common.OpacityMask">不透明マスク</x:String>
+        <x:String x:Key="S.Common.Brush">ブラシ</x:String>
+        <x:String x:Key="S.Common.LinearGradientBrush">線形グラデーションブラシ</x:String>
+        <x:String x:Key="S.Common.Configure">構成</x:String>
+        <x:String x:Key="S.Common.ImageFilter">画像フィルター</x:String>
+        <x:String x:Key="S.Common.Blur">ブラー</x:String>
+        <x:String x:Key="S.Common.DropShadow">ドロップシャドウ</x:String>
+        <x:String x:Key="S.Common.BitmapEffect">ビットマップエフェクト</x:String>
+        <x:String x:Key="S.Common.InnerShadow">内側シャドウ</x:String>
+        <x:String x:Key="S.Common.Border">縁取り</x:String>
+        <x:String x:Key="S.Common.Transform">トランスフォーム</x:String>
+        <x:String x:Key="S.Common.Rotation">回転</x:String>
+        <x:String x:Key="S.Common.Rotation3D">回転3D</x:String>
+        <x:String x:Key="S.Common.Scale">スケール</x:String>
+        <x:String x:Key="S.Common.Skew">斜め</x:String>
+        <x:String x:Key="S.Common.Translate">移動</x:String>
+        <x:String x:Key="S.Common.Source">ソース</x:String>
+        <x:String x:Key="S.Common.Ellipse">楕円</x:String>
+        <x:String x:Key="S.Common.Rect">矩形</x:String>
+        <x:String x:Key="S.Common.RoundedRect">角丸四角形</x:String>
+        <x:String x:Key="S.Common.Text">テキスト</x:String>
+        <x:String x:Key="S.Common.ImageFile">画像ファイル</x:String>
+        <x:String x:Key="S.Common.TransformOrigin">トランスフォームの起点</x:String>
+        <x:String x:Key="S.Common.BlendMode">ブレンドモード</x:String>
+        <x:String x:Key="S.Common.SourceFile">ソースファイル</x:String>
+        <x:String x:Key="S.Common.Angle">アングル</x:String>
+        <x:String x:Key="S.Common.SpreadMethod">広がり方</x:String>
+        <x:String x:Key="S.Common.GradientStops">分岐点</x:String>
+        <x:String x:Key="S.Common.StartPoint">開始点</x:String>
+        <x:String x:Key="S.Common.EndPoint">終了点</x:String>
+        <x:String x:Key="S.Common.GradientOrigin">グラデーションの起点</x:String>
+        <x:String x:Key="S.Common.Radius">半径</x:String>
+        <x:String x:Key="S.Common.DestinationRect">デスティネーション</x:String>
+        <x:String x:Key="S.Common.SourceRect">ソース</x:String>
+        <x:String x:Key="S.Common.Stretch">ストレッチ</x:String>
+        <x:String x:Key="S.Common.TileMode">タイルモード</x:String>
+        <x:String x:Key="S.Common.BitmapInterpolationMode">ビットマップ補間モード</x:String>
+        <x:String x:Key="S.Common.Property">プロパティ</x:String>
+        <x:String x:Key="S.Common.Easing">イージング</x:String>
+        <x:String x:Key="S.Common.TargetType">対象型</x:String>
+        <x:String x:Key="S.Common.AddSetter">セッターを追加</x:String>
+        <x:String x:Key="S.Common.RemoveUnavailableSetters">利用できないセッターを削除しますか？</x:String>
+        <x:String x:Key="S.Common.Editors">エディタ</x:String>
+        <x:String x:Key="S.Common.Tools">ツール</x:String>
+        <x:String x:Key="S.Common.AddToCurrentProject">現在のプロジェクトに追加する</x:String>
     </Styles.Resources>
 
     <!--Views-->
     <StyleInclude Source="/ja-JP/Views/MainViewResources.axaml" />
-    <StyleInclude Source="/ja-JP/Views/EditViewResources.axaml" />
-    <StyleInclude Source="/ja-JP/Views/TimelineResources.axaml" />
-    <StyleInclude Source="/ja-JP/Views/TimelineLayerResources.axaml" />
 
     <!--Views.Editors-->
-    <StyleInclude Source="/ja-JP/Views/Editors/AnimationEditorResources.axaml" />
-    <StyleInclude Source="/ja-JP/Views/Editors/EditorsResources.axaml" />
-
-    <!--Views.Dialogs-->
-    <StyleInclude Source="/ja-JP/Views/Dialogs/AddLayerResources.axaml" />
-    <StyleInclude Source="/ja-JP/Views/Dialogs/CreateNewProjectResources.axaml" />
-    <StyleInclude Source="/ja-JP/Views/Dialogs/CreateNewSceneResources.axaml" />
-    <StyleInclude Source="/ja-JP/Views/Dialogs/PickFontFamilyResources.axaml" />
-    <StyleInclude Source="/ja-JP/Views/Dialogs/SceneSettingsResources.axaml" />
+    <StyleInclude Source="/ja-JP/Views/EditorsResources.axaml" />
 
     <!--Pages-->
-    <StyleInclude Source="/ja-JP/Pages/EditPageResources.axaml" />
     <StyleInclude Source="/ja-JP/Pages/ExtensionsPageResources.axaml" />
     <StyleInclude Source="/ja-JP/Pages/SettingsPageResources.axaml" />
 
     <!--Messages-->
     <StyleInclude Source="/ja-JP/MessageResources.axaml" />
 
-    <!--OpNames-->
-    <StyleInclude Source="/ja-JP/OpNameResources.axaml" />
+    <!--Operators-->
+    <StyleInclude Source="/en-US/OperatorsResources.axaml" />
 
     <!--Warnings-->
     <StyleInclude Source="/ja-JP/WarningResources.axaml" />

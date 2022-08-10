@@ -25,7 +25,7 @@ public sealed class SceneEditorExtension : EditorExtension
         Constants.SceneFileExtension
     };
 
-    public override ResourceReference<string> FileTypeName => "S.Common.SceneFile";
+    public override IObservable<string> FileTypeName => S.Common.SceneFileObservable;
 
     public override string Name => "Scene editor";
 

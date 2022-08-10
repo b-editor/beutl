@@ -1,8 +1,10 @@
 ﻿using System.Collections;
+using System.ComponentModel;
 
 using BeUtl.Framework;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels.Editors;
 
@@ -15,7 +17,34 @@ public sealed class ListEditorViewModel : BaseEditorViewModel
             .Select(x => x as IList)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
+
+        ObserveCount = List.SelectMany(x =>
+            {
+                if (x is INotifyPropertyChanged n)
+                {
+                    return n.PropertyChangedAsObservable()
+                        .Where(x => x.PropertyName == "Count")
+                        .Select(_ => x.Count)
+                        .Publish(x.Count)
+                        .RefCount();
+                }
+                else
+                {
+                    return Observable.Return(x?.Count ?? 0);
+                }
+            })
+            .ToReactiveProperty()
+            .DisposeWith(Disposables);
+
+        CountString = ObserveCount
+            .Select(x => string.Format(S.Message.CountItems, x))
+            .ToReadOnlyReactivePropertySlim(string.Empty)
+            .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<IList?> List { get; }
+
+    public ReactiveProperty<int> ObserveCount { get; }
+
+    public ReadOnlyReactivePropertySlim<string> CountString { get; }
 }

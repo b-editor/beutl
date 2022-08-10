@@ -1,4 +1,6 @@
-﻿using Avalonia.Media;
+﻿using System.Reactive.Linq;
+
+using Avalonia.Media;
 
 using BeUtl;
 using BeUtl.Controls;
@@ -17,7 +19,7 @@ public sealed class SamplePageExtension : PageExtension
 
     public override Geometry RegularIcon { get; } = FluentIconsRegular.Mail.GetGeometry();
 
-    public override ResourceReference<string> Header => "S.SamplePackage.SamplePageExtension.FileTypeName";
+    public override IObservable<string> Header => Observable.Return("Mail");
 
     // 本来はControlを返す。
     // nullを返すとErrorUIが表示される

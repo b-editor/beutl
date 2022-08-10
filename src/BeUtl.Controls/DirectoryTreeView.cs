@@ -7,11 +7,12 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Styling;
 using Avalonia.Threading;
 
 using FluentAvalonia.UI.Controls;
+
+using S = BeUtl.Language.Resources.S;
 
 namespace BeUtl.Controls;
 
@@ -46,7 +47,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
 
         _open = new MenuItem
         {
-            [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("S.Common.Open"),
+            [!HeaderedSelectingItemsControl.HeaderProperty] = S.Common.OpenObservable.ToBinding(),
             Icon = new SymbolIcon
             {
                 Symbol = Symbol.Open,
@@ -55,7 +56,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         };
         _copy = new MenuItem
         {
-            [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("S.Common.Copy"),
+            [!HeaderedSelectingItemsControl.HeaderProperty] = S.Common.CopyObservable.ToBinding(),
             Icon = new SymbolIcon
             {
                 Symbol = Symbol.Copy,
@@ -64,7 +65,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         };
         _remove = new MenuItem
         {
-            [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("S.Common.Remove"),
+            [!HeaderedSelectingItemsControl.HeaderProperty] = S.Common.RemoveObservable.ToBinding(),
             Icon = new SymbolIcon
             {
                 Symbol = Symbol.Delete,
@@ -73,7 +74,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         };
         _rename = new MenuItem
         {
-            [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("S.Common.Rename"),
+            [!HeaderedSelectingItemsControl.HeaderProperty] = S.Common.RenameObservable.ToBinding(),
             Icon = new SymbolIcon
             {
                 Symbol = Symbol.Rename,
@@ -82,7 +83,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         };
         _addfolder = new MenuItem
         {
-            [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("S.Common.NewFolder"),
+            [!HeaderedSelectingItemsControl.HeaderProperty] = S.Common.NewFolderObservable.ToBinding(),
             Icon = new SymbolIcon
             {
                 Symbol = Symbol.Folder,
@@ -101,7 +102,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
             _open,
             new MenuItem
             {
-                [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("S.Common.CreateNew"),
+                [!HeaderedSelectingItemsControl.HeaderProperty] = S.Common.CreateNewObservable.ToBinding(),
                 Items = new object[]
                 {
                     _addfolder,
@@ -110,9 +111,8 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
             _copy,
             _remove,
             _rename,
+            new Separator()
         };
-
-        _menuItem.Add(new Separator());
 
         //foreach (var (asm, menus) in PluginManager.Default.FileMenus)
         //{
@@ -223,9 +223,9 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         {
             var dialog = new ContentDialog
             {
-                [!ContentControl.ContentProperty] = new DynamicResourceExtension("S.Message.DoYouWantToDeleteThisDirectory"),
-                [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.Common.OK"),
-                [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Cancel"),
+                Content = S.Message.DoYouWantToDeleteThisDirectory,
+                PrimaryButtonText = S.Common.OK,
+                CloseButtonText = S.Common.Cancel,
                 DefaultButton = ContentDialogButton.Primary,
                 IsSecondaryButtonEnabled = false,
             };
@@ -239,9 +239,9 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         {
             var dialog = new ContentDialog
             {
-                [!ContentControl.ContentProperty] = new DynamicResourceExtension("S.Message.DoYouWantToDeleteThisFile"),
-                [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.Common.OK"),
-                [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Cancel"),
+                Content = S.Message.DoYouWantToDeleteThisFile,
+                PrimaryButtonText = S.Common.OK,
+                CloseButtonText = S.Common.Cancel,
                 DefaultButton = ContentDialogButton.Primary,
                 IsSecondaryButtonEnabled = false,
             };
@@ -278,7 +278,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         }
 
         int count = 0;
-        string str = Application.Current.FindResource("S.Common.NewFolder") as string ?? "New Folder";
+        string str = S.Common.NewFolder;
         string defaultName = str;
 
         while (Directory.Exists(Path.Combine(baseDir, defaultName)))
@@ -545,11 +545,11 @@ public sealed class FileTreeItem : TreeViewItem, IStyleable
             string @new = Path.Combine(Info.DirectoryName, tb.Text);
             if (File.Exists(@new))
             {
-                string content = (string)Application.Current.FindResource("S.Warning.CannotRenameBecauseConflicts");
+                string content = S.Warning.CannotRenameBecauseConflicts;
                 content = string.Format(content, Info.Name, tb.Text);
                 var dialog = new ContentDialog()
                 {
-                    [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Close"),
+                    CloseButtonText = S.Common.Close,
                     Content = content,
                     DefaultButton = ContentDialogButton.None,
                     IsPrimaryButtonEnabled = false,
@@ -603,12 +603,12 @@ public sealed class DirectoryTreeItem : TreeViewItem, IStyleable
 {
     private readonly AvaloniaList<TreeViewItem> _items = new();
     private readonly FileSystemWatcher _watcher;
+    private readonly Func<string, object> _contextFactory;
     // //サブフォルダを作成済みかどうか
     private bool _isAdd;
     private DirectoryInfo _info;
     // 名前を変更中
     private bool _isRenaming;
-    private Func<string, object> _contextFactory;
 
     public DirectoryTreeItem(DirectoryInfo info, FileSystemWatcher watcher, Func<string, object> contextFactory = null)
     {
@@ -771,11 +771,11 @@ public sealed class DirectoryTreeItem : TreeViewItem, IStyleable
             string @new = Path.Combine(Info.Parent.FullName, tb.Text);
             if (Directory.Exists(@new))
             {
-                string content = (string)Application.Current.FindResource("S.Warning.CannotRenameBecauseConflicts");
+                string content = S.Warning.CannotRenameBecauseConflicts;
                 content = string.Format(content, Info.Name, tb.Text);
                 var dialog = new ContentDialog()
                 {
-                    [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Close"),
+                    CloseButtonText = S.Common.Close,
                     Content = content,
                     DefaultButton = ContentDialogButton.None,
                     IsPrimaryButtonEnabled = false,
@@ -798,7 +798,7 @@ public sealed class DirectoryTreeItem : TreeViewItem, IStyleable
         }
     }
 
-    protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
+    protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
         base.OnAttachedToLogicalTree(e);
 
@@ -807,7 +807,7 @@ public sealed class DirectoryTreeItem : TreeViewItem, IStyleable
         _watcher.Created += Watcher_Created;
     }
 
-    protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
+    protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromLogicalTree(e);
 

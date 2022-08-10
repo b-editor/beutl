@@ -22,9 +22,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
             .Select(x => x as Layer)
             .ToReactiveProperty();
 
-        Header = new ResourceReference<string>("S.Common.StreamOperators")
-            .GetResourceObservable()
-            .ToReadOnlyReactivePropertySlim()!;
+        Header = S.Common.StreamOperatorsObservable.ToReadOnlyReactivePropertySlim()!;
 
         _disposable0 = Layer.Subscribe(layer =>
         {

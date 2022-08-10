@@ -15,7 +15,7 @@ public sealed class OutputPageExtension : PageExtension
 
     public override Geometry RegularIcon { get; } = FluentIconsRegular.Arrow_Export_LTR.GetGeometry();
 
-    public override ResourceReference<string> Header => "S.MainView.Output";
+    public override IObservable<string> Header => S.MainView.OutputObservable;
 
     public override Type Control => null!;
 

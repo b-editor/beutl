@@ -19,9 +19,10 @@ public sealed class SamplePackage : Package
 
     public override IResourceProvider? GetResource(CultureInfo ci)
     {
-        return new ResourceInclude
-        {
-            Source = new Uri("avares://PackageSample/Resources/ja-JP/Strings.axaml")
-        };
+        //return new ResourceInclude
+        //{
+        //    Source = new Uri("avares://PackageSample/Resources/ja-JP/Strings.axaml")
+        //};
+        return null;
     }
 }

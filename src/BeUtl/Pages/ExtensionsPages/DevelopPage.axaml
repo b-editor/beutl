@@ -13,7 +13,7 @@
     </UserControl.DataContext>
     <ScrollViewer Padding="18">
         <StackPanel Margin="8" Spacing="8">
-            <TextBlock Text="ショートカット" Classes="SubtitleTextBlockStyle" />
+            <TextBlock Text="{DynamicResource S.DevelopPage.Shortcuts}" Classes="SubtitleTextBlockStyle" />
 
             <ScrollViewer VerticalScrollBarVisibility="Disabled"
                           HorizontalScrollBarVisibility="Auto">
@@ -21,16 +21,16 @@
                     <ctrls:OptionsDisplayItem
                         Navigates="True"
                         NavigationRequested="CreateNewPackage_Click"
-                        Header="パッケージを新規作成"
-                        Description="配布するパッケージを新規作成します">
+                        Header="{DynamicResource S.DevelopPage.CreateNewPackage}"
+                        Description="{DynamicResource S.DevelopPage.CreateNewPackageDescription}">
                         <ctrls:OptionsDisplayItem.Icon>
                             <ui:SymbolIcon Symbol="New" />
                         </ctrls:OptionsDisplayItem.Icon>
                     </ctrls:OptionsDisplayItem>
 
                     <ctrls:OptionsDisplayItem
-                        Header="ドキュメント"
-                        Description="開発者向けのドキュメント">
+                        Header="{DynamicResource S.DevelopPage.Documents}"
+                        Description="{DynamicResource S.DevelopPage.DocumentsDescription}">
                         <ctrls:OptionsDisplayItem.Icon>
                             <ui:SymbolIcon Symbol="Document" />
                         </ctrls:OptionsDisplayItem.Icon>
@@ -39,7 +39,7 @@
             </ScrollViewer>
 
             <Separator Height="8" />
-            <TextBlock Text="パッケージ" Classes="SubtitleTextBlockStyle" />
+            <TextBlock Text="{DynamicResource S.DevelopPage.Packages}" Classes="SubtitleTextBlockStyle" />
 
             <ListBox Items="{CompiledBinding Packages}"
                      SelectionMode="Multiple"
@@ -68,7 +68,7 @@
                                 </TextBlock>
                             </StackPanel>
 
-                            <ui:CommandBarButton Label="編集"
+                            <ui:CommandBarButton Label="{DynamicResource S.Common.Edit}"
                                                  Grid.Column="3"
                                                  Click="Edit_Click"
                                                  Icon="Edit" />

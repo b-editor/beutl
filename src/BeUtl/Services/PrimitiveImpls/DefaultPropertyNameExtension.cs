@@ -18,7 +18,7 @@ public sealed class DefaultPropertyNameExtension : LocalizedPropertyNameExtensio
     {
         if (property.Id == AnimationSpan.EasingProperty.Id)
         {
-            return S.Common.EasingsObservable;
+            return S.Common.EasingObservable;
         }
         else if (property.Id == Layer.StartProperty.Id
             || property.Id == LayerNode.StartProperty.Id)
@@ -136,23 +136,23 @@ public sealed class DefaultPropertyNameExtension : LocalizedPropertyNameExtensio
         {
             return S.Common.HeightObservable;
         }
-        //else if (property.Id == Graphics.Drawable.TransformProperty.Id
-        //    || property.Id == Media.Brush.TransformProperty.Id)
-        //{
-        //    return S.Common.TransformObservable;
-        //}
-        //else if (property.Id == Media.Brush.TransformOriginProperty.Id)
-        //{
-        //    return S.Common.TransformOriginObservable;
-        //}
-        //else if (property.Id == Graphics.Drawable.FilterProperty.Id)
-        //{
-        //    return S.Common.FilterObservable;
-        //}
-        //else if (property.Id == Graphics.Drawable.EffectProperty.Id)
-        //{
-        //    return S.Common.EffectObservable;
-        //}
+        else if (property.Id == Graphics.Drawable.TransformProperty.Id
+            || property.Id == Media.Brush.TransformProperty.Id)
+        {
+            return S.Common.TransformObservable;
+        }
+        else if (property.Id == Media.Brush.TransformOriginProperty.Id)
+        {
+            return S.Common.TransformOriginObservable;
+        }
+        else if (property.Id == Graphics.Drawable.FilterProperty.Id)
+        {
+            return S.Common.ImageFilterObservable;
+        }
+        else if (property.Id == Graphics.Drawable.EffectProperty.Id)
+        {
+            return S.Common.BitmapEffectObservable;
+        }
         else if (property.Id == Graphics.Drawable.CanvasAlignmentXProperty.Id)
         {
             return S.Common.CanvasAlignmentXObservable;
@@ -171,22 +171,22 @@ public sealed class DefaultPropertyNameExtension : LocalizedPropertyNameExtensio
         {
             return S.Common.AlignmentYObservable;
         }
-        //else if (property.Id == Graphics.Drawable.ForegroundProperty.Id)
-        //{
-        //    return S.Common.ForegroundObservable;
-        //}
-        //else if (property.Id == Graphics.Drawable.OpacityMaskProperty.Id)
-        //{
-        //    return S.Common.OpacityMaskObservable;
-        //}
-        //else if (property.Id == Graphics.Drawable.BlendModeProperty.Id)
-        //{
-        //    return S.Common.BlendModeObservable;
-        //}
-        //else if (property.Id == Graphics.ImageFile.SourceFileProperty.Id)
-        //{
-        //    return S.Common.SourceFileObservable;
-        //}
+        else if (property.Id == Graphics.Drawable.ForegroundProperty.Id)
+        {
+            return S.Common.ForegroundObservable;
+        }
+        else if (property.Id == Graphics.Drawable.OpacityMaskProperty.Id)
+        {
+            return S.Common.OpacityMaskObservable;
+        }
+        else if (property.Id == Graphics.Drawable.BlendModeProperty.Id)
+        {
+            return S.Common.BlendModeObservable;
+        }
+        else if (property.Id == Graphics.ImageFile.SourceFileProperty.Id)
+        {
+            return S.Common.SourceFileObservable;
+        }
         else if (property.Id == Media.Brush.OpacityProperty.Id)
         {
             return S.Common.OpacityObservable;
@@ -196,54 +196,54 @@ public sealed class DefaultPropertyNameExtension : LocalizedPropertyNameExtensio
         {
             return S.Common.CenterObservable;
         }
-        //else if (property.Id == Media.ConicGradientBrush.AngleProperty.Id)
-        //{
-        //    return S.Common.AngleObservable;
-        //}
-        //else if (property.Id == Media.GradientBrush.SpreadMethodProperty.Id)
-        //{
-        //    return S.Common.SpreadMethodObservable;
-        //}
-        //else if (property.Id == Media.GradientBrush.GradientStopsProperty.Id)
-        //{
-        //    return S.Common.GradientStopsObservable;
-        //}
-        //else if (property.Id == Media.LinearGradientBrush.StartPointProperty.Id)
-        //{
-        //    return S.Common.StartPointObservable;
-        //}
-        //else if (property.Id == Media.LinearGradientBrush.EndPointProperty.Id)
-        //{
-        //    return S.Common.EndPointObservable;
-        //}
-        //else if (property.Id == Media.RadialGradientBrush.GradientOriginProperty.Id)
-        //{
-        //    return S.Common.GradientOriginObservable;
-        //}
-        //else if (property.Id == Media.RadialGradientBrush.RadiusProperty.Id)
-        //{
-        //    return S.Common.RadiusObservable;
-        //}
-        //else if (property.Id == Media.TileBrush.DestinationRectProperty.Id)
-        //{
-        //    return S.Common.DestinationRectObservable;
-        //}
-        //else if (property.Id == Media.TileBrush.SourceRectProperty.Id)
-        //{
-        //    return S.Common.SourceRectObservable;
-        //}
-        //else if (property.Id == Media.TileBrush.StretchProperty.Id)
-        //{
-        //    return S.Common.StretchObservable;
-        //}
-        //else if (property.Id == Media.TileBrush.TileModeProperty.Id)
-        //{
-        //    return S.Common.TileModeObservable;
-        //}
-        //else if (property.Id == Media.TileBrush.BitmapInterpolationModeProperty.Id)
-        //{
-        //    return S.Common.BitmapInterpolationModeObservable;
-        //}
+        else if (property.Id == Media.ConicGradientBrush.AngleProperty.Id)
+        {
+            return S.Common.AngleObservable;
+        }
+        else if (property.Id == Media.GradientBrush.SpreadMethodProperty.Id)
+        {
+            return S.Common.SpreadMethodObservable;
+        }
+        else if (property.Id == Media.GradientBrush.GradientStopsProperty.Id)
+        {
+            return S.Common.GradientStopsObservable;
+        }
+        else if (property.Id == Media.LinearGradientBrush.StartPointProperty.Id)
+        {
+            return S.Common.StartPointObservable;
+        }
+        else if (property.Id == Media.LinearGradientBrush.EndPointProperty.Id)
+        {
+            return S.Common.EndPointObservable;
+        }
+        else if (property.Id == Media.RadialGradientBrush.GradientOriginProperty.Id)
+        {
+            return S.Common.GradientOriginObservable;
+        }
+        else if (property.Id == Media.RadialGradientBrush.RadiusProperty.Id)
+        {
+            return S.Common.RadiusObservable;
+        }
+        else if (property.Id == Media.TileBrush.DestinationRectProperty.Id)
+        {
+            return S.Common.DestinationRectObservable;
+        }
+        else if (property.Id == Media.TileBrush.SourceRectProperty.Id)
+        {
+            return S.Common.SourceRectObservable;
+        }
+        else if (property.Id == Media.TileBrush.StretchProperty.Id)
+        {
+            return S.Common.StretchObservable;
+        }
+        else if (property.Id == Media.TileBrush.TileModeProperty.Id)
+        {
+            return S.Common.TileModeObservable;
+        }
+        else if (property.Id == Media.TileBrush.BitmapInterpolationModeProperty.Id)
+        {
+            return S.Common.BitmapInterpolationModeObservable;
+        }
         else
         {
             return null;

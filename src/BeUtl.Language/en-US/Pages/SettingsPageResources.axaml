@@ -9,9 +9,6 @@
         <StaticResource x:Key="S.SettingsPage.Info" ResourceKey="S.Common.Info" />
         <StaticResource x:Key="S.SettingsPage.Backup" ResourceKey="S.Common.Backup" />
 
-        <StaticResource x:Key="S.FontSettingsPage.Add" ResourceKey="S.Common.Add" />
-        <StaticResource x:Key="S.FontSettingsPage.Remove" ResourceKey="S.Common.Remove" />
-
         <StaticResource x:Key="S.InfomationPage.Links" ResourceKey="S.Common.Links" />
         <StaticResource x:Key="S.InfomationPage.SourceCode" ResourceKey="S.Common.SourceCode" />
         <StaticResource x:Key="S.InfomationPage.License" ResourceKey="S.Common.License" />
@@ -27,16 +24,10 @@
         <StaticResource x:Key="S.ViewSettingsPage.Language" ResourceKey="S.Common.Language" />
 
         <x:String x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority">Editor Extension Priority</x:String>
-        <StaticResource x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.FileExtension.Add" ResourceKey="S.Common.Add" />
-        <StaticResource x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.FileExtension.Remove" ResourceKey="S.Common.Remove" />
         <x:String x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Higher">Higher</x:String>
         <x:String x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Lower">Lower</x:String>
-        <StaticResource x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Remove" ResourceKey="S.Common.Remove" />
-        <StaticResource x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Add" ResourceKey="S.Common.Add" />
         <x:String x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.All">All Editor Extensions</x:String>
         <x:String x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Title">Add file extension</x:String>
-        <StaticResource x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Add" ResourceKey="S.Common.Add" />
-        <StaticResource x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Cancel" ResourceKey="S.Common.Cancel" />
 
         <x:String x:Key="S.AccountSettingsPage.SignOut">Sign out</x:String>
         <x:String x:Key="S.AccountSettingsPage.ChangeDisplayName">Change display name</x:String>
@@ -50,8 +41,6 @@
 Delete the '{0}' account.
 This operation cannot be undone.
         </x:String>
-        <StaticResource x:Key="S.AccountSettingsPage.Dialog1.Yes" ResourceKey="S.Common.Yes" />
-        <StaticResource x:Key="S.AccountSettingsPage.Dialog1.No" ResourceKey="S.Common.No" />
         <x:String x:Key="S.AccountSettingsPage.WithGoogle">With Google.</x:String>
         <x:String x:Key="S.AccountSettingsPage.WithPassword">With Password.</x:String>
         <x:String x:Key="S.AccountSettingsPage.UnlinkFromGoogle">Unlink from Google</x:String>

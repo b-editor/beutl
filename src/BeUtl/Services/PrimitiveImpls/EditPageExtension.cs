@@ -15,7 +15,7 @@ public sealed class EditPageExtension : PageExtension
 
     public override Geometry RegularIcon { get; } = FluentIconsRegular.Edit.GetGeometry();
 
-    public override ResourceReference<string> Header => "S.MainView.Edit";
+    public override IObservable<string> Header => S.MainView.IndexEditObservable;
 
     public override Type Control => typeof(Pages.EditPage);
 

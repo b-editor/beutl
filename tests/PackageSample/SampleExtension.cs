@@ -1,4 +1,6 @@
-﻿using BeUtl.Framework;
+﻿using System.Reactive.Linq;
+
+using BeUtl.Framework;
 using BeUtl.ProjectSystem;
 using BeUtl.Streaming;
 
@@ -12,6 +14,6 @@ public sealed class SampleExtension : LayerExtension
 
     public override void Load()
     {
-        OperatorRegistry.RegisterOperation<SampleOp>("S.SamplePackage.SampleExtension.SampleOp");
+        OperatorRegistry.RegisterOperation<SampleOp>(Observable.Return("Sample Operator"));
     }
 }

@@ -15,7 +15,7 @@ public abstract class WorkspaceItemExtension : Extension
 
     public abstract string[] FileExtensions { get; }
 
-    public abstract ResourceReference<string> FileTypeName { get; }
+    public abstract IObservable<string> FileTypeName { get; }
 
     public abstract bool TryCreateItem(
         string file,

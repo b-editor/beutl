@@ -2,6 +2,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
         <!--Strings-->
+        <x:String x:Key="S.DevelopPage.Shortcuts">ショートカット</x:String>
+        <x:String x:Key="S.DevelopPage.CreateNewPackage">パッケージを新規作成</x:String>
+        <x:String x:Key="S.DevelopPage.CreateNewPackageDescription">配布するパッケージを新規作成します</x:String>
+        <x:String x:Key="S.DevelopPage.Documents">ドキュメント</x:String>
+        <x:String x:Key="S.DevelopPage.DocumentsDescription">開発者向けのドキュメント</x:String>
+        <x:String x:Key="S.DevelopPage.Packages">パッケージ</x:String>
+
         <x:String x:Key="S.DevelopPage.DeletePackage.Title">パッケージを削除</x:String>
         <x:String x:Key="S.DevelopPage.DeletePackage.Content">
             パッケージを削除してもよろしいですか？

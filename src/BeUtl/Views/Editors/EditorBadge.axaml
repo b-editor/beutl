@@ -21,11 +21,11 @@
             <ContextMenu>
                 <MenuItem
                     Command="{Binding Reset}"
-                    Header="{DynamicResource S.Editors.Badge.Reset}"
+                    Header="{DynamicResource S.Common.Reset}"
                     IsEnabled="{CompiledBinding CanReset}" />
                 <MenuItem
                     Click="EditAnimation_Click"
-                    Header="{DynamicResource S.Editors.Badge.EditAnimation}" />
+                    Header="{DynamicResource S.Common.EditAnimation}" />
                 <MenuItem
                     IsVisible="{CompiledBinding IsStylingSetter}"
                     Click="DeleteSetter_Click"
@@ -41,7 +41,7 @@
                     <Setter Property="Symbol" Value="Flow" />
                     <Setter Property="IsFilled" Value="True" />
                     <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
-                    <Setter Property="ToolTip.Tip" Value="アニメーションが有効です" />
+                    <Setter Property="ToolTip.Tip" Value="{DynamicResource S.Message.AnimationIsEnabled}" />
                 </Style>
             </ic:SymbolIcon.Styles>
         </ic:SymbolIcon>

@@ -1,6 +1,9 @@
-﻿using Avalonia.Controls;
+using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Markup.Xaml.MarkupExtensions;
+
+using BeUtl.ViewModels.Editors;
 
 #pragma warning disable IDE0001, IDE0049
 
@@ -9,8 +12,8 @@ namespace BeUtl.Views.Editors
     // Vector2
     public sealed class PixelPointEditor : BaseVector2Editor<BeUtl.Media.PixelPoint>
     {
-        private static readonly DynamicResourceExtension s_xResource = new("S.Editors.PixelPoint.X");
-        private static readonly DynamicResourceExtension s_yResource = new("S.Editors.PixelPoint.Y");
+        private static readonly IBinding s_xResource = S.Editors.PixelPoint.XObservable.ToBinding();
+        private static readonly IBinding s_yResource = S.Editors.PixelPoint.YObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
 
@@ -53,8 +56,8 @@ namespace BeUtl.Views.Editors
     }
     public sealed class PixelSizeEditor : BaseVector2Editor<BeUtl.Media.PixelSize>
     {
-        private static readonly DynamicResourceExtension s_xResource = new("S.Editors.PixelSize.X");
-        private static readonly DynamicResourceExtension s_yResource = new("S.Editors.PixelSize.Y");
+        private static readonly IBinding s_xResource = S.Editors.PixelSize.XObservable.ToBinding();
+        private static readonly IBinding s_yResource = S.Editors.PixelSize.YObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.Width", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Height", BindingMode.OneWay);
 
@@ -97,8 +100,8 @@ namespace BeUtl.Views.Editors
     }
     public sealed class PointEditor : BaseVector2Editor<BeUtl.Graphics.Point>
     {
-        private static readonly DynamicResourceExtension s_xResource = new("S.Editors.Point.X");
-        private static readonly DynamicResourceExtension s_yResource = new("S.Editors.Point.Y");
+        private static readonly IBinding s_xResource = S.Editors.Point.XObservable.ToBinding();
+        private static readonly IBinding s_yResource = S.Editors.Point.YObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
 
@@ -141,8 +144,8 @@ namespace BeUtl.Views.Editors
     }
     public sealed class SizeEditor : BaseVector2Editor<BeUtl.Graphics.Size>
     {
-        private static readonly DynamicResourceExtension s_xResource = new("S.Editors.Size.X");
-        private static readonly DynamicResourceExtension s_yResource = new("S.Editors.Size.Y");
+        private static readonly IBinding s_xResource = S.Editors.Size.XObservable.ToBinding();
+        private static readonly IBinding s_yResource = S.Editors.Size.YObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.Width", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Height", BindingMode.OneWay);
 
@@ -185,8 +188,8 @@ namespace BeUtl.Views.Editors
     }
     public sealed class VectorEditor : BaseVector2Editor<BeUtl.Graphics.Vector>
     {
-        private static readonly DynamicResourceExtension s_xResource = new("S.Editors.Vector.X");
-        private static readonly DynamicResourceExtension s_yResource = new("S.Editors.Vector.Y");
+        private static readonly IBinding s_xResource = S.Editors.Vector.XObservable.ToBinding();
+        private static readonly IBinding s_yResource = S.Editors.Vector.YObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
 
@@ -229,8 +232,8 @@ namespace BeUtl.Views.Editors
     }
     public sealed class Vector2Editor : BaseVector2Editor<System.Numerics.Vector2>
     {
-        private static readonly DynamicResourceExtension s_xResource = new("S.Editors.Vector2.X");
-        private static readonly DynamicResourceExtension s_yResource = new("S.Editors.Vector2.Y");
+        private static readonly IBinding s_xResource = S.Editors.Vector2.XObservable.ToBinding();
+        private static readonly IBinding s_yResource = S.Editors.Vector2.YObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
 
@@ -275,9 +278,9 @@ namespace BeUtl.Views.Editors
     // Vector3
     public sealed class Vector3Editor : BaseVector3Editor<System.Numerics.Vector3>
     {
-        private static readonly DynamicResourceExtension s_xResource = new("S.Editors.Vector3.X");
-        private static readonly DynamicResourceExtension s_yResource = new("S.Editors.Vector3.Y");
-        private static readonly DynamicResourceExtension s_zResource = new("S.Editors.Vector3.Z");
+        private static readonly IBinding s_xResource = S.Editors.Vector3.XObservable.ToBinding();
+        private static readonly IBinding s_yResource = S.Editors.Vector3.YObservable.ToBinding();
+        private static readonly IBinding s_zResource = S.Editors.Vector3.ZObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
         private static readonly Binding s_z = new("Value.Value.Z", BindingMode.OneWay);
@@ -337,10 +340,10 @@ namespace BeUtl.Views.Editors
     // Vector4
     public sealed class PixelRectEditor : BaseVector4Editor<BeUtl.Media.PixelRect>
     {
-        private static readonly DynamicResourceExtension s_xResource = new("S.Editors.PixelRect.X");
-        private static readonly DynamicResourceExtension s_yResource = new("S.Editors.PixelRect.Y");
-        private static readonly DynamicResourceExtension s_zResource = new("S.Editors.PixelRect.Z");
-        private static readonly DynamicResourceExtension s_wResource = new("S.Editors.PixelRect.W");
+        private static readonly IBinding s_xResource = S.Editors.PixelRect.XObservable.ToBinding();
+        private static readonly IBinding s_yResource = S.Editors.PixelRect.YObservable.ToBinding();
+        private static readonly IBinding s_zResource = S.Editors.PixelRect.ZObservable.ToBinding();
+        private static readonly IBinding s_wResource = S.Editors.PixelRect.WObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
         private static readonly Binding s_z = new("Value.Value.Width", BindingMode.OneWay);
@@ -414,10 +417,10 @@ namespace BeUtl.Views.Editors
     }
     public sealed class RectEditor : BaseVector4Editor<BeUtl.Graphics.Rect>
     {
-        private static readonly DynamicResourceExtension s_xResource = new("S.Editors.Rect.X");
-        private static readonly DynamicResourceExtension s_yResource = new("S.Editors.Rect.Y");
-        private static readonly DynamicResourceExtension s_zResource = new("S.Editors.Rect.Z");
-        private static readonly DynamicResourceExtension s_wResource = new("S.Editors.Rect.W");
+        private static readonly IBinding s_xResource = S.Editors.Rect.XObservable.ToBinding();
+        private static readonly IBinding s_yResource = S.Editors.Rect.YObservable.ToBinding();
+        private static readonly IBinding s_zResource = S.Editors.Rect.ZObservable.ToBinding();
+        private static readonly IBinding s_wResource = S.Editors.Rect.WObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
         private static readonly Binding s_z = new("Value.Value.Width", BindingMode.OneWay);
@@ -491,10 +494,10 @@ namespace BeUtl.Views.Editors
     }
     public sealed class Vector4Editor : BaseVector4Editor<System.Numerics.Vector4>
     {
-        private static readonly DynamicResourceExtension s_xResource = new("S.Editors.Vector4.X");
-        private static readonly DynamicResourceExtension s_yResource = new("S.Editors.Vector4.Y");
-        private static readonly DynamicResourceExtension s_zResource = new("S.Editors.Vector4.Z");
-        private static readonly DynamicResourceExtension s_wResource = new("S.Editors.Vector4.W");
+        private static readonly IBinding s_xResource = S.Editors.Vector4.XObservable.ToBinding();
+        private static readonly IBinding s_yResource = S.Editors.Vector4.YObservable.ToBinding();
+        private static readonly IBinding s_zResource = S.Editors.Vector4.ZObservable.ToBinding();
+        private static readonly IBinding s_wResource = S.Editors.Vector4.WObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
         private static readonly Binding s_z = new("Value.Value.Z", BindingMode.OneWay);

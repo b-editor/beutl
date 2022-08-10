@@ -43,6 +43,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Props", "Props", "{74C34E00
 		build\props\ReactiveProperty.props = build\props\ReactiveProperty.props
 		build\props\Serilog.props = build\props\Serilog.props
 		build\props\SkiaSharp.props = build\props\SkiaSharp.props
+		build\props\System.Interactive.props = build\props\System.Interactive.props
 		build\props\System.Reactive.props = build\props\System.Reactive.props
 	EndProjectSection
 EndProject
@@ -113,7 +114,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Workflows", "Workflows", "{
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Operators", "src\BeUtl.Operators\BeUtl.Operators.csproj", "{5B97917E-A771-496A-80C9-4F3B87FB443D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ResourcesGenerator", "build\generators\ResourcesGenerator\ResourcesGenerator.csproj", "{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ResourcesGenerator", "build\generators\ResourcesGenerator\ResourcesGenerator.csproj", "{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

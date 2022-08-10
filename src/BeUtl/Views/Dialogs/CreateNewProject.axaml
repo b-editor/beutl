@@ -7,10 +7,10 @@
     xmlns:vm="using:BeUtl.ViewModels.Dialogs"
     xmlns:ic="using:FluentIcons.Avalonia"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    Title="{DynamicResource S.Dialogs.CreateNewProject.Title}"
-    CloseButtonText="{DynamicResource S.Dialogs.CreateNewProject.Close}"
-    PrimaryButtonText="{DynamicResource S.Dialogs.CreateNewProject.Back}"
-    SecondaryButtonText="{DynamicResource S.Dialogs.CreateNewProject.Next}"
+    Title="{DynamicResource S.Common.CreateNewProject}"
+    CloseButtonText="{DynamicResource S.Common.Close}"
+    PrimaryButtonText="{DynamicResource S.Common.Back}"
+    SecondaryButtonText="{DynamicResource S.Common.Next}"
     IsPrimaryButtonEnabled="False"
     DefaultButton="Secondary"
     x:DataType="vm:CreateNewProjectViewModel"
@@ -21,12 +21,12 @@
     <Carousel x:Name="carousel">
         <Carousel.Items>
             <StackPanel Spacing="8">
-                <TextBlock Text="{DynamicResource S.Dialogs.CreateNewProject.Name}" />
+                <TextBlock Text="{DynamicResource S.Common.Name}" />
                 <TextBox Classes="enableIME" Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
 
                 <Separator />
 
-                <TextBlock Text="{DynamicResource S.Dialogs.CreateNewProject.Location}" />
+                <TextBlock Text="{DynamicResource S.Common.Location}" />
                 <Panel>
                     <TextBox Text="{CompiledBinding Location.Value, Mode=TwoWay}" />
 
@@ -40,17 +40,17 @@
                 </Panel>
             </StackPanel>
             <StackPanel Spacing="8">
-                <TextBlock Text="{DynamicResource S.Dialogs.CreateNewProject.Size}" />
+                <TextBlock Text="{DynamicResource S.Common.Size}" />
                 <TextBox Text="{CompiledBinding Size.Value, Mode=TwoWay, Converter={StaticResource PixelSizeConverter}}" />
 
                 <Separator />
 
-                <TextBlock Text="{DynamicResource S.Dialogs.CreateNewProject.FrameRate}" />
+                <TextBlock Text="{DynamicResource S.Common.FrameRate}" />
                 <TextBox Text="{CompiledBinding FrameRate.Value, Mode=TwoWay}" />
 
                 <Separator />
 
-                <TextBlock Text="{DynamicResource S.Dialogs.CreateNewProject.SampleRate}" />
+                <TextBlock Text="{DynamicResource S.Common.SampleRate}" />
                 <TextBox Text="{CompiledBinding SampleRate.Value, Mode=TwoWay}" />
             </StackPanel>
         </Carousel.Items>

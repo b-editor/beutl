@@ -33,7 +33,7 @@ public sealed class MainViewModel
         {
             Extension = extension;
             Context = Activator.CreateInstance(extension.Context) ?? throw new Exception("コンテキストを作成できませんでした。");
-            Header = extension.Header.GetResourceObservable()
+            Header = extension.Header
                 .Select(o => o ?? string.Empty)
                 .ToReadOnlyReactivePropertySlim(string.Empty);
         }
@@ -42,7 +42,7 @@ public sealed class MainViewModel
         {
             Extension = extension;
             Context = context;
-            Header = extension.Header.GetResourceObservable()
+            Header = extension.Header
                 .Select(o => o ?? string.Empty)
                 .ToReadOnlyReactivePropertySlim(string.Empty);
         }

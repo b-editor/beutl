@@ -2,6 +2,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
         <!--Strings-->
+        <x:String x:Key="S.DevelopPage.Shortcuts">Shortcuts</x:String>
+        <x:String x:Key="S.DevelopPage.CreateNewPackage">Create new package</x:String>
+        <x:String x:Key="S.DevelopPage.CreateNewPackageDescription">Create a new package for distribution</x:String>
+        <x:String x:Key="S.DevelopPage.Documents">Documents</x:String>
+        <x:String x:Key="S.DevelopPage.DocumentsDescription">Documentation for developers</x:String>
+        <x:String x:Key="S.DevelopPage.Packages">Packages</x:String>
+
         <x:String x:Key="S.DevelopPage.DeletePackage.Title">Delete package</x:String>
         <x:String x:Key="S.DevelopPage.DeletePackage.Content">
             Are you sure you want to delete the package?

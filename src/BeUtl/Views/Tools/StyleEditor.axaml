@@ -13,7 +13,7 @@
             <Grid ColumnDefinitions="2*,3*,24">
                 <TextBlock
                     Margin="10,10,0,0"
-                    Text="対象型"
+                    Text="{DynamicResource S.Common.TargetType}"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Top" />
 
@@ -43,7 +43,7 @@
                     IsEnabled="{CompiledBinding IsStyleNotNull.Value}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <ui:SymbolIcon Symbol="Add" />
-                    <TextBlock Text="追加" />
+                    <TextBlock Text="{DynamicResource S.Common.Add}" />
                 </StackPanel>
             </Button>
         </StackPanel>

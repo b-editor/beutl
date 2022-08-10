@@ -22,5 +22,8 @@
         <x:String x:Key="S.Message.YourAccountHasBeenDeleted">アカウントが削除されました</x:String>
         <x:String x:Key="S.Message.PleaseEnterString">文字列を入力してください。</x:String>
         <x:String x:Key="S.Message.InvalidString">無効な文字列です。</x:String>
+        <x:String x:Key="S.Message.MultipleTypesAreAvailable">複数の型が利用可能です。</x:String>
+        <x:String x:Key="S.Message.AnimationIsEnabled">アニメーションが有効です</x:String>
+        <x:String x:Key="S.Message.CountItems">{0}個のアイテム</x:String>
     </Styles.Resources>
 </Styles>

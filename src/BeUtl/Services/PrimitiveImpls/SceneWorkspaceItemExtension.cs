@@ -21,7 +21,7 @@ public sealed class SceneWorkspaceItemExtension : WorkspaceItemExtension
         Constants.SceneFileExtension
     };
 
-    public override ResourceReference<string> FileTypeName => "S.Common.SceneFile";
+    public override IObservable<string> FileTypeName => S.Common.SceneFileObservable;
 
     public override string Name => "Make the scene a workspace item.";
 
