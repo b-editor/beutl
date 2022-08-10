@@ -26,7 +26,9 @@ public sealed class ListEditorDragBehavior : GenericDragBehavior
             return;
         }
 
-        new MoveCommand(items, newIndex, oldIndex)
+        items.BeginRecord()
+            .Move(oldIndex, newIndex)
+            .ToCommand()
             .DoAndRecord(CommandRecorder.Default);
     }
 }
@@ -192,7 +194,10 @@ public partial class ListEditor : UserControl
 
             if (index >= 0)
             {
-                new RemoveCommand(list, list[index]).DoAndRecord(CommandRecorder.Default);
+                list.BeginRecord()
+                    .Remove(list[index])
+                    .ToCommand()
+                    .DoAndRecord(CommandRecorder.Default);
             }
         }
     }

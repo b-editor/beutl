@@ -119,8 +119,10 @@ public sealed class AnimationTabViewModel : IToolContext
                 animationSpan.Next = defaultValue;
             }
 
-            var command = new AddCommand(list, animationSpan, animation.Children.Count);
-            command.DoAndRecord(CommandRecorder.Default);
+            list.BeginRecord()
+                .Add(animationSpan)
+                .ToCommand()
+                .DoAndRecord(CommandRecorder.Default);
         }
     }
 }

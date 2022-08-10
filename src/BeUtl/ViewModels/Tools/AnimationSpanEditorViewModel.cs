@@ -88,7 +88,9 @@ public sealed class AnimationSpanEditorViewModel : IDisposable
     {
         if (WrappedProperty.Animation is IList list)
         {
-            new RemoveCommand(list, Model)
+            list.BeginRecord()
+                .Remove(Model)
+                .ToCommand()
                 .DoAndRecord(CommandRecorder.Default);
         }
     }
@@ -97,7 +99,9 @@ public sealed class AnimationSpanEditorViewModel : IDisposable
     {
         if (WrappedProperty.Animation is IList list)
         {
-            new MoveCommand(list, newIndex, oldIndex)
+            list.BeginRecord()
+                .Move(oldIndex, newIndex)
+                .ToCommand()
                 .DoAndRecord(CommandRecorder.Default);
         }
     }
@@ -109,7 +113,9 @@ public sealed class AnimationSpanEditorViewModel : IDisposable
             int index = list.IndexOf(Model);
 
             IAnimationSpan item = WrappedProperty.CreateSpan(easing);
-            new AddCommand(list, item, index)
+            list.BeginRecord()
+                .Insert(index, item)
+                .ToCommand()
                 .DoAndRecord(CommandRecorder.Default);
         }
     }
@@ -121,7 +127,9 @@ public sealed class AnimationSpanEditorViewModel : IDisposable
             int index = list.IndexOf(Model);
 
             IAnimationSpan item = WrappedProperty.CreateSpan(easing);
-            new AddCommand(list, item, index + 1)
+            list.BeginRecord()
+                .Insert(index + 1, item)
+                .ToCommand()
                 .DoAndRecord(CommandRecorder.Default);
         }
     }

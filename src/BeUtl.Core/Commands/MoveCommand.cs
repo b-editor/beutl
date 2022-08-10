@@ -2,7 +2,7 @@
 
 namespace BeUtl.Commands;
 
-public sealed class MoveCommand : IRecordableCommand
+internal sealed class MoveCommand : IRecordableCommand
 {
     private readonly IList _list;
     private readonly int _newIndex;

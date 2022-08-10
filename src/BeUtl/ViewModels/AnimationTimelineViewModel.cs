@@ -131,8 +131,10 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
                 animation.Next = value;
             }
 
-            var command = new AddCommand(list, animation, list.Count);
-            command.DoAndRecord(CommandRecorder.Default);
+            list.BeginRecord()
+                .Add(animation)
+                .ToCommand()
+                .DoAndRecord(CommandRecorder.Default);
         }
     }
 

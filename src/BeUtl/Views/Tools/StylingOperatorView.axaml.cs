@@ -102,7 +102,9 @@ public sealed partial class StylingOperatorView : UserControl
         {
             if (itemsControl?.DataContext is StreamOperatorsTabViewModel { Layer.Value.Operators: { } list })
             {
-                new MoveCommand<StreamOperator>(list, newIndex, oldIndex)
+                list.BeginRecord<StreamOperator>()
+                    .Move(oldIndex, newIndex)
+                    .ToCommand()
                     .DoAndRecord(CommandRecorder.Default);
             }
         }

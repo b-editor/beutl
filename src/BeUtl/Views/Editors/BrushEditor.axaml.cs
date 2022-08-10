@@ -113,7 +113,10 @@ public sealed partial class BrushEditor : UserControl
                 && viewModel.WrappedProperty is IStylingSetterWrapper wrapper
                 && parentViewModel.Style.Value is Style style)
             {
-                new RemoveCommand<ISetter>(style.Setters, wrapper.Setter).DoAndRecord(CommandRecorder.Default);
+                style.Setters.BeginRecord<ISetter>()
+                    .Remove(wrapper.Setter)
+                    .ToCommand()
+                    .DoAndRecord(CommandRecorder.Default);
             }
             else
             {

@@ -310,21 +310,27 @@ public class Layer : Element, IStorable, ILogicalElement
     {
         ArgumentNullException.ThrowIfNull(@operator);
 
-        return new AddCommand<StreamOperator>(Operators, @operator, Operators.Count);
+        return Operators.BeginRecord<StreamOperator>()
+            .Add(@operator)
+            .ToCommand();
     }
 
     public IRecordableCommand RemoveChild(StreamOperator @operator)
     {
         ArgumentNullException.ThrowIfNull(@operator);
 
-        return new RemoveCommand<StreamOperator>(Operators, @operator);
+        return Operators.BeginRecord<StreamOperator>()
+            .Remove(@operator)
+            .ToCommand();
     }
 
     public IRecordableCommand InsertChild(int index, StreamOperator @operator)
     {
         ArgumentNullException.ThrowIfNull(@operator);
 
-        return new AddCommand<StreamOperator>(Operators, @operator, index);
+        return Operators.BeginRecord<StreamOperator>()
+            .Insert(index, @operator)
+            .ToCommand();
     }
 
     protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)

@@ -91,7 +91,10 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
 
     public void AddItem(GradientStop stop, int index = -1)
     {
-        new AddCommand<GradientStop>(Value.Value, stop, index < 0 ? Value.Value.Count : index).DoAndRecord(CommandRecorder.Default);
+        Value.Value.BeginRecord<GradientStop>()
+            .Insert(index < 0 ? Value.Value.Count : index, stop)
+            .ToCommand()
+            .DoAndRecord(CommandRecorder.Default);
     }
 
     public void RemoveItem(AM.GradientStop stop)
@@ -100,7 +103,10 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
         if (index >= 0)
         {
             GradientStop model = Value.Value[index];
-            new RemoveCommand<GradientStop>(Value.Value, model).DoAndRecord(CommandRecorder.Default);
+            Value.Value.BeginRecord<GradientStop>()
+                .Remove(model)
+                .ToCommand()
+                .DoAndRecord(CommandRecorder.Default);
 
             if (stop == SelectedItem.Value)
             {

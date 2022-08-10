@@ -2,7 +2,7 @@
 
 namespace BeUtl.Commands;
 
-public sealed class AddCommand : IRecordableCommand
+internal sealed class AddCommand : IRecordableCommand
 {
     public AddCommand(IList list, object? item, int index)
     {

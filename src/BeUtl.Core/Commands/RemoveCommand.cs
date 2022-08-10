@@ -2,7 +2,7 @@
 
 namespace BeUtl.Commands;
 
-public sealed class RemoveCommand : IRecordableCommand
+internal sealed class RemoveCommand : IRecordableCommand
 {
     public RemoveCommand(IList list, object? item)
     {
