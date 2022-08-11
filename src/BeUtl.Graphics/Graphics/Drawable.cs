@@ -223,8 +223,8 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
     private Matrix GetTransformMatrix(Size availableSize, Size coreBounds)
     {
-        Vector pt = CreatePoint(coreBounds);
-        Vector origin = CreateRelPoint(availableSize);
+        Vector pt = CalculateTranslate(coreBounds);
+        Vector origin = CalculateOriginPoint(availableSize);
         Matrix offset = Matrix.CreateTranslation(origin);
 
         if (Transform is { })
@@ -355,32 +355,43 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
     protected abstract void OnDraw(ICanvas canvas);
 
-    private Point CreateRelPoint(Size size)
+    private Point CalculateOriginPoint(Size size)
     {
-        return TransformOrigin.ToPixels(size);
+        if (float.IsNormal(size.Width) && float.IsNormal(size.Height))
+        {
+            return TransformOrigin.ToPixels(size);
+        }
+        else if (TransformOrigin.Unit == RelativeUnit.Absolute)
+        {
+            return TransformOrigin.Point;
+        }
+        else
+        {
+            return default;
+        }
     }
 
-    private Point CreatePoint(Size canvasSize)
+    private Point CalculateTranslate(Size bounds)
     {
         float x = 0;
         float y = 0;
 
         if (AlignmentX == AlignmentX.Center)
         {
-            x -= canvasSize.Width / 2;
+            x -= bounds.Width / 2;
         }
         else if (AlignmentX == AlignmentX.Right)
         {
-            x -= canvasSize.Width;
+            x -= bounds.Width;
         }
 
         if (AlignmentY == AlignmentY.Center)
         {
-            y -= canvasSize.Height / 2;
+            y -= bounds.Height / 2;
         }
         else if (AlignmentY == AlignmentY.Bottom)
         {
-            y -= canvasSize.Height;
+            y -= bounds.Height;
         }
 
         return new Point(x, y);
