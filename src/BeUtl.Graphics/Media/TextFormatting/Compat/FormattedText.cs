@@ -31,12 +31,10 @@ public class FormattedText : Drawable
         _lines.Attached += item =>
         {
             (item as ILogicalElement)?.NotifyAttachedToLogicalTree(new(this));
-            (item as IStylingElement)?.NotifyAttachedToStylingTree(new(this));
         };
         _lines.Detached += item =>
         {
             (item as ILogicalElement)?.NotifyDetachedFromLogicalTree(new(this));
-            (item as IStylingElement)?.NotifyDetachedFromStylingTree(new(this));
         };
         _lines.Invalidated += (_, _) => Invalidate();
     }

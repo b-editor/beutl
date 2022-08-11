@@ -9,7 +9,7 @@ public class Style : IStyle
 
     public Style()
     {
-        _setters = new(this);
+        _setters = new Setters();
         _setters.Invalidated += (_, _) => Invalidated?.Invoke(this, EventArgs.Empty);
     }
 
@@ -30,15 +30,7 @@ public class Style : IStyle
 
     ICoreReadOnlyList<ISetter> IStyle.Setters => _setters;
 
-    public IStylingElement? StylingParent { get; private set; }
-
-    public IEnumerable<IStylingElement> StylingChildren => _setters;
-
     public event EventHandler? Invalidated;
-
-    public event EventHandler<StylingTreeAttachmentEventArgs>? AttachedToStylingTree;
-
-    public event EventHandler<StylingTreeAttachmentEventArgs>? DetachedFromStylingTree;
 
     public IStyleInstance Instance(IStyleable target, IStyleInstance? baseStyle = null)
     {
@@ -50,24 +42,6 @@ public class Style : IStyle
         }
 
         return new StyleInstance(target, this, array, baseStyle);
-    }
-
-    void IStylingElement.NotifyAttachedToStylingTree(in StylingTreeAttachmentEventArgs e)
-    {
-        if (StylingParent is { })
-            throw new StylingTreeException("This styling element already has a parent element.");
-
-        StylingParent = e.Parent;
-        AttachedToStylingTree?.Invoke(this, e);
-    }
-
-    void IStylingElement.NotifyDetachedFromStylingTree(in StylingTreeAttachmentEventArgs e)
-    {
-        if (!ReferenceEquals(e.Parent, StylingParent))
-            throw new StylingTreeException("The detach source element and the parent element do not match.");
-
-        StylingParent = null;
-        DetachedFromStylingTree?.Invoke(this, e);
     }
 }
 

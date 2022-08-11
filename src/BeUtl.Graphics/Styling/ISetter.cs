@@ -5,7 +5,7 @@ using BeUtl.Collections;
 
 namespace BeUtl.Styling;
 
-public interface ISetter : IStylingElement
+public interface ISetter
 {
     CoreProperty Property { get; }
 
