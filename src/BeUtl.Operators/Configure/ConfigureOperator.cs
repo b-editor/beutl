@@ -51,6 +51,7 @@ public abstract class ConfigureOperator<TTarget, TValue> : StreamOperator, IStre
             _selecting = true;
             if (value is TTarget current)
             {
+                PreSelect(current, Value);
                 if (!ReferenceEquals(Previous, current))
                 {
                     if (Previous != null)
@@ -58,7 +59,6 @@ public abstract class ConfigureOperator<TTarget, TValue> : StreamOperator, IStre
                         OnDetached(Previous, Value);
                     }
 
-                    PreSelect(current, Value);
                     OnAttached(current, Value);
                     Previous = current;
                 }
