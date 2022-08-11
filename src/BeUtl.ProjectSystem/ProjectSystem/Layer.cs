@@ -19,7 +19,7 @@ public class Layer : Element, IStorable, ILogicalElement
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
     public static readonly CoreProperty<LayerNode> NodeProperty;
-    public static readonly CoreProperty<LogicalList<StreamOperator>> OperatorsProperty;
+    public static readonly CoreProperty<StreamOperators> OperatorsProperty;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
@@ -67,7 +67,7 @@ public class Layer : Element, IStorable, ILogicalElement
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
-        OperatorsProperty = ConfigureProperty<LogicalList<StreamOperator>, Layer>(nameof(Operators))
+        OperatorsProperty = ConfigureProperty<StreamOperators, Layer>(nameof(Operators))
             .Accessor(o => o.Operators, null)
             .Register();
 
@@ -126,7 +126,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
     public Layer()
     {
-        Operators = new LogicalList<StreamOperator>(this);
+        Operators = new StreamOperators(this);
         Operators.Attached += item => item.Invalidated += Operator_Invalidated;
         Operators.Detached += item => item.Invalidated -= Operator_Invalidated;
 
@@ -198,7 +198,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
     public DateTime LastSavedTime { get; private set; }
 
-    public LogicalList<StreamOperator> Operators { get; }
+    public StreamOperators Operators { get; }
 
     public void Save(string filename)
     {

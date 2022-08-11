@@ -42,7 +42,7 @@ public abstract class ConfigureOperator<TTarget, TValue> : StreamOperator, IStre
 
     protected TValue Value { get; }
 
-    protected TTarget? Previous { get; private set; }
+    protected TTarget? Previous { get; set; }
 
     public IRenderable? Select(IRenderable? value, IClock clock)
     {
@@ -112,6 +112,16 @@ public abstract class ConfigureOperator<TTarget, TValue> : StreamOperator, IStre
     protected abstract void OnAttached(TTarget target, TValue value);
 
     protected abstract void OnDetached(TTarget target, TValue value);
+
+    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    {
+        base.OnDetachedFromLogicalTree(args);
+        if (Previous is { } previous)
+        {
+            OnDetached(previous, Value);
+            Previous = default;
+        }
+    }
 
     protected virtual IEnumerable<CoreProperty> GetProperties()
     {

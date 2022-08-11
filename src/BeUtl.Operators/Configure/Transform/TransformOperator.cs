@@ -16,14 +16,9 @@ public abstract class TransformOperator<T> : ConfigureOperator<Drawable, T>
 
     protected override void OnAttached(Drawable target, T value)
     {
-        ITransform? tmp = target.Transform;
         if (target.Transform is not TransformGroup group)
         {
             target.Transform = group = new TransformGroup();
-            if (tmp != null)
-            {
-                group.Children.Add(tmp);
-            }
         }
 
         group.Children.Add(value);
@@ -34,10 +29,6 @@ public abstract class TransformOperator<T> : ConfigureOperator<Drawable, T>
         if (target.Transform is TransformGroup group)
         {
             group.Children.Remove(value);
-        }
-        else if (target.Transform == value)
-        {
-            target.Transform = null;
         }
     }
 }

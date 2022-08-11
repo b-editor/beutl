@@ -16,14 +16,9 @@ public abstract class ImageFilterOperator<T> : ConfigureOperator<Drawable, T>
 
     protected override void OnAttached(Drawable target, T value)
     {
-        IImageFilter? tmp = target.Filter;
         if (target.Filter is not ImageFilterGroup group)
         {
             target.Filter = group = new ImageFilterGroup();
-            if (tmp != null)
-            {
-                group.Children.Add(tmp);
-            }
         }
 
         group.Children.Add(value);
@@ -34,10 +29,6 @@ public abstract class ImageFilterOperator<T> : ConfigureOperator<Drawable, T>
         if (target.Filter is ImageFilterGroup group)
         {
             group.Children.Remove(value);
-        }
-        else if (target.Filter == value)
-        {
-            target.Filter = null;
         }
     }
 }
