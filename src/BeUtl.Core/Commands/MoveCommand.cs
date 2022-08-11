@@ -1,5 +1,7 @@
 ﻿using System.Collections;
 
+using BeUtl.Collections;
+
 namespace BeUtl.Commands;
 
 internal sealed class MoveCommand : IRecordableCommand
@@ -17,9 +19,16 @@ internal sealed class MoveCommand : IRecordableCommand
 
     public void Do()
     {
-        object? item = _list[_oldIndex];
-        _list.RemoveAt(_oldIndex);
-        _list.Insert(_newIndex, item);
+        if (_list is ICoreList coreList)
+        {
+            coreList.Move(_oldIndex, _newIndex);
+        }
+        else
+        {
+            object? item = _list[_oldIndex];
+            _list.RemoveAt(_oldIndex);
+            _list.Insert(_newIndex, item);
+        }
     }
 
     public void Redo()
@@ -29,8 +38,15 @@ internal sealed class MoveCommand : IRecordableCommand
 
     public void Undo()
     {
-        object? item = _list[_newIndex];
-        _list.RemoveAt(_newIndex);
-        _list.Insert(_oldIndex, item);
+        if (_list is ICoreList coreList)
+        {
+            coreList.Move(_newIndex, _oldIndex);
+        }
+        else
+        {
+            object? item = _list[_newIndex];
+            _list.RemoveAt(_newIndex);
+            _list.Insert(_oldIndex, item);
+        }
     }
 }

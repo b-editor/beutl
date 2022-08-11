@@ -371,15 +371,14 @@ public class CoreList<T> : ICoreList<T>
     public void MoveRange(int oldIndex, int count, int newIndex)
     {
         List<T> items = Inner.GetRange(oldIndex, count);
-        int modifiedNewIndex = newIndex;
         Inner.RemoveRange(oldIndex, count);
 
         if (newIndex > oldIndex)
         {
-            modifiedNewIndex -= count;
+            newIndex -= count;
         }
 
-        Inner.InsertRange(modifiedNewIndex, items);
+        Inner.InsertRange(newIndex, items);
 
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
             NotifyCollectionChangedAction.Move,

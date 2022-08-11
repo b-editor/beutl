@@ -84,7 +84,7 @@ public sealed class AnimationSpanEditorViewModel : IDisposable
 
     public void RemoveItem()
     {
-        if (WrappedProperty.Animation is IList list)
+        if (WrappedProperty.Animation.Children is IList list)
         {
             list.BeginRecord()
                 .Remove(Model)
@@ -95,7 +95,7 @@ public sealed class AnimationSpanEditorViewModel : IDisposable
 
     public void Move(int newIndex, int oldIndex)
     {
-        if (WrappedProperty.Animation is IList list)
+        if (WrappedProperty.Animation.Children is IList list)
         {
             list.BeginRecord()
                 .Move(oldIndex, newIndex)
@@ -106,7 +106,7 @@ public sealed class AnimationSpanEditorViewModel : IDisposable
 
     public void InsertForward(Easing easing)
     {
-        if (WrappedProperty.Animation is IList list)
+        if (WrappedProperty.Animation.Children is IList list)
         {
             int index = list.IndexOf(Model);
 
@@ -120,7 +120,7 @@ public sealed class AnimationSpanEditorViewModel : IDisposable
 
     public void InsertBackward(Easing easing)
     {
-        if (WrappedProperty.Animation is IList list)
+        if (WrappedProperty.Animation.Children is IList list)
         {
             int index = list.IndexOf(Model);
 

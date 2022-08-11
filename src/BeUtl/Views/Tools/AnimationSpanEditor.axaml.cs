@@ -88,14 +88,6 @@ public partial class AnimationSpanEditor : UserControl
         bottomBorder.Classes.Set("droparea", value);
     }
 
-    public void Move(int newIndex, int oldIndex)
-    {
-        if (DataContext is AnimationSpanEditorViewModel viewModel)
-        {
-            viewModel.Move(newIndex, oldIndex);
-        }
-    }
-
     public void Remove_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is AnimationSpanEditorViewModel viewModel)

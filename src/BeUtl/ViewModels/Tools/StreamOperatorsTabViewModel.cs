@@ -1,5 +1,7 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Collections.Specialized;
+using System.Text.Json.Nodes;
 
+using BeUtl.Collections;
 using BeUtl.Framework;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
@@ -7,6 +9,7 @@ using BeUtl.Services.PrimitiveImpls;
 using BeUtl.Streaming;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels.Tools;
 
@@ -36,14 +39,68 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
             if (layer != null)
             {
                 _disposable1?.Dispose();
-                _disposable1 = layer.Operators.ForEachItem(
-                    (idx, item) => Items.Insert(idx, new StreamOperatorViewModel(item)),
-                    (idx, _) =>
+
+                Items.AddRange(layer.Operators.Select(x => new StreamOperatorViewModel(x)));
+                _disposable1 = layer.Operators.CollectionChangedAsObservable()
+                    .Subscribe(e =>
                     {
-                        Items[idx]?.Dispose();
-                        Items.RemoveAt(idx);
-                    },
-                    () => ClearItems());
+                        static void RemoveItems(CoreList<StreamOperatorViewModel> items, int index, int count)
+                        {
+                            foreach (StreamOperatorViewModel item in items.GetMarshal().Value.Slice(index, count))
+                            {
+                                item?.Dispose();
+                            }
+                            items.RemoveRange(index, count);
+                        }
+
+                        switch (e.Action)
+                        {
+                            case NotifyCollectionChangedAction.Add:
+                                Items.InsertRange(e.NewStartingIndex, e.NewItems!
+                                    .Cast<StreamOperator>()
+                                    .Select(x => new StreamOperatorViewModel(x)));
+                                break;
+
+                            case NotifyCollectionChangedAction.Move:
+                                int newIndex = e.NewStartingIndex;
+                                if (newIndex > e.OldStartingIndex)
+                                {
+                                    newIndex += e.OldItems!.Count;
+                                }
+
+                                Items.MoveRange(e.OldStartingIndex, e.OldItems!.Count, newIndex);
+                                break;
+
+                            case NotifyCollectionChangedAction.Replace:
+                                RemoveItems(Items, e.OldStartingIndex, e.OldItems!.Count);
+                                newIndex = e.NewStartingIndex;
+                                if (newIndex > e.OldStartingIndex)
+                                {
+                                    newIndex -= e.OldItems!.Count;
+                                }
+
+                                Items.InsertRange(newIndex, e.NewItems!
+                                    .Cast<StreamOperator>()
+                                    .Select(x => new StreamOperatorViewModel(x)));
+                                break;
+
+                            case NotifyCollectionChangedAction.Remove:
+                                RemoveItems(Items, e.OldStartingIndex, e.OldItems!.Count);
+                                break;
+
+                            case NotifyCollectionChangedAction.Reset:
+                                ClearItems();
+                                break;
+                        }
+                    });
+                //_disposable1 = layer.Operators.ForEachItem(
+                //    (idx, item) => Items.Insert(idx, new StreamOperatorViewModel(item)),
+                //    (idx, _) =>
+                //    {
+                //        Items[idx].Dispose();
+                //        Items.RemoveAt(idx);
+                //    },
+                //    () => ClearItems());
 
                 RestoreState(layer);
             }
@@ -54,7 +111,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
 
     public ReactiveProperty<Layer?> Layer { get; }
 
-    public CoreList<StreamOperatorViewModel?> Items { get; } = new();
+    public CoreList<StreamOperatorViewModel> Items { get; } = new();
 
     public ToolTabExtension Extension => StreamOperatorsTabExtension.Instance;
 
