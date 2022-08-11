@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\BeUtl.Controls\BeUtl.Controls.csproj" />
     <ProjectReference Include="..\..\src\BeUtl.Framework\BeUtl.Framework.csproj" />
+    <ProjectReference Include="..\..\src\BeUtl.ProjectSystem\BeUtl.ProjectSystem.csproj" />
   </ItemGroup>
 
   <ItemGroup>
