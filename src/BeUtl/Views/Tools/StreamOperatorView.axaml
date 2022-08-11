@@ -6,7 +6,7 @@
              xmlns:ic="using:FluentIcons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              DragDrop.AllowDrop="True"
-             x:Class="BeUtl.Views.Tools.StylingOperatorView">
+             x:Class="BeUtl.Views.Tools.StreamOperatorView">
     <Expander Padding="0" IsExpanded="{Binding IsExpanded.Value, Mode=TwoWay}">
         <Expander.Header>
             <StackPanel Orientation="Horizontal">

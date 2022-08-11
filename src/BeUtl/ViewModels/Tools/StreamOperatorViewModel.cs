@@ -11,9 +11,9 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.Tools;
 
-public sealed class StylingOperatorViewModel : IDisposable
+public sealed class StreamOperatorViewModel : IDisposable
 {
-    public StylingOperatorViewModel(StreamOperator model)
+    public StreamOperatorViewModel(StreamOperator model)
     {
         Model = model;
 
@@ -41,20 +41,51 @@ public sealed class StylingOperatorViewModel : IDisposable
 
     public void RestoreState(JsonNode json)
     {
-        try
+        if (json is JsonObject obj)
         {
-            IsExpanded.Value = (bool?)json["is-expanded"] ?? true;
-        }
-        catch
-        {
+            if (obj.TryGetPropertyValue("is-expanded", out JsonNode? isExpandedNode)
+                && isExpandedNode is JsonValue isExpandedValue
+                && isExpandedValue.TryGetValue(out bool isExpanded))
+            {
+                IsExpanded.Value = isExpanded;
+            }
+
+            if (obj.TryGetPropertyValue("properties", out JsonNode? propsNode)
+                && propsNode is JsonArray propsArray)
+            {
+                foreach ((JsonNode? node, IPropertyEditorContext? context) in propsArray.Zip(Properties))
+                {
+                    if (context != null && node != null)
+                    {
+                        context.ReadFromJson(node);
+                    }
+                }
+            }
         }
     }
 
     public JsonNode SaveState()
     {
+        var array = new JsonArray();
+
+        foreach (IPropertyEditorContext? item in Properties.GetMarshal().Value)
+        {
+            if (item == null)
+            {
+                array.Add(null);
+            }
+            else
+            {
+                JsonNode node = new JsonObject();
+                item.WriteToJson(ref node);
+                array.Add(node);
+            }
+        }
+
         return new JsonObject
         {
-            ["is-expanded"] = IsExpanded.Value
+            ["is-expanded"] = IsExpanded.Value,
+            ["properties"] = array
         };
     }
 

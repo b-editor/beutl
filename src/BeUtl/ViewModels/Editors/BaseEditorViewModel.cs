@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Nodes;
 
 using BeUtl.Framework;
 using BeUtl.Services;
@@ -76,6 +77,14 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext
             _disposedValue = true;
             GC.SuppressFinalize(this);
         }
+    }
+
+    public void WriteToJson(ref JsonNode json)
+    {
+    }
+
+    public void ReadFromJson(JsonNode json)
+    {
     }
 
     protected object? GetDefaultValue()

@@ -1,4 +1,5 @@
-﻿
+﻿using System.Text.Json.Nodes;
+
 using BeUtl.Framework;
 using BeUtl.Media;
 using BeUtl.Services.PrimitiveImpls;
@@ -85,6 +86,14 @@ public sealed class AlignmentsEditorViewModel : IPropertyEditorContext
         _disposables.Dispose();
     }
 
+    public void ReadFromJson(JsonNode json)
+    {
+    }
+
+    public void WriteToJson(ref JsonNode json)
+    {
+    }
+
     public void Reset()
     {
         CorePropertyMetadata<AlignmentX> xMetadata = _xProperty.Property.GetMetadata<CorePropertyMetadata<AlignmentX>>(_xProperty.ImplementedType);
@@ -96,7 +105,6 @@ public sealed class AlignmentsEditorViewModel : IPropertyEditorContext
         new SetValuesCommand(_xProperty, _yProperty, (newX, newY), (X.Value, Y.Value))
             .DoAndRecord(CommandRecorder.Default);
     }
-
 
     public void SetAlignmentX(AlignmentX value)
     {

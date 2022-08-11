@@ -37,7 +37,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
             {
                 _disposable1?.Dispose();
                 _disposable1 = layer.Operators.ForEachItem(
-                    (idx, item) => Items.Insert(idx, new StylingOperatorViewModel(item)),
+                    (idx, item) => Items.Insert(idx, new StreamOperatorViewModel(item)),
                     (idx, _) =>
                     {
                         Items[idx]?.Dispose();
@@ -54,7 +54,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
 
     public ReactiveProperty<Layer?> Layer { get; }
 
-    public CoreList<StylingOperatorViewModel?> Items { get; } = new();
+    public CoreList<StreamOperatorViewModel?> Items { get; } = new();
 
     public ToolTabExtension Extension => StreamOperatorsTabExtension.Instance;
 
@@ -100,7 +100,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
     {
         string viewStateDir = ViewStateDirectory(layer);
         var json = new JsonArray();
-        foreach (StylingOperatorViewModel? item in Items.GetMarshal().Value)
+        foreach (StreamOperatorViewModel? item in Items.GetMarshal().Value)
         {
             json.Add(item?.SaveState());
         }
@@ -119,7 +119,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
             var json = JsonNode.Parse(stream);
             if (json is JsonArray array)
             {
-                foreach ((JsonNode? item, StylingOperatorViewModel? op) in array.Zip(Items))
+                foreach ((JsonNode? item, StreamOperatorViewModel? op) in array.Zip(Items))
                 {
                     if (item != null && op != null)
                     {
@@ -132,7 +132,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
 
     private void ClearItems()
     {
-        foreach (StylingOperatorViewModel? item in Items.GetMarshal().Value)
+        foreach (StreamOperatorViewModel? item in Items.GetMarshal().Value)
         {
             item?.Dispose();
         }

@@ -13,9 +13,9 @@ using BeUtl.ViewModels.Tools;
 
 namespace BeUtl.Views.Tools;
 
-public sealed partial class StylingOperatorView : UserControl
+public sealed partial class StreamOperatorView : UserControl
 {
-    public StylingOperatorView()
+    public StreamOperatorView()
     {
         InitializeComponent();
         Interaction.SetBehaviors(this, new BehaviorCollection
@@ -32,7 +32,7 @@ public sealed partial class StylingOperatorView : UserControl
 
     public void Remove_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is StylingOperatorViewModel viewModel2)
+        if (DataContext is StreamOperatorViewModel viewModel2)
         {
             StreamOperator operation = viewModel2.Model;
             Layer layer = operation.FindRequiredLogicalParent<Layer>();
@@ -44,7 +44,7 @@ public sealed partial class StylingOperatorView : UserControl
     private void Drop(object? sender, DragEventArgs e)
     {
         if (e.Data.Get("StreamOperator") is OperatorRegistry.RegistryItem item2
-            && DataContext is StylingOperatorViewModel viewModel2)
+            && DataContext is StreamOperatorViewModel viewModel2)
         {
             StreamOperator operation = viewModel2.Model;
             Layer layer = operation.FindRequiredLogicalParent<Layer>();
@@ -83,7 +83,7 @@ public sealed partial class StylingOperatorView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (DataContext is StylingOperatorViewModel viewModel2)
+        if (DataContext is StreamOperatorViewModel viewModel2)
         {
             StreamOperator operation = viewModel2.Model;
             Type type = operation.GetType();

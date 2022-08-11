@@ -30,7 +30,7 @@ public sealed partial class StreamOperatorsTab : UserControl
                     bool found = false;
                     for (; index < viewModel.Items.Count; index++)
                     {
-                        StylingOperatorViewModel? item = viewModel.Items[index];
+                        StreamOperatorViewModel? item = viewModel.Items[index];
                         if (ReferenceEquals(item?.Model, obj))
                         {
                             found = true;
