@@ -93,36 +93,9 @@ public sealed class AnimationTabViewModel : IToolContext
             return;
         }
 
-        CoreProperty property = animation.Property;
-        Type type = typeof(AnimationSpan<>).MakeGenericType(property.PropertyType);
-        Type ownerType = property.OwnerType;
-        ILogicalElement? owner = animation.FindLogicalParent(ownerType);
-        object? defaultValue = null;
-        if (owner is ICoreObject ownerCO)
-        {
-            defaultValue = ownerCO.GetValue(property);
-        }
-        else if (owner != null)
-        {
-            // メタデータをOverrideしている可能性があるので、owner.GetType()をする必要がある。
-            defaultValue = property.GetMetadata<CorePropertyMetadata>(owner.GetType()).GetDefaultValue();
-        }
-
-        if (Activator.CreateInstance(type) is IAnimationSpan animationSpan)
-        {
-            animationSpan.Easing = easing;
-            animationSpan.Duration = TimeSpan.FromSeconds(2);
-
-            if (defaultValue != null)
-            {
-                animationSpan.Previous = defaultValue;
-                animationSpan.Next = defaultValue;
-            }
-
-            list.BeginRecord()
-                .Add(animationSpan)
-                .ToCommand()
-                .DoAndRecord(CommandRecorder.Default);
-        }
+        list.BeginRecord()
+            .Add(Animation.Value.CreateSpan(easing))
+            .ToCommand()
+            .DoAndRecord(CommandRecorder.Default);
     }
 }
