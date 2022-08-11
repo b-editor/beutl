@@ -223,21 +223,18 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
     private Matrix GetTransformMatrix(Size availableSize, Size coreBounds)
     {
-        Vector pt = CreatePoint(availableSize);
-        Vector origin = CreateRelPoint(coreBounds);
+        Vector pt = CreatePoint(coreBounds);
+        Vector origin = CreateRelPoint(availableSize);
         Matrix offset = Matrix.CreateTranslation(origin);
 
         if (Transform is { })
         {
-            return offset * Transform.Value * Matrix.CreateTranslation(pt);
+            return Matrix.CreateTranslation(pt) * Transform.Value * offset;
         }
         else
         {
             return offset * Matrix.CreateTranslation(pt);
         }
-        //return Transform?.Value == null ?
-        //    origin * Matrix.CreateTranslation(pt) :
-        //    origin * Transform.Value * Matrix.CreateTranslation(pt);
     }
 
     private void HasBitmapEffect(ICanvas canvas)
@@ -370,20 +367,20 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
         if (AlignmentX == AlignmentX.Center)
         {
-            x += canvasSize.Width / 2;
+            x -= canvasSize.Width / 2;
         }
         else if (AlignmentX == AlignmentX.Right)
         {
-            x += canvasSize.Width;
+            x -= canvasSize.Width;
         }
 
         if (AlignmentY == AlignmentY.Center)
         {
-            y += canvasSize.Height / 2;
+            y -= canvasSize.Height / 2;
         }
         else if (AlignmentY == AlignmentY.Bottom)
         {
-            y += canvasSize.Height;
+            y -= canvasSize.Height;
         }
 
         return new Point(x, y);
