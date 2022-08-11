@@ -16,9 +16,8 @@ public sealed class AlignmentOperator : StreamStyler
 
     protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
-        initializing.Add(new Setter<AlignmentX>(Drawable.CanvasAlignmentXProperty, AlignmentX.Left));
-        initializing.Add(new Setter<AlignmentY>(Drawable.CanvasAlignmentYProperty, AlignmentY.Top));
         initializing.Add(new Setter<AlignmentX>(Drawable.AlignmentXProperty, AlignmentX.Left));
         initializing.Add(new Setter<AlignmentY>(Drawable.AlignmentYProperty, AlignmentY.Top));
+        initializing.Add(new Setter<RelativePoint>(Drawable.TransformOriginProperty, new RelativePoint(default, RelativeUnit.Relative)));
     }
 }

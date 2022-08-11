@@ -15,10 +15,9 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     public static readonly CoreProperty<ITransform?> TransformProperty;
     public static readonly CoreProperty<IImageFilter?> FilterProperty;
     public static readonly CoreProperty<IBitmapEffect?> EffectProperty;
-    public static readonly CoreProperty<AlignmentX> CanvasAlignmentXProperty;
-    public static readonly CoreProperty<AlignmentY> CanvasAlignmentYProperty;
     public static readonly CoreProperty<AlignmentX> AlignmentXProperty;
     public static readonly CoreProperty<AlignmentY> AlignmentYProperty;
+    public static readonly CoreProperty<RelativePoint> TransformOriginProperty;
     public static readonly CoreProperty<IBrush?> ForegroundProperty;
     public static readonly CoreProperty<IBrush?> OpacityMaskProperty;
     public static readonly CoreProperty<BlendMode> BlendModeProperty;
@@ -27,10 +26,9 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     private ITransform? _transform;
     private IImageFilter? _filter;
     private IBitmapEffect? _effect;
-    private AlignmentX _cAlignX;
-    private AlignmentY _cAlignY;
     private AlignmentX _alignX;
     private AlignmentY _alignY;
+    private RelativePoint _transformOrigin;
     private IBrush? _foreground;
     private IBrush? _opacityMask;
     private BlendMode _blendMode = BlendMode.SrcOver;
@@ -74,20 +72,6 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
             .SerializeName("effect")
             .Register();
 
-        CanvasAlignmentXProperty = ConfigureProperty<AlignmentX, Drawable>(nameof(CanvasAlignmentX))
-            .Accessor(o => o.CanvasAlignmentX, (o, v) => o.CanvasAlignmentX = v)
-            .PropertyFlags(PropertyFlags.All)
-            .DefaultValue(AlignmentX.Left)
-            .SerializeName("canvas-align-x")
-            .Register();
-
-        CanvasAlignmentYProperty = ConfigureProperty<AlignmentY, Drawable>(nameof(CanvasAlignmentY))
-            .Accessor(o => o.CanvasAlignmentY, (o, v) => o.CanvasAlignmentY = v)
-            .PropertyFlags(PropertyFlags.All)
-            .DefaultValue(AlignmentY.Top)
-            .SerializeName("canvas-align-y")
-            .Register();
-
         AlignmentXProperty = ConfigureProperty<AlignmentX, Drawable>(nameof(AlignmentX))
             .Accessor(o => o.AlignmentX, (o, v) => o.AlignmentX = v)
             .PropertyFlags(PropertyFlags.All)
@@ -100,6 +84,12 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(AlignmentY.Top)
             .SerializeName("align-y")
+            .Register();
+
+        TransformOriginProperty = ConfigureProperty<RelativePoint, Drawable>(nameof(TransformOrigin))
+            .Accessor(o => o.TransformOrigin, (o, v) => o.TransformOrigin = v)
+            .PropertyFlags(PropertyFlags.All)
+            .SerializeName("transform-origin")
             .Register();
 
         ForegroundProperty = ConfigureProperty<IBrush?, Drawable>(nameof(Foreground))
@@ -125,8 +115,8 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
         AffectsRender<Drawable>(
             WidthProperty, HeightProperty,
             TransformProperty, FilterProperty, EffectProperty,
-            CanvasAlignmentXProperty, CanvasAlignmentYProperty,
             AlignmentXProperty, AlignmentYProperty,
+            TransformOriginProperty,
             ForegroundProperty, OpacityMaskProperty,
             BlendModeProperty);
     }
@@ -163,18 +153,6 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
         set => SetAndRaise(EffectProperty, ref _effect, value);
     }
 
-    public AlignmentX CanvasAlignmentX
-    {
-        get => _cAlignX;
-        set => SetAndRaise(CanvasAlignmentXProperty, ref _cAlignX, value);
-    }
-
-    public AlignmentY CanvasAlignmentY
-    {
-        get => _cAlignY;
-        set => SetAndRaise(CanvasAlignmentYProperty, ref _cAlignY, value);
-    }
-
     public AlignmentX AlignmentX
     {
         get => _alignX;
@@ -185,6 +163,12 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     {
         get => _alignY;
         set => SetAndRaise(AlignmentYProperty, ref _alignY, value);
+    }
+
+    public RelativePoint TransformOrigin
+    {
+        get => _transformOrigin;
+        set => SetAndRaise(TransformOriginProperty, ref _transformOrigin, value);
     }
 
     public IBrush? Foreground
@@ -219,11 +203,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     public void Measure(Size availableSize)
     {
         Size size = MeasureCore(availableSize);
-        Vector pt = CreatePoint(availableSize);
-        Vector relpt = CreateRelPoint(size);
-        Matrix transform = Transform?.Value == null ?
-            Matrix.CreateTranslation(relpt) * Matrix.CreateTranslation(pt) :
-            Matrix.CreateTranslation(relpt) * Transform.Value * Matrix.CreateTranslation(pt);
+        Matrix transform = GetTransformMatrix(availableSize, size);
         var rect = new Rect(size);
 
         if (_effect != null)
@@ -244,10 +224,20 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     private Matrix GetTransformMatrix(Size availableSize, Size coreBounds)
     {
         Vector pt = CreatePoint(availableSize);
-        Vector relpt = CreateRelPoint(coreBounds);
-        return Transform?.Value == null ?
-            Matrix.CreateTranslation(relpt) * Matrix.CreateTranslation(pt) :
-            Matrix.CreateTranslation(relpt) * Transform.Value * Matrix.CreateTranslation(pt);
+        Vector origin = CreateRelPoint(coreBounds);
+        Matrix offset = Matrix.CreateTranslation(origin);
+
+        if (Transform is { })
+        {
+            return offset * Transform.Value * Matrix.CreateTranslation(pt);
+        }
+        else
+        {
+            return offset * Matrix.CreateTranslation(pt);
+        }
+        //return Transform?.Value == null ?
+        //    origin * Matrix.CreateTranslation(pt) :
+        //    origin * Transform.Value * Matrix.CreateTranslation(pt);
     }
 
     private void HasBitmapEffect(ICanvas canvas)
@@ -370,28 +360,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
     private Point CreateRelPoint(Size size)
     {
-        float x = 0;
-        float y = 0;
-
-        if (AlignmentX == AlignmentX.Center)
-        {
-            x -= size.Width / 2;
-        }
-        else if (AlignmentX == AlignmentX.Right)
-        {
-            x -= size.Width;
-        }
-
-        if (AlignmentY == AlignmentY.Center)
-        {
-            y -= size.Height / 2;
-        }
-        else if (AlignmentY == AlignmentY.Bottom)
-        {
-            y -= size.Height;
-        }
-
-        return new Point(x, y);
+        return TransformOrigin.ToPixels(size);
     }
 
     private Point CreatePoint(Size canvasSize)
@@ -399,20 +368,20 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
         float x = 0;
         float y = 0;
 
-        if (CanvasAlignmentX == AlignmentX.Center)
+        if (AlignmentX == AlignmentX.Center)
         {
             x += canvasSize.Width / 2;
         }
-        else if (CanvasAlignmentX == AlignmentX.Right)
+        else if (AlignmentX == AlignmentX.Right)
         {
             x += canvasSize.Width;
         }
 
-        if (CanvasAlignmentY == AlignmentY.Center)
+        if (AlignmentY == AlignmentY.Center)
         {
             y += canvasSize.Height / 2;
         }
-        else if (CanvasAlignmentY == AlignmentY.Bottom)
+        else if (AlignmentY == AlignmentY.Bottom)
         {
             y += canvasSize.Height;
         }
