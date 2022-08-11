@@ -62,7 +62,7 @@ public sealed class ImageFilterGroup : ImageFilter
                         && atTypeValue.TryGetValue(out string? atType)
                         && TypeFormat.ToType(atType) is Type type
                         && type.IsAssignableTo(typeof(ImageFilter))
-                        && Activator.CreateInstance(type) is ImageFilter imageFilter)
+                        && Activator.CreateInstance(type) is IMutableImageFilter imageFilter)
                     {
                         imageFilter.ReadFromJson(childJson);
                         _children.Add(imageFilter);
@@ -82,7 +82,7 @@ public sealed class ImageFilterGroup : ImageFilter
 
             foreach (IImageFilter item in _children.GetMarshal().Value)
             {
-                if (item is ImageFilter obj)
+                if (item is IMutableImageFilter obj)
                 {
                     JsonNode node = new JsonObject();
                     obj.WriteToJson(ref node);
@@ -101,6 +101,7 @@ public sealed class ImageFilterGroup : ImageFilter
         base.ApplyAnimations(clock);
         foreach (IImageFilter item in Children.GetMarshal().Value)
         {
+            // Todo: IAnimtable
             (item as Animatable)?.ApplyAnimations(clock);
         }
     }

@@ -1,24 +1,8 @@
 ﻿using BeUtl.Animation;
-using BeUtl.Media;
-using BeUtl.Styling;
 
 using SkiaSharp;
 
 namespace BeUtl.Graphics.Filters;
-
-public interface IImageFilter
-{
-    bool IsEnabled { get; }
-
-    Rect TransformBounds(Rect rect);
-
-    SKImageFilter ToSKImageFilter();
-}
-
-// Todo: IAnimatable
-public interface IMutableImageFilter : IImageFilter, ICoreObject, IAffectsRender
-{
-}
 
 public abstract class ImageFilter : Animatable, IMutableImageFilter
 {

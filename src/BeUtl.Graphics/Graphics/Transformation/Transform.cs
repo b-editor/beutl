@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
 using BeUtl.Animation;
+using BeUtl.Media.Immutable;
 
 namespace BeUtl.Graphics.Transformation;
 
@@ -64,6 +65,11 @@ public abstract class Transform : Animatable, IMutableTransform
     public static ITransform Parse(ReadOnlySpan<char> s)
     {
         return TransformParser.Parse(s);
+    }
+
+    public ITransform ToImmutable()
+    {
+        return new ImmutableTransform(Value, _isEnabled);
     }
 
     protected static void AffectsRender<T>(

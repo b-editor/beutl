@@ -75,6 +75,7 @@ public sealed class BitmapEffectGroup : BitmapEffect
         base.ApplyAnimations(clock);
         foreach (IBitmapEffect item in Children.GetMarshal().Value)
         {
+            // Todo: IAnimatable
             (item as Animatable)?.ApplyAnimations(clock);
         }
     }
@@ -97,7 +98,7 @@ public sealed class BitmapEffectGroup : BitmapEffect
                         && atTypeValue.TryGetValue(out string? atType)
                         && TypeFormat.ToType(atType) is Type type
                         && type.IsAssignableTo(typeof(BitmapEffect))
-                        && Activator.CreateInstance(type) is BitmapEffect bitmapEffect)
+                        && Activator.CreateInstance(type) is IMutableBitmapEffect bitmapEffect)
                     {
                         bitmapEffect.ReadFromJson(childJson);
                         _children.Add(bitmapEffect);
@@ -117,11 +118,14 @@ public sealed class BitmapEffectGroup : BitmapEffect
 
             foreach (IBitmapEffect item in _children.GetMarshal().Value)
             {
-                JsonNode node = new JsonObject();
-                item.WriteToJson(ref node);
-                node["@type"] = TypeFormat.ToString(item.GetType());
+                if (item is IMutableBitmapEffect obj)
+                {
+                    JsonNode node = new JsonObject();
+                    obj.WriteToJson(ref node);
+                    node["@type"] = TypeFormat.ToString(item.GetType());
 
-                array.Add(node);
+                    array.Add(node);
+                }
             }
 
             jobject["children"] = array;

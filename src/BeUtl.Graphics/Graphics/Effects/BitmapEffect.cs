@@ -2,7 +2,7 @@
 
 namespace BeUtl.Graphics.Effects;
 
-public abstract class BitmapEffect : Animatable, IBitmapEffect
+public abstract class BitmapEffect : Animatable, IMutableBitmapEffect
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
     private bool _isEnabled;

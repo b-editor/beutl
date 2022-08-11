@@ -1,8 +1,6 @@
-﻿using BeUtl.Media;
+﻿namespace BeUtl.Graphics.Effects;
 
-namespace BeUtl.Graphics.Effects;
-
-public interface IBitmapEffect : IAffectsRender, ICoreObject
+public interface IBitmapEffect
 {
     bool IsEnabled { get; }
 
@@ -10,5 +8,3 @@ public interface IBitmapEffect : IAffectsRender, ICoreObject
 
     Rect TransformBounds(Rect rect);
 }
-
-// Todo: IAnimatable, ICoreObject, IAffectsRender
