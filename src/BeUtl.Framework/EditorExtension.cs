@@ -3,7 +3,6 @@
 using Avalonia.Media;
 
 using BeUtl.Framework.Services;
-using BeUtl.ProjectSystem;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -70,7 +69,7 @@ public abstract class EditorExtension : ViewExtension
     }
 
     // 'ServiceLocator'から'IProjectService'を取得し、Projectのインスタンスを取得します。
-    protected static Project? GetCurrentProject()
+    protected static IWorkspace? GetCurrentProject()
     {
         return ServiceLocator.Current.GetRequiredService<IProjectService>().CurrentProject.Value;
     }
