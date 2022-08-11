@@ -32,8 +32,7 @@ public sealed class PropertiesEditorViewModel : IDisposable
         Type objType = obj.GetType();
         Type wrapperType = typeof(CorePropertyClientImpl<>);
         Type animatableWrapperType = typeof(AnimatableCorePropertyClientImpl<>);
-        // Todo: IAnimatable
-        bool isAnimatable = obj is Animatable;
+        bool isAnimatable = obj is IAnimatable;
 
         List<CoreProperty> props = PropertyRegistry.GetRegistered(objType).ToList();
         Properties.EnsureCapacity(props.Count);

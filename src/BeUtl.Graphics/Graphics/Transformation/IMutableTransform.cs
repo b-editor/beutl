@@ -1,9 +1,9 @@
-﻿using BeUtl.Media;
+﻿using BeUtl.Animation;
+using BeUtl.Media;
 
 namespace BeUtl.Graphics.Transformation;
 
-// Todo: IAnimatable
-public interface IMutableTransform : ICoreObject, ITransform, IAffectsRender
+public interface IMutableTransform : ICoreObject, ITransform, IAffectsRender, IAnimatable
 {
     ITransform ToImmutable();
 }

@@ -1,8 +1,8 @@
-﻿using BeUtl.Media;
+﻿using BeUtl.Animation;
+using BeUtl.Media;
 
 namespace BeUtl.Graphics.Effects;
 
-// Todo: IAnimatable
-public interface IMutableBitmapEffect : IBitmapEffect, ICoreObject, IAffectsRender
+public interface IMutableBitmapEffect : IBitmapEffect, ICoreObject, IAffectsRender, IAnimatable
 {
 }

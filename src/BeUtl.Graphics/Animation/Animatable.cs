@@ -2,7 +2,7 @@
 
 namespace BeUtl.Animation;
 
-public abstract class Animatable : CoreObject
+public abstract class Animatable : CoreObject, IAnimatable
 {
     protected Animatable()
     {

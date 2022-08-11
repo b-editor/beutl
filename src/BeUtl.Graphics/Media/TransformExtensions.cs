@@ -20,6 +20,6 @@ public static class TransformExtensions
     {
         _ = transform ?? throw new ArgumentNullException(nameof(transform));
 
-        return (transform as Transform)?.ToImmutable() ?? new ImmutableTransform(transform.Value);
+        return new ImmutableTransform(transform.Value, transform.IsEnabled);
     }
 }

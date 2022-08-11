@@ -101,8 +101,7 @@ public sealed class ImageFilterGroup : ImageFilter
         base.ApplyAnimations(clock);
         foreach (IImageFilter item in Children.GetMarshal().Value)
         {
-            // Todo: IAnimtable
-            (item as Animatable)?.ApplyAnimations(clock);
+            (item as IAnimatable)?.ApplyAnimations(clock);
         }
     }
 

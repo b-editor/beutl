@@ -75,8 +75,7 @@ public sealed class BitmapEffectGroup : BitmapEffect
         base.ApplyAnimations(clock);
         foreach (IBitmapEffect item in Children.GetMarshal().Value)
         {
-            // Todo: IAnimatable
-            (item as Animatable)?.ApplyAnimations(clock);
+            (item as IAnimatable)?.ApplyAnimations(clock);
         }
     }
 

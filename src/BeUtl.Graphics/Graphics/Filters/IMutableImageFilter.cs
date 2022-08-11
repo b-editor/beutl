@@ -1,8 +1,8 @@
-﻿using BeUtl.Media;
+﻿using BeUtl.Animation;
+using BeUtl.Media;
 
 namespace BeUtl.Graphics.Filters;
 
-// Todo: IAnimatable
-public interface IMutableImageFilter : IImageFilter, ICoreObject, IAffectsRender
+public interface IMutableImageFilter : IImageFilter, ICoreObject, IAffectsRender, IAnimatable
 {
 }

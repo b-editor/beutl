@@ -28,8 +28,7 @@ public abstract class ConfigureOperator<TTarget, TValue> : StreamOperator, IStre
         Type anmPropType = typeof(AnimatableCorePropertyImpl<>);
         Type propType = typeof(CorePropertyImpl<>);
         Type ownerType = typeof(TTarget);
-        // Todo: IAnimatable
-        bool isAnimatable = Value is Animatable;
+        bool isAnimatable = Value is IAnimatable;
 
         Properties.AddRange(GetProperties().Select(x =>
         {
