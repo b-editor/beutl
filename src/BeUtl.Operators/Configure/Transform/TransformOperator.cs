@@ -1,85 +1,43 @@
-﻿using BeUtl.Animation;
-using BeUtl.Graphics;
+﻿using BeUtl.Graphics;
 using BeUtl.Graphics.Transformation;
-using BeUtl.Rendering;
-using BeUtl.Streaming;
-using BeUtl.Styling;
 
 namespace BeUtl.Operators.Configure.Transform;
 
 #pragma warning disable IDE0065
 using Transform = Graphics.Transformation.Transform;
 
-public abstract class TransformOperator : StreamStyler
+public abstract class TransformOperator<T> : ConfigureOperator<Drawable, T>
+    where T : Transform, new()
 {
-    private IDrawable? _previous;
-    private Transform? _instance;
-
-    protected override IStyleInstance? GetInstance(IRenderable value)
+    protected override void PreSelect(Drawable target, T value)
     {
-        if (!ReferenceEquals(_previous, value))
-        {
-            if (Style.TargetType.IsAssignableTo(typeof(Transform)))
-            {
-                return Style.Instance(CreateTargetValue(Style.TargetType));
-            }
-            else
-            {
-                return null;
-            }
-        }
-        else
-        {
-            return Instance;
-        }
+        value.IsEnabled = IsEnabled;
     }
 
-    protected override void ApplyStyle(IStyleInstance instance, IRenderable value, IClock clock)
+    protected override void OnAttached(Drawable target, T value)
     {
-        if (value is IDrawable current && instance.Target is Transform transform)
+        ITransform? tmp = target.Transform;
+        if (target.Transform is not TransformGroup group)
         {
-            transform.IsEnabled = IsEnabled;
-            if (_previous != current)
+            target.Transform = group = new TransformGroup();
+            if (tmp != null)
             {
-                ITransform? tmp = current.Transform;
-                if (current.Transform is not TransformGroup group)
-                {
-                    current.Transform = group = new TransformGroup();
-                    if (tmp != null)
-                    {
-                        group.Children.Add(tmp);
-                    }
-                }
-
-                if (_previous?.Transform is TransformGroup group1)
-                {
-                    group1.Children.Remove(transform);
-                }
-
-                group.Children.Add(transform);
-                _previous = current;
-                _instance = transform;
+                group.Children.Add(tmp);
             }
-
-            instance.Begin();
-            instance.Apply(clock);
-            instance.End();
         }
+
+        group.Children.Add(value);
     }
 
-    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnDetached(Drawable target, T value)
     {
-        base.OnDetachedFromLogicalTree(args);
-        if (_previous != null
-            && _previous.Transform is TransformGroup group
-            && _instance != null)
+        if (target.Transform is TransformGroup group)
         {
-            group.Children.Remove(_instance);
+            group.Children.Remove(value);
         }
-    }
-
-    private static Transform CreateTargetValue(Type type)
-    {
-        return (Transform)Activator.CreateInstance(type)!;
+        else if (target.Transform == value)
+        {
+            target.Transform = null;
+        }
     }
 }
