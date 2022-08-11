@@ -60,34 +60,22 @@ public class StyleTests
         {
             Setters =
             {
-                new StyleSetter<IBrush>(Drawable.ForegroundProperty, null)
+                new Setter<IBrush>(Drawable.ForegroundProperty, new SolidColorBrush
                 {
-                    Value = new Style<SolidColorBrush>
-                    {
-                        Setters =
-                        {
-                            new Setter<Color>(SolidColorBrush.ColorProperty, Colors.Red),
-                            new Setter<float>(Brush.OpacityProperty, 0.5F),
-                        }
-                    }
-                }
+                    Color = Colors.Red,
+                    Opacity = 0.5F
+                })
             }
         };
         style2 = new Style<Rectangle>
         {
             Setters =
             {
-                new StyleSetter<IBrush>(Drawable.ForegroundProperty, null)
+                new Setter<IBrush>(Drawable.ForegroundProperty, new SolidColorBrush
                 {
-                    Value = new Style<SolidColorBrush>
-                    {
-                        Setters =
-                        {
-                            new Setter<Color>(SolidColorBrush.ColorProperty, Colors.White),
-                            new Setter<float>(Brush.OpacityProperty, 1),
-                        }
-                    }
-                }
+                    Color = Colors.White,
+                    Opacity = 1
+                })
             }
         };
 
