@@ -37,18 +37,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
             {
                 _disposable1?.Dispose();
                 _disposable1 = layer.Operators.ForEachItem(
-                    (idx, item) =>
-                    {
-                        if (item is StylingOperator so)
-                        {
-                            Items.Insert(idx, new StylingOperatorViewModel(so));
-                        }
-                        else
-                        {
-                            // Todo: ここの処理でだみm－を追加
-                            Items.Insert(idx, null);
-                        }
-                    },
+                    (idx, item) => Items.Insert(idx, new StylingOperatorViewModel(item)),
                     (idx, _) =>
                     {
                         Items[idx]?.Dispose();
@@ -61,7 +50,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
         });
     }
 
-    public Action<StylingOperator>? RequestScroll { get; set; }
+    public Action<StreamOperator>? RequestScroll { get; set; }
 
     public ReactiveProperty<Layer?> Layer { get; }
 
@@ -75,7 +64,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
 
     public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Right;
 
-    public void ScrollTo(StylingOperator obj)
+    public void ScrollTo(StreamOperator obj)
     {
         RequestScroll?.Invoke(obj);
     }

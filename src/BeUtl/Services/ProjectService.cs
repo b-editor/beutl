@@ -1,6 +1,7 @@
 ﻿using System.Reactive.Subjects;
 
 using BeUtl.Configuration;
+using BeUtl.Framework;
 using BeUtl.Framework.Services;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
@@ -13,8 +14,8 @@ namespace BeUtl.Services;
 
 public sealed class ProjectService : IProjectService
 {
-    private readonly Subject<(Project? New, Project? Old)> _projectObservable = new();
-    private readonly ReactivePropertySlim<Project?> _currentProject = new();
+    private readonly Subject<(IWorkspace? New, IWorkspace? Old)> _projectObservable = new();
+    private readonly ReactivePropertySlim<IWorkspace?> _currentProject = new();
     private readonly ReadOnlyReactivePropertySlim<bool> _isOpened;
 
     public ProjectService()
@@ -22,20 +23,20 @@ public sealed class ProjectService : IProjectService
         _isOpened = CurrentProject.Select(v => v != null).ToReadOnlyReactivePropertySlim();
     }
 
-    public IObservable<(Project? New, Project? Old)> ProjectObservable => _projectObservable;
+    public IObservable<(IWorkspace? New, IWorkspace? Old)> ProjectObservable => _projectObservable;
 
-    public IReactiveProperty<Project?> CurrentProject => _currentProject;
+    public IReactiveProperty<IWorkspace?> CurrentProject => _currentProject;
 
     public IReadOnlyReactiveProperty<bool> IsOpened => _isOpened;
 
-    public Project? OpenProject(string file)
+    public IWorkspace? OpenProject(string file)
     {
         try
         {
             var project = new Project();
             project.Restore(file);
 
-            Project? old = CurrentProject.Value;
+            IWorkspace? old = CurrentProject.Value;
             CurrentProject.Value = project;
             // 値を発行
             _projectObservable.OnNext((New: project, old));
@@ -62,7 +63,7 @@ public sealed class ProjectService : IProjectService
         }
     }
 
-    public Project? CreateProject(int width, int height, int framerate, int samplerate, string name, string location)
+    public IWorkspace? CreateProject(int width, int height, int framerate, int samplerate, string name, string location)
     {
         try
         {

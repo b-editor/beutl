@@ -12,6 +12,8 @@ namespace BeUtl.Services.Editors.Wrappers;
 public interface IStylingSetterWrapper : IAbstractProperty
 {
     ISetter Setter { get; }
+
+    IStyle Style { get; }
 }
 
 public sealed class StylingSetterClientImpl<T> : IAbstractAnimatableProperty<T>, IStylingSetterWrapper
@@ -50,7 +52,7 @@ public sealed class StylingSetterClientImpl<T> : IAbstractAnimatableProperty<T>,
         private void Setter_Invalidated(object? sender, EventArgs e)
         {
             _disposable?.Dispose();
-            if(_setter.Animation is { } animation)
+            if (_setter.Animation is { } animation)
             {
                 _disposable = _setter.Animation.Children
                     .ObserveProperty(x => x.Count)
@@ -60,17 +62,19 @@ public sealed class StylingSetterClientImpl<T> : IAbstractAnimatableProperty<T>,
         }
     }
 
-    public StylingSetterClientImpl(Setter<T> setter)
+    public StylingSetterClientImpl(Setter<T> setter, Style style)
     {
         Property = setter.Property;
         Setter = setter;
-
+        Style = style;
         HasAnimation = new HasAnimationObservable(setter);
     }
 
     public CoreProperty<T> Property { get; }
 
     public Setter<T> Setter { get; }
+
+    public Style Style { get; }
 
     public Animation<T> Animation
     {
@@ -83,9 +87,11 @@ public sealed class StylingSetterClientImpl<T> : IAbstractAnimatableProperty<T>,
 
     public IObservable<bool> HasAnimation { get; }
 
-    public Type ImplementedType => Animation.FindStylingParent<IStyle>()?.TargetType ?? Property.OwnerType;
+    public Type ImplementedType => Style.TargetType;
 
     ISetter IStylingSetterWrapper.Setter => Setter;
+
+    IStyle IStylingSetterWrapper.Style => Style;
 
     public IObservable<T?> GetObservable()
     {
@@ -106,34 +112,5 @@ public sealed class StylingSetterClientImpl<T> : IAbstractAnimatableProperty<T>,
         }
 
         Setter.Value = value;
-    }
-
-    IAnimationSpan IAbstractAnimatableProperty.CreateSpan(Easing easing)
-    {
-        CoreProperty<T> property = Property;
-        IStyle? style = Animation.FindStylingParent<IStyle>();
-        T? defaultValue = GetValue();
-        bool hasDefaultValue = true;
-        if (style != null && defaultValue == null)
-        {
-            // メタデータをOverrideしている可能性があるので、owner.GetType()をする必要がある。
-            CorePropertyMetadata<T> metadata = property.GetMetadata<CorePropertyMetadata<T>>(style.TargetType);
-            defaultValue = metadata.DefaultValue;
-            hasDefaultValue = metadata.HasDefaultValue;
-        }
-
-        var span = new AnimationSpan<T>
-        {
-            Easing = easing,
-            Duration = TimeSpan.FromSeconds(2)
-        };
-
-        if (hasDefaultValue && defaultValue != null)
-        {
-            span.Previous = defaultValue;
-            span.Next = defaultValue;
-        }
-
-        return span;
     }
 }

@@ -73,7 +73,7 @@ public interface IAbstractAnimatableProperty<T> : IAbstractProperty<T>, IAbstrac
     IAnimationSpan IAbstractAnimatableProperty.CreateSpan(Easing easing)
     {
         CoreProperty<T> property = Property;
-        Type ownerType = property.OwnerType;
+        Type ownerType = ImplementedType;
         T? defaultValue = GetValue();
         bool hasDefaultValue = true;
         if (defaultValue == null)

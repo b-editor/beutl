@@ -3,7 +3,6 @@ using System.Text.Json.Nodes;
 
 using BeUtl.Framework;
 using BeUtl.Services;
-using BeUtl.Services.Editors.Wrappers;
 using BeUtl.Streaming;
 
 using DynamicData;
@@ -14,16 +13,16 @@ namespace BeUtl.ViewModels.Tools;
 
 public sealed class StylingOperatorViewModel : IDisposable
 {
-    public StylingOperatorViewModel(StylingOperator model)
+    public StylingOperatorViewModel(StreamOperator model)
     {
         Model = model;
 
         Init();
 
-        model.Style.Setters.CollectionChanged += Setters_CollectionChanged;
+        model.Properties.CollectionChanged += Properties_CollectionChanged;
     }
 
-    private void Setters_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private void Properties_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         foreach (IPropertyEditorContext? item in Properties.GetMarshal().Value)
         {
@@ -34,7 +33,7 @@ public sealed class StylingOperatorViewModel : IDisposable
         Init();
     }
 
-    public StylingOperator Model { get; }
+    public StreamOperator Model { get; }
 
     public ReactiveProperty<bool> IsExpanded { get; } = new(true);
 
@@ -61,7 +60,7 @@ public sealed class StylingOperatorViewModel : IDisposable
 
     public void Dispose()
     {
-        Model.Style.Setters.CollectionChanged -= Setters_CollectionChanged;
+        Model.Properties.CollectionChanged -= Properties_CollectionChanged;
         foreach (IPropertyEditorContext? item in Properties.GetMarshal().Value)
         {
             item?.Dispose();
@@ -70,10 +69,7 @@ public sealed class StylingOperatorViewModel : IDisposable
 
     private void Init()
     {
-        Type objType = Model.Style.TargetType;
-        Type wrapperType = typeof(StylingSetterClientImpl<>);
-
-        List<CoreProperty> props = Model.Style.Setters.Select(x => x.Property).ToList();
+        List<CoreProperty> props = Model.Properties.Select(x => x.Property).ToList();
         Properties.EnsureCapacity(props.Count);
         CoreProperty[]? foundItems;
         PropertyEditorExtension? extension;
@@ -83,17 +79,11 @@ public sealed class StylingOperatorViewModel : IDisposable
             (foundItems, extension) = PropertyEditorService.MatchProperty(props);
             if (foundItems != null && extension != null)
             {
-                int index = 0;
                 var tmp = new IAbstractProperty[foundItems.Length];
-                foreach (CoreProperty item in foundItems)
+                for (int i = 0; i < foundItems.Length; i++)
                 {
-                    CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(objType);
-                    Type wrapperGType = wrapperType.MakeGenericType(item.PropertyType);
-                    tmp[index] = (IAbstractProperty)Activator.CreateInstance(
-                        wrapperGType,
-                        Model.Style.Setters.First(x => x.Property.Id == item.Id))!;
-
-                    index++;
+                    CoreProperty item = foundItems[i];
+                    tmp[i] = Model.Properties.First(x => x.Property.Id == item.Id);
                 }
 
                 if (extension.TryCreateContext(tmp, out IPropertyEditorContext? context))

@@ -376,7 +376,7 @@ Error:
             if (files != null)
             {
                 bool? addToProject = null;
-                Project? project = _projectService.CurrentProject.Value;
+                IWorkspace? project = _projectService.CurrentProject.Value;
 
                 foreach (string file in files)
                 {
@@ -434,7 +434,7 @@ Error:
 
         viewModel.AddToProject.Subscribe(() =>
         {
-            Project? project = _projectService.CurrentProject.Value;
+            IWorkspace? project = _projectService.CurrentProject.Value;
             EditorTabItem? selectedTabItem = _editorService.SelectedTabItem.Value;
 
             if (project != null && selectedTabItem != null)
@@ -452,7 +452,7 @@ Error:
 
         viewModel.RemoveFromProject.Subscribe(async () =>
         {
-            Project? project = _projectService.CurrentProject.Value;
+            IWorkspace? project = _projectService.CurrentProject.Value;
             EditorTabItem? selectedTabItem = _editorService.SelectedTabItem.Value;
 
             if (project != null && selectedTabItem != null)

@@ -34,7 +34,7 @@ public sealed partial class StylingOperatorView : UserControl
     {
         if (DataContext is StylingOperatorViewModel viewModel2)
         {
-            StylingOperator operation = viewModel2.Model;
+            StreamOperator operation = viewModel2.Model;
             Layer layer = operation.FindRequiredLogicalParent<Layer>();
             layer.RemoveChild(operation)
                 .DoAndRecord(CommandRecorder.Default);
@@ -46,7 +46,7 @@ public sealed partial class StylingOperatorView : UserControl
         if (e.Data.Get("StreamOperator") is OperatorRegistry.RegistryItem item2
             && DataContext is StylingOperatorViewModel viewModel2)
         {
-            StylingOperator operation = viewModel2.Model;
+            StreamOperator operation = viewModel2.Model;
             Layer layer = operation.FindRequiredLogicalParent<Layer>();
             Rect bounds = Bounds;
             Point position = e.GetPosition(this);
@@ -55,12 +55,12 @@ public sealed partial class StylingOperatorView : UserControl
 
             if (half < position.Y)
             {
-                layer.InsertChild(index + 1, (StylingOperator)Activator.CreateInstance(item2.Type)!)
+                layer.InsertChild(index + 1, (StreamOperator)Activator.CreateInstance(item2.Type)!)
                     .DoAndRecord(CommandRecorder.Default);
             }
             else
             {
-                layer.InsertChild(index, (StylingOperator)Activator.CreateInstance(item2.Type)!)
+                layer.InsertChild(index, (StreamOperator)Activator.CreateInstance(item2.Type)!)
                     .DoAndRecord(CommandRecorder.Default);
             }
 
@@ -85,7 +85,7 @@ public sealed partial class StylingOperatorView : UserControl
         base.OnDataContextChanged(e);
         if (DataContext is StylingOperatorViewModel viewModel2)
         {
-            StylingOperator operation = viewModel2.Model;
+            StreamOperator operation = viewModel2.Model;
             Type type = operation.GetType();
             OperatorRegistry.RegistryItem? item = OperatorRegistry.FindItem(type);
 

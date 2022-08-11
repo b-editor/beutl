@@ -128,7 +128,7 @@ public sealed class MainViewModel
 
         SaveAll.Subscribe(async () =>
         {
-            Project? project = _projectService.CurrentProject.Value;
+            IWorkspace? project = _projectService.CurrentProject.Value;
             int itemsCount = 0;
 
             try

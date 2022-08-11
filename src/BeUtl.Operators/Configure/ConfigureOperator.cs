@@ -33,9 +33,9 @@ public abstract class ConfigureOperator<TTarget, TValue> : StreamOperator, IStre
 
         Properties.AddRange(GetProperties().Select(x =>
         {
-            Type propTypeFact = isAnimatable && x.GetMetadata<CorePropertyMetadata>(ownerType).PropertyFlags.HasFlag(PropertyFlags.Animatable)
+            Type propTypeFact = (isAnimatable && x.GetMetadata<CorePropertyMetadata>(ownerType).PropertyFlags.HasFlag(PropertyFlags.Animatable)
                 ? anmPropType
-                : propType;
+                : propType).MakeGenericType(x.PropertyType);
 
             return (IAbstractProperty)Activator.CreateInstance(propTypeFact, x, Value)!;
         }));

@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
+using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 
@@ -123,6 +124,7 @@ public sealed class StylingSetterPropertyImpl<T> : IAbstractAnimatableProperty<T
 public abstract class StylingOperator : StreamOperator
 {
     private bool _isSettersChanging;
+    private IStyle _style;
 
     protected StylingOperator()
     {
@@ -132,21 +134,45 @@ public abstract class StylingOperator : StreamOperator
             OnInitializeSetters(list);
             return list;
         });
-        Style.Invalidated += OnInvalidated;
-
-        Type propType = typeof(StylingSetterPropertyImpl<>);
-        Properties.AddRange(Style.Setters.OfType<ISetter>()
-            .Select(x =>
-            {
-                Type type = propType.MakeGenericType(x.Property.PropertyType);
-                return (IAbstractProperty)Activator.CreateInstance(type, x, Style)!;
-            }));
-
-        Style.Setters.CollectionChanged += Setters_CollectionChanged;
-        Properties.CollectionChanged += Properties_CollectionChanged;
     }
 
-    public IStyle Style { get; private set; }
+    public IStyle Style
+    {
+        get => _style;
+
+        [MemberNotNull("_style")]
+        private set
+        {
+            if (!ReferenceEquals(value, _style))
+            {
+                Properties.CollectionChanged -= Properties_CollectionChanged;
+                if (_style != null)
+                {
+                    _style.Invalidated -= OnInvalidated;
+                    _style.Setters.CollectionChanged -= Setters_CollectionChanged;
+                    Properties.Clear();
+                }
+
+                _style = value;
+
+                if (value != null)
+                {
+                    value.Invalidated += OnInvalidated;
+                    value.Setters.CollectionChanged += Setters_CollectionChanged;
+                    Type propType = typeof(StylingSetterPropertyImpl<>);
+                    Properties.AddRange(value.Setters.OfType<ISetter>()
+                        .Select(x =>
+                        {
+                            Type type = propType.MakeGenericType(x.Property.PropertyType);
+                            return (IAbstractProperty)Activator.CreateInstance(type, x, _style)!;
+                        }));
+                }
+
+                Properties.CollectionChanged += Properties_CollectionChanged;
+                Instance = null;
+            }
+        }
+    }
 
     public IStyleInstance? Instance { get; protected set; }
 
@@ -171,11 +197,7 @@ public abstract class StylingOperator : StreamOperator
             var style = StyleSerializer.ToStyle(styleObj);
             if (style != null)
             {
-                Style.Invalidated -= OnInvalidated;
                 Style = style;
-                Instance = null;
-
-                Style.Invalidated += OnInvalidated;
 
                 RaiseInvalidated();
             }
