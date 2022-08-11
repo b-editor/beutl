@@ -278,6 +278,10 @@ public class CoreList<T> : ICoreList<T>
         _ = items ?? throw new ArgumentNullException(nameof(items));
 
         bool willRaiseCollectionChanged = CollectionChanged != null;
+        if (items.TryGetNonEnumeratedCount(out int count))
+        {
+            EnsureCapacity(Inner.Count + count);
+        }
 
         if (items is IList list)
         {
@@ -290,8 +294,6 @@ public class CoreList<T> : ICoreList<T>
                 }
                 else
                 {
-                    EnsureCapacity(Inner.Count + list.Count);
-
                     using (IEnumerator<T> en = items.GetEnumerator())
                     {
                         int insertIndex = index;
