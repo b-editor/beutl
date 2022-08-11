@@ -40,7 +40,6 @@ BeUtlはクロスプラットフォームで動作する動画編集ソフトウ
 | 名前 | 目標 |
 | --- | --- |
 | main |  |
-| restore-beditor-legacy | BEditorのコード資産を復元する |
 
 ## License
 
