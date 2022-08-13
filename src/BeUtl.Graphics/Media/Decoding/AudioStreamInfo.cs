@@ -3,7 +3,6 @@
 public sealed record AudioStreamInfo(
     string CodecName,
     Rational Duration,
-    PixelSize FrameSize,
     int SampleRate,
     int NumChannels)
     : StreamInfo(CodecName, MediaType.Audio, Duration)

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <OutputPath>$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))\.beutl\extensions\beutl-extensions-ffmpeg-0.0.0</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FFmpeg.AutoGen" Version="5.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BeUtl.Controls\BeUtl.Controls.csproj" />
+    <ProjectReference Include="..\BeUtl.Framework\BeUtl.Framework.csproj" />
+    <ProjectReference Include="..\BeUtl.ProjectSystem\BeUtl.ProjectSystem.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="package.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

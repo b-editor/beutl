@@ -1,0 +1,7 @@
+{
+    "name": "BeUtl.Extensions.FFmpeg",
+    "displayName": "FFmpeg for BeUtl",
+    "version": "0.0.0",
+    "publisher": "beutl",
+    "assembly": "BeUtl.Extensions.FFmpeg.dll"
+}

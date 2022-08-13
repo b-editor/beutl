@@ -118,6 +118,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ResourcesGenerator", "build
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Extensions", "Extensions", "{DB0531B1-506B-4195-B8E6-B6549F8915EF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BeUtl.Extensions.FFmpeg", "src\BeUtl.Extensions.FFmpeg\BeUtl.Extensions.FFmpeg.csproj", "{AD19C32A-AC72-4E91-868E-17EFF58A29B6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -350,6 +352,14 @@ Global
 		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Release|Any CPU.Build.0 = Release|Any CPU
 		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Release|x64.ActiveCfg = Release|Any CPU
 		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Release|x64.Build.0 = Release|Any CPU
+		{AD19C32A-AC72-4E91-868E-17EFF58A29B6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD19C32A-AC72-4E91-868E-17EFF58A29B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AD19C32A-AC72-4E91-868E-17EFF58A29B6}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{AD19C32A-AC72-4E91-868E-17EFF58A29B6}.Debug|x64.Build.0 = Debug|Any CPU
+		{AD19C32A-AC72-4E91-868E-17EFF58A29B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AD19C32A-AC72-4E91-868E-17EFF58A29B6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AD19C32A-AC72-4E91-868E-17EFF58A29B6}.Release|x64.ActiveCfg = Release|Any CPU
+		{AD19C32A-AC72-4E91-868E-17EFF58A29B6}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -374,6 +384,7 @@ Global
 		{B06ADC65-3AC3-4A23-AF58-AD5A5194E524} = {E7ED6BF0-EEC7-48F3-A6AD-00B5C8052ABE}
 		{ED8EECC3-4BDC-4B29-A17B-1044C7534BB2} = {464CEA08-D77A-4CB8-9B03-BEF0C852B907}
 		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0} = {D6C0F32B-62A6-48BA-867E-BCDD88B71748}
+		{AD19C32A-AC72-4E91-868E-17EFF58A29B6} = {DB0531B1-506B-4195-B8E6-B6549F8915EF}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {CC3F8F37-EB22-4418-978D-C844095F8C4D}
