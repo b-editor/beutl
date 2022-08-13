@@ -1,44 +1,15 @@
 ﻿using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using BeUtl.Collections;
+using BeUtl.Framework;
 
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BeUtl.ProjectSystem;
-
-public interface IWorkspace : ITopLevel, IDisposable
-{
-    ICoreList<IWorkspaceItem> Items { get; }
-
-    IDictionary<string, string> Variables { get; }
-
-    Version AppVersion { get; }
-
-    Version MinAppVersion { get; }
-}
-
-public interface IWorkspaceItem : IStorable, ILogicalElement, ICoreObject
-{
-}
-
-public interface IWorkspaceItemContainer
-{
-    bool TryGetOrCreateItem<T>(string file, [NotNullWhen(true)] out T? item)
-        where T : class, IWorkspaceItem;
-
-    bool TryGetOrCreateItem(string file, [NotNullWhen(true)] out IWorkspaceItem? item);
-
-    bool IsCreated(string file);
-
-    bool Remove(string file);
-
-    void Add(IWorkspaceItem item);
-}
 
 public static class ProjectVariableKeys
 {

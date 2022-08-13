@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 
 using BeUtl.Animation;
+using BeUtl.Framework;
 using BeUtl.ProjectSystem;
 using BeUtl.Services.Editors.Wrappers;
 using BeUtl.Streaming;

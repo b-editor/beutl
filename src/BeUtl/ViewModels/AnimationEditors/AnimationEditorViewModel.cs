@@ -64,8 +64,6 @@ public sealed class AnimationEditorViewModel : IDisposable
 
     public IAbstractAnimatableProperty WrappedProperty { get; }
 
-    public bool CanReset => GetDefaultValue() != null;
-
     public ReadOnlyReactivePropertySlim<string?> Header { get; }
 
     public ReactiveProperty<double> Width { get; }
@@ -134,17 +132,5 @@ public sealed class AnimationEditorViewModel : IDisposable
     {
         _disposables.Dispose();
         GC.SuppressFinalize(this);
-    }
-
-    private object? GetDefaultValue()
-    {
-        ICorePropertyMetadata metadata = GetMetadata<ICorePropertyMetadata>();
-        return metadata.GetDefaultValue();
-    }
-
-    private TMetadata GetMetadata<TMetadata>()
-        where TMetadata : ICorePropertyMetadata
-    {
-        return WrappedProperty.Property.GetMetadata<TMetadata>(WrappedProperty.ImplementedType);
     }
 }

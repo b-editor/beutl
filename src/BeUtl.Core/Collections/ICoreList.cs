@@ -2,7 +2,22 @@
 
 namespace BeUtl.Collections;
 
-public interface ICoreList<T> : IObservableList<T>, IList, ICoreReadOnlyList<T>
+public interface ICoreList : IList
+{
+    new int Count { get; }
+
+    void Move(int oldIndex, int newIndex);
+
+    void MoveRange(int oldIndex, int count, int newIndex);
+
+    void RemoveRange(int index, int count);
+
+    new void RemoveAt(int index);
+
+    new void Clear();
+}
+
+public interface ICoreList<T> : IObservableList<T>, ICoreReadOnlyList<T>, ICoreList
 {
     new int Count { get; }
 
@@ -21,11 +36,11 @@ public interface ICoreList<T> : IObservableList<T>, IList, ICoreReadOnlyList<T>
 
     void InsertRange(int index, IEnumerable<T> items);
 
-    void Move(int oldIndex, int newIndex);
+    new void Move(int oldIndex, int newIndex);
 
-    void MoveRange(int oldIndex, int count, int newIndex);
+    new void MoveRange(int oldIndex, int count, int newIndex);
 
-    void RemoveRange(int index, int count);
+    new void RemoveRange(int index, int count);
 
     new void RemoveAt(int index);
 

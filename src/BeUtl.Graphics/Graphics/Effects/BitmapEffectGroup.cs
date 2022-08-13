@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
 using BeUtl.Animation;
-using BeUtl.Styling;
 
 namespace BeUtl.Graphics.Effects;
 
@@ -23,21 +22,11 @@ public sealed class BitmapEffectGroup : BitmapEffect
     public BitmapEffectGroup()
     {
         _children = new BitmapEffects();
-        _children.Attached += item =>
-        {
-            item.NotifyAttachedToLogicalTree(new(this));
-            item.NotifyAttachedToStylingTree(new(this));
-        };
-        _children.Detached += item =>
-        {
-            item.NotifyDetachedFromLogicalTree(new(this));
-            item.NotifyDetachedFromStylingTree(new(this));
-        };
         _children.Invalidated += (_, _) =>
         {
             IBitmapProcessor[] array = new IBitmapProcessor[ValidEffectCount()];
             int index = 0;
-            foreach (BitmapEffect item in _children.GetMarshal().Value)
+            foreach (IBitmapEffect item in _children.GetMarshal().Value)
             {
                 if (item.IsEnabled)
                 {
@@ -60,7 +49,7 @@ public sealed class BitmapEffectGroup : BitmapEffect
 
     public override Rect TransformBounds(Rect rect)
     {
-        foreach (BitmapEffect item in _children.GetMarshal().Value)
+        foreach (IBitmapEffect item in _children.GetMarshal().Value)
         {
             if (item.IsEnabled)
                 rect = item.TransformBounds(rect);
@@ -71,7 +60,7 @@ public sealed class BitmapEffectGroup : BitmapEffect
     private int ValidEffectCount()
     {
         int count = 0;
-        foreach (BitmapEffect item in _children.GetMarshal().Value)
+        foreach (IBitmapEffect item in _children.GetMarshal().Value)
         {
             if (item.IsEnabled)
             {
@@ -81,21 +70,12 @@ public sealed class BitmapEffectGroup : BitmapEffect
         return count;
     }
 
-    public override void ApplyStyling(IClock clock)
-    {
-        base.ApplyStyling(clock);
-        foreach (IBitmapEffect item in Children.GetMarshal().Value)
-        {
-            (item as Styleable)?.ApplyStyling(clock);
-        }
-    }
-
     public override void ApplyAnimations(IClock clock)
     {
         base.ApplyAnimations(clock);
         foreach (IBitmapEffect item in Children.GetMarshal().Value)
         {
-            (item as Animatable)?.ApplyAnimations(clock);
+            (item as IAnimatable)?.ApplyAnimations(clock);
         }
     }
 
@@ -117,7 +97,7 @@ public sealed class BitmapEffectGroup : BitmapEffect
                         && atTypeValue.TryGetValue(out string? atType)
                         && TypeFormat.ToType(atType) is Type type
                         && type.IsAssignableTo(typeof(BitmapEffect))
-                        && Activator.CreateInstance(type) is BitmapEffect bitmapEffect)
+                        && Activator.CreateInstance(type) is IMutableBitmapEffect bitmapEffect)
                     {
                         bitmapEffect.ReadFromJson(childJson);
                         _children.Add(bitmapEffect);
@@ -135,13 +115,16 @@ public sealed class BitmapEffectGroup : BitmapEffect
         {
             var array = new JsonArray();
 
-            foreach (BitmapEffect item in _children.GetMarshal().Value)
+            foreach (IBitmapEffect item in _children.GetMarshal().Value)
             {
-                JsonNode node = new JsonObject();
-                item.WriteToJson(ref node);
-                node["@type"] = TypeFormat.ToString(item.GetType());
+                if (item is IMutableBitmapEffect obj)
+                {
+                    JsonNode node = new JsonObject();
+                    obj.WriteToJson(ref node);
+                    node["@type"] = TypeFormat.ToString(item.GetType());
 
-                array.Add(node);
+                    array.Add(node);
+                }
             }
 
             jobject["children"] = array;

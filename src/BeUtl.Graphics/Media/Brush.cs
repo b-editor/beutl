@@ -1,4 +1,5 @@
-﻿using BeUtl.Graphics;
+﻿using BeUtl.Animation;
+using BeUtl.Graphics;
 using BeUtl.Graphics.Transformation;
 using BeUtl.Styling;
 
@@ -7,7 +8,7 @@ namespace BeUtl.Media;
 /// <summary>
 /// Describes how an area is painted.
 /// </summary>
-public abstract class Brush : Styleable, IMutableBrush
+public abstract class Brush : Animatable, IMutableBrush
 {
     public static readonly CoreProperty<float> OpacityProperty;
     public static readonly CoreProperty<ITransform?> TransformProperty;
@@ -38,7 +39,6 @@ public abstract class Brush : Styleable, IMutableBrush
             .Register();
 
         AffectsRender<Brush>(OpacityProperty, TransformProperty, TransformOriginProperty);
-        LogicalChild<Brush>(TransformProperty);
     }
 
     protected Brush()
@@ -116,18 +116,5 @@ public abstract class Brush : Styleable, IMutableBrush
     protected void RaiseInvalidated()
     {
         Invalidated?.Invoke(this, EventArgs.Empty);
-    }
-
-    protected override IEnumerable<ILogicalElement> OnEnumerateChildren()
-    {
-        foreach (ILogicalElement item in base.OnEnumerateChildren())
-        {
-            yield return item;
-        }
-
-        if (_transform is ILogicalElement elm1)
-        {
-            yield return elm1;
-        }
     }
 }

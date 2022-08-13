@@ -6,7 +6,7 @@ using BeUtl.Styling;
 
 namespace BeUtl.Animation;
 
-public sealed class AnimationSpan<T> : AnimationSpan, IAnimationSpan<T>, ILogicalElement, IStylingElement
+public sealed class AnimationSpan<T> : AnimationSpan, IAnimationSpan<T>
 {
     public static readonly CoreProperty<T> PreviousProperty;
     public static readonly CoreProperty<T> NextProperty;
@@ -49,29 +49,9 @@ public sealed class AnimationSpan<T> : AnimationSpan, IAnimationSpan<T>, ILogica
         set => SetAndRaise(NextProperty, ref _next, value);
     }
 
-    public event EventHandler? Invalidated;
+    public Animator<T> Animator => s_animator;
 
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren
-    {
-        get
-        {
-            if (_previous is ILogicalElement prevElm)
-                yield return prevElm;
-            if (_next is ILogicalElement nextElm)
-                yield return nextElm;
-        }
-    }
-    
-    IEnumerable<IStylingElement> IStylingElement.StylingChildren
-    {
-        get
-        {
-            if (_previous is IStylingElement prevElm)
-                yield return prevElm;
-            if (_next is IStylingElement nextElm)
-                yield return nextElm;
-        }
-    }
+    public event EventHandler? Invalidated;
 
     public T Interpolate(float progress)
     {
@@ -99,16 +79,6 @@ public sealed class AnimationSpan<T> : AnimationSpan, IAnimationSpan<T>, ILogica
                 {
                     affectsRender2.Invalidated += AffectsRender_Invalidated;
                 }
-
-                // 論理ツリーの設定
-                var logicalTreeAttachmentArgs = new LogicalTreeAttachmentEventArgs(this);
-                (args1.OldValue as ILogicalElement)?.NotifyDetachedFromLogicalTree(logicalTreeAttachmentArgs);
-                (args1.NewValue as ILogicalElement)?.NotifyAttachedToLogicalTree(logicalTreeAttachmentArgs);
-
-                // スタイルツリーの設定
-                var stylingTreeAttachmentArgs = new StylingTreeAttachmentEventArgs(this);
-                (args1.OldValue as IStylingElement)?.NotifyDetachedFromStylingTree(stylingTreeAttachmentArgs);
-                (args1.NewValue as IStylingElement)?.NotifyAttachedToStylingTree(stylingTreeAttachmentArgs);
             }
 
         }

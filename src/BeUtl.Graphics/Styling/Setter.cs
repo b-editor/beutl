@@ -2,7 +2,6 @@
 using System.Reactive.Linq;
 
 using BeUtl.Animation;
-using BeUtl.Collections;
 using BeUtl.Media;
 using BeUtl.Reactive;
 
@@ -37,14 +36,9 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
         {
             if (!EqualityComparer<T>.Default.Equals(_value, value))
             {
-                var args = new StylingTreeAttachmentEventArgs(this);
                 if (_value is IAffectsRender oldValue)
                 {
                     oldValue.Invalidated -= Value_Invalidated;
-                }
-                if (_value is IStylingElement oldElement)
-                {
-                    oldElement.NotifyDetachedFromStylingTree(args);
                 }
 
                 _value = value;
@@ -54,10 +48,6 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
                 if (value is IAffectsRender newValue)
                 {
                     newValue.Invalidated += Value_Invalidated;
-                }
-                if (value is IStylingElement newElement)
-                {
-                    newElement.NotifyAttachedToStylingTree(args);
                 }
             }
         }
@@ -70,11 +60,9 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
         {
             if (_animation != value)
             {
-                var args = new StylingTreeAttachmentEventArgs(this);
                 if (_animation != null)
                 {
                     _animation.Invalidated -= Animation_Invalidated;
-                    (_animation as IStylingElement).NotifyDetachedFromStylingTree(args);
                 }
 
                 _animation = value;
@@ -82,22 +70,8 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
                 if (value != null)
                 {
                     value.Invalidated += Animation_Invalidated;
-                    (value as IStylingElement).NotifyAttachedToStylingTree(args);
                 }
             }
-        }
-    }
-
-    public IStylingElement? StylingParent { get; private set; }
-
-    public IEnumerable<IStylingElement> StylingChildren
-    {
-        get
-        {
-            if (Animation != null)
-                yield return Animation;
-            if (Value is IStylingElement element)
-                yield return element;
         }
     }
 
@@ -108,10 +82,6 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
     IAnimation? ISetter.Animation => _animation;
 
     public event EventHandler? Invalidated;
-
-    public event EventHandler<StylingTreeAttachmentEventArgs>? AttachedToStylingTree;
-
-    public event EventHandler<StylingTreeAttachmentEventArgs>? DetachedFromStylingTree;
 
     public ISetterInstance Instance(IStyleable target)
     {
@@ -144,23 +114,5 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
     private void Animation_Invalidated(object? sender, EventArgs e)
     {
         Invalidated?.Invoke(this, EventArgs.Empty);
-    }
-
-    void IStylingElement.NotifyAttachedToStylingTree(in StylingTreeAttachmentEventArgs e)
-    {
-        if (StylingParent is { })
-            throw new StylingTreeException("This styling element already has a parent element.");
-
-        StylingParent = e.Parent;
-        AttachedToStylingTree?.Invoke(this, e);
-    }
-
-    void IStylingElement.NotifyDetachedFromStylingTree(in StylingTreeAttachmentEventArgs e)
-    {
-        if (!ReferenceEquals(e.Parent, StylingParent))
-            throw new StylingTreeException("The detach source element and the parent element do not match.");
-
-        StylingParent = null;
-        DetachedFromStylingTree?.Invoke(this, e);
     }
 }

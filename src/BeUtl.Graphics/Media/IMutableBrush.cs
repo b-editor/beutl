@@ -2,7 +2,7 @@
 
 namespace BeUtl.Media;
 
-public interface IMutableBrush : IBrush, IStyleable, IAffectsRender
+public interface IMutableBrush : IBrush, IAffectsRender
 {
     IBrush ToImmutable();
 }

@@ -21,13 +21,11 @@ public interface IDrawable : IRenderable
 
     IImageFilter? Filter { get; set; }
 
-    AlignmentX CanvasAlignmentX { get; set; }
-
-    AlignmentY CanvasAlignmentY { get; set; }
-
     AlignmentX AlignmentX { get; set; }
 
     AlignmentY AlignmentY { get; set; }
+
+    RelativePoint TransformOrigin { get; set; }
 
     void Draw(ICanvas canvas);
 

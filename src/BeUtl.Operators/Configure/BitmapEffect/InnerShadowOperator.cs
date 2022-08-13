@@ -1,23 +1,13 @@
-﻿using BeUtl.Graphics;
-using BeUtl.Graphics.Effects;
-using BeUtl.Media;
-using BeUtl.Styling;
+﻿using BeUtl.Graphics.Effects;
 
 namespace BeUtl.Operators.Configure.BitmapEffect;
 
-public sealed class InnerShadowOperator : BitmapEffectOperator
+public sealed class InnerShadowOperator : BitmapEffectOperator<InnerShadow>
 {
-    protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
+    protected override IEnumerable<CoreProperty> GetProperties()
     {
-        var style = new Style<InnerShadow>();
-        style.Setters.AddRange(setters());
-        return style;
-    }
-
-    protected override void OnInitializeSetters(IList<ISetter> initializing)
-    {
-        initializing.Add(new Setter<Point>(InnerShadow.PositionProperty, new Point(10, 10)));
-        initializing.Add(new Setter<PixelSize>(InnerShadow.KernelSizeProperty, new PixelSize(25, 25)));
-        initializing.Add(new Setter<Color>(InnerShadow.ColorProperty, Colors.Black));
+        yield return InnerShadow.PositionProperty;
+        yield return InnerShadow.KernelSizeProperty;
+        yield return InnerShadow.ColorProperty;
     }
 }

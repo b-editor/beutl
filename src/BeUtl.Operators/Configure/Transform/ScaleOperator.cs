@@ -1,21 +1,13 @@
 ﻿using BeUtl.Graphics.Transformation;
-using BeUtl.Styling;
 
 namespace BeUtl.Operators.Configure.Transform;
 
-public sealed class ScaleOperator : TransformOperator
+public sealed class ScaleOperator : TransformOperator<ScaleTransform>
 {
-    protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
+    protected override IEnumerable<CoreProperty> GetProperties()
     {
-        var style = new Style<ScaleTransform>();
-        style.Setters.AddRange(setters());
-        return style;
-    }
-
-    protected override void OnInitializeSetters(IList<ISetter> initializing)
-    {
-        initializing.Add(new Setter<float>(ScaleTransform.ScaleProperty, 1));
-        initializing.Add(new Setter<float>(ScaleTransform.ScaleXProperty, 1));
-        initializing.Add(new Setter<float>(ScaleTransform.ScaleYProperty, 1));
+        yield return ScaleTransform.ScaleProperty;
+        yield return ScaleTransform.ScaleXProperty;
+        yield return ScaleTransform.ScaleYProperty;
     }
 }

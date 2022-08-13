@@ -2,8 +2,6 @@
 
 using Avalonia.Media;
 
-using BeUtl.ProjectSystem;
-
 namespace BeUtl.Framework;
 
 // NOTE: EditorExtension内にIWorkspaceItemを作成するメソッドを追加すると、

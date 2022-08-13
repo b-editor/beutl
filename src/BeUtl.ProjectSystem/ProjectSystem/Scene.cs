@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
+using BeUtl.Framework;
 using BeUtl.Media;
 using BeUtl.Rendering;
 

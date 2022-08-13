@@ -1,4 +1,5 @@
-﻿using BeUtl.Framework;
+﻿using BeUtl.Animation;
+using BeUtl.Framework;
 using BeUtl.Services;
 using BeUtl.Services.Editors.Wrappers;
 
@@ -31,6 +32,7 @@ public sealed class PropertiesEditorViewModel : IDisposable
         Type objType = obj.GetType();
         Type wrapperType = typeof(CorePropertyClientImpl<>);
         Type animatableWrapperType = typeof(AnimatableCorePropertyClientImpl<>);
+        bool isAnimatable = obj is IAnimatable;
 
         List<CoreProperty> props = PropertyRegistry.GetRegistered(objType).ToList();
         Properties.EnsureCapacity(props.Count);
@@ -43,16 +45,14 @@ public sealed class PropertiesEditorViewModel : IDisposable
             (foundItems, extension) = PropertyEditorService.MatchProperty(props);
             if (foundItems != null && extension != null)
             {
-                int index = 0;
                 var tmp = new IAbstractProperty[foundItems.Length];
-                foreach (CoreProperty item in foundItems)
+                for (int i = 0; i < foundItems.Length; i++)
                 {
+                    CoreProperty item = foundItems[i];
                     CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(objType);
-                    Type wtype = metadata.PropertyFlags.HasFlag(PropertyFlags.Animatable) ? animatableWrapperType : wrapperType;
+                    Type wtype = isAnimatable && metadata.PropertyFlags.HasFlag(PropertyFlags.Animatable) ? animatableWrapperType : wrapperType;
                     Type wrapperGType = wtype.MakeGenericType(item.PropertyType);
-                    tmp[index] = (IAbstractProperty)Activator.CreateInstance(wrapperGType, item, obj)!;
-
-                    index++;
+                    tmp[i] = (IAbstractProperty)Activator.CreateInstance(wrapperGType, item, obj)!;
                 }
 
                 if (extension.TryCreateContext(tmp, out IPropertyEditorContext? context))

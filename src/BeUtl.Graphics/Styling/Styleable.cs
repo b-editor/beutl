@@ -1,6 +1,4 @@
-﻿using System.Reflection;
-using System.Text.Json;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 
 using BeUtl.Animation;
 
@@ -9,16 +7,19 @@ namespace BeUtl.Styling;
 public abstract class Styleable : Animatable, IStyleable
 {
     public static readonly CoreProperty<Styles> StylesProperty;
+    public static readonly CoreProperty<Styleable?> ParentProperty;
+    private ILogicalElement? _parent;
     private readonly Styles _styles;
-    private IStylingElement? _stylingParent;
     private IStyleInstance? _styleInstance;
-    private EventHandler<StylingTreeAttachmentEventArgs>? _attachedToStylingTree;
-    private EventHandler<StylingTreeAttachmentEventArgs>? _detachedFromStylingTree;
 
     static Styleable()
     {
         StylesProperty = ConfigureProperty<Styles, Styleable>(nameof(Styles))
             .Accessor(o => o.Styles, (o, v) => o.Styles = v)
+            .Register();
+
+        ParentProperty = ConfigureProperty<Styleable?, Styleable>(nameof(Parent))
+            .Accessor(o => o.Parent, (o, v) => o.Parent = v)
             .Register();
     }
 
@@ -28,40 +29,32 @@ public abstract class Styleable : Animatable, IStyleable
         _styles.Attached += item =>
         {
             item.Invalidated += Style_Invalidated;
-            item.NotifyAttachedToStylingTree(new StylingTreeAttachmentEventArgs(this));
         };
         _styles.Detached += item =>
         {
             item.Invalidated -= Style_Invalidated;
-            item.NotifyDetachedFromStylingTree(new StylingTreeAttachmentEventArgs(this));
         };
         _styles.CollectionChanged += Style_Invalidated;
-
-        Animations.Attached += item =>
-        {
-            item.NotifyAttachedToStylingTree(new StylingTreeAttachmentEventArgs(this));
-        };
-        Animations.Detached += item =>
-        {
-            item.NotifyDetachedFromStylingTree(new StylingTreeAttachmentEventArgs(this));
-        };
     }
 
-    event EventHandler<StylingTreeAttachmentEventArgs> IStylingElement.AttachedToStylingTree
-    {
-        add => _attachedToStylingTree += value;
-        remove => _attachedToStylingTree -= value;
-    }
+    public event EventHandler<LogicalTreeAttachmentEventArgs>? AttachedToLogicalTree;
 
-    event EventHandler<StylingTreeAttachmentEventArgs> IStylingElement.DetachedFromStylingTree
-    {
-        add => _detachedFromStylingTree += value;
-        remove => _detachedFromStylingTree -= value;
-    }
+    public event EventHandler<LogicalTreeAttachmentEventArgs>? DetachedFromLogicalTree;
 
     private void Style_Invalidated(object? sender, EventArgs e)
     {
         _styleInstance = null;
+    }
+
+    public Styleable? Parent
+    {
+        get => _parent as Styleable;
+        private set
+        {
+            Styleable? parent = Parent;
+            SetAndRaise(ParentProperty, ref parent, value);
+            _parent = parent;
+        }
     }
 
     public Styles Styles
@@ -76,9 +69,9 @@ public abstract class Styleable : Animatable, IStyleable
         }
     }
 
-    IStylingElement? IStylingElement.StylingParent => _stylingParent;
+    ILogicalElement? ILogicalElement.LogicalParent => _parent;
 
-    IEnumerable<IStylingElement> IStylingElement.StylingChildren => _styles.Concat<IStylingElement>(Animations);
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => OnEnumerateChildren();
 
     public void InvalidateStyles()
     {
@@ -169,33 +162,90 @@ public abstract class Styleable : Animatable, IStyleable
         }
     }
 
-    protected virtual void OnAttachedToStylingTree(in StylingTreeAttachmentEventArgs e)
+    protected static void LogicalChild<T>(
+        CoreProperty? property1 = null,
+        CoreProperty? property2 = null,
+        CoreProperty? property3 = null,
+        CoreProperty? property4 = null)
+        where T : Styleable
+    {
+        static void onNext(CorePropertyChangedEventArgs e)
+        {
+            if (e.Sender is T s)
+            {
+                if (e.OldValue is ILogicalElement oldLogical)
+                {
+                    oldLogical.NotifyDetachedFromLogicalTree(new LogicalTreeAttachmentEventArgs(s));
+                }
+
+                if (e.NewValue is ILogicalElement newLogical)
+                {
+                    newLogical.NotifyAttachedToLogicalTree(new LogicalTreeAttachmentEventArgs(s));
+                }
+            }
+        }
+
+        property1?.Changed.Subscribe(onNext);
+        property2?.Changed.Subscribe(onNext);
+        property3?.Changed.Subscribe(onNext);
+        property4?.Changed.Subscribe(onNext);
+    }
+
+    protected static void LogicalChild<T>(params CoreProperty[] properties)
+        where T : Styleable
+    {
+        static void onNext(CorePropertyChangedEventArgs e)
+        {
+            if (e.Sender is T s)
+            {
+                if (e.OldValue is ILogicalElement oldLogical)
+                {
+                    oldLogical.NotifyDetachedFromLogicalTree(new LogicalTreeAttachmentEventArgs(s));
+                }
+
+                if (e.NewValue is ILogicalElement newLogical)
+                {
+                    newLogical.NotifyAttachedToLogicalTree(new LogicalTreeAttachmentEventArgs(s));
+                }
+            }
+        }
+
+        foreach (CoreProperty? item in properties)
+        {
+            item.Changed.Subscribe(onNext);
+        }
+    }
+
+    protected virtual void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
     {
     }
-    
-    protected virtual void OnDetachedFromStylingTree(in StylingTreeAttachmentEventArgs e)
+
+    protected virtual void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
     {
     }
 
-    void IStylingElement.NotifyAttachedToStylingTree(in StylingTreeAttachmentEventArgs e)
+    protected virtual IEnumerable<ILogicalElement> OnEnumerateChildren()
     {
-        if (_stylingParent is { })
-            throw new StylingTreeException("This styling element already has a parent element.");
-
-        OnAttachedToStylingTree(e);
-
-        _stylingParent = e.Parent;
-        _attachedToStylingTree?.Invoke(this, e);
+        yield break;
     }
 
-    void IStylingElement.NotifyDetachedFromStylingTree(in StylingTreeAttachmentEventArgs e)
+    void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)
     {
-        if (!ReferenceEquals(e.Parent, _stylingParent))
-            throw new StylingTreeException("The detach source element and the parent element do not match.");
+        if (_parent is { })
+            throw new LogicalTreeException("This logical element already has a parent element.");
 
-        OnDetachedFromStylingTree(e);
+        OnAttachedToLogicalTree(e);
+        _parent = e.Parent;
+        AttachedToLogicalTree?.Invoke(this, e);
+    }
 
-        _stylingParent = null;
-        _detachedFromStylingTree?.Invoke(this, e);
+    void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
+    {
+        if (!ReferenceEquals(e.Parent, _parent))
+            throw new LogicalTreeException("The detach source element and the parent element do not match.");
+
+        OnDetachedFromLogicalTree(e);
+        _parent = null;
+        DetachedFromLogicalTree?.Invoke(this, e);
     }
 }

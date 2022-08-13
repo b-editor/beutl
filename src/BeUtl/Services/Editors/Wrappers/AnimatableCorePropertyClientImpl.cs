@@ -85,44 +85,6 @@ public sealed class AnimatableCorePropertyClientImpl<T> : CorePropertyClientImpl
 
     public IObservable<bool> HasAnimation { get; }
 
-    IAnimationSpan IAbstractAnimatableProperty.CreateSpan(Easing easing)
-    {
-        CoreProperty<T> property = Property;
-        Type ownerType = property.OwnerType;
-        ILogicalElement? owner = Animation.FindLogicalParent(ownerType);
-        T? defaultValue = default;
-        bool hasDefaultValue = true;
-        if (owner is ICoreObject ownerCO)
-        {
-            defaultValue = ownerCO.GetValue(property);
-        }
-        else if (owner != null)
-        {
-            // メタデータをOverrideしている可能性があるので、owner.GetType()をする必要がある。
-            CorePropertyMetadata<T> metadata = property.GetMetadata<CorePropertyMetadata<T>>(owner.GetType());
-            defaultValue = metadata.DefaultValue;
-            hasDefaultValue = metadata.HasDefaultValue;
-        }
-        else
-        {
-            hasDefaultValue = false;
-        }
-
-        var span = new AnimationSpan<T>
-        {
-            Easing = easing,
-            Duration = TimeSpan.FromSeconds(2)
-        };
-
-        if (hasDefaultValue && defaultValue != null)
-        {
-            span.Previous = defaultValue;
-            span.Next = defaultValue;
-        }
-
-        return span;
-    }
-
     private Animation<T> GetAnimation()
     {
         var animatable = (Animatable)Object;

@@ -1,20 +1,11 @@
-﻿using BeUtl.Graphics;
-using BeUtl.Graphics.Filters;
-using BeUtl.Styling;
+﻿using BeUtl.Graphics.Filters;
 
 namespace BeUtl.Operators.Configure.ImageFilter;
 
-public sealed class BlurOperator : ImageFilterOperator
+public sealed class BlurOperator : ImageFilterOperator<Blur>
 {
-    protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
+    protected override IEnumerable<CoreProperty> GetProperties()
     {
-        var style = new Style<Blur>();
-        style.Setters.AddRange(setters());
-        return style;
-    }
-
-    protected override void OnInitializeSetters(IList<ISetter> initializing)
-    {
-        initializing.Add(new Setter<Vector>(Blur.SigmaProperty, new Vector(25, 25)));
+        yield return Blur.SigmaProperty;
     }
 }

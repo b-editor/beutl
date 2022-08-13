@@ -162,25 +162,30 @@ public static class PropertyEditorService
 
         public bool TryCreateContext(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
         {
+            BaseEditorViewModel? viewModel = null;
+            bool result = false;
+
             if (properties.Count > 0 && properties[0] is { } property)
             {
                 if (s_editorsOverride.TryGetValue(property.Property.Id, out Editor editorOverrided))
                 {
-                    context = editorOverrided.CreateViewModel(property);
-                    if (context != null)
+                    viewModel = editorOverrided.CreateViewModel(property);
+                    if (viewModel != null)
                     {
-                        context.Extension = extension;
-                        return true;
+                        viewModel.Extension = extension;
+                        result = true;
+                        goto Return;
                     }
                 }
 
                 if (s_editors.TryGetValue(property.Property.PropertyType, out Editor editor))
                 {
-                    context = editor.CreateViewModel(property);
-                    if (context != null)
+                    viewModel = editor.CreateViewModel(property);
+                    if (viewModel != null)
                     {
-                        context.Extension = extension;
-                        return true;
+                        viewModel.Extension = extension;
+                        result = true;
+                        goto Return;
                     }
                 }
 
@@ -188,18 +193,20 @@ public static class PropertyEditorService
                 {
                     if (property.Property.PropertyType.IsAssignableTo(item.Key))
                     {
-                        context = item.Value.CreateViewModel(property);
-                        if (context != null)
+                        viewModel = item.Value.CreateViewModel(property);
+                        if (viewModel != null)
                         {
-                            context.Extension = extension;
-                            return true;
+                            viewModel.Extension = extension;
+                            result = true;
+                            goto Return;
                         }
                     }
                 }
             }
 
-            context = null;
-            return false;
+        Return:
+            context = viewModel;
+            return result;
         }
 
         public bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out IControl? control)

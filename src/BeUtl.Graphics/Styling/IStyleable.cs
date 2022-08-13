@@ -1,6 +1,6 @@
 ﻿namespace BeUtl.Styling;
 
-public interface IStyleable : ICoreObject, ILogicalElement, IStylingElement
+public interface IStyleable : ICoreObject, ILogicalElement
 {
     Styles Styles { get; set; }
 

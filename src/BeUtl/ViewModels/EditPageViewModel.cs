@@ -1,7 +1,7 @@
 ﻿using System.Collections.Specialized;
 
+using BeUtl.Framework;
 using BeUtl.Framework.Services;
-using BeUtl.ProjectSystem;
 using BeUtl.Services;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -24,7 +24,7 @@ public sealed class EditPageViewModel
         _projectService.ProjectObservable.Subscribe(item => ProjectChanged(item.New, item.Old));
     }
 
-    public IReactiveProperty<Project?> Project => _projectService.CurrentProject;
+    public IReactiveProperty<IWorkspace?> Project => _projectService.CurrentProject;
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened => _projectService.IsOpened;
 
@@ -32,7 +32,7 @@ public sealed class EditPageViewModel
 
     public IReactiveProperty<TabViewModel?> SelectedTabItem => _editorService.SelectedTabItem;
 
-    private void ProjectChanged(Project? @new, Project? old)
+    private void ProjectChanged(IWorkspace? @new, IWorkspace? old)
     {
         // プロジェクトが開いた
         if (@new != null)

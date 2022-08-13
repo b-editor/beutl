@@ -73,14 +73,13 @@ public interface IAbstractAnimatableProperty<T> : IAbstractProperty<T>, IAbstrac
     IAnimationSpan IAbstractAnimatableProperty.CreateSpan(Easing easing)
     {
         CoreProperty<T> property = Property;
-        Type ownerType = property.OwnerType;
-        ILogicalElement? owner = Animation.FindLogicalParent(ownerType);
+        Type ownerType = ImplementedType;
         T? defaultValue = GetValue();
         bool hasDefaultValue = true;
-        if (owner != null && defaultValue == null)
+        if (defaultValue == null)
         {
             // メタデータをOverrideしている可能性があるので、owner.GetType()をする必要がある。
-            CorePropertyMetadata<T> metadata = property.GetMetadata<CorePropertyMetadata<T>>(owner.GetType());
+            CorePropertyMetadata<T> metadata = property.GetMetadata<CorePropertyMetadata<T>>(ownerType);
             defaultValue = metadata.DefaultValue;
             hasDefaultValue = metadata.HasDefaultValue;
         }
@@ -121,20 +120,7 @@ internal sealed class AnimationSpanPropertyWrapper<T> : IAbstractProperty<T>
 
     public CoreProperty<T> Property => _animation.Property;
 
-    public Type ImplementedType
-    {
-        get
-        {
-            if (_animationSpan.FindLogicalParent(Property.OwnerType)?.GetType() is { } ownerType)
-            {
-                return ownerType;
-            }
-            else
-            {
-                return Property.OwnerType;
-            }
-        }
-    }
+    public Type ImplementedType => Property.OwnerType;
 
     public bool Previous { get; }
 

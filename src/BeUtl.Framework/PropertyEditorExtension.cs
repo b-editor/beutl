@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Nodes;
 
 using Avalonia.Controls;
 
@@ -44,7 +45,7 @@ public class PropertyEditorExtension : Extension
     }
 }
 
-public interface IPropertyEditorContext : IDisposable
+public interface IPropertyEditorContext : IDisposable, IJsonSerializable
 {
-    PropertyEditorExtension Extension { get; internal set; }
+    PropertyEditorExtension Extension { get; }
 }

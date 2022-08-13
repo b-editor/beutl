@@ -34,11 +34,9 @@ public class StyleSetter<T> : LightweightObservableBase<Style?>, ISetter
         {
             if (_value != value)
             {
-                var args = new StylingTreeAttachmentEventArgs(this);
                 if (_value != null)
                 {
                     _value.Invalidated -= OnInvalidated;
-                    (_value as IStylingElement).NotifyDetachedFromStylingTree(args);
                 }
 
                 _value = value;
@@ -49,20 +47,8 @@ public class StyleSetter<T> : LightweightObservableBase<Style?>, ISetter
                 if (value != null)
                 {
                     value.Invalidated += OnInvalidated;
-                    (value as IStylingElement).NotifyAttachedToStylingTree(args);
                 }
             }
-        }
-    }
-
-    public IStylingElement? StylingParent { get; private set; }
-
-    public IEnumerable<IStylingElement> StylingChildren
-    {
-        get
-        {
-            if (_value is { })
-                yield return _value;
         }
     }
 
@@ -73,10 +59,6 @@ public class StyleSetter<T> : LightweightObservableBase<Style?>, ISetter
     IAnimation? ISetter.Animation => throw new InvalidOperationException();
 
     public event EventHandler? Invalidated;
-
-    public event EventHandler<StylingTreeAttachmentEventArgs>? AttachedToStylingTree;
-
-    public event EventHandler<StylingTreeAttachmentEventArgs>? DetachedFromStylingTree;
 
     public ISetterInstance Instance(IStyleable target)
     {
@@ -108,23 +90,5 @@ public class StyleSetter<T> : LightweightObservableBase<Style?>, ISetter
     private void OnInvalidated(object? sender, EventArgs e)
     {
         Invalidated?.Invoke(this, EventArgs.Empty);
-    }
-
-    void IStylingElement.NotifyAttachedToStylingTree(in StylingTreeAttachmentEventArgs e)
-    {
-        if (StylingParent is { })
-            throw new StylingTreeException("This styling element already has a parent element.");
-
-        StylingParent = e.Parent;
-        AttachedToStylingTree?.Invoke(this, e);
-    }
-
-    void IStylingElement.NotifyDetachedFromStylingTree(in StylingTreeAttachmentEventArgs e)
-    {
-        if (!ReferenceEquals(e.Parent, StylingParent))
-            throw new StylingTreeException("The detach source element and the parent element do not match.");
-
-        StylingParent = null;
-        DetachedFromStylingTree?.Invoke(this, e);
     }
 }

@@ -141,7 +141,8 @@ public sealed class DefaultPropertyNameExtension : LocalizedPropertyNameExtensio
         {
             return S.Common.TransformObservable;
         }
-        else if (property.Id == Media.Brush.TransformOriginProperty.Id)
+        else if (property.Id == Graphics.Drawable.TransformOriginProperty.Id
+            || property.Id == Media.Brush.TransformOriginProperty.Id)
         {
             return S.Common.TransformOriginObservable;
         }
@@ -152,14 +153,6 @@ public sealed class DefaultPropertyNameExtension : LocalizedPropertyNameExtensio
         else if (property.Id == Graphics.Drawable.EffectProperty.Id)
         {
             return S.Common.BitmapEffectObservable;
-        }
-        else if (property.Id == Graphics.Drawable.CanvasAlignmentXProperty.Id)
-        {
-            return S.Common.CanvasAlignmentXObservable;
-        }
-        else if (property.Id == Graphics.Drawable.CanvasAlignmentYProperty.Id)
-        {
-            return S.Common.CanvasAlignmentYObservable;
         }
         else if (property.Id == Graphics.Drawable.AlignmentXProperty.Id
             || property.Id == Media.TileBrush.AlignmentXProperty.Id)

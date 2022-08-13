@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Reactive.Disposables;
 
 namespace BeUtl.Collections;
@@ -51,12 +52,7 @@ public static class CoreListExtensions
                 case NotifyCollectionChangedAction.Move:
                 case NotifyCollectionChangedAction.Replace:
                     Remove(e.OldStartingIndex, e.OldItems!);
-                    int newIndex = e.NewStartingIndex;
-                    if (newIndex > e.OldStartingIndex)
-                    {
-                        newIndex -= e.OldItems!.Count;
-                    }
-                    Add(newIndex, e.NewItems!);
+                    Add(e.NewStartingIndex, e.NewItems!);
                     break;
 
                 case NotifyCollectionChangedAction.Remove:

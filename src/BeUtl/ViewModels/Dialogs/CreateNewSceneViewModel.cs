@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 
+using BeUtl.Framework;
 using BeUtl.Framework.Services;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
@@ -13,7 +14,7 @@ namespace BeUtl.ViewModels.Dialogs;
 
 public sealed class CreateNewSceneViewModel
 {
-    private readonly Project? _proj;
+    private readonly IWorkspace? _proj;
 
     public CreateNewSceneViewModel()
     {

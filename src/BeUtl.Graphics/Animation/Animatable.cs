@@ -2,11 +2,11 @@
 
 namespace BeUtl.Animation;
 
-public abstract class Animatable : Element
+public abstract class Animatable : CoreObject, IAnimatable
 {
     protected Animatable()
     {
-        Animations = new(this);
+        Animations = new();
     }
 
     public Animations Animations { get; }
@@ -68,19 +68,6 @@ public abstract class Animatable : Element
             {
                 jobject["animations"] = animations;
             }
-        }
-    }
-
-    protected override IEnumerable<ILogicalElement> OnEnumerateChildren()
-    {
-        foreach (ILogicalElement item in base.OnEnumerateChildren())
-        {
-            yield return item;
-        }
-
-        foreach (IAnimation item in Animations)
-        {
-            yield return item;
         }
     }
 }

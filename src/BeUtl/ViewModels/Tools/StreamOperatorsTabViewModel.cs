@@ -1,5 +1,7 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Collections.Specialized;
+using System.Text.Json.Nodes;
 
+using BeUtl.Collections;
 using BeUtl.Framework;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
@@ -7,6 +9,7 @@ using BeUtl.Services.PrimitiveImpls;
 using BeUtl.Streaming;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels.Tools;
 
@@ -36,36 +39,79 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
             if (layer != null)
             {
                 _disposable1?.Dispose();
-                _disposable1 = layer.Operators.ForEachItem(
-                    (idx, item) =>
+
+                Items.AddRange(layer.Operators.Select(x => new StreamOperatorViewModel(x)));
+                _disposable1 = layer.Operators.CollectionChangedAsObservable()
+                    .Subscribe(e =>
                     {
-                        if (item is StylingOperator so)
+                        static void RemoveItems(CoreList<StreamOperatorViewModel> items, int index, int count)
                         {
-                            Items.Insert(idx, new StylingOperatorViewModel(so));
+                            foreach (StreamOperatorViewModel item in items.GetMarshal().Value.Slice(index, count))
+                            {
+                                item?.Dispose();
+                            }
+                            items.RemoveRange(index, count);
                         }
-                        else
+
+                        switch (e.Action)
                         {
-                            // Todo: ここの処理でだみm－を追加
-                            Items.Insert(idx, null);
+                            case NotifyCollectionChangedAction.Add:
+                                Items.InsertRange(e.NewStartingIndex, e.NewItems!
+                                    .Cast<StreamOperator>()
+                                    .Select(x => new StreamOperatorViewModel(x)));
+                                break;
+
+                            case NotifyCollectionChangedAction.Move:
+                                int newIndex = e.NewStartingIndex;
+                                if (newIndex > e.OldStartingIndex)
+                                {
+                                    newIndex += e.OldItems!.Count;
+                                }
+
+                                Items.MoveRange(e.OldStartingIndex, e.OldItems!.Count, newIndex);
+                                break;
+
+                            case NotifyCollectionChangedAction.Replace:
+                                RemoveItems(Items, e.OldStartingIndex, e.OldItems!.Count);
+                                newIndex = e.NewStartingIndex;
+                                if (newIndex > e.OldStartingIndex)
+                                {
+                                    newIndex -= e.OldItems!.Count;
+                                }
+
+                                Items.InsertRange(newIndex, e.NewItems!
+                                    .Cast<StreamOperator>()
+                                    .Select(x => new StreamOperatorViewModel(x)));
+                                break;
+
+                            case NotifyCollectionChangedAction.Remove:
+                                RemoveItems(Items, e.OldStartingIndex, e.OldItems!.Count);
+                                break;
+
+                            case NotifyCollectionChangedAction.Reset:
+                                ClearItems();
+                                break;
                         }
-                    },
-                    (idx, _) =>
-                    {
-                        Items[idx]?.Dispose();
-                        Items.RemoveAt(idx);
-                    },
-                    () => ClearItems());
+                    });
+                //_disposable1 = layer.Operators.ForEachItem(
+                //    (idx, item) => Items.Insert(idx, new StreamOperatorViewModel(item)),
+                //    (idx, _) =>
+                //    {
+                //        Items[idx].Dispose();
+                //        Items.RemoveAt(idx);
+                //    },
+                //    () => ClearItems());
 
                 RestoreState(layer);
             }
         });
     }
 
-    public Action<StylingOperator>? RequestScroll { get; set; }
+    public Action<StreamOperator>? RequestScroll { get; set; }
 
     public ReactiveProperty<Layer?> Layer { get; }
 
-    public CoreList<StylingOperatorViewModel?> Items { get; } = new();
+    public CoreList<StreamOperatorViewModel> Items { get; } = new();
 
     public ToolTabExtension Extension => StreamOperatorsTabExtension.Instance;
 
@@ -75,7 +121,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
 
     public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Right;
 
-    public void ScrollTo(StylingOperator obj)
+    public void ScrollTo(StreamOperator obj)
     {
         RequestScroll?.Invoke(obj);
     }
@@ -111,7 +157,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
     {
         string viewStateDir = ViewStateDirectory(layer);
         var json = new JsonArray();
-        foreach (StylingOperatorViewModel? item in Items.GetMarshal().Value)
+        foreach (StreamOperatorViewModel? item in Items.GetMarshal().Value)
         {
             json.Add(item?.SaveState());
         }
@@ -130,7 +176,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
             var json = JsonNode.Parse(stream);
             if (json is JsonArray array)
             {
-                foreach ((JsonNode? item, StylingOperatorViewModel? op) in array.Zip(Items))
+                foreach ((JsonNode? item, StreamOperatorViewModel? op) in array.Zip(Items))
                 {
                     if (item != null && op != null)
                     {
@@ -143,7 +189,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
 
     private void ClearItems()
     {
-        foreach (StylingOperatorViewModel? item in Items.GetMarshal().Value)
+        foreach (StreamOperatorViewModel? item in Items.GetMarshal().Value)
         {
             item?.Dispose();
         }

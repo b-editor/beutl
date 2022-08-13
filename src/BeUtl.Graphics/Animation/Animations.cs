@@ -5,10 +5,9 @@ using BeUtl.Collections;
 
 namespace BeUtl.Animation;
 
-public sealed class Animations : LogicalList<IAnimation>
+public sealed class Animations : CoreList<IAnimation>
 {
-    public Animations(ILogicalElement parent)
-        : base(parent)
+    public Animations()
     {
         ResetBehavior = ResetBehavior.Remove;
         CollectionChanged += OnCollectionChanged;

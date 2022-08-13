@@ -1,10 +1,9 @@
-﻿using BeUtl.Media;
-using BeUtl.Styling;
+﻿namespace BeUtl.Graphics.Effects;
 
-namespace BeUtl.Graphics.Effects;
-
-public interface IBitmapEffect : IStyleable, IAffectsRender
+public interface IBitmapEffect
 {
+    bool IsEnabled { get; }
+
     IBitmapProcessor Processor { get; }
 
     Rect TransformBounds(Rect rect);

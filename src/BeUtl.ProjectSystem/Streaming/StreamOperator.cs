@@ -1,10 +1,14 @@
-﻿using BeUtl.Media;
+﻿using BeUtl.Collections;
+using BeUtl.Framework;
+using BeUtl.Media;
 
 namespace BeUtl.Streaming;
 
 public interface IStreamOperator : IAffectsRender
 {
     bool IsEnabled { get; }
+
+    ICoreList<IAbstractProperty> Properties { get; }
 }
 
 // PropertyInstanceに依存しない代替案
@@ -34,6 +38,8 @@ public class StreamOperator : Element, IStreamOperator
             }
         }
     }
+
+    public ICoreList<IAbstractProperty> Properties { get; } = new CoreList<IAbstractProperty>();
 
     public event EventHandler? Invalidated;
 

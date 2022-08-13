@@ -24,8 +24,6 @@ public class Animation<T> : BaseAnimation, IAnimation
 
     ICoreReadOnlyList<IAnimationSpan> IAnimation.Children => _children;
 
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => _children;
-
     public event EventHandler? Invalidated;
 
     public void ReadFromJson(JsonNode json)
@@ -96,17 +94,6 @@ public class Animation<T> : BaseAnimation, IAnimation
         public AnimationChildren(Animation<T> parent)
         {
             Parent = parent;
-            Attached += item =>
-            {
-                (item as ILogicalElement).NotifyAttachedToLogicalTree(new(Parent));
-                (item as IStylingElement).NotifyAttachedToStylingTree(new(Parent));
-            };
-            Detached += item =>
-            {
-                (item as ILogicalElement).NotifyDetachedFromLogicalTree(new(Parent));
-                (item as IStylingElement).NotifyDetachedFromStylingTree(new(Parent));
-            };
-
             ResetBehavior = ResetBehavior.Remove;
             CollectionChanged += AffectsRenders_CollectionChanged;
         }
