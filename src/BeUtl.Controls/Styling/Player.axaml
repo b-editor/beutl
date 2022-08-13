@@ -21,7 +21,7 @@
                             Width="{Binding #PART_Image.Bounds.Width}"
                             Height="{Binding #PART_Image.Bounds.Height}"/>
 
-                        <Image Name="PART_Image" />
+                        <Image Name="PART_Image" Source="{TemplateBinding Source}" />
                     </Panel>
 
                     <Grid RowDefinitions="Auto,Auto" Grid.Row="1">

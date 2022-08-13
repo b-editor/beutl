@@ -66,7 +66,7 @@ public class ImmediateRenderer : IRenderer
         if (RenderInvalidated != null)
         {
             IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => Render(timeSpan));
-            RenderInvalidated.Invoke(this, result);
+            RenderInvalidated?.Invoke(this, result);
             result.Bitmap.Dispose();
         }
     }

@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Threading;
 
 using BeUtl.Controls;
 using BeUtl.Framework;
@@ -27,9 +28,9 @@ public sealed partial class EditView : UserControl, IEditor
     private readonly AvaloniaList<FA.TabViewItem> _rightTabItems = new();
     private Image? _image;
     //private FileSystemWatcher? _watcher;
-    private IDisposable? _disposable0;
     private IDisposable? _disposable1;
     private IDisposable? _disposable2;
+    private IDisposable _disposable3;
 
     public EditView()
     {
@@ -129,22 +130,6 @@ public sealed partial class EditView : UserControl, IEditor
         base.OnDataContextChanged(e);
         if (DataContext is EditViewModel vm)
         {
-            vm.Scene.Renderer.RenderInvalidated += Renderer_RenderInvalidated;
-            _disposable0?.Dispose();
-            _disposable0 = vm.Scene.GetPropertyChangedObservable(Scene.RendererProperty)
-                .Subscribe(a =>
-                {
-                    if (a.OldValue != null)
-                    {
-                        a.OldValue.RenderInvalidated -= Renderer_RenderInvalidated;
-                    }
-
-                    if (a.NewValue != null)
-                    {
-                        a.NewValue.RenderInvalidated += Renderer_RenderInvalidated;
-                    }
-                });
-
             _disposable1?.Dispose();
             _disposable1 = vm.BottomTabItems.ForEachItem(
                 (item) =>
@@ -254,41 +239,21 @@ Error:
                     }
                 },
                 () => throw new Exception());
+
+            _disposable3?.Dispose();
+            vm.Player.PreviewInvalidated += Player_PreviewInvalidated;
+            _disposable3 = Disposable.Create(vm, x => x.Player.PreviewInvalidated -= Player_PreviewInvalidated);
         }
     }
 
-    private unsafe void Renderer_RenderInvalidated(object? sender, Rendering.IRenderer.RenderResult e)
+    private void Player_PreviewInvalidated(object? sender, EventArgs e)
     {
         if (Image == null)
             return;
 
-        _syncContext.Send(_ =>
+        Dispatcher.UIThread.InvokeAsync(() =>
         {
-            Bitmap<Bgra8888> img = e.Bitmap;
-            WriteableBitmap bitmap;
-
-            if (Image.Source is WriteableBitmap bitmap1 &&
-                bitmap1.PixelSize.Width == img.Width &&
-                bitmap1.PixelSize.Height == img.Height)
-            {
-                bitmap = bitmap1;
-            }
-            else
-            {
-                bitmap = new WriteableBitmap(
-                    new(img.Width, img.Height),
-                    new(96, 96),
-                    PixelFormat.Bgra8888, AlphaFormat.Premul);
-            }
-
-            Image.Source = bitmap;
-            using (ILockedFramebuffer buf = bitmap.Lock())
-            {
-                int size = img.ByteCount;
-                Buffer.MemoryCopy((void*)img.Data, (void*)buf.Address, size, size);
-            }
-
             Image.InvalidateVisual();
-        }, null);
+        });
     }
 }

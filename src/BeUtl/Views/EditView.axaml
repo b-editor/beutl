@@ -73,6 +73,7 @@
                 <Player
                     x:Name="Player"
                     Margin="4,0"
+                    Source="{CompiledBinding Player.PreviewImage.Value, Mode=OneWay}"
                     IsPlaying="{CompiledBinding Player.IsPlaying.Value, Mode=TwoWay}"
                     PlayButtonCommand="{CompiledBinding Player.PlayPause}"
                     NextButtonCommand="{CompiledBinding Player.Next}"
