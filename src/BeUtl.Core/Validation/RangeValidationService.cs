@@ -20,7 +20,7 @@ public sealed class RangeValidationService
         { typeof(ulong), typeof(UInt64RangeValidator) },
         { typeof(Vector2), typeof(Vector2RangeValidator) },
         { typeof(Vector3), typeof(Vector3RangeValidator) },
-        { typeof(Vector4), typeof(Vector4RangeValidator) },
+        { typeof(TimeSpan), typeof(TimeSpanRangeValidator) },
     };
 
     public void Register<T, TValidator>()
