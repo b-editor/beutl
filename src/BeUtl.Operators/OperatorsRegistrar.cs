@@ -1,4 +1,6 @@
-﻿using BeUtl.Streaming;
+﻿using System.Reactive.Linq;
+
+using BeUtl.Streaming;
 
 using static BeUtl.Language.Resources;
 
@@ -14,6 +16,7 @@ public class OperatorsRegistrar
             .Add<Source.RoundedRectOperation>(S.Operators.Source.RoundedRectObservable)
             .Add<Source.TextBlockOperator>(S.Operators.Source.TextObservable)
             .Add<Source.ImageFileOperator>(S.Operators.Source.ImageFileObservable)
+            .Add<Source.VideoFrameOperator>(Observable.Return("Video"))
             .Register();
 
         OperatorRegistry.RegisterOperations(S.Operators.IndexConfigureObservable)
