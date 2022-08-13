@@ -1,24 +1,24 @@
 ﻿using System.Globalization;
 using System.Text;
 
-namespace BeUtl.Media;
+namespace BeUtl;
 
 public readonly struct Rational : IEquatable<Rational>
 {
-    public Rational(int value)
+    public Rational(long value)
       : this(value, 1)
     {
     }
 
-    public Rational(int numerator, int denominator)
+    public Rational(long numerator, long denominator)
     {
         Numerator = numerator;
         Denominator = denominator;
     }
 
-    public int Numerator { get; }
+    public long Numerator { get; }
 
-    public int Denominator { get; }
+    public long Denominator { get; }
 
     public bool IsIndeterminate => Denominator == 0 && Numerator == 0;
 
@@ -111,8 +111,8 @@ public readonly struct Rational : IEquatable<Rational>
             return new Rational(-1, 0);
         }
 
-        int numerator = 1;
-        int denominator = 1;
+        long numerator = 1;
+        long denominator = 1;
 
         double val = Math.Abs(value);
         double df = numerator / (double)denominator;
@@ -127,7 +127,7 @@ public readonly struct Rational : IEquatable<Rational>
             else
             {
                 denominator++;
-                numerator = (int)(val * denominator);
+                numerator = (long)(val * denominator);
             }
 
             df = numerator / (double)denominator;
@@ -158,8 +158,8 @@ public readonly struct Rational : IEquatable<Rational>
             return new Rational(-1, 0);
         }
 
-        int numerator = 1;
-        int denominator = 1;
+        long numerator = 1;
+        long denominator = 1;
 
         float val = MathF.Abs(value);
         float df = numerator / (float)denominator;
@@ -174,7 +174,7 @@ public readonly struct Rational : IEquatable<Rational>
             else
             {
                 denominator++;
-                numerator = (int)(val * denominator);
+                numerator = (long)(val * denominator);
             }
 
             df = numerator / (float)denominator;
@@ -190,23 +190,23 @@ public readonly struct Rational : IEquatable<Rational>
 
     public static void Reduce(ref Rational left, ref Rational right)
     {
-        int lcd = LeastCommonDenominator(left.Denominator, right.Denominator);
+        long lcd = LeastCommonDenominator(left.Denominator, right.Denominator);
 
-        int leftNum = left.Numerator * (lcd / left.Denominator);
-        int rightNum = right.Numerator * (lcd / right.Denominator);
+        long leftNum = left.Numerator * (lcd / left.Denominator);
+        long rightNum = right.Numerator * (lcd / right.Denominator);
 
         left = new Rational(leftNum, lcd);
         right = new Rational(rightNum, lcd);
     }
 
     // Todo: MathUtillitiesに移動
-    private static int GreatestCommonDivisor(int left, int right)
+    private static long GreatestCommonDivisor(long left, long right)
     {
         return right == 0 ? left : GreatestCommonDivisor(right, left % right);
     }
 
     // Todo: MathUtillitiesに移動
-    private static int LeastCommonDenominator(int left, int right)
+    private static long LeastCommonDenominator(long left, long right)
     {
         return left * right / GreatestCommonDivisor(left, right);
     }
@@ -232,7 +232,7 @@ public readonly struct Rational : IEquatable<Rational>
             return new Rational(1, 1);
         }
 
-        int gcd = GreatestCommonDivisor(Math.Abs(Numerator), Math.Abs(Denominator));
+        long gcd = GreatestCommonDivisor(Math.Abs(Numerator), Math.Abs(Denominator));
 
         if (gcd > 1)
         {
@@ -268,20 +268,20 @@ public readonly struct Rational : IEquatable<Rational>
 
     public static Rational operator +(Rational left, Rational right)
     {
-        int lcd = LeastCommonDenominator(left.Denominator, right.Denominator);
+        long lcd = LeastCommonDenominator(left.Denominator, right.Denominator);
 
-        int leftNum = left.Numerator * (lcd / left.Denominator);
-        int rightNum = right.Numerator * (lcd / right.Denominator);
+        long leftNum = left.Numerator * (lcd / left.Denominator);
+        long rightNum = right.Numerator * (lcd / right.Denominator);
 
         return new Rational(leftNum + rightNum, lcd);
     }
 
     public static Rational operator -(Rational left, Rational right)
     {
-        int lcd = LeastCommonDenominator(left.Denominator, right.Denominator);
+        long lcd = LeastCommonDenominator(left.Denominator, right.Denominator);
 
-        int leftNum = left.Numerator * (lcd / left.Denominator);
-        int rightNum = right.Numerator * (lcd / right.Denominator);
+        long leftNum = left.Numerator * (lcd / left.Denominator);
+        long rightNum = right.Numerator * (lcd / right.Denominator);
 
         return new Rational(leftNum - rightNum, lcd);
     }
