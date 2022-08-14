@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using BeUtl.Animation;
 using BeUtl.Media;
 using BeUtl.Media.Decoding;
+using BeUtl.Rendering;
 using BeUtl.Utilities;
 using BeUtl.Validation;
 
@@ -30,6 +31,7 @@ public class VideoFrame : Drawable
     private TimeSpan _requestedPosition;
     private IBitmap? _previousBitmap;
     private double _previousFrame;
+    private LayerNode? _layerNode;
 
     static VideoFrame()
     {
@@ -128,7 +130,24 @@ public class VideoFrame : Drawable
         if (PositionMode == VideoPositionMode.Automatic)
         {
             _requestedPosition = clock.CurrentTime;
+
+            if (_layerNode != null)
+            {
+                _requestedPosition -= _layerNode.Start;
+            }
         }
+    }
+
+    protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    {
+        base.OnAttachedToLogicalTree(args);
+        _layerNode = args.Parent?.FindLogicalParent<LayerNode>(true);
+    }
+
+    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    {
+        base.OnDetachedFromLogicalTree(args);
+        _layerNode = null;
     }
 
     protected override Size MeasureCore(Size availableSize)
