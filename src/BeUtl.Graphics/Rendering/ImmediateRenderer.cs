@@ -63,7 +63,7 @@ public class ImmediateRenderer : IRenderer
 
     public async void Invalidate(TimeSpan timeSpan)
     {
-        if (RenderInvalidated != null)
+        if (RenderInvalidated != null && !IsRendering)
         {
             IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => Render(timeSpan));
             RenderInvalidated?.Invoke(this, result);
