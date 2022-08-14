@@ -172,9 +172,8 @@ public class VideoFrame : Drawable
             }
 
             TimeSpan pos = _requestedPosition - _offsetPosition;
-            Rational pos_q = Rational.FromDouble(pos.TotalSeconds, true);
             Rational rate = _mediaReader.VideoInfo.FrameRate;
-            double frameNum = (pos_q * rate).ToDouble();
+            double frameNum = pos.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
 
             if (_previousBitmap?.IsDisposed == false
                 && MathUtilities.AreClose(frameNum, _previousFrame))
