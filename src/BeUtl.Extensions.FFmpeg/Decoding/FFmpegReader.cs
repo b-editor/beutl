@@ -44,7 +44,6 @@ public sealed unsafe class FFmpegReader : MediaReader
     private AVPacket* _audioPacket;
     private SwsContext* _swsContext;
     private SwrContext* _swrContext;
-    private double _fps;
     private long _audioNowTimestamp;
     private long _audioNextTimestamp;
     private long _videoNowFrame;
@@ -72,14 +71,16 @@ public sealed unsafe class FFmpegReader : MediaReader
                 throw new Exception("avformat_find_stream_info failed");
             }
 
+            bool loadAudio = options.StreamsToLoad.HasFlag(MediaMode.Audio);
+            bool loadVideo = options.StreamsToLoad.HasFlag(MediaMode.Video);
             for (int i = 0; i < (int)_formatContext->nb_streams; ++i)
             {
-                if (!HasVideo && _formatContext->streams[i]->codecpar->codec_type == AVMediaType.AVMEDIA_TYPE_VIDEO)
+                if (loadVideo && !HasVideo && _formatContext->streams[i]->codecpar->codec_type == AVMediaType.AVMEDIA_TYPE_VIDEO)
                 {
                     _videoStream = _formatContext->streams[i];
                     _hasVideo = true;
                 }
-                if (!HasAudio && _formatContext->streams[i]->codecpar->codec_type == AVMediaType.AVMEDIA_TYPE_AUDIO)
+                if (loadAudio && !HasAudio && _formatContext->streams[i]->codecpar->codec_type == AVMediaType.AVMEDIA_TYPE_AUDIO)
                 {
                     _audioStream = _formatContext->streams[i];
                     _hasAudio = true;
@@ -88,7 +89,7 @@ public sealed unsafe class FFmpegReader : MediaReader
 
             if (_videoStream == null && _audioStream == null)
             {
-                throw new Exception("No video stream and audio stream ...");
+                return;
             }
 
             ConfigureVideoStream();
@@ -96,7 +97,7 @@ public sealed unsafe class FFmpegReader : MediaReader
 
             if (!HasVideo && !HasAudio)
             {
-                throw new Exception("No video stream and audio stream ...");
+                return;
             }
 
             if (HasVideo)
@@ -134,19 +135,6 @@ public sealed unsafe class FFmpegReader : MediaReader
     public override bool HasVideo => _hasVideo;
 
     public override bool HasAudio => _hasAudio;
-
-    private static AVChannelLayout AV_CHANNEL_LAYOUT_MASK(int nb, ulong m)
-    {
-        return new AVChannelLayout
-        {
-            order = AVChannelOrder.AV_CHANNEL_ORDER_NATIVE,
-            nb_channels = nb,
-            u = new AVChannelLayout_u
-            {
-                mask = m
-            }
-        };
-    }
 
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out ISound? result)
     {
@@ -588,7 +576,6 @@ public sealed unsafe class FFmpegReader : MediaReader
                 return;
             }
 
-            _fps = _videoStream->r_frame_rate.num / _videoStream->r_frame_rate.den;
             _videoFrame = ffmpeg.av_frame_alloc();
             _videoPacket = ffmpeg.av_packet_alloc();
         }
