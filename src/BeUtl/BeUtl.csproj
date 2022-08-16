@@ -21,8 +21,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\external\firebase-authentication-dotnet\src\Auth.UI\Auth.UI.csproj" />
-    <ProjectReference Include="..\..\external\firebase-authentication-dotnet\src\Firebase.Auth.UI\Firebase.Auth.UI.csproj" />
+    <ProjectReference Include="..\..\external\firebase-authentication-dotnet\src\Auth.UI\Auth.UI.csproj" PrivateAssets="All" />
+    <ProjectReference Include="..\..\external\firebase-authentication-dotnet\src\Firebase.Auth.UI\Firebase.Auth.UI.csproj" PrivateAssets="All" />
     <ProjectReference Include="..\..\build\generators\ApiKeyGenerator\ApiKeyGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\BeUtl.Controls\BeUtl.Controls.csproj" />
   </ItemGroup>
@@ -61,6 +61,9 @@
       <DependentUpon>Editors.tt</DependentUpon>
     </Compile>
   </ItemGroup>
+
+  <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.props" />
+  <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.targets" />
 
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
   <Import Project="$(RootDirectory)\build\props\Avalonia.Xaml.Interactivity.props" />
