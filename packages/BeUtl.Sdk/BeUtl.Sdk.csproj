@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <!-- おすすめはしませんが、アプリケーション側のクラスを使う場合はこのプロパティを'true'に変更します。 -->
+    <IncludeExeProject>false</IncludeExeProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.Configuration/BeUtl.Configuration.csproj" PrivateAssets="All" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.Core/BeUtl.Core.csproj" PrivateAssets="All" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.Framework/BeUtl.Framework.csproj" PrivateAssets="All" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.Graphics/BeUtl.Graphics.csproj" PrivateAssets="All" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.Operators/BeUtl.Operators.csproj" PrivateAssets="All" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.ProjectSystem/BeUtl.ProjectSystem.csproj" PrivateAssets="All" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.Utilities/BeUtl.Utilities.csproj" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IncludeExeProject)' == 'true'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl/BeUtl.csproj" PrivateAssets="All" />
+  </ItemGroup>
+
+  <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.props" />
+  <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.targets" />
+</Project>

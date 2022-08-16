@@ -1,7 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Roslynator.Analyzers" Version="4.1.1">
       <PrivateAssets>all</PrivateAssets>
@@ -9,12 +19,14 @@
     </PackageReference>
     <PackageReference Include="XamlNameReferenceGenerator" Version="1.3.4" />
   </ItemGroup>
+
   <ItemGroup>
-    <ProjectReference Include="..\..\external\firebase-authentication-dotnet\src\Auth.UI\Auth.UI.csproj" />
-    <ProjectReference Include="..\..\external\firebase-authentication-dotnet\src\Firebase.Auth.UI\Firebase.Auth.UI.csproj" />
+    <ProjectReference Include="..\..\external\firebase-authentication-dotnet\src\Auth.UI\Auth.UI.csproj" PrivateAssets="All" />
+    <ProjectReference Include="..\..\external\firebase-authentication-dotnet\src\Firebase.Auth.UI\Firebase.Auth.UI.csproj" PrivateAssets="All" />
     <ProjectReference Include="..\..\build\generators\ApiKeyGenerator\ApiKeyGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\BeUtl.Controls\BeUtl.Controls.csproj" />
   </ItemGroup>
+
   <ItemGroup>
     <None Update="Services\Editors\NumberEditorServiceGen.tt">
       <Generator>TextTemplatingFileGenerator</Generator>
@@ -43,15 +55,16 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>EditorViewModels.tt</DependentUpon>
     </Compile>
-    <Compile Update="Views\Editors\AlignmentYEditor.axaml.cs">
-      <DependentUpon>AlignmentYEditor.axaml</DependentUpon>
-    </Compile>
     <Compile Update="Views\Editors\Editors.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
       <DependentUpon>Editors.tt</DependentUpon>
     </Compile>
   </ItemGroup>
+
+  <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.props" />
+  <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.targets" />
+
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
   <Import Project="$(RootDirectory)\build\props\Avalonia.Xaml.Interactivity.props" />
   <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
