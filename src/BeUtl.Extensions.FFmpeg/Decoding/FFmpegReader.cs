@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+using System.Text;
 
 using BeUtl.Media;
 using BeUtl.Media.Audio;
@@ -49,6 +50,8 @@ public sealed unsafe class FFmpegReader : MediaReader
     private long _videoNowFrame;
     private int _samplesReturn;
     private bool _audioSeek;
+    private double _videoTimeBaseDouble;
+    private double _videoAvgFrameRateDouble;
 
     public FFmpegReader(string file, MediaOptions options)
     {
@@ -105,9 +108,12 @@ public sealed unsafe class FFmpegReader : MediaReader
                 GrabVideo();
                 _videoInfo = new VideoStreamInfo(
                     new string((sbyte*)_videoCodec->long_name),
-                    new Rational(_formatContext->duration, ffmpeg.AV_TIME_BASE),
+                    _videoStream->nb_frames,
                     new PixelSize(_videoCodecContext->width, _videoCodecContext->height),
-                    new Rational(_videoStream->r_frame_rate.num, _videoStream->r_frame_rate.den));
+                    new Rational(_videoStream->r_frame_rate.num, _videoStream->r_frame_rate.den))
+                {
+                    Duration = new Rational(_formatContext->duration, ffmpeg.AV_TIME_BASE)
+                };
             }
 
             if (HasAudio)
@@ -343,6 +349,28 @@ public sealed unsafe class FFmpegReader : MediaReader
         }
     }
 
+    private static unsafe string DecodeMessage(int errorCode)
+    {
+        const int bufferSize = 1024;
+        Span<byte> buffer = stackalloc byte[bufferSize];
+        fixed (byte* bufferPtr = buffer)
+        {
+            ffmpeg.av_strerror(errorCode, bufferPtr, bufferSize);
+        }
+
+        int length = 0;
+        foreach (byte item in buffer)
+        {
+            if (item != 0)
+            {
+                length++;
+            }
+        }
+
+        string message = Encoding.UTF8.GetString(buffer.Slice(0, length));
+        return message;
+    }
+
     private bool GrabAudio()
     {
         ffmpeg.av_frame_unref(_audioFrame);
@@ -449,7 +477,7 @@ public sealed unsafe class FFmpegReader : MediaReader
         int ret;
         if (ffmpeg.avcodec_receive_frame(_videoCodecContext, _videoFrame) >= 0)
         {
-            _videoNowFrame = (long)((_videoFrame->pts - _videoStream->start_time) * ffmpeg.av_q2d(_videoStream->time_base) * ffmpeg.av_q2d(_videoStream->avg_frame_rate) + 0.5);
+            _videoNowFrame = GetNowFrame();
             return true;
         }
         ffmpeg.av_packet_unref(_videoPacket);
@@ -470,7 +498,7 @@ public sealed unsafe class FFmpegReader : MediaReader
                 }
                 if (ffmpeg.avcodec_receive_frame(_videoCodecContext, _videoFrame) >= 0)
                 {
-                    _videoNowFrame = (long)(((_videoFrame->pts - _videoStream->start_time) * ffmpeg.av_q2d(_videoStream->time_base)) * ffmpeg.av_q2d(_videoStream->avg_frame_rate) + 0.5);
+                    _videoNowFrame = GetNowFrame();
                     return true;
                 }
             }
@@ -486,7 +514,7 @@ public sealed unsafe class FFmpegReader : MediaReader
         }
         if (ffmpeg.avcodec_receive_frame(_videoCodecContext, _videoFrame) >= 0)
         {
-            _videoNowFrame = (long)(((_videoFrame->pts - _videoStream->start_time) * ffmpeg.av_q2d(_videoStream->time_base)) * ffmpeg.av_q2d(_videoStream->avg_frame_rate) + 0.5);
+            _videoNowFrame = GetNowFrame();
             return true;
         }
         return false;
@@ -496,7 +524,7 @@ public sealed unsafe class FFmpegReader : MediaReader
     {
         void SeekOnly(long frame)
         {
-            long time_stamp = (long)(frame * 1000000 / ((double)_videoStream->avg_frame_rate.num / _videoStream->avg_frame_rate.den)) + _formatContext->start_time;
+            long time_stamp = (long)Math.Round(frame * 1000000 / _videoAvgFrameRateDouble + _formatContext->start_time, MidpointRounding.AwayFromZero);
             ffmpeg.avformat_seek_file(_formatContext, -1, long.MinValue, time_stamp, long.MaxValue, ffmpeg.AVSEEK_FLAG_BACKWARD);
             ffmpeg.avcodec_flush_buffers(_videoCodecContext);
             GrabVideo();
@@ -529,6 +557,12 @@ public sealed unsafe class FFmpegReader : MediaReader
             null,
             null,
             null);
+    }
+
+    private long GetNowFrame()
+    {
+        double f = (_videoFrame->pts - _videoStream->start_time) * _videoTimeBaseDouble * _videoAvgFrameRateDouble + 0.5;
+        return (long)Math.Round(f, MidpointRounding.AwayFromZero);
     }
 
     private void ConfigureVideoStream()
@@ -578,6 +612,8 @@ public sealed unsafe class FFmpegReader : MediaReader
 
             _videoFrame = ffmpeg.av_frame_alloc();
             _videoPacket = ffmpeg.av_packet_alloc();
+            _videoTimeBaseDouble = ffmpeg.av_q2d(_videoStream->time_base);
+            _videoAvgFrameRateDouble = ffmpeg.av_q2d(_videoStream->avg_frame_rate);
         }
     }
 
