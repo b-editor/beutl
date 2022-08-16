@@ -66,7 +66,7 @@ public class VideoFrame : Drawable
                 FileExtensions = new[] { "mp4" }
             })
 #else
-#error Todo: DecoderRegistryからファイル拡張子を取得してセットする。
+#warning Todo: DecoderRegistryからファイル拡張子を取得してセットする。
 #endif
             .Register();
 
