@@ -1,21 +1,36 @@
 ﻿namespace BeUtl.Media.Decoding;
 
-public sealed record VideoStreamInfo(
-    string CodecName,
-    Rational Duration,
-    PixelSize FrameSize,
-    Rational FrameRate)
-    : StreamInfo(CodecName, MediaType.Video, Duration)
+public sealed record VideoStreamInfo : StreamInfo
 {
-    private Rational? _numFrames;
-
-    public Rational NumFrames
+    public VideoStreamInfo(
+        string codecName,
+        Rational duration,
+        PixelSize frameSize,
+        Rational frameRate)
+        : base(codecName, MediaType.Video, duration)
     {
-        get
-        {
-            _numFrames ??= (Duration * FrameRate).Simplify();
-            return _numFrames.Value;
-        }
-        init => _numFrames = value;
+        FrameSize = frameSize;
+        FrameRate = frameRate;
+
+        NumFrames = (long)(duration * frameRate).ToDouble();
     }
+    
+    public VideoStreamInfo(
+        string codecName,
+        long numFrames,
+        PixelSize frameSize,
+        Rational frameRate)
+        : base(codecName, MediaType.Video, new Rational(numFrames) / frameRate)
+    {
+        FrameSize = frameSize;
+        FrameRate = frameRate;
+
+        NumFrames = numFrames;
+    }
+
+    public PixelSize FrameSize { get; init; }
+
+    public Rational FrameRate { get; init; }
+
+    public long NumFrames { get; init; }
 }
