@@ -4,7 +4,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:local="using:BeUtl.Views.Editors"
              xmlns:viewModel="using:BeUtl.ViewModels.Editors"
-             xmlns:ic="using:FluentIcons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="300"
              x:DataType="viewModel:AlignmentsEditorViewModel"
              x:Class="BeUtl.Views.Editors.AlignmentsEditor">
@@ -29,19 +28,19 @@
                              Classes="list"
                              Checked="Left_Checked"
                              IsChecked="{CompiledBinding IsLeft.Value}">
-                    <ic:SymbolIcon Symbol="AlignLeft" />
+                    <CompatSymbolIcon Symbol="AlignLeft" />
                 </RadioButton>
                 <RadioButton CornerRadius="0"
                              Classes="list"
                              Checked="HorizontalCenter_Checked"
                              IsChecked="{CompiledBinding IsHorizontalCenter.Value}">
-                    <ic:SymbolIcon Symbol="AlignCenterVertical" />
+                    <CompatSymbolIcon Symbol="AlignCenterVertical" />
                 </RadioButton>
                 <RadioButton CornerRadius="0,4,4,0"
                              Classes="list"
                              Checked="Right_Checked"
                              IsChecked="{CompiledBinding IsRight.Value}">
-                    <ic:SymbolIcon Symbol="AlignRight" />
+                    <CompatSymbolIcon Symbol="AlignRight" />
                 </RadioButton>
             </StackPanel>
 
@@ -52,19 +51,19 @@
                              Classes="list"
                              Checked="Top_Checked"
                              IsChecked="{CompiledBinding IsTop.Value}">
-                    <ic:SymbolIcon Symbol="AlignTop" />
+                    <CompatSymbolIcon Symbol="AlignTop" />
                 </RadioButton>
                 <RadioButton CornerRadius="0"
                              Classes="list"
                              Checked="VerticalCenter_Checked"
                              IsChecked="{CompiledBinding IsVerticalCenter.Value}">
-                    <ic:SymbolIcon Symbol="AlignCenterHorizontal" />
+                    <CompatSymbolIcon Symbol="AlignCenterHorizontal" />
                 </RadioButton>
                 <RadioButton CornerRadius="0,4,4,0"
                              Classes="list"
                              Checked="Bottom_Checked"
                              IsChecked="{CompiledBinding IsBottom.Value}">
-                    <ic:SymbolIcon Symbol="AlignBottom" />
+                    <CompatSymbolIcon Symbol="AlignBottom" />
                 </RadioButton>
             </StackPanel>
         </WrapPanel>

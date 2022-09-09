@@ -12,9 +12,9 @@ public sealed class ExtensionsPageExtension : PageExtension
 {
     public static readonly ExtensionsPageExtension Instance = new();
 
-    public override Geometry FilledIcon { get; } = FluentIconsFilled.Puzzle_piece.GetGeometry();
+    public override Geometry FilledIcon => FluentIconsFilled.Puzzle_piece.GetGeometry();
 
-    public override Geometry RegularIcon { get; } = FluentIconsRegular.Puzzle_piece.GetGeometry();
+    public override Geometry RegularIcon => FluentIconsRegular.Puzzle_piece.GetGeometry();
 
     public override IObservable<string> Header => S.MainView.ExtensionsObservable;
 

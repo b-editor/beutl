@@ -32,6 +32,7 @@ public abstract class EditorExtension : ViewExtension
 {
     public abstract Geometry? Icon { get; }
 
+    // Todo: Avalonia.Platform.Storageに対応する
     public abstract string[] FileExtensions { get; }
 
     public abstract IObservable<string> FileTypeName { get; }

@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.Platform.Storage;
 
 using BeUtl.ViewModels.SettingsPages;
 
@@ -23,23 +24,21 @@ public sealed partial class AccountSettingsPage : UserControl
     private async void UploadProfileImage_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is AccountSettingsPageViewModel viewModel
-            && viewModel.User.Value is not null)
+            && viewModel.User.Value is not null
+            && this.FindLogicalAncestorOfType<Window>() is { } window)
         {
-            Window? window = this.FindLogicalAncestorOfType<Window>();
-            var dialog = new OpenFileDialog
+            var options = new FilePickerOpenOptions
             {
-                AllowMultiple = false,
-                Filters = new()
+                FileTypeFilter = new FilePickerFileType[]
                 {
-                    new FileDialogFilter()
-                    {
-                        Extensions = { "jpg", "jpeg", "png" }
-                    }
+                    FilePickerFileTypes.ImageAll
                 }
             };
-            if ((await dialog.ShowAsync(window)) is string[] items && items.Length > 0)
+            IReadOnlyList<IStorageFile> result = await window.StorageProvider.OpenFilePickerAsync(options);
+
+            if (result.Count > 0)
             {
-                viewModel.UploadPhotoImage.Execute(items[0]);
+                await viewModel.UploadPhotoImage.ExecuteAsync(result[0]);
             }
         }
     }

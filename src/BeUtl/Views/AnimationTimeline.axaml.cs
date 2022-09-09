@@ -161,7 +161,7 @@ public sealed partial class AnimationTimeline : UserControl
     }
 
     // ポインターが離れた
-    private void TimelinePanel_PointerLeave(object? sender, PointerEventArgs e)
+    private void TimelinePanel_PointerExited(object? sender, PointerEventArgs e)
     {
         _seekbarMouseFlag = MouseFlags.MouseUp;
     }

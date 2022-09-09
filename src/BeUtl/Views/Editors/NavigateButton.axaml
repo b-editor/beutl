@@ -5,7 +5,6 @@
              xmlns:vm="using:BeUtl.ViewModels.Editors"
              xmlns:local="using:BeUtl.Views.Editors"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:ic="using:FluentIcons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="300"
              x:Class="BeUtl.Views.Editors.NavigateButton">
     <Grid ColumnDefinitions="2*,3*,24">
@@ -60,7 +59,7 @@
                               Header="{DynamicResource S.Common.Delete}" />
                 </ContextMenu>
             </Button.ContextMenu>
-            <ic:SymbolIcon Symbol="MoreVertical" />
+            <CompatSymbolIcon Symbol="MoreVertical" />
         </Button>
     </Grid>
 </UserControl>

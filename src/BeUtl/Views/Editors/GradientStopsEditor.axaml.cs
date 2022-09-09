@@ -202,7 +202,7 @@ public sealed partial class GradientStopsEditor : UserControl
         _pressed = false;
     }
 
-    private void Item_PointerLeave(object? sender, PointerEventArgs e)
+    private void Item_PointerExited(object? sender, PointerEventArgs e)
     {
         _dragging = null;
         _pressed = false;

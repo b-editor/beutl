@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
 using Avalonia.Skia;
 using Avalonia.Threading;
 
@@ -198,13 +199,14 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
         MakePrivate.Subscribe(async () => await Parent.Package.Value.ChangeVisibility(false)).DisposeWith(_disposables);
 
-        SetLogo.Subscribe(file =>
+        SetLogo.Subscribe(async file =>
         {
-            if (File.Exists(file))
+            if (file.CanOpenRead)
             {
                 const int SIZE = 400;
                 var dstBmp = new SKBitmap(SIZE, SIZE, SKColorType.Bgra8888, SKAlphaType.Opaque);
-                using (var srcBmp = SKBitmap.Decode(file))
+                using (var srcStream = await file.OpenReadAsync())
+                using (var srcBmp = SKBitmap.Decode(srcStream))
                 using (var canvas = new SKCanvas(dstBmp))
                 {
                     float x = SIZE / (float)srcBmp.Width;
@@ -225,21 +227,23 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
                 LogoNoChanged.Value = false;
             }
+            file.Dispose();
         }).DisposeWith(_disposables);
 
         CanAddScreenshot = Screenshots.ObserveProperty(i => i.Count)
             .Select(c => c < 4)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        AddScreenshot = new ReactiveCommand<string>(CanAddScreenshot)
+        AddScreenshot = new AsyncReactiveCommand<IStorageFile>(CanAddScreenshot)
             .DisposeWith(_disposables);
-        AddScreenshot.Subscribe(file =>
+        AddScreenshot.Subscribe(async file =>
         {
-            if (File.Exists(file))
+            if (file.CanOpenRead)
             {
                 const int SIZE = 800;
 
-                using (var srcBmp = SKBitmap.Decode(file))
+                using (var srcStream = await file.OpenReadAsync())
+                using (var srcBmp = SKBitmap.Decode(srcStream))
                 {
                     float x = SIZE / (float)srcBmp.Width;
                     float y = SIZE / (float)srcBmp.Height;
@@ -254,6 +258,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                     Screenshots.Add(new ImageModel(stream, new Bitmap(stream), Guid.NewGuid().ToString()));
                 }
             }
+            file.Dispose();
         }).DisposeWith(_disposables);
 
         MoveScreenshotFront.Subscribe(item =>
@@ -342,7 +347,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<Bitmap?> LogoImage { get; }
 
-    public ReactiveCommand<string> SetLogo { get; } = new();
+    public AsyncReactiveCommand<IStorageFile> SetLogo { get; } = new();
 
     public ReactiveProperty<ImageLink[]> ScreenshotsArray { get; }
 
@@ -354,7 +359,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<bool> CanAddScreenshot { get; }
 
-    public ReactiveCommand<string> AddScreenshot { get; }
+    public AsyncReactiveCommand<IStorageFile> AddScreenshot { get; }
 
     public ReactiveCommand<ImageModel> MoveScreenshotFront { get; } = new();
 

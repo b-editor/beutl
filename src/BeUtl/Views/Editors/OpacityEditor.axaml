@@ -73,7 +73,7 @@
         <Panel x:Name="area"
                PointerMoved="Item_PointerMoved"
                PointerPressed="Item_PointerPressed"
-               PointerLeave="Item_PointerLeave"
+               PointerExited="Item_PointerExited"
                Grid.Row="1"
                Height="20"
                VerticalAlignment="Top"
@@ -104,7 +104,7 @@
 
         <Popup x:Name="popup"
                IsEnabled="{Binding CanEdit.Value}"
-               StaysOpen="False"
+               IsLightDismissEnabled="True"
                PlacementMode="AnchorAndGravity"
                PlacementAnchor="Right"
                PlacementGravity="TopLeft">

@@ -1,21 +1,24 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="BeUtl.Pages.SettingsPages.FontSettingsPage"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:BeUtl.ViewModels.SettingsPages"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Name="root"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
              x:DataType="vm:FontSettingsPageViewModel"
-             x:Class="BeUtl.Pages.SettingsPages.FontSettingsPage">
+             mc:Ignorable="d">
     <UserControl.DataContext>
-        <vm:FontSettingsPageViewModel/>
+        <vm:FontSettingsPageViewModel />
     </UserControl.DataContext>
     <StackPanel Margin="10,0">
         <ui:CommandBar DefaultLabelPosition="Right">
             <ui:CommandBar.PrimaryCommands>
-                <ui:CommandBarButton Icon="Add"
-                                     Label="{DynamicResource S.Common.Add}"
-                                     Click="AddClick" />
+                <ui:CommandBarButton Click="AddClick"
+                                     Icon="Add"
+                                     Label="{DynamicResource S.Common.Add}" />
             </ui:CommandBar.PrimaryCommands>
         </ui:CommandBar>
 
@@ -23,14 +26,13 @@
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Panel>
-                        <TextBlock Text="{Binding}" VerticalAlignment="Center" />
+                        <TextBlock VerticalAlignment="Center" Text="{Binding}" />
 
-                        <ui:CommandBarButton
-                            Icon="Delete"
-                            Command="{Binding #root.DataContext.Remove, Mode=OneTime}"
-                            CommandParameter="{Binding $self.DataContext}"
-                            Label="{DynamicResource S.Common.Remove}"
-                            HorizontalAlignment="Right" />
+                        <ui:CommandBarButton HorizontalAlignment="Right"
+                                             Command="{Binding #root.DataContext.Remove, Mode=OneTime}"
+                                             CommandParameter="{Binding $self.DataContext}"
+                                             Icon="Delete"
+                                             Label="{DynamicResource S.Common.Remove}" />
                     </Panel>
                 </DataTemplate>
             </ListBox.ItemTemplate>

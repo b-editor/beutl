@@ -1,12 +1,11 @@
 {
   "profiles": {
-    "BeUtl.NetCore": {
-      "commandName": "Project"
-    },
     "WSL": {
       "commandName": "WSL2",
-      "environmentVariables": {},
       "distributionName": ""
+    },
+    "BeUtl": {
+      "commandName": "Project"
     }
   }
 }

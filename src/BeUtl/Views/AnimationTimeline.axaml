@@ -70,7 +70,7 @@
                 PointerMoved="TimelinePanel_PointerMoved"
                 PointerReleased="TimelinePanel_PointerReleased"
                 PointerPressed="TimelinePanel_PointerPressed"
-                PointerLeave="TimelinePanel_PointerLeave"
+                PointerExited="TimelinePanel_PointerExited"
                 Background="Transparent"
                 Width="{CompiledBinding PanelWidth.Value}"
                 MinWidth="{Binding #ContentScroll.Bounds.Width}"

@@ -4,7 +4,6 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:BeUtl.ViewModels.Editors"
-    xmlns:ic="using:FluentIcons.Avalonia"
     mc:Ignorable="d" d:DesignWidth="100" d:DesignHeight="100"
     VerticalAlignment="Center"
     x:DataType="vm:BaseEditorViewModel"
@@ -32,18 +31,18 @@
                     Header="{DynamicResource S.Common.Delete}" />
             </ContextMenu>
         </Button.ContextMenu>
-        <ic:SymbolIcon Classes.hasAnimation="{CompiledBinding HasAnimation.Value}">
-            <ic:SymbolIcon.Styles>
-                <Style Selector="ic|SymbolIcon">
+        <CompatSymbolIcon Classes.hasAnimation="{CompiledBinding HasAnimation.Value}">
+            <CompatSymbolIcon.Styles>
+                <Style Selector="CompatSymbolIcon">
                     <Setter Property="Symbol" Value="MoreVertical" />
                 </Style>
-                <Style Selector="ic|SymbolIcon.hasAnimation">
+                <Style Selector="CompatSymbolIcon.hasAnimation">
                     <Setter Property="Symbol" Value="Flow" />
                     <Setter Property="IsFilled" Value="True" />
                     <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
                     <Setter Property="ToolTip.Tip" Value="{DynamicResource S.Message.AnimationIsEnabled}" />
                 </Style>
-            </ic:SymbolIcon.Styles>
-        </ic:SymbolIcon>
+            </CompatSymbolIcon.Styles>
+        </CompatSymbolIcon>
     </Button>
 </UserControl>

@@ -46,9 +46,8 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
         return _skFontManager.FontFamilies;
     }
 
-    public bool TryMatchCharacter(int codepoint, FontStyle fontStyle,
-        FontWeight fontWeight,
-        FontFamily fontFamily, CultureInfo culture, out Typeface fontKey)
+    public bool TryMatchCharacter(int codepoint, FontStyle fontStyle, FontWeight fontWeight,
+        Avalonia.Media.FontStretch fontStretch, FontFamily fontFamily, CultureInfo culture, out Typeface typeface)
     {
         SKFontStyle skFontStyle = fontWeight switch
         {
@@ -85,7 +84,7 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
                     continue;
                 }
 
-                fontKey = new Typeface(skTypeface.FamilyName, fontStyle, fontWeight);
+                typeface = new Typeface(skTypeface.FamilyName, fontStyle, fontWeight);
 
                 return true;
             }
@@ -96,13 +95,13 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
 
             if (skTypeface != null)
             {
-                fontKey = new Typeface(skTypeface.FamilyName, fontStyle, fontWeight);
+                typeface = new Typeface(skTypeface.FamilyName, fontStyle, fontWeight);
 
                 return true;
             }
         }
 
-        fontKey = default;
+        typeface = default;
 
         return false;
     }

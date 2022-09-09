@@ -18,7 +18,7 @@ public sealed class SceneEditorExtension : EditorExtension
 {
     public static readonly SceneEditorExtension Instance = new();
 
-    public override Geometry? Icon { get; } = FluentIconsRegular.Document.GetGeometry();
+    public override Geometry? Icon => FluentIconsRegular.Document.GetGeometry();
 
     public override string[] FileExtensions { get; } =
     {

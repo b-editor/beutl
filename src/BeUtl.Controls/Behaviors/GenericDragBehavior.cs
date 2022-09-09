@@ -90,9 +90,9 @@ public class GenericDragBehavior : Behavior<IControl>
         }
     }
 
-    protected virtual ContentPresenter OnFindDraggedContainer()
+    protected virtual ContentPresenter? OnFindDraggedContainer()
     {
-        return AssociatedObject.FindAncestorOfType<ContentPresenter>();
+        return AssociatedObject?.FindAncestorOfType<ContentPresenter>();
     }
 
     private void Pressed(object? sender, PointerPressedEventArgs e)
@@ -245,7 +245,7 @@ public class GenericDragBehavior : Behavior<IControl>
     {
         PointerPointProperties? properties = e.GetCurrentPoint(AssociatedObject).Properties;
         if (Equals(e.Pointer.Captured, DragControl)
-            && properties.IsLeftButtonPressed)
+            && properties?.IsLeftButtonPressed == true)
         {
             if (_itemsControl?.Items is null || _draggedContainer?.RenderTransform is null || !_enableDrag)
             {

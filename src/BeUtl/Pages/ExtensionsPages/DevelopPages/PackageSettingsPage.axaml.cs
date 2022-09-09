@@ -2,6 +2,7 @@
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 
 using BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
@@ -30,9 +31,9 @@ public sealed partial class PackageSettingsPage : UserControl
 
     private void NavigatePackageDetailsPage_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PackageSettingsPageViewModel viewModel)
+        if (DataContext is PackageSettingsPageViewModel viewModel
+            && this.FindAncestorOfType<FA.Frame>() is { } frame)
         {
-            FA.Frame frame = this.FindAncestorOfType<FA.Frame>();
             frame.Navigate(typeof(PackageDetailsPage), viewModel.Parent, SharedNavigationTransitionInfo.Instance);
         }
     }
@@ -51,18 +52,18 @@ public sealed partial class PackageSettingsPage : UserControl
 
     private void EditResource_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: ResourcePageViewModel itemViewModel })
+        if (sender is Button { DataContext: ResourcePageViewModel itemViewModel }
+            && this.FindAncestorOfType<FA.Frame>() is { } frame)
         {
-            FA.Frame frame = this.FindAncestorOfType<FA.Frame>();
             frame.Navigate(typeof(ResourcePage), itemViewModel, SharedNavigationTransitionInfo.Instance);
         }
     }
 
     private async void DeleteResource_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: ResourcePageViewModel itemViewModel })
+        if (sender is Button { DataContext: ResourcePageViewModel itemViewModel }
+            && this.FindAncestorOfType<FA.Frame>() is { } frame)
         {
-            FA.Frame frame = this.FindAncestorOfType<FA.Frame>();
             var dialog = new FA.ContentDialog
             {
                 Title = S.DevelopPage.DeleteResource.Title,
@@ -87,9 +88,9 @@ public sealed partial class PackageSettingsPage : UserControl
 
     private async void DeletePackage_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PackageSettingsPageViewModel viewModel)
+        if (DataContext is PackageSettingsPageViewModel viewModel
+            && this.FindAncestorOfType<FA.Frame>() is { } frame)
         {
-            FA.Frame frame = this.FindAncestorOfType<FA.Frame>();
             var dialog = new FA.ContentDialog
             {
                 Title = S.DevelopPage.DeletePackage.Title,
@@ -158,49 +159,41 @@ public sealed partial class PackageSettingsPage : UserControl
 
     private async void OpenLogoFile_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PackageSettingsPageViewModel viewModel)
+        if (DataContext is PackageSettingsPageViewModel viewModel
+            && this.FindLogicalAncestorOfType<Window>() is { } window)
         {
-            Window? window = this.FindLogicalAncestorOfType<Window>();
-            var dialog = new OpenFileDialog
+            var options = new FilePickerOpenOptions
             {
-                AllowMultiple = false,
-                Filters = new()
+                FileTypeFilter = new FilePickerFileType[]
                 {
-                    new FileDialogFilter()
-                    {
-                        Extensions = { "jpg", "jpeg", "png" }
-                    }
+                    FilePickerFileTypes.ImageAll
                 }
             };
-            if ((await dialog.ShowAsync(window)) is string[] items && items.Length > 0)
+            IReadOnlyList<IStorageFile> result = await window.StorageProvider.OpenFilePickerAsync(options);
+            if (result.Count > 0)
             {
-                viewModel.SetLogo.Execute(items[0]);
+                await viewModel.SetLogo.ExecuteAsync(result[0]);
             }
         }
     }
 
     private async void AddScreenshotFile_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PackageSettingsPageViewModel viewModel)
+        if (DataContext is PackageSettingsPageViewModel viewModel
+            && this.FindLogicalAncestorOfType<Window>() is { } window)
         {
-            Window? window = this.FindLogicalAncestorOfType<Window>();
-            var dialog = new OpenFileDialog
+            var options = new FilePickerOpenOptions
             {
                 AllowMultiple = true,
-                Filters = new()
+                FileTypeFilter = new FilePickerFileType[]
                 {
-                    new FileDialogFilter()
-                    {
-                        Extensions = { "jpg", "jpeg", "png" }
-                    }
+                    FilePickerFileTypes.ImageAll
                 }
             };
-            if ((await dialog.ShowAsync(window)) is string[] items && items.Length > 0)
+            IReadOnlyList<IStorageFile> result = await window.StorageProvider.OpenFilePickerAsync(options);
+            foreach (IStorageFile item in result)
             {
-                foreach (string item in items)
-                {
-                    viewModel.AddScreenshot.Execute(item);
-                }
+                await viewModel.AddScreenshot.ExecuteAsync(item);
             }
         }
     }

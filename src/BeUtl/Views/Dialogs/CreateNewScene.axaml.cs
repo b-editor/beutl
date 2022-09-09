@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 
 using BeUtl.ViewModels.Dialogs;
@@ -22,13 +23,14 @@ public sealed partial class CreateNewScene : ContentDialog, IStyleable
     {
         if (DataContext is CreateNewSceneViewModel vm && VisualRoot is Window parent)
         {
-            var picker = new OpenFolderDialog();
+            var options = new FolderPickerOpenOptions();
+            IReadOnlyList<IStorageFolder> result = await parent.StorageProvider.OpenFolderPickerAsync(options);
 
-            string? result = await picker.ShowAsync(parent);
-
-            if (result != null)
+            if (result.Count > 0
+                && result[0].TryGetUri(out Uri? uri)
+                && uri.IsFile)
             {
-                vm.Location.Value = result;
+                vm.Location.Value = uri.LocalPath;
             }
         }
     }

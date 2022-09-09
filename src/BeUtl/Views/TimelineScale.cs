@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
+using Avalonia.Media.TextFormatting;
 
 namespace BeUtl.Views;
 
@@ -9,15 +10,17 @@ public sealed class TimelineScale : Control
 {
     public static readonly StyledProperty<float> ScaleProperty = AvaloniaProperty.Register<TimelineScale, float>(nameof(Scale), 1);
     private static readonly Typeface s_typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Medium);
-    private readonly Pen _pen = new()
+    private readonly IBrush _brush;
+    private readonly Pen _pen;
+
+    public TimelineScale()
     {
-        Brush = (IBrush)Application.Current?.FindResource("TextControlForeground")!
-    };
-    private readonly FormattedText _text = new()
-    {
-        Typeface = s_typeface,
-        FontSize = 13
-    };
+        _brush = (IBrush)Application.Current?.FindResource("TextControlForeground")!;
+        _pen = new()
+        {
+            Brush = _brush
+        };
+    }
 
     public float Scale
     {
@@ -32,7 +35,7 @@ public sealed class TimelineScale : Control
 
         double width = Bounds.Width;
         double height = Bounds.Height;
-        ScrollViewer scroll = this.FindLogicalAncestorOfType<ScrollViewer>();
+        ScrollViewer scroll = this.FindLogicalAncestorOfType<ScrollViewer>()!;
         var viewport = new Rect(new Point(scroll.Offset.X, scroll.Offset.Y), scroll.Viewport);
 
         double recentPix = 0d;
@@ -50,13 +53,13 @@ public sealed class TimelineScale : Control
                 context.DrawLine(_pen, new(x, 5), new(x, height));
             }
 
-            _text.Text = time.ToString("hh\\:mm\\:ss\\.ff");
-            Rect textbounds = _text.Bounds.WithX(x + 8);
+            var text = new TextLayout(time.ToString("hh\\:mm\\:ss\\.ff"), s_typeface, 13, _brush);
+            Rect textbounds = text.Bounds.WithX(x + 8);
 
             if (viewport.Intersects(textbounds) && (recentPix == 0d || (x + 8) > recentPix))
             {
                 recentPix = textbounds.Right;
-                context.DrawText(_pen.Brush, new(x + 8, 0), _text);
+                text.Draw(context, new(x + 8, 0));
             }
 
             double ll = x + inc;

@@ -13,12 +13,12 @@
             HorizontalAlignment="Left"
             VerticalAlignment="Center" />
 
-        <ui:DropDownButton Grid.Column="1"
-                           x:Name="button"
-                           IsEnabled="{Binding CanEdit.Value}"
-                           HorizontalAlignment="Stretch"
-                           Content="{Binding Value.Value.Name, Mode=OneWay}"
-                           Margin="4" />
+        <DropDownButton Grid.Column="1"
+                        x:Name="button"
+                        IsEnabled="{Binding CanEdit.Value}"
+                        HorizontalAlignment="Stretch"
+                        Content="{Binding Value.Value.Name, Mode=OneWay}"
+                        Margin="4" />
 
         <local:EditorBadge Grid.Column="2" />
     </Grid>

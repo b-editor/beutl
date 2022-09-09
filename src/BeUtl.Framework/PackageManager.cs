@@ -34,7 +34,13 @@ public sealed class PackageManager
 
     public IEnumerable<PackageInfo> GetPackageInfos()
     {
-        return Directory.EnumerateDirectories(BaseDirectory)
+        if (!Directory.Exists(BaseDirectory))
+        {
+            return Enumerable.Empty<PackageInfo>();
+        }
+        else
+        {
+            return Directory.EnumerateDirectories(BaseDirectory)
             .Select(d => (packageFile: Path.Combine(d, "package.json"), directory: d))
             .Where(t => File.Exists(t.packageFile))
             .Select(t =>
@@ -46,6 +52,7 @@ public sealed class PackageManager
                 return info;
             })
             .Where(i => i != null)!;
+        }
     }
 
     public void LoadPackages(IEnumerable<PackageInfo> packageInfos)

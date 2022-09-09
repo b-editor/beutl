@@ -4,7 +4,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:local="using:BeUtl.Views.Editors"
              xmlns:viewModel="using:BeUtl.ViewModels.Editors"
-             xmlns:ic="using:FluentIcons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="300"
              x:DataType="viewModel:AlignmentYEditorViewModel"
              x:Class="BeUtl.Views.Editors.AlignmentYEditor">
@@ -30,19 +29,19 @@
                          Classes="list"
                          Checked="Top_Checked"
                          IsChecked="{CompiledBinding IsTop.Value}">
-                <ic:SymbolIcon Symbol="AlignTop" />
+                <CompatSymbolIcon Symbol="AlignTop" />
             </RadioButton>
             <RadioButton CornerRadius="0"
                          Classes="list"
                          Checked="Center_Checked"
                          IsChecked="{CompiledBinding IsCenter.Value}">
-                <ic:SymbolIcon Symbol="AlignCenterHorizontal" />
+                <CompatSymbolIcon Symbol="AlignCenterHorizontal" />
             </RadioButton>
             <RadioButton CornerRadius="0,4,4,0"
                          Classes="list"
                          Checked="Bottom_Checked"
                          IsChecked="{CompiledBinding IsBottom.Value}">
-                <ic:SymbolIcon Symbol="AlignBottom" />
+                <CompatSymbolIcon Symbol="AlignBottom" />
             </RadioButton>
         </WrapPanel>
 

@@ -1,4 +1,5 @@
 ﻿using Avalonia.Controls;
+using Avalonia.Platform.Storage;
 
 using BeUtl.Validation;
 using BeUtl.ViewModels.Editors;
@@ -18,26 +19,30 @@ public sealed partial class FileInfoEditor : UserControl
         if (DataContext is not FileInfoEditorViewModel vm || VisualRoot is not Window window) return;
 
         string? filterName = vm.Header.Value;
-        string[] exts = vm.WrappedProperty.Property
+        string[]? patterns = vm.WrappedProperty.Property
             .GetMetadata<CorePropertyMetadata<FileInfo?>>(vm.WrappedProperty.ImplementedType)?
             .FindValidator<FileInfoExtensionValidator>()?
-            .FileExtensions ?? Array.Empty<string>();
+            .FileExtensions
+            .Select(x => $"*.{x}")
+            .ToArray();
 
-        var dialog = new OpenFileDialog();
-
-        if (exts.Length > 0)
+        var options = new FilePickerOpenOptions
         {
-            dialog.Filters ??= new();
-            dialog.Filters.Add(new FileDialogFilter()
+            FileTypeFilter = new FilePickerFileType[]
             {
-                Name = filterName,
-                Extensions = exts.ToList()
-            });
-        }
+                new FilePickerFileType(filterName ?? "Unknown")
+                {
+                    Patterns = patterns
+                }
+            }
+        };
 
-        if (await dialog.ShowAsync(window) is string[] files && files.Length > 0)
+        var result = await window.StorageProvider.OpenFilePickerAsync(options);
+        if (result.Count > 0
+            && result[0].TryGetUri(out var uri)
+            && uri.IsFile)
         {
-            vm.SetValue(vm.WrappedProperty.GetValue(), new FileInfo(files[0]));
+            vm.SetValue(vm.WrappedProperty.GetValue(), new FileInfo(uri.LocalPath));
         }
     }
 }

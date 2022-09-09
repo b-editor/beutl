@@ -4,7 +4,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:local="using:BeUtl.Views.Editors"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:ic="using:FluentIcons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="300"
              x:Class="BeUtl.Views.Editors.FileInfoEditor">
     <Grid ColumnDefinitions="2*,3*,Auto">
@@ -25,7 +24,7 @@
             <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{Binding Setter.Value.Name, Mode=OneWay}" VerticalAlignment="Center" />
 
-                <ic:SymbolIcon Symbol="Open" Grid.Column="1" />
+                <CompatSymbolIcon Symbol="Open" Grid.Column="1" />
             </Grid>
         </Button>
 

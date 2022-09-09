@@ -6,7 +6,6 @@
              xmlns:ctrls="using:BeUtl.Controls"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:BeUtl.ViewModels.SettingsPages"
-             xmlns:ic="using:FluentIcons.Avalonia"
              xmlns:fau="clr-namespace:Firebase.Auth.UI;assembly=Firebase.Auth.UI.Avalonia"
              xmlns:fauConverter="clr-namespace:Firebase.Auth.UI.Converters;assembly=Firebase.Auth.UI.Avalonia"
              xmlns:fuiRes="clr-namespace:Firebase.Auth.UI.Resources;assembly=Firebase.Auth.UI"
@@ -30,7 +29,7 @@
                             Width="64" Height="64"
                             IsVisible="{CompiledBinding !HasProfileImage.Value}"
                             Background="{DynamicResource ControlSolidFillColorDefaultBrush}">
-                        <ic:SymbolIcon Symbol="Person" FontSize="30" />
+                        <CompatSymbolIcon Symbol="Person" FontSize="30" />
                     </Border>
                     <Image Source="{CompiledBinding ProfileImage.Value}"
                            Width="64" Height="64"
@@ -54,7 +53,7 @@
                                                 Opacity="0.8"
                                                 HorizontalAlignment="Stretch"
                                                 VerticalAlignment="Stretch">
-                                            <ic:SymbolIcon Symbol="Edit" />
+                                            <CompatSymbolIcon Symbol="Edit" />
                                         </Border>
                                     </Template>
                                 </Setter>

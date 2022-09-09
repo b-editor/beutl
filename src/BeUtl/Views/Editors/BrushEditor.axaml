@@ -6,7 +6,6 @@
              xmlns:vm="using:BeUtl.ViewModels.Editors"
              xmlns:local="using:BeUtl.Views.Editors"
              xmlns:media="using:BeUtl.Media"
-             xmlns:ic="using:FluentIcons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="300"
              x:Name="root"
              x:DataType="vm:BrushEditorViewModel"
@@ -59,7 +58,7 @@
                               Header="{DynamicResource S.Common.Delete}" />
                 </ContextMenu>
             </Button.ContextMenu>
-            <ic:SymbolIcon Symbol="MoreVertical" />
+            <CompatSymbolIcon Symbol="MoreVertical" />
         </Button>
     </Grid>
 </UserControl>

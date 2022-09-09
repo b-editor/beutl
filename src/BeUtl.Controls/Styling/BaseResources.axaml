@@ -1,4 +1,4 @@
-﻿<Styles xmlns="https://github.com/avaloniaui"
+<Styles xmlns="https://github.com/avaloniaui"
         xmlns:sty="using:FluentAvalonia.Styling"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
@@ -7,7 +7,7 @@
         <x:Double x:Key="SecondWidth">150</x:Double>
     </Styles.Resources>
 
-    <FluentTheme Mode="Dark" />
+    <!--<FluentTheme Mode="Dark" />-->
     <sty:FluentAvaloniaTheme />
 
     <Style Selector="PopupRoot">

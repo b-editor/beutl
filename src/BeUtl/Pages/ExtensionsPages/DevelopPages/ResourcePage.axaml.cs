@@ -2,6 +2,7 @@
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
@@ -30,9 +31,9 @@ public sealed partial class ResourcePage : UserControl
 
     private async void DeleteResource_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is ResourcePageViewModel viewModel)
+        if (DataContext is ResourcePageViewModel viewModel
+            && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            Frame frame = this.FindAncestorOfType<Frame>();
             var dialog = new ContentDialog
             {
                 Title = S.DevelopPage.DeleteResource.Title,
@@ -60,8 +61,8 @@ public sealed partial class ResourcePage : UserControl
     {
         if (DataContext is ResourcePageViewModel viewModel)
         {
-            Frame frame = this.FindAncestorOfType<Frame>();
-            frame.Navigate(typeof(PackageDetailsPage), viewModel.Parent.Parent, SharedNavigationTransitionInfo.Instance);
+            Frame? frame = this.FindAncestorOfType<Frame>();
+            frame?.Navigate(typeof(PackageDetailsPage), viewModel.Parent.Parent, SharedNavigationTransitionInfo.Instance);
         }
     }
 
@@ -69,56 +70,51 @@ public sealed partial class ResourcePage : UserControl
     {
         if (DataContext is ResourcePageViewModel viewModel)
         {
-            Frame frame = this.FindAncestorOfType<Frame>();
-            frame.Navigate(typeof(PackageSettingsPage), viewModel.Parent, SharedNavigationTransitionInfo.Instance);
+            Frame? frame = this.FindAncestorOfType<Frame>();
+            frame?.Navigate(typeof(PackageSettingsPage), viewModel.Parent, SharedNavigationTransitionInfo.Instance);
         }
     }
 
     private async void OpenLogoFile_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is ResourcePageViewModel viewModel)
+        if (DataContext is ResourcePageViewModel viewModel
+            && this.FindLogicalAncestorOfType<Window>() is { } window)
         {
-            Window? window = this.FindLogicalAncestorOfType<Window>();
-            var dialog = new OpenFileDialog
+            var options = new FilePickerOpenOptions
             {
-                AllowMultiple = false,
-                Filters = new()
+                FileTypeFilter = new FilePickerFileType[]
                 {
-                    new FileDialogFilter()
-                    {
-                        Extensions = { "jpg", "jpeg", "png" }
-                    }
+                    FilePickerFileTypes.ImagePng
                 }
             };
-            if ((await dialog.ShowAsync(window)) is string[] items && items.Length > 0)
+
+            IReadOnlyList<IStorageFile> result = await window.StorageProvider.OpenFilePickerAsync(options);
+            if (result?.Count > 0)
             {
-                viewModel.SetLogo.Execute(items[0]);
+                await viewModel.SetLogo.ExecuteAsync(result[0]);
             }
         }
     }
 
     private async void AddScreenshotFile_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is ResourcePageViewModel viewModel)
+        if (DataContext is ResourcePageViewModel viewModel
+            && this.FindLogicalAncestorOfType<Window>() is { } window)
         {
-            Window? window = this.FindLogicalAncestorOfType<Window>();
-            var dialog = new OpenFileDialog
+            var options = new FilePickerOpenOptions
             {
                 AllowMultiple = true,
-                Filters = new()
+                FileTypeFilter = new FilePickerFileType[]
                 {
-                    new FileDialogFilter()
-                    {
-                        Extensions = { "jpg", "jpeg", "png" }
-                    }
+                    FilePickerFileTypes.ImagePng
                 }
             };
-            if ((await dialog.ShowAsync(window)) is string[] items && items.Length > 0)
+
+            IReadOnlyList<IStorageFile> result = await window.StorageProvider.OpenFilePickerAsync(options);
+
+            foreach (IStorageFile item in result)
             {
-                foreach (string item in items)
-                {
-                    viewModel.AddScreenshot.Execute(item);
-                }
+                await viewModel.AddScreenshot.ExecuteAsync(item);
             }
         }
     }

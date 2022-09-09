@@ -3,9 +3,9 @@ using Avalonia.Data;
 using Avalonia.Layout;
 using Avalonia.Media;
 
+using BeUtl.Controls;
 using BeUtl.Media;
 
-using FluentIcons.Avalonia;
 using FluentIcons.Common;
 
 namespace BeUtl.Views.Editors;
@@ -19,9 +19,9 @@ public sealed class CornerRadiusEditor : BaseVector4Editor<CornerRadius>
 
     public CornerRadiusEditor()
     {
-        static SymbolIcon CreateIcon(Symbol icon)
+        static CompatSymbolIcon CreateIcon(Symbol icon)
         {
-            return new SymbolIcon
+            return new CompatSymbolIcon
             {
                 Symbol = icon,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -33,10 +33,10 @@ public sealed class CornerRadiusEditor : BaseVector4Editor<CornerRadius>
         zTextBox[!TextBox.TextProperty] = s_bottomLeft;
         wTextBox[!TextBox.TextProperty] = s_bottomRight;
 
-        SymbolIcon topLeftIcon = CreateIcon(Symbol.ArrowUpLeft);
-        SymbolIcon topRightIcon = CreateIcon(Symbol.ArrowUpRight);
-        SymbolIcon bottomLeftIcon = CreateIcon(Symbol.ArrowDownLeft);
-        SymbolIcon bottomRightIcon = CreateIcon(Symbol.ArrowDownLeft);
+        CompatSymbolIcon topLeftIcon = CreateIcon(Symbol.ArrowUpLeft);
+        CompatSymbolIcon topRightIcon = CreateIcon(Symbol.ArrowUpRight);
+        CompatSymbolIcon bottomLeftIcon = CreateIcon(Symbol.ArrowDownLeft);
+        CompatSymbolIcon bottomRightIcon = CreateIcon(Symbol.ArrowDownLeft);
 
         bottomRightIcon.RenderTransform = new ScaleTransform(-1, 1);
 

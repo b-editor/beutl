@@ -5,8 +5,6 @@ using Avalonia.Xaml.Interactivity;
 
 using FluentAvalonia.UI.Controls;
 
-using FAPathIcon = FluentAvalonia.UI.Controls.PathIcon;
-
 namespace BeUtl.Controls;
 
 public class NavItemHelper : Behavior<NavigationViewItem>
@@ -57,7 +55,7 @@ public class NavItemHelper : Behavior<NavigationViewItem>
         _disposable?.Dispose();
     }
 
-    protected override void OnPropertyChanged<T>(AvaloniaPropertyChangedEventArgs<T> change)
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
         if (change.Property.Name is nameof(RegularIcon) or nameof(FilledIcon))

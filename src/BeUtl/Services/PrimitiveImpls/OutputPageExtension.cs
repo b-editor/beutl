@@ -11,9 +11,9 @@ public sealed class OutputPageExtension : PageExtension
 {
     public static readonly OutputPageExtension Instance = new();
 
-    public override Geometry FilledIcon { get; } = FluentIconsFilled.Arrow_Export_LTR.GetGeometry();
+    public override Geometry FilledIcon => FluentIconsFilled.Arrow_Export_LTR.GetGeometry();
 
-    public override Geometry RegularIcon { get; } = FluentIconsRegular.Arrow_Export_LTR.GetGeometry();
+    public override Geometry RegularIcon => FluentIconsRegular.Arrow_Export_LTR.GetGeometry();
 
     public override IObservable<string> Header => S.MainView.OutputObservable;
 

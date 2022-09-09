@@ -6,7 +6,6 @@
     xmlns:views="using:BeUtl.Views"
     xmlns:vm="using:BeUtl.ViewModels"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
-    xmlns:ic="using:FluentIcons.Avalonia"
     mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
     x:DataType="vm:EditPageViewModel"
     x:Class="BeUtl.Pages.EditPage">
@@ -18,14 +17,14 @@
                     Click="OpenClick"
                     IsEnabled="{Binding IsProjectOpened.Value}">
                     <MenuItem.Icon>
-                        <ic:SymbolIcon Symbol="Open" />
+                        <CompatSymbolIcon Symbol="Open" />
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem
                     Header="{DynamicResource S.Common.CreateNew}"
                     Click="NewClick">
                     <MenuItem.Icon>
-                        <ic:SymbolIcon Symbol="New" />
+                        <CompatSymbolIcon Symbol="New" />
                     </MenuItem.Icon>
                 </MenuItem>
             </MenuFlyout.Items>

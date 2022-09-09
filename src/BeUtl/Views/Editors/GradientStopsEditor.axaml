@@ -48,7 +48,7 @@
                             PointerMoved="Item_PointerMoved"
                             PointerPressed="Item_PointerPressed"
                             PointerReleased="Item_PointerReleased"
-                            PointerLeave="Item_PointerLeave"
+                            PointerExited="Item_PointerExited"
                             Background="{Binding Color, Converter={StaticResource ColorToBrush}}">
                         <Border.RenderTransform>
                             <MultiBinding Converter="{StaticResource GradientStopToTransform}">

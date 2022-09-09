@@ -7,7 +7,6 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:interactivity="using:Avalonia.Xaml.Interactivity"
              xmlns:interactions="using:Avalonia.Xaml.Interactions.Core"
-             xmlns:ic="using:FluentIcons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="70"
              x:Class="BeUtl.Views.Editors.ListEditor">
     <Grid ColumnDefinitions="*,24" RowDefinitions="Auto,Auto">
@@ -244,7 +243,7 @@
                                         <local:ListEditorDragBehavior Orientation="Vertical" DragControl="dragBorder" />
                                     </interactivity:BehaviorCollection>
                                 </interactivity:Interaction.Behaviors>
-                                <ic:SymbolIcon Symbol="ReOrderDotsVertical" FontSize="14" />
+                                <CompatSymbolIcon Symbol="ReOrderDotsVertical" FontSize="14" />
                             </Border>
 
                             <Button Grid.Column="2"
@@ -269,7 +268,7 @@
                                                   Header="{DynamicResource S.Common.Delete}" />
                                     </ContextMenu>
                                 </Button.ContextMenu>
-                                <ic:SymbolIcon Symbol="MoreVertical" />
+                                <CompatSymbolIcon Symbol="MoreVertical" />
                             </Button>
                         </Grid>
                     </DataTemplate>

@@ -1,10 +1,10 @@
-<Styles xmlns="https://github.com/avaloniaui"
-        xmlns:sys="clr-namespace:System;assembly=mscorlib"
-        xmlns:i="using:Avalonia.Xaml.Interactivity"
-        xmlns:ic="using:FluentIcons.Avalonia"
-        xmlns:local="using:BeUtl.Controls"
-        xmlns:b="clr-namespace:BeUtl.Controls.Behaviors;assembly=BeUtl.Controls"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Styles
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="using:BeUtl.Controls.Behaviors"
+    xmlns:i="using:Avalonia.Xaml.Interactivity"
+    xmlns:local="using:BeUtl.Controls"
+    xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
     <Style Selector="Border.CardStyle">
         <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
@@ -13,12 +13,13 @@
         <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
     </Style>
 
-    <Style Selector="ic|SymbolIcon">
+    <!--<Style Selector="ic|SymbolIcon">
         <Setter Property="FontSize" Value="18" />
         <Setter Property="RenderTransform" Value="translateY(1px)" />
-    </Style>
+    </Style>-->
 
     <Style Selector="local|CompatSymbolIcon">
+        <Setter Property="FontSize" Value="18" />
         <Setter Property="RenderTransform" Value="translateY(1px)" />
     </Style>
 
@@ -41,4 +42,5 @@
     <StyleInclude Source="avares://BeUtl.Controls/Styling/NavigationView.axaml" />
     <StyleInclude Source="avares://BeUtl.Controls/Styling/OptionsDisplayItem.axaml" />
     <StyleInclude Source="avares://BeUtl.Controls/Styling/ListRadioButton.axaml" />
+    <StyleInclude Source="avares://BeUtl.Controls/Styling/CommandBarStyles_WithoutCompiledBinding.axaml" />
 </Styles>

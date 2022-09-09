@@ -1,6 +1,5 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:ic="using:FluentIcons.Avalonia"
         xmlns:controls="using:BeUtl.Controls">
     <Design.PreviewWith>
         <controls:Player
@@ -62,7 +61,7 @@
                                 <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForegroundPointerOver}" />
                             </Style>
 
-                            <Style Selector="ic|SymbolIcon">
+                            <Style Selector="CompatSymbolIcon">
                                 <Setter Property="FontSize" Value="20" />
                             </Style>
                         </Grid.Styles>
@@ -97,11 +96,11 @@
                             HorizontalAlignment="Center">
 
                             <Button Grid.Column="1" Name="PART_StartButton">
-                                <ic:SymbolIcon Symbol="Previous" />
+                                <CompatSymbolIcon Symbol="Previous" />
                             </Button>
 
                             <RepeatButton Grid.Column="2" Name="PART_PreviousButton">
-                                <ic:SymbolIcon Symbol="Rewind" />
+                                <CompatSymbolIcon Symbol="Rewind" />
                             </RepeatButton>
 
                             <ToggleButton
@@ -112,14 +111,14 @@
                                     <Style Selector="ToggleButton">
                                         <Setter Property="Content">
                                             <Template>
-                                                <ic:SymbolIcon Symbol="Play" />
+                                                <CompatSymbolIcon Symbol="Play" />
                                             </Template>
                                         </Setter>
                                     </Style>
                                     <Style Selector="ToggleButton:checked">
                                         <Setter Property="Content">
                                             <Template>
-                                                <ic:SymbolIcon Symbol="Pause" />
+                                                <CompatSymbolIcon Symbol="Pause" />
                                             </Template>
                                         </Setter>
                                     </Style>
@@ -127,11 +126,11 @@
                             </ToggleButton>
 
                             <RepeatButton Grid.Column="4" Name="PART_NextButton">
-                                <ic:SymbolIcon Symbol="FastForward" />
+                                <CompatSymbolIcon Symbol="FastForward" />
                             </RepeatButton>
 
                             <Button Grid.Column="5" Name="PART_EndButton">
-                                <ic:SymbolIcon Symbol="Next" />
+                                <CompatSymbolIcon Symbol="Next" />
                             </Button>
                         </StackPanel>
                     </Grid>

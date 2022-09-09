@@ -14,6 +14,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Xaml.Interactivity;
 
@@ -325,27 +326,25 @@ Error:
 
         viewModel.OpenProject.Subscribe(async () =>
         {
-            var dialog = new OpenFileDialog
-            {
-                Filters = new()
-                {
-                    new FileDialogFilter
-                    {
-                        Name = S.Common.ProjectFile,
-                        Extensions =
-                        {
-                            Constants.ProjectFileExtension
-                        }
-                    }
-                }
-            };
-
             if (VisualRoot is Window window)
             {
-                string[]? files = await dialog.ShowAsync(window);
-                if ((files?.Any() ?? false) && File.Exists(files[0]))
+                var options = new FilePickerOpenOptions
                 {
-                    _projectService.OpenProject(files[0]);
+                    FileTypeFilter = new FilePickerFileType[]
+                    {
+                        new FilePickerFileType(S.Common.ProjectFile)
+                        {
+                            Patterns = new[] { $"*.{Constants.ProjectFileExtension}" }
+                        }
+                    }
+                };
+
+                var result = await window.StorageProvider.OpenFilePickerAsync(options);
+                if (result.Count > 0
+                    && result[0].TryGetUri(out var uri)
+                    && uri.IsFile)
+                {
+                    _projectService.OpenProject(uri.LocalPath);
                 }
             }
         }).AddTo(_disposables);
@@ -357,77 +356,82 @@ Error:
                 return;
             }
 
-            var dialog = new OpenFileDialog
-            {
-                AllowMultiple = true,
-            };
-            List<FileDialogFilter> filters = dialog.Filters ??= new List<FileDialogFilter>();
+
+            var filters = new List<FilePickerFileType>();
 
             filters.AddRange(await PackageManager.Instance.ExtensionProvider.GetExtensions<EditorExtension>()
                 .ToAsyncEnumerable()
-                .SelectAwait(async e => new FileDialogFilter()
+                .SelectAwait(async e => new FilePickerFileType(await e.FileTypeName.FirstOrDefaultAsync())
                 {
-                    Extensions = e.FileExtensions.ToList(),
-                    Name = await e.FileTypeName.FirstOrDefaultAsync()
+                    Patterns = e.FileExtensions.Select(x => $"*.{x}").ToList(),
                 })
                 .ToArrayAsync());
+            var options = new FilePickerOpenOptions
+            {
+                AllowMultiple = true,
+                FileTypeFilter = filters
+            };
 
-            string[]? files = await dialog.ShowAsync(root);
-            if (files != null)
+            var files = await root.StorageProvider.OpenFilePickerAsync(options);
+            if (files.Count > 0)
             {
                 bool? addToProject = null;
                 IWorkspace? project = _projectService.CurrentProject.Value;
 
-                foreach (string file in files)
+                foreach (IStorageFile file in files)
                 {
-                    if (project != null && _workspaceItemContainer.TryGetOrCreateItem(file, out IWorkspaceItem? item))
+                    if (file.TryGetUri(out var uri) && uri.IsFile)
                     {
-                        if (!addToProject.HasValue)
+                        var path = uri.LocalPath;
+                        if (project != null && _workspaceItemContainer.TryGetOrCreateItem(path, out IWorkspaceItem? item))
                         {
-                            var checkBox = new CheckBox
+                            if (!addToProject.HasValue)
                             {
-                                IsChecked = false,
-                                Content = S.Message.RememberThisChoice
-                            };
-                            var contentDialog = new FA.ContentDialog
-                            {
-                                PrimaryButtonText = S.Common.Yes,
-                                CloseButtonText = S.Common.No,
-                                DefaultButton = FA.ContentDialogButton.Primary,
-                                Content = new StackPanel
+                                var checkBox = new CheckBox
                                 {
-                                    Children =
+                                    IsChecked = false,
+                                    Content = S.Message.RememberThisChoice
+                                };
+                                var contentDialog = new FA.ContentDialog
+                                {
+                                    PrimaryButtonText = S.Common.Yes,
+                                    CloseButtonText = S.Common.No,
+                                    DefaultButton = FA.ContentDialogButton.Primary,
+                                    Content = new StackPanel
                                     {
-                                        new TextBlock
+                                        Children =
                                         {
-                                            Text = S.Message.DoYouWantToAddThisItemToCurrentProject + "\n" + Path.GetFileName(file)
-                                        },
-                                        checkBox
+                                            new TextBlock
+                                            {
+                                                Text = S.Message.DoYouWantToAddThisItemToCurrentProject + "\n" + Path.GetFileName(path)
+                                            },
+                                            checkBox
+                                        }
                                     }
+                                };
+
+                                FA.ContentDialogResult result = await contentDialog.ShowAsync();
+                                // 選択を記憶する
+                                if (checkBox.IsChecked.Value)
+                                {
+                                    addToProject = result == FA.ContentDialogResult.Primary;
                                 }
-                            };
 
-                            FA.ContentDialogResult result = await contentDialog.ShowAsync();
-                            // 選択を記憶する
-                            if (checkBox.IsChecked.Value)
-                            {
-                                addToProject = result == FA.ContentDialogResult.Primary;
+                                if (result == FA.ContentDialogResult.Primary)
+                                {
+                                    project.Items.Add(item);
+                                    _editorService.ActivateTabItem(path, TabOpenMode.FromProject);
+                                }
                             }
-
-                            if (result == FA.ContentDialogResult.Primary)
+                            else if (addToProject.Value)
                             {
                                 project.Items.Add(item);
-                                _editorService.ActivateTabItem(file, TabOpenMode.FromProject);
+                                _editorService.ActivateTabItem(path, TabOpenMode.FromProject);
                             }
                         }
-                        else if (addToProject.Value)
-                        {
-                            project.Items.Add(item);
-                            _editorService.ActivateTabItem(file, TabOpenMode.FromProject);
-                        }
-                    }
 
-                    _editorService.ActivateTabItem(file, TabOpenMode.YourSelf);
+                        _editorService.ActivateTabItem(path, TabOpenMode.YourSelf);
+                    }
                 }
             }
         }).AddTo(_disposables);

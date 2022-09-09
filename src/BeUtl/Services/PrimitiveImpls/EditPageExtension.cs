@@ -11,9 +11,9 @@ public sealed class EditPageExtension : PageExtension
 {
     public static readonly EditPageExtension Instance = new();
 
-    public override Geometry FilledIcon { get; } = FluentIconsFilled.Edit.GetGeometry();
+    public override Geometry FilledIcon => FluentIconsFilled.Edit.GetGeometry();
 
-    public override Geometry RegularIcon { get; } = FluentIconsRegular.Edit.GetGeometry();
+    public override Geometry RegularIcon => FluentIconsRegular.Edit.GetGeometry();
 
     public override IObservable<string> Header => S.MainView.IndexEditObservable;
 

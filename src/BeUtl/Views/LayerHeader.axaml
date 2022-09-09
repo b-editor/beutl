@@ -5,7 +5,6 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:BeUtl.ViewModels"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
-    xmlns:ic="using:FluentIcons.Avalonia"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:DataType="vm:LayerHeaderViewModel"
     Height="{DynamicResource LayerHeight}"
@@ -47,7 +46,7 @@
                     <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
                 </Style>
             </Border.Styles>
-            <ic:SymbolIcon Symbol="ReOrderDotsVertical" FontSize="14" />
+            <CompatSymbolIcon Symbol="ReOrderDotsVertical" FontSize="14" />
         </Border>
 
         <ToggleButton
@@ -67,14 +66,14 @@
                 <Style Selector="ToggleButton">
                     <Setter Property="Content">
                         <Template>
-                            <ic:SymbolIcon Symbol="EyeOff" />
+                            <CompatSymbolIcon Symbol="EyeOff" />
                         </Template>
                     </Setter>
                 </Style>
                 <Style Selector="ToggleButton:checked">
                     <Setter Property="Content">
                         <Template>
-                            <ic:SymbolIcon Symbol="Eye" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <CompatSymbolIcon Symbol="Eye" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                         </Template>
                     </Setter>
                 </Style>
@@ -89,7 +88,7 @@
             UseColorPalette="True"
             IsAlphaEnabled="False">
             <ui:ColorPickerButton.Styles>
-                <Style Selector="ui|ColorPickerButton /template/ ui|Button#MainButton">
+                <Style Selector="ui|ColorPickerButton /template/ Button#MainButton">
                     <Setter Property="Background" Value="Transparent" />
                     <Setter Property="BorderThickness" Value="0" />
                 </Style>
@@ -97,20 +96,20 @@
                     <Setter Property="Template">
                         <ControlTemplate>
                             <Panel>
-                                <ui:Button Name="MainButton"
-                                           Background="Transparent"
-                                           BorderThickness="0"
-                                           Padding="0 0 32 0"
-                                           CornerRadius="{TemplateBinding CornerRadius}">
+                                <Button Name="MainButton"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Padding="0 0 32 0"
+                                        CornerRadius="{TemplateBinding CornerRadius}">
                                     <Border BorderBrush="{DynamicResource ColorPickerButtonOutline}"
                                             BorderThickness="1"
                                             Margin="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                             MinWidth="18" MinHeight="18"
                                             Background="{TemplateBinding Color, Converter={StaticResource ColorBrushConv}}"
                                             CornerRadius="{TemplateBinding CornerRadius}">
-                                        <ui:ColorPicker Name="ColorPicker" IsVisible="False" />
+                                        <ui:FAColorPicker Name="ColorPicker" IsVisible="False" />
                                     </Border>
-                                </ui:Button>
+                                </Button>
 
                                 <Viewbox Width="18" Height="18"
                                          IsHitTestVisible="False"

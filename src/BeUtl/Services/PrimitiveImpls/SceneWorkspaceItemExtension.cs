@@ -14,7 +14,7 @@ public sealed class SceneWorkspaceItemExtension : WorkspaceItemExtension
 {
     public static readonly SceneWorkspaceItemExtension Instance = new();
 
-    public override Geometry? Icon { get; } = FluentIconsRegular.Document.GetGeometry();
+    public override Geometry? Icon => FluentIconsRegular.Document.GetGeometry();
 
     public override string[] FileExtensions { get; } =
     {

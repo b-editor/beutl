@@ -11,8 +11,6 @@ using BeUtl.ViewModels.Editors;
 using BeUtl.ViewModels.Tools;
 using BeUtl.Views.Tools;
 
-using FluentIcons.Avalonia;
-
 namespace BeUtl.Views.Editors;
 
 public sealed partial class EditorBadge : UserControl

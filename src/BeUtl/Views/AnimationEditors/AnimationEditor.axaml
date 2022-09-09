@@ -5,7 +5,6 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:BeUtl.Views.AnimationEditors"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
-    xmlns:ic="using:FluentIcons.Avalonia"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     Width="{Binding Width.Value, Mode=TwoWay}"
     x:Class="BeUtl.Views.AnimationEditors.AnimationEditor">
@@ -24,12 +23,12 @@
                 <ContextMenu>
                     <MenuItem Header="{DynamicResource S.Common.Remove}" Command="{Binding RemoveCommand}">
                         <MenuItem.Icon>
-                            <ic:SymbolIcon Symbol="Delete" />
+                            <CompatSymbolIcon Symbol="Delete" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <MenuItem Header="{DynamicResource S.Common.Edit}" Click="Edit_Click">
                         <MenuItem.Icon>
-                            <ic:SymbolIcon Symbol="Open" />
+                            <CompatSymbolIcon Symbol="Open" />
                         </MenuItem.Icon>
                     </MenuItem>
                 </ContextMenu>
@@ -40,7 +39,7 @@
                     x:Name="dragBorder"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center">
-                    <ic:SymbolIcon Symbol="ReOrderDotsHorizontal" />
+                    <CompatSymbolIcon Symbol="ReOrderDotsHorizontal" />
                 </Border>
 
                 <Border

@@ -1,16 +1,17 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
+using Avalonia.Styling;
 
 using FluentIcons.Common;
 
 namespace BeUtl.Controls;
 
-public sealed class CompatSymbolIcon : FluentAvalonia.UI.Controls.IconElement
+public sealed class CompatSymbolIcon : FluentAvalonia.UI.Controls.FAIconElement
 {
-    private static readonly Typeface s_font
-            = new(new FontFamily("avares://FluentIcons.Avalonia/Fonts#FluentSystemIcons-Resizable"));
+    private static readonly Typeface s_font = new(new FontFamily("avares://FluentIcons.Avalonia/Fonts#FluentSystemIcons-Resizable"));
 
     private TextLayout _textLayout;
 
@@ -26,7 +27,7 @@ public sealed class CompatSymbolIcon : FluentAvalonia.UI.Controls.IconElement
         AvaloniaProperty.Register<CompatSymbolIcon, bool>(nameof(IsFilled));
 
     public static readonly StyledProperty<double> FontSizeProperty =
-            TextBlock.FontSizeProperty.AddOwner<CompatSymbolIcon>();
+        TextElement.FontSizeProperty.AddOwner<CompatSymbolIcon>();
 
     public Symbol Symbol
     {
@@ -46,46 +47,54 @@ public sealed class CompatSymbolIcon : FluentAvalonia.UI.Controls.IconElement
         set => SetValue(FontSizeProperty, value);
     }
 
-    protected override void OnPropertyChanged<T>(AvaloniaPropertyChangedEventArgs<T> change)
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
 
         if (change.Property == TextBlock.FontSizeProperty ||
             change.Property == SymbolProperty)
         {
-            OnInvalidateText();
+            GenerateText();
             InvalidateMeasure();
         }
         else if (change.Property == TextBlock.ForegroundProperty)
         {
-            OnInvalidateText();
+            GenerateText();
         }
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+
+        // Force invalidation of text for inherited properties now that we've attached to the tree
+        if (_textLayout != null)
+            GenerateText();
     }
 
     protected override Size MeasureOverride(Size availableSize)
     {
         if (_textLayout == null)
-            OnInvalidateText();
+            GenerateText();
 
-        return _textLayout.Size;
+        return _textLayout?.Bounds.Size ?? Size.Empty;
     }
 
     public override void Render(DrawingContext context)
     {
         if (_textLayout == null)
-            OnInvalidateText();
+            GenerateText();
 
-        var canvas = new Rect(Bounds.Size);
-        using (context.PushClip(canvas))
-        using (context.PushPreTransform(Matrix.CreateTranslation(
-            canvas.Center.X - _textLayout.Size.Width / 2,
-            canvas.Center.Y - _textLayout.Size.Height / 2)))
+        var dstRect = new Rect(Bounds.Size);
+        using (context.PushClip(dstRect))
         {
-            _textLayout.Draw(context);
+            var pt = new Point(dstRect.Center.X - _textLayout.Bounds.Width / 2,
+                dstRect.Center.Y - _textLayout.Bounds.Height / 2);
+            _textLayout.Draw(context, pt);
         }
     }
 
-    private void OnInvalidateText()
+    private void GenerateText()
     {
         string glyph = char.ConvertFromUtf32(IsFilled ? ToFilledSymbol(Symbol) : (int)Symbol).ToString();
 
@@ -94,7 +103,8 @@ public sealed class CompatSymbolIcon : FluentAvalonia.UI.Controls.IconElement
             s_font,
             FontSize,
             Foreground,
-            TextAlignment.Center);
+            // Todo: Centerと比べる
+            TextAlignment.Left);
     }
 
     private static int ToFilledSymbol(Symbol symbol)

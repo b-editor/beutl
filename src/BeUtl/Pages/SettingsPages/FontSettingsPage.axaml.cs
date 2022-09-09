@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 
 using BeUtl.ViewModels.SettingsPages;
 
@@ -16,12 +17,18 @@ public sealed partial class FontSettingsPage : UserControl
     {
         if (VisualRoot is Window window && DataContext is FontSettingsPageViewModel vm)
         {
-            var dialog = new OpenFolderDialog();
-            string? dir = await dialog.ShowAsync(window);
-
-            if (Directory.Exists(dir) && dir != null)
+            var options = new FolderPickerOpenOptions
             {
-                vm.FontDirectories.Add(dir);
+                AllowMultiple = true
+            };
+            var result = await window.StorageProvider.OpenFolderPickerAsync(options);
+
+            foreach (var item in result)
+            {
+                if (item.TryGetUri(out var uri) && uri.IsFile)
+                {
+                    vm.FontDirectories.Add(uri.LocalPath);
+                }
             }
         }
     }

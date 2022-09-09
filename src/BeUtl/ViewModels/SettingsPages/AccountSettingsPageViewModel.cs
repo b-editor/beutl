@@ -2,6 +2,7 @@
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
 using Avalonia.Skia;
 
 using BeUtl.Framework.Service;
@@ -68,13 +69,13 @@ public sealed class AccountSettingsPageViewModel : IDisposable
         SignOut.Subscribe(async () => await FirebaseUI.Instance.Client.SignOutAsync());
 
         UploadPhotoImage = new(SignedIn);
-        UploadPhotoImage.Subscribe(async path =>
+        UploadPhotoImage.Subscribe(async file =>
         {
-            if (User.Value != null)
+            if (User.Value != null&& file.CanOpenRead)
             {
                 const int SIZE = 400;
                 var dstBmp = new SKBitmap(SIZE, SIZE, SKColorType.Bgra8888, SKAlphaType.Opaque);
-                using (FileStream stream = File.OpenRead(path))
+                using (Stream stream = await file.OpenReadAsync())
                 using (var srcBmp = SKBitmap.Decode(stream))
                 using (var canvas = new SKCanvas(dstBmp))
                 {
@@ -96,6 +97,7 @@ public sealed class AccountSettingsPageViewModel : IDisposable
                 await _accountService.UploadProfileImage(User.Value, dstStream);
                 User.ForceNotify();
             }
+            file.Dispose();
         });
 
         User.Subscribe(async user =>
@@ -237,7 +239,7 @@ public sealed class AccountSettingsPageViewModel : IDisposable
 
     public ReactiveCommand SignOut { get; }
 
-    public ReactiveCommand<string> UploadPhotoImage { get; }
+    public AsyncReactiveCommand<IStorageFile> UploadPhotoImage { get; }
 
     public ReactiveProperty<string> DisplayNameInput { get; } = new();
 

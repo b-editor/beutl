@@ -118,16 +118,6 @@
                     </Grid>
                 </ctrls:OptionsDisplayItem.Content>
             </ctrls:OptionsDisplayItem>
-
-            <ui:ContentDialog x:Name="Dialog1"
-                              DataContext="{Binding #root.DataContext}"
-                              Title="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Title}"
-                              PrimaryButtonText="{DynamicResource S.Common.Add}"
-                              PrimaryButtonCommand="{Binding AddFileExtension}"
-                              IsPrimaryButtonEnabled="{Binding CanAddFileExtension.Value}"
-                              CloseButtonText="{DynamicResource S.Common.Cancel}">
-                <TextBox Text="{Binding FileExtensionInput.Value, Mode=TwoWay}" />
-            </ui:ContentDialog>
         </StackPanel>
     </ScrollViewer>
 </UserControl>
