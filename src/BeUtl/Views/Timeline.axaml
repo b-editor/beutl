@@ -96,8 +96,7 @@
         <ScrollViewer x:Name="ContentScroll"
                       Grid.Row="1"
                       Grid.Column="2"
-                      HorizontalScrollBarVisibility="Visible"
-                      ScrollChanged="ContentScroll_ScrollChanged">
+                      HorizontalScrollBarVisibility="Visible">
             <Panel x:Name="TimelinePanel"
                    Width="{CompiledBinding PanelWidth.Value}"
                    MinWidth="{Binding #ContentScroll.Bounds.Width}"

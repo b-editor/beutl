@@ -22,7 +22,6 @@ internal class Program
             .With(new Win32PlatformOptions()
             {
                 UseWindowsUIComposition = true,
-                EnableMultitouch = true,
                 CompositionBackdropCornerRadius = 8f
             })
             .LogToTrace();

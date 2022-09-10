@@ -1,28 +1,26 @@
-<UserControl
-    xmlns="https://github.com/avaloniaui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:views="using:BeUtl.Views"
-    xmlns:vm="using:BeUtl.ViewModels"
-    xmlns:ui="using:FluentAvalonia.UI.Controls"
-    mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
-    x:DataType="vm:EditPageViewModel"
-    x:Class="BeUtl.Pages.EditPage">
+<UserControl x:Class="BeUtl.Pages.EditPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:views="using:BeUtl.Views"
+             xmlns:vm="using:BeUtl.ViewModels"
+             d:DesignHeight="720"
+             d:DesignWidth="1280"
+             x:DataType="vm:EditPageViewModel"
+             mc:Ignorable="d">
     <UserControl.Resources>
         <MenuFlyout x:Key="AddButtonFlyout" Placement="Bottom">
             <MenuFlyout.Items>
-                <MenuItem
-                    Header="{DynamicResource S.Common.Open}"
-                    Click="OpenClick"
-                    IsEnabled="{Binding IsProjectOpened.Value}">
+                <MenuItem Click="OpenClick"
+                          Header="{DynamicResource S.Common.Open}"
+                          IsEnabled="{Binding IsProjectOpened.Value}">
                     <MenuItem.Icon>
                         <CompatSymbolIcon Symbol="Open" />
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem
-                    Header="{DynamicResource S.Common.CreateNew}"
-                    Click="NewClick">
+                <MenuItem Click="NewClick" Header="{DynamicResource S.Common.CreateNew}">
                     <MenuItem.Icon>
                         <CompatSymbolIcon Symbol="New" />
                     </MenuItem.Icon>
@@ -30,12 +28,11 @@
             </MenuFlyout.Items>
         </MenuFlyout>
     </UserControl.Resources>
-    <ui:TabView
-        x:Name="tabview"
-        BorderBrush="{DynamicResource ButtonBorderBrush}"
-        BorderThickness="0,1,0,0"
-        VerticalAlignment="Stretch"
-        AddTabButtonClick="AddButtonClick">
+    <ui:TabView x:Name="tabview"
+                VerticalAlignment="Stretch"
+                AddTabButtonClick="AddButtonClick"
+                BorderBrush="{DynamicResource ButtonBorderBrush}"
+                BorderThickness="0,1,0,0">
         <ui:TabView.Resources>
             <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="Transparent" />
         </ui:TabView.Resources>
