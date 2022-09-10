@@ -275,18 +275,49 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <Border Name="BottomBorderLine" />
+                            <Border Name="BottomBorderLine"
+                                    Grid.ColumnSpan="3"
+                                    Height="1"
+                                    VerticalAlignment="Bottom"
+                                    Background="{DynamicResource TabViewBorderBrush}" />
 
-                            <Path Name="LeftRadiusRenderArc" />
+                            <Path Name="LeftRadiusRenderArc"
+                                  Width="4"
+                                  Height="4"
+                                  Margin="-4,0,0,0"
+                                  VerticalAlignment="Bottom"
+                                  Data="M4 0C4 1.19469 3.47624 2.26706 2.64582 3H0C1.65685 3 3 1.65685 3 0H4Z"
+                                  Fill="{DynamicResource TabViewBorderBrush}"
+                                  IsVisible="False" />
 
-                            <Path Name="RightRadiusRenderArc" />
+                            <Path Name="RightRadiusRenderArc"
+                                  Grid.Column="2"
+                                  Width="4"
+                                  Height="4"
+                                  Margin="0,0,-4,0"
+                                  VerticalAlignment="Bottom"
+                                  Data="M0 0C0 1.19469 0.523755 2.26706 1.35418 3H4C2.34315 3 1 1.65685 1 0H0Z"
+                                  Fill="{DynamicResource TabViewBorderBrush}"
+                                  IsVisible="False" />
 
-                            <Path Name="SelectedBackgroundPath" />
+                            <Path Name="SelectedBackgroundPath"
+                                  Grid.ColumnSpan="3"
+                                  Margin="-4,0"
+                                  VerticalAlignment="Bottom"
+                                  Data="{Binding TabViewTemplateSettings.TabGeometry, RelativeSource={RelativeSource TemplatedParent}}"
+                                  Fill="{DynamicResource TabViewItemHeaderBackgroundSelected}"
+                                  IsVisible="False" />
 
-                            <Border Name="TabSeparator" />
+                            <Border Name="TabSeparator"
+                                    Grid.Column="1"
+                                    Width="1"
+                                    Margin="{DynamicResource TabViewItemSeparatorMargin}"
+                                    HorizontalAlignment="Right"
+                                    Background="{DynamicResource TabViewItemSeparator}" />
 
                             <Border Name="TabContainerBorder"
                                     Grid.Column="1"
+                                    Padding="{DynamicResource TabViewItemHeaderPadding}"
                                     Background="{TemplateBinding Background}"
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
@@ -311,9 +342,12 @@
 
                                     <Viewbox Name="IconBox"
                                              MaxWidth="{DynamicResource TabViewItemHeaderIconSize}"
-                                             MaxHeight="{DynamicResource TabViewItemHeaderIconSize}">
+                                             MaxHeight="{DynamicResource TabViewItemHeaderIconSize}"
+                                             Margin="{DynamicResource TabViewItemHeaderIconMargin}"
+                                             IsVisible="False">
                                         <ContentControl Name="IconControl"
                                                         Content="{Binding TabViewTemplateSettings.IconElement, RelativeSource={RelativeSource TemplatedParent}}"
+                                                        Foreground="{DynamicResource TabViewItemIconForeground}"
                                                         KeyboardNavigation.IsTabStop="False" />
                                     </Viewbox>
 
@@ -330,7 +364,9 @@
                                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                                       Content=""
                                                       ContentTemplate="{TemplateBinding HeaderTemplate}"
-                                                      TextBlock.FontWeight="{TemplateBinding FontWeight}" />
+                                                      FontSize="{DynamicResource TabViewItemHeaderFontSize}"
+                                                      FontWeight="{TemplateBinding FontWeight}"
+                                                      Foreground="{DynamicResource TabViewItemHeaderForeground}" />
 
                                     <Button Name="CloseButton"
                                             Grid.Column="2"
@@ -349,6 +385,13 @@
         <Style Selector="uip|TabViewListView.bottom > ui|TabViewItem:selected /template/ Border#TabContainerBorder">
             <Setter Property="BorderThickness" Value="{DynamicResource TabViewSelectedItemBorderThickness_Bottom}" />
             <Setter Property="Padding" Value="{DynamicResource TabViewSelectedItemHeaderPadding_Bottom}" />
+        </Style>
+
+        <!--  以下のコードでデフォルトのテーマが継承されていないのでここで設定する  -->
+        <!--  https://github.com/amwx/FluentAvalonia/blob/master/FluentAvalonia/Styling/ControlThemes/FAControls/TabView/TabViewStyles.axaml#L42  -->
+        <Style Selector="ui|TabView /template/ Button#AddButton">
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
     </Application.Styles>
 </Application>
