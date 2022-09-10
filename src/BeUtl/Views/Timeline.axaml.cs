@@ -30,7 +30,6 @@ public sealed partial class Timeline : UserControl
     internal MouseFlags _seekbarMouseFlag = MouseFlags.MouseUp;
     internal TimeSpan _pointerFrame;
     internal int _pointerLayer;
-    private bool _isFirst = true;
     private TimelineViewModel? _viewModel;
     private IDisposable? _disposable0;
     private IDisposable? _disposable1;
@@ -44,7 +43,6 @@ public sealed partial class Timeline : UserControl
 
         gridSplitter.DragDelta += GridSplitter_DragDelta;
 
-        ContentScroll.ScrollChanged += ContentScroll_ScrollChanged;
         ContentScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
         ScaleScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
 
@@ -158,59 +156,41 @@ public sealed partial class Timeline : UserControl
         ContentScroll.Offset = ContentScroll.Offset.WithY(PaneScroll.Offset.Y);
     }
 
-    // ContentScrollがスクロールされた
-    private void ContentScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
-    {
-        TimelineViewModel viewModel = ViewModel;
-        if (_isFirst)
-        {
-            Vector2 offset = viewModel.Options.Value.Offset;
-            ContentScroll.Offset = new(offset.X, offset.Y);
-            PaneScroll.Offset = new(0, offset.Y);
-
-            _isFirst = false;
-        }
-
-        viewModel.Options.Value = viewModel.Options.Value with
-        {
-            Offset = new Vector2((float)ContentScroll.Offset.X, (float)ContentScroll.Offset.Y)
-        };
-
-        ScaleScroll.Offset = new(ContentScroll.Offset.X, 0);
-        PaneScroll.Offset = PaneScroll.Offset.WithY(ContentScroll.Offset.Y);
-    }
-
     // マウスホイールが動いた
     private void ContentScroll_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         TimelineViewModel viewModel = ViewModel;
-        Avalonia.Vector offset = ContentScroll.Offset;
+        Avalonia.Vector aOffset = ContentScroll.Offset;
+        float scale = viewModel.Options.Value.Scale;
+        var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);
 
         if (e.KeyModifiers == KeyModifiers.Control)
         {
             // 目盛りのスケールを変更
-            float scale = viewModel.Options.Value.Scale;
-            var ts = offset.X.ToTimeSpan(scale);
-            float deltaScale = (float)(e.Delta.Y / 120) * 10 * scale;
-            viewModel.Options.Value = viewModel.Options.Value with
-            {
-                Scale = deltaScale + scale,
-            };
+            float oldScale = viewModel.Options.Value.Scale;
+            TimeSpan ts = offset.X.ToTimeSpanF(oldScale);
+            float deltaScale = (float)(e.Delta.Y / 120) * 10 * oldScale;
+            scale = deltaScale + oldScale;
 
-            offset = offset.WithX(ts.ToPixel(viewModel.Options.Value.Scale));
+            offset.X = ts.ToPixelF(scale);
         }
         else if (e.KeyModifiers == KeyModifiers.Shift)
         {
             // オフセット(Y) をスクロール
-            offset = offset.WithY(offset.Y - (e.Delta.Y * 50));
+            offset.Y -= (float)(e.Delta.Y * 50);
         }
         else
         {
             // オフセット(X) をスクロール
-            offset = offset.WithX(offset.X - (e.Delta.Y * 50));
+            offset.X -= (float)(e.Delta.Y * 50);
         }
 
-        ContentScroll.Offset = offset;
+        viewModel.Options.Value = viewModel.Options.Value with
+        {
+            Scale = scale,
+            Offset = offset
+        };
+
         e.Handled = true;
     }
 

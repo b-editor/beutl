@@ -8,10 +8,31 @@ namespace BeUtl.Views;
 
 public sealed class TimelineScale : Control
 {
-    public static readonly StyledProperty<float> ScaleProperty = AvaloniaProperty.Register<TimelineScale, float>(nameof(Scale), 1);
+    public static readonly DirectProperty<TimelineScale, float> ScaleProperty
+        = AvaloniaProperty.RegisterDirect<TimelineScale, float>(
+            nameof(Scale),
+            o => o.Scale, (o, v) => o.Scale = v,
+            1);
+
+    public static readonly DirectProperty<TimelineScale, Vector> OffsetProperty
+        = AvaloniaProperty.RegisterDirect<TimelineScale, Vector>(
+            nameof(Offset), o => o.Offset, (o, v) => o.Offset = v);
+    
+    public static readonly DirectProperty<TimelineScale, Size> ViewportProperty
+        = AvaloniaProperty.RegisterDirect<TimelineScale, Size>(
+            nameof(Viewport), o => o.Viewport, (o, v) => o.Viewport = v);
+
     private static readonly Typeface s_typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Medium);
     private readonly IBrush _brush;
     private readonly Pen _pen;
+    private float _scale = 1;
+    private Vector _offset;
+    private Size _viewport;
+
+    static TimelineScale()
+    {
+        AffectsRender<TimelineScale>(ScaleProperty, OffsetProperty, ViewportProperty);
+    }
 
     public TimelineScale()
     {
@@ -24,8 +45,20 @@ public sealed class TimelineScale : Control
 
     public float Scale
     {
-        get => GetValue(ScaleProperty);
-        set => SetValue(ScaleProperty, value);
+        get => _scale;
+        set => SetAndRaise(ScaleProperty, ref _scale, value);
+    }
+
+    public Vector Offset
+    {
+        get => _offset;
+        set => SetAndRaise(OffsetProperty, ref _offset, value);
+    }
+    
+    public Size Viewport
+    {
+        get => _viewport;
+        set => SetAndRaise(ViewportProperty, ref _viewport, value);
     }
 
     public override void Render(DrawingContext context)
@@ -35,8 +68,7 @@ public sealed class TimelineScale : Control
 
         double width = Bounds.Width;
         double height = Bounds.Height;
-        ScrollViewer scroll = this.FindLogicalAncestorOfType<ScrollViewer>()!;
-        var viewport = new Rect(new Point(scroll.Offset.X, scroll.Offset.Y), scroll.Viewport);
+        var viewport = new Rect(new Point(Offset.X, Offset.Y), Viewport);
 
         double recentPix = 0d;
         double inc = Helper.SecondWidth;

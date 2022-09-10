@@ -1,55 +1,55 @@
-<UserControl
-    xmlns="https://github.com/avaloniaui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:local="using:BeUtl.Views"
-    xmlns:vm="using:BeUtl.ViewModels"
-    xmlns:ui="using:FluentAvalonia.UI.Controls"
-    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    Focusable="True"
-    x:DataType="vm:TimelineViewModel"
-    x:Class="BeUtl.Views.Timeline">
-    <Grid RowDefinitions="Auto,*" x:Name="grid">
+<UserControl x:Class="BeUtl.Views.Timeline"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="using:BeUtl.Views"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:BeUtl.ViewModels"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="vm:TimelineViewModel"
+             Focusable="True"
+             mc:Ignorable="d">
+    <Grid x:Name="grid" RowDefinitions="Auto,*">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="200" MinWidth="200" />
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
-        <GridSplitter x:Name="gridSplitter" Grid.Column="1" Grid.RowSpan="2" />
+        <GridSplitter x:Name="gridSplitter"
+                      Grid.RowSpan="2"
+                      Grid.Column="1" />
 
-        <ScrollViewer
-            x:Name="ScaleScroll"
-            Grid.Column="2"
-            VerticalScrollBarVisibility="Hidden"
-            HorizontalScrollBarVisibility="Hidden">
-            <Panel
-                x:Name="ScalePanel"
-                PointerMoved="TimelinePanel_PointerMoved"
-                PointerReleased="TimelinePanel_PointerReleased"
-                PointerPressed="TimelinePanel_PointerPressed"
-                Background="Transparent"
-                HorizontalAlignment="Left">
-                <local:TimelineScale
-                    x:Name="Scale"
-                    Scale="{Binding Options.Value.Scale}"
-                    Width="{CompiledBinding PanelWidth.Value}"
-                    MinWidth="{Binding #ContentScroll.Bounds.Width}"
-                    Height="32"
-                    VerticalAlignment="Top"
-                    HorizontalAlignment="Left" />
+        <ScrollViewer x:Name="ScaleScroll"
+                      Grid.Column="2"
+                      HorizontalScrollBarVisibility="Hidden"
+                      VerticalScrollBarVisibility="Hidden">
+            <Panel x:Name="ScalePanel"
+                   HorizontalAlignment="Left"
+                   Background="Transparent"
+                   PointerMoved="TimelinePanel_PointerMoved"
+                   PointerPressed="TimelinePanel_PointerPressed"
+                   PointerReleased="TimelinePanel_PointerReleased">
+                <local:TimelineScale x:Name="Scale"
+                                     Width="{CompiledBinding PanelWidth.Value}"
+                                     Height="32"
+                                     MinWidth="{Binding #ContentScroll.Bounds.Width}"
+                                     HorizontalAlignment="Left"
+                                     VerticalAlignment="Top"
+                                     Scale="{Binding Options.Value.Scale}"
+                                     Viewport="{Binding #ScaleScroll.Viewport, Mode=OneWay}"
+                                     Offset="{Binding #ScaleScroll.Offset, Mode=OneWay}" />
 
-                <Border
-                    Width="1.25"
-                    Margin="{CompiledBinding EndingBarMargin.Value}"
-                    HorizontalAlignment="Left"
-                    Background="Blue" />
+                <Border Width="1.25"
+                        Margin="{CompiledBinding EndingBarMargin.Value}"
+                        HorizontalAlignment="Left"
+                        Background="Blue" />
 
-                <Border
-                    Width="1.25"
-                    Margin="{CompiledBinding SeekBarMargin.Value}"
-                    HorizontalAlignment="Left"
-                    Background="Red" />
+                <Border Width="1.25"
+                        Margin="{CompiledBinding SeekBarMargin.Value}"
+                        HorizontalAlignment="Left"
+                        Background="Red" />
             </Panel>
         </ScrollViewer>
 
@@ -68,20 +68,17 @@
                     <Setter Property="VerticalContentAlignment" Value="Center" />
                 </Style>
             </Grid.Styles>
-            <Label Content="{DynamicResource S.Common.Name}"
-                   Grid.Column="3" />
+            <Label Grid.Column="3" Content="{DynamicResource S.Common.Name}" />
         </Grid>
 
-        <ScrollViewer
-            x:Name="PaneScroll"
-            ScrollChanged="PaneScroll_ScrollChanged"
-            Grid.Row="1"
-            VerticalScrollBarVisibility="Hidden">
-            <ItemsControl
-                x:Name="LeftPanel"
-                Items="{CompiledBinding LayerHeaders}"
-                HorizontalAlignment="Stretch"
-                VerticalAlignment="Stretch">
+        <ScrollViewer x:Name="PaneScroll"
+                      Grid.Row="1"
+                      ScrollChanged="PaneScroll_ScrollChanged"
+                      VerticalScrollBarVisibility="Hidden">
+            <ItemsControl x:Name="LeftPanel"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          Items="{CompiledBinding LayerHeaders}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <VirtualizingStackPanel />
@@ -96,44 +93,41 @@
         </ScrollViewer>
 
 
-        <ScrollViewer
-            x:Name="ContentScroll"
-            ScrollChanged="ContentScroll_ScrollChanged"
-            Grid.Column="2"
-            Grid.Row="1"
-            HorizontalScrollBarVisibility="Visible">
-            <Panel
-                x:Name="TimelinePanel"
-                Background="Transparent"
-                PointerMoved="TimelinePanel_PointerMoved"
-                PointerReleased="TimelinePanel_PointerReleased"
-                PointerPressed="TimelinePanel_PointerPressed"
-                PointerExited="TimelinePanel_PointerExited"
-                Width="{CompiledBinding PanelWidth.Value}"
-                MinWidth="{Binding #ContentScroll.Bounds.Width}"
-                VerticalAlignment="Top"
-                HorizontalAlignment="Left">
+        <ScrollViewer x:Name="ContentScroll"
+                      Grid.Row="1"
+                      Grid.Column="2"
+                      HorizontalScrollBarVisibility="Visible"
+                      ScrollChanged="ContentScroll_ScrollChanged">
+            <Panel x:Name="TimelinePanel"
+                   Width="{CompiledBinding PanelWidth.Value}"
+                   MinWidth="{Binding #ContentScroll.Bounds.Width}"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Top"
+                   Background="Transparent"
+                   PointerExited="TimelinePanel_PointerExited"
+                   PointerMoved="TimelinePanel_PointerMoved"
+                   PointerPressed="TimelinePanel_PointerPressed"
+                   PointerReleased="TimelinePanel_PointerReleased">
                 <Panel.KeyBindings>
-                    <KeyBinding Gesture="{DynamicResource PlayPauseKeyGesture}" Command="{CompiledBinding Player.PlayPause}" />
-                    <KeyBinding Gesture="{DynamicResource NextKeyGesture}" Command="{CompiledBinding Player.Next}" />
-                    <KeyBinding Gesture="{DynamicResource PreviousKeyGesture}" Command="{CompiledBinding Player.Previous}" />
-                    <KeyBinding Gesture="{DynamicResource StartKeyGesture}" Command="{CompiledBinding Player.Start}" />
-                    <KeyBinding Gesture="{DynamicResource EndKeyGesture}" Command="{CompiledBinding Player.End}" />
-                    <KeyBinding Gesture="{DynamicResource PasteKeyGesture}" Command="{CompiledBinding Paste}" />
+                    <KeyBinding Command="{CompiledBinding Player.PlayPause}" Gesture="{DynamicResource PlayPauseKeyGesture}" />
+                    <KeyBinding Command="{CompiledBinding Player.Next}" Gesture="{DynamicResource NextKeyGesture}" />
+                    <KeyBinding Command="{CompiledBinding Player.Previous}" Gesture="{DynamicResource PreviousKeyGesture}" />
+                    <KeyBinding Command="{CompiledBinding Player.Start}" Gesture="{DynamicResource StartKeyGesture}" />
+                    <KeyBinding Command="{CompiledBinding Player.End}" Gesture="{DynamicResource EndKeyGesture}" />
+                    <KeyBinding Command="{CompiledBinding Paste}" Gesture="{DynamicResource PasteKeyGesture}" />
                 </Panel.KeyBindings>
 
                 <Panel.ContextMenu>
                     <ContextMenu>
-                        <MenuItem Header="{DynamicResource S.Common.AddLayer}" Click="AddLayerClick" />
-                        <MenuItem
-                            Command="{CompiledBinding Paste}"
-                            Header="{DynamicResource S.Common.Paste}"
-                            InputGesture="{DynamicResource PasteKeyGesture}">
+                        <MenuItem Click="AddLayerClick" Header="{DynamicResource S.Common.AddLayer}" />
+                        <MenuItem Command="{CompiledBinding Paste}"
+                                  Header="{DynamicResource S.Common.Paste}"
+                                  InputGesture="{DynamicResource PasteKeyGesture}">
                             <MenuItem.Icon>
                                 <CompatSymbolIcon Symbol="ClipboardPaste" />
                             </MenuItem.Icon>
                         </MenuItem>
-                        <MenuItem Header="{DynamicResource S.Common.Settings}" Click="ShowSceneSettings">
+                        <MenuItem Click="ShowSceneSettings" Header="{DynamicResource S.Common.Settings}">
                             <MenuItem.Icon>
                                 <CompatSymbolIcon Symbol="Settings" />
                             </MenuItem.Icon>
@@ -141,24 +135,21 @@
                     </ContextMenu>
                 </Panel.ContextMenu>
 
-                <local:TimelineBackground
-                    ItemHeight="{DynamicResource LayerHeight}"
-                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                    BorderThickness="0.5" />
-    
-                <Border
-                    Margin="{CompiledBinding EndingBarMargin.Value}"
-                    ZIndex="2"
-                    Width="1.25"
-                    HorizontalAlignment="Left"
-                    Background="Blue" />
+                <local:TimelineBackground BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                          BorderThickness="0.5"
+                                          ItemHeight="{DynamicResource LayerHeight}" />
 
-                <Border
-                    Margin="{CompiledBinding SeekBarMargin.Value}"
-                    ZIndex="2"
-                    Width="1.25"
-                    HorizontalAlignment="Left"
-                    Background="Red" />
+                <Border Width="1.25"
+                        Margin="{CompiledBinding EndingBarMargin.Value}"
+                        HorizontalAlignment="Left"
+                        Background="Blue"
+                        ZIndex="2" />
+
+                <Border Width="1.25"
+                        Margin="{CompiledBinding SeekBarMargin.Value}"
+                        HorizontalAlignment="Left"
+                        Background="Red"
+                        ZIndex="2" />
             </Panel>
         </ScrollViewer>
     </Grid>

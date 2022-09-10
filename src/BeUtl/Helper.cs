@@ -72,13 +72,28 @@ internal static class Helper
     {
         return TimeSpan.FromSeconds(pixel / SecondWidth);
     }
+    
+    public static TimeSpan ToTimeSpanF(this float pixel)
+    {
+        return TimeSpan.FromSeconds(pixel / SecondWidth);
+    }
 
     public static double ToPixel(this TimeSpan time, float scale)
     {
         return time.TotalSeconds * SecondWidth * scale;
     }
+    
+    public static float ToPixelF(this TimeSpan time, float scale)
+    {
+        return (float)(time.TotalSeconds * SecondWidth * scale);
+    }
 
     public static TimeSpan ToTimeSpan(this double pixel, float scale)
+    {
+        return TimeSpan.FromSeconds(pixel / (SecondWidth * scale));
+    }
+    
+    public static TimeSpan ToTimeSpanF(this float pixel, float scale)
     {
         return TimeSpan.FromSeconds(pixel / (SecondWidth * scale));
     }
