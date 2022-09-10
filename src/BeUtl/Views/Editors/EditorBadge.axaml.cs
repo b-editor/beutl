@@ -30,7 +30,7 @@ public sealed partial class EditorBadge : UserControl
 
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        if (this.FindLogicalAncestorOfType<EditView>().DataContext is EditViewModel editViewModel
+        if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
             && DataContext is BaseEditorViewModel viewModel
             && viewModel.WrappedProperty is IAbstractAnimatableProperty animatableProperty)
         {
@@ -47,18 +47,13 @@ public sealed partial class EditorBadge : UserControl
             AnimationTimelineViewModel? anmTimelineViewModel =
                 editViewModel.FindToolTab<AnimationTimelineViewModel>(x => ReferenceEquals(x.WrappedProperty, animatableProperty));
 
-            if (anmTimelineViewModel == null)
+            anmTimelineViewModel ??= new AnimationTimelineViewModel(animatableProperty, editViewModel)
             {
-                anmTimelineViewModel = new AnimationTimelineViewModel(
-                    animatableProperty,
-                    editViewModel)
+                IsSelected =
                 {
-                    IsSelected =
-                    {
-                        Value = true
-                    }
-                };
-            }
+                    Value = true
+                }
+            };
 
             editViewModel.OpenToolTab(anmTimelineViewModel);
         }

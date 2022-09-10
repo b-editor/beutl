@@ -25,7 +25,7 @@ public sealed partial class PickFontFamily : ContentDialog, IStyleable
 
     Type IStyleable.StyleKey => typeof(ContentDialog);
 
-    private void SearchQueryChanged(string obj)
+    private void SearchQueryChanged(string? obj)
     {
         if (string.IsNullOrWhiteSpace(obj))
         {

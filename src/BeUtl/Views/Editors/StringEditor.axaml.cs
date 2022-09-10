@@ -35,7 +35,7 @@ public sealed partial class StringEditor : UserControl
         vm.SetValue(_oldValue, textBox.Text);
     }
 
-    private void TextBox_TextChanged(string s)
+    private void TextBox_TextChanged(string? s)
     {
         Dispatcher.UIThread.InvokeAsync(async () =>
         {

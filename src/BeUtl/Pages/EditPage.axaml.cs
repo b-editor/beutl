@@ -172,7 +172,7 @@ Error:
     // '開く'がクリックされた
     private void OpenClick(object? sender, RoutedEventArgs e)
     {
-        if (this.FindAncestorOfType<MainView>().DataContext is MainViewModel vm &&
+        if (this.FindAncestorOfType<MainView>()?.DataContext is MainViewModel vm &&
             vm.OpenFile.CanExecute())
         {
             vm.OpenFile.Execute();

@@ -88,7 +88,7 @@ public sealed class ImageLink : IDisposable, IEquatable<ImageLink?>
                 MemoryStream? stream = await TryGetStreamAsync();
                 if (stream != null)
                 {
-                    bitmap = new Bitmap(_stream);
+                    bitmap = new Bitmap(stream);
                     _bitmap.SetTarget(bitmap);
                 }
             }

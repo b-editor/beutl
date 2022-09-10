@@ -27,9 +27,9 @@ public sealed partial class PackageReleasesPage : UserControl
     {
         if (_flag)
         {
-            if (ReleasesList.SelectedItem is ReleasePageViewModel item)
+            if (ReleasesList.SelectedItem is ReleasePageViewModel item
+                && this.FindAncestorOfType<Frame>() is { } frame)
             {
-                Frame frame = this.FindAncestorOfType<Frame>();
                 frame.Navigate(typeof(ReleasePage), item, SharedNavigationTransitionInfo.Instance);
             }
             _flag = false;
@@ -63,18 +63,18 @@ public sealed partial class PackageReleasesPage : UserControl
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is StyledElement { DataContext: ReleasePageViewModel item })
+        if (sender is StyledElement { DataContext: ReleasePageViewModel item }
+            && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            Frame frame = this.FindAncestorOfType<Frame>();
             frame.Navigate(typeof(ReleasePage), item, SharedNavigationTransitionInfo.Instance);
         }
     }
 
     private async void Delete_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is StyledElement { DataContext: ReleasePageViewModel item })
+        if (sender is StyledElement { DataContext: ReleasePageViewModel item }
+            && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            Frame frame = this.FindAncestorOfType<Frame>();
             var dialog = new ContentDialog
             {
                 Title = S.DevelopPage.DeleteResource.Title,
@@ -99,9 +99,9 @@ public sealed partial class PackageReleasesPage : UserControl
 
     private void NavigatePackageDetailsPage_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PackageReleasesPageViewModel viewModel)
+        if (DataContext is PackageReleasesPageViewModel viewModel
+            && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            Frame frame = this.FindAncestorOfType<Frame>();
             frame.Navigate(typeof(PackageDetailsPage), viewModel.Parent, SharedNavigationTransitionInfo.Instance);
         }
     }

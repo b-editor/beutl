@@ -82,7 +82,7 @@ public sealed partial class Library : UserControl
         }
     }
 
-    private async void SearchQueryChanged(string str)
+    private async void SearchQueryChanged(string? str)
     {
         await Task.Delay(100);
         if (string.IsNullOrWhiteSpace(str))

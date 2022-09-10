@@ -63,7 +63,7 @@ public sealed class NavigateButton<T> : NavigateButton
 {
     protected override void OnNavigate()
     {
-        if (this.FindLogicalAncestorOfType<EditView>().DataContext is EditViewModel editViewModel
+        if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
             && DataContext is NavigationButtonViewModel<T> viewModel)
         {
             ObjectPropertyEditorViewModel objViewModel

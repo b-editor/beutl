@@ -27,9 +27,9 @@ public sealed partial class DevelopPage : UserControl
     {
         if (_flag)
         {
-            if (PackagesList.SelectedItem is PackageDetailsPageViewModel selectedItem)
+            if (PackagesList.SelectedItem is PackageDetailsPageViewModel selectedItem
+                && this.FindAncestorOfType<Frame>() is { } frame)
             {
-                Frame frame = this.FindAncestorOfType<Frame>();
                 frame.Navigate(typeof(PackageDetailsPage), selectedItem, SharedNavigationTransitionInfo.Instance);
             }
             _flag = false;
@@ -46,17 +46,17 @@ public sealed partial class DevelopPage : UserControl
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is StyledElement { DataContext: PackageDetailsPageViewModel item })
+        if (sender is StyledElement { DataContext: PackageDetailsPageViewModel item }
+            && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            Frame frame = this.FindAncestorOfType<Frame>();
             frame.Navigate(typeof(PackageDetailsPage), item, SharedNavigationTransitionInfo.Instance);
         }
     }
 
     private void CreateNewPackage_Click(object? sender, RoutedEventArgs e)
     {
-        Frame frame = this.FindAncestorOfType<Frame>();
-        if (DataContext is DevelopPageViewModel viewModel)
+        if (DataContext is DevelopPageViewModel viewModel
+            && this.FindAncestorOfType<Frame>() is { } frame)
         {
             viewModel.CreateNewPackage.Execute(frame);
         }

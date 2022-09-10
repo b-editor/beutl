@@ -46,7 +46,7 @@ public sealed class NumberEditor<T> : NumberEditor
         }
     }
 
-    private void TextBox_TextChanged(string s)
+    private void TextBox_TextChanged(string? s)
     {
         Dispatcher.UIThread.InvokeAsync(async () =>
         {

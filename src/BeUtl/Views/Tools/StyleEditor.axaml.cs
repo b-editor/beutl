@@ -21,7 +21,7 @@ public sealed partial class StyleEditor : UserControl
     public StyleEditor()
     {
         InitializeComponent();
-        targetTypeBox.ItemSelector = (_, obj) => obj.ToString();
+        targetTypeBox.ItemSelector = (_, obj) => obj.ToString() ?? "";
         targetTypeBox.FilterMode = AutoCompleteFilterMode.Contains;
     }
 

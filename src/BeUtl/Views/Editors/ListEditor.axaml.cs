@@ -152,7 +152,7 @@ public partial class ListEditor : UserControl
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-        if (this.FindLogicalAncestorOfType<EditView>().DataContext is EditViewModel editViewModel
+        if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
             && sender is ILogical logical
             && DataContext is ListEditorViewModel { List.Value: { } list } viewModel)
         {
@@ -160,26 +160,29 @@ public partial class ListEditor : UserControl
                 = editViewModel.FindToolTab<ObjectPropertyEditorViewModel>()
                     ?? new ObjectPropertyEditorViewModel(editViewModel);
 
-            Grid grid = logical.FindLogicalAncestorOfType<Grid>();
-            int index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
-
-            if (index >= 0)
+            if (logical.FindLogicalAncestorOfType<Grid>() is { } grid)
             {
-                switch (list[index])
-                {
-                    case CoreObject coreObject:
-                        objViewModel.NavigateCore(coreObject, false);
-                        break;
-                    case Styling.Style style:
-                        StyleEditorViewModel styleEditor
-                            = objViewModel.ParentContext.FindToolTab<StyleEditorViewModel>()
-                                ?? new StyleEditorViewModel(editViewModel);
+                int index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
 
-                        styleEditor.Style.Value = style;
-                        editViewModel.OpenToolTab(styleEditor);
-                        break;
+                if (index >= 0)
+                {
+                    switch (list[index])
+                    {
+                        case CoreObject coreObject:
+                            objViewModel.NavigateCore(coreObject, false);
+                            break;
+                        case Styling.Style style:
+                            StyleEditorViewModel styleEditor
+                                = objViewModel.ParentContext.FindToolTab<StyleEditorViewModel>()
+                                    ?? new StyleEditorViewModel(editViewModel);
+
+                            styleEditor.Style.Value = style;
+                            editViewModel.OpenToolTab(styleEditor);
+                            break;
+                    }
                 }
             }
+            
             editViewModel.OpenToolTab(objViewModel);
         }
     }
@@ -187,9 +190,9 @@ public partial class ListEditor : UserControl
     private void Delete_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is MenuItem menuItem
-            && DataContext is ListEditorViewModel { List.Value: { } list } viewModel)
+            && DataContext is ListEditorViewModel { List.Value: { } list } viewModel
+            && menuItem.FindLogicalAncestorOfType<Grid>() is { } grid)
         {
-            Grid grid = menuItem.FindLogicalAncestorOfType<Grid>();
             int index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
 
             if (index >= 0)

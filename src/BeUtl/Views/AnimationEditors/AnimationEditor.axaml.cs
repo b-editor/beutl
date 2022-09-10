@@ -37,7 +37,7 @@ public partial class AnimationEditor : UserControl
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-        if (this.FindLogicalAncestorOfType<EditView>().DataContext is EditViewModel editViewModel
+        if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
             && DataContext is AnimationEditorViewModel viewModel)
         {
             // 右側のタブを開く

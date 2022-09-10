@@ -17,27 +17,27 @@ public sealed partial class ReleasePage : UserControl
 
     private void NavigatePackageDetailsPage_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is ReleasePageViewModel viewModel)
+        if (DataContext is ReleasePageViewModel viewModel
+            && this.FindAncestorOfType<FA.Frame>() is { } frame)
         {
-            FA.Frame frame = this.FindAncestorOfType<FA.Frame>();
             frame.Navigate(typeof(PackageDetailsPage), viewModel.Parent.Parent, SharedNavigationTransitionInfo.Instance);
         }
     }
 
     private void NavigatePackageReleasesPage_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is ReleasePageViewModel viewModel)
+        if (DataContext is ReleasePageViewModel viewModel
+            && this.FindAncestorOfType<FA.Frame>() is { } frame)
         {
-            FA.Frame frame = this.FindAncestorOfType<FA.Frame>();
             frame.Navigate(typeof(PackageReleasesPage), viewModel.Parent, SharedNavigationTransitionInfo.Instance);
         }
     }
 
     private async void DeleteRelease_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is ReleasePageViewModel viewModel)
+        if (DataContext is ReleasePageViewModel viewModel
+            && this.FindAncestorOfType<FA.Frame>() is { } frame)
         {
-            FA.Frame frame = this.FindAncestorOfType<FA.Frame>();
             var dialog = new FA.ContentDialog
             {
                 Title = S.DevelopPage.DeleteRelease.Title,

@@ -17,18 +17,18 @@ public sealed partial class PackageDetailsPage : UserControl
 
     private void NavigatePackageSettingsPage_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PackageDetailsPageViewModel viewModel)
+        if (DataContext is PackageDetailsPageViewModel viewModel
+            && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            Frame frame = this.FindAncestorOfType<Frame>();
             frame.Navigate(typeof(PackageSettingsPage), viewModel.Settings, SharedNavigationTransitionInfo.Instance);
         }
     }
 
     private void NavigatePackageReleasesPage_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PackageDetailsPageViewModel viewModel)
+        if (DataContext is PackageDetailsPageViewModel viewModel
+            && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            Frame frame = this.FindAncestorOfType<Frame>();
             frame.Navigate(typeof(PackageReleasesPage), viewModel.Releases, SharedNavigationTransitionInfo.Instance);
         }
     }

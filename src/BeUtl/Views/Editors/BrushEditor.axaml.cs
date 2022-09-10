@@ -41,7 +41,7 @@ public sealed partial class BrushEditor : UserControl
 
     private void Navigate_Click(object? sender, RoutedEventArgs e)
     {
-        if (this.FindLogicalAncestorOfType<EditView>().DataContext is EditViewModel editViewModel
+        if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
             && DataContext is BrushEditorViewModel viewModel
             && viewModel.Value.Value is ICoreObject obj)
         {

@@ -14,20 +14,23 @@ public sealed partial class Easings : UserControl
 
     private async void Pressed(object? sender, PointerPressedEventArgs e)
     {
-        int index = 0;
-        foreach (object? item in itemsControl.Items)
+        if (itemsControl.Items is { } items)
         {
-            IControl control = itemsControl.ItemContainerGenerator.ContainerFromIndex(index);
-
-            if (control.IsPointerOver)
+            int index = 0;
+            foreach (object? item in items)
             {
-                var data = new DataObject();
-                data.Set("Easing", item);
-                await DragDrop.DoDragDrop(e, data, DragDropEffects.Copy | DragDropEffects.Link);
-                return;
-            }
+                IControl? control = itemsControl.ItemContainerGenerator.ContainerFromIndex(index);
 
-            index++;
+                if (control?.IsPointerOver == true)
+                {
+                    var data = new DataObject();
+                    data.Set("Easing", item);
+                    await DragDrop.DoDragDrop(e, data, DragDropEffects.Copy | DragDropEffects.Link);
+                    return;
+                }
+
+                index++;
+            }
         }
     }
 }

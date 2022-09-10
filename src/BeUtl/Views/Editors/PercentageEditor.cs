@@ -37,7 +37,7 @@ public sealed class PercentageEditor : NumberEditor
         }
     }
 
-    private void TextBox_TextChanged(string s)
+    private void TextBox_TextChanged(string? s)
     {
         Dispatcher.UIThread.InvokeAsync(async () =>
         {
@@ -79,8 +79,14 @@ public sealed class PercentageEditor : NumberEditor
         }
     }
 
-    private static bool TryParse(string s, out float result)
+    private static bool TryParse(string? s, out float result)
     {
+        if (s == null)
+        {
+            result = default;
+            return false;
+        }
+
         result = 1f;
         float scale = 1f;
         ReadOnlySpan<char> span = s;

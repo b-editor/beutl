@@ -36,8 +36,15 @@ public partial class OpacityEditor : UserControl
 
     private bool TryParse(out float result)
     {
-        bool hasPercent = numberbox.Text.EndsWith('%');
-        if (float.TryParse(numberbox.Text.AsSpan().TrimEnd('%'), out result))
+        string? s = numberbox.Text;
+        if (s == null)
+        {
+            result = default;
+            return false;
+        }
+
+        bool hasPercent = s.EndsWith('%');
+        if (float.TryParse(s.AsSpan().TrimEnd('%'), out result))
         {
             if (hasPercent)
             {
@@ -51,7 +58,7 @@ public partial class OpacityEditor : UserControl
         }
     }
 
-    private void NumberBox_TextChanged(string s)
+    private void NumberBox_TextChanged(string? s)
     {
         if (!numberbox.IsKeyboardFocusWithin) return;
         Dispatcher.UIThread.InvokeAsync(async () =>
@@ -113,8 +120,7 @@ public partial class OpacityEditor : UserControl
 
     private void Item_PointerMoved(object? sender, PointerEventArgs e)
     {
-        if (DataContext is OpacityEditorViewModel viewModel
-            && _pressed)
+        if (DataContext is OpacityEditorViewModel viewModel && _pressed)
         {
             double width = area.Bounds.Width - 20;
             double x = e.GetCurrentPoint(area).Position.X - 10;
@@ -125,7 +131,7 @@ public partial class OpacityEditor : UserControl
 
     private void Item_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        var point = e.GetCurrentPoint(area);
+        PointerPoint point = e.GetCurrentPoint(area);
         if (point.Properties.IsRightButtonPressed)
         {
             _rightPressed = true;
