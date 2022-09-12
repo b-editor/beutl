@@ -1,58 +1,62 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="BeUtl.Pages.SettingsPages.AccountSettingsPage"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrls="using:BeUtl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             xmlns:ctrls="using:BeUtl.Controls"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:BeUtl.ViewModels.SettingsPages"
-             xmlns:fau="clr-namespace:Firebase.Auth.UI;assembly=Firebase.Auth.UI.Avalonia"
-             xmlns:fauConverter="clr-namespace:Firebase.Auth.UI.Converters;assembly=Firebase.Auth.UI.Avalonia"
-             xmlns:fuiRes="clr-namespace:Firebase.Auth.UI.Resources;assembly=Firebase.Auth.UI"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
              x:DataType="vm:AccountSettingsPageViewModel"
-             x:Class="BeUtl.Pages.SettingsPages.AccountSettingsPage">
+             mc:Ignorable="d">
     <UserControl.DataContext>
         <vm:AccountSettingsPageViewModel />
     </UserControl.DataContext>
     <Panel>
-        <ScrollViewer Padding="18"
-                      x:Name="scrollViewer"
+        <ScrollViewer x:Name="scrollViewer"
+                      Padding="18"
                       IsVisible="{CompiledBinding SignedIn.Value}">
-            <StackPanel Orientation="Vertical"
-                        VerticalAlignment="Stretch"
+            <StackPanel Margin="10,0"
                         HorizontalAlignment="Stretch"
-                        Margin="10,0"
+                        VerticalAlignment="Stretch"
+                        Orientation="Vertical"
                         Spacing="4">
-                <Grid ColumnDefinitions="Auto,16,Auto,*" Margin="0,32,0,0">
-                    <!--プロフィール画像-->
-                    <Border CornerRadius="32"
-                            Width="64" Height="64"
-                            IsVisible="{CompiledBinding !HasProfileImage.Value}"
-                            Background="{DynamicResource ControlSolidFillColorDefaultBrush}">
-                        <CompatSymbolIcon Symbol="Person" FontSize="30" />
+                <Grid Margin="0,32,0,0" ColumnDefinitions="Auto,16,Auto,*">
+                    <!--  プロフィール画像  -->
+                    <Border Width="64"
+                            Height="64"
+                            Background="{DynamicResource ControlSolidFillColorDefaultBrush}"
+                            CornerRadius="32"
+                            IsVisible="{CompiledBinding !HasProfileImage.Value}">
+                        <CompatSymbolIcon FontSize="30" Symbol="Person" />
                     </Border>
-                    <Image Source="{CompiledBinding ProfileImage.Value}"
-                           Width="64" Height="64"
-                           IsVisible="{CompiledBinding HasProfileImage.Value}">
+                    <Image Width="64"
+                           Height="64"
+                           IsVisible="{CompiledBinding HasProfileImage.Value}"
+                           Source="{CompiledBinding ProfileImage.Value}">
                         <Image.Clip>
-                            <EllipseGeometry Center="32,32" RadiusX="32" RadiusY="32" />
+                            <EllipseGeometry Center="32,32"
+                                             RadiusX="32"
+                                             RadiusY="32" />
                         </Image.Clip>
                     </Image>
-                    <Button CornerRadius="32"
+                    <Button Width="64"
+                            Height="64"
                             Padding="0"
                             HorizontalContentAlignment="Stretch"
                             VerticalContentAlignment="Stretch"
                             Click="UploadProfileImage_Click"
-                            Width="64" Height="64">
+                            CornerRadius="32">
                         <Button.Styles>
                             <Style Selector="Button:pointerover">
                                 <Setter Property="Content">
                                     <Template>
-                                        <Border Background="Gray"
+                                        <Border HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Stretch"
+                                                Background="Gray"
                                                 CornerRadius="32"
-                                                Opacity="0.8"
-                                                HorizontalAlignment="Stretch"
-                                                VerticalAlignment="Stretch">
+                                                Opacity="0.8">
                                             <CompatSymbolIcon Symbol="Edit" />
                                         </Border>
                                     </Template>
@@ -62,31 +66,29 @@
                     </Button>
 
                     <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                        <StackPanel Spacing="8" Orientation="Horizontal">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
 
-                            <!--名前表示-->
-                            <TextBlock Classes="SubtitleTextBlockStyle"
-                                       Text="{CompiledBinding DisplayName.Value}" />
-                            
+                            <!--  名前表示  -->
+                            <TextBlock Classes="SubtitleTextBlockStyle" Text="{CompiledBinding DisplayName.Value}" />
+
                             <ui:InfoBadge Classes="Success Icon"
-                                          ToolTip.Tip="{DynamicResource S.AccountSettingsPage.YourEmailAddressHasBeenVerified}"
-                                          IsVisible="{CompiledBinding User.Value.Info.IsEmailVerified}" />
+                                          IsVisible="{CompiledBinding User.Value.Info.IsEmailVerified}"
+                                          ToolTip.Tip="{DynamicResource S.AccountSettingsPage.YourEmailAddressHasBeenVerified}" />
 
                         </StackPanel>
 
-                        <!--メールアドレス-->
+                        <!--  メールアドレス  -->
                         <TextBlock Classes="CaptionTextBlockStyle"
                                    Opacity="0.8"
                                    Text="{CompiledBinding User.Value.Info.Email}" />
                     </StackPanel>
 
-                    <ui:CommandBar Grid.Column="3" DefaultLabelPosition="Right"
+                    <ui:CommandBar Grid.Column="3"
                                    HorizontalAlignment="Right"
-                                   VerticalAlignment="Center">
+                                   VerticalAlignment="Center"
+                                   DefaultLabelPosition="Right">
                         <ui:CommandBar.PrimaryCommands>
-                            <ui:CommandBarButton
-                                Command="{CompiledBinding SignOut}"
-                                Label="{DynamicResource S.AccountSettingsPage.SignOut}">
+                            <ui:CommandBarButton Command="{CompiledBinding SignOut}" Label="{DynamicResource S.AccountSettingsPage.SignOut}">
                                 <ui:CommandBarButton.Icon>
                                     <ctrls:CompatSymbolIcon Symbol="SignOut" />
                                 </ui:CommandBarButton.Icon>
@@ -95,21 +97,19 @@
                     </ui:CommandBar>
                 </Grid>
 
-                <!--表示名を変更-->
-                <ctrls:OptionsDisplayItem
-                    x:Name="optionsItem1"
-                    Margin="0,24,0,0"
-                    Expands="True"
-                    Header="{DynamicResource S.AccountSettingsPage.ChangeDisplayName}">
+                <!--  表示名を変更  -->
+                <ctrls:OptionsDisplayItem x:Name="optionsItem1"
+                                          Margin="0,24,0,0"
+                                          Expands="True"
+                                          Header="{DynamicResource S.AccountSettingsPage.ChangeDisplayName}">
 
                     <ctrls:OptionsDisplayItem.Icon>
                         <ctrls:CompatSymbolIcon Symbol="Rename" />
                     </ctrls:OptionsDisplayItem.Icon>
-                    
+
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel Spacing="8">
-                            <TextBlock Classes="BodyTextBlockStyle"
-                                       Text="{DynamicResource S.AccountSettingsPage.ChangeDisplayName}" />
+                            <TextBlock Classes="BodyTextBlockStyle" Text="{DynamicResource S.AccountSettingsPage.ChangeDisplayName}" />
 
                             <TextBox Text="{CompiledBinding DisplayNameInput.Value}" />
 
@@ -120,24 +120,22 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <!--アカウントを削除-->
-                <ctrls:OptionsDisplayItem
-                    x:Name="optionsItem2"
-                    Navigates="True"
-                    NavigationRequested="DeleteAccount_Click"
-                    Header="{DynamicResource S.AccountSettingsPage.DeleteAccount}">
+                <!--  アカウントを削除  -->
+                <ctrls:OptionsDisplayItem x:Name="optionsItem2"
+                                          Header="{DynamicResource S.AccountSettingsPage.DeleteAccount}"
+                                          Navigates="True"
+                                          NavigationRequested="DeleteAccount_Click">
 
                     <ctrls:OptionsDisplayItem.Icon>
                         <ctrls:CompatSymbolIcon Symbol="PersonSubtract" />
                     </ctrls:OptionsDisplayItem.Icon>
                 </ctrls:OptionsDisplayItem>
 
-                <!--パスワードを変更-->
-                <ctrls:OptionsDisplayItem
-                    IsVisible="{CompiledBinding SignInWithEmail.Value}"
-                    x:Name="optionsItem3"
-                    Expands="True"
-                    Header="{DynamicResource S.AccountSettingsPage.ChangePassword}">
+                <!--  パスワードを変更  -->
+                <ctrls:OptionsDisplayItem x:Name="optionsItem3"
+                                          Expands="True"
+                                          Header="{DynamicResource S.AccountSettingsPage.ChangePassword}"
+                                          IsVisible="{CompiledBinding SignInWithEmail.Value}">
 
                     <ctrls:OptionsDisplayItem.Icon>
                         <ctrls:CompatSymbolIcon Symbol="PersonSubtract" />
@@ -145,129 +143,128 @@
 
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel>
-                            <TextBlock Classes="BodyTextBlockStyle"
-                                       Text="{DynamicResource S.AccountSettingsPage.ChangePassword}" />
+                            <TextBlock Classes="BodyTextBlockStyle" Text="{DynamicResource S.AccountSettingsPage.ChangePassword}" />
 
-                            <TextBlock Classes="CaptionTextBlockStyle"
-                                       Margin="0,12,0,8"
+                            <TextBlock Margin="0,12,0,8"
+                                       Classes="CaptionTextBlockStyle"
                                        Text="{DynamicResource S.Common.Password}" />
 
-                            <TextBox Text="{CompiledBinding Password.Value}"
-                                     Classes="revealPasswordButton"
-                                     PasswordChar="*" />
+                            <TextBox Classes="revealPasswordButton"
+                                     PasswordChar="*"
+                                     Text="{CompiledBinding Password.Value}" />
 
-                            <TextBlock Classes="CaptionTextBlockStyle"
-                                       Margin="0,12,0,8"
+                            <TextBlock Margin="0,12,0,8"
+                                       Classes="CaptionTextBlockStyle"
                                        Text="{DynamicResource S.AccountSettingsPage.NewPassword}" />
 
-                            <TextBox Text="{CompiledBinding NewPassword.Value}"
-                                     Classes="revealPasswordButton"
-                                     PasswordChar="*" />
+                            <TextBox Classes="revealPasswordButton"
+                                     PasswordChar="*"
+                                     Text="{CompiledBinding NewPassword.Value}" />
 
-                            <TextBlock Classes="ErrorTextBlockStyle"
-                                       Margin="0,8,0,0"
+                            <TextBlock Margin="0,8,0,0"
+                                       Classes="ErrorTextBlockStyle"
                                        Text="{CompiledBinding ChangePasswordError.Value}" />
 
-                            <ProgressBar
-                                IsVisible="{CompiledBinding ChangePasswordInProgress.Value}"
-                                Margin="0,12,0,0"
-                                IsIndeterminate="True" />
+                            <ProgressBar Margin="0,12,0,0"
+                                         IsIndeterminate="True"
+                                         IsVisible="{CompiledBinding ChangePasswordInProgress.Value}" />
 
-                            <Button HorizontalAlignment="Right"
-                                    Margin="0,8,0,0"
+                            <Button Margin="0,8,0,0"
+                                    HorizontalAlignment="Right"
                                     Command="{CompiledBinding ChangePassword}"
                                     Content="{DynamicResource S.AccountSettingsPage.Change}" />
                         </StackPanel>
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <!--Googleとの連携を解除-->
-                <ctrls:OptionsDisplayItem
-                    IsVisible="{CompiledBinding SignInWithGoogleAndEmail.Value}"
-                    x:Name="optionsItem4"
-                    NavigationRequested="UnlinkGoogle_Click"
-                    Navigates="True"
-                    Header="{DynamicResource S.AccountSettingsPage.UnlinkFromGoogle}">
+                <!--  Googleとの連携を解除  -->
+                <ctrls:OptionsDisplayItem x:Name="optionsItem4"
+                                          Header="{DynamicResource S.AccountSettingsPage.UnlinkFromGoogle}"
+                                          IsVisible="{CompiledBinding SignInWithGoogleAndEmail.Value}"
+                                          Navigates="True"
+                                          NavigationRequested="UnlinkGoogle_Click">
 
                     <ctrls:OptionsDisplayItem.Icon>
-                        <ui:ImageIcon Source="avares://Firebase.Auth.UI.Avalonia/Assets/google.png" Width="16" Height="16" />
+                        <!--<ui:ImageIcon Width="16"
+                                      Height="16"
+                                      Source="avares://Firebase.Auth.UI.Avalonia/Assets/google.png" />-->
                     </ctrls:OptionsDisplayItem.Icon>
 
                 </ctrls:OptionsDisplayItem>
 
-                <!--Googleと連携-->
-                <ctrls:OptionsDisplayItem
-                    IsVisible="{CompiledBinding SignInWithEmailOnly.Value}"
-                    x:Name="optionsItem5"
-                    NavigationRequested="LinkGoogle_Click"
-                    Navigates="True"
-                    Header="{DynamicResource S.AccountSettingsPage.LinkWithGoogle}">
+                <!--  Googleと連携  -->
+                <ctrls:OptionsDisplayItem x:Name="optionsItem5"
+                                          Header="{DynamicResource S.AccountSettingsPage.LinkWithGoogle}"
+                                          IsVisible="{CompiledBinding SignInWithEmailOnly.Value}"
+                                          Navigates="True"
+                                          NavigationRequested="LinkGoogle_Click">
 
                     <ctrls:OptionsDisplayItem.Icon>
-                        <ui:ImageIcon Source="avares://Firebase.Auth.UI.Avalonia/Assets/google.png" Width="16" Height="16" />
+                        <!--<ui:ImageIcon Width="16"
+                                      Height="16"
+                                      Source="avares://Firebase.Auth.UI.Avalonia/Assets/google.png" />-->
                     </ctrls:OptionsDisplayItem.Icon>
 
                 </ctrls:OptionsDisplayItem>
 
             </StackPanel>
 
-            
+
         </ScrollViewer>
 
-        <fau:FirebaseUIControl IsVisible="{CompiledBinding !SignedIn.Value}"
+        <!--<fau:FirebaseUIControl IsVisible="{CompiledBinding !SignedIn.Value}"
                                x:Name="firebaseControl"
                                VerticalAlignment="Center"
-                               HorizontalAlignment="Center" />
+                               HorizontalAlignment="Center" />-->
 
-        <!--ダイアログ1-->
+        <!--  ダイアログ1  -->
         <ui:ContentDialog x:Name="dialog1"
                           Title="{DynamicResource S.AccountSettingsPage.Dialog1.Title}"
-                          DefaultButton="Close"
-                          SecondaryButtonText="{DynamicResource S.AccountSettingsPage.WithGoogle}"
                           CloseButtonText="{DynamicResource S.Common.No}"
-                          PrimaryButtonText="{DynamicResource S.Common.Yes}">
+                          DefaultButton="Close"
+                          PrimaryButtonText="{DynamicResource S.Common.Yes}"
+                          SecondaryButtonText="{DynamicResource S.AccountSettingsPage.WithGoogle}">
             <StackPanel>
                 <TextBlock x:Name="dialog1Text" />
                 <TextBlock Margin="0,12,0,8"
                            Classes="CaptionTextBlockStyle"
-                           Text="{DynamicResource S.Common.Password}"/>
+                           Text="{DynamicResource S.Common.Password}" />
 
-                <TextBox Classes="revealPasswordButton"
-                         PasswordChar="*"
-                         x:Name="dialog1Password" />
+                <TextBox x:Name="dialog1Password"
+                         Classes="revealPasswordButton"
+                         PasswordChar="*" />
 
-                <TextBlock Opacity="0"
-                           x:Name="dialog1Error"
-                           Classes="ErrorTextBlockStyle" />
+                <TextBlock x:Name="dialog1Error"
+                           Classes="ErrorTextBlockStyle"
+                           Opacity="0" />
             </StackPanel>
         </ui:ContentDialog>
 
-        <!--ダイアログ1 Google-->
+        <!--  ダイアログ1 Google  -->
         <ui:ContentDialog x:Name="dialog1Google"
                           Title="{DynamicResource S.AccountSettingsPage.Dialog1.Title}"
-                          DefaultButton="Close"
-                          SecondaryButtonText="{DynamicResource S.AccountSettingsPage.WithPassword}"
                           CloseButtonText="{DynamicResource S.Common.No}"
-                          PrimaryButtonText="{DynamicResource S.Common.Yes}">
+                          DefaultButton="Close"
+                          PrimaryButtonText="{DynamicResource S.Common.Yes}"
+                          SecondaryButtonText="{DynamicResource S.AccountSettingsPage.WithPassword}">
             <StackPanel>
                 <TextBlock x:Name="dialog1GoogleText" />
 
                 <ContentControl>
                     <ContentControl.Resources>
-                        <fauConverter:BackgroundTransparentConverter x:Key="BackgroundTransparentConverter" />
+                        <!--<fauConverter:BackgroundTransparentConverter x:Key="BackgroundTransparentConverter" />-->
                     </ContentControl.Resources>
-                    <Button
-                        x:Name="dialog1GoogleSignIn"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch"
-                        VerticalAlignment="Center"
-                        BorderBrush="Transparent"
-                        Margin="25,6"
-                        Background="White"
-                        Click="SignInWithGoogleClick">
+                    <Button x:Name="dialog1GoogleSignIn"
+                            Margin="25,6"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Center"
+                            HorizontalContentAlignment="Stretch"
+                            Background="White"
+                            BorderBrush="Transparent"
+                            Click="SignInWithGoogleClick">
                         <Button.Styles>
                             <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="{Binding $parent[Button].Background, Converter={StaticResource BackgroundTransparentConverter}}" />
+                                <!--<Setter Property="Background" Value="{Binding $parent[Button].Background, Converter={StaticResource BackgroundTransparentConverter}}" />-->
                             </Style>
                             <Style Selector="TextBlock">
                                 <Setter Property="Foreground" Value="White" />
@@ -285,17 +282,17 @@
                         </Button.Styles>
 
                         <StackPanel Orientation="Horizontal">
-                            <Image Source="avares://Firebase.Auth.UI.Avalonia/Assets/google.png" />
+                            <!--<Image Source="avares://Firebase.Auth.UI.Avalonia/Assets/google.png" />
 
-                            <TextBlock Foreground="#757575"
-                                       Text="{Binding FuiSignInWithGoogle, Source={x:Static fuiRes:AppResources.Instance}}" />
+                            <TextBlock Foreground="#757575" Text="{Binding FuiSignInWithGoogle, Source={x:Static fuiRes:AppResources.Instance}}" />-->
+                            <TextBlock Foreground="#757575" Text="Sign in with Google" />
                         </StackPanel>
                     </Button>
                 </ContentControl>
-                
-                <TextBlock Opacity="0"
-                           x:Name="dialog1GoogleError"
-                           Classes="ErrorTextBlockStyle" />
+
+                <TextBlock x:Name="dialog1GoogleError"
+                           Classes="ErrorTextBlockStyle"
+                           Opacity="0" />
             </StackPanel>
         </ui:ContentDialog>
     </Panel>

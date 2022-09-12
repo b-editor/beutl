@@ -21,9 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\external\firebase-authentication-dotnet\src\Auth.UI\Auth.UI.csproj" PrivateAssets="All" />
-    <ProjectReference Include="..\..\external\firebase-authentication-dotnet\src\Firebase.Auth.UI\Firebase.Auth.UI.csproj" PrivateAssets="All" />
-    <ProjectReference Include="..\..\build\generators\ApiKeyGenerator\ApiKeyGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />
     <ProjectReference Include="..\BeUtl.Controls\BeUtl.Controls.csproj" />
   </ItemGroup>
 
@@ -71,9 +69,6 @@
   <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
   <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.DependencyInjection.props" />
   <Import Project="$(RootDirectory)\build\props\CoreLibraries.props" />
-  <Import Project="$(RootDirectory)\build\props\FirebaseDatabase.net.props" />
-  <Import Project="$(RootDirectory)\build\props\FirebaseStorage.net.props" />
-  <Import Project="$(RootDirectory)\build\props\Google.Cloud.Firestore.props" />
   <Import Project="$(RootDirectory)\build\props\FluentIcons.Avalonia.props" />
   <Import Project="$(RootDirectory)\build\props\System.Interactive.props" />
 </Project>

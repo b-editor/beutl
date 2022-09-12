@@ -1,6 +1,6 @@
 ﻿namespace BeUtl.Models;
 
-public static partial class Constants
+public static class Constants
 {
     public const string Layer = "BeUtlLayerJson";
     public const string LayerFileExtension = "layer";
@@ -8,5 +8,4 @@ public static partial class Constants
     public const string ProjectFileExtension = "bep";
     public const string BeutlFolder = ".beutl";
     public const string ViewStateFolder = "view-state";
-    public const string FirebaseProjectId = "beutl-458eb";
 }

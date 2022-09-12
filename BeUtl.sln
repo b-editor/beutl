@@ -32,11 +32,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Props", "Props", "{74C34E00
 		build\props\CopyProjectReferencesToPackage.props = build\props\CopyProjectReferencesToPackage.props
 		build\props\CopyProjectReferencesToPackage.targets = build\props\CopyProjectReferencesToPackage.targets
 		build\props\CoreLibraries.props = build\props\CoreLibraries.props
-		build\props\FirebaseDatabase.net.props = build\props\FirebaseDatabase.net.props
-		build\props\FirebaseStorage.net.props = build\props\FirebaseStorage.net.props
 		build\props\FluentAvalonia.props = build\props\FluentAvalonia.props
 		build\props\FluentIcons.Avalonia.props = build\props\FluentIcons.Avalonia.props
-		build\props\Google.Cloud.Firestore.props = build\props\Google.Cloud.Firestore.props
 		build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props = build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props
 		build\props\Microsoft.Extensions.DependencyInjection.props = build\props\Microsoft.Extensions.DependencyInjection.props
 		build\props\Microsoft.Extensions.FileSystemGlobbing.props = build\props\Microsoft.Extensions.FileSystemGlobbing.props
@@ -87,18 +84,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PackageSample", "tests\Pack
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Generators", "Generators", "{D6C0F32B-62A6-48BA-867E-BCDD88B71748}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ApiKeyGenerator", "build\generators\ApiKeyGenerator\ApiKeyGenerator.csproj", "{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "External", "External", "{A5B24B88-DAE1-4F87-984C-15AEF64446CA}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "firebase-authentication-net", "firebase-authentication-net", "{E7ED6BF0-EEC7-48F3-A6AD-00B5C8052ABE}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Auth", "external\firebase-authentication-dotnet\src\Auth\Auth.csproj", "{786A3252-9A40-4D22-A2C6-B437C598FBC7}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Auth.UI", "external\firebase-authentication-dotnet\src\Auth.UI\Auth.UI.csproj", "{6610F46B-2135-4759-8068-5D260FA5F014}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Firebase.Auth.UI", "external\firebase-authentication-dotnet\src\Firebase.Auth.UI\Firebase.Auth.UI.csproj", "{B06ADC65-3AC3-4A23-AF58-AD5A5194E524}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "GitHub", "GitHub", "{464CEA08-D77A-4CB8-9B03-BEF0C852B907}"
 	ProjectSection(SolutionItems) = preProject
 		.github\dependabot.yml = .github\dependabot.yml
@@ -116,7 +101,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ResourcesGenerator", "build
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Packages", "Packages", "{D2E28768-5899-48B0-B35C-41BABE9D9536}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BeUtl.Sdk", "packages\BeUtl.Sdk\BeUtl.Sdk.csproj", "{456F3A49-7881-4793-966D-FF647190F5CB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Sdk", "packages\BeUtl.Sdk\BeUtl.Sdk.csproj", "{456F3A49-7881-4793-966D-FF647190F5CB}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Api", "src\Beutl.Api\Beutl.Api.csproj", "{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -286,38 +273,6 @@ Global
 		{BBC27A44-A56C-4706-856C-8911C656E02A}.Release|Any CPU.Build.0 = Release|Any CPU
 		{BBC27A44-A56C-4706-856C-8911C656E02A}.Release|x64.ActiveCfg = Release|Any CPU
 		{BBC27A44-A56C-4706-856C-8911C656E02A}.Release|x64.Build.0 = Release|Any CPU
-		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}.Debug|x64.Build.0 = Debug|Any CPU
-		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}.Release|Any CPU.Build.0 = Release|Any CPU
-		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}.Release|x64.ActiveCfg = Release|Any CPU
-		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}.Release|x64.Build.0 = Release|Any CPU
-		{786A3252-9A40-4D22-A2C6-B437C598FBC7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{786A3252-9A40-4D22-A2C6-B437C598FBC7}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{786A3252-9A40-4D22-A2C6-B437C598FBC7}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{786A3252-9A40-4D22-A2C6-B437C598FBC7}.Debug|x64.Build.0 = Debug|Any CPU
-		{786A3252-9A40-4D22-A2C6-B437C598FBC7}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{786A3252-9A40-4D22-A2C6-B437C598FBC7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{786A3252-9A40-4D22-A2C6-B437C598FBC7}.Release|x64.ActiveCfg = Release|Any CPU
-		{786A3252-9A40-4D22-A2C6-B437C598FBC7}.Release|x64.Build.0 = Release|Any CPU
-		{6610F46B-2135-4759-8068-5D260FA5F014}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6610F46B-2135-4759-8068-5D260FA5F014}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6610F46B-2135-4759-8068-5D260FA5F014}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{6610F46B-2135-4759-8068-5D260FA5F014}.Debug|x64.Build.0 = Debug|Any CPU
-		{6610F46B-2135-4759-8068-5D260FA5F014}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6610F46B-2135-4759-8068-5D260FA5F014}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6610F46B-2135-4759-8068-5D260FA5F014}.Release|x64.ActiveCfg = Release|Any CPU
-		{6610F46B-2135-4759-8068-5D260FA5F014}.Release|x64.Build.0 = Release|Any CPU
-		{B06ADC65-3AC3-4A23-AF58-AD5A5194E524}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B06ADC65-3AC3-4A23-AF58-AD5A5194E524}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B06ADC65-3AC3-4A23-AF58-AD5A5194E524}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{B06ADC65-3AC3-4A23-AF58-AD5A5194E524}.Debug|x64.Build.0 = Debug|Any CPU
-		{B06ADC65-3AC3-4A23-AF58-AD5A5194E524}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B06ADC65-3AC3-4A23-AF58-AD5A5194E524}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B06ADC65-3AC3-4A23-AF58-AD5A5194E524}.Release|x64.ActiveCfg = Release|Any CPU
-		{B06ADC65-3AC3-4A23-AF58-AD5A5194E524}.Release|x64.Build.0 = Release|Any CPU
 		{5B97917E-A771-496A-80C9-4F3B87FB443D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{5B97917E-A771-496A-80C9-4F3B87FB443D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5B97917E-A771-496A-80C9-4F3B87FB443D}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -342,6 +297,14 @@ Global
 		{456F3A49-7881-4793-966D-FF647190F5CB}.Release|Any CPU.Build.0 = Release|Any CPU
 		{456F3A49-7881-4793-966D-FF647190F5CB}.Release|x64.ActiveCfg = Release|Any CPU
 		{456F3A49-7881-4793-966D-FF647190F5CB}.Release|x64.Build.0 = Release|Any CPU
+		{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}.Debug|x64.Build.0 = Debug|Any CPU
+		{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}.Release|x64.ActiveCfg = Release|Any CPU
+		{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -359,11 +322,6 @@ Global
 		{5F9713D1-E237-461D-A83A-A23A64E7CE02} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 		{BBC27A44-A56C-4706-856C-8911C656E02A} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 		{D6C0F32B-62A6-48BA-867E-BCDD88B71748} = {BBF37951-9757-4F4A-9FEE-130C4A218B94}
-		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949} = {D6C0F32B-62A6-48BA-867E-BCDD88B71748}
-		{E7ED6BF0-EEC7-48F3-A6AD-00B5C8052ABE} = {A5B24B88-DAE1-4F87-984C-15AEF64446CA}
-		{786A3252-9A40-4D22-A2C6-B437C598FBC7} = {E7ED6BF0-EEC7-48F3-A6AD-00B5C8052ABE}
-		{6610F46B-2135-4759-8068-5D260FA5F014} = {E7ED6BF0-EEC7-48F3-A6AD-00B5C8052ABE}
-		{B06ADC65-3AC3-4A23-AF58-AD5A5194E524} = {E7ED6BF0-EEC7-48F3-A6AD-00B5C8052ABE}
 		{ED8EECC3-4BDC-4B29-A17B-1044C7534BB2} = {464CEA08-D77A-4CB8-9B03-BEF0C852B907}
 		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0} = {D6C0F32B-62A6-48BA-867E-BCDD88B71748}
 		{456F3A49-7881-4793-966D-FF647190F5CB} = {D2E28768-5899-48B0-B35C-41BABE9D9536}
