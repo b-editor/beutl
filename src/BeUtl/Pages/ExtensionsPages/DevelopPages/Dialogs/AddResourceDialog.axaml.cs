@@ -4,7 +4,10 @@ using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.Threading;
 
+using Beutl.Api.Objects;
+
 using BeUtl.Controls;
+using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
@@ -23,6 +26,21 @@ public sealed partial class AddResourceDialog : ContentDialog, IStyleable
     }
 
     Type IStyleable.StyleKey => typeof(ContentDialog);
+
+    protected override async void OnPrimaryButtonClick(ContentDialogButtonClickEventArgs args)
+    {
+        base.OnPrimaryButtonClick(args);
+        if (DataContext is AddResourceDialogViewModel viewModel)
+        {
+            ContentDialogButtonClickDeferral deferral = args.GetDeferral();
+
+            PackageResource? result = await viewModel.AddAsync();
+            if (result != null)
+            {
+                deferral.Complete();
+            }
+        }
+    }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {

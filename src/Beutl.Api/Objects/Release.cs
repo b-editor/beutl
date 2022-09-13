@@ -8,7 +8,7 @@ public class Release
 {
     private readonly BeutlClients _clients;
     private readonly ReactivePropertySlim<ReleaseResponse> _response;
-    private readonly ReactivePropertySlim<ReleaseResource[]?> _resources = new();
+    private readonly ReactivePropertySlim<bool> _isDeleted = new();
 
     public Release(Package package, ReleaseResponse response, BeutlClients clients)
     {
@@ -36,19 +36,57 @@ public class Release
 
     public IReadOnlyReactiveProperty<bool> IsPublic { get; }
 
-    public IReadOnlyReactiveProperty<ReleaseResource[]?> Resources => _resources;
+    public IReadOnlyReactiveProperty<bool> IsDeleted => _isDeleted;
 
     public async Task RefreshAsync()
     {
         _response.Value = await _clients.Releases.GetReleaseAsync(
-            Package.Owner.Value.Name, Package.Name.Value, _response.Value.Version);
+            Package.Owner.Name.Value, Package.Name.Value, _response.Value.Version);
 
-        _resources.Value = await GetResourcesAsync();
+        _isDeleted.Value = false;
     }
 
-    private async Task<ReleaseResource[]> GetResourcesAsync()
+    public async Task UpdateAsync(UpdateReleaseRequest request)
     {
-        return (await _clients.ReleaseResources.GetResourcesAsync(Package.Owner.Value.Name, Package.Name.Value, Response.Value.Version))
+        if (_isDeleted.Value)
+        {
+            throw new InvalidOperationException("This object has been deleted.");
+        }
+
+        _response.Value = await _clients.Releases.PatchAsync(
+            Package.Owner.Name.Value,
+            Package.Name.Value,
+            Response.Value.Version,
+            request);
+    }
+
+    public async Task DeleteAsync()
+    {
+        FileResponse response = await _clients.Releases.DeleteAsync(
+            Package.Owner.Name.Value,
+            Package.Name.Value,
+            Response.Value.Version);
+
+        response.Dispose();
+
+        _isDeleted.Value = true;
+    }
+
+    public async Task<ReleaseResource> AddResourceAsync(string locale, CreateReleaseResourceRequest request)
+    {
+        ReleaseResourceResponse response = await _clients.ReleaseResources.PostAsync(
+            Package.Owner.Name.Value,
+            Package.Name.Value,
+            Response.Value.Version,
+            locale,
+            request);
+
+        return new ReleaseResource(this, response, _clients);
+    }
+
+    public async Task<ReleaseResource[]> GetResourcesAsync()
+    {
+        return (await _clients.ReleaseResources.GetResourcesAsync(Package.Owner.Name.Value, Package.Name.Value, Response.Value.Version))
             .Select(x => new ReleaseResource(this, x, _clients))
             .ToArray();
     }

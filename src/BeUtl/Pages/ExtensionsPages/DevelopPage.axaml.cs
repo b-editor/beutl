@@ -4,9 +4,13 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
+using Beutl.Api.Objects;
+
 using BeUtl.Pages.ExtensionsPages.DevelopPages;
+using BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
 using BeUtl.ViewModels.ExtensionsPages;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
+using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
@@ -46,19 +50,29 @@ public sealed partial class DevelopPage : UserControl
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is StyledElement { DataContext: PackageDetailsPageViewModel item }
+        if (sender is StyledElement { DataContext: Package item }
             && this.FindAncestorOfType<Frame>() is { } frame)
         {
             frame.Navigate(typeof(PackageDetailsPage), item, SharedNavigationTransitionInfo.Instance);
         }
     }
 
-    private void CreateNewPackage_Click(object? sender, RoutedEventArgs e)
+    private async void CreateNewPackage_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is DevelopPageViewModel viewModel
             && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            viewModel.CreateNewPackage.Execute(frame);
+            CreatePackageDialogViewModel dialogViewModel = viewModel.CreatePackageDialog();
+            var dialog = new CreatePackageDialog()
+            {
+                DataContext = dialogViewModel
+            };
+
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary
+                && dialogViewModel.Result != null)
+            {
+                viewModel.Packages.Add(dialogViewModel.Result);
+            }
         }
     }
 }

@@ -15,9 +15,9 @@ public sealed class SamplePageViewModel
 
 public sealed class SamplePageExtension : PageExtension
 {
-    public override Geometry FilledIcon { get; } = FluentIconsFilled.Mail.GetGeometry();
+    public override Geometry FilledIcon => FluentIconsFilled.Mail.GetGeometry();
 
-    public override Geometry RegularIcon { get; } = FluentIconsRegular.Mail.GetGeometry();
+    public override Geometry RegularIcon => FluentIconsRegular.Mail.GetGeometry();
 
     public override IObservable<string> Header => Observable.Return("Mail");
 

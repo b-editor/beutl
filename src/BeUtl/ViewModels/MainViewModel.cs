@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Threading;
 
+using Beutl.Api;
 using BeUtl.Configuration;
 using BeUtl.Framework;
 using BeUtl.Framework.Service;
@@ -25,6 +26,8 @@ public sealed class MainViewModel
     private readonly EditorService _editorService;
     private readonly INotificationService _notificationService;
     private readonly PageExtension[] _primitivePageExtensions;
+    private readonly BeutlClients _beutlClients;
+    private readonly HttpClient _authorizedHttpClient;
     internal readonly Task _packageLoadTask;
 
     public sealed class NavItemViewModel
@@ -56,6 +59,8 @@ public sealed class MainViewModel
 
     public MainViewModel()
     {
+        _authorizedHttpClient = new HttpClient();
+        _beutlClients = new BeutlClients(_authorizedHttpClient);
         _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
         _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
         _notificationService = ServiceLocator.Current.GetRequiredService<INotificationService>();
@@ -222,7 +227,7 @@ public sealed class MainViewModel
         Pages = new()
         {
             new(EditPageExtension.Instance),
-            new(ExtensionsPageExtension.Instance),
+            new(ExtensionsPageExtension.Instance, new ExtensionsPageViewModel(_beutlClients)),
             new(OutputPageExtension.Instance),
         };
         SelectedPage.Value = Pages[0];

@@ -21,6 +21,11 @@
             <Setter Property="FontSize" Value="12" />
         </Style>
 
+        <Style Selector="TextBlock.error">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
         <Style Selector="Button.breadcrumb">
             <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
             <Setter Property="FontSize" Value="24" />

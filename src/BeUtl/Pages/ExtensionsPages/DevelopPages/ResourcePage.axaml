@@ -1,14 +1,16 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.ResourcePage"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrls="using:BeUtl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:ctrls="using:BeUtl.Controls"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages"
              x:Name="root"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
              x:DataType="viewModels:ResourcePageViewModel"
-             x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.ResourcePage">
+             mc:Ignorable="d">
     <UserControl.Styles>
         <Style Selector="TextBox.customStyle">
             <Setter Property="MinWidth" Value="250" />
@@ -22,174 +24,161 @@
 
     <Grid RowDefinitions="Auto,*,Auto">
         <StackPanel Margin="10,8"
-                    Spacing="16"
-                    Orientation="Horizontal">
-            <Button Content="{CompiledBinding Parent.Parent.Package.Value.Name}"
-                    Classes="breadcrumb"
-                    Click="NavigatePackageDetailsPage_Click" />
+                    Orientation="Horizontal"
+                    Spacing="16">
+            <Button Classes="breadcrumb"
+                    Click="NavigatePackageDetailsPage_Click"
+                    Content="{CompiledBinding Resource.Package.Name.Value}" />
 
             <Label Classes="breadcrumb" />
 
-            <Button Content="{DynamicResource S.Common.Settings}"
-                    Classes="breadcrumb"
-                    Click="NavigatePackageSettingsPage_Click" />
+            <Button Classes="breadcrumb"
+                    Click="NavigatePackageSettingsPage_Click"
+                    Content="{DynamicResource S.Common.Settings}" />
 
             <Label Classes="breadcrumb" />
 
-            <TextBlock Text="{CompiledBinding Resource.Value.Culture.DisplayName}"
-                       Classes="breadcrumb" />
+            <TextBlock Classes="breadcrumb" Text="{CompiledBinding Resource.Locale.DisplayName}" />
         </StackPanel>
 
 
         <ScrollViewer Grid.Row="1" Margin="10,0">
             <StackPanel Spacing="4">
-                <TextBlock Classes="BodyStrongTextBlockStyle"
-                           Margin="0,16,0,0"
+                <TextBlock Margin="0,16,0,0"
+                           Classes="BodyStrongTextBlockStyle"
                            Text="{DynamicResource S.DevelopPage.Package.Resource}" />
 
-                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Resource.Fields.Culture}"
+                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Resource.Fields.CultureDescription}" Header="{DynamicResource S.DevelopPage.Resource.Fields.Culture}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBlock Classes="description" Text="{CompiledBinding Resource.Locale.DisplayName}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.Fields.DisplayNameDescription}"
                                           Expands="True"
-                                          Description="{DynamicResource S.DevelopPage.Resource.Fields.CultureDescription}">
-                    <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Text="{CompiledBinding Resource.Value.Culture.DisplayName}"
-                                   Classes="description" />
-                    </ctrls:OptionsDisplayItem.ActionButton>
-                    <ctrls:OptionsDisplayItem.Content>
-                        <TextBox Text="{CompiledBinding CultureInput.Value}"
-                                 Classes="customStyle" />
-                    </ctrls:OptionsDisplayItem.Content>
-                </ctrls:OptionsDisplayItem>
-
-                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.DisplayName}"
-                                          Description="{DynamicResource S.DevelopPage.Package.Fields.DisplayNameDescription}"
-                                          Expands="True">
+                                          Header="{DynamicResource S.DevelopPage.Package.Fields.DisplayName}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <Panel>
-                            <TextBlock Text="{CompiledBinding Resource.Value.DisplayName}"
+                            <TextBlock Classes="description"
                                        IsVisible="{CompiledBinding HasDisplayName.Value}"
-                                       Classes="description" />
-                            <TextBlock Text="{CompiledBinding Parent.Parent.Package.Value.DisplayName}"
+                                       Text="{CompiledBinding Resource.DisplayName.Value}" />
+                            <TextBlock Classes="description"
                                        IsVisible="{CompiledBinding !HasDisplayName.Value}"
-                                       Classes="description" />
+                                       Text="{CompiledBinding Resource.Package.DisplayName.Value}" />
                         </Panel>
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel Spacing="16">
-                            <CheckBox IsChecked="{CompiledBinding InheritDisplayName.Value}"
-                                      Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" />
+                            <CheckBox Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" IsChecked="{CompiledBinding InheritDisplayName.Value}" />
 
-                            <TextBox Text="{CompiledBinding DisplayName.Value}"
+                            <TextBox Classes="customStyle"
                                      IsEnabled="{CompiledBinding !InheritDisplayName.Value}"
-                                     Classes="customStyle" />
+                                     Text="{CompiledBinding DisplayName.Value}" />
                         </StackPanel>
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.Description}"
-                                          Description="{DynamicResource S.DevelopPage.Package.Fields.DescriptionDescription}"
-                                          Expands="True">
+                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.Fields.DescriptionDescription}"
+                                          Expands="True"
+                                          Header="{DynamicResource S.DevelopPage.Package.Fields.Description}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <Panel>
-                            <TextBlock Text="{CompiledBinding Resource.Value.Description}"
-                                       MaxWidth="150"
+                            <TextBlock MaxWidth="150"
+                                       Classes="description"
                                        IsVisible="{CompiledBinding HasDescription.Value}"
-                                       TextTrimming="CharacterEllipsis"
-                                       Classes="description" />
+                                       Text="{CompiledBinding Resource.Description.Value}"
+                                       TextTrimming="CharacterEllipsis" />
 
-                            <TextBlock Text="{CompiledBinding Parent.Parent.Package.Value.Description}"
-                                       MaxWidth="150"
+                            <TextBlock MaxWidth="150"
+                                       Classes="description"
                                        IsVisible="{CompiledBinding !HasDescription.Value}"
-                                       TextTrimming="CharacterEllipsis"
-                                       Classes="description" />
+                                       Text="{CompiledBinding Resource.Package.Description.Value}"
+                                       TextTrimming="CharacterEllipsis" />
                         </Panel>
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel Spacing="16">
-                            <CheckBox IsChecked="{CompiledBinding InheritDescription.Value}"
-                                      Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" />
-                            
-                            <TextBox Text="{CompiledBinding Description.Value}"
-                                     AcceptsReturn="True"
+                            <CheckBox Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" IsChecked="{CompiledBinding InheritDescription.Value}" />
+
+                            <TextBox AcceptsReturn="True"
+                                     Classes="customStyle"
                                      IsEnabled="{CompiledBinding !InheritDescription.Value}"
-                                     Classes="customStyle" />
+                                     Text="{CompiledBinding Description.Value}" />
                         </StackPanel>
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.ShortDescription}"
-                                          Description="{DynamicResource S.DevelopPage.Package.Fields.ShortDescriptionDescription}"
-                                          Expands="True">
+                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.Fields.ShortDescriptionDescription}"
+                                          Expands="True"
+                                          Header="{DynamicResource S.DevelopPage.Package.Fields.ShortDescription}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <Panel>
-                            <TextBlock Text="{CompiledBinding Resource.Value.ShortDescription}"
-                                       MaxWidth="150"
+                            <TextBlock MaxWidth="150"
+                                       Classes="description"
                                        IsVisible="{CompiledBinding HasShortDescription.Value}"
-                                       TextTrimming="CharacterEllipsis"
-                                       Classes="description" />
+                                       Text="{CompiledBinding Resource.ShortDescription.Value}"
+                                       TextTrimming="CharacterEllipsis" />
 
-                            <TextBlock Text="{CompiledBinding Parent.Parent.Package.Value.ShortDescription}"
-                                       MaxWidth="150"
+                            <TextBlock MaxWidth="150"
+                                       Classes="description"
                                        IsVisible="{CompiledBinding !HasShortDescription.Value}"
-                                       TextTrimming="CharacterEllipsis"
-                                       Classes="description" />
+                                       Text="{CompiledBinding Resource.Package.ShortDescription.Value}"
+                                       TextTrimming="CharacterEllipsis" />
                         </Panel>
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel Spacing="16">
-                            <CheckBox IsChecked="{CompiledBinding InheritShortDescription.Value}"
-                                      Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" />
+                            <CheckBox Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" IsChecked="{CompiledBinding InheritShortDescription.Value}" />
 
-                            <TextBox Text="{CompiledBinding ShortDescription.Value}"
+                            <TextBox Classes="customStyle"
                                      IsEnabled="{CompiledBinding !InheritShortDescription.Value}"
-                                     Classes="customStyle" />
+                                     Text="{CompiledBinding ShortDescription.Value}" />
                         </StackPanel>
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.LogoImage}"
-                                          Description="{DynamicResource S.DevelopPage.Package.Fields.LogoImageDescription}"
-                                          Expands="True">
+                <!--<ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.Fields.LogoImageDescription}"
+                                          Expands="True"
+                                          Header="{DynamicResource S.DevelopPage.Package.Fields.LogoImage}">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <Button Content="{DynamicResource S.Common.Open}"
-                                IsEnabled="{CompiledBinding !InheritLogo.Value}"
-                                Click="OpenLogoFile_Click" />
+                        <Button Click="OpenLogoFile_Click"
+                                Content="{DynamicResource S.Common.Open}"
+                                IsEnabled="{CompiledBinding !InheritLogo.Value}" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel Spacing="16">
-                            <CheckBox IsChecked="{CompiledBinding InheritLogo.Value}"
-                                      Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" />
+                            <CheckBox Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" IsChecked="{CompiledBinding InheritLogo.Value}" />
 
-                            <Image Source="{CompiledBinding LogoImage.Value}"
-                                   MaxWidth="300" MaxHeight="300"
-                                   HorizontalAlignment="Left" />
+                            <Image MaxWidth="300"
+                                   MaxHeight="300"
+                                   HorizontalAlignment="Left"
+                                   Source="{CompiledBinding LogoImage.Value}" />
 
-                            <ProgressBar IsVisible="{CompiledBinding IsLogoLoading.Value}"
-                                         IsIndeterminate="{CompiledBinding IsLogoLoading.Value}" />
+                            <ProgressBar IsIndeterminate="{CompiledBinding IsLogoLoading.Value}" IsVisible="{CompiledBinding IsLogoLoading.Value}" />
                         </StackPanel>
                     </ctrls:OptionsDisplayItem.Content>
-                </ctrls:OptionsDisplayItem>
+                </ctrls:OptionsDisplayItem>-->
 
-                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.Screenshots}"
-                                          Description="{DynamicResource S.DevelopPage.Package.Fields.ScreenshotsDescription}"
-                                          Expands="True">
+                <!--<ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.Fields.ScreenshotsDescription}"
+                                          Expands="True"
+                                          Header="{DynamicResource S.DevelopPage.Package.Fields.Screenshots}">
                     <ctrls:OptionsDisplayItem.Content>
                         <Grid RowDefinitions="Auto,*,Auto">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button Content="{DynamicResource S.Common.Add}"
-                                        Classes="accent"
-                                        IsEnabled="{CompiledBinding CanAddScreenshot.Value}"
-                                        Click="AddScreenshotFile_Click" />
+                                <Button Classes="accent"
+                                        Click="AddScreenshotFile_Click"
+                                        Content="{DynamicResource S.Common.Add}"
+                                        IsEnabled="{CompiledBinding CanAddScreenshot.Value}" />
 
-                                <CheckBox IsChecked="{CompiledBinding InheritScreenshots.Value}"
-                                          Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" />
+                                <CheckBox Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" IsChecked="{CompiledBinding InheritScreenshots.Value}" />
                             </StackPanel>
 
-                            <ScrollViewer HorizontalScrollBarVisibility="Visible"
-                                          x:Name="ScreenshotsScrollViewer"
-                                          Margin="0,8,0,0"
+                            <ScrollViewer x:Name="ScreenshotsScrollViewer"
                                           Grid.Row="1"
+                                          Margin="0,8,0,0"
+                                          HorizontalScrollBarVisibility="Visible"
                                           VerticalScrollBarVisibility="Disabled">
-                                <ItemsControl Items="{CompiledBinding Screenshots}" Margin="0,0,0,8">
+                                <ItemsControl Margin="0,0,0,8" Items="{CompiledBinding Screenshots}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <StackPanel Orientation="Horizontal" Spacing="8" />
@@ -197,27 +186,26 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Image Source="{CompiledBinding Bitmap}"
-                                                   MaxHeight="300">
+                                            <Image MaxHeight="300" Source="{CompiledBinding Bitmap}">
                                                 <Image.ContextMenu>
                                                     <ContextMenu>
-                                                        <MenuItem Header="{DynamicResource S.Common.Delete}"
+                                                        <MenuItem Command="{Binding #root.DataContext.DeleteScreenshot}"
                                                                   CommandParameter="{Binding}"
-                                                                  Command="{Binding #root.DataContext.DeleteScreenshot}">
+                                                                  Header="{DynamicResource S.Common.Delete}">
                                                             <MenuItem.Icon>
                                                                 <CompatSymbolIcon Symbol="Delete" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
-                                                        <MenuItem Header="{DynamicResource S.DevelopPage.Package.MoveOneFront}"
+                                                        <MenuItem Command="{Binding #root.DataContext.MoveScreenshotFront}"
                                                                   CommandParameter="{Binding}"
-                                                                  Command="{Binding #root.DataContext.MoveScreenshotFront}">
+                                                                  Header="{DynamicResource S.DevelopPage.Package.MoveOneFront}">
                                                             <MenuItem.Icon>
                                                                 <CompatSymbolIcon Symbol="ArrowLeft" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
-                                                        <MenuItem Header="{DynamicResource S.DevelopPage.Package.MoveOneBack}"
+                                                        <MenuItem Command="{Binding #root.DataContext.MoveScreenshotBack}"
                                                                   CommandParameter="{Binding}"
-                                                                  Command="{Binding #root.DataContext.MoveScreenshotBack}">
+                                                                  Header="{DynamicResource S.DevelopPage.Package.MoveOneBack}">
                                                             <MenuItem.Icon>
                                                                 <CompatSymbolIcon Symbol="ArrowRight" />
                                                             </MenuItem.Icon>
@@ -231,14 +219,15 @@
                             </ScrollViewer>
 
                             <ProgressBar Grid.Row="2"
-                                         IsVisible="{CompiledBinding IsScreenshotLoading.Value}"
-                                         IsIndeterminate="{CompiledBinding IsScreenshotLoading.Value}" />
+                                         IsIndeterminate="{CompiledBinding IsScreenshotLoading.Value}"
+                                         IsVisible="{CompiledBinding IsScreenshotLoading.Value}" />
                         </Grid>
                     </ctrls:OptionsDisplayItem.Content>
-                </ctrls:OptionsDisplayItem>
+                </ctrls:OptionsDisplayItem>-->
 
                 <ctrls:OptionsDisplayItem Header="{DynamicResource S.Common.Delete}"
                                           Icon="Delete"
+                                          IsEnabled="{CompiledBinding !IsBusy.Value}"
                                           Navigates="True"
                                           NavigationRequested="DeleteResource_Click" />
             </StackPanel>
@@ -249,16 +238,27 @@
                 BorderBrush="{DynamicResource ControlElevationBorderBrush}"
                 BorderThickness="0,1,0,0">
             <StackPanel HorizontalAlignment="Right"
-                        Spacing="8"
-                        Orientation="Horizontal">
-                <Button Content="{DynamicResource S.DevelopPage.DiscardChanges}"
-                        IsEnabled="{CompiledBinding IsChanging.Value}"
-                        Command="{CompiledBinding DiscardChanges}" />
+                        Orientation="Horizontal"
+                        Spacing="8">
+                <Button Command="{CompiledBinding DiscardChanges}" Content="{DynamicResource S.DevelopPage.DiscardChanges}">
+                    <Button.IsEnabled>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="IsChanging.Value" />
+                            <Binding Path="!IsBusy.Value" />
+                        </MultiBinding>
+                    </Button.IsEnabled>
+                </Button>
 
-                <Button Content="{DynamicResource S.Common.Save}"
-                        IsEnabled="{CompiledBinding IsChanging.Value}"
-                        Classes="accent"
-                        Command="{CompiledBinding Save}" />
+                <Button Classes="accent"
+                        Command="{CompiledBinding Save}"
+                        Content="{DynamicResource S.Common.Save}">
+                    <Button.IsEnabled>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="IsChanging.Value" />
+                            <Binding Path="!IsBusy.Value" />
+                        </MultiBinding>
+                    </Button.IsEnabled>
+                </Button>
             </StackPanel>
         </Border>
 

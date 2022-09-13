@@ -1,13 +1,7 @@
-﻿using BeUtl.Models.Extensions.Develop;
-using BeUtl.Pages.ExtensionsPages.DevelopPages;
-using BeUtl.Services;
-using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
+﻿using Beutl.Api;
+using Beutl.Api.Objects;
 
-using FluentAvalonia.UI.Controls;
-
-using Google.Cloud.Firestore;
-
-using Microsoft.Extensions.DependencyInjection;
+using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using Reactive.Bindings;
 
@@ -15,95 +9,72 @@ namespace BeUtl.ViewModels.ExtensionsPages;
 
 public sealed class DevelopPageViewModel : IDisposable
 {
-    private readonly PackageController _packageController = ServiceLocator.Current.GetRequiredService<PackageController>();
     private readonly CompositeDisposable _disposables = new();
-    private readonly object _lockObject = new();
+    private IReadOnlyReactiveProperty<AuthorizedUser?> _user;
 
-    public DevelopPageViewModel()
+    public DevelopPageViewModel(BeutlClients clients)
     {
-        CreateNewPackage.Subscribe(async frame =>
+        _user = clients.AuthorizedUser;
+        _user.Skip(1).Subscribe(async _ =>
         {
-            DocumentReference? docRef = await _packageController.NewPackage();
-            if (docRef != null)
+            if (Refresh.CanExecute())
             {
-                PackageLink newItem = await PackageLink.OpenAsync(docRef);
-                lock (_lockObject)
-                {
-                    PackageDetailsPageViewModel? viewModel = Packages.FirstOrDefault(p => p.Package.Value.Snapshot.Id == docRef.Id);
-                    if (viewModel == null)
-                    {
-                        viewModel = new PackageDetailsPageViewModel(newItem);
-
-                        for (int i = 0; i < Packages.Count; i++)
-                        {
-                            int item = Packages[i].Package.Value.Snapshot.Id.CompareTo(docRef.Id);
-
-                            if (item <= 0)
-                            {
-                                Packages.Insert(i, viewModel);
-                                return;
-                            }
-                        }
-
-                        Packages.Add(viewModel);
-                    }
-                    frame.Navigate(typeof(PackageDetailsPage), viewModel);
-                }
+                await Refresh.ExecuteAsync();
             }
         });
 
-        _packageController.SubscribePackages(
-            snapshot =>
+        Refresh.Subscribe(async () =>
+        {
+            if (_user.Value == null)
             {
-                if (!Packages.Any(p => p.Package.Value.Snapshot.Id == snapshot.Id))
-                {
-                    var newItem = new PackageDetailsPageViewModel(new PackageLink(snapshot));
+                Packages.Clear();
+                return;
+            }
 
-                    for (int i = 0; i < Packages.Count; i++)
-                    {
-                        int item = snapshot.Id.CompareTo(Packages[i].Package.Value.Snapshot.Id);
-
-                        if (item <= 0)
-                        {
-                            Packages.Insert(i, newItem);
-                            return;
-                        }
-                    }
-
-                    Packages.Add(newItem);
-                }
-            },
-            snapshot =>
+            try
             {
-                PackageDetailsPageViewModel? item = Packages.FirstOrDefault(p => p.Package.Value.Snapshot.Id == snapshot.Id);
-                if (item != null)
+                IsBusy.Value = true;
+                await _user.Value!.RefreshAsync();
+                Packages.Clear();
+
+                int prevCount = 0;
+                int count = 0;
+
+                do
                 {
-                    Packages.Remove(item);
-                    item.Dispose();
-                }
-            },
-            _ => { },
-            _lockObject)
-            .DisposeWith(_disposables);
+                    Package[] items = await _user.Value!.Profile.GetPackagesAsync(count, 30);
+                    Packages.AddRange(items.AsSpan());
+                    prevCount = items.Length;
+                    count += items.Length;
+                } while (prevCount == 30);
+            }
+            catch
+            {
+                // Todo
+            }
+            finally
+            {
+                IsBusy.Value = false;
+            }
+        });
+
+        Refresh.Execute();
     }
 
-    ~DevelopPageViewModel()
+    public CoreList<Package> Packages { get; } = new();
+
+    public ReactivePropertySlim<bool> IsBusy { get; } = new();
+
+    public AsyncReactiveCommand Refresh { get; } = new();
+
+    public CreatePackageDialogViewModel CreatePackageDialog()
     {
-        Dispose();
+        return new CreatePackageDialogViewModel(_user.Value!);
     }
-
-    public CoreList<PackageDetailsPageViewModel> Packages { get; } = new();
-
-    public ReactiveCommand<Frame> CreateNewPackage { get; } = new();
 
     public void Dispose()
     {
         _disposables.Dispose();
-        foreach (PackageDetailsPageViewModel item in Packages.GetMarshal().Value)
-        {
-            item.Dispose();
-        }
-
         Packages.Clear();
 
         GC.SuppressFinalize(this);

@@ -8,9 +8,9 @@ using FluentAvalonia.UI.Controls;
 
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
 
-public sealed partial class AddReleaseDialog : ContentDialog, IStyleable
+public sealed partial class CreatePackageDialog : ContentDialog, IStyleable
 {
-    public AddReleaseDialog()
+    public CreatePackageDialog()
     {
         InitializeComponent();
     }
@@ -20,11 +20,11 @@ public sealed partial class AddReleaseDialog : ContentDialog, IStyleable
     protected override async void OnPrimaryButtonClick(ContentDialogButtonClickEventArgs args)
     {
         base.OnPrimaryButtonClick(args);
-        if (DataContext is AddReleaseDialogViewModel viewModel)
+        if (DataContext is CreatePackageDialogViewModel viewModel)
         {
             ContentDialogButtonClickDeferral deferral = args.GetDeferral();
 
-            Release? result = await viewModel.AddAsync();
+            Package? result = await viewModel.CreateAsync();
             if (result != null)
             {
                 deferral.Complete();

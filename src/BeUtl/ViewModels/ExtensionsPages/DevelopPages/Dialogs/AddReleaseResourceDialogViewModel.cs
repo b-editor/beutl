@@ -1,4 +1,5 @@
-﻿using BeUtl.Models.Extensions.Develop;
+﻿using Beutl.Api;
+using Beutl.Api.Objects;
 
 using Reactive.Bindings;
 
@@ -6,9 +7,13 @@ namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 public sealed class AddReleaseResourceDialogViewModel
 {
-    public AddReleaseResourceDialogViewModel(IPackageRelease.ILink release)
+    private readonly AuthorizedUser _user;
+    private readonly Release _release;
+
+    public AddReleaseResourceDialogViewModel(AuthorizedUser user, Release release)
     {
-        Release = release;
+        _user = user;
+        _release = release;
         CultureInput.SetValidateNotifyError(str =>
         {
             if (!string.IsNullOrWhiteSpace(str))
@@ -46,11 +51,7 @@ public sealed class AddReleaseResourceDialogViewModel
             .CombineLatest(Title.ObserveHasErrors, Body.ObserveHasErrors)
             .Select(t => !(t.First || t.Second || t.Third))
             .ToReadOnlyReactivePropertySlim();
-
-        Add.Subscribe(async () => await Release.AddResource(new LocalizedReleaseResource(Title.Value, Body.Value, Culture.Value!)));
     }
-
-    public IPackageRelease.ILink Release { get; }
 
     public ReactiveProperty<string> Title { get; } = new();
 
@@ -62,7 +63,25 @@ public sealed class AddReleaseResourceDialogViewModel
 
     public ReadOnlyReactivePropertySlim<bool> IsValid { get; }
 
-    public AsyncReactiveCommand Add { get; } = new();
+    public ReactivePropertySlim<string?> Error { get; } = new();
+
+    public ReleaseResource? Result { get; private set; }
+
+    public async Task<ReleaseResource?> AddAsync()
+    {
+        try
+        {
+            await _user.RefreshAsync();
+
+            var request = new CreateReleaseResourceRequest(Body.Value, Title.Value);
+            return Result = await _release.AddResourceAsync(CultureInput.Value, request);
+        }
+        catch (BeutlApiException<ApiErrorResponse> e)
+        {
+            Error.Value = e.Result.Message;
+            return null;
+        }
+    }
 
     private static string NotNullOrWhitespace(string str)
     {

@@ -20,7 +20,10 @@ public sealed partial class PackageDetailsPage : UserControl
         if (DataContext is PackageDetailsPageViewModel viewModel
             && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            frame.Navigate(typeof(PackageSettingsPage), viewModel.Settings, SharedNavigationTransitionInfo.Instance);
+            PackageSettingsPageViewModel? param = frame.FindParameter<PackageSettingsPageViewModel>(x => x.Package.Id == viewModel.Package.Id);
+            param ??= viewModel.CreatePackageSettingsPage();
+
+            frame.Navigate(typeof(PackageSettingsPage), param, SharedNavigationTransitionInfo.Instance);
         }
     }
 
@@ -29,7 +32,10 @@ public sealed partial class PackageDetailsPage : UserControl
         if (DataContext is PackageDetailsPageViewModel viewModel
             && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            frame.Navigate(typeof(PackageReleasesPage), viewModel.Releases, SharedNavigationTransitionInfo.Instance);
+            PackageReleasesPageViewModel? param = frame.FindParameter<PackageReleasesPageViewModel>(x => x.Package.Id == viewModel.Package.Id);
+            param ??= viewModel.CreatePackageReleasesPage();
+
+            frame.Navigate(typeof(PackageReleasesPage), param, SharedNavigationTransitionInfo.Instance);
         }
     }
 }

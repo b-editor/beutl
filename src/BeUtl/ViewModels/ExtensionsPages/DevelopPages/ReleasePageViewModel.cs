@@ -1,148 +1,110 @@
-﻿using BeUtl.Models.Extensions.Develop;
+﻿using Beutl.Api;
+using Beutl.Api.Objects;
 
-using Google.Cloud.Firestore;
+using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
-public sealed class ReleaseResourceViewModel
-{
-    public ReleaseResourceViewModel(ILocalizedReleaseResource.ILink resource)
-    {
-        Resource = resource;
-        Delete.Subscribe(async () => await Resource.PermanentlyDeleteAsync());
-    }
-
-    public ILocalizedReleaseResource.ILink Resource { get; }
-
-    public ReactivePropertySlim<string> Title { get; } = new();
-
-    public ReactivePropertySlim<string> Body { get; } = new();
-
-    public ReactivePropertySlim<CultureInfo> Culture { get; } = new();
-
-    public AsyncReactiveCommand Delete { get; } = new();
-
-    public void Update(DocumentSnapshot snapshot)
-    {
-        Title.Value = snapshot.GetValue<string>("title");
-        Body.Value = snapshot.GetValue<string>("body");
-        Culture.Value = CultureInfo.GetCultureInfo(snapshot.GetValue<string>("culture"));
-    }
-}
-
 public sealed class ReleasePageViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
-    private readonly WeakReference<PackageReleasesPageViewModel> _parentWeak;
+    private readonly AuthorizedUser _user;
 
-    public ReleasePageViewModel(IPackageRelease.ILink release, PackageReleasesPageViewModel parent)
+    public ReleasePageViewModel(AuthorizedUser user, Release release)
     {
-        _parentWeak = new WeakReference<PackageReleasesPageViewModel>(parent);
-        Release = release.GetObservable()
-            .ToReadOnlyReactivePropertySlim(release)
-            .DisposeWith(_disposables);
+        _user = user;
+        Release = release;
 
-        Title = Release.Select(x => x.Title)
-            .ToReactiveProperty(release.Title)
-            .DisposeWith(_disposables);
-        Body = Release.Select(x => x.Body)
-            .ToReactiveProperty(release.Body)
-            .DisposeWith(_disposables);
-        VersionInput = Release.Select(x => x.Version.ToString())
-            .ToReactiveProperty(release.Version.ToString())
-            .DisposeWith(_disposables);
+        Title = Release.Title
+            .ToReactiveProperty()
+            .DisposeWith(_disposables)!;
+        Body = Release.Body
+            .ToReactiveProperty()
+            .DisposeWith(_disposables)!;
 
-        VersionInput.SetValidateNotifyError(str => System.Version.TryParse(str, out _) ? null : S.Message.InvalidString);
-
-        Version = VersionInput.Select(str => System.Version.TryParse(str, out Version? v) ? v : null)
-            .ToReadOnlyReactivePropertySlim();
         Title.SetValidateNotifyError(NotNullOrWhitespace);
         Body.SetValidateNotifyError(NotNullOrWhitespace);
 
-        IsChanging = Version.CombineLatest(Release).Select(t => t.First == t.Second.Version)
+        IsChanging = Title.CombineLatest(Release.Title).Select(t => t.First == t.Second)
             .CombineLatest(
-                Title.CombineLatest(Release).Select(t => t.First == t.Second.Title),
-                Body.CombineLatest(Release).Select(t => t.First == t.Second.Body))
-            .Select(t => !(t.First && t.Second && t.Third))
+                Body.CombineLatest(Release.Body).Select(t => t.First == t.Second))
+            .Select(t => !(t.First && t.Second))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         Save = new AsyncReactiveCommand(Title.ObserveHasErrors
-            .CombineLatest(Body.ObserveHasErrors, VersionInput.ObserveHasErrors)
-            .Select(t => !(t.First || t.Second || t.Third)));
+            .CombineLatest(Body.ObserveHasErrors)
+            .Select(t => !(t.First || t.Second)));
 
         Save.Subscribe(async () =>
         {
-            await Release.Value.SyncronizeToAsync(new PackageRelease(
-                Version: Version.Value!,
-                Title: Title.Value,
-                Body: Body.Value,
-                IsVisible: false,
-                DownloadLink: null,
-                SHA256: null),
-                PackageReleaseFields.All & ~(PackageReleaseFields.SHA256 | PackageReleaseFields.DownloadLink | PackageReleaseFields.IsVisible));
+            try
+            {
+                await _user.RefreshAsync();
+                await Release.UpdateAsync(new UpdateReleaseRequest(
+                    Body.Value,
+                    Release.IsPublic.Value,
+                    Title.Value));
+            }
+            catch
+            {
+                // Todo
+            }
         });
 
         DiscardChanges.Subscribe(() =>
         {
-            Title.Value = Release.Value.Title;
-            Body.Value = Release.Value.Body;
-            VersionInput.Value = Release.Value.Version.ToString();
+            Title.Value = Release.Title.Value;
+            Body.Value = Release.Body.Value;
         });
 
-        Delete.Subscribe(async () => await Release.Value.PermanentlyDeleteAsync());
-
-        MakePublic.Subscribe(async () => await Release.Value.ChangeVisibility(true)).DisposeWith(_disposables);
-
-        MakePrivate.Subscribe(async () => await Release.Value.ChangeVisibility(false)).DisposeWith(_disposables);
-
-        release.SubscribeResources(
-            item =>
+        Delete.Subscribe(async () =>
+        {
+            try
             {
-                if (!Items.Any(p => p.Resource.Snapshot.Id == item.Reference.Id))
-                {
-                    var viewModel = new ReleaseResourceViewModel(new LocalizedReleaseResourceLink(item));
-                    viewModel.Update(item);
-                    Items.Add(viewModel);
-                }
-            },
-            item =>
+                await _user.RefreshAsync();
+                await Release.DeleteAsync();
+            }
+            catch
             {
-                ReleaseResourceViewModel? viewModel = Items.FirstOrDefault(p => p.Resource.Snapshot.Id == item.Reference.Id);
-                if (viewModel != null)
-                {
-                    Items.Remove(viewModel);
-                }
-            },
-            item =>
+                // Todo
+            }
+        });
+
+        MakePublic.Subscribe(() => { /*Todo*/ }).DisposeWith(_disposables);
+
+        MakePrivate.Subscribe(() => { /*Todo*/ }).DisposeWith(_disposables);
+
+        Refresh.Subscribe(async () =>
+        {
+            try
             {
-                ReleaseResourceViewModel? viewModel = Items.FirstOrDefault(p => p.Resource.Snapshot.Id == item.Reference.Id);
-                viewModel?.Update(item);
-            })
-            .DisposeWith(_disposables);
+                IsBusy.Value = true;
+                await _user.RefreshAsync();
+                await Release.RefreshAsync();
+                Items.Clear();
+                Items.AddRange((await Release.GetResourcesAsync()).AsSpan());
+            }
+            catch
+            {
+                // Todo
+            }
+            finally
+            {
+                IsBusy.Value = false;
+            }
+        });
+
+        Refresh.Execute();
     }
 
-    ~ReleasePageViewModel()
-    {
-        Dispose();
-    }
-
-    public PackageReleasesPageViewModel Parent
-        => _parentWeak.TryGetTarget(out PackageReleasesPageViewModel? parent)
-            ? parent
-            : null!;
-
-    public ReadOnlyReactivePropertySlim<IPackageRelease.ILink> Release { get; }
+    public Release Release { get; }
 
     public ReactiveProperty<string> Title { get; }
 
     public ReactiveProperty<string> Body { get; }
-
-    public ReactiveProperty<string> VersionInput { get; }
-
-    public ReadOnlyReactivePropertySlim<Version?> Version { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsChanging { get; }
 
@@ -150,13 +112,44 @@ public sealed class ReleasePageViewModel : IDisposable
 
     public ReactiveCommand DiscardChanges { get; } = new();
 
-    public ReactiveCommand Delete { get; } = new();
+    public AsyncReactiveCommand Delete { get; } = new();
 
     public ReactiveCommand MakePublic { get; } = new();
 
     public ReactiveCommand MakePrivate { get; } = new();
 
-    public CoreList<ReleaseResourceViewModel> Items { get; } = new();
+    public CoreList<ReleaseResource> Items { get; } = new();
+
+    public ReactivePropertySlim<bool> IsBusy { get; } = new();
+
+    public AsyncReactiveCommand Refresh { get; } = new();
+
+    public AddReleaseResourceDialogViewModel CreateAddResourceDialog()
+    {
+        return new AddReleaseResourceDialogViewModel(_user, Release);
+    }
+    
+    public EditReleaseResourceDialogViewModel CreateEditResourceDialog(ReleaseResource resource)
+    {
+        return new EditReleaseResourceDialogViewModel(_user, resource);
+    }
+
+    public PackageDetailsPageViewModel CreatePackageDetailsPage()
+    {
+        return new PackageDetailsPageViewModel(_user, Release.Package);
+    }
+
+    public PackageReleasesPageViewModel CreatePackageReleasesPage()
+    {
+        return new PackageReleasesPageViewModel(_user, Release.Package);
+    }
+
+    public async Task DeleteResourceAsync(ReleaseResource resource)
+    {
+        await _user.RefreshAsync();
+        await resource.DeleteAsync();
+        Items.Remove(resource);
+    }
 
     public void Dispose()
     {

@@ -9,6 +9,7 @@ public class ReleaseResource
 {
     private readonly BeutlClients _clients;
     private readonly ReactivePropertySlim<ReleaseResourceResponse> _response;
+    private readonly ReactivePropertySlim<bool> _isDeleted = new();
 
     public ReleaseResource(Release release, ReleaseResourceResponse response, BeutlClients clients)
     {
@@ -31,13 +32,45 @@ public class ReleaseResource
 
     public IReadOnlyReactiveProperty<string?> Body { get; }
 
+    public IReadOnlyReactiveProperty<bool> IsDeleted => _isDeleted;
+
     public async Task RefreshAsync()
     {
         _response.Value = await _clients.ReleaseResources.GetResourceAsync(
-            owner: Release.Package.Owner.Value.Name,
+            owner: Release.Package.Owner.Name.Value,
             name: Release.Package.Name.Value,
             version: Release.Response.Value.Version,
             locale: _response.Value.Locale);
+
+        _isDeleted.Value = false;
+    }
+
+    public async Task DeleteAsync()
+    {
+        FileResponse response = await _clients.ReleaseResources.DeleteAsync(
+            Release.Package.Owner.Name.Value,
+            Release.Package.Name.Value,
+            Release.Response.Value.Version,
+            Response.Value.Locale);
+
+        response.Dispose();
+
+        _isDeleted.Value = true;
+    }
+
+    public async Task UpdateAsync(UpdateReleaseResourceRequest request)
+    {
+        if (_isDeleted.Value)
+        {
+            throw new InvalidOperationException("This object has been deleted.");
+        }
+
+        _response.Value = await _clients.ReleaseResources.PatchAsync(
+            Release.Package.Owner.Name.Value,
+            Release.Package.Name.Value,
+            Release.Response.Value.Version,
+            Response.Value.Locale,
+            request);
     }
 }
 

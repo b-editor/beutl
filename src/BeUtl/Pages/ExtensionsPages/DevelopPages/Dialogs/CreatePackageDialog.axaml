@@ -1,4 +1,4 @@
-<ui:ContentDialog x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs.EditReleaseResourceDialog"
+<ui:ContentDialog x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs.CreatePackageDialog"
                   xmlns="https://github.com/avaloniaui"
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:ctrls="using:BeUtl.Controls"
@@ -6,14 +6,14 @@
                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
                   xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs"
-                  Title="{DynamicResource S.DevelopPage.EditRelease.Title}"
+                  Title="{DynamicResource S.DevelopPage.CreateNewPackage}"
                   d:DesignHeight="450"
                   d:DesignWidth="800"
-                  x:DataType="viewModels:EditReleaseResourceDialogViewModel"
+                  x:DataType="viewModels:CreatePackageDialogViewModel"
                   CloseButtonText="{DynamicResource S.Common.Cancel}"
                   DefaultButton="Primary"
                   IsPrimaryButtonEnabled="{CompiledBinding IsValid.Value}"
-                  PrimaryButtonText="{DynamicResource S.Common.Done}"
+                  PrimaryButtonText="{DynamicResource S.Common.Create}"
                   mc:Ignorable="d">
     <ui:ContentDialog.Styles>
         <Style Selector="ui|ContentDialog /template/ Border#BackgroundElement">
@@ -31,21 +31,11 @@
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
             </Style>
         </StackPanel.Styles>
-        <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Release.Fields.TitleDescription}" Header="{DynamicResource S.DevelopPage.Release.Fields.Title}">
-            <ctrls:OptionsDisplayItem.ActionButton>
-                <TextBox Classes="customStyle" Text="{CompiledBinding Title.Value}" />
-            </ctrls:OptionsDisplayItem.ActionButton>
-        </ctrls:OptionsDisplayItem>
 
-        <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Release.Fields.BodyDescription}"
-                                  Expands="True"
-                                  Header="{DynamicResource S.DevelopPage.Release.Fields.Body}">
-            <ctrls:OptionsDisplayItem.Content>
-                <TextBox AcceptsReturn="True"
-                         Classes="customStyle"
-                         Text="{CompiledBinding Body.Value}" />
-            </ctrls:OptionsDisplayItem.Content>
-        </ctrls:OptionsDisplayItem>
+        <TextBlock Classes="description" Text="{DynamicResource S.DevelopPage.Package.Fields.Name}" />
+        <TextBox AcceptsReturn="True"
+                 Classes="customStyle"
+                 Text="{CompiledBinding Name.Value}" />
 
         <TextBlock Margin="12,0,0,0"
                    Classes="error"

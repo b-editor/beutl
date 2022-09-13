@@ -1,13 +1,15 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.ReleasePage"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrls="using:BeUtl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:ctrls="using:BeUtl.Controls"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages"
+             d:DesignHeight="600"
+             d:DesignWidth="800"
              x:DataType="viewModels:ReleasePageViewModel"
-             x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.ReleasePage">
+             mc:Ignorable="d">
     <UserControl.Styles>
         <Style Selector="TextBox.customStyle">
             <Setter Property="MinWidth" Value="250" />
@@ -21,76 +23,58 @@
 
     <Grid RowDefinitions="Auto,*,Auto">
         <StackPanel Margin="10,8"
-                    Spacing="16"
-                    Orientation="Horizontal">
-            <Button Content="{CompiledBinding Parent.Parent.Package.Value.Name}"
-                    Classes="breadcrumb"
-                    Click="NavigatePackageDetailsPage_Click" />
+                    Orientation="Horizontal"
+                    Spacing="16">
+            <Button Classes="breadcrumb"
+                    Click="NavigatePackageDetailsPage_Click"
+                    Content="{CompiledBinding Release.Package.Name.Value}" />
 
             <Label Classes="breadcrumb" />
 
-            <Button Content="{DynamicResource S.DevelopPage.Package.ReleasesDescription}"
-                    Classes="breadcrumb"
-                    Click="NavigatePackageReleasesPage_Click" />
+            <Button Classes="breadcrumb"
+                    Click="NavigatePackageReleasesPage_Click"
+                    Content="{DynamicResource S.DevelopPage.Package.ReleasesDescription}" />
 
             <Label Classes="breadcrumb" />
 
-            <TextBlock Text="{CompiledBinding Release.Value.Title}"
-                       Classes="breadcrumb" />
+            <TextBlock Classes="breadcrumb" Text="{CompiledBinding Release.Version.Value}" />
         </StackPanel>
 
 
         <ScrollViewer Grid.Row="1" Margin="10,0">
             <StackPanel Spacing="4">
-                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Release.Fields.Title}"
+                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Release.Fields.TitleDescription}"
                                           Expands="True"
-                                          Description="{DynamicResource S.DevelopPage.Release.Fields.TitleDescription}">
+                                          Header="{DynamicResource S.DevelopPage.Release.Fields.Title}">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Text="{CompiledBinding Release.Value.Title}"
-                                   Classes="description" />
+                        <TextBlock Classes="description" Text="{CompiledBinding Release.Title.Value}" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
-                        <TextBox Text="{CompiledBinding Title.Value}"
-                                 Classes="customStyle" />
+                        <TextBox Classes="customStyle" Text="{CompiledBinding Title.Value}" />
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Release.Fields.Body}"
-                                          Description="{DynamicResource S.DevelopPage.Release.Fields.BodyDescription}"
-                                          Expands="True">
+                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Release.Fields.BodyDescription}"
+                                          Expands="True"
+                                          Header="{DynamicResource S.DevelopPage.Release.Fields.Body}">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Text="{CompiledBinding Release.Value.Body}"
-                                   MaxWidth="150"
-                                   TextTrimming="CharacterEllipsis"
-                                   Classes="description" />
+                        <TextBlock MaxWidth="150"
+                                   Classes="description"
+                                   Text="{CompiledBinding Release.Body.Value}"
+                                   TextTrimming="CharacterEllipsis" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
-                        <TextBox Text="{CompiledBinding Body.Value}"
-                                 AcceptsReturn="True"
-                                 Classes="customStyle" />
+                        <TextBox AcceptsReturn="True"
+                                 Classes="customStyle"
+                                 Text="{CompiledBinding Body.Value}" />
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
-
-                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Release.Fields.Version}"
-                                          Description="{DynamicResource S.DevelopPage.Release.Fields.VersionDescription}"
-                                          Expands="True">
-                    <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Text="{CompiledBinding Release.Value.Version}"
-                                   Classes="description" />
-                    </ctrls:OptionsDisplayItem.ActionButton>
-                    <ctrls:OptionsDisplayItem.Content>
-                        <TextBox Text="{CompiledBinding VersionInput.Value}"
-                                 Classes="customStyle" />
-                    </ctrls:OptionsDisplayItem.Content>
-                </ctrls:OptionsDisplayItem>
-
 
                 <TextBlock Margin="0,16,0,0"
                            Classes="BodyStrongTextBlockStyle"
                            Text="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}" />
 
-                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}"
-                                          Description="{DynamicResource S.DevelopPage.Package.LocaleSpecificResourcesDescription}">
+                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.LocaleSpecificResourcesDescription}" Header="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <Button Classes="accent"
                                 Click="AddResource_Click"
@@ -98,7 +82,9 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ItemsControl Items="{CompiledBinding Items}" Margin="0,4,0,0">
+                <ItemsControl Margin="0,4,0,0"
+                              IsEnabled="{CompiledBinding !IsBusy.Value}"
+                              Items="{CompiledBinding Items}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel Spacing="4" />
@@ -106,39 +92,38 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="{DynamicResource ControlFillColorDefaultBrush}"
+                            <Border Padding="12"
+                                    Background="{DynamicResource ControlFillColorDefaultBrush}"
                                     BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                                     BorderThickness="1"
-                                    Padding="12"
                                     CornerRadius="{StaticResource ControlCornerRadius}">
                                 <Grid ColumnDefinitions="*,Auto,8,Auto,16">
 
                                     <StackPanel Grid.Column="0"
-                                                Orientation="Vertical"
-                                                VerticalAlignment="Center">
-                                        <TextBlock Text="{CompiledBinding Culture.Value.DisplayName}"
-                                                   Classes="BodyStrongTextBlockStyle" />
+                                                VerticalAlignment="Center"
+                                                Orientation="Vertical">
+                                        <TextBlock Classes="BodyStrongTextBlockStyle" Text="{CompiledBinding Locale.DisplayName}" />
 
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="{CompiledBinding Title.Value}" Classes="CaptionTextBlockStyle" />
+                                            <TextBlock Classes="CaptionTextBlockStyle" Text="{CompiledBinding Title.Value}" />
 
-                                            <TextBlock Text="{CompiledBinding Body.Value}"
+                                            <TextBlock Classes="CaptionTextBlockStyle"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                        MaxLines="1"
-                                                       Classes="CaptionTextBlockStyle"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                       Text="{CompiledBinding Body.Value}" />
                                         </StackPanel>
                                     </StackPanel>
 
                                     <Button Grid.Column="1"
                                             Padding="11"
                                             Click="EditResource_Click">
-                                        <ui:SymbolIcon Symbol="Edit" FontSize="16" />
+                                        <ui:SymbolIcon FontSize="16" Symbol="Edit" />
                                     </Button>
 
                                     <Button Grid.Column="3"
                                             Padding="11"
                                             Click="DeleteResource_Click">
-                                        <ui:SymbolIcon Symbol="Delete" FontSize="16" />
+                                        <ui:SymbolIcon FontSize="16" Symbol="Delete" />
                                     </Button>
                                 </Grid>
                             </Border>
@@ -152,11 +137,13 @@
 
                 <ctrls:OptionsDisplayItem Header="{DynamicResource S.Common.Delete}"
                                           Icon="Delete"
+                                          IsEnabled="{CompiledBinding !IsBusy.Value}"
                                           Navigates="True"
                                           NavigationRequested="DeleteRelease_Click" />
 
                 <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.MakePublicRelease.Title}"
-                                          IsVisible="{CompiledBinding !Release.Value.IsVisible}"
+                                          IsEnabled="{CompiledBinding !IsBusy.Value}"
+                                          IsVisible="{CompiledBinding !Release.IsPublic.Value}"
                                           Navigates="True"
                                           NavigationRequested="MakePublic_Click">
                     <ctrls:OptionsDisplayItem.Icon>
@@ -165,7 +152,8 @@
                 </ctrls:OptionsDisplayItem>
 
                 <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.MakePrivateRelease.Title}"
-                                          IsVisible="{CompiledBinding Release.Value.IsVisible}"
+                                          IsEnabled="{CompiledBinding !IsBusy.Value}"
+                                          IsVisible="{CompiledBinding Release.IsPublic.Value}"
                                           Navigates="True"
                                           NavigationRequested="MakePrivate_Click">
                     <ctrls:OptionsDisplayItem.Icon>
@@ -180,16 +168,27 @@
                 BorderBrush="{DynamicResource ControlElevationBorderBrush}"
                 BorderThickness="0,1,0,0">
             <StackPanel HorizontalAlignment="Right"
-                        Spacing="8"
-                        Orientation="Horizontal">
-                <Button Content="{DynamicResource S.DevelopPage.DiscardChanges}"
-                        IsEnabled="{CompiledBinding IsChanging.Value}"
-                        Command="{CompiledBinding DiscardChanges}" />
+                        Orientation="Horizontal"
+                        Spacing="8">
+                <Button Command="{CompiledBinding DiscardChanges}" Content="{DynamicResource S.DevelopPage.DiscardChanges}">
+                    <Button.IsEnabled>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="IsChanging.Value" />
+                            <Binding Path="!IsBusy.Value" />
+                        </MultiBinding>
+                    </Button.IsEnabled>
+                </Button>
 
-                <Button Content="{DynamicResource S.Common.Save}"
-                        IsEnabled="{CompiledBinding IsChanging.Value}"
-                        Classes="accent"
-                        Command="{CompiledBinding Save}" />
+                <Button Classes="accent"
+                        Command="{CompiledBinding Save}"
+                        Content="{DynamicResource S.Common.Save}">
+                    <Button.IsEnabled>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="IsChanging.Value" />
+                            <Binding Path="!IsBusy.Value" />
+                        </MultiBinding>
+                    </Button.IsEnabled>
+                </Button>
             </StackPanel>
         </Border>
 

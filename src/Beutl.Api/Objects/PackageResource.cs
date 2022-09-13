@@ -9,6 +9,7 @@ public class PackageResource
 {
     private readonly BeutlClients _clients;
     private readonly ReactivePropertySlim<PackageResourceResponse> _response;
+    private readonly ReactivePropertySlim<bool> _isDeleted = new();
 
     public PackageResource(Package package, PackageResourceResponse response, BeutlClients clients)
     {
@@ -37,9 +38,37 @@ public class PackageResource
 
     public IReadOnlyReactiveProperty<string?> WebSite { get; }
 
+    public IReadOnlyReactiveProperty<bool> IsDeleted => _isDeleted;
+
     public async Task RefreshAsync()
     {
         _response.Value = await _clients.PackageResources.GetResourceAsync(
-            Package.Owner.Value.Name, Package.Name.Value, _response.Value.Locale);
+            Package.Owner.Name.Value, Package.Name.Value, _response.Value.Locale);
+    }
+
+    public async Task UpdateAsync(UpdatePackageResourceRequest request)
+    {
+        if (_isDeleted.Value)
+        {
+            throw new InvalidOperationException("This object has been deleted.");
+        }
+
+        _response.Value = await _clients.PackageResources.PatchAsync(
+            Package.Owner.Name.Value,
+            Package.Name.Value,
+            Response.Value.Locale,
+            request);
+    }
+
+    public async Task DeleteAsync()
+    {
+        FileResponse response = await _clients.PackageResources.DeleteAsync(
+            Package.Owner.Name.Value,
+            Package.Name.Value,
+            Response.Value.Locale);
+
+        response.Dispose();
+
+        _isDeleted.Value = true;
     }
 }

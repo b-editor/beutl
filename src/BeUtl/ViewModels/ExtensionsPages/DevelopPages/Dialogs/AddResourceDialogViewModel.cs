@@ -1,4 +1,5 @@
-﻿using BeUtl.Models.Extensions.Develop;
+﻿using Beutl.Api;
+using Beutl.Api.Objects;
 
 using Reactive.Bindings;
 
@@ -6,9 +7,13 @@ namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 public sealed class AddResourceDialogViewModel
 {
-    public AddResourceDialogViewModel(IPackage.ILink package)
+    private readonly AuthorizedUser _user;
+    private readonly Package _package;
+
+    public AddResourceDialogViewModel(AuthorizedUser user, Package package)
     {
-        Package = package;
+        _user = user;
+        _package = package;
 
         CultureInput.SetValidateNotifyError(str =>
         {
@@ -54,24 +59,7 @@ public sealed class AddResourceDialogViewModel
                 ShortDescription.ObserveHasErrors)
             .Select(t => !(t.First || t.Second || t.Third || t.Fourth))
             .ToReadOnlyReactivePropertySlim();
-
-        Add = new AsyncReactiveCommand(IsValid);
-        Add.Subscribe(async () =>
-        {
-            if (Culture.Value != null)
-            {
-                await Package.AddResource(new LocalizedPackageResource(
-                    DisplayName: InheritDisplayName.Value ? null : DisplayName.Value,
-                    Description: InheritDescription.Value ? null : Description.Value,
-                    ShortDescription: InheritShortDescription.Value ? null : ShortDescription.Value,
-                    LogoImage: null,
-                    Screenshots: Array.Empty<ImageLink>(),
-                    Culture: Culture.Value));
-            }
-        });
     }
-
-    public IPackage.ILink Package { get; }
 
     public ReactiveProperty<string> CultureInput { get; } = new();
 
@@ -91,7 +79,31 @@ public sealed class AddResourceDialogViewModel
 
     public ReactiveProperty<bool> InheritShortDescription { get; } = new();
 
-    public AsyncReactiveCommand Add { get; }
+    public ReactivePropertySlim<string?> Error { get; } = new();
+
+    public PackageResource? Result { get; private set; }
+
+    public async Task<PackageResource?> AddAsync()
+    {
+        try
+        {
+            await _user.RefreshAsync();
+
+            var request = new CreatePackageResourceRequest(
+                description: Description.Value,
+                display_name: DisplayName.Value,
+                short_description: ShortDescription.Value,
+                tags: null,
+                website: null);
+
+            return Result = await _package.AddResourceAsync(CultureInput.Value, request);
+        }
+        catch (BeutlApiException<ApiErrorResponse> e)
+        {
+            Error.Value = e.Result.Message;
+            return null;
+        }
+    }
 
     private static string NotNullOrWhitespace(string? str)
     {

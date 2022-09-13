@@ -108,8 +108,6 @@ public sealed class App : Application
             .BindToSelfSingleton<EditorService>()
             .BindToSelfSingleton<HttpClient>()
             .Bind<IPropertyEditorExtensionImpl>().ToSingleton<PropertyEditorService.PropertyEditorExtensionImpl>()
-            .BindToSelf(new AccountService())
-            .Bind<PackageController>().ToLazy(() => new PackageController(ServiceLocator.Current.GetRequiredService<AccountService>()))
             .BindToSelf<IWorkspaceItemContainer>(new WorkspaceItemContainer())
             .BindToSelf<IProjectService>(new ProjectService())
             .BindToSelf<INotificationService>(new NotificationService())

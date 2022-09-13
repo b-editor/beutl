@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <Import Project="$(RootDirectory)\build\props\System.Reactive.props" />
+  <Import Project="$(RootDirectory)\build\props\System.Interactive.props" />
   <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
 
   <ItemGroup>

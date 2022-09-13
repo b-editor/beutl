@@ -4,6 +4,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
+using Beutl.Api.Objects;
+
 using BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
@@ -27,11 +29,11 @@ public sealed partial class PackageReleasesPage : UserControl
     {
         if (_flag)
         {
-            if (ReleasesList.SelectedItem is ReleasePageViewModel item
-                && this.FindAncestorOfType<Frame>() is { } frame)
+            if (ReleasesList.SelectedItem is Release item)
             {
-                frame.Navigate(typeof(ReleasePage), item, SharedNavigationTransitionInfo.Instance);
+                NavigateToReleasePage(item);
             }
+
             _flag = false;
         }
     }
@@ -48,31 +50,46 @@ public sealed partial class PackageReleasesPage : UserControl
     {
         if (DataContext is PackageReleasesPageViewModel viewModel)
         {
-            var dialogViewModel = new AddReleaseDialogViewModel();
+            await viewModel.IsBusy.Where(x => !x);
+
+            AddReleaseDialogViewModel dialogViewModel = viewModel.CreateAddReleaseDialog();
             var dialog = new AddReleaseDialog
             {
                 DataContext = dialogViewModel
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary
+                && dialogViewModel.Result != null)
             {
-                viewModel.Add.Execute(dialogViewModel);
+                viewModel.Items.Add(dialogViewModel.Result);
             }
         }
     }
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is StyledElement { DataContext: ReleasePageViewModel item }
+        if (sender is StyledElement { DataContext: Release item })
+        {
+            NavigateToReleasePage(item);
+        }
+    }
+
+    private void NavigateToReleasePage(Release release)
+    {
+        if (DataContext is PackageReleasesPageViewModel viewModel
             && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            frame.Navigate(typeof(ReleasePage), item, SharedNavigationTransitionInfo.Instance);
+            ReleasePageViewModel? param = frame.FindParameter<ReleasePageViewModel>(x => x.Release.Id == release.Id);
+            param ??= viewModel.CreateReleasePage(release);
+
+            frame.Navigate(typeof(ReleasePage), param, SharedNavigationTransitionInfo.Instance);
         }
     }
 
     private async void Delete_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is StyledElement { DataContext: ReleasePageViewModel item }
+        if (DataContext is PackageReleasesPageViewModel viewModel
+            && sender is StyledElement { DataContext: Release release }
             && this.FindAncestorOfType<Frame>() is { } frame)
         {
             var dialog = new ContentDialog
@@ -86,13 +103,10 @@ public sealed partial class PackageReleasesPage : UserControl
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                string releaseId = item.Release.Value.Snapshot.Id;
-                string packageId = item.Parent.Parent.Package.Value.Snapshot.Id;
-                frame.RemoveAllStack(item => item is ReleasePageViewModel p
-                    && p.Release.Value.Snapshot.Id == releaseId
-                    && p.Parent.Parent.Package.Value.Snapshot.Id == packageId);
+                frame.RemoveAllStack(item => item is ReleasePageViewModel p && p.Release.Id == release.Id);
 
-                item.Delete.Execute();
+                await viewModel.DeleteReleaseAsync(release);
+                frame.GoBack();
             }
         }
     }
@@ -102,7 +116,10 @@ public sealed partial class PackageReleasesPage : UserControl
         if (DataContext is PackageReleasesPageViewModel viewModel
             && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            frame.Navigate(typeof(PackageDetailsPage), viewModel.Parent, SharedNavigationTransitionInfo.Instance);
+            PackageDetailsPageViewModel? param = frame.FindParameter<PackageDetailsPageViewModel>(x => x.Package.Id == viewModel.Package.Id);
+            param ??= viewModel.CreatePackageDetailsPage();
+
+            frame.Navigate(typeof(PackageDetailsPage), param, SharedNavigationTransitionInfo.Instance);
         }
     }
 }
