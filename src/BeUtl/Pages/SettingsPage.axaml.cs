@@ -5,6 +5,7 @@ using Avalonia.Media;
 
 using BeUtl.Controls;
 using BeUtl.Pages.SettingsPages;
+using BeUtl.ViewModels;
 
 using FluentAvalonia.UI.Controls;
 
@@ -104,6 +105,12 @@ public sealed partial class SettingsPage : UserControl
 
     private void Frame_Navigated(object sender, FluentAvalonia.UI.Navigation.NavigationEventArgs e)
     {
+        if (e.Content is AccountSettingsPage account
+            && DataContext is SettingsPageViewModel settingsPage)
+        {
+            account.DataContext = settingsPage.Account;
+        }
+
         foreach (NavigationViewItem nvi in nav.MenuItems)
         {
             if (nvi.Tag is Type tag && tag == e.SourcePageType)

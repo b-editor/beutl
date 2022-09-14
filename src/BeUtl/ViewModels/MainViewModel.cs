@@ -4,6 +4,7 @@ using Avalonia.Collections;
 using Avalonia.Threading;
 
 using Beutl.Api;
+
 using BeUtl.Configuration;
 using BeUtl.Framework;
 using BeUtl.Framework.Service;
@@ -230,6 +231,7 @@ public sealed class MainViewModel
             new(ExtensionsPageExtension.Instance, new ExtensionsPageViewModel(_beutlClients)),
             new(OutputPageExtension.Instance),
         };
+        SettingsPage = new(SettingsPageExtension.Instance, new SettingsPageViewModel(_beutlClients));
         SelectedPage.Value = Pages[0];
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         viewConfig.RecentFiles.ForEachItem(
@@ -352,7 +354,7 @@ public sealed class MainViewModel
 
     public ReactiveCommand PasteLayer { get; }
 
-    public NavItemViewModel SettingsPage { get; } = new(SettingsPageExtension.Instance);
+    public NavItemViewModel SettingsPage { get; }
 
     public CoreList<NavItemViewModel> Pages { get; }
 
