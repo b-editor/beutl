@@ -11,6 +11,10 @@
   <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
 
   <ItemGroup>
+    <EmbeddedResource Include="Resources\index.html" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\BeUtl.Core\BeUtl.Core.csproj" />
   </ItemGroup>
 

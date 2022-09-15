@@ -1,8 +1,11 @@
 ﻿using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Mime;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 using Beutl.Api.Objects;
 
@@ -14,23 +17,6 @@ public class BeutlClients
 {
     //private const string BaseUrl = "https://localhost:7278";
     private const string BaseUrl = "https://beutl.beditor.net";
-    const string DefaultClosePageResponse =
-@"<html>
-  <head><title>OAuth 2.0 Authentication Token Received</title></head>
-  <body>
-    Received verification code. You may now close this window.
-    <script type='text/javascript'>
-      // This doesn't work on every browser.
-      window.setTimeout(function() {
-          this.focus();
-          window.opener = this;
-          window.open('', '_self', ''); 
-          window.close(); 
-        }, 1000);
-      //if (window.opener) { window.opener.checkToken(); }
-    </script>
-  </body>
-</html>";
     private readonly HttpClient _httpClient;
     private readonly ReactivePropertySlim<AuthorizedUser?> _authorizedUser = new();
 
@@ -144,18 +130,33 @@ public class BeutlClients
         string? code = context.Request.QueryString.Get("code");
 
         // Write a "close" response.
-        byte[] bytes = Encoding.UTF8.GetBytes(DefaultClosePageResponse);
-        context.Response.ContentLength64 = bytes.Length;
-        context.Response.SendChunked = false;
-        context.Response.KeepAlive = false;
-        using (Stream output = context.Response.OutputStream)
+        using (Stream input = ReadClosePageResponse())
         {
-            await output.WriteAsync(bytes, ct).ConfigureAwait(false);
-            await output.FlushAsync(ct).ConfigureAwait(false);
+            context.Response.ContentLength64 = input.Length;
+            context.Response.SendChunked = false;
+            context.Response.KeepAlive = false;
+            context.Response.ContentType = MediaTypeNames.Text.Html;
+            using (Stream output = context.Response.OutputStream)
+            {
+                await input.CopyToAsync(output, ct).ConfigureAwait(false);
+                await output.FlushAsync(ct).ConfigureAwait(false);
+            }
+
+            context.Response.Close();
         }
 
-        context.Response.Close();
-
         return code;
+    }
+
+    private static Stream ReadClosePageResponse()
+    {
+        Stream? stream = typeof(BeutlClients).Assembly.GetManifestResourceStream("Beutl.Api.Resources.index.html");
+
+        if (stream == null)
+        {
+            throw new Exception("Embedded resource not found.");
+        }
+
+        return stream;
     }
 }
