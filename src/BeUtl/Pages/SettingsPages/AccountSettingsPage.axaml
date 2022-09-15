@@ -12,17 +12,47 @@
              mc:Ignorable="d">
     <Panel>
         <ScrollViewer x:Name="scrollViewer"
-                      Padding="18">
+                      Padding="18"
+                      IsVisible="{CompiledBinding SignedIn.Value}">
             <StackPanel Margin="10,0"
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Stretch"
                         Orientation="Vertical"
-                        Spacing="4">
-                <Button Command="{CompiledBinding SignIn}" Content="Sign in" />
-                <Button Command="{CompiledBinding Cancel}" Content="Cancel" />
-            </StackPanel>
+                        Spacing="4" />
 
 
         </ScrollViewer>
+
+        <Border MaxWidth="320"
+                Padding="24"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Classes="CardStyle"
+                IsVisible="{CompiledBinding !SignedIn.Value}">
+
+            <StackPanel Spacing="8">
+                <TextBlock Text="サインインする" Theme="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock TextWrapping="Wrap">
+                    Beutlアカウントでサインインすると設定の同期、パッケージの公開などができるようになります。
+                </TextBlock>
+
+                <ProgressBar Margin="0,16,0,8"
+                             Classes.transparent="{CompiledBinding !SigningIn.Value}"
+                             IsIndeterminate="{CompiledBinding SigningIn.Value}" />
+
+                <StackPanel HorizontalAlignment="Right"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                    <Button Command="{CompiledBinding Cancel}"
+                            Content="{DynamicResource S.Common.Cancel}"
+                            IsVisible="{CompiledBinding SigningIn.Value}" />
+
+                    <Button Classes="accent"
+                            Command="{CompiledBinding SignIn}"
+                            Content="{DynamicResource S.AccountSettingsPage.SignIn}" />
+                </StackPanel>
+
+            </StackPanel>
+        </Border>
     </Panel>
 </UserControl>

@@ -1,10 +1,9 @@
-<Styles
-    xmlns="https://github.com/avaloniaui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:b="using:BeUtl.Controls.Behaviors"
-    xmlns:i="using:Avalonia.Xaml.Interactivity"
-    xmlns:local="using:BeUtl.Controls"
-    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:b="using:BeUtl.Controls.Behaviors"
+        xmlns:i="using:Avalonia.Xaml.Interactivity"
+        xmlns:local="using:BeUtl.Controls"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
     <Style Selector="Border.CardStyle">
         <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
@@ -33,6 +32,10 @@
                 </b:SharedContent>
             </b:SharedContentTemplate>
         </Setter>
+    </Style>
+
+    <Style Selector=":is(Visual).transparent">
+        <Setter Property="Opacity" Value="0" />
     </Style>
 
     <StyleInclude Source="avares://BeUtl.Controls/Styling/BaseResources.axaml" />

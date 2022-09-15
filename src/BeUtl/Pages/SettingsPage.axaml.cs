@@ -17,13 +17,19 @@ public sealed partial class SettingsPage : UserControl
     {
         InitializeComponent();
 
-        List<NavigationViewItem> items = GetItems();
-        nav.MenuItems = items;
-        NavigationViewItem selected = items[0];
+        nav.MenuItems = GetItems();
 
         frame.Navigated += Frame_Navigated;
         nav.ItemInvoked += Nav_ItemInvoked;
         nav.BackRequested += Nav_BackRequested;
+    }
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        var items = (List<NavigationViewItem>)nav.MenuItems;
+
+        NavigationViewItem selected = items[0];
 
         nav.SelectedItem = selected;
         frame.Navigate((Type)selected.Tag!);

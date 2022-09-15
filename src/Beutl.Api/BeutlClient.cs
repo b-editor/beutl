@@ -45,7 +45,7 @@ public class BeutlClients
 
     public IReadOnlyReactiveProperty<AuthorizedUser?> AuthorizedUser => _authorizedUser;
 
-    public async Task<AuthorizedUser?> SignInAsync(CancellationToken cancellationToken)
+    public async Task<AuthorizedUser> SignInAsync(CancellationToken cancellationToken)
     {
         AuthenticationHeaderValue? defaultAuth = _httpClient.DefaultRequestHeaders.Authorization;
 
@@ -65,7 +65,7 @@ public class BeutlClients
             string? code = await GetResponseFromListener(listener, cancellationToken);
             if (string.IsNullOrWhiteSpace(code))
             {
-                return null;
+                throw new Exception("The returned code was empty.");
             }
 
             AuthResponse authResponse = await Account.CodeToJwtAsync(new CodeToJwtRequest(code, authUriRes.Session_id), cancellationToken);
@@ -75,10 +75,6 @@ public class BeutlClients
             var profile = new Profile(profileResponse, this);
 
             return _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient);
-        }
-        catch (OperationCanceledException)
-        {
-            return null;
         }
         finally
         {
