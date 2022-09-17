@@ -1,13 +1,9 @@
-﻿using System.Reactive.Disposables;
-
 using Avalonia;
 
 using Beutl.Api;
 using Beutl.Api.Objects;
 
 using BeUtl.Framework.Service;
-
-using FluentAvalonia.Styling;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -64,6 +60,27 @@ public sealed class AccountSettingsPageViewModel : IDisposable
 
         OpenAccountSettings = new();
         OpenAccountSettings.Subscribe(() => _clients.OpenAccountSettings());
+
+        Refresh = new AsyncReactiveCommand(IsLoading.Select(x => !x));
+        Refresh.Subscribe(async () =>
+        {
+            try
+            {
+                IsLoading.Value = true;
+                if (_clients.AuthorizedUser.Value is { } user)
+                {
+                    await user.RefreshAsync();
+                }
+            }
+            catch
+            {
+                // Todo: エラー説明
+            }
+            finally
+            {
+                IsLoading.Value = false;
+            }
+        });
     }
 
     public AsyncReactiveCommand SignIn { get; }
@@ -87,6 +104,10 @@ public sealed class AccountSettingsPageViewModel : IDisposable
     public ReactiveCommand SignOut { get; }
     
     public ReactiveCommand OpenAccountSettings { get; }
+
+    public ReactivePropertySlim<bool> IsLoading { get; } = new();
+
+    public AsyncReactiveCommand Refresh { get; }
 
     public void Dispose()
     {

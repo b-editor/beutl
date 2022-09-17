@@ -9,7 +9,12 @@
              d:DesignHeight="800"
              d:DesignWidth="800"
              x:DataType="vm:AccountSettingsPageViewModel"
+             Focusable="True"
              mc:Ignorable="d">
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="Ctrl+R" />
+    </UserControl.KeyBindings>
     <Panel>
         <ScrollViewer x:Name="scrollViewer"
                       Padding="18"

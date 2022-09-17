@@ -244,6 +244,8 @@ Error:
                     newControl.Opacity = 0;
                     await _animation.RunAsync((Animatable)newControl, null);
                     newControl.Opacity = 1;
+
+                    newControl.Focus();
                 }
             }).AddTo(_disposables);
 

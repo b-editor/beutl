@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 
@@ -115,6 +116,11 @@ public sealed partial class SettingsPage : UserControl
             && DataContext is SettingsPageViewModel settingsPage)
         {
             account.DataContext = settingsPage.Account;
+        }
+
+        if (e.Content is IInputElement inputElement)
+        {
+            inputElement.Focus();
         }
 
         foreach (NavigationViewItem nvi in nav.MenuItems)
