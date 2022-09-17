@@ -32,12 +32,16 @@ public sealed partial class AddResourceDialog : ContentDialog, IStyleable
         base.OnPrimaryButtonClick(args);
         if (DataContext is AddResourceDialogViewModel viewModel)
         {
-            ContentDialogButtonClickDeferral deferral = args.GetDeferral();
-
+            args.Cancel = true;
+            IsEnabled = false;
             PackageResource? result = await viewModel.AddAsync();
             if (result != null)
             {
-                deferral.Complete();
+                Hide(ContentDialogResult.Primary);
+            }
+            else
+            {
+                IsEnabled = true;
             }
         }
     }

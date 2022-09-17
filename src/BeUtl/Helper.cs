@@ -72,7 +72,7 @@ internal static class Helper
     {
         return TimeSpan.FromSeconds(pixel / SecondWidth);
     }
-    
+
     public static TimeSpan ToTimeSpanF(this float pixel)
     {
         return TimeSpan.FromSeconds(pixel / SecondWidth);
@@ -82,7 +82,7 @@ internal static class Helper
     {
         return time.TotalSeconds * SecondWidth * scale;
     }
-    
+
     public static float ToPixelF(this TimeSpan time, float scale)
     {
         return (float)(time.TotalSeconds * SecondWidth * scale);
@@ -92,7 +92,7 @@ internal static class Helper
     {
         return TimeSpan.FromSeconds(pixel / (SecondWidth * scale));
     }
-    
+
     public static TimeSpan ToTimeSpanF(this float pixel, float scale)
     {
         return TimeSpan.FromSeconds(pixel / (SecondWidth * scale));
@@ -122,6 +122,35 @@ internal static class Helper
         }
 
         return filename;
+    }
+
+    public static void OrderedAdd<T, TKey>(this IList<T> list, T value, Func<T, TKey> keySelector, IComparer<TKey>? comparer = null)
+    {
+        if (list is null)
+        {
+            throw new ArgumentNullException(nameof(list));
+        }
+
+        if (keySelector is null)
+        {
+            throw new ArgumentNullException(nameof(keySelector));
+        }
+
+        comparer ??= Comparer<TKey>.Default;
+
+        TKey? valueKey = keySelector(value);
+        for (int i = 0; i < list.Count; i++)
+        {
+            TKey key = keySelector(list[i]);
+
+            if (comparer.Compare(valueKey, key) <= 0)
+            {
+                list.Insert(i, value);
+                return;
+            }
+        }
+
+        list.Add(value);
     }
 
     private static string RandomString()

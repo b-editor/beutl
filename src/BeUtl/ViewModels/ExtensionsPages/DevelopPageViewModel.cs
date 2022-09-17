@@ -1,6 +1,7 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
 
+using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using Reactive.Bindings;
@@ -58,7 +59,12 @@ public sealed class DevelopPageViewModel : IDisposable
             }
         });
 
-        Refresh.Execute();
+        _user.Where(x => x != null)
+            .Timeout(TimeSpan.FromSeconds(10))
+            .Subscribe(
+                _ => Refresh.Execute(),
+                ex => { },
+                () => { });
     }
 
     public CoreList<Package> Packages { get; } = new();
@@ -70,6 +76,11 @@ public sealed class DevelopPageViewModel : IDisposable
     public CreatePackageDialogViewModel CreatePackageDialog()
     {
         return new CreatePackageDialogViewModel(_user.Value!);
+    }
+
+    public PackageDetailsPageViewModel CreatePackageDetailPage(Package package)
+    {
+        return new PackageDetailsPageViewModel(_user.Value!, package);
     }
 
     public void Dispose()

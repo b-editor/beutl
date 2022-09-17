@@ -9,7 +9,15 @@
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="viewModels:PackageReleasesPageViewModel"
+             Focusable="True"
+             IsEnabled="{CompiledBinding !IsBusy.Value}"
              mc:Ignorable="d">
+
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="Ctrl+R" />
+    </UserControl.KeyBindings>
+
     <Grid RowDefinitions="Auto,Auto,*">
         <StackPanel Margin="10,8"
                     Orientation="Horizontal"

@@ -49,7 +49,6 @@ public sealed partial class PackageSettingsPage : UserControl
     {
         if (DataContext is PackageSettingsPageViewModel viewModel)
         {
-            await viewModel.IsBusy.Where(x => !x);
             AddResourceDialogViewModel dialogViewModel = viewModel.CreateAddResourceDialog();
             var dialog = new AddResourceDialog
             {
@@ -59,7 +58,7 @@ public sealed partial class PackageSettingsPage : UserControl
             if (await dialog.ShowAsync() == ContentDialogResult.Primary
                 && dialogViewModel.Result != null)
             {
-                viewModel.Items.Add(dialogViewModel.Result);
+                viewModel.Items.OrderedAdd(dialogViewModel.Result, x => x.Locale.Name);
             }
         }
     }
@@ -76,7 +75,7 @@ public sealed partial class PackageSettingsPage : UserControl
 
             param ??= viewModel.CreateResourcePage(item);
 
-            frame.Navigate(typeof(ResourcePage), item, SharedNavigationTransitionInfo.Instance);
+            frame.Navigate(typeof(ResourcePage), param, SharedNavigationTransitionInfo.Instance);
         }
     }
 

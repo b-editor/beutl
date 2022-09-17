@@ -31,10 +31,14 @@ public sealed partial class DevelopPage : UserControl
     {
         if (_flag)
         {
-            if (PackagesList.SelectedItem is PackageDetailsPageViewModel selectedItem
+            if (DataContext is DevelopPageViewModel viewModel
+                && PackagesList.SelectedItem is Package selectedItem
                 && this.FindAncestorOfType<Frame>() is { } frame)
             {
-                frame.Navigate(typeof(PackageDetailsPage), selectedItem, SharedNavigationTransitionInfo.Instance);
+                PackageDetailsPageViewModel? param = frame.FindParameter<PackageDetailsPageViewModel>(x => x.Package.Id == selectedItem.Id);
+                param ??= viewModel.CreatePackageDetailPage(selectedItem);
+
+                frame.Navigate(typeof(PackageDetailsPage), param, SharedNavigationTransitionInfo.Instance);
             }
             _flag = false;
         }
@@ -50,10 +54,14 @@ public sealed partial class DevelopPage : UserControl
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is StyledElement { DataContext: Package item }
+        if (DataContext is DevelopPageViewModel viewModel
+                && sender is StyledElement { DataContext: Package item }
             && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            frame.Navigate(typeof(PackageDetailsPage), item, SharedNavigationTransitionInfo.Instance);
+            PackageDetailsPageViewModel? param = frame.FindParameter<PackageDetailsPageViewModel>(x => x.Package.Id == item.Id);
+            param ??= viewModel.CreatePackageDetailPage(item);
+
+            frame.Navigate(typeof(PackageDetailsPage), param, SharedNavigationTransitionInfo.Instance);
         }
     }
 
@@ -71,7 +79,7 @@ public sealed partial class DevelopPage : UserControl
             if (await dialog.ShowAsync() == ContentDialogResult.Primary
                 && dialogViewModel.Result != null)
             {
-                viewModel.Packages.Add(dialogViewModel.Result);
+                viewModel.Packages.OrderedAdd(dialogViewModel.Result, x => x.Id);
             }
         }
     }

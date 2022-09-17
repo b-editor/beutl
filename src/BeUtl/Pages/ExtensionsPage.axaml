@@ -1,16 +1,18 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="BeUtl.Pages.ExtensionsPage"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="BeUtl.Pages.ExtensionsPage">
-    <ui:NavigationView IsSettingsVisible="False"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             mc:Ignorable="d">
+    <ui:NavigationView x:Name="nav"
                        IsBackButtonVisible="True"
                        IsBackEnabled="{Binding #frame.CanGoBack}"
-                       PaneDisplayMode="Top"
-                       x:Name="nav">
-        <ui:NavigationView.Styles>
+                       IsSettingsVisible="False"
+                       PaneDisplayMode="Top">
+        <!--<ui:NavigationView.Styles>
             <Style Selector="ui|NavigationView /template/ SplitView Border#ContentGridBorder">
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderBrush" Value="Transparent" />
@@ -18,15 +20,20 @@
                 <Setter Property="Margin" Value="{DynamicResource NavigationViewContentMargin}" />
                 <Setter Property="CornerRadius" Value="{DynamicResource NavigationViewContentGridCornerRadius}" />
             </Style>
-        </ui:NavigationView.Styles>
+        </ui:NavigationView.Styles>-->
+        <ui:NavigationView.Resources>
+            <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
+            <Thickness x:Key="NavigationViewContentGridBorderThickness">0</Thickness>
+        </ui:NavigationView.Resources>
         <ui:NavigationView.PaneCustomContent>
-            <TextBox VerticalAlignment="Center"
-                     HorizontalAlignment="Right"
+            <TextBox MinWidth="250"
                      Margin="8,0"
-                     Watermark="{DynamicResource S.Common.Search}"
-                     MinWidth="250">
+                     HorizontalAlignment="Right"
+                     VerticalAlignment="Center"
+                     Watermark="{DynamicResource S.Common.Search}">
                 <TextBox.InnerRightContent>
-                    <Button Classes="AppBarButton">
+                    <Button Theme="{StaticResource TransparentButton}">
                         <ui:SymbolIcon Symbol="Find" />
                     </Button>
                 </TextBox.InnerRightContent>

@@ -22,12 +22,16 @@ public sealed partial class CreatePackageDialog : ContentDialog, IStyleable
         base.OnPrimaryButtonClick(args);
         if (DataContext is CreatePackageDialogViewModel viewModel)
         {
-            ContentDialogButtonClickDeferral deferral = args.GetDeferral();
-
+            args.Cancel = true;
+            IsEnabled = false;
             Package? result = await viewModel.CreateAsync();
             if (result != null)
             {
-                deferral.Complete();
+                Hide(ContentDialogResult.Primary);
+            }
+            else
+            {
+                IsEnabled = true;
             }
         }
     }

@@ -1,4 +1,6 @@
-﻿using Beutl.Api;
+﻿using Avalonia.Collections;
+
+using Beutl.Api;
 using Beutl.Api.Objects;
 
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
@@ -106,7 +108,8 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                 await _user.RefreshAsync();
                 await Package.RefreshAsync();
                 Items.Clear();
-                Items.AddRange((await Package.GetResourcesAsync()).AsSpan());
+                PackageResource[] added = await Package.GetResourcesAsync();
+                Items.AddRange(added);
             }
             catch
             {
@@ -143,7 +146,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
     public ReactiveCommand MakePrivate { get; } = new();
 
-    public CoreList<PackageResource> Items { get; } = new();
+    public AvaloniaList<PackageResource> Items { get; } = new();
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 

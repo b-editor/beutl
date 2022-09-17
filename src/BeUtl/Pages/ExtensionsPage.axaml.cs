@@ -3,6 +3,7 @@ using Avalonia.Controls;
 
 using BeUtl.Pages.ExtensionsPages;
 using BeUtl.Pages.ExtensionsPages.DevelopPages;
+using BeUtl.ViewModels;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
@@ -86,7 +87,14 @@ public sealed partial class ExtensionsPage : UserControl
     {
         if (e.InvokedItemContainer is NavigationViewItem nvi && nvi.Tag is Type typ)
         {
-            frame.Navigate(typ, null, e.RecommendedNavigationTransitionInfo);
+            if (typ == typeof(DevelopPage) && DataContext is ExtensionsPageViewModel viewModel)
+            {
+                frame.Navigate(typ, viewModel.Develop, e.RecommendedNavigationTransitionInfo);
+            }
+            else
+            {
+                frame.Navigate(typ, null, e.RecommendedNavigationTransitionInfo);
+            }
         }
     }
 

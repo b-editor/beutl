@@ -34,7 +34,7 @@ public sealed class CreatePackageDialogViewModel
         {
             await _user.RefreshAsync();
 
-            var request = new CreatePackageRequest("", "", "", null, "");
+            var request = new CreatePackageRequest("", "", "", Array.Empty<string>(), "");
             return Result = await _user.Profile.AddPackageAsync(Name.Value, request);
         }
         catch (BeutlApiException<ApiErrorResponse> e)

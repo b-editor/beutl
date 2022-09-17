@@ -73,12 +73,13 @@
         </Style>
 
         <Style Selector="TextBlock.breadcrumb">
-            <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
+            <Setter Property="FontFamily" Value="{DynamicResource XamlAutoFontFamily}" />
             <Setter Property="FontSize" Value="24" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="TextBlock.TextTrimming" Value="CharacterEllipsis" />
             <Setter Property="TextBlock.TextWrapping" Value="Wrap" />
             <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="ClipToBounds" Value="False" />
         </Style>
 
         <Style Selector="ui|TabView.bottom">

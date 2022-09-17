@@ -20,29 +20,12 @@ public sealed class ResourcePageViewModel : IDisposable
         Description = CreateStringInput(p => p.Description, "");
         ShortDescription = CreateStringInput(p => p.ShortDescription, "");
 
-        // 値を継承するかどうか
-        InheritDisplayName = CreateInheritXXX(p => p.DisplayName);
-        InheritDescription = CreateInheritXXX(p => p.Description);
-        InheritShortDescription = CreateInheritXXX(p => p.ShortDescription);
-
         // 値を持っているか (nullじゃない)
         HasDisplayName = CreateHasXXX(s => s.DisplayName);
         HasDescription = CreateHasXXX(s => s.Description);
         HasShortDescription = CreateHasXXX(s => s.ShortDescription);
 
-        // データ検証
-        DisplayName.SetValidateNotifyError(NotWhitespace);
-        Description.SetValidateNotifyError(NotWhitespace);
-        ShortDescription.SetValidateNotifyError(NotWhitespace);
-
         // プロパティを購読
-        // 値を継承する場合、入力用プロパティにnullを、それ以外はもともとの値を設定する
-        InheritDisplayName.Subscribe(b => DisplayName.Value = b ? null : Resource.DisplayName.Value)
-            .DisposeWith(_disposables);
-        InheritDescription.Subscribe(b => Description.Value = b ? null : Resource.Description.Value)
-            .DisposeWith(_disposables);
-        InheritShortDescription.Subscribe(b => ShortDescription.Value = b ? null : Resource.ShortDescription.Value)
-            .DisposeWith(_disposables);
 
         // 入力用プロパティが一つでも変更されたら、trueになる
         IsChanging = DisplayName.CombineLatest(Resource.DisplayName).Select(t => t.First == t.Second)
@@ -65,9 +48,9 @@ public sealed class ResourcePageViewModel : IDisposable
             {
                 await _user.RefreshAsync();
                 await Resource.UpdateAsync(new UpdatePackageResourceRequest(
-                    description: InheritDescription.Value ? null : Description.Value,
-                    display_name: InheritDisplayName.Value ? null : DisplayName.Value,
-                    short_description: InheritShortDescription.Value ? null : ShortDescription.Value,
+                    description: Description.Value,
+                    display_name: DisplayName.Value,
+                    short_description: ShortDescription.Value,
                     tags: null,
                     website: null));
             }
@@ -80,9 +63,9 @@ public sealed class ResourcePageViewModel : IDisposable
 
         DiscardChanges.Subscribe(() =>
         {
-            InheritDisplayName.Value = string.IsNullOrEmpty(Resource.DisplayName.Value);
-            InheritDescription.Value = string.IsNullOrEmpty(Resource.Description.Value);
-            InheritShortDescription.Value = string.IsNullOrEmpty(Resource.ShortDescription.Value);
+            DisplayName.Value = Resource.DisplayName.Value;
+            Description.Value = Resource.Description.Value;
+            ShortDescription.Value = Resource.ShortDescription.Value;
         }).DisposeWith(_disposables);
 
         Refresh.Subscribe(async () =>
@@ -120,12 +103,6 @@ public sealed class ResourcePageViewModel : IDisposable
 
     public ReactiveProperty<string?> ShortDescription { get; } = new();
 
-    public ReactiveProperty<bool> InheritDisplayName { get; } = new();
-
-    public ReactiveProperty<bool> InheritDescription { get; } = new();
-
-    public ReactiveProperty<bool> InheritShortDescription { get; } = new();
-
     public ReadOnlyReactivePropertySlim<bool> IsChanging { get; }
 
     public AsyncReactiveCommand Save { get; }
@@ -135,18 +112,6 @@ public sealed class ResourcePageViewModel : IDisposable
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
     public AsyncReactiveCommand Refresh { get; } = new();
-
-    private static string NotWhitespace(string? str)
-    {
-        if (str == null || !string.IsNullOrWhiteSpace(str))
-        {
-            return null!;
-        }
-        else
-        {
-            return S.Message.PleaseEnterString;
-        }
-    }
 
     private ReactiveProperty<string?> CreateStringInput(Func<PackageResource, IObservable<string?>> func, string? initial)
     {
@@ -158,16 +123,8 @@ public sealed class ResourcePageViewModel : IDisposable
     private ReadOnlyReactivePropertySlim<bool> CreateHasXXX(Func<PackageResource, IObservable<string?>> func)
     {
         return func(Resource)
-            .Select(x => string.IsNullOrEmpty(x))
+            .Select(x => !string.IsNullOrEmpty(x))
             .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-    }
-
-    private ReactiveProperty<bool> CreateInheritXXX(Func<PackageResource, IObservable<string?>> func)
-    {
-        return func(Resource)
-            .Select(x => string.IsNullOrEmpty(x))
-            .ToReactiveProperty()
             .DisposeWith(_disposables);
     }
 

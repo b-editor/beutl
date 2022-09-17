@@ -54,11 +54,7 @@
                            TextTrimming="CharacterEllipsis" />
             </ctrls:OptionsDisplayItem.ActionButton>
             <ctrls:OptionsDisplayItem.Content>
-                <StackPanel Spacing="16">
-                    <CheckBox Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" IsChecked="{CompiledBinding InheritDisplayName.Value}" />
-
-                    <TextBox Classes="customStyle" Text="{CompiledBinding DisplayName.Value}" />
-                </StackPanel>
+                <TextBox Classes="customStyle clear" Text="{CompiledBinding DisplayName.Value}" />
             </ctrls:OptionsDisplayItem.Content>
         </ctrls:OptionsDisplayItem>
 
@@ -73,13 +69,9 @@
                            TextTrimming="CharacterEllipsis" />
             </ctrls:OptionsDisplayItem.ActionButton>
             <ctrls:OptionsDisplayItem.Content>
-                <StackPanel Spacing="16">
-                    <CheckBox Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" IsChecked="{CompiledBinding InheritDescription.Value}" />
-
-                    <TextBox AcceptsReturn="True"
-                             Classes="customStyle"
-                             Text="{CompiledBinding Description.Value}" />
-                </StackPanel>
+                <TextBox AcceptsReturn="True"
+                         Classes="customStyle clear"
+                         Text="{CompiledBinding Description.Value}" />
             </ctrls:OptionsDisplayItem.Content>
         </ctrls:OptionsDisplayItem>
 
@@ -94,11 +86,7 @@
                            TextTrimming="CharacterEllipsis" />
             </ctrls:OptionsDisplayItem.ActionButton>
             <ctrls:OptionsDisplayItem.Content>
-                <StackPanel Spacing="16">
-                    <CheckBox Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" IsChecked="{CompiledBinding InheritShortDescription.Value}" />
-
-                    <TextBox Classes="customStyle" Text="{CompiledBinding ShortDescription.Value}" />
-                </StackPanel>
+                <TextBox Classes="customStyle clear" Text="{CompiledBinding ShortDescription.Value}" />
             </ctrls:OptionsDisplayItem.Content>
         </ctrls:OptionsDisplayItem>
 

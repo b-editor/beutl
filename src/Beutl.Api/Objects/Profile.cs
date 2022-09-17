@@ -56,23 +56,23 @@ public class Profile
 
     public async Task RefreshAsync()
     {
-        _response.Value = await _clients.Users.GetUserAsync(Id);
+        _response.Value = await _clients.Users.GetUserAsync(Name.Value);
     }
 
     public async Task UpdateAsync(UpdateProfileRequest request)
     {
-        _response.Value = await _clients.Users.PatchAsync(Id, request);
+        _response.Value = await _clients.Users.PatchAsync(Name.Value, request);
     }
 
     public async Task<Package> AddPackageAsync(string name, CreatePackageRequest request)
     {
-        PackageResponse response = await _clients.Packages.PostAsync(Id, name, request);
+        PackageResponse response = await _clients.Packages.PostAsync(Name.Value, name, request);
         return new Package(this, response, _clients);
     }
 
     public async Task<Package[]> GetPackagesAsync(int start = 0, int count = 30)
     {
-        return await (await _clients.Users.GetPackagesAsync(Id, start, count))
+        return await (await _clients.Users.GetPackagesAsync(Name.Value, start, count))
             .ToAsyncEnumerable()
             .SelectAwait(async x => await _clients.Packages.GetPackage2Async(x.Id))
             .Select(x => new Package(this, x, _clients))

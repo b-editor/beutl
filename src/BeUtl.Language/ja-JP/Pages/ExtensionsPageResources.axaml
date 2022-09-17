@@ -1,7 +1,6 @@
-<Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
-        <!--Strings-->
+        <!--  Strings  -->
         <x:String x:Key="S.DevelopPage.Shortcuts">ショートカット</x:String>
         <x:String x:Key="S.DevelopPage.CreateNewPackage">パッケージを新規作成</x:String>
         <x:String x:Key="S.DevelopPage.CreateNewPackageDescription">配布するパッケージを新規作成します</x:String>
@@ -35,7 +34,7 @@
         <x:String x:Key="S.DevelopPage.MakePublicRelease.Content">
             リリースを公開してもよろしいですか？
             この操作を実行すると他人がこのリリースをダウンロードできるようになります。
-        </x:String> 
+        </x:String>
         <x:String x:Key="S.DevelopPage.MakePrivateRelease.Title">リリースを非公開にする</x:String>
         <x:String x:Key="S.DevelopPage.MakePrivateRelease.Content">
             リリースを非公開にしてもよろしいですか？
@@ -55,6 +54,8 @@
         <x:String x:Key="S.DevelopPage.Resource.Fields.Culture">言語圏</x:String>
         <x:String x:Key="S.DevelopPage.Resource.Fields.CultureDescription">このリソースを表示する言語圏。</x:String>
         <x:String x:Key="S.DevelopPage.Resource.Fields.InheritField">値を継承する</x:String>
+        <!--  If blank is specified, the package default values are used.  -->
+        <x:String x:Key="S.DevelopPage.Resource.Fields.IfBlankIsSpecified">空白を指定するとパッケージのデフォルト値が使用されます。</x:String>
 
 
         <x:String x:Key="S.DevelopPage.Package.Fields.Name">名前</x:String>

@@ -45,13 +45,6 @@ public sealed class AddResourceDialogViewModel
         })
             .ToReadOnlyReactivePropertySlim();
 
-        DisplayName.SetValidateNotifyError(NotNullOrWhitespace);
-        Description.SetValidateNotifyError(NotNullOrWhitespace);
-        ShortDescription.SetValidateNotifyError(NotNullOrWhitespace);
-        InheritDisplayName.Where(b => b).Subscribe(_ => DisplayName.Value = null);
-        InheritDescription.Where(b => b).Subscribe(_ => Description.Value = null);
-        InheritShortDescription.Where(b => b).Subscribe(_ => ShortDescription.Value = null);
-
         IsValid = CultureInput.ObserveHasErrors
             .CombineLatest(
                 DisplayName.ObserveHasErrors,
@@ -72,12 +65,6 @@ public sealed class AddResourceDialogViewModel
     public ReactiveProperty<string?> ShortDescription { get; } = new("");
 
     public ReadOnlyReactivePropertySlim<bool> IsValid { get; }
-
-    public ReactiveProperty<bool> InheritDisplayName { get; } = new();
-
-    public ReactiveProperty<bool> InheritDescription { get; } = new();
-
-    public ReactiveProperty<bool> InheritShortDescription { get; } = new();
 
     public ReactivePropertySlim<string?> Error { get; } = new();
 
@@ -102,18 +89,6 @@ public sealed class AddResourceDialogViewModel
         {
             Error.Value = e.Result.Message;
             return null;
-        }
-    }
-
-    private static string NotNullOrWhitespace(string? str)
-    {
-        if (str == null || !string.IsNullOrWhiteSpace(str))
-        {
-            return null!;
-        }
-        else
-        {
-            return S.Message.PleaseEnterString;
         }
     }
 }

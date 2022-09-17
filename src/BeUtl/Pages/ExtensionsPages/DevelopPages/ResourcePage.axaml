@@ -10,7 +10,15 @@
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="viewModels:ResourcePageViewModel"
+             Focusable="True"
+             IsEnabled="{CompiledBinding !IsBusy.Value}"
              mc:Ignorable="d">
+
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="Ctrl+R" />
+    </UserControl.KeyBindings>
+
     <UserControl.Styles>
         <Style Selector="TextBox.customStyle">
             <Setter Property="MinWidth" Value="250" />
@@ -54,6 +62,12 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
+
+                <TextBlock Margin="0,8,0,0"
+                           Classes="BodyStrongTextBlockStyle"
+                           FontStyle="Italic"
+                           Text="{DynamicResource S.DevelopPage.Resource.Fields.IfBlankIsSpecified}" />
+
                 <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.Fields.DisplayNameDescription}"
                                           Expands="True"
                                           Header="{DynamicResource S.DevelopPage.Package.Fields.DisplayName}">
@@ -68,13 +82,7 @@
                         </Panel>
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
-                        <StackPanel Spacing="16">
-                            <CheckBox Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" IsChecked="{CompiledBinding InheritDisplayName.Value}" />
-
-                            <TextBox Classes="customStyle"
-                                     IsEnabled="{CompiledBinding !InheritDisplayName.Value}"
-                                     Text="{CompiledBinding DisplayName.Value}" />
-                        </StackPanel>
+                        <TextBox Classes="customStyle clear" Text="{CompiledBinding DisplayName.Value}" />
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
@@ -97,14 +105,9 @@
                         </Panel>
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
-                        <StackPanel Spacing="16">
-                            <CheckBox Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" IsChecked="{CompiledBinding InheritDescription.Value}" />
-
-                            <TextBox AcceptsReturn="True"
-                                     Classes="customStyle"
-                                     IsEnabled="{CompiledBinding !InheritDescription.Value}"
-                                     Text="{CompiledBinding Description.Value}" />
-                        </StackPanel>
+                        <TextBox AcceptsReturn="True"
+                                 Classes="customStyle clear"
+                                 Text="{CompiledBinding Description.Value}" />
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
@@ -127,13 +130,7 @@
                         </Panel>
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
-                        <StackPanel Spacing="16">
-                            <CheckBox Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" IsChecked="{CompiledBinding InheritShortDescription.Value}" />
-
-                            <TextBox Classes="customStyle"
-                                     IsEnabled="{CompiledBinding !InheritShortDescription.Value}"
-                                     Text="{CompiledBinding ShortDescription.Value}" />
-                        </StackPanel>
+                        <TextBox Classes="customStyle clear" Text="{CompiledBinding ShortDescription.Value}" />
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 

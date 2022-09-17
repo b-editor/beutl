@@ -15,17 +15,8 @@
                   IsPrimaryButtonEnabled="{CompiledBinding IsValid.Value}"
                   PrimaryButtonText="{DynamicResource S.Common.Create}"
                   mc:Ignorable="d">
-    <ui:ContentDialog.Styles>
-        <Style Selector="ui|ContentDialog /template/ Border#BackgroundElement">
-            <Setter Property="Width" Value="{DynamicResource ContentDialogMaxWidth}" />
-        </Style>
-    </ui:ContentDialog.Styles>
     <StackPanel Spacing="4">
         <StackPanel.Styles>
-            <Style Selector="TextBox.customStyle">
-                <Setter Property="MinWidth" Value="250" />
-                <Setter Property="HorizontalAlignment" Value="Left" />
-            </Style>
             <Style Selector="TextBlock.description">
                 <Setter Property="VerticalAlignment" Value="Center" />
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
