@@ -101,8 +101,8 @@ public sealed class App : Application
     public override void RegisterServices()
     {
         base.RegisterServices();
-        AvaloniaLocator.CurrentMutable
-                .Bind<IFontManagerImpl>().ToConstant(new CustomFontManagerImpl());
+        //AvaloniaLocator.CurrentMutable
+        //        .Bind<IFontManagerImpl>().ToConstant(new CustomFontManagerImpl());
 
         ServiceLocator.Current
             .BindToSelfSingleton<EditorService>()

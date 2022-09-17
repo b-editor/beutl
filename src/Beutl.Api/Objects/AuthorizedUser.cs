@@ -32,6 +32,11 @@ public class AuthorizedUser
         {
             _response = await _clients.Account.RefreshAsync(new RefeshTokenRequest(RefreshToken, Token));
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
+
+            if (_clients.AuthorizedUser.Value == this)
+            {
+                _clients.SaveUser();
+            }
         }
     }
 }

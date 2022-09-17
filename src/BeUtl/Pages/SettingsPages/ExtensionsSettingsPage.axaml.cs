@@ -1,5 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 
@@ -25,12 +24,12 @@ public sealed partial class ExtensionsSettingsPage : UserControl
                 DataContext = viewModel,
                 Title = S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Title,
                 PrimaryButtonText = S.Common.Add,
-                [ContentDialog.IsPrimaryButtonEnabledProperty] = new Binding("CanAddFileExtension.Value"),
+                [!ContentDialog.IsPrimaryButtonEnabledProperty] = new Binding("CanAddFileExtension.Value"),
                 PrimaryButtonCommand = viewModel.AddFileExtension,
                 CloseButtonText = S.Common.Cancel,
                 Content = new TextBox
                 {
-                    [TextBox.TextProperty] = new Binding("FileExtensionInput.Value", BindingMode.TwoWay)
+                    [!TextBox.TextProperty] = new Binding("FileExtensionInput.Value", BindingMode.TwoWay)
                 }
             };
             await dialog.ShowAsync();

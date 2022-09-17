@@ -1,9 +1,13 @@
-﻿using Avalonia;
+﻿using System.Reactive.Disposables;
+
+using Avalonia;
 
 using Beutl.Api;
 using Beutl.Api.Objects;
 
 using BeUtl.Framework.Service;
+
+using FluentAvalonia.Styling;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,56 +20,105 @@ public sealed class AccountSettingsPageViewModel : IDisposable
     private readonly CompositeDisposable _disposables = new();
     private readonly INotificationService _notification = ServiceLocator.Current.GetRequiredService<INotificationService>();
     private readonly BeutlClients _clients;
-    private ReactivePropertySlim<CancellationTokenSource?> cts = new();
+    private readonly ReactivePropertySlim<CancellationTokenSource?> _cts = new();
 
     public AccountSettingsPageViewModel(BeutlClients clients)
     {
         _clients = clients;
-        SignIn = new(cts.Select(x => x == null));
-        SignIn.Subscribe(async () =>
-        {
-            try
-            {
-                SigningIn.Value = true;
-                cts.Value = new CancellationTokenSource();
-                AuthorizedUser? user = await _clients.SignInAsync(cts.Value.Token);
-            }
-            catch (BeutlApiException<ApiErrorResponse> apiError)
-            {
-                _notification.Show(new("APIエラーが発生しました", apiError.Result.Message, NotificationType.Error));
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            catch (Exception ex)
-            {
-                _notification.Show(new("予期しないエラーが発生しました", ex.Message, NotificationType.Error));
-            }
-            finally
-            {
-                SigningIn.Value = false;
-                cts.Value = null;
-            }
-        });
 
-        Cancel = new(cts.Select(x => x != null));
-        Cancel.Subscribe(() => cts.Value!.Cancel());
+        SigningIn = _cts.Select(x => x != null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        SignIn = new(SigningIn.Select(x => !x));
+        SignInWithGoogle = new(SigningIn.Select(x => !x));
+        SignInWithGitHub = new(SigningIn.Select(x => !x));
+
+        SignIn.Subscribe(async () => await SignInCore(null))
+            .DisposeWith(_disposables);
+        SignInWithGoogle.Subscribe(async () => await SignInCore("Google"))
+            .DisposeWith(_disposables);
+        SignInWithGitHub.Subscribe(async () => await SignInCore("GitHub"))
+            .DisposeWith(_disposables);
+
+        Cancel = new(SigningIn);
+        Cancel.Subscribe(() => _cts.Value!.Cancel());
 
         SignedIn = clients.AuthorizedUser.Select(x => x != null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
+
+        Name = _clients.AuthorizedUser
+            .SelectMany(x => x?.Profile?.Name ?? Observable.Return<string?>(null))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        DisplayName = _clients.AuthorizedUser
+            .SelectMany(x => x?.Profile?.DisplayName ?? Observable.Return<string?>(null))
+            .Zip(Name, (x, y) => string.IsNullOrEmpty(x) ? y : x)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        SignOut = new ReactiveCommand(SignedIn);
+        SignOut.Subscribe(() => _clients.SignOut()).DisposeWith(_disposables);
+
+        OpenAccountSettings = new();
+        OpenAccountSettings.Subscribe(() => _clients.OpenAccountSettings());
     }
 
     public AsyncReactiveCommand SignIn { get; }
 
+    public AsyncReactiveCommand SignInWithGoogle { get; }
+
+    public AsyncReactiveCommand SignInWithGitHub { get; }
+
     public ReactiveCommand Cancel { get; }
 
-    public ReactivePropertySlim<bool> SigningIn { get; } = new();
+    public ReadOnlyReactivePropertySlim<bool> SigningIn { get; }
+
+    public ReactivePropertySlim<string> Error { get; } = new();
 
     public ReadOnlyReactivePropertySlim<bool> SignedIn { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> Name { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> DisplayName { get; }
+
+    public ReactiveCommand SignOut { get; }
+    
+    public ReactiveCommand OpenAccountSettings { get; }
 
     public void Dispose()
     {
         _disposables.Dispose();
+    }
+
+    private async Task SignInCore(string? provider = null)
+    {
+        try
+        {
+            _cts.Value = new CancellationTokenSource();
+            AuthorizedUser? user = provider switch
+            {
+                "Google" => await _clients.SignInWithGoogleAsync(_cts.Value.Token),
+                "GitHub" => await _clients.SignInWithGitHubAsync(_cts.Value.Token),
+                _ => await _clients.SignInAsync(_cts.Value.Token),
+            };
+        }
+        catch (BeutlApiException<ApiErrorResponse>)
+        {
+            Error.Value = "APIエラーが発生しました";
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+            Error.Value = "予期しないエラーが発生しました";
+        }
+        finally
+        {
+            _cts.Value = null;
+        }
     }
 }

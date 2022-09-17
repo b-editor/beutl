@@ -4,6 +4,7 @@ using Avalonia.Collections;
 using Avalonia.Threading;
 
 using Beutl.Api;
+using Beutl.Api.Objects;
 
 using BeUtl.Configuration;
 using BeUtl.Framework;
@@ -18,6 +19,8 @@ using DynamicData;
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
+
+using Package = BeUtl.Framework.Package;
 
 namespace BeUtl.ViewModels;
 
@@ -62,6 +65,18 @@ public sealed class MainViewModel
     {
         _authorizedHttpClient = new HttpClient();
         _beutlClients = new BeutlClients(_authorizedHttpClient);
+        Task.Run(async () =>
+        {
+            try
+            {
+                await _beutlClients.RestoreUserAsync();
+            }
+            catch (Exception e)
+            {
+
+            }
+        });
+
         _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
         _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
         _notificationService = ServiceLocator.Current.GetRequiredService<INotificationService>();

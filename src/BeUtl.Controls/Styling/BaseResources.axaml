@@ -1,6 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:sty="using:FluentAvalonia.Styling"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sty="using:FluentAvalonia.Styling">
 
     <Styles.Resources>
         <x:Double x:Key="LayerHeight">25</x:Double>
@@ -8,7 +8,7 @@
     </Styles.Resources>
 
     <!--<FluentTheme Mode="Dark" />-->
-    <sty:FluentAvaloniaTheme />
+    <sty:FluentAvaloniaTheme UseSystemFontOnWindows="False" />
 
     <Style Selector="PopupRoot">
         <Setter Property="TransparencyLevelHint" Value="AcrylicBlur" />
@@ -17,8 +17,7 @@
     </Style>
     <Style Selector="MenuFlyoutPresenter /template/ Border#LayoutRoot">
         <Setter Property="Background">
-            <SolidColorBrush Color="{DynamicResource SolidBackgroundFillColorBase}"
-                             Opacity="0.725"/>
+            <SolidColorBrush Opacity="0.725" Color="{DynamicResource SolidBackgroundFillColorBase}" />
         </Setter>
     </Style>
 

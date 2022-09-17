@@ -14,7 +14,10 @@ internal static class Program
 
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
+    {
+        GC.KeepAlive(typeof(Avalonia.Svg.Skia.SvgImageExtension).Assembly);
+        GC.KeepAlive(typeof(Avalonia.Svg.Skia.Svg).Assembly);
+        return AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .UseReactiveUI()
             .With(new Win32PlatformOptions()
@@ -24,4 +27,5 @@ internal static class Program
                 CompositionBackdropCornerRadius = 8f
             })
             .LogToTrace();
+    }
 }

@@ -28,9 +28,11 @@
         <x:String x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.All">全てのエディター拡張</x:String>
         <x:String x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Title">ファイル拡張子を追加</x:String>
 
+        <x:String x:Key="S.AccountSettingsPage.SignInOnBrowser">ブラウザでサインイン</x:String>
         <x:String x:Key="S.AccountSettingsPage.SignIn">サインイン</x:String>
         <x:String x:Key="S.AccountSettingsPage.SignOut">サインアウト</x:String>
-        <x:String x:Key="S.AccountSettingsPage.ChangeDisplayName">表示名を変更</x:String>
+        <x:String x:Key="S.AccountSettingsPage.ChangeAccountSettings">アカウントの設定を変更する</x:String>
+        <!--<x:String x:Key="S.AccountSettingsPage.ChangeDisplayName">表示名を変更</x:String>
         <x:String x:Key="S.AccountSettingsPage.Change">変更</x:String>
         <x:String x:Key="S.AccountSettingsPage.DeleteAccount">アカウントを削除</x:String>
         <x:String x:Key="S.AccountSettingsPage.ChangePassword">パスワードを変更</x:String>
@@ -49,7 +51,7 @@
             この操作を実行するとGoogleアカウントを利用してサインインすることができなくなります。
             連携を解除しますか？
         </x:String>
-        <x:String x:Key="S.AccountSettingsPage.LinkWithGoogle">Googleとリンクする</x:String>
+        <x:String x:Key="S.AccountSettingsPage.LinkWithGoogle">Googleとリンクする</x:String>-->
 
         <x:String x:Key="S.BackupSettingsPage.BackupSettings">設定をバックアップする</x:String>
     </Styles.Resources>

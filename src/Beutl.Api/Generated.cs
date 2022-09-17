@@ -4240,12 +4240,12 @@ namespace Beutl.Api
                         else
                         if (status_ == 401)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<FileResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<ApiErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new BeutlApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new BeutlApiException<FileResponse>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new BeutlApiException<ApiErrorResponse>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         {
@@ -4620,17 +4620,19 @@ namespace Beutl.Api
 
         InvalidReleaseVersion = 8,
 
-        PackageResourceNotFound = 9,
+        InvalidRefreshToken = 9,
 
-        PackageResouceHasAlreadyBeenAdded = 10,
+        PackageResourceNotFound = 10,
 
-        ReleaseNotFound = 11,
+        PackageResouceHasAlreadyBeenAdded = 11,
 
-        ReleaseNotFoundById = 12,
+        ReleaseNotFound = 12,
 
-        ReleaseResourceNotFound = 13,
+        ReleaseNotFoundById = 13,
 
-        ReleaseResourceHasAlreadyBeenAdded = 14,
+        ReleaseResourceNotFound = 14,
+
+        ReleaseResourceHasAlreadyBeenAdded = 15,
 
     }
 

@@ -2,29 +2,30 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="using:BeUtl.Controls"
         xmlns:ui="using:FluentAvalonia.UI.Controls">
-    <!--https://github.com/amwx/FluentAvalonia/blob/master/FluentAvaloniaSamples/Styles/OptionsDisplayItemStyles.axaml-->
+    <!--  https://github.com/amwx/FluentAvalonia/blob/master/FluentAvaloniaSamples/Styles/OptionsDisplayItemStyles.axaml  -->
     <Design.PreviewWith>
-        <Border Padding="20" MinHeight="300">
+        <Border MinHeight="300" Padding="20">
             <StackPanel>
-                <local:OptionsDisplayItem Header="Header"
-                                          Description="This is a description of whatver this does"
+                <local:OptionsDisplayItem Description="This is a description of whatver this does"
+                                          Header="Header"
                                           Icon="Save"
-                                          Navigates="True"/>
-                <local:OptionsDisplayItem Header="Header"
-                                          Description="This is a description of whatver this does"
-                                          Icon="Save"/>
+                                          Navigates="True" />
+                <local:OptionsDisplayItem Description="This is a description of whatver this does"
+                                          Header="Header"
+                                          Icon="Save" />
 
-                <local:OptionsDisplayItem Header="Header"
+                <local:OptionsDisplayItem Content="Hello World"
                                           Description="This is a description of whatver this does"
-                                          Icon="Save"
                                           Expands="True"
-                                          Content="Hello World"/>
+                                          Header="Header"
+                                          Icon="Save" />
 
-                <local:OptionsDisplayItem Header="Header" Classes="Vertical"
+                <local:OptionsDisplayItem Classes="Vertical"
+                                          Content="Hello World"
                                           Description="This is a description of whatver this does"
-                                          Icon="Save"
                                           Expands="True"
-                                          Content="Hello World" />
+                                          Header="Header"
+                                          Icon="Save" />
             </StackPanel>
         </Border>
     </Design.PreviewWith>
@@ -44,64 +45,66 @@
             <ControlTemplate>
                 <StackPanel>
                     <Border Name="LayoutRoot"
-                        Background="{TemplateBinding Background}"
-                        BorderBrush="{TemplateBinding BorderBrush}"
-                        BorderThickness="{TemplateBinding BorderThickness}"
-                        Padding="12"
-                        CornerRadius="{TemplateBinding CornerRadius}">
+                            Padding="12"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
                         <Grid ColumnDefinitions="Auto,*,Auto,Auto">
                             <Viewbox Name="IconHost"
-                                     Width="24" Height="24"
                                      Grid.RowSpan="2"
-                                     Margin="8 4 12 4">
+                                     Width="24"
+                                     Height="24"
+                                     Margin="8,4,12,4">
                                 <ContentPresenter Content="{TemplateBinding Icon}" />
                             </Viewbox>
 
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
 
-                                <TextBlock Text="{TemplateBinding Header}"
+                                <TextBlock HorizontalAlignment="Left"
                                            Classes="BaseTextBlockStyle"
                                            FontWeight="Normal"
-                                           HorizontalAlignment="Left"
-                                           TextTrimming="CharacterEllipsis"/>
+                                           Text="{TemplateBinding Header}"
+                                           TextTrimming="CharacterEllipsis" />
 
-                                <TextBlock Text="{TemplateBinding Description}"
-                                           Classes="CaptionTextBlockStyle"
+                                <TextBlock Classes="CaptionTextBlockStyle"
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                           Text="{TemplateBinding Description}"
                                            TextWrapping="Wrap" />
                             </StackPanel>
 
-                            <ContentPresenter Content="{TemplateBinding ActionButton}"
-                                              Grid.Column="2"
-                                              VerticalAlignment="Stretch"
+                            <ContentPresenter Grid.Column="2"
+                                              Margin="8,4"
                                               HorizontalAlignment="Right"
-                                              Margin="8 4" />
+                                              VerticalAlignment="Stretch"
+                                              Content="{TemplateBinding ActionButton}" />
 
-                            <Border CornerRadius="{DynamicResource ControlCornerRadius}"
+                            <Border Name="ChevronBorder"
+                                    Grid.Column="3"
                                     Margin="4,0"
                                     VerticalAlignment="Center"
-                                    Name="ChevronBorder"
-                                    Grid.Column="3">
+                                    CornerRadius="{DynamicResource ControlCornerRadius}">
 
                                 <ui:SymbolIcon Name="Chevron"
                                                Margin="4,4"
-                                               FontSize="20"/>
+                                               FontSize="20" />
                             </Border>
                         </Grid>
                     </Border>
 
                     <ContentPresenter Name="ExpandedContentPresenter"
-                                      Content="{TemplateBinding Content}"
-                                      VerticalContentAlignment="Stretch"
-                                      HorizontalContentAlignment="Stretch"
-                                      VerticalAlignment="Stretch"
-                                      HorizontalAlignment="Stretch"
                                       Grid.Row="2"
+                                      Grid.ColumnSpan="4"
+                                      Padding="12"
+                                      HorizontalAlignment="Stretch"
+                                      VerticalAlignment="Stretch"
+                                      HorizontalContentAlignment="Stretch"
+                                      VerticalContentAlignment="Stretch"
                                       Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                                       BorderBrush="{TemplateBinding BorderBrush}"
-                                      BorderThickness="1 0 1 1"
-                                      Grid.ColumnSpan="4"
-                                      Padding="12"/>
+                                      BorderThickness="1,0,1,1"
+                                      Content="{TemplateBinding Content}" />
                 </StackPanel>
 
             </ControlTemplate>
@@ -120,7 +123,7 @@
     <Style Selector="local|OptionsDisplayItem /template/ Border#LayoutRoot">
         <Setter Property="Transitions">
             <Transitions>
-                <BrushTransition Duration="00:00:00.083" Property="Background" />
+                <BrushTransition Property="Background" Duration="00:00:00.083" />
             </Transitions>
         </Setter>
     </Style>
@@ -162,7 +165,7 @@
         <Setter Property="RenderTransform" Value="rotate(0deg)" />
         <Setter Property="Transitions">
             <Transitions>
-                <TransformOperationsTransition Duration="00:00:00.167" Property="RenderTransform" />
+                <TransformOperationsTransition Property="RenderTransform" Duration="00:00:00.167" />
             </Transitions>
         </Setter>
     </Style>
@@ -182,43 +185,44 @@
     </Style>
 
 
-    <!-- Vertical Style -->
+    <!--  Vertical Style  -->
     <Style Selector="local|OptionsDisplayItem.Vertical">
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Name="LayoutRoot"
+                        Padding="12"
                         Background="{TemplateBinding Background}"
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
-                        Padding="12"
                         CornerRadius="{TemplateBinding CornerRadius}">
                     <Grid RowDefinitions="*,*">
-                        <Border Width="72" Height="72"
+                        <Border Width="72"
+                                Height="72"
                                 Margin="18"
-                                CornerRadius="{StaticResource OverlayCornerRadius}"
+                                Background="Transparent"
                                 ClipToBounds="True"
-                                Background="Transparent">
+                                CornerRadius="{StaticResource OverlayCornerRadius}">
                             <Viewbox Name="IconHost">
                                 <ContentPresenter Content="{TemplateBinding Icon}" />
                             </Viewbox>
                         </Border>
 
                         <StackPanel Grid.Row="1">
-                            <TextBlock Text="{TemplateBinding Header}"
-                                  Classes="BaseTextBlockStyle"
-                                  VerticalAlignment="Bottom"
-                                  HorizontalAlignment="Left"
-                                  TextTrimming="CharacterEllipsis"
-                                  Grid.Row="1"
-                                  Margin="0 5"/>
+                            <TextBlock Grid.Row="1"
+                                       Margin="0,5"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Bottom"
+                                       Classes="BaseTextBlockStyle"
+                                       Text="{TemplateBinding Header}"
+                                       TextTrimming="CharacterEllipsis" />
 
-                            <TextBlock Text="{TemplateBinding Description}"
+                            <TextBlock Grid.Row="2"
+                                       Margin="0,5"
+                                       VerticalAlignment="Top"
                                        Classes="CaptionTextBlockStyle"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                       VerticalAlignment="Top"
-                                       TextWrapping="Wrap"
-                                       Grid.Row="2"
-                                       Margin="0 5"/>
+                                       Text="{TemplateBinding Description}"
+                                       TextWrapping="Wrap" />
                         </StackPanel>
                     </Grid>
                 </Border>
