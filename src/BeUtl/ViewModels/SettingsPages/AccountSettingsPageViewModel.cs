@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 
 using Beutl.Api;
 using Beutl.Api.Objects;
@@ -14,7 +14,6 @@ namespace BeUtl.ViewModels.SettingsPages;
 public sealed class AccountSettingsPageViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
-    private readonly INotificationService _notification = ServiceLocator.Current.GetRequiredService<INotificationService>();
     private readonly BeutlClients _clients;
     private readonly ReactivePropertySlim<CancellationTokenSource?> _cts = new();
 
@@ -102,7 +101,7 @@ public sealed class AccountSettingsPageViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<string?> DisplayName { get; }
 
     public ReactiveCommand SignOut { get; }
-    
+
     public ReactiveCommand OpenAccountSettings { get; }
 
     public ReactivePropertySlim<bool> IsLoading { get; } = new();
@@ -128,14 +127,15 @@ public sealed class AccountSettingsPageViewModel : IDisposable
         }
         catch (BeutlApiException<ApiErrorResponse>)
         {
-            Error.Value = "APIエラーが発生しました";
+            // Todo: エラー説明
+            Error.Value = S.Warning.APIErrorOccurred;
         }
         catch (OperationCanceledException)
         {
         }
         catch (Exception)
         {
-            Error.Value = "予期しないエラーが発生しました";
+            Error.Value = S.Warning.AnUnexpectedErrorHasOccurred;
         }
         finally
         {

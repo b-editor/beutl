@@ -511,6 +511,9 @@ public static class Resources {
             public static string AddToCurrentProject => "S.Common.AddToCurrentProject".GetStringResource("Add to current project");
             private static IObservable<string>? _AddToCurrentProjectObservable;
             public static IObservable<string> AddToCurrentProjectObservable => _AddToCurrentProjectObservable ??= "S.Common.AddToCurrentProject".GetStringObservable(global::BeUtl.Language.Resources.S.Common.AddToCurrentProject);
+            public static string Unimplemented => "S.Common.Unimplemented".GetStringResource("Unimplemented");
+            private static IObservable<string>? _UnimplementedObservable;
+            public static IObservable<string> UnimplementedObservable => _UnimplementedObservable ??= "S.Common.Unimplemented".GetStringObservable(global::BeUtl.Language.Resources.S.Common.Unimplemented);
         }
         public static class Message {
             public static string ItemsSaved => "S.Message.ItemsSaved".GetStringResource("{0} items saved!");
@@ -668,6 +671,12 @@ public static class Resources {
             public static string NameCannotBeLeftBlank => "S.Warning.NameCannotBeLeftBlank".GetStringResource("Name cannot be left blank.");
             private static IObservable<string>? _NameCannotBeLeftBlankObservable;
             public static IObservable<string> NameCannotBeLeftBlankObservable => _NameCannotBeLeftBlankObservable ??= "S.Warning.NameCannotBeLeftBlank".GetStringObservable(global::BeUtl.Language.Resources.S.Warning.NameCannotBeLeftBlank);
+            public static string APIErrorOccurred => "S.Warning.APIErrorOccurred".GetStringResource("API error occurred");
+            private static IObservable<string>? _APIErrorOccurredObservable;
+            public static IObservable<string> APIErrorOccurredObservable => _APIErrorOccurredObservable ??= "S.Warning.APIErrorOccurred".GetStringObservable(global::BeUtl.Language.Resources.S.Warning.APIErrorOccurred);
+            public static string AnUnexpectedErrorHasOccurred => "S.Warning.AnUnexpectedErrorHasOccurred".GetStringResource("An unexpected error has occurred");
+            private static IObservable<string>? _AnUnexpectedErrorHasOccurredObservable;
+            public static IObservable<string> AnUnexpectedErrorHasOccurredObservable => _AnUnexpectedErrorHasOccurredObservable ??= "S.Warning.AnUnexpectedErrorHasOccurred".GetStringObservable(global::BeUtl.Language.Resources.S.Warning.AnUnexpectedErrorHasOccurred);
         }
         public static class DevelopPage {
             public static string Shortcuts => "S.DevelopPage.Shortcuts".GetStringResource("Shortcuts");
@@ -938,50 +947,21 @@ public static class Resources {
             }
         }
         public static class AccountSettingsPage {
+            public static string SignInViaBrowser => "S.AccountSettingsPage.SignInViaBrowser".GetStringResource("Sign in via browser");
+            private static IObservable<string>? _SignInViaBrowserObservable;
+            public static IObservable<string> SignInViaBrowserObservable => _SignInViaBrowserObservable ??= "S.AccountSettingsPage.SignInViaBrowser".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.SignInViaBrowser);
+            public static string SignIn => "S.AccountSettingsPage.SignIn".GetStringResource("Sign in");
+            private static IObservable<string>? _SignInObservable;
+            public static IObservable<string> SignInObservable => _SignInObservable ??= "S.AccountSettingsPage.SignIn".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.SignIn);
+            public static string SignInWith => "S.AccountSettingsPage.SignInWith".GetStringResource("Sign in with your social accounts");
+            private static IObservable<string>? _SignInWithObservable;
+            public static IObservable<string> SignInWithObservable => _SignInWithObservable ??= "S.AccountSettingsPage.SignInWith".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.SignInWith);
             public static string SignOut => "S.AccountSettingsPage.SignOut".GetStringResource("Sign out");
             private static IObservable<string>? _SignOutObservable;
             public static IObservable<string> SignOutObservable => _SignOutObservable ??= "S.AccountSettingsPage.SignOut".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.SignOut);
-            public static string ChangeDisplayName => "S.AccountSettingsPage.ChangeDisplayName".GetStringResource("Change display name");
-            private static IObservable<string>? _ChangeDisplayNameObservable;
-            public static IObservable<string> ChangeDisplayNameObservable => _ChangeDisplayNameObservable ??= "S.AccountSettingsPage.ChangeDisplayName".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.ChangeDisplayName);
-            public static string Change => "S.AccountSettingsPage.Change".GetStringResource("Change");
-            private static IObservable<string>? _ChangeObservable;
-            public static IObservable<string> ChangeObservable => _ChangeObservable ??= "S.AccountSettingsPage.Change".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.Change);
-            public static string DeleteAccount => "S.AccountSettingsPage.DeleteAccount".GetStringResource("Delete account");
-            private static IObservable<string>? _DeleteAccountObservable;
-            public static IObservable<string> DeleteAccountObservable => _DeleteAccountObservable ??= "S.AccountSettingsPage.DeleteAccount".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.DeleteAccount);
-            public static string ChangePassword => "S.AccountSettingsPage.ChangePassword".GetStringResource("Change password");
-            private static IObservable<string>? _ChangePasswordObservable;
-            public static IObservable<string> ChangePasswordObservable => _ChangePasswordObservable ??= "S.AccountSettingsPage.ChangePassword".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.ChangePassword);
-            public static string NewPassword => "S.AccountSettingsPage.NewPassword".GetStringResource("New password");
-            private static IObservable<string>? _NewPasswordObservable;
-            public static IObservable<string> NewPasswordObservable => _NewPasswordObservable ??= "S.AccountSettingsPage.NewPassword".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.NewPassword);
-            public static string YourEmailAddressHasBeenVerified => "S.AccountSettingsPage.YourEmailAddressHasBeenVerified".GetStringResource("Your email address has been verified.");
-            private static IObservable<string>? _YourEmailAddressHasBeenVerifiedObservable;
-            public static IObservable<string> YourEmailAddressHasBeenVerifiedObservable => _YourEmailAddressHasBeenVerifiedObservable ??= "S.AccountSettingsPage.YourEmailAddressHasBeenVerified".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.YourEmailAddressHasBeenVerified);
-            public static string WithGoogle => "S.AccountSettingsPage.WithGoogle".GetStringResource("With Google.");
-            private static IObservable<string>? _WithGoogleObservable;
-            public static IObservable<string> WithGoogleObservable => _WithGoogleObservable ??= "S.AccountSettingsPage.WithGoogle".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.WithGoogle);
-            public static string WithPassword => "S.AccountSettingsPage.WithPassword".GetStringResource("With Password.");
-            private static IObservable<string>? _WithPasswordObservable;
-            public static IObservable<string> WithPasswordObservable => _WithPasswordObservable ??= "S.AccountSettingsPage.WithPassword".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.WithPassword);
-            public static string UnlinkFromGoogle => "S.AccountSettingsPage.UnlinkFromGoogle".GetStringResource("Unlink from Google");
-            private static IObservable<string>? _UnlinkFromGoogleObservable;
-            public static IObservable<string> UnlinkFromGoogleObservable => _UnlinkFromGoogleObservable ??= "S.AccountSettingsPage.UnlinkFromGoogle".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.UnlinkFromGoogle);
-            public static string UnlinkFromGoogleBody => "S.AccountSettingsPage.UnlinkFromGoogleBody".GetStringResource("Unlink from Google.\nIf you perform this operation, you will not be able to sign in using your Google account.\nDo you want to remove the linkage?\n");
-            private static IObservable<string>? _UnlinkFromGoogleBodyObservable;
-            public static IObservable<string> UnlinkFromGoogleBodyObservable => _UnlinkFromGoogleBodyObservable ??= "S.AccountSettingsPage.UnlinkFromGoogleBody".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.UnlinkFromGoogleBody);
-            public static string LinkWithGoogle => "S.AccountSettingsPage.LinkWithGoogle".GetStringResource("Link with Google");
-            private static IObservable<string>? _LinkWithGoogleObservable;
-            public static IObservable<string> LinkWithGoogleObservable => _LinkWithGoogleObservable ??= "S.AccountSettingsPage.LinkWithGoogle".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.LinkWithGoogle);
-            public static class Dialog1 {
-                public static string Title => "S.AccountSettingsPage.Dialog1.Title".GetStringResource("Do you want to delete your account?");
-                private static IObservable<string>? _TitleObservable;
-                public static IObservable<string> TitleObservable => _TitleObservable ??= "S.AccountSettingsPage.Dialog1.Title".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.Dialog1.Title);
-                public static string Content => "S.AccountSettingsPage.Dialog1.Content".GetStringResource("Delete the '{0}' account.\nThis operation cannot be undone.\n");
-                private static IObservable<string>? _ContentObservable;
-                public static IObservable<string> ContentObservable => _ContentObservable ??= "S.AccountSettingsPage.Dialog1.Content".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.Dialog1.Content);
-            }
+            public static string ChangeAccountSettings => "S.AccountSettingsPage.ChangeAccountSettings".GetStringResource("Change account settings");
+            private static IObservable<string>? _ChangeAccountSettingsObservable;
+            public static IObservable<string> ChangeAccountSettingsObservable => _ChangeAccountSettingsObservable ??= "S.AccountSettingsPage.ChangeAccountSettings".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.ChangeAccountSettings);
         }
         public static class BackupSettingsPage {
             public static string BackupSettings => "S.BackupSettingsPage.BackupSettings".GetStringResource("Back up settings");

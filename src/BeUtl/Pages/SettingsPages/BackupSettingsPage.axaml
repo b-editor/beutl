@@ -1,28 +1,30 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="BeUtl.Pages.SettingsPages.BackupSettingsPage"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrls="using:BeUtl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             xmlns:ctrls="using:BeUtl.Controls"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:BeUtl.ViewModels.SettingsPages"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
              x:DataType="vm:BackupSettingsPageViewModel"
-             x:Class="BeUtl.Pages.SettingsPages.BackupSettingsPage">
+             mc:Ignorable="d">
     <UserControl.DataContext>
         <vm:BackupSettingsPageViewModel />
     </UserControl.DataContext>
     <ScrollViewer Padding="18">
-        <StackPanel Orientation="Vertical"
+        <StackPanel Margin="10,0"
                     VerticalAlignment="Stretch"
-                    Margin="10,0"
+                    Orientation="Vertical"
                     Spacing="4">
-            <ctrls:OptionsDisplayItem Header="{DynamicResource S.BackupSettingsPage.BackupSettings}">
+            <ctrls:OptionsDisplayItem Description="{DynamicResource S.Common.Unimplemented}" Header="{DynamicResource S.BackupSettingsPage.BackupSettings}">
                 <ctrls:OptionsDisplayItem.Icon>
                     <ui:SymbolIcon Symbol="CloudBackup" />
                 </ctrls:OptionsDisplayItem.Icon>
 
                 <ctrls:OptionsDisplayItem.ActionButton>
-                    <ToggleSwitch IsChecked="{CompiledBinding BackupSettings.Value}" Margin="0,-4,-72,-4" />
+                    <ToggleSwitch Margin="0,-4,-72,-4" IsChecked="{CompiledBinding BackupSettings.Value}" />
                 </ctrls:OptionsDisplayItem.ActionButton>
             </ctrls:OptionsDisplayItem>
         </StackPanel>

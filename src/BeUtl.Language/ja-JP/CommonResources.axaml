@@ -1,9 +1,8 @@
-<Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
         <FontFamily x:Key="ContentControlThemeFontFamily">Yu Gothic UI, Hiragino Sans, Noto Sans JP</FontFamily>
 
-        <!--KeyGestures-->
+        <!--  KeyGestures  -->
         <KeyGesture x:Key="CreateNewProjectKeyGesture">Ctrl+Shift+N</KeyGesture>
         <KeyGesture x:Key="CreateNewKeyGesture">Ctrl+N</KeyGesture>
         <KeyGesture x:Key="OpenProjectKeyGesture">Ctrl+Shift+O</KeyGesture>
@@ -24,7 +23,7 @@
         <KeyGesture x:Key="EndKeyGesture">End</KeyGesture>
         <KeyGesture x:Key="LayerDeleteKeyGesture">Ctrl+Delete</KeyGesture>
 
-        <!--Strings-->
+        <!--  Strings  -->
         <x:String x:Key="S.Common.File">ファイル</x:String>
         <x:String x:Key="S.Common.Create">作成</x:String>
         <x:String x:Key="S.Common.CreateNew">新規作成</x:String>
@@ -194,24 +193,25 @@
         <x:String x:Key="S.Common.Editors">エディタ</x:String>
         <x:String x:Key="S.Common.Tools">ツール</x:String>
         <x:String x:Key="S.Common.AddToCurrentProject">現在のプロジェクトに追加する</x:String>
+        <x:String x:Key="S.Common.Unimplemented">未実装</x:String>
     </Styles.Resources>
 
-    <!--Views-->
+    <!--  Views  -->
     <StyleInclude Source="/ja-JP/Views/MainViewResources.axaml" />
 
-    <!--Views.Editors-->
+    <!--  Views.Editors  -->
     <StyleInclude Source="/ja-JP/Views/EditorsResources.axaml" />
 
-    <!--Pages-->
+    <!--  Pages  -->
     <StyleInclude Source="/ja-JP/Pages/ExtensionsPageResources.axaml" />
     <StyleInclude Source="/ja-JP/Pages/SettingsPageResources.axaml" />
 
-    <!--Messages-->
+    <!--  Messages  -->
     <StyleInclude Source="/ja-JP/MessageResources.axaml" />
 
-    <!--Operators-->
+    <!--  Operators  -->
     <StyleInclude Source="/en-US/OperatorsResources.axaml" />
 
-    <!--Warnings-->
+    <!--  Warnings  -->
     <StyleInclude Source="/ja-JP/WarningResources.axaml" />
 </Styles>

@@ -123,10 +123,10 @@
                 IsVisible="{CompiledBinding !SignedIn.Value}">
             <StackPanel>
                 <TextBlock Margin="0,0,0,24"
-                           Text="サインインする"
+                           Text="{DynamicResource S.AccountSettingsPage.SignIn}"
                            Theme="{StaticResource SubtitleTextBlockStyle}" />
                 <TextBlock Margin="0,0,0,8"
-                           Text="ソーシャルアカウントでサインイン"
+                           Text="{DynamicResource S.AccountSettingsPage.SignInWith}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
                 <Grid ColumnDefinitions="*,16,*">
 
@@ -177,7 +177,7 @@
                         HorizontalAlignment="Stretch"
                         Classes="accent"
                         Command="{CompiledBinding SignIn}"
-                        Content="{DynamicResource S.AccountSettingsPage.SignInOnBrowser}" />
+                        Content="{DynamicResource S.AccountSettingsPage.SignInViaBrowser}" />
 
                 <Button Height="40"
                         Margin="0,16,0,0"
@@ -187,5 +187,11 @@
                         Content="{DynamicResource S.Common.Cancel}" />
             </StackPanel>
         </Border>
+
+        <ProgressBar Width="400"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     IsIndeterminate="{CompiledBinding IsLoading.Value}"
+                     IsVisible="{CompiledBinding IsLoading.Value}" />
     </Panel>
 </UserControl>
