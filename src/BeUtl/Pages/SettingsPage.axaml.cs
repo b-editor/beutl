@@ -71,7 +71,7 @@ public sealed partial class SettingsPage : UserControl
             {
                 [!ContentProperty] = S.SettingsPage.ExtensionsObservable.ToBinding(),
                 Tag = typeof(ExtensionsSettingsPage),
-                Icon = new CompatSymbolIcon()
+                Icon = new FluentIcons.FluentAvalonia.SymbolIcon()
                 {
                     Symbol = FluentIcons.Common.Symbol.PuzzlePiece
                 }
@@ -89,7 +89,7 @@ public sealed partial class SettingsPage : UserControl
             {
                 [!ContentProperty] = S.SettingsPage.InfoObservable.ToBinding(),
                 Tag = typeof(InfomationPage),
-                Icon = new CompatSymbolIcon()
+                Icon = new FluentIcons.FluentAvalonia.SymbolIcon()
                 {
                     Symbol = FluentIcons.Common.Symbol.Info
                 }

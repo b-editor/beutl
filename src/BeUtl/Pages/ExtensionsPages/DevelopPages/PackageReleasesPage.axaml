@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrls="using:BeUtl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages"
@@ -49,12 +50,12 @@
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Grid MaxHeight="64" ColumnDefinitions="Auto,*,2*,Auto,Auto">
-                        <ctrls:CompatSymbolIcon Margin="0,0,16,0"
-                                                IsVisible="{CompiledBinding IsPublic.Value}"
-                                                Symbol="Eye" />
-                        <ctrls:CompatSymbolIcon Margin="0,0,16,0"
-                                                IsVisible="{CompiledBinding !IsPublic.Value}"
-                                                Symbol="EyeOff" />
+                        <icons:SymbolIcon Margin="0,0,16,0"
+                                          IsVisible="{CompiledBinding IsPublic.Value}"
+                                          Symbol="Eye" />
+                        <icons:SymbolIcon Margin="0,0,16,0"
+                                          IsVisible="{CompiledBinding !IsPublic.Value}"
+                                          Symbol="EyeOff" />
 
                         <StackPanel Grid.Column="1"
                                     Margin="0,0,16,0"

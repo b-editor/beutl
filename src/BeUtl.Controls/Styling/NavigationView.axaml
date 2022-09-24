@@ -1,15 +1,16 @@
 <Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:icons="using:FluentIcons.FluentAvalonia"
         xmlns:local="using:BeUtl.Controls"
         xmlns:ui="using:FluentAvalonia.UI.Controls"
-        xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives">
     <Design.PreviewWith>
         <Border Width="700" Height="500">
             <ui:NavigationView Classes="SideNavigationView">
                 <ui:NavigationView.MenuItems>
                     <ui:NavigationViewItem Classes="SideNavigationViewItem" Content="Home">
                         <ui:NavigationViewItem.Icon>
-                            <local:CompatSymbolIcon Symbol="Home" />
+                            <icons:SymbolIcon Symbol="Home" />
                         </ui:NavigationViewItem.Icon>
                     </ui:NavigationViewItem>
                 </ui:NavigationView.MenuItems>

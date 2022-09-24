@@ -12,16 +12,6 @@
         <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
     </Style>
 
-    <!--<Style Selector="ic|SymbolIcon">
-        <Setter Property="FontSize" Value="18" />
-        <Setter Property="RenderTransform" Value="translateY(1px)" />
-    </Style>-->
-
-    <Style Selector="local|CompatSymbolIcon">
-        <Setter Property="FontSize" Value="18" />
-        <Setter Property="RenderTransform" Value="translateY(1px)" />
-    </Style>
-
     <Style Selector="TextBox">
         <Setter Property="(i:Interaction.Behaviors)">
             <b:SharedContentTemplate>

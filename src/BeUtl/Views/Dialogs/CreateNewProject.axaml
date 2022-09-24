@@ -1,19 +1,21 @@
-<ui:ContentDialog
-    xmlns="https://github.com/avaloniaui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:ui="using:FluentAvalonia.UI.Controls"
-    xmlns:vm="using:BeUtl.ViewModels.Dialogs"
-    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    Title="{DynamicResource S.Common.CreateNewProject}"
-    CloseButtonText="{DynamicResource S.Common.Close}"
-    PrimaryButtonText="{DynamicResource S.Common.Back}"
-    SecondaryButtonText="{DynamicResource S.Common.Next}"
-    IsPrimaryButtonEnabled="False"
-    DefaultButton="Secondary"
-    x:DataType="vm:CreateNewProjectViewModel"
-    x:Class="BeUtl.Views.Dialogs.CreateNewProject">
+<ui:ContentDialog x:Class="BeUtl.Views.Dialogs.CreateNewProject"
+                  xmlns="https://github.com/avaloniaui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:icons="using:FluentIcons.FluentAvalonia"
+                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:ui="using:FluentAvalonia.UI.Controls"
+                  xmlns:vm="using:BeUtl.ViewModels.Dialogs"
+                  Title="{DynamicResource S.Common.CreateNewProject}"
+                  d:DesignHeight="450"
+                  d:DesignWidth="800"
+                  x:DataType="vm:CreateNewProjectViewModel"
+                  CloseButtonText="{DynamicResource S.Common.Close}"
+                  DefaultButton="Secondary"
+                  IsPrimaryButtonEnabled="False"
+                  PrimaryButtonText="{DynamicResource S.Common.Back}"
+                  SecondaryButtonText="{DynamicResource S.Common.Next}"
+                  mc:Ignorable="d">
     <ui:ContentDialog.DataContext>
         <vm:CreateNewProjectViewModel />
     </ui:ContentDialog.DataContext>
@@ -29,12 +31,11 @@
                 <Panel>
                     <TextBox Text="{CompiledBinding Location.Value, Mode=TwoWay}" />
 
-                    <Button
-                        Click="PickLocation"
-                        HorizontalAlignment="Right"
-                        BorderThickness="0"
-                        Background="Transparent">
-                        <CompatSymbolIcon Symbol="OpenFolder" />
+                    <Button HorizontalAlignment="Right"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Click="PickLocation">
+                        <icons:SymbolIcon Symbol="OpenFolder" />
                     </Button>
                 </Panel>
             </StackPanel>

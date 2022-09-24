@@ -5,7 +5,7 @@
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
   <Import Project="$(RootDirectory)\build\props\Avalonia.Xaml.Interactivity.props" />
   <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\FluentIcons.Avalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\FluentIcons.FluentAvalonia.props" />
   <ItemGroup>
     <ProjectReference Include="..\BeUtl.Language\BeUtl.Language.csproj" />
   </ItemGroup>

@@ -1,47 +1,48 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="BeUtl.Views.Editors.AlignmentYEditor"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:local="using:BeUtl.Views.Editors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewModel="using:BeUtl.ViewModels.Editors"
-             mc:Ignorable="d" d:DesignWidth="300"
+             d:DesignWidth="300"
              x:DataType="viewModel:AlignmentYEditorViewModel"
-             x:Class="BeUtl.Views.Editors.AlignmentYEditor">
+             mc:Ignorable="d">
     <Grid ColumnDefinitions="2*,3*,Auto">
-        <TextBlock
-            Margin="10,0,0,0"
-            Text="{Binding Header.Value}"
-            ClipToBounds="False"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Center" />
+        <TextBlock Margin="10,0,0,0"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Center"
+                   ClipToBounds="False"
+                   Text="{Binding Header.Value}" />
 
-        <WrapPanel Orientation="Horizontal"
-                   Grid.Column="1"
+        <WrapPanel Grid.Column="1"
                    Margin="4,2"
                    HorizontalAlignment="Right"
-                   IsEnabled="{Binding CanEdit.Value}">
+                   IsEnabled="{Binding CanEdit.Value}"
+                   Orientation="Horizontal">
             <WrapPanel.Styles>
                 <Style Selector="RadioButton.list">
                     <Setter Property="Padding" Value="12,4" />
                 </Style>
             </WrapPanel.Styles>
-            <RadioButton CornerRadius="4,0,0,4"
+            <RadioButton Checked="Top_Checked"
                          Classes="list"
-                         Checked="Top_Checked"
+                         CornerRadius="4,0,0,4"
                          IsChecked="{CompiledBinding IsTop.Value}">
-                <CompatSymbolIcon Symbol="AlignTop" />
+                <icons:SymbolIcon Symbol="AlignTop" />
             </RadioButton>
-            <RadioButton CornerRadius="0"
+            <RadioButton Checked="Center_Checked"
                          Classes="list"
-                         Checked="Center_Checked"
+                         CornerRadius="0"
                          IsChecked="{CompiledBinding IsCenter.Value}">
-                <CompatSymbolIcon Symbol="AlignCenterHorizontal" />
+                <icons:SymbolIcon Symbol="AlignCenterHorizontal" />
             </RadioButton>
-            <RadioButton CornerRadius="0,4,4,0"
+            <RadioButton Checked="Bottom_Checked"
                          Classes="list"
-                         Checked="Bottom_Checked"
+                         CornerRadius="0,4,4,0"
                          IsChecked="{CompiledBinding IsBottom.Value}">
-                <CompatSymbolIcon Symbol="AlignBottom" />
+                <icons:SymbolIcon Symbol="AlignBottom" />
             </RadioButton>
         </WrapPanel>
 

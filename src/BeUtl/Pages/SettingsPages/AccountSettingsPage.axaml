@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrls="using:BeUtl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:BeUtl.ViewModels.SettingsPages"
@@ -32,7 +33,7 @@
                             CornerRadius="32">
 
                         <!--  IsVisible="{CompiledBinding !HasProfileImage.Value}"  -->
-                        <CompatSymbolIcon FontSize="30" Symbol="Person" />
+                        <icons:SymbolIcon FontSize="30" Symbol="Person" />
                     </Border>
                     <!--<Image Width="64"
                            Height="64"
@@ -60,7 +61,7 @@
                                                 Background="Gray"
                                                 CornerRadius="32"
                                                 Opacity="0.8">
-                                            <CompatSymbolIcon Symbol="Edit" />
+                                            <icons:SymbolIcon Symbol="Edit" />
                                         </Border>
                                     </Template>
                                 </Setter>
@@ -93,7 +94,7 @@
                         <ui:CommandBar.PrimaryCommands>
                             <ui:CommandBarButton Command="{CompiledBinding SignOut}" Label="{DynamicResource S.AccountSettingsPage.SignOut}">
                                 <ui:CommandBarButton.Icon>
-                                    <CompatSymbolIcon Symbol="SignOut" />
+                                    <icons:SymbolIcon Symbol="SignOut" />
                                 </ui:CommandBarButton.Icon>
                             </ui:CommandBarButton>
                         </ui:CommandBar.PrimaryCommands>
@@ -107,7 +108,7 @@
                                           NavigationCommand="{CompiledBinding OpenAccountSettings}">
 
                     <ctrls:OptionsDisplayItem.Icon>
-                        <CompatSymbolIcon Symbol="Open" />
+                        <icons:SymbolIcon Symbol="Open" />
                     </ctrls:OptionsDisplayItem.Icon>
                 </ctrls:OptionsDisplayItem>
             </StackPanel>

@@ -1,18 +1,21 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="BeUtl.Views.Editors.ListEditor"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:vm="using:BeUtl.ViewModels.Editors"
-             xmlns:local="using:BeUtl.Views.Editors"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:interactivity="using:Avalonia.Xaml.Interactivity"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:interactions="using:Avalonia.Xaml.Interactions.Core"
-             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="70"
-             x:Class="BeUtl.Views.Editors.ListEditor">
+             xmlns:interactivity="using:Avalonia.Xaml.Interactivity"
+             xmlns:local="using:BeUtl.Views.Editors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:BeUtl.ViewModels.Editors"
+             d:DesignHeight="70"
+             d:DesignWidth="300"
+             mc:Ignorable="d">
     <Grid ColumnDefinitions="*,24" RowDefinitions="Auto,Auto">
-        <ToggleButton Margin="0,4"
+        <ToggleButton x:Name="toggle"
+                      Margin="0,4"
                       Padding="0"
-                      x:Name="toggle"
                       HorizontalAlignment="Stretch"
                       HorizontalContentAlignment="Stretch"
                       Tag="{StaticResource ExpanderChevronDownGlyph}">
@@ -28,24 +31,24 @@
                     <Setter Property="Template">
                         <ControlTemplate>
                             <Border Name="Root"
+                                    Width="{TemplateBinding Width}"
+                                    MinWidth="{TemplateBinding MinWidth}"
+                                    MinHeight="{TemplateBinding MinHeight}"
+                                    MaxWidth="{TemplateBinding MaxWidth}"
+                                    Padding="{TemplateBinding Padding}"
+                                    HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
                                     Background="{TemplateBinding Background}"
                                     BorderBrush="{TemplateBinding BorderBrush}"
-                                    MinHeight="{TemplateBinding MinHeight}"
-                                    MinWidth="{TemplateBinding MinWidth}"
-                                    MaxWidth="{TemplateBinding MaxWidth}"
-                                    Width="{TemplateBinding Width}"
-                                    HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
-                                    Padding="{TemplateBinding Padding}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
                                     CornerRadius="{TemplateBinding CornerRadius}">
 
                                 <Grid ColumnDefinitions="*,Auto">
 
                                     <ContentPresenter Name="ContentPresenter"
-                                                      Content="{TemplateBinding Content}"
-                                                      ContentTemplate="{TemplateBinding ContentTemplate}"
                                                       HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
                                                       VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                      Content="{TemplateBinding Content}"
+                                                      ContentTemplate="{TemplateBinding ContentTemplate}"
                                                       TextBlock.Foreground="{TemplateBinding Foreground}" />
 
                                     <Border Name="ExpandCollapseChevronBorder"
@@ -56,11 +59,11 @@
                                             CornerRadius="{TemplateBinding CornerRadius}">
 
                                         <TextBlock Name="ExpandCollapseChevron"
-                                                   Text="{TemplateBinding Tag}"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
                                                    FontFamily="{DynamicResource SymbolThemeFontFamily}"
                                                    FontSize="15"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center" />
+                                                   Text="{TemplateBinding Tag}" />
                                     </Border>
                                 </Grid>
                             </Border>
@@ -81,7 +84,7 @@
                     <Setter Property="RenderTransform" Value="rotate(0deg)" />
                     <Setter Property="Transitions">
                         <Transitions>
-                            <TransformOperationsTransition Duration="00:00:00.167" Property="RenderTransform" />
+                            <TransformOperationsTransition Property="RenderTransform" Duration="00:00:00.167" />
                         </Transitions>
                     </Setter>
                 </Style>
@@ -185,54 +188,50 @@
                     <Setter Property="RenderTransform" Value="rotate(180deg)" />
                 </Style>
             </ToggleButton.Styles>
-            <Grid ColumnDefinitions="2*,3*" Margin="0,0,-60,0">
-                <TextBlock
-                    Margin="10,0"
-                    Text="{Binding Header.Value}" />
+            <Grid Margin="0,0,-60,0" ColumnDefinitions="2*,3*">
+                <TextBlock Margin="10,0" Text="{Binding Header.Value}" />
 
-                <TextBlock
-                    Margin="4,0"
-                    Grid.Column="1"
-                    Text="{Binding CountString.Value}" />
+                <TextBlock Grid.Column="1"
+                           Margin="4,0"
+                           Text="{Binding CountString.Value}" />
             </Grid>
         </ToggleButton>
 
         <Grid x:Name="expandItem"
-              RowDefinitions="Auto,Auto"
               Grid.Row="1"
               Grid.ColumnSpan="3"
+              Margin="16,0,0,0"
               IsVisible="False"
-              Margin="16,0,0,0">
+              RowDefinitions="Auto,Auto">
             <Grid ColumnDefinitions="*,Auto">
-                <ProgressBar VerticalAlignment="Center"
-                             IsIndeterminate="True"
-                             IsVisible="False"
+                <ProgressBar x:Name="progress"
                              MinWidth="100"
                              Margin="0,0,8,0"
-                             x:Name="progress" />
-                
-                <Button Click="Add_Click"
-                        IsEnabled="{Binding CanEdit.Value}"
-                        Grid.Column="1"
-                        Margin="0,4,24,4">
+                             VerticalAlignment="Center"
+                             IsIndeterminate="True"
+                             IsVisible="False" />
+
+                <Button Grid.Column="1"
+                        Margin="0,4,24,4"
+                        Click="Add_Click"
+                        IsEnabled="{Binding CanEdit.Value}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <ui:SymbolIcon Symbol="Add" />
+                        <icons:SymbolIcon Symbol="Add" />
                         <TextBlock Text="{DynamicResource S.Common.Add}" />
                     </StackPanel>
                 </Button>
             </Grid>
 
             <ItemsControl x:Name="items"
+                          Grid.Row="1"
                           IsEnabled="{Binding CanEdit.Value}"
-                          Items="{Binding List.Value}"
-                          Grid.Row="1">
+                          Items="{Binding List.Value}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Grid ColumnDefinitions="Auto,8,*,24">
-                            <Border
-                                x:Name="dragBorder"
-                                CornerRadius="{DynamicResource ControlCornerRadius}"
-                                Cursor="SizeNorthSouth">
+                            <Border x:Name="dragBorder"
+                                    CornerRadius="{DynamicResource ControlCornerRadius}"
+                                    Cursor="SizeNorthSouth">
                                 <Border.Styles>
                                     <Style Selector="Border:pointerover">
                                         <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
@@ -240,35 +239,35 @@
                                 </Border.Styles>
                                 <interactivity:Interaction.Behaviors>
                                     <interactivity:BehaviorCollection>
-                                        <local:ListEditorDragBehavior Orientation="Vertical" DragControl="dragBorder" />
+                                        <local:ListEditorDragBehavior DragControl="dragBorder" Orientation="Vertical" />
                                     </interactivity:BehaviorCollection>
                                 </interactivity:Interaction.Behaviors>
-                                <CompatSymbolIcon Symbol="ReOrderDotsVertical" FontSize="14" />
+                                <icons:SymbolIcon FontSize="14" Symbol="ReOrderDotsVertical" />
                             </Border>
 
                             <Button Grid.Column="2"
-                                    Click="Edit_Click"
-                                    Content="{Binding}"
-                                    Background="Transparent"
-                                    HorizontalContentAlignment="Left"
                                     HorizontalAlignment="Stretch"
-                                    BorderThickness="0" />
+                                    HorizontalContentAlignment="Left"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Click="Edit_Click"
+                                    Content="{Binding}" />
 
-                            <Button Width="24" Height="24"
-                                    Grid.Column="3"
-                                    Padding="0" BorderThickness="0"
-                                    Click="Menu_Click"
+                            <Button Grid.Column="3"
+                                    Width="24"
+                                    Height="24"
+                                    Padding="0"
                                     HorizontalAlignment="Center"
-                                    Background="Transparent">
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Click="Menu_Click">
                                 <Button.ContextMenu>
                                     <ContextMenu>
-                                        <MenuItem Click="Edit_Click"
-                                                  Header="{DynamicResource S.Common.Edit}" />
-                                        <MenuItem Click="Delete_Click"
-                                                  Header="{DynamicResource S.Common.Delete}" />
+                                        <MenuItem Click="Edit_Click" Header="{DynamicResource S.Common.Edit}" />
+                                        <MenuItem Click="Delete_Click" Header="{DynamicResource S.Common.Delete}" />
                                     </ContextMenu>
                                 </Button.ContextMenu>
-                                <CompatSymbolIcon Symbol="MoreVertical" />
+                                <icons:SymbolIcon Symbol="MoreVertical" />
                             </Button>
                         </Grid>
                     </DataTemplate>

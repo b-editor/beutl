@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrls="using:BeUtl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages"
@@ -22,13 +23,13 @@
                                               Navigates="True"
                                               NavigationRequested="CreateNewPackage_Click">
                         <ctrls:OptionsDisplayItem.Icon>
-                            <ui:SymbolIcon Symbol="New" />
+                            <icons:SymbolIcon Symbol="New" />
                         </ctrls:OptionsDisplayItem.Icon>
                     </ctrls:OptionsDisplayItem>
 
                     <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.DocumentsDescription}" Header="{DynamicResource S.DevelopPage.Documents}">
                         <ctrls:OptionsDisplayItem.Icon>
-                            <ui:SymbolIcon Symbol="Document" />
+                            <icons:SymbolIcon Symbol="Document" />
                         </ctrls:OptionsDisplayItem.Icon>
                     </ctrls:OptionsDisplayItem>
                 </StackPanel>
@@ -44,8 +45,8 @@
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Grid ColumnDefinitions="Auto,16,*,Auto">
-                            <ctrls:CompatSymbolIcon IsVisible="{CompiledBinding IsPublic.Value}" Symbol="Eye" />
-                            <ctrls:CompatSymbolIcon IsVisible="{CompiledBinding !IsPublic.Value}" Symbol="EyeOff" />
+                            <icons:SymbolIcon IsVisible="{CompiledBinding IsPublic.Value}" Symbol="Eye" />
+                            <icons:SymbolIcon IsVisible="{CompiledBinding !IsPublic.Value}" Symbol="EyeOff" />
 
                             <StackPanel Grid.Column="2"
                                         VerticalAlignment="Center"

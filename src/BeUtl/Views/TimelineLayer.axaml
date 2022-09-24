@@ -1,77 +1,73 @@
-<UserControl
-    xmlns="https://github.com/avaloniaui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:vm="using:BeUtl.ViewModels"
-    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    x:DataType="vm:TimelineLayerViewModel"
-    Margin="{CompiledBinding Margin.Value}"
-    Height="{DynamicResource LayerHeight}"
-    HorizontalAlignment="Stretch"
-    VerticalAlignment="Top"
-    Padding="0,1"
-    ClipToBounds="True"
-    Focusable="True"
-    IsEnabled="{Binding Model.IsEnabled}"
-    x:Name="root"
-    x:Class="BeUtl.Views.TimelineLayer">
+<UserControl x:Class="BeUtl.Views.TimelineLayer"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:BeUtl.ViewModels"
+             x:Name="root"
+             Height="{DynamicResource LayerHeight}"
+             Margin="{CompiledBinding Margin.Value}"
+             Padding="0,1"
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Top"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="vm:TimelineLayerViewModel"
+             ClipToBounds="True"
+             Focusable="True"
+             IsEnabled="{Binding Model.IsEnabled}"
+             mc:Ignorable="d">
     <UserControl.KeyBindings>
         <KeyBinding Command="{CompiledBinding Cut}" Gesture="{DynamicResource CutKeyGesture}" />
         <KeyBinding Command="{CompiledBinding Copy}" Gesture="{DynamicResource CopyKeyGesture}" />
         <KeyBinding Command="{CompiledBinding Delete}" Gesture="{DynamicResource LayerDeleteKeyGesture}" />
         <KeyBinding Command="{CompiledBinding Exclude}" Gesture="{DynamicResource DeleteKeyGesture}" />
     </UserControl.KeyBindings>
-    <Border
-        x:Name="border"
-        HorizontalAlignment="Left"
-        PointerPressed="Border_PointerPressed"
-        PointerReleased="Border_PointerReleased"
-        PointerMoved="Border_PointerMoved"
-        Width="{CompiledBinding Width.Value}"
-        Margin="{CompiledBinding BorderMargin.Value}"
-        BorderBrush="{DynamicResource TextControlForeground}"
-        Background="{CompiledBinding Color.Value, Converter={StaticResource ColorToBrushConverter}}">
+    <Border x:Name="border"
+            Width="{CompiledBinding Width.Value}"
+            Margin="{CompiledBinding BorderMargin.Value}"
+            HorizontalAlignment="Left"
+            Background="{CompiledBinding Color.Value, Converter={StaticResource ColorToBrushConverter}}"
+            BorderBrush="{DynamicResource TextControlForeground}"
+            PointerMoved="Border_PointerMoved"
+            PointerPressed="Border_PointerPressed"
+            PointerReleased="Border_PointerReleased">
         <Border.ContextMenu>
             <ContextMenu>
-                <MenuItem
-                    Command="{CompiledBinding Split}"
-                    CommandParameter="{Binding #root.GetClickedTime, Mode=OneTime}"
-                    Header="{DynamicResource S.Common.Split}">
+                <MenuItem Command="{CompiledBinding Split}"
+                          CommandParameter="{Binding #root.GetClickedTime, Mode=OneTime}"
+                          Header="{DynamicResource S.Common.Split}">
                     <MenuItem.Icon>
-                        <CompatSymbolIcon Symbol="SplitVertical" />
+                        <icons:SymbolIcon Symbol="SplitVertical" />
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem
-                    Command="{CompiledBinding Cut}"
-                    Header="{DynamicResource S.Common.Cut}"
-                    InputGesture="{DynamicResource CutKeyGesture}">
+                <MenuItem Command="{CompiledBinding Cut}"
+                          Header="{DynamicResource S.Common.Cut}"
+                          InputGesture="{DynamicResource CutKeyGesture}">
                     <MenuItem.Icon>
-                        <CompatSymbolIcon Symbol="Cut" />
+                        <icons:SymbolIcon Symbol="Cut" />
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem
-                    Command="{CompiledBinding Copy}"
-                    Header="{DynamicResource S.Common.Copy}"
-                    InputGesture="{DynamicResource CopyKeyGesture}">
+                <MenuItem Command="{CompiledBinding Copy}"
+                          Header="{DynamicResource S.Common.Copy}"
+                          InputGesture="{DynamicResource CopyKeyGesture}">
                     <MenuItem.Icon>
-                        <CompatSymbolIcon Symbol="Copy" />
+                        <icons:SymbolIcon Symbol="Copy" />
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem
-                    Command="{CompiledBinding Delete}"
-                    Header="{DynamicResource S.Common.Delete}"
-                    InputGesture="{DynamicResource LayerDeleteKeyGesture}">
+                <MenuItem Command="{CompiledBinding Delete}"
+                          Header="{DynamicResource S.Common.Delete}"
+                          InputGesture="{DynamicResource LayerDeleteKeyGesture}">
                     <MenuItem.Icon>
-                        <CompatSymbolIcon Symbol="DeleteDismiss" />
+                        <icons:SymbolIcon Symbol="DeleteDismiss" />
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem
-                    Command="{CompiledBinding Exclude}"
-                    Header="{DynamicResource S.Common.Exclude}"
-                    InputGesture="{DynamicResource DeleteKeyGesture}">
+                <MenuItem Command="{CompiledBinding Exclude}"
+                          Header="{DynamicResource S.Common.Exclude}"
+                          InputGesture="{DynamicResource DeleteKeyGesture}">
                     <MenuItem.Icon>
-                        <CompatSymbolIcon Symbol="Delete" />
+                        <icons:SymbolIcon Symbol="Delete" />
                     </MenuItem.Icon>
                 </MenuItem>
             </ContextMenu>

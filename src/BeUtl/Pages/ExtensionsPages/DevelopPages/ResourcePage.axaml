@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrls="using:BeUtl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages"
@@ -190,21 +191,21 @@
                                                                   CommandParameter="{Binding}"
                                                                   Header="{DynamicResource S.Common.Delete}">
                                                             <MenuItem.Icon>
-                                                                <CompatSymbolIcon Symbol="Delete" />
+                                                                <icons:SymbolIcon Symbol="Delete" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Command="{Binding #root.DataContext.MoveScreenshotFront}"
                                                                   CommandParameter="{Binding}"
                                                                   Header="{DynamicResource S.DevelopPage.Package.MoveOneFront}">
                                                             <MenuItem.Icon>
-                                                                <CompatSymbolIcon Symbol="ArrowLeft" />
+                                                                <icons:SymbolIcon Symbol="ArrowLeft" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Command="{Binding #root.DataContext.MoveScreenshotBack}"
                                                                   CommandParameter="{Binding}"
                                                                   Header="{DynamicResource S.DevelopPage.Package.MoveOneBack}">
                                                             <MenuItem.Icon>
-                                                                <CompatSymbolIcon Symbol="ArrowRight" />
+                                                                <icons:SymbolIcon Symbol="ArrowRight" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                     </ContextMenu>

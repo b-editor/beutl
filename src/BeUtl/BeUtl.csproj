@@ -76,6 +76,6 @@
   <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
   <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.DependencyInjection.props" />
   <Import Project="$(RootDirectory)\build\props\CoreLibraries.props" />
-  <Import Project="$(RootDirectory)\build\props\FluentIcons.Avalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\FluentIcons.FluentAvalonia.props" />
   <Import Project="$(RootDirectory)\build\props\System.Interactive.props" />
 </Project>

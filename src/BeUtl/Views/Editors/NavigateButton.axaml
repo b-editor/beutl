@@ -1,65 +1,68 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="BeUtl.Views.Editors.NavigateButton"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:vm="using:BeUtl.ViewModels.Editors"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:local="using:BeUtl.Views.Editors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             mc:Ignorable="d" d:DesignWidth="300"
-             x:Class="BeUtl.Views.Editors.NavigateButton">
+             xmlns:vm="using:BeUtl.ViewModels.Editors"
+             d:DesignWidth="300"
+             mc:Ignorable="d">
     <Grid ColumnDefinitions="2*,3*,24">
-        <TextBlock
-            Margin="10,0,0,0"
-            Text="{Binding Header.Value}"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Center" />
+        <TextBlock Margin="10,0,0,0"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Center"
+                   Text="{Binding Header.Value}" />
 
         <Button Grid.Column="1"
                 Margin="4"
-                IsEnabled="{Binding CanEdit.Value}"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Left"
-                IsVisible="{Binding IsSet.Value}"
-                Click="Navigate_Click">
+                Click="Navigate_Click"
+                IsEnabled="{Binding CanEdit.Value}"
+                IsVisible="{Binding IsSet.Value}">
             <StackPanel Orientation="Horizontal" Spacing="16">
-                <ui:SymbolIcon Symbol="Open" />
+                <icons:SymbolIcon Symbol="Open" />
                 <TextBlock Text="{DynamicResource S.Common.Edit}" />
             </StackPanel>
         </Button>
 
         <Button Grid.Column="1"
                 Margin="4"
-                IsEnabled="{Binding CanEdit.Value}"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Left"
-                IsVisible="{Binding IsNotSetAndCanWrite.Value}"
-                Click="New_Click">
+                Click="New_Click"
+                IsEnabled="{Binding CanEdit.Value}"
+                IsVisible="{Binding IsNotSetAndCanWrite.Value}">
             <StackPanel Orientation="Horizontal" Spacing="16">
-                <ui:SymbolIcon Symbol="New" />
+                <icons:SymbolIcon Symbol="New" />
                 <TextBlock Text="{DynamicResource S.Common.CreateNew}" />
             </StackPanel>
         </Button>
 
-        <Button Width="24" Height="24"
-                Grid.Column="2"
-                Padding="0" BorderThickness="0"
-                Click="Menu_Click"
+        <Button Grid.Column="2"
+                Width="24"
+                Height="24"
+                Padding="0"
                 HorizontalAlignment="Center"
-                Background="Transparent">
+                Background="Transparent"
+                BorderThickness="0"
+                Click="Menu_Click">
             <Button.ContextMenu>
                 <ContextMenu>
                     <MenuItem Click="Navigate_Click"
-                              IsEnabled="{Binding IsSet.Value}"
-                              Header="{DynamicResource S.Common.Edit}" />
+                              Header="{DynamicResource S.Common.Edit}"
+                              IsEnabled="{Binding IsSet.Value}" />
                     <MenuItem Click="New_Click"
-                              IsEnabled="{Binding CanWrite}"
-                              Header="{DynamicResource S.Common.CreateNew}" />
+                              Header="{DynamicResource S.Common.CreateNew}"
+                              IsEnabled="{Binding CanWrite}" />
                     <MenuItem Click="Delete_Click"
-                              IsEnabled="{Binding CanDelete}"
-                              Header="{DynamicResource S.Common.Delete}" />
+                              Header="{DynamicResource S.Common.Delete}"
+                              IsEnabled="{Binding CanDelete}" />
                 </ContextMenu>
             </Button.ContextMenu>
-            <CompatSymbolIcon Symbol="MoreVertical" />
+            <icons:SymbolIcon Symbol="MoreVertical" />
         </Button>
     </Grid>
 </UserControl>
