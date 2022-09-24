@@ -30,6 +30,7 @@ public class BeutlClients
         Releases = new ReleasesClient(httpClient) { BaseUrl = BaseUrl };
         Users = new UsersClient(httpClient) { BaseUrl = BaseUrl };
         Account = new AccountClient(httpClient) { BaseUrl = BaseUrl };
+        Assets = new AssetsClient(httpClient) { BaseUrl = BaseUrl };
     }
 
     public PackageResourcesClient PackageResources { get; }
@@ -43,6 +44,8 @@ public class BeutlClients
     public UsersClient Users { get; }
 
     public AccountClient Account { get; }
+    
+    public AssetsClient Assets { get; }
 
     public IReadOnlyReactiveProperty<AuthorizedUser?> AuthorizedUser => _authorizedUser;
 

@@ -514,6 +514,9 @@ public static class Resources {
             public static string Unimplemented => "S.Common.Unimplemented".GetStringResource("Unimplemented");
             private static IObservable<string>? _UnimplementedObservable;
             public static IObservable<string> UnimplementedObservable => _UnimplementedObservable ??= "S.Common.Unimplemented".GetStringObservable(global::BeUtl.Language.Resources.S.Common.Unimplemented);
+            public static string Storage => "S.Common.Storage".GetStringResource("Storage");
+            private static IObservable<string>? _StorageObservable;
+            public static IObservable<string> StorageObservable => _StorageObservable ??= "S.Common.Storage".GetStringObservable(global::BeUtl.Language.Resources.S.Common.Storage);
         }
         public static class Message {
             public static string ItemsSaved => "S.Message.ItemsSaved".GetStringResource("{0} items saved!");
@@ -890,8 +893,8 @@ public static class Resources {
             public static IObservable<string> ExtensionsObservable => global::BeUtl.Language.Resources.S.Common.ExtensionsObservable;
             public static string Info => global::BeUtl.Language.Resources.S.Common.Info;
             public static IObservable<string> InfoObservable => global::BeUtl.Language.Resources.S.Common.InfoObservable;
-            public static string Backup => global::BeUtl.Language.Resources.S.Common.Backup;
-            public static IObservable<string> BackupObservable => global::BeUtl.Language.Resources.S.Common.BackupObservable;
+            public static string Storage => global::BeUtl.Language.Resources.S.Common.Storage;
+            public static IObservable<string> StorageObservable => global::BeUtl.Language.Resources.S.Common.StorageObservable;
         }
         public static class InfomationPage {
             public static string Links => global::BeUtl.Language.Resources.S.Common.Links;
@@ -963,10 +966,10 @@ public static class Resources {
             private static IObservable<string>? _ChangeAccountSettingsObservable;
             public static IObservable<string> ChangeAccountSettingsObservable => _ChangeAccountSettingsObservable ??= "S.AccountSettingsPage.ChangeAccountSettings".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.ChangeAccountSettings);
         }
-        public static class BackupSettingsPage {
-            public static string BackupSettings => "S.BackupSettingsPage.BackupSettings".GetStringResource("Back up settings");
+        public static class StorageSettingsPage {
+            public static string BackupSettings => "S.StorageSettingsPage.BackupSettings".GetStringResource("Back up settings");
             private static IObservable<string>? _BackupSettingsObservable;
-            public static IObservable<string> BackupSettingsObservable => _BackupSettingsObservable ??= "S.BackupSettingsPage.BackupSettings".GetStringObservable(global::BeUtl.Language.Resources.S.BackupSettingsPage.BackupSettings);
+            public static IObservable<string> BackupSettingsObservable => _BackupSettingsObservable ??= "S.StorageSettingsPage.BackupSettings".GetStringObservable(global::BeUtl.Language.Resources.S.StorageSettingsPage.BackupSettings);
         }
         public static class Editors {
             public static class PixelPoint {

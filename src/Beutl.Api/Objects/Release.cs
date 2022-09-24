@@ -19,6 +19,7 @@ public class Release
         Version = _response.Select(x => new Version(x.Version)).ToReadOnlyReactivePropertySlim()!;
         Title = _response.Select(x => x.Title).ToReadOnlyReactivePropertySlim()!;
         Body = _response.Select(x => x.Body).ToReadOnlyReactivePropertySlim()!;
+        AssetId = _response.Select(x => x.Asset_id).ToReadOnlyReactivePropertySlim()!;
         IsPublic = _response.Select(x => x.Public).ToReadOnlyReactivePropertySlim()!;
     }
 
@@ -33,6 +34,8 @@ public class Release
     public IReadOnlyReactiveProperty<string> Title { get; }
 
     public IReadOnlyReactiveProperty<string> Body { get; }
+
+    public IReadOnlyReactiveProperty<long?> AssetId { get; }
 
     public IReadOnlyReactiveProperty<bool> IsPublic { get; }
 
@@ -89,6 +92,15 @@ public class Release
         return (await _clients.ReleaseResources.GetResourcesAsync(Package.Owner.Name.Value, Package.Name.Value, Response.Value.Version))
             .Select(x => new ReleaseResource(this, x, _clients))
             .ToArray();
+    }
+
+    public async Task<Asset> GetAssetAsync()
+    {
+        if (!AssetId.Value.HasValue)
+            throw new InvalidOperationException("This release has no assets.");
+
+        AssetMetadataResponse response = await _clients.Assets.GetAsset2Async(AssetId.Value.Value);
+        return new Asset(Package.Owner, response, _clients);
     }
 }
 

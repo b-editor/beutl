@@ -8,7 +8,7 @@
     </Styles.Resources>
 
     <!--<FluentTheme Mode="Dark" />-->
-    <sty:FluentAvaloniaTheme UseSystemFontOnWindows="False" />
+    <sty:FluentAvaloniaTheme />
 
     <Style Selector="PopupRoot">
         <Setter Property="TransparencyLevelHint" Value="AcrylicBlur" />

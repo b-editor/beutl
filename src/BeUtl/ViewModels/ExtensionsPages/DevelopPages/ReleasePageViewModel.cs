@@ -44,6 +44,7 @@ public sealed class ReleasePageViewModel : IDisposable
             {
                 await _user.RefreshAsync();
                 await Release.UpdateAsync(new UpdateReleaseRequest(
+                    null,
                     Body.Value,
                     Release.IsPublic.Value,
                     Title.Value));

@@ -1,9 +1,9 @@
 ﻿using Avalonia.Controls;
 
 namespace BeUtl.Pages.SettingsPages;
-public sealed partial class BackupSettingsPage : UserControl
+public sealed partial class StorageSettingsPage : UserControl
 {
-    public BackupSettingsPage()
+    public StorageSettingsPage()
     {
         InitializeComponent();
     }

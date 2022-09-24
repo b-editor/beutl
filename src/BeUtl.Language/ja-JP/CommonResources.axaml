@@ -194,6 +194,7 @@
         <x:String x:Key="S.Common.Tools">ツール</x:String>
         <x:String x:Key="S.Common.AddToCurrentProject">現在のプロジェクトに追加する</x:String>
         <x:String x:Key="S.Common.Unimplemented">未実装</x:String>
+        <x:String x:Key="S.Common.Storage">ストレージ</x:String>
     </Styles.Resources>
 
     <!--  Views  -->

@@ -78,11 +78,11 @@ public sealed partial class SettingsPage : UserControl
             },
             new NavigationViewItem()
             {
-                [!ContentProperty] = S.SettingsPage.BackupObservable.ToBinding(),
-                Tag = typeof(BackupSettingsPage),
-                Icon = new SymbolIcon
+                [!ContentProperty] = S.SettingsPage.StorageObservable.ToBinding(),
+                Tag = typeof(StorageSettingsPage),
+                Icon = new CompatSymbolIcon()
                 {
-                    Symbol = Symbol.CloudBackup
+                    Symbol = FluentIcons.Common.Symbol.Storage
                 }
             },
             new NavigationViewItem()
@@ -112,10 +112,15 @@ public sealed partial class SettingsPage : UserControl
 
     private void Frame_Navigated(object sender, FluentAvalonia.UI.Navigation.NavigationEventArgs e)
     {
-        if (e.Content is AccountSettingsPage account
+        if (e.Content is StyledElement se
             && DataContext is SettingsPageViewModel settingsPage)
         {
-            account.DataContext = settingsPage.Account;
+            se.DataContext = se switch
+            {
+                AccountSettingsPage => settingsPage.Account,
+                StorageSettingsPage => settingsPage.Storage,
+                _ => se.DataContext
+            };
         }
 
         if (e.Content is IInputElement inputElement)

@@ -44,6 +44,9 @@
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Update="Pages\SettingsPages\StorageSettingsPage.axaml.cs">
+      <DependentUpon>StorageSettingsPage.axaml</DependentUpon>
+    </Compile>
     <Compile Update="Services\Editors\NumberEditorServiceGen.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>

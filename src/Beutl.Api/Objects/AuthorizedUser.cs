@@ -39,4 +39,9 @@ public class AuthorizedUser
             }
         }
     }
+
+    public async Task<StorageUsageResponse> StorageUsageAsync()
+    {
+        return await _clients.Account.StorageUsageAsync();
+    }
 }

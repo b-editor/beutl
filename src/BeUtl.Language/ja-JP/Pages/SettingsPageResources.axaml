@@ -6,7 +6,7 @@
         <StaticResource x:Key="S.SettingsPage.Font" ResourceKey="S.Common.Font" />
         <StaticResource x:Key="S.SettingsPage.Extensions" ResourceKey="S.Common.Extensions" />
         <StaticResource x:Key="S.SettingsPage.Info" ResourceKey="S.Common.Info" />
-        <StaticResource x:Key="S.SettingsPage.Backup" ResourceKey="S.Common.Backup" />
+        <StaticResource x:Key="S.SettingsPage.Storage" ResourceKey="S.Common.Storage" />
 
         <StaticResource x:Key="S.InfomationPage.Links" ResourceKey="S.Common.Links" />
         <StaticResource x:Key="S.InfomationPage.SourceCode" ResourceKey="S.Common.SourceCode" />
@@ -34,6 +34,6 @@
         <x:String x:Key="S.AccountSettingsPage.SignOut">サインアウト</x:String>
         <x:String x:Key="S.AccountSettingsPage.ChangeAccountSettings">アカウントの設定を変更する</x:String>
 
-        <x:String x:Key="S.BackupSettingsPage.BackupSettings">設定をバックアップする</x:String>
+        <x:String x:Key="S.StorageSettingsPage.BackupSettings">設定をバックアップする</x:String>
     </Styles.Resources>
 </Styles>

@@ -1,4 +1,5 @@
-﻿using System.Reactive.Linq;
+﻿using System.Net.Http.Headers;
+using System.Reactive.Linq;
 
 using Reactive.Bindings;
 
@@ -76,6 +77,31 @@ public class Profile
             .ToAsyncEnumerable()
             .SelectAwait(async x => await _clients.Packages.GetPackage2Async(x.Id))
             .Select(x => new Package(this, x, _clients))
+            .ToArrayAsync();
+    }
+
+    public async Task<Asset> AddAssetAsync(string name, CreateVirtualAssetRequest request)
+    {
+        AssetMetadataResponse response = await _clients.Assets.PostAsync(Name.Value, name, request);
+        return new Asset(this, response, _clients);
+    }
+
+    public async Task<Asset> AddAssetAsync(string name, Stream stream, string contentType)
+    {
+        var streamContent = new StreamContent(stream);
+        streamContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        var multiPartContent = new MultipartFormDataContent();
+
+        AssetMetadataResponse response = await _clients.Assets.PostAsync(Name.Value, name, multiPartContent);
+        return new Asset(this, response, _clients);
+    }
+
+    public async Task<Asset[]> GetAssetsAsync(int start = 0, int count = 30)
+    {
+        return await (await _clients.Users.GetAssetsAsync(Name.Value, start, count))
+            .ToAsyncEnumerable()
+            .SelectAwait(async x => await _clients.Assets.GetAsset2Async(x.Id))
+            .Select(x => new Asset(this, x, _clients))
             .ToArrayAsync();
     }
 }
