@@ -74,6 +74,6 @@
   <Import Project="$(RootDirectory)\build\props\FirebaseDatabase.net.props" />
   <Import Project="$(RootDirectory)\build\props\FirebaseStorage.net.props" />
   <Import Project="$(RootDirectory)\build\props\Google.Cloud.Firestore.props" />
-  <Import Project="$(RootDirectory)\build\props\FluentIcons.Avalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\FluentIcons.FluentAvalonia.props" />
   <Import Project="$(RootDirectory)\build\props\System.Interactive.props" />
 </Project>

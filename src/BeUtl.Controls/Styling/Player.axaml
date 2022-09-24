@@ -1,12 +1,12 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:controls="using:BeUtl.Controls">
+        xmlns:controls="using:BeUtl.Controls"
+        xmlns:icons="using:FluentIcons.FluentAvalonia">
     <Design.PreviewWith>
-        <controls:Player
-            Duration="00:10:00"
-            Value="00:00:00"
-            Width="600"
-            Height="300" />
+        <controls:Player Width="600"
+                         Height="300"
+                         Value="00:00:00"
+                         Duration="00:10:00" />
     </Design.PreviewWith>
 
     <Style Selector="controls|Player">
@@ -14,16 +14,15 @@
             <ControlTemplate>
                 <Grid RowDefinitions="*,Auto">
                     <Panel Margin="0">
-                        <Border
-                            ClipToBounds="True"
-                            Background="Black"
-                            Width="{Binding #PART_Image.Bounds.Width}"
-                            Height="{Binding #PART_Image.Bounds.Height}"/>
+                        <Border Width="{Binding #PART_Image.Bounds.Width}"
+                                Height="{Binding #PART_Image.Bounds.Height}"
+                                Background="Black"
+                                ClipToBounds="True" />
 
                         <Image Name="PART_Image" />
                     </Panel>
 
-                    <Grid RowDefinitions="Auto,Auto" Grid.Row="1">
+                    <Grid Grid.Row="1" RowDefinitions="Auto,Auto">
                         <Grid.Styles>
                             <Style Selector="Button">
                                 <Setter Property="BorderThickness" Value="0" />
@@ -61,76 +60,71 @@
                                 <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForegroundPointerOver}" />
                             </Style>
 
-                            <Style Selector="CompatSymbolIcon">
+                            <Style Selector="icons|SymbolIcon">
                                 <Setter Property="FontSize" Value="20" />
                             </Style>
                         </Grid.Styles>
 
-                        <Slider
-                            Margin="0,-6"
-                            Minimum="{TemplateBinding Minimum, Mode=TwoWay}"
-                            Maximum="{TemplateBinding Maximum, Mode=TwoWay}"
-                            Value="{TemplateBinding Value, Mode=TwoWay}"
-                            Name="PART_Slider" />
+                        <Slider Name="PART_Slider"
+                                Margin="0,-6"
+                                Maximum="{TemplateBinding Maximum, Mode=TwoWay}"
+                                Minimum="{TemplateBinding Minimum, Mode=TwoWay}"
+                                Value="{TemplateBinding Value, Mode=TwoWay}" />
 
-                        <TextBlock
-                            FontWeight="SemiBold"
-                            Foreground="{DynamicResource AccentFillColorDefaultBrush}"
-                            Grid.Row="1"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Center"
-                            Text="{TemplateBinding CurrentTime}"
-                            Name="PART_CurrentTimeTextBlock" />
+                        <TextBlock Name="PART_CurrentTimeTextBlock"
+                                   Grid.Row="1"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AccentFillColorDefaultBrush}"
+                                   Text="{TemplateBinding CurrentTime}" />
 
-                        <TextBlock
-                            FontWeight="SemiBold"
-                            Grid.Row="1"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Center"
-                            Text="{TemplateBinding Duration}"
-                            Name="PART_DurationTextBlock" />
+                        <TextBlock Name="PART_DurationTextBlock"
+                                   Grid.Row="1"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Text="{TemplateBinding Duration}" />
 
-                        <StackPanel
-                            Orientation="Horizontal"
-                            Grid.Row="1"
-                            HorizontalAlignment="Center">
+                        <StackPanel Grid.Row="1"
+                                    HorizontalAlignment="Center"
+                                    Orientation="Horizontal">
 
-                            <Button Grid.Column="1" Name="PART_StartButton">
-                                <CompatSymbolIcon Symbol="Previous" />
+                            <Button Name="PART_StartButton" Grid.Column="1">
+                                <icons:SymbolIcon Symbol="Previous" />
                             </Button>
 
-                            <RepeatButton Grid.Column="2" Name="PART_PreviousButton">
-                                <CompatSymbolIcon Symbol="Rewind" />
+                            <RepeatButton Name="PART_PreviousButton" Grid.Column="2">
+                                <icons:SymbolIcon Symbol="Rewind" />
                             </RepeatButton>
 
-                            <ToggleButton
-                                Name="PART_PlayButton"
-                                Grid.Column="3"
-                                IsChecked="{TemplateBinding IsPlaying, Mode=OneWay}">
+                            <ToggleButton Name="PART_PlayButton"
+                                          Grid.Column="3"
+                                          IsChecked="{TemplateBinding IsPlaying, Mode=OneWay}">
                                 <ToggleButton.Styles>
                                     <Style Selector="ToggleButton">
                                         <Setter Property="Content">
                                             <Template>
-                                                <CompatSymbolIcon Symbol="Play" />
+                                                <icons:SymbolIcon Symbol="Play" />
                                             </Template>
                                         </Setter>
                                     </Style>
                                     <Style Selector="ToggleButton:checked">
                                         <Setter Property="Content">
                                             <Template>
-                                                <CompatSymbolIcon Symbol="Pause" />
+                                                <icons:SymbolIcon Symbol="Pause" />
                                             </Template>
                                         </Setter>
                                     </Style>
                                 </ToggleButton.Styles>
                             </ToggleButton>
 
-                            <RepeatButton Grid.Column="4" Name="PART_NextButton">
-                                <CompatSymbolIcon Symbol="FastForward" />
+                            <RepeatButton Name="PART_NextButton" Grid.Column="4">
+                                <icons:SymbolIcon Symbol="FastForward" />
                             </RepeatButton>
 
-                            <Button Grid.Column="5" Name="PART_EndButton">
-                                <CompatSymbolIcon Symbol="Next" />
+                            <Button Name="PART_EndButton" Grid.Column="5">
+                                <icons:SymbolIcon Symbol="Next" />
                             </Button>
                         </StackPanel>
                     </Grid>

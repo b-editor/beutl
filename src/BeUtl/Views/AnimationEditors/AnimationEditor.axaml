@@ -1,18 +1,19 @@
-<UserControl
-    xmlns="https://github.com/avaloniaui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:local="using:BeUtl.Views.AnimationEditors"
-    xmlns:ui="using:FluentAvalonia.UI.Controls"
-    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    Width="{Binding Width.Value, Mode=TwoWay}"
-    x:Class="BeUtl.Views.AnimationEditors.AnimationEditor">
-    <Border
-        BorderBrush="{DynamicResource ControlElevationBorderBrush}"
-        BorderThickness="1"
-        HorizontalAlignment="Stretch"
-        VerticalAlignment="Stretch">
+<UserControl x:Class="BeUtl.Views.AnimationEditors.AnimationEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:local="using:BeUtl.Views.AnimationEditors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             Width="{Binding Width.Value, Mode=TwoWay}"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             mc:Ignorable="d">
+    <Border HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+            BorderThickness="1">
         <Grid RowDefinitions="32,*">
             <Grid.Styles>
                 <Style Selector="Border.droparea">
@@ -21,55 +22,53 @@
             </Grid.Styles>
             <Grid.ContextMenu>
                 <ContextMenu>
-                    <MenuItem Header="{DynamicResource S.Common.Remove}" Command="{Binding RemoveCommand}">
+                    <MenuItem Command="{Binding RemoveCommand}" Header="{DynamicResource S.Common.Remove}">
                         <MenuItem.Icon>
-                            <CompatSymbolIcon Symbol="Delete" />
+                            <icons:SymbolIcon Symbol="Delete" />
                         </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="{DynamicResource S.Common.Edit}" Click="Edit_Click">
+                    <MenuItem Click="Edit_Click" Header="{DynamicResource S.Common.Edit}">
                         <MenuItem.Icon>
-                            <CompatSymbolIcon Symbol="Open" />
+                            <icons:SymbolIcon Symbol="Open" />
                         </MenuItem.Icon>
                     </MenuItem>
                 </ContextMenu>
             </Grid.ContextMenu>
             <Panel Background="{DynamicResource ControlFillColorDefaultBrush}">
-                <Border
-                    Cursor="SizeWestEast"
-                    x:Name="dragBorder"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center">
-                    <CompatSymbolIcon Symbol="ReOrderDotsHorizontal" />
+                <Border x:Name="dragBorder"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Cursor="SizeWestEast">
+                    <icons:SymbolIcon Symbol="ReOrderDotsHorizontal" />
                 </Border>
 
-                <Border
-                    Cursor="SizeWestEast"
-                    x:Name="resizeBorder"
-                    BorderBrush="{DynamicResource ControlElevationBorderBrush}"
-                    BorderThickness="{DynamicResource ControlElevationBorderThickness}"
-                    CornerRadius="4,0,0,4"
-                    Background="{DynamicResource ControlFillColorDefaultBrush}"
-                    Width="8"
-                    HorizontalAlignment="Right" />
+                <Border x:Name="resizeBorder"
+                        Width="8"
+                        HorizontalAlignment="Right"
+                        Background="{DynamicResource ControlFillColorDefaultBrush}"
+                        BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                        BorderThickness="{DynamicResource ControlElevationBorderThickness}"
+                        CornerRadius="4,0,0,4"
+                        Cursor="SizeWestEast" />
             </Panel>
 
             <Border x:Name="backgroundBorder"
-                    DragDrop.AllowDrop="True"
-                    Background="Transparent"
                     Grid.Row="1"
-                    Grid.ColumnSpan="3">
+                    Grid.ColumnSpan="3"
+                    Background="Transparent"
+                    DragDrop.AllowDrop="True">
                 <Panel>
                     <local:EasingGraph Easing="{Binding Model.Easing, Mode=OneWay}" />
 
                     <Border x:Name="leftBorder"
-                            DragDrop.AllowDrop="True"
                             Width="32"
-                            HorizontalAlignment="Left" />
+                            HorizontalAlignment="Left"
+                            DragDrop.AllowDrop="True" />
 
                     <Border x:Name="rightBorder"
-                            DragDrop.AllowDrop="True"
                             Width="32"
-                            HorizontalAlignment="Right" />
+                            HorizontalAlignment="Right"
+                            DragDrop.AllowDrop="True" />
                 </Panel>
             </Border>
         </Grid>

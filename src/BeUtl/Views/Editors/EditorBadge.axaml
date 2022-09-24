@@ -1,48 +1,45 @@
-<UserControl
-    xmlns="https://github.com/avaloniaui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:vm="using:BeUtl.ViewModels.Editors"
-    mc:Ignorable="d" d:DesignWidth="100" d:DesignHeight="100"
-    VerticalAlignment="Center"
-    x:DataType="vm:BaseEditorViewModel"
-    x:Class="BeUtl.Views.Editors.EditorBadge">
-    <Button
-        Width="24"
-        Height="24"
-        Padding="0"
-        BorderThickness="0"
-        Click="Button_Click"
-        HorizontalAlignment="Center"
-        Background="Transparent">
+<UserControl x:Class="BeUtl.Views.Editors.EditorBadge"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:BeUtl.ViewModels.Editors"
+             VerticalAlignment="Center"
+             d:DesignHeight="100"
+             d:DesignWidth="100"
+             x:DataType="vm:BaseEditorViewModel"
+             mc:Ignorable="d">
+    <Button Width="24"
+            Height="24"
+            Padding="0"
+            HorizontalAlignment="Center"
+            Background="Transparent"
+            BorderThickness="0"
+            Click="Button_Click">
         <Button.ContextMenu>
             <ContextMenu>
-                <MenuItem
-                    Command="{Binding Reset}"
-                    Header="{DynamicResource S.Common.Reset}"
-                    IsEnabled="{CompiledBinding CanReset}" />
-                <MenuItem
-                    Click="EditAnimation_Click"
-                    Header="{DynamicResource S.Common.EditAnimation}" />
-                <MenuItem
-                    IsVisible="{CompiledBinding IsStylingSetter}"
-                    Click="DeleteSetter_Click"
-                    Header="{DynamicResource S.Common.Delete}" />
+                <MenuItem Command="{Binding Reset}"
+                          Header="{DynamicResource S.Common.Reset}"
+                          IsEnabled="{CompiledBinding CanReset}" />
+                <MenuItem Click="EditAnimation_Click" Header="{DynamicResource S.Common.EditAnimation}" />
+                <MenuItem Click="DeleteSetter_Click"
+                          Header="{DynamicResource S.Common.Delete}"
+                          IsVisible="{CompiledBinding IsStylingSetter}" />
             </ContextMenu>
         </Button.ContextMenu>
-        <CompatSymbolIcon Classes.hasAnimation="{CompiledBinding HasAnimation.Value}">
-            <CompatSymbolIcon.Styles>
-                <Style Selector="CompatSymbolIcon">
+        <icons:SymbolIcon Classes.hasAnimation="{CompiledBinding HasAnimation.Value}">
+            <icons:SymbolIcon.Styles>
+                <Style Selector="icons|SymbolIcon">
                     <Setter Property="Symbol" Value="MoreVertical" />
                 </Style>
-                <Style Selector="CompatSymbolIcon.hasAnimation">
+                <Style Selector="icons|SymbolIcon.hasAnimation">
                     <Setter Property="Symbol" Value="Flow" />
                     <Setter Property="IsFilled" Value="True" />
                     <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
                     <Setter Property="ToolTip.Tip" Value="{DynamicResource S.Message.AnimationIsEnabled}" />
                 </Style>
-            </CompatSymbolIcon.Styles>
-        </CompatSymbolIcon>
+            </icons:SymbolIcon.Styles>
+        </icons:SymbolIcon>
     </Button>
 </UserControl>

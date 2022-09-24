@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using BeUtl.Controls;
 
 using FluentIcons.Common;
+using FluentIcons.FluentAvalonia;
 
 namespace BeUtl.Views.Editors;
 
@@ -19,7 +20,7 @@ public sealed class ThicknessEditor : BaseVector4Editor<Graphics.Thickness>
     {
         static object CreateIcon(Symbol icon)
         {
-            return new CompatSymbolIcon
+            return new SymbolIcon
             {
                 Symbol = icon,
                 FontSize = 14,

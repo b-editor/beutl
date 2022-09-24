@@ -1,27 +1,30 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="BeUtl.Pages.SettingsPages.ViewSettingsPage"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              xmlns:ctrls="using:BeUtl.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:BeUtl.ViewModels.SettingsPages"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
              x:DataType="vm:ViewSettingsPageViewModel"
-             x:Class="BeUtl.Pages.SettingsPages.ViewSettingsPage">
+             mc:Ignorable="d">
     <UserControl.DataContext>
-        <vm:ViewSettingsPageViewModel/>
+        <vm:ViewSettingsPageViewModel />
     </UserControl.DataContext>
     <ScrollViewer Padding="18">
-        <StackPanel Orientation="Vertical"
+        <StackPanel Margin="10,0"
                     VerticalAlignment="Stretch"
-                    Margin="10,0"
+                    Orientation="Vertical"
                     Spacing="4">
-            <ctrls:OptionsDisplayItem Header="{DynamicResource S.ViewSettingsPage.Theme}"
-                                      Description="{DynamicResource S.ViewSettingsPage.ThemeDescription}"
+            <ctrls:OptionsDisplayItem Description="{DynamicResource S.ViewSettingsPage.ThemeDescription}"
+                                      Header="{DynamicResource S.ViewSettingsPage.Theme}"
                                       Icon="DarkTheme">
 
                 <ctrls:OptionsDisplayItem.ActionButton>
-                    <ComboBox SelectedIndex="{CompiledBinding SelectedTheme.Value}" MinWidth="250">
+                    <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding SelectedTheme.Value}">
                         <ComboBoxItem Content="{DynamicResource S.ViewSettingsPage.Theme.Light}" />
                         <ComboBoxItem Content="{DynamicResource S.ViewSettingsPage.Theme.Dark}" />
                         <ComboBoxItem Content="{DynamicResource S.ViewSettingsPage.Theme.HighContrast}" />
@@ -32,23 +35,23 @@
 
             <ctrls:OptionsDisplayItem Header="{DynamicResource S.ViewSettingsPage.MicaEffect}">
                 <ctrls:OptionsDisplayItem.Icon>
-                    <ui:SymbolIcon Symbol="Cloud" />
+                    <icons:SymbolIcon Symbol="Cloud" />
                 </ctrls:OptionsDisplayItem.Icon>
 
                 <ctrls:OptionsDisplayItem.ActionButton>
-                    <ToggleSwitch IsChecked="{CompiledBinding IsMicaEnabled.Value}" Margin="0,-4,-72,-4" />
+                    <ToggleSwitch Margin="0,-4,-72,-4" IsChecked="{CompiledBinding IsMicaEnabled.Value}" />
                 </ctrls:OptionsDisplayItem.ActionButton>
             </ctrls:OptionsDisplayItem>
 
             <ctrls:OptionsDisplayItem Header="{DynamicResource S.ViewSettingsPage.Language}">
                 <ctrls:OptionsDisplayItem.Icon>
-                    <ctrls:CompatSymbolIcon Symbol="LocalLanguage" />
+                    <icons:SymbolIcon Symbol="LocalLanguage" />
                 </ctrls:OptionsDisplayItem.Icon>
 
                 <ctrls:OptionsDisplayItem.ActionButton>
-                    <ComboBox SelectedItem="{CompiledBinding SelectedLanguage.Value}"
+                    <ComboBox MinWidth="250"
                               Items="{CompiledBinding Cultures}"
-                              MinWidth="250">
+                              SelectedItem="{CompiledBinding SelectedLanguage.Value}">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding DisplayName}" />

@@ -1,17 +1,19 @@
-<UserControl
-    xmlns="https://github.com/avaloniaui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:vm="using:BeUtl.ViewModels"
-    xmlns:ui="using:FluentAvalonia.UI.Controls"
-    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    x:DataType="vm:LayerHeaderViewModel"
-    Height="{DynamicResource LayerHeight}"
-    ClipToBounds="True"
-    VerticalAlignment="Top"
-    HorizontalAlignment="Stretch"
-    x:Class="BeUtl.Views.LayerHeader">
+<UserControl x:Class="BeUtl.Views.LayerHeader"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:BeUtl.ViewModels"
+             Height="{DynamicResource LayerHeight}"
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Top"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="vm:LayerHeaderViewModel"
+             ClipToBounds="True"
+             mc:Ignorable="d">
     <UserControl.RenderTransform>
         <TranslateTransform Y="{CompiledBinding PosY.Value}" />
     </UserControl.RenderTransform>
@@ -34,25 +36,23 @@
                 <Setter Property="VerticalContentAlignment" Value="Center" />
             </Style>
         </Grid.Styles>
-        <Border
-            x:Name="border"
-            PointerPressed="Border_PointerPressed"
-            PointerReleased="Border_PointerReleased"
-            PointerMoved="Border_PointerMoved"
-            CornerRadius="{DynamicResource ControlCornerRadius}"
-            Cursor="SizeNorthSouth">
+        <Border x:Name="border"
+                CornerRadius="{DynamicResource ControlCornerRadius}"
+                Cursor="SizeNorthSouth"
+                PointerMoved="Border_PointerMoved"
+                PointerPressed="Border_PointerPressed"
+                PointerReleased="Border_PointerReleased">
             <Border.Styles>
                 <Style Selector="Border:pointerover">
                     <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
                 </Style>
             </Border.Styles>
-            <CompatSymbolIcon Symbol="ReOrderDotsVertical" FontSize="14" />
+            <icons:SymbolIcon FontSize="14" Symbol="ReOrderDotsVertical" />
         </Border>
 
-        <ToggleButton
-            Grid.Column="1"
-            BorderThickness="0"
-            IsChecked="{CompiledBinding IsEnabled.Value}">
+        <ToggleButton Grid.Column="1"
+                      BorderThickness="0"
+                      IsChecked="{CompiledBinding IsEnabled.Value}">
             <ToggleButton.Resources>
                 <SolidColorBrush x:Key="ToggleButtonBackground" Color="Transparent" />
                 <SolidColorBrush x:Key="ToggleButtonBackgroundDisabled" Color="Transparent" />
@@ -66,27 +66,26 @@
                 <Style Selector="ToggleButton">
                     <Setter Property="Content">
                         <Template>
-                            <CompatSymbolIcon Symbol="EyeOff" />
+                            <icons:SymbolIcon Symbol="EyeOff" />
                         </Template>
                     </Setter>
                 </Style>
                 <Style Selector="ToggleButton:checked">
                     <Setter Property="Content">
                         <Template>
-                            <CompatSymbolIcon Symbol="Eye" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <icons:SymbolIcon Foreground="{DynamicResource TextFillColorPrimaryBrush}" Symbol="Eye" />
                         </Template>
                     </Setter>
                 </Style>
             </ToggleButton.Styles>
         </ToggleButton>
 
-        <ui:ColorPickerButton
-            Grid.Column="2"
-            MinHeight="{DynamicResource LayerHeight}"
-            Color="{CompiledBinding Color.Value}"
-            CustomPaletteColors="{StaticResource PaletteColors}"
-            UseColorPalette="True"
-            IsAlphaEnabled="False">
+        <ui:ColorPickerButton Grid.Column="2"
+                              MinHeight="{DynamicResource LayerHeight}"
+                              CustomPaletteColors="{StaticResource PaletteColors}"
+                              IsAlphaEnabled="False"
+                              UseColorPalette="True"
+                              Color="{CompiledBinding Color.Value}">
             <ui:ColorPickerButton.Styles>
                 <Style Selector="ui|ColorPickerButton /template/ Button#MainButton">
                     <Setter Property="Background" Value="Transparent" />
@@ -97,26 +96,31 @@
                         <ControlTemplate>
                             <Panel>
                                 <Button Name="MainButton"
+                                        Padding="0,0,32,0"
                                         Background="Transparent"
                                         BorderThickness="0"
-                                        Padding="0 0 32 0"
                                         CornerRadius="{TemplateBinding CornerRadius}">
-                                    <Border BorderBrush="{DynamicResource ColorPickerButtonOutline}"
-                                            BorderThickness="1"
-                                            Margin="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                            MinWidth="18" MinHeight="18"
+                                    <Border MinWidth="18"
+                                            MinHeight="18"
+                                            Margin="5"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch"
                                             Background="{TemplateBinding Color, Converter={StaticResource ColorBrushConv}}"
+                                            BorderBrush="{DynamicResource ColorPickerButtonOutline}"
+                                            BorderThickness="1"
                                             CornerRadius="{TemplateBinding CornerRadius}">
                                         <ui:FAColorPicker Name="ColorPicker" IsVisible="False" />
                                     </Border>
                                 </Button>
 
-                                <Viewbox Width="18" Height="18"
-                                         IsHitTestVisible="False"
-                                         VerticalAlignment="Center"
+                                <Viewbox Name="Chevron"
+                                         Width="18"
+                                         Height="18"
+                                         Margin="0,0,8,0"
                                          HorizontalAlignment="Right"
-                                         Margin="0 0 8 0" Name="Chevron">
-                                    <ui:SymbolIcon Symbol="ChevronDown" />
+                                         VerticalAlignment="Center"
+                                         IsHitTestVisible="False">
+                                    <icons:SymbolIcon Symbol="ChevronDown" />
                                 </Viewbox>
                             </Panel>
                         </ControlTemplate>
@@ -126,9 +130,9 @@
         </ui:ColorPickerButton>
 
         <TextBox x:Name="NameTextBox"
+                 Grid.Column="3"
                  Classes="custom"
-                 Text="{Binding Name.Value}"
                  InputMethod.IsInputMethodEnabled="True"
-                 Grid.Column="3" />
+                 Text="{Binding Name.Value}" />
     </Grid>
 </UserControl>

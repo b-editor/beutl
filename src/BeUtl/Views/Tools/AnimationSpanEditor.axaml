@@ -1,42 +1,44 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="BeUtl.Views.Tools.AnimationSpanEditor"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:editors="using:BeUtl.Views.Editors"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
              DragDrop.AllowDrop="True"
-             x:Class="BeUtl.Views.Tools.AnimationSpanEditor">
+             mc:Ignorable="d">
     <Expander Padding="0" IsExpanded="{Binding IsExpanded.Value, Mode=TwoWay}">
         <Expander.Header>
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <StackPanel.ContextMenu>
                     <ContextMenu>
-                        <MenuItem Header="{DynamicResource S.Common.Remove}" Click="Remove_Click">
+                        <MenuItem Click="Remove_Click" Header="{DynamicResource S.Common.Remove}">
                             <MenuItem.Icon>
-                                <CompatSymbolIcon Symbol="Delete" />
+                                <icons:SymbolIcon Symbol="Delete" />
                             </MenuItem.Icon>
                         </MenuItem>
                     </ContextMenu>
                 </StackPanel.ContextMenu>
-                <Border
-                    x:Name="dragBorder"
-                    CornerRadius="{DynamicResource ControlCornerRadius}"
-                    Cursor="SizeNorthSouth">
+                <Border x:Name="dragBorder"
+                        CornerRadius="{DynamicResource ControlCornerRadius}"
+                        Cursor="SizeNorthSouth">
                     <Border.Styles>
                         <Style Selector="Border:pointerover">
                             <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
                         </Style>
                     </Border.Styles>
-                    <CompatSymbolIcon Symbol="ReOrderDotsVertical" FontSize="16" />
+                    <icons:SymbolIcon FontSize="16" Symbol="ReOrderDotsVertical" />
                 </Border>
 
-                <TextBlock Text="{Binding Header.Value}" VerticalAlignment="Center" />
+                <TextBlock VerticalAlignment="Center" Text="{Binding Header.Value}" />
             </StackPanel>
         </Expander.Header>
 
         <Border x:Name="backgroundBorder"
-                DragDrop.AllowDrop="True"
-                Background="Transparent">
+                Background="Transparent"
+                DragDrop.AllowDrop="True">
             <Panel>
                 <Panel.Styles>
                     <Style Selector="Border.droparea">
@@ -46,16 +48,16 @@
                 <editors:PropertiesEditor />
 
                 <Border x:Name="topBorder"
-                        DragDrop.AllowDrop="True"
                         Height="32"
                         HorizontalAlignment="Stretch"
-                        VerticalAlignment="Top" />
+                        VerticalAlignment="Top"
+                        DragDrop.AllowDrop="True" />
 
                 <Border x:Name="bottomBorder"
-                        DragDrop.AllowDrop="True"
                         Height="32"
                         HorizontalAlignment="Stretch"
-                        VerticalAlignment="Bottom"  />
+                        VerticalAlignment="Bottom"
+                        DragDrop.AllowDrop="True" />
             </Panel>
         </Border>
     </Expander>

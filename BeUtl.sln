@@ -35,8 +35,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Props", "Props", "{74C34E00
 		build\props\FirebaseDatabase.net.props = build\props\FirebaseDatabase.net.props
 		build\props\FirebaseStorage.net.props = build\props\FirebaseStorage.net.props
 		build\props\FluentAvalonia.props = build\props\FluentAvalonia.props
-		build\props\FluentIcons.Avalonia.props = build\props\FluentIcons.Avalonia.props
 		build\props\Google.Cloud.Firestore.props = build\props\Google.Cloud.Firestore.props
+		build\props\FluentIcons.FluentAvalonia.props = build\props\FluentIcons.FluentAvalonia.props
 		build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props = build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props
 		build\props\Microsoft.Extensions.DependencyInjection.props = build\props\Microsoft.Extensions.DependencyInjection.props
 		build\props\Microsoft.Extensions.FileSystemGlobbing.props = build\props\Microsoft.Extensions.FileSystemGlobbing.props
@@ -116,7 +116,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ResourcesGenerator", "build
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Packages", "Packages", "{D2E28768-5899-48B0-B35C-41BABE9D9536}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BeUtl.Sdk", "packages\BeUtl.Sdk\BeUtl.Sdk.csproj", "{456F3A49-7881-4793-966D-FF647190F5CB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Sdk", "packages\BeUtl.Sdk\BeUtl.Sdk.csproj", "{456F3A49-7881-4793-966D-FF647190F5CB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -1,26 +1,15 @@
-<Styles
-    xmlns="https://github.com/avaloniaui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:b="using:BeUtl.Controls.Behaviors"
-    xmlns:i="using:Avalonia.Xaml.Interactivity"
-    xmlns:local="using:BeUtl.Controls"
-    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:b="using:BeUtl.Controls.Behaviors"
+        xmlns:i="using:Avalonia.Xaml.Interactivity"
+        xmlns:local="using:BeUtl.Controls"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
     <Style Selector="Border.CardStyle">
         <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
-    </Style>
-
-    <!--<Style Selector="ic|SymbolIcon">
-        <Setter Property="FontSize" Value="18" />
-        <Setter Property="RenderTransform" Value="translateY(1px)" />
-    </Style>-->
-
-    <Style Selector="local|CompatSymbolIcon">
-        <Setter Property="FontSize" Value="18" />
-        <Setter Property="RenderTransform" Value="translateY(1px)" />
     </Style>
 
     <Style Selector="TextBox">

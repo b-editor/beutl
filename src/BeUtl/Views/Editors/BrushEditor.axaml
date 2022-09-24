@@ -1,64 +1,68 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="BeUtl.Views.Editors.BrushEditor"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:local="using:BeUtl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:media="using:BeUtl.Media"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:BeUtl.ViewModels.Editors"
-             xmlns:local="using:BeUtl.Views.Editors"
-             xmlns:media="using:BeUtl.Media"
-             mc:Ignorable="d" d:DesignWidth="300"
              x:Name="root"
+             d:DesignWidth="300"
              x:DataType="vm:BrushEditorViewModel"
-             x:Class="BeUtl.Views.Editors.BrushEditor">
+             mc:Ignorable="d">
     <Grid ColumnDefinitions="*,24" RowDefinitions="Auto,Auto">
-        <TextBlock
-            Margin="10,0,0,0"
-            Text="{CompiledBinding Header.Value}"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Center" />
+        <TextBlock Margin="10,0,0,0"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Center"
+                   Text="{CompiledBinding Header.Value}" />
 
-        <local:PropertiesEditor
-            IsEnabled="{Binding CanEdit.Value}"
-            Grid.Row="1" Grid.ColumnSpan="2"
-            Padding="0" Margin="16,0,0,0"
-            DataContext="{Binding #root.DataContext.ChildContext.Value}" />
+        <local:PropertiesEditor Grid.Row="1"
+                                Grid.ColumnSpan="2"
+                                Margin="16,0,0,0"
+                                Padding="0"
+                                DataContext="{Binding #root.DataContext.ChildContext.Value}"
+                                IsEnabled="{Binding CanEdit.Value}" />
 
         <Grid Grid.Row="1" ColumnDefinitions="2*,3*">
             <Button Grid.Column="1"
                     Margin="4"
-                    IsEnabled="{Binding CanEdit.Value}"
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Left"
-                    IsVisible="{Binding IsNotSetAndCanWrite.Value}"
-                    Click="New_Click">
+                    Click="New_Click"
+                    IsEnabled="{Binding CanEdit.Value}"
+                    IsVisible="{Binding IsNotSetAndCanWrite.Value}">
                 <StackPanel Orientation="Horizontal" Spacing="16">
-                    <ui:SymbolIcon Symbol="New" />
+                    <icons:SymbolIcon Symbol="New" />
                     <TextBlock Text="{DynamicResource S.Common.CreateNew}" />
                 </StackPanel>
             </Button>
         </Grid>
 
-        <Button Width="24" Height="24"
-                Grid.Column="2"
+        <Button Grid.Column="2"
+                Width="24"
+                Height="24"
                 Margin="0,8"
-                Padding="0" BorderThickness="0"
-                Click="Menu_Click"
+                Padding="0"
                 HorizontalAlignment="Center"
-                Background="Transparent">
+                Background="Transparent"
+                BorderThickness="0"
+                Click="Menu_Click">
             <Button.ContextMenu>
                 <ContextMenu>
                     <MenuItem Click="Navigate_Click"
-                              IsEnabled="{Binding IsSet.Value}"
-                              Header="{DynamicResource S.Common.Edit}" />
+                              Header="{DynamicResource S.Common.Edit}"
+                              IsEnabled="{Binding IsSet.Value}" />
                     <MenuItem Click="New_Click"
-                              IsEnabled="{Binding CanWrite}"
-                              Header="{DynamicResource S.Common.CreateNew}" />
+                              Header="{DynamicResource S.Common.CreateNew}"
+                              IsEnabled="{Binding CanWrite}" />
                     <MenuItem Click="Delete_Click"
-                              IsEnabled="{Binding CanDelete}"
-                              Header="{DynamicResource S.Common.Delete}" />
+                              Header="{DynamicResource S.Common.Delete}"
+                              IsEnabled="{Binding CanDelete}" />
                 </ContextMenu>
             </Button.ContextMenu>
-            <CompatSymbolIcon Symbol="MoreVertical" />
+            <icons:SymbolIcon Symbol="MoreVertical" />
         </Button>
     </Grid>
 </UserControl>
