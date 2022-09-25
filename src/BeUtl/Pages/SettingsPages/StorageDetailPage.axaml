@@ -1,0 +1,55 @@
+<UserControl x:Class="BeUtl.Pages.SettingsPages.StorageDetailPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:BeUtl.ViewModels.SettingsPages"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="vm:StorageDetailPageViewModel"
+             Focusable="True"
+             IsEnabled="{CompiledBinding !IsBusy.Value}"
+             mc:Ignorable="d">
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="Ctrl+R" />
+    </UserControl.KeyBindings>
+    <Grid RowDefinitions="Auto,Auto,Auto">
+        <StackPanel Margin="10,8"
+                    Orientation="Horizontal"
+                    Spacing="16">
+            <Button Classes="breadcrumb"
+                    Click="NavigateStorageSettingsPage_Click"
+                    Content="{DynamicResource S.SettingsPage.Storage}" />
+
+            <Label Classes="breadcrumb" />
+
+            <TextBlock Classes="breadcrumb" Text="{CompiledBinding Type}" />
+        </StackPanel>
+
+        <ui:CommandBar Grid.Row="1" DefaultLabelPosition="Right">
+            <ui:CommandBar.PrimaryCommands>
+                <ui:CommandBarButton Click="UploadClick"
+                                     Icon="Add"
+                                     Label="{DynamicResource S.Common.Add}" />
+            </ui:CommandBar.PrimaryCommands>
+        </ui:CommandBar>
+
+        <ListBox Grid.Row="2" Items="{CompiledBinding Items}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Panel>
+                        <TextBlock VerticalAlignment="Center" Text="{CompiledBinding Name}" />
+
+                        <ui:CommandBarButton HorizontalAlignment="Right"
+                                             Command="{Binding #root.DataContext.Delete, Mode=OneTime}"
+                                             CommandParameter="{Binding $self.DataContext}"
+                                             Icon="Delete"
+                                             Label="{DynamicResource S.Common.Delete}" />
+                    </Panel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</UserControl>

@@ -16,11 +16,11 @@ namespace BeUtl.Controls;
 // https://github.com/amwx/FluentAvalonia/blob/master/FluentAvaloniaSamples/Controls/OptionsDisplayItem.cs
 public class OptionsDisplayItem : TemplatedControl
 {
-    public static readonly StyledProperty<string> HeaderProperty =
-        AvaloniaProperty.Register<OptionsDisplayItem, string>(nameof(Header));
+    public static readonly StyledProperty<object> HeaderProperty =
+        AvaloniaProperty.Register<OptionsDisplayItem, object>(nameof(Header));
 
-    public static readonly StyledProperty<string> DescriptionProperty =
-        AvaloniaProperty.Register<OptionsDisplayItem, string>(nameof(Description));
+    public static readonly StyledProperty<object> DescriptionProperty =
+        AvaloniaProperty.Register<OptionsDisplayItem, object>(nameof(Description));
 
     public static readonly StyledProperty<FAIconElement> IconProperty =
         AvaloniaProperty.Register<OptionsDisplayItem, FAIconElement>(nameof(Icon));
@@ -47,13 +47,13 @@ public class OptionsDisplayItem : TemplatedControl
     public static readonly StyledProperty<IPageTransition> ContentTransitionProperty =
         AvaloniaProperty.Register<OptionsDisplayItem, IPageTransition>(nameof(ContentTransition));
 
-    public string Header
+    public object Header
     {
         get => GetValue(HeaderProperty);
         set => SetValue(HeaderProperty, value);
     }
 
-    public string Description
+    public object Description
     {
         get => GetValue(DescriptionProperty);
         set => SetValue(DescriptionProperty, value);

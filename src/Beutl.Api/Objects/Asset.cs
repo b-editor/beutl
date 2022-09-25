@@ -19,6 +19,7 @@ public class Asset
         Id = response.Id;
         Name = response.Name;
         AssetType = response.Asset_type;
+        Size = response.Size;
         ContentType = response.Content_type;
         DownloadUrl = response.Download_url;
         Sha256 = response.Sha256;
@@ -36,6 +37,8 @@ public class Asset
     public string Name { get; }
 
     public AssetType AssetType { get; }
+    
+    public long? Size { get; }
 
     public string ContentType { get; }
 

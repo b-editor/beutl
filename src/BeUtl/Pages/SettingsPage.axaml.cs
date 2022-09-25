@@ -9,6 +9,8 @@ using BeUtl.Pages.SettingsPages;
 using BeUtl.ViewModels;
 
 using FluentAvalonia.UI.Controls;
+using FluentAvalonia.UI.Media.Animation;
+using FluentAvalonia.UI.Navigation;
 
 namespace BeUtl.Pages;
 
@@ -21,6 +23,7 @@ public sealed partial class SettingsPage : UserControl
         nav.MenuItems = GetItems();
 
         frame.Navigated += Frame_Navigated;
+        frame.Navigating += Frame_Navigating;
         nav.ItemInvoked += Nav_ItemInvoked;
         nav.BackRequested += Nav_BackRequested;
     }
@@ -110,31 +113,88 @@ public sealed partial class SettingsPage : UserControl
         }
     }
 
-    private void Frame_Navigated(object sender, FluentAvalonia.UI.Navigation.NavigationEventArgs e)
+    private void Frame_Navigated(object sender, NavigationEventArgs e)
     {
-        if (e.Content is StyledElement se
-            && DataContext is SettingsPageViewModel settingsPage)
+        if (e.Content is Control control)
         {
-            se.DataContext = se switch
+            if (e.Parameter is { })
             {
-                AccountSettingsPage => settingsPage.Account,
-                StorageSettingsPage => settingsPage.Storage,
-                _ => se.DataContext
-            };
-        }
+                control.DataContext = e.Parameter;
+            }
+            else if (DataContext is SettingsPageViewModel settingsPage)
+            {
+                control.DataContext = control switch
+                {
+                    AccountSettingsPage => settingsPage.Account,
+                    StorageSettingsPage => settingsPage.Storage,
+                    _ => control.DataContext
+                };
+            }
 
-        if (e.Content is IInputElement inputElement)
-        {
-            inputElement.Focus();
+            control.Focus();
         }
 
         foreach (NavigationViewItem nvi in nav.MenuItems)
         {
-            if (nvi.Tag is Type tag && tag == e.SourcePageType)
+            if (nvi.Tag is Type tag)
             {
-                nav.SelectedItem = nvi;
-                return;
+                (int Order, int Depth) navItemNum = ToNumber(tag);
+                (int Order, int Depth) pageNum = ToNumber(e.SourcePageType);
+
+                if (navItemNum.Order == pageNum.Order)
+                {
+                    nav.SelectedItem = nvi;
+                    break;
+                }
             }
         }
+    }
+
+    private void Frame_Navigating(object sender, NavigatingCancelEventArgs e)
+    {
+        if (e.NavigationTransitionInfo is EntranceNavigationTransitionInfo entrance)
+        {
+            Type type1 = frame.CurrentSourcePageType;
+            Type type2 = e.SourcePageType;
+            (int Order, int Depth) num1 = ToNumber(type1);
+            (int Order, int Depth) num2 = ToNumber(type2);
+            double horizontal = 28;
+            double vertical = 28;
+
+            if (num1.Order == num2.Order)
+            {
+                horizontal *= Math.Clamp(num2.Depth - num1.Depth, -1, 1);
+                vertical = 0;
+            }
+            else if (num1.Order != num2.Order)
+            {
+                horizontal = 0;
+                vertical *= Math.Clamp(num2.Order - num1.Order, -1, 1);
+            }
+
+            entrance.FromHorizontalOffset = horizontal;
+            entrance.FromVerticalOffset = vertical;
+        }
+    }
+
+    private static (int Order, int Depth) ToNumber(Type type)
+    {
+        if (type == typeof(AccountSettingsPage))
+            return (0, 0);
+        else if (type == typeof(ViewSettingsPage))
+            return (1, 0);
+        else if (type == typeof(FontSettingsPage))
+            return (2, 0);
+        else if (type == typeof(ExtensionsSettingsPage))
+            return (3, 0);
+        else if (type == typeof(StorageSettingsPage))
+            return (4, 0);
+        else if (type == typeof(InfomationPage))
+            return (5, 0);
+
+        else if (type == typeof(StorageDetailPage))
+            return (4, 1);
+
+        return (0, 0);
     }
 }

@@ -11,6 +11,7 @@
              d:DesignWidth="800"
              x:DataType="viewModels:ReleasePageViewModel"
              Focusable="True"
+             IsEnabled="{CompiledBinding !IsBusy.Value}"
              mc:Ignorable="d">
 
     <UserControl.KeyBindings>
@@ -90,9 +91,7 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ItemsControl Margin="0,4,0,0"
-                              IsEnabled="{CompiledBinding !IsBusy.Value}"
-                              Items="{CompiledBinding Items}">
+                <ItemsControl Margin="0,4,0,0" Items="{CompiledBinding Items}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel Spacing="4" />
@@ -145,12 +144,10 @@
 
                 <ctrls:OptionsDisplayItem Header="{DynamicResource S.Common.Delete}"
                                           Icon="Delete"
-                                          IsEnabled="{CompiledBinding !IsBusy.Value}"
                                           Navigates="True"
                                           NavigationRequested="DeleteRelease_Click" />
 
                 <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.MakePublicRelease.Title}"
-                                          IsEnabled="{CompiledBinding !IsBusy.Value}"
                                           IsVisible="{CompiledBinding !Release.IsPublic.Value}"
                                           Navigates="True"
                                           NavigationRequested="MakePublic_Click">
@@ -160,7 +157,6 @@
                 </ctrls:OptionsDisplayItem>
 
                 <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.MakePrivateRelease.Title}"
-                                          IsEnabled="{CompiledBinding !IsBusy.Value}"
                                           IsVisible="{CompiledBinding Release.IsPublic.Value}"
                                           Navigates="True"
                                           NavigationRequested="MakePrivate_Click">
@@ -178,25 +174,14 @@
             <StackPanel HorizontalAlignment="Right"
                         Orientation="Horizontal"
                         Spacing="8">
-                <Button Command="{CompiledBinding DiscardChanges}" Content="{DynamicResource S.DevelopPage.DiscardChanges}">
-                    <Button.IsEnabled>
-                        <MultiBinding Converter="{x:Static BoolConverters.And}">
-                            <Binding Path="IsChanging.Value" />
-                            <Binding Path="!IsBusy.Value" />
-                        </MultiBinding>
-                    </Button.IsEnabled>
-                </Button>
+                <Button Command="{CompiledBinding DiscardChanges}"
+                        Content="{DynamicResource S.DevelopPage.DiscardChanges}"
+                        IsEnabled="{CompiledBinding IsChanging.Value}" />
 
                 <Button Classes="accent"
                         Command="{CompiledBinding Save}"
-                        Content="{DynamicResource S.Common.Save}">
-                    <Button.IsEnabled>
-                        <MultiBinding Converter="{x:Static BoolConverters.And}">
-                            <Binding Path="IsChanging.Value" />
-                            <Binding Path="!IsBusy.Value" />
-                        </MultiBinding>
-                    </Button.IsEnabled>
-                </Button>
+                        Content="{DynamicResource S.Common.Save}"
+                        IsEnabled="{CompiledBinding IsChanging.Value}" />
             </StackPanel>
         </Border>
 

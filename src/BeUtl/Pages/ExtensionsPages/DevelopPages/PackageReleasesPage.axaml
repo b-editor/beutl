@@ -45,7 +45,6 @@
         <ListBox x:Name="ReleasesList"
                  Grid.Row="2"
                  Margin="10,0"
-                 IsEnabled="{CompiledBinding !IsBusy.Value}"
                  Items="{CompiledBinding Items}">
             <ListBox.ItemTemplate>
                 <DataTemplate>

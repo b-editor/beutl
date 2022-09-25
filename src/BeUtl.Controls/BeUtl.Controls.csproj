@@ -9,4 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\BeUtl.Language\BeUtl.Language.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <UpToDateCheckInput Remove="Styling\StorageItemView.axaml" />
+  </ItemGroup>
 </Project>

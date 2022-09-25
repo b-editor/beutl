@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrls="using:BeUtl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:BeUtl.ViewModels.SettingsPages"
@@ -53,10 +54,59 @@
                 </Panel>
             </StackPanel>
 
+            <ItemsControl Margin="0,24,0,0" Items="{CompiledBinding Details}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Spacing="4" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <ctrls:OptionsDisplayItem Navigates="True" NavigationRequested="NavigateToStorageDetail">
+                            <ctrls:OptionsDisplayItem.Header>
+                                <Panel>
+                                    <TextBlock Text="{CompiledBinding DisplayName}" />
+                                    <TextBlock HorizontalAlignment="Right"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               Text="{CompiledBinding DisplayUsing}"
+                                               Theme="{StaticResource CaptionTextBlockStyle}" />
+                                </Panel>
+                            </ctrls:OptionsDisplayItem.Header>
+                            <ctrls:OptionsDisplayItem.Description>
+                                <Panel Margin="0,4,0,0">
+                                    <Border x:Name="Track"
+                                            Height="16"
+                                            Background="{DynamicResource ProgressBarBorderBrush}"
+                                            CornerRadius="8" />
+
+                                    <Border Height="16"
+                                            HorizontalAlignment="Left"
+                                            Background="{DynamicResource ProgressBarForeground}"
+                                            CornerRadius="8">
+                                        <Border.Width>
+                                            <MultiBinding Converter="{x:Static MultiplyConverter.Instance}">
+                                                <Binding Path="Percent" />
+                                                <Binding ElementName="Track" Path="Bounds.Width" />
+                                            </MultiBinding>
+                                        </Border.Width>
+                                    </Border>
+                                </Panel>
+                            </ctrls:OptionsDisplayItem.Description>
+                            <ctrls:OptionsDisplayItem.Icon>
+                                <icons:SymbolIcon Symbol="{CompiledBinding IconSymbol}" />
+                            </ctrls:OptionsDisplayItem.Icon>
+                        </ctrls:OptionsDisplayItem>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Margin="0,16,0,0"
+                       Text="設定"
+                       Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
 
-            <ctrls:OptionsDisplayItem Margin="0,24,0,0"
-                                      Description="{DynamicResource S.Common.Unimplemented}"
+            <ctrls:OptionsDisplayItem Description="{DynamicResource S.Common.Unimplemented}"
                                       Header="{DynamicResource S.StorageSettingsPage.BackupSettings}"
                                       IsEnabled="{CompiledBinding !IsBusy.Value}">
                 <ctrls:OptionsDisplayItem.Icon>

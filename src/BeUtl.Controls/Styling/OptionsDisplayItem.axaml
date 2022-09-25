@@ -31,10 +31,10 @@
     </Design.PreviewWith>
 
     <Style Selector="local|OptionsDisplayItem">
-        <Setter Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}" />
+        <Setter Property="Background" Value="{DynamicResource ButtonBackground}" />
         <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="{StaticResource ButtonPadding}" />
+        <Setter Property="BorderThickness" Value="{DynamicResource ButtonBorderThemeThickness}" />
+        <Setter Property="Padding" Value="12" />
         <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
         <Setter Property="ContentTransition">
             <Setter.Value>
@@ -45,7 +45,7 @@
             <ControlTemplate>
                 <StackPanel>
                     <Border Name="LayoutRoot"
-                            Padding="12"
+                            Padding="{TemplateBinding Padding}"
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
@@ -59,19 +59,25 @@
                                 <ContentPresenter Content="{TemplateBinding Icon}" />
                             </Viewbox>
 
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <StackPanel Grid.Column="1"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Center">
 
-                                <TextBlock HorizontalAlignment="Left"
-                                           Classes="BaseTextBlockStyle"
-                                           FontWeight="Normal"
-                                           Text="{TemplateBinding Header}"
-                                           TextTrimming="CharacterEllipsis" />
+                                <ContentPresenter HorizontalAlignment="Stretch"
+                                                  Content="{TemplateBinding Header}"
+                                                  FontSize="14"
+                                                  FontWeight="Normal"
+                                                  TextTrimming="CharacterEllipsis"
+                                                  TextWrapping="Wrap" />
 
-                                <TextBlock Classes="CaptionTextBlockStyle"
-                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                           IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                           Text="{TemplateBinding Description}"
-                                           TextWrapping="Wrap" />
+                                <ContentPresenter HorizontalAlignment="Stretch"
+                                                  Content="{TemplateBinding Description}"
+                                                  FontSize="12"
+                                                  FontWeight="Normal"
+                                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                  IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                  TextTrimming="CharacterEllipsis"
+                                                  TextWrapping="Wrap" />
                             </StackPanel>
 
                             <ContentPresenter Grid.Column="2"
@@ -96,7 +102,7 @@
                     <ContentPresenter Name="ExpandedContentPresenter"
                                       Grid.Row="2"
                                       Grid.ColumnSpan="4"
-                                      Padding="12"
+                                      Padding="{TemplateBinding Padding}"
                                       HorizontalAlignment="Stretch"
                                       VerticalAlignment="Stretch"
                                       HorizontalContentAlignment="Stretch"
@@ -129,10 +135,12 @@
     </Style>
 
     <Style Selector="local|OptionsDisplayItem:navigates /template/ Border#LayoutRoot:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+        <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPointerOver}" />
     </Style>
     <Style Selector="local|OptionsDisplayItem:navigates:pressed /template/ Border#LayoutRoot:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ControlFillColorTertiaryBrush}" />
+        <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPressed}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPressed}" />
     </Style>
 
     <Style Selector="local|OptionsDisplayItem:icon /template/ Viewbox#IconHost">
@@ -146,18 +154,13 @@
 
 
     <Style Selector="local|OptionsDisplayItem:expands /template/ Border#LayoutRoot:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+        <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPointerOver}" />
     </Style>
     <Style Selector="local|OptionsDisplayItem:expands:pressed /template/ Border#LayoutRoot">
-        <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+        <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPressed}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPressed}" />
     </Style>
-
-    <!--<Style Selector="local|OptionsDisplayItem:expands /template/ Border#LayoutRoot:pointerover Border#ChevronBorder">
-        <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
-    </Style>
-    <Style Selector="local|OptionsDisplayItem:expands:pressed /template/ Border#ChevronBorder">
-        <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
-    </Style>-->
 
     <Style Selector="local|OptionsDisplayItem:expands /template/ ui|SymbolIcon#Chevron">
         <Setter Property="IsVisible" Value="True" />
@@ -190,7 +193,7 @@
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Name="LayoutRoot"
-                        Padding="12"
+                        Padding="{TemplateBinding Padding}"
                         Background="{TemplateBinding Background}"
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
@@ -207,22 +210,23 @@
                             </Viewbox>
                         </Border>
 
-                        <StackPanel Grid.Row="1">
-                            <TextBlock Grid.Row="1"
-                                       Margin="0,5"
-                                       HorizontalAlignment="Left"
-                                       VerticalAlignment="Bottom"
-                                       Classes="BaseTextBlockStyle"
-                                       Text="{TemplateBinding Header}"
-                                       TextTrimming="CharacterEllipsis" />
+                        <StackPanel Grid.Row="1" HorizontalAlignment="Stretch">
+                            <ContentPresenter Margin="0,5"
+                                              HorizontalAlignment="Stretch"
+                                              Content="{TemplateBinding Header}"
+                                              FontSize="14"
+                                              FontWeight="Normal"
+                                              TextTrimming="CharacterEllipsis"
+                                              TextWrapping="Wrap" />
 
-                            <TextBlock Grid.Row="2"
-                                       Margin="0,5"
-                                       VerticalAlignment="Top"
-                                       Classes="CaptionTextBlockStyle"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                       Text="{TemplateBinding Description}"
-                                       TextWrapping="Wrap" />
+                            <ContentPresenter HorizontalAlignment="Stretch"
+                                              Content="{TemplateBinding Description}"
+                                              FontSize="12"
+                                              FontWeight="Normal"
+                                              Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                              IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                              TextTrimming="CharacterEllipsis"
+                                              TextWrapping="Wrap" />
                         </StackPanel>
                     </Grid>
                 </Border>
