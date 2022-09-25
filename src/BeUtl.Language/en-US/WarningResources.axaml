@@ -4,10 +4,7 @@
         <x:String x:Key="S.Warning.ItAlreadyExists">It already exists.</x:String>
         <x:String x:Key="S.Warning.ValueLessThanOrEqualToZero">Cannot specify a value less than or equal to 0.</x:String>
         <x:String x:Key="S.Warning.ValueLessThanZero">Cannot specify a value less than to 0.</x:String>
-        <x:String x:Key="S.Warning.CannotRenameBecauseConflicts">
-            Cannot rename from "{0}" to "{1}"
-            because the new name conflicts with an existing folder.
-        </x:String>
+        <x:String x:Key="S.Warning.CannotRenameBecauseConflicts">Cannot rename from "{0}" to "{1}"&#xa;because the new name conflicts with an existing folder.</x:String>
         <x:String x:Key="S.Warning.FileDoesNotExist">File does not exist.</x:String>
         <x:String x:Key="S.Warning.CouldNotOpenProject">Could not open project.</x:String>
         <x:String x:Key="S.Warning.NameCannotBeLeftBlank">Name cannot be left blank.</x:String>

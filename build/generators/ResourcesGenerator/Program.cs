@@ -25,7 +25,7 @@ foreach (string file in files)
             continue;
 
         string key2 = key1.Split('.')[^1];
-        string content = item.Value.ReplaceLineEndings("\n");
+        string content = item.Value.ReplaceLineEndings("\n").Replace("&#xa;", "\n");
         if (content.Length > 0 && content[0] == '\n')
         {
             var builder = new StringBuilder(content.Length);

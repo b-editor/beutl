@@ -1,7 +1,6 @@
-<Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
-        <!--Strings-->
+        <!--  Strings  -->
         <x:String x:Key="S.DevelopPage.Shortcuts">Shortcuts</x:String>
         <x:String x:Key="S.DevelopPage.CreateNewPackage">Create new package</x:String>
         <x:String x:Key="S.DevelopPage.CreateNewPackageDescription">Create a new package for distribution</x:String>
@@ -10,37 +9,19 @@
         <x:String x:Key="S.DevelopPage.Packages">Packages</x:String>
 
         <x:String x:Key="S.DevelopPage.DeletePackage.Title">Delete package</x:String>
-        <x:String x:Key="S.DevelopPage.DeletePackage.Content">
-            Are you sure you want to delete the package?
-            If you do this, you will never be able to access this package again.
-        </x:String>
+        <x:String x:Key="S.DevelopPage.DeletePackage.Content">Are you sure you want to delete the package?&#xa;If you do this, you will never be able to access this package again.</x:String>
         <x:String x:Key="S.DevelopPage.DeleteRelease.Title">Delete release</x:String>
-        <x:String x:Key="S.DevelopPage.DeleteRelease.Content">
-            Are you sure you want to delete the release?
-            If you do this, you will never be able to access this release again.
-        </x:String>
+        <x:String x:Key="S.DevelopPage.DeleteRelease.Content">Are you sure you want to delete the release?&#xa;If you do this, you will never be able to access this release again.</x:String>
         <x:String x:Key="S.DevelopPage.DeleteResource.Title">Delete resource</x:String>
         <x:String x:Key="S.DevelopPage.DeleteResource.Content">Are you sure you want to delete the resource?</x:String>
         <x:String x:Key="S.DevelopPage.MakePublicPackage.Title">Publish package</x:String>
-        <x:String x:Key="S.DevelopPage.MakePublicPackage.Content">
-            Are you sure you want to publish this package?
-            Doing so will allow others to download this package.
-        </x:String>
+        <x:String x:Key="S.DevelopPage.MakePublicPackage.Content">Are you sure you want to publish this package?&#xa;Doing so will allow others to download this package.</x:String>
         <x:String x:Key="S.DevelopPage.MakePrivatePackage.Title">Make the package private</x:String>
-        <x:String x:Key="S.DevelopPage.MakePrivatePackage.Content">
-            Are you sure you want to keep this package private?
-            Doing so will prevent others from downloading this package.
-        </x:String>
+        <x:String x:Key="S.DevelopPage.MakePrivatePackage.Content">Are you sure you want to keep this package private?&#xa;Doing so will prevent others from downloading this package.</x:String>
         <x:String x:Key="S.DevelopPage.MakePublicRelease.Title">Publish release</x:String>
-        <x:String x:Key="S.DevelopPage.MakePublicRelease.Content">
-            Are you sure you want to publish this release?
-            Doing so will allow others to download this release.
-        </x:String>
+        <x:String x:Key="S.DevelopPage.MakePublicRelease.Content">Are you sure you want to publish this release?&#xa;Doing so will allow others to download this release.</x:String>
         <x:String x:Key="S.DevelopPage.MakePrivateRelease.Title">Make the release private</x:String>
-        <x:String x:Key="S.DevelopPage.MakePrivateRelease.Content">
-            Are you sure you want to keep this release private?
-            Doing so will prevent others from downloading this release.
-        </x:String>
+        <x:String x:Key="S.DevelopPage.MakePrivateRelease.Content">Are you sure you want to keep this release private?&#xa;Doing so will prevent others from downloading this release.</x:String>
 
         <x:String x:Key="S.DevelopPage.AddRelease.Title">Add release</x:String>
         <x:String x:Key="S.DevelopPage.EditRelease.Title">Edit release</x:String>
@@ -50,7 +31,7 @@
         <x:String x:Key="S.DevelopPage.Release.Fields.BodyDescription">Description of this release.</x:String>
         <x:String x:Key="S.DevelopPage.Release.Fields.Version">Version</x:String>
         <x:String x:Key="S.DevelopPage.Release.Fields.VersionDescription">Version of this release.</x:String>
-        
+
         <x:String x:Key="S.DevelopPage.AddResource.Title">Add resource</x:String>
         <x:String x:Key="S.DevelopPage.Resource.Fields.Culture">Locale</x:String>
         <x:String x:Key="S.DevelopPage.Resource.Fields.CultureDescription">Locale in which this resource is displayed.</x:String>

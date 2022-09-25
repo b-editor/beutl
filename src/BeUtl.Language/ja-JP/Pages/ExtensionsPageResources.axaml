@@ -9,37 +9,19 @@
         <x:String x:Key="S.DevelopPage.Packages">パッケージ</x:String>
 
         <x:String x:Key="S.DevelopPage.DeletePackage.Title">パッケージを削除</x:String>
-        <x:String x:Key="S.DevelopPage.DeletePackage.Content">
-            パッケージを削除してもよろしいですか？
-            この操作を実行するとこのパッケージには二度とアクセスできなくなります。
-        </x:String>
+        <x:String x:Key="S.DevelopPage.DeletePackage.Content">パッケージを削除してもよろしいですか？&#xa;この操作を実行するとこのパッケージには二度とアクセスできなくなります。</x:String>
         <x:String x:Key="S.DevelopPage.DeleteRelease.Title">リリースを削除</x:String>
-        <x:String x:Key="S.DevelopPage.DeleteRelease.Content">
-            リリースを削除してもよろしいですか？
-            この操作を実行するとこのリリースには二度とアクセスできなくなります。
-        </x:String>
+        <x:String x:Key="S.DevelopPage.DeleteRelease.Content">リリースを削除してもよろしいですか？&#xa;この操作を実行するとこのリリースには二度とアクセスできなくなります。</x:String>
         <x:String x:Key="S.DevelopPage.DeleteResource.Title">リソースを削除</x:String>
         <x:String x:Key="S.DevelopPage.DeleteResource.Content">リソースを削除してもよろしいですか？</x:String>
         <x:String x:Key="S.DevelopPage.MakePublicPackage.Title">パッケージを公開</x:String>
-        <x:String x:Key="S.DevelopPage.MakePublicPackage.Content">
-            パッケージを公開してもよろしいですか？
-            この操作を実行すると他人がこのパッケージをダウンロードできるようになります。
-        </x:String>
+        <x:String x:Key="S.DevelopPage.MakePublicPackage.Content">パッケージを公開してもよろしいですか？&#xa;この操作を実行すると他人がこのパッケージをダウンロードできるようになります。</x:String>
         <x:String x:Key="S.DevelopPage.MakePrivatePackage.Title">パッケージを非公開にする</x:String>
-        <x:String x:Key="S.DevelopPage.MakePrivatePackage.Content">
-            パッケージを非公開にしてもよろしいですか？
-            この操作を実行すると他人がこのパッケージをダウンロードできなくなります。
-        </x:String>
+        <x:String x:Key="S.DevelopPage.MakePrivatePackage.Content">パッケージを非公開にしてもよろしいですか？&#xa;この操作を実行すると他人がこのパッケージをダウンロードできなくなります。</x:String>
         <x:String x:Key="S.DevelopPage.MakePublicRelease.Title">リリースを公開</x:String>
-        <x:String x:Key="S.DevelopPage.MakePublicRelease.Content">
-            リリースを公開してもよろしいですか？
-            この操作を実行すると他人がこのリリースをダウンロードできるようになります。
-        </x:String>
+        <x:String x:Key="S.DevelopPage.MakePublicRelease.Content">リリースを公開してもよろしいですか？&#xa;この操作を実行すると他人がこのリリースをダウンロードできるようになります。</x:String>
         <x:String x:Key="S.DevelopPage.MakePrivateRelease.Title">リリースを非公開にする</x:String>
-        <x:String x:Key="S.DevelopPage.MakePrivateRelease.Content">
-            リリースを非公開にしてもよろしいですか？
-            この操作を実行すると他人がこのリリースをダウンロードできなくなります。
-        </x:String>
+        <x:String x:Key="S.DevelopPage.MakePrivateRelease.Content">リリースを非公開にしてもよろしいですか？&#xa;この操作を実行すると他人がこのリリースをダウンロードできなくなります。</x:String>
 
         <x:String x:Key="S.DevelopPage.AddRelease.Title">リリースを追加</x:String>
         <x:String x:Key="S.DevelopPage.EditRelease.Title">リリースを編集</x:String>
