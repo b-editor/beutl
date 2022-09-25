@@ -75,7 +75,7 @@ public sealed partial class ResourcePage : UserControl
             PackageSettingsPageViewModel? param = frame.FindParameter<PackageSettingsPageViewModel>(x => x.Package.Id == viewModel.Resource.Package.Id);
             param ??= viewModel.CreatePackageSettingsPage();
 
-            frame.Navigate(typeof(PackageSettingsPage), viewModel.Resource.Package, SharedNavigationTransitionInfo.Instance);
+            frame.Navigate(typeof(PackageSettingsPage), param, SharedNavigationTransitionInfo.Instance);
         }
     }
 

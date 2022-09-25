@@ -1,7 +1,6 @@
 <ui:ContentDialog x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs.CreatePackageDialog"
                   xmlns="https://github.com/avaloniaui"
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                  xmlns:ctrls="using:BeUtl.Controls"
                   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -15,22 +14,16 @@
                   IsPrimaryButtonEnabled="{CompiledBinding IsValid.Value}"
                   PrimaryButtonText="{DynamicResource S.Common.Create}"
                   mc:Ignorable="d">
+    <ui:ContentDialog.Resources>
+        <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />
+    </ui:ContentDialog.Resources>
     <StackPanel Spacing="4">
-        <StackPanel.Styles>
-            <Style Selector="TextBlock.description">
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-            </Style>
-        </StackPanel.Styles>
+        <TextBlock Text="{DynamicResource S.DevelopPage.Package.Fields.Name}" Theme="{StaticResource LabelTextBlockStyle}" />
+        <TextBox Text="{CompiledBinding Name.Value}" />
 
-        <TextBlock Classes="description" Text="{DynamicResource S.DevelopPage.Package.Fields.Name}" />
-        <TextBox AcceptsReturn="True"
-                 Classes="customStyle"
-                 Text="{CompiledBinding Name.Value}" />
-
-        <TextBlock Margin="12,0,0,0"
-                   Classes="error"
+        <TextBlock Classes="error"
                    IsVisible="{CompiledBinding Error.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                   Text="{CompiledBinding Error.Value}" />
+                   Text="{CompiledBinding Error.Value}"
+                   TextWrapping="WrapWithOverflow" />
     </StackPanel>
 </ui:ContentDialog>

@@ -10,6 +10,9 @@ using System.Text.Json.Serialization;
 
 using Beutl.Api.Objects;
 
+using BeUtl;
+using BeUtl.Configuration;
+
 using Reactive.Bindings;
 
 namespace Beutl.Api;
@@ -31,6 +34,12 @@ public class BeutlClients
         Users = new UsersClient(httpClient) { BaseUrl = BaseUrl };
         Account = new AccountClient(httpClient) { BaseUrl = BaseUrl };
         Assets = new AssetsClient(httpClient) { BaseUrl = BaseUrl };
+        GlobalConfiguration.Instance.ViewConfig.GetObservable(ViewConfig.UICultureProperty)
+            .Subscribe(x =>
+            {
+                httpClient.DefaultRequestHeaders.AcceptLanguage.Clear();
+                httpClient.DefaultRequestHeaders.AcceptLanguage.Add(new StringWithQualityHeaderValue(x.Name));
+            });
     }
 
     public PackageResourcesClient PackageResources { get; }
@@ -44,7 +53,7 @@ public class BeutlClients
     public UsersClient Users { get; }
 
     public AccountClient Account { get; }
-    
+
     public AssetsClient Assets { get; }
 
     public IReadOnlyReactiveProperty<AuthorizedUser?> AuthorizedUser => _authorizedUser;

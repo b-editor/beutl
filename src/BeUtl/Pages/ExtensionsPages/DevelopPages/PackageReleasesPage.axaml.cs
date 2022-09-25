@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 
 using Beutl.Api.Objects;
@@ -50,8 +51,6 @@ public sealed partial class PackageReleasesPage : UserControl
     {
         if (DataContext is PackageReleasesPageViewModel viewModel)
         {
-            await viewModel.IsBusy.Where(x => !x);
-
             AddReleaseDialogViewModel dialogViewModel = viewModel.CreateAddReleaseDialog();
             var dialog = new AddReleaseDialog
             {

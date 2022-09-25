@@ -10,6 +10,15 @@
         <convert:PixelSizeConverter x:Key="PixelSizeConverter" />
         <convert:TimeSpanToDoubleConverter x:Key="TimeSpanToDoubleConverter" />
         <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
+
+        <ControlTheme x:Key="LabelTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </ControlTheme>
     </Application.Resources>
     <Application.Styles>
         <StyleInclude Source="avares://BeUtl.Controls/Styles.axaml" />

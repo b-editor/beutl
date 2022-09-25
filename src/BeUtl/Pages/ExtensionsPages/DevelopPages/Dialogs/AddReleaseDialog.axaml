@@ -15,47 +15,34 @@
                   IsPrimaryButtonEnabled="{CompiledBinding IsValid.Value}"
                   PrimaryButtonText="{DynamicResource S.Common.Create}"
                   mc:Ignorable="d">
-    <ui:ContentDialog.Styles>
-        <Style Selector="ui|ContentDialog /template/ Border#BackgroundElement">
-            <Setter Property="Width" Value="{DynamicResource ContentDialogMaxWidth}" />
-        </Style>
-    </ui:ContentDialog.Styles>
+    <ui:ContentDialog.Resources>
+        <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />
+    </ui:ContentDialog.Resources>
     <StackPanel Spacing="4">
         <StackPanel.Styles>
-            <Style Selector="TextBox.customStyle">
-                <Setter Property="MinWidth" Value="250" />
-                <Setter Property="HorizontalAlignment" Value="Left" />
-            </Style>
-            <Style Selector="TextBlock.description">
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Style Selector="Separator">
+                <Setter Property="Height" Value="4" />
             </Style>
         </StackPanel.Styles>
-        <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Release.Fields.TitleDescription}" Header="{DynamicResource S.DevelopPage.Release.Fields.Title}">
-            <ctrls:OptionsDisplayItem.ActionButton>
-                <TextBox Classes="customStyle" Text="{CompiledBinding Title.Value}" />
-            </ctrls:OptionsDisplayItem.ActionButton>
-        </ctrls:OptionsDisplayItem>
 
-        <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Release.Fields.BodyDescription}"
-                                  Expands="True"
-                                  Header="{DynamicResource S.DevelopPage.Release.Fields.Body}">
-            <ctrls:OptionsDisplayItem.Content>
-                <TextBox AcceptsReturn="True"
-                         Classes="customStyle"
-                         Text="{CompiledBinding Body.Value}" />
-            </ctrls:OptionsDisplayItem.Content>
-        </ctrls:OptionsDisplayItem>
+        <TextBlock Text="{DynamicResource S.DevelopPage.Release.Fields.Title}" Theme="{StaticResource LabelTextBlockStyle}" />
+        <TextBox Text="{CompiledBinding Title.Value}" ToolTip.Tip="{DynamicResource S.DevelopPage.Release.Fields.TitleDescription}" />
 
-        <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Release.Fields.VersionDescription}" Header="{DynamicResource S.DevelopPage.Release.Fields.Version}">
-            <ctrls:OptionsDisplayItem.ActionButton>
-                <TextBox Classes="customStyle" Text="{CompiledBinding Version.Value}" />
-            </ctrls:OptionsDisplayItem.ActionButton>
-        </ctrls:OptionsDisplayItem>
+        <Separator />
 
-        <TextBlock Margin="12,0,0,0"
-                   Classes="error"
+        <TextBlock Text="{DynamicResource S.DevelopPage.Release.Fields.Body}" Theme="{StaticResource LabelTextBlockStyle}" />
+        <TextBox AcceptsReturn="True"
+                 Text="{CompiledBinding Body.Value}"
+                 ToolTip.Tip="{DynamicResource S.DevelopPage.Release.Fields.BodyDescription}" />
+
+        <Separator />
+
+        <TextBlock Text="{DynamicResource S.DevelopPage.Release.Fields.Version}" Theme="{StaticResource LabelTextBlockStyle}" />
+        <TextBox Text="{CompiledBinding Version.Value}" ToolTip.Tip="{DynamicResource S.DevelopPage.Release.Fields.VersionDescription}" />
+
+        <TextBlock Classes="error"
                    IsVisible="{CompiledBinding Error.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                   Text="{CompiledBinding Error.Value}" />
+                   Text="{CompiledBinding Error.Value}"
+                   TextWrapping="WrapWithOverflow" />
     </StackPanel>
 </ui:ContentDialog>

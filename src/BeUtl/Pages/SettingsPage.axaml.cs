@@ -80,7 +80,7 @@ public sealed partial class SettingsPage : UserControl
             {
                 [!ContentProperty] = S.SettingsPage.StorageObservable.ToBinding(),
                 Tag = typeof(StorageSettingsPage),
-                Icon = new CompatSymbolIcon()
+                Icon = new FluentIcons.FluentAvalonia.SymbolIcon()
                 {
                     Symbol = FluentIcons.Common.Symbol.Storage
                 }
