@@ -79,8 +79,8 @@
                 </ctrls:OptionsDisplayItem>
 
                 <TextBlock Margin="0,16,0,0"
-                           Classes="BodyStrongTextBlockStyle"
-                           Text="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}" />
+                           Text="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
                 <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.LocaleSpecificResourcesDescription}" Header="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}">
                     <ctrls:OptionsDisplayItem.ActionButton>
@@ -110,15 +110,15 @@
                                     <StackPanel Grid.Column="0"
                                                 VerticalAlignment="Center"
                                                 Orientation="Vertical">
-                                        <TextBlock Classes="BodyStrongTextBlockStyle" Text="{CompiledBinding Locale.DisplayName}" />
+                                        <TextBlock Text="{CompiledBinding Locale.DisplayName}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Classes="CaptionTextBlockStyle" Text="{CompiledBinding Title.Value}" />
+                                            <TextBlock Text="{CompiledBinding Title.Value}" Theme="{StaticResource CaptionTextBlockStyle}" />
 
-                                            <TextBlock Classes="CaptionTextBlockStyle"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                            <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                        MaxLines="1"
-                                                       Text="{CompiledBinding Body.Value}" />
+                                                       Text="{CompiledBinding Body.Value}"
+                                                       Theme="{StaticResource CaptionTextBlockStyle}" />
                                         </StackPanel>
                                     </StackPanel>
 
@@ -140,8 +140,8 @@
                 </ItemsControl>
 
                 <TextBlock Margin="0,16,0,0"
-                           Classes="BodyStrongTextBlockStyle"
-                           Text="{DynamicResource S.Common.Settings}" />
+                           Text="{DynamicResource S.Common.Settings}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
                 <ctrls:OptionsDisplayItem Header="{DynamicResource S.Common.Delete}"
                                           Icon="Delete"

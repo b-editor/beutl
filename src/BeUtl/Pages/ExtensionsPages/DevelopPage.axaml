@@ -20,7 +20,7 @@
 
     <ScrollViewer Padding="18">
         <StackPanel Margin="8" Spacing="8">
-            <TextBlock Classes="SubtitleTextBlockStyle" Text="{DynamicResource S.DevelopPage.Shortcuts}" />
+            <TextBlock Text="{DynamicResource S.DevelopPage.Shortcuts}" Theme="{StaticResource SubtitleTextBlockStyle}" />
 
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                 <StackPanel Orientation="Horizontal" Spacing="8">
@@ -43,7 +43,7 @@
             </ScrollViewer>
 
             <Separator Height="8" />
-            <TextBlock Classes="SubtitleTextBlockStyle" Text="{DynamicResource S.DevelopPage.Packages}" />
+            <TextBlock Text="{DynamicResource S.DevelopPage.Packages}" Theme="{StaticResource SubtitleTextBlockStyle}" />
 
             <ListBox x:Name="PackagesList"
                      IsEnabled="{CompiledBinding !IsBusy.Value}"

@@ -47,8 +47,8 @@
         <ScrollViewer Grid.Row="1" Margin="10,0">
             <StackPanel Spacing="4">
                 <TextBlock Margin="0,16,0,0"
-                           Classes="BodyStrongTextBlockStyle"
-                           Text="{DynamicResource S.DevelopPage.Package.Resource}" />
+                           Text="{DynamicResource S.DevelopPage.Package.Resource}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
                 <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.Fields.NameDescription}"
                                           Expands="True"
@@ -62,9 +62,9 @@
                 </ctrls:OptionsDisplayItem>
 
                 <TextBlock Margin="0,8,0,0"
-                           Classes="BodyStrongTextBlockStyle"
                            FontStyle="Italic"
-                           Text="{DynamicResource S.DevelopPage.Package.BaseResourceDescription}" />
+                           Text="{DynamicResource S.DevelopPage.Package.BaseResourceDescription}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
                 <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.Fields.DisplayNameDescription}"
                                           Expands="True"
@@ -190,8 +190,8 @@
                 </ctrls:OptionsDisplayItem>-->
 
                 <TextBlock Margin="0,16,0,0"
-                           Classes="BodyStrongTextBlockStyle"
-                           Text="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}" />
+                           Text="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
                 <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.LocaleSpecificResourcesDescription}" Header="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}">
                     <ctrls:OptionsDisplayItem.ActionButton>
@@ -219,27 +219,27 @@
                                     <StackPanel Grid.Column="0"
                                                 VerticalAlignment="Center"
                                                 Orientation="Vertical">
-                                        <TextBlock Classes="BodyStrongTextBlockStyle" Text="{CompiledBinding Locale.DisplayName}" />
+                                        <TextBlock Text="{CompiledBinding Locale.DisplayName}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Classes="CaptionTextBlockStyle"
-                                                       IsVisible="{CompiledBinding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                       Text="{CompiledBinding DisplayName.Value}" />
-                                            <TextBlock Classes="CaptionTextBlockStyle"
-                                                       IsVisible="{CompiledBinding DisplayName.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}"
-                                                       Text="{CompiledBinding Package.DisplayName.Value}" />
+                                            <TextBlock IsVisible="{CompiledBinding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                       Text="{CompiledBinding DisplayName.Value}"
+                                                       Theme="{StaticResource CaptionTextBlockStyle}" />
+                                            <TextBlock IsVisible="{CompiledBinding DisplayName.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}"
+                                                       Text="{CompiledBinding Package.DisplayName.Value}"
+                                                       Theme="{StaticResource CaptionTextBlockStyle}" />
 
-                                            <TextBlock Classes="CaptionTextBlockStyle"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                            <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                        IsVisible="{CompiledBinding ShortDescription.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                                        MaxLines="1"
-                                                       Text="{CompiledBinding ShortDescription.Value}" />
+                                                       Text="{CompiledBinding ShortDescription.Value}"
+                                                       Theme="{StaticResource CaptionTextBlockStyle}" />
 
-                                            <TextBlock Classes="CaptionTextBlockStyle"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                            <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                        IsVisible="{CompiledBinding ShortDescription.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}"
                                                        MaxLines="1"
-                                                       Text="{CompiledBinding ShortDescription.Value}" />
+                                                       Text="{CompiledBinding ShortDescription.Value}"
+                                                       Theme="{StaticResource CaptionTextBlockStyle}" />
                                         </StackPanel>
                                     </StackPanel>
 
@@ -261,8 +261,8 @@
                 </ItemsControl>
 
                 <TextBlock Margin="0,16,0,0"
-                           Classes="BodyStrongTextBlockStyle"
-                           Text="{DynamicResource S.Common.Settings}" />
+                           Text="{DynamicResource S.Common.Settings}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
                 <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.DeletePackage.Title}"
                                           Icon="Delete"

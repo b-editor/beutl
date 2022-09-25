@@ -62,7 +62,7 @@
                                     HorizontalAlignment="Left"
                                     VerticalAlignment="Center"
                                     Orientation="Vertical">
-                            <TextBlock Classes="BodyStrongTextBlockStyle" Text="{CompiledBinding Title.Value}" />
+                            <TextBlock Text="{CompiledBinding Title.Value}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
                             <TextBlock Text="{CompiledBinding Version.Value}" />
                         </StackPanel>

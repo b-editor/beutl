@@ -54,8 +54,8 @@
         <ScrollViewer Grid.Row="1" Margin="10,0">
             <StackPanel Spacing="4">
                 <TextBlock Margin="0,16,0,0"
-                           Classes="BodyStrongTextBlockStyle"
-                           Text="{DynamicResource S.DevelopPage.Package.Resource}" />
+                           Text="{DynamicResource S.DevelopPage.Package.Resource}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
                 <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Resource.Fields.CultureDescription}" Header="{DynamicResource S.DevelopPage.Resource.Fields.Culture}">
                     <ctrls:OptionsDisplayItem.ActionButton>
@@ -65,9 +65,9 @@
 
 
                 <TextBlock Margin="0,8,0,0"
-                           Classes="BodyStrongTextBlockStyle"
                            FontStyle="Italic"
-                           Text="{DynamicResource S.DevelopPage.Resource.Fields.IfBlankIsSpecified}" />
+                           Text="{DynamicResource S.DevelopPage.Resource.Fields.IfBlankIsSpecified}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
                 <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.Fields.DisplayNameDescription}"
                                           Expands="True"

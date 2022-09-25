@@ -69,6 +69,31 @@ public sealed class PackageDetailsPageViewModel : IDisposable
         HasLogoImage = LocalizedLogoImage.Select(i => i != null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
+
+        Refresh.Subscribe(async () =>
+        {
+            if (IsBusy.Value)
+                return;
+
+            try
+            {
+                IsBusy.Value = true;
+                await _initTask;
+
+                await _user.RefreshAsync();
+
+                await Package.RefreshAsync();
+                _resources.Value = await Package.GetResourcesAsync();
+            }
+            catch
+            {
+                // Todo:
+            }
+            finally
+            {
+                IsBusy.Value = false;
+            }
+        });
     }
 
     ~PackageDetailsPageViewModel()
@@ -94,6 +119,8 @@ public sealed class PackageDetailsPageViewModel : IDisposable
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
+    public AsyncReactiveCommand Refresh { get; } = new();
+
     public PackageSettingsPageViewModel CreatePackageSettingsPage()
     {
         return new PackageSettingsPageViewModel(_user, Package);
@@ -102,31 +129,6 @@ public sealed class PackageDetailsPageViewModel : IDisposable
     public PackageReleasesPageViewModel CreatePackageReleasesPage()
     {
         return new PackageReleasesPageViewModel(_user, Package);
-    }
-
-    public async Task RefreshAsync()
-    {
-        if (IsBusy.Value)
-            return;
-
-        try
-        {
-            IsBusy.Value = true;
-            await _initTask;
-
-            await _user.RefreshAsync();
-
-            await Package.RefreshAsync();
-            _resources.Value = await Package.GetResourcesAsync();
-        }
-        catch
-        {
-            // Todo:
-        }
-        finally
-        {
-            IsBusy.Value = false;
-        }
     }
 
     public void Dispose()
