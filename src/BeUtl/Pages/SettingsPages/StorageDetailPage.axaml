@@ -2,6 +2,7 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:BeUtl.ViewModels.SettingsPages"
@@ -15,7 +16,7 @@
         <KeyBinding Command="{CompiledBinding Refresh}" Gesture="F5" />
         <KeyBinding Command="{CompiledBinding Refresh}" Gesture="Ctrl+R" />
     </UserControl.KeyBindings>
-    <Grid RowDefinitions="Auto,Auto,Auto">
+    <Grid Margin="18" RowDefinitions="Auto,Auto,Auto">
         <StackPanel Margin="10,8"
                     Orientation="Horizontal"
                     Spacing="16">
@@ -39,15 +40,47 @@
         <ListBox Grid.Row="2" Items="{CompiledBinding Items}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Panel>
-                        <TextBlock VerticalAlignment="Center" Text="{CompiledBinding Name}" />
+                    <!--<Panel>
+                        <TextBlock VerticalAlignment="Center" Text="{CompiledBinding Model.Name}" />
 
                         <ui:CommandBarButton HorizontalAlignment="Right"
                                              Command="{Binding #root.DataContext.Delete, Mode=OneTime}"
                                              CommandParameter="{Binding $self.DataContext}"
                                              Icon="Delete"
                                              Label="{DynamicResource S.Common.Delete}" />
-                    </Panel>
+                    </Panel>-->
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <StackPanel VerticalAlignment="Center" Spacing="2">
+                            <TextBlock Text="{CompiledBinding Model.Name}" />
+                            <WrapPanel Orientation="Horizontal">
+                                <WrapPanel.Styles>
+                                    <Style Selector="TextBlock">
+                                        <Setter Property="Theme" Value="{StaticResource LabelTextBlockStyle}" />
+                                        <Setter Property="FontSize" Value="12" />
+                                    </Style>
+                                </WrapPanel.Styles>
+                                <TextBlock IsVisible="{CompiledBinding Physical}" Text="内部" />
+                                <TextBlock IsVisible="{CompiledBinding Virtual}" Text="外部" />
+                                <TextBlock Text=" | " />
+                                <TextBlock Text="{CompiledBinding ShortUrl}" />
+                                <TextBlock Text=" | " />
+                                <TextBlock Text="{CompiledBinding Model.ContentType}" />
+                                <TextBlock Text=" | " />
+                                <TextBlock Text="{CompiledBinding DisplayUsing}" />
+
+                            </WrapPanel>
+                        </StackPanel>
+
+                        <ui:CommandBarButton Grid.Column="1" Label="{DynamicResource S.Common.Copy}">
+                            <ui:CommandBarButton.Icon>
+                                <icons:SymbolIcon Symbol="ClipboardLink" />
+                            </ui:CommandBarButton.Icon>
+                        </ui:CommandBarButton>
+
+                        <ui:CommandBarButton Grid.Column="2"
+                                             Icon="Delete"
+                                             Label="{DynamicResource S.Common.Delete}" />
+                    </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>

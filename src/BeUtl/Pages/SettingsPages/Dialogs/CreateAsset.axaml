@@ -1,0 +1,103 @@
+<ui:ContentDialog x:Class="BeUtl.Pages.SettingsPages.Dialogs.CreateAsset"
+                  xmlns="https://github.com/avaloniaui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:icons="using:FluentIcons.FluentAvalonia"
+                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:ui="using:FluentAvalonia.UI.Controls"
+                  xmlns:viewModel="using:BeUtl.ViewModels.SettingsPages.Dialogs"
+                  Title="ファイルをアップロード"
+                  d:DesignHeight="450"
+                  d:DesignWidth="800"
+                  x:CompileBindings="True"
+                  x:DataType="viewModel:CreateAssetViewModel"
+                  CloseButtonText="{Binding CloseButtonText.Value}"
+                  IsPrimaryButtonEnabled="{Binding IsPrimaryButtonEnabled.Value}"
+                  PrimaryButtonText="{Binding PrimaryButtonText.Value}"
+                  mc:Ignorable="d">
+    <Carousel x:Name="carousel" SelectedIndex="{Binding PageIndex.Value}">
+        <Carousel.Items>
+            <ListBox x:Name="MethodsList" SelectedIndex="{Binding SelectedMethod.Value, Mode=TwoWay}">
+                <ListBoxItem>
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <icons:SymbolIcon FontSize="24" Symbol="CloudArrowUp" />
+
+                        <RichTextBlock Margin="0,8">
+                            <Bold FontSize="14">内部</Bold><LineBreak />
+                            b-editorのサーバーにファイルをアップロードします。<LineBreak />
+                            <Italic>例: 画像などの軽量なファイル</Italic>
+                        </RichTextBlock>
+                    </StackPanel>
+                </ListBoxItem>
+                <ListBoxItem>
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <icons:SymbolIcon FontSize="24" Symbol="CloudLink" />
+
+                        <RichTextBlock Margin="0,8">
+                            <Bold FontSize="14">外部</Bold><LineBreak />
+                            お客様がファイルを外部のサーバーにアップロードし、<LineBreak />
+                            b-editorはそのダウンロードURLを保持します。<LineBreak />
+                            <Italic>例: パッケージのリリースのアセットなどの大容量なファイル</Italic>
+                        </RichTextBlock>
+                    </StackPanel>
+                </ListBoxItem>
+            </ListBox>
+
+            <StackPanel Spacing="4">
+                <TextBlock Text="名前" Theme="{StaticResource LabelTextBlockStyle}" />
+                <TextBox Text="{Binding Name.Value}" />
+
+                <Separator Height="4" />
+
+                <TextBlock Text="コンテンツタイプ" Theme="{StaticResource LabelTextBlockStyle}" />
+                <TextBox Text="{Binding ContentType.Value}" />
+
+                <Separator Height="4" />
+
+                <StackPanel IsVisible="{Binding UseInternalServer.Value}" Spacing="4">
+                    <TextBlock Text="ファイル" Theme="{StaticResource LabelTextBlockStyle}" />
+                    <TextBox Text="{Binding File.Value, Mode=TwoWay}">
+                        <TextBox.InnerRightContent>
+                            <Button Click="OpenFile" Theme="{StaticResource TransparentButton}">
+                                <icons:SymbolIcon Symbol="Open" />
+                            </Button>
+                        </TextBox.InnerRightContent>
+                    </TextBox>
+                </StackPanel>
+
+                <StackPanel IsVisible="{Binding UseExternalServer.Value}" Spacing="4">
+                    <TextBlock Text="URL" Theme="{StaticResource LabelTextBlockStyle}" />
+                    <TextBox Text="{Binding Url.Value, Mode=TwoWay}" Watermark="https://" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+                <TextBlock Text="少なくとも一つはハッシュ値を入力してください" Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <TextBlock Text="SHA256" Theme="{StaticResource LabelTextBlockStyle}" />
+                <TextBox Text="{Binding Sha256.Value, Mode=TwoWay}" />
+
+                <Separator Height="4" />
+
+                <TextBlock Text="SHA384" Theme="{StaticResource LabelTextBlockStyle}" />
+                <TextBox Text="{Binding Sha384.Value, Mode=TwoWay}" />
+
+                <Separator Height="4" />
+
+                <TextBlock Text="SHA512" Theme="{StaticResource LabelTextBlockStyle}" />
+                <TextBox Text="{Binding Sha512.Value, Mode=TwoWay}" />
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+                <TextBlock Text="{Binding ProgressStatus.Value}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <ProgressBar Maximum="100" Value="{Binding ProgressValue.Value}" />
+
+                <TextBlock Classes="error"
+                           IsVisible="{Binding Error.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           Text="{Binding Error.Value}"
+                           TextWrapping="WrapWithOverflow" />
+            </StackPanel>
+
+        </Carousel.Items>
+    </Carousel>
+</ui:ContentDialog>

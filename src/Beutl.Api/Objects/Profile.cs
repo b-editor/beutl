@@ -1,5 +1,6 @@
 ﻿using System.Net.Http.Headers;
 using System.Reactive.Linq;
+using System.Text;
 
 using Reactive.Bindings;
 
@@ -86,11 +87,26 @@ public class Profile
         return new Asset(this, response, _clients);
     }
 
-    public async Task<Asset> AddAssetAsync(string name, Stream stream, string contentType)
+    public async Task<Asset> AddAssetAsync(string name, FileStream stream, string contentType)
     {
         var streamContent = new StreamContent(stream);
         streamContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
-        var multiPartContent = new MultipartFormDataContent();
+
+        // 手動でエンコードを行う。
+        string headerValue = string.Format("form-data; name=\"{0}\"; filename=\"{1}\"", name, stream.Name);
+        byte[] headerValueByteArray = Encoding.UTF8.GetBytes(headerValue);
+        var encodingHeaderValue = new StringBuilder();
+        foreach (byte b in headerValueByteArray)
+        {
+            encodingHeaderValue.Append((char)b);
+        }
+
+        streamContent.Headers.Add("Content-Disposition", encodingHeaderValue.ToString());
+
+        var multiPartContent = new MultipartFormDataContent
+        {
+            streamContent
+        };
 
         AssetMetadataResponse response = await _clients.Assets.PostAsync(Name.Value, name, multiPartContent);
         return new Asset(this, response, _clients);

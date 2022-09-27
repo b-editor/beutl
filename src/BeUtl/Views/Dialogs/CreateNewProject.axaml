@@ -28,16 +28,14 @@
                 <Separator />
 
                 <TextBlock Text="{DynamicResource S.Common.Location}" />
-                <Panel>
-                    <TextBox Text="{CompiledBinding Location.Value, Mode=TwoWay}" />
 
-                    <Button HorizontalAlignment="Right"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Click="PickLocation">
-                        <icons:SymbolIcon Symbol="OpenFolder" />
-                    </Button>
-                </Panel>
+                <TextBox Text="{CompiledBinding Location.Value, Mode=TwoWay}">
+                    <TextBox.InnerRightContent>
+                        <Button Click="PickLocation" Theme="{StaticResource TransparentButton}">
+                            <icons:SymbolIcon Symbol="OpenFolder" />
+                        </Button>
+                    </TextBox.InnerRightContent>
+                </TextBox>
             </StackPanel>
             <StackPanel Spacing="8">
                 <TextBlock Text="{DynamicResource S.Common.Size}" />

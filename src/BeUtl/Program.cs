@@ -17,6 +17,9 @@ internal static class Program
     {
         GC.KeepAlive(typeof(Avalonia.Svg.Skia.SvgImageExtension).Assembly);
         GC.KeepAlive(typeof(Avalonia.Svg.Skia.Svg).Assembly);
+        GC.KeepAlive(typeof(FluentIcons.FluentAvalonia.SymbolIcon).Assembly);
+        GC.KeepAlive(typeof(FluentIcons.Common.Symbol).Assembly);
+
         return AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .UseReactiveUI()

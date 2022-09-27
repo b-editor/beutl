@@ -37,6 +37,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Props", "Props", "{74C34E00
 		build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props = build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props
 		build\props\Microsoft.Extensions.DependencyInjection.props = build\props\Microsoft.Extensions.DependencyInjection.props
 		build\props\Microsoft.Extensions.FileSystemGlobbing.props = build\props\Microsoft.Extensions.FileSystemGlobbing.props
+		build\props\Microsoft.Extensions.Http.props = build\props\Microsoft.Extensions.Http.props
 		build\props\Microsoft.Extensions.Logging.props = build\props\Microsoft.Extensions.Logging.props
 		build\props\OpenCvSharp4.props = build\props\OpenCvSharp4.props
 		build\props\ReactiveProperty.props = build\props\ReactiveProperty.props

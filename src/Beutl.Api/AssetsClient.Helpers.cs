@@ -30,7 +30,7 @@ public partial class AssetsClient
     /// <exception cref="BeutlApiException">A server side error occurred.</exception>
     public virtual Task<AssetMetadataResponse> PostAsync(string owner, string name, MultipartFormDataContent request)
     {
-        return PostAsync(owner, name, CancellationToken.None);
+        return PostAsync(owner, name, request, CancellationToken.None);
     }
 
     /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
@@ -153,7 +153,7 @@ public partial class AssetsClient
     /// <exception cref="BeutlApiException">A server side error occurred.</exception>
     public virtual Task<AssetMetadataResponse> PostAsync(string owner, string name, CreateVirtualAssetRequest request)
     {
-        return PostAsync(owner, name, CancellationToken.None);
+        return PostAsync(owner, name, request, CancellationToken.None);
     }
 
     /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>

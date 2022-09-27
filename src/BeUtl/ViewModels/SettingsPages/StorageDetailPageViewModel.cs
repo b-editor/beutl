@@ -8,6 +8,8 @@ using Avalonia.Collections;
 
 using Beutl.Api.Objects;
 
+using BeUtl.ViewModels.SettingsPages.Dialogs;
+
 using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.SettingsPages;
@@ -36,7 +38,8 @@ public class StorageDetailPageViewModel
                 do
                 {
                     Asset[] items = await user.Profile.GetAssetsAsync(count, 30);
-                    Items.AddRange(items.Where(x => StorageSettingsPageViewModel.ToKnownType(x.ContentType) == Type));
+                    Items.AddRange(items.Where(x => StorageSettingsPageViewModel.ToKnownType(x.ContentType) == Type)
+                        .Select(x => new AssetViewModel(x, x.Size.HasValue ? StorageSettingsPageViewModel.ToHumanReadableSize(x.Size.Value) : string.Empty)));
                     prevCount = items.Length;
                     count += items.Length;
                 } while (prevCount == 30);
@@ -56,11 +59,32 @@ public class StorageDetailPageViewModel
 
     public StorageSettingsPageViewModel.KnownType Type { get; }
 
-    public AvaloniaList<Asset> Items { get; } = new();
+    public AvaloniaList<AssetViewModel> Items { get; } = new();
 
-    public AsyncReactiveCommand<Asset> Delete { get; } = new();
+    public AsyncReactiveCommand<AssetViewModel> Delete { get; } = new();
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
     public AsyncReactiveCommand Refresh { get; } = new();
+
+    public CreateAssetViewModel CreateAssetViewModel()
+    {
+        return new CreateAssetViewModel(_user);
+    }
+
+    public record AssetViewModel(Asset Model, string DisplayUsing)
+    {
+        public bool Physical => Model.AssetType == Beutl.Api.AssetType.Physical;
+
+        public bool Virtual => Model.AssetType == Beutl.Api.AssetType.Virtual;
+
+        public string ShortUrl
+        {
+            get
+            {
+                var uri = new Uri(Model.DownloadUrl);
+                return uri.GetComponents(UriComponents.SchemeAndServer, UriFormat.Unescaped);
+            }
+        }
+    }
 }
