@@ -8,13 +8,14 @@ using Avalonia.Collections;
 
 using Beutl.Api.Objects;
 
+using BeUtl.Controls.Navigation;
 using BeUtl.ViewModels.SettingsPages.Dialogs;
 
 using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.SettingsPages;
 
-public class StorageDetailPageViewModel
+public class StorageDetailPageViewModel : PageContext
 {
     private readonly AuthorizedUser _user;
 
@@ -55,6 +56,12 @@ public class StorageDetailPageViewModel
         });
 
         Refresh.Execute();
+
+        NavigateParent.Subscribe(async x =>
+        {
+            INavigationProvider nav = await GetNavigation();
+            await nav.NavigateAsync<StorageSettingsPageViewModel>();
+        });
     }
 
     public StorageSettingsPageViewModel.KnownType Type { get; }
@@ -66,6 +73,8 @@ public class StorageDetailPageViewModel
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
     public AsyncReactiveCommand Refresh { get; } = new();
+
+    public AsyncReactiveCommand NavigateParent { get; } = new();
 
     public CreateAssetViewModel CreateAssetViewModel()
     {

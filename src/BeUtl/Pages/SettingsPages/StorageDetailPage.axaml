@@ -21,7 +21,7 @@
                     Orientation="Horizontal"
                     Spacing="16">
             <Button Classes="breadcrumb"
-                    Click="NavigateStorageSettingsPage_Click"
+                    Command="{CompiledBinding NavigateParent}"
                     Content="{DynamicResource S.SettingsPage.Storage}" />
 
             <Label Classes="breadcrumb" />

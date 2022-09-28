@@ -80,80 +80,62 @@ public class BeutlClients
 
     private async Task<AuthorizedUser> SignInExternalAsync(string provider, CancellationToken cancellationToken)
     {
-        AuthenticationHeaderValue? defaultAuth = _httpClient.DefaultRequestHeaders.Authorization;
+        string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
+        CreateAuthUriResponse authUriRes = await Account.CreateAuthUriAsync(new CreateAuthUriRequest(continueUri), cancellationToken);
+        using HttpListener listener = StartListener($"{continueUri}/");
 
-        try
+        string uri = $"{BaseUrl}/Identity/Account/Login?provider={provider}&returnUrl={authUriRes.Auth_uri}";
+
+        Process.Start(new ProcessStartInfo(uri)
         {
-            string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
-            CreateAuthUriResponse authUriRes = await Account.CreateAuthUriAsync(new CreateAuthUriRequest(continueUri), cancellationToken);
-            using HttpListener listener = StartListener($"{continueUri}/");
+            UseShellExecute = true
+        });
 
-            string uri = $"{BaseUrl}/Identity/Account/Login?provider={provider}&returnUrl={authUriRes.Auth_uri}";
-
-            Process.Start(new ProcessStartInfo(uri)
-            {
-                UseShellExecute = true
-            });
-
-            string? code = await GetResponseFromListener(listener, cancellationToken);
-            if (string.IsNullOrWhiteSpace(code))
-            {
-                throw new Exception("The returned code was empty.");
-            }
-
-            AuthResponse authResponse = await Account.CodeToJwtAsync(new CodeToJwtRequest(code, authUriRes.Session_id), cancellationToken);
-
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authResponse.Token);
-            ProfileResponse profileResponse = await Users.Get2Async(cancellationToken);
-            var profile = new Profile(profileResponse, this);
-
-            _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient);
-            SaveUser();
-            return _authorizedUser.Value;
-        }
-        finally
+        string? code = await GetResponseFromListener(listener, cancellationToken);
+        if (string.IsNullOrWhiteSpace(code))
         {
-            _httpClient.DefaultRequestHeaders.Authorization = defaultAuth;
+            throw new Exception("The returned code was empty.");
         }
+
+        AuthResponse authResponse = await Account.CodeToJwtAsync(new CodeToJwtRequest(code, authUriRes.Session_id), cancellationToken);
+
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authResponse.Token);
+        ProfileResponse profileResponse = await Users.Get2Async(cancellationToken);
+        var profile = new Profile(profileResponse, this);
+
+        _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient);
+        SaveUser();
+        return _authorizedUser.Value;
     }
 
     public async Task<AuthorizedUser> SignInAsync(CancellationToken cancellationToken)
     {
-        AuthenticationHeaderValue? defaultAuth = _httpClient.DefaultRequestHeaders.Authorization;
+        string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
+        CreateAuthUriResponse authUriRes = await Account.CreateAuthUriAsync(new CreateAuthUriRequest(continueUri), cancellationToken);
+        using HttpListener listener = StartListener($"{continueUri}/");
 
-        try
+        string uri = $"{BaseUrl}/Identity/Account/Login?returnUrl={authUriRes.Auth_uri}";
+
+        Process.Start(new ProcessStartInfo(uri)
         {
-            string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
-            CreateAuthUriResponse authUriRes = await Account.CreateAuthUriAsync(new CreateAuthUriRequest(continueUri), cancellationToken);
-            using HttpListener listener = StartListener($"{continueUri}/");
+            UseShellExecute = true
+        });
 
-            string uri = $"{BaseUrl}/Identity/Account/Login?returnUrl={authUriRes.Auth_uri}";
-
-            Process.Start(new ProcessStartInfo(uri)
-            {
-                UseShellExecute = true
-            });
-
-            string? code = await GetResponseFromListener(listener, cancellationToken);
-            if (string.IsNullOrWhiteSpace(code))
-            {
-                throw new Exception("The returned code was empty.");
-            }
-
-            AuthResponse authResponse = await Account.CodeToJwtAsync(new CodeToJwtRequest(code, authUriRes.Session_id), cancellationToken);
-
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authResponse.Token);
-            ProfileResponse profileResponse = await Users.Get2Async(cancellationToken);
-            var profile = new Profile(profileResponse, this);
-
-            _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient);
-            SaveUser();
-            return _authorizedUser.Value;
-        }
-        finally
+        string? code = await GetResponseFromListener(listener, cancellationToken);
+        if (string.IsNullOrWhiteSpace(code))
         {
-            _httpClient.DefaultRequestHeaders.Authorization = defaultAuth;
+            throw new Exception("The returned code was empty.");
         }
+
+        AuthResponse authResponse = await Account.CodeToJwtAsync(new CodeToJwtRequest(code, authUriRes.Session_id), cancellationToken);
+
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authResponse.Token);
+        ProfileResponse profileResponse = await Users.Get2Async(cancellationToken);
+        var profile = new Profile(profileResponse, this);
+
+        _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient);
+        SaveUser();
+        return _authorizedUser.Value;
     }
 
     public void OpenAccountSettings()

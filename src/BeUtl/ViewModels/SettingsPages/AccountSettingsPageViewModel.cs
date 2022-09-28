@@ -3,6 +3,7 @@
 using Beutl.Api;
 using Beutl.Api.Objects;
 
+using BeUtl.Controls.Navigation;
 using BeUtl.Framework.Service;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +12,7 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.SettingsPages;
 
-public sealed class AccountSettingsPageViewModel : IDisposable
+public sealed class AccountSettingsPageViewModel : PageContext, IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly BeutlClients _clients;

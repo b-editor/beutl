@@ -1,12 +1,13 @@
 ﻿using System.Collections.ObjectModel;
 
 using BeUtl.Configuration;
+using BeUtl.Controls.Navigation;
 
 using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.SettingsPages;
 
-public sealed class FontSettingsPageViewModel
+public sealed class FontSettingsPageViewModel : PageContext
 {
     public FontSettingsPageViewModel()
     {

@@ -29,12 +29,4 @@ public partial class StorageDetailPage : UserControl
             await dialog.ShowAsync();
         }
     }
-
-    private void NavigateStorageSettingsPage_Click(object? sender, RoutedEventArgs e)
-    {
-        if (this.FindAncestorOfType<Frame>() is { } frame)
-        {
-            frame.Navigate(typeof(StorageSettingsPage), null, SharedNavigationTransitionInfo.Instance);
-        }
-    }
 }

@@ -1,4 +1,5 @@
 ﻿using BeUtl.Configuration;
+using BeUtl.Controls.Navigation;
 using BeUtl.Framework;
 using BeUtl.Framework.Services;
 
@@ -6,7 +7,7 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.SettingsPages;
 
-public sealed class ExtensionsSettingsPageViewModel
+public sealed class ExtensionsSettingsPageViewModel : PageContext
 {
     private readonly ExtensionConfig _extensionConfig = GlobalConfiguration.Instance.ExtensionConfig;
     private readonly ExtensionProvider _extensionProvider = PackageManager.Instance.ExtensionProvider;

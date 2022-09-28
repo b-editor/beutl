@@ -7,6 +7,7 @@ using Beutl.Api;
 using Beutl.Api.Objects;
 
 using BeUtl.Configuration;
+using BeUtl.Controls.Navigation;
 
 using FluentIcons.Common;
 
@@ -14,7 +15,7 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.SettingsPages;
 
-public sealed class StorageSettingsPageViewModel
+public sealed class StorageSettingsPageViewModel : PageContext
 {
     private readonly BackupConfig _config;
     private readonly IReadOnlyReactiveProperty<AuthorizedUser?> _user;
@@ -25,6 +26,9 @@ public sealed class StorageSettingsPageViewModel
         _config = GlobalConfiguration.Instance.BackupConfig;
         BackupSettings = _config.GetObservable(BackupConfig.BackupSettingsProperty).ToReactiveProperty();
         BackupSettings.Subscribe(b => _config.BackupSettings = b);
+
+        SignedIn = user.Select(x => x != null)
+            .ToReadOnlyReactivePropertySlim();
 
         Percent = _storageUsageResponse.Where(x => x != null)
             .Select(x => x!.Size / (double)x.Max_size)
@@ -92,11 +96,18 @@ public sealed class StorageSettingsPageViewModel
             });
 
         _user = user;
-        _user.Skip(1).Subscribe(async _ =>
+        _user.Skip(1).Subscribe(async user =>
         {
             if (Refresh.CanExecute())
             {
                 await Refresh.ExecuteAsync();
+            }
+
+            if (user == null)
+            {
+                INavigationProvider nav = await GetNavigation();
+                bool goback = nav.CurrentContext is StorageDetailPageViewModel;
+                await nav.RemoveAllAsync<StorageDetailPageViewModel>(_ => true, goback);
             }
         });
         Refresh.Subscribe(async () =>
@@ -123,6 +134,15 @@ public sealed class StorageSettingsPageViewModel
             }
         });
 
+        NavigateToDetail = new AsyncReactiveCommand<DetailItem>(SignedIn);
+        NavigateToDetail.Subscribe(async item =>
+        {
+            INavigationProvider nav = await GetNavigation();
+            await nav.NavigateAsync(
+                x => x.Type == item.Type,
+                () => new StorageDetailPageViewModel(_user.Value!, item.Type));
+        });
+
         _user.Where(x => x != null)
             .Timeout(TimeSpan.FromSeconds(10))
             .Subscribe(
@@ -132,6 +152,8 @@ public sealed class StorageSettingsPageViewModel
     }
 
     public ReactiveProperty<bool> BackupSettings { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> SignedIn { get; }
 
     public ReadOnlyReactivePropertySlim<double> Percent { get; }
 
@@ -147,6 +169,8 @@ public sealed class StorageSettingsPageViewModel
 
     public AsyncReactiveCommand Refresh { get; } = new();
 
+    public AsyncReactiveCommand<DetailItem> NavigateToDetail { get; }
+
     public static KnownType ToKnownType(string mediaType)
     {
         if (mediaType.StartsWith("image/"))
@@ -159,11 +183,6 @@ public sealed class StorageSettingsPageViewModel
             return KnownType.Font;
         else
             return KnownType.Other;
-    }
-
-    public StorageDetailPageViewModel? CreateDetailPage(KnownType type)
-    {
-        return _user.Value == null ? null : new StorageDetailPageViewModel(_user.Value, type);
     }
 
     // https://teratail.com/questions/136799#reply-207332

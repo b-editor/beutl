@@ -5,8 +5,10 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 
 using BeUtl.Controls;
+using BeUtl.Controls.Navigation;
 using BeUtl.Pages.SettingsPages;
 using BeUtl.ViewModels;
+using BeUtl.ViewModels.SettingsPages;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
@@ -16,27 +18,29 @@ namespace BeUtl.Pages;
 
 public sealed partial class SettingsPage : UserControl
 {
+    private readonly PageResolver _pageResolver;
+    private readonly NavigationProvider _navigationProvider;
+
     public SettingsPage()
     {
         InitializeComponent();
+        _pageResolver = new PageResolver();
+        _navigationProvider = new NavigationProvider(frame, _pageResolver);
 
         nav.MenuItems = GetItems();
 
         frame.Navigated += Frame_Navigated;
-        frame.Navigating += Frame_Navigating;
         nav.ItemInvoked += Nav_ItemInvoked;
         nav.BackRequested += Nav_BackRequested;
     }
 
-    protected override void OnDataContextChanged(EventArgs e)
+    protected override async void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        var items = (List<NavigationViewItem>)nav.MenuItems;
-
-        NavigationViewItem selected = items[0];
-
-        nav.SelectedItem = selected;
-        frame.Navigate((Type)selected.Tag!);
+        if (DataContext is SettingsPageViewModel settingsPage)
+        {
+            await _navigationProvider.NavigateAsync(_ => true, () => settingsPage.Account);
+        }
     }
 
     private static List<NavigationViewItem> GetItems()
@@ -107,41 +111,34 @@ public sealed partial class SettingsPage : UserControl
 
     private void Nav_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)
     {
-        if (e.InvokedItemContainer is NavigationViewItem nvi && nvi.Tag is Type typ)
+        if (e.InvokedItemContainer is NavigationViewItem nvi
+            && nvi.Tag is Type typ
+            && DataContext is SettingsPageViewModel settingsPage)
         {
-            frame.Navigate(typ, null, e.RecommendedNavigationTransitionInfo);
+            object? parameter = null;
+            if (typ == typeof(AccountSettingsPage))
+            {
+                parameter = settingsPage.Account;
+            }
+            else if (typ == typeof(StorageSettingsPage))
+            {
+                parameter = settingsPage.Storage;
+            }
+
+            frame.Navigate(typ, parameter, e.RecommendedNavigationTransitionInfo);
         }
     }
 
     private void Frame_Navigated(object sender, NavigationEventArgs e)
     {
-        if (e.Content is Control control)
-        {
-            if (e.Parameter is { })
-            {
-                control.DataContext = e.Parameter;
-            }
-            else if (DataContext is SettingsPageViewModel settingsPage)
-            {
-                control.DataContext = control switch
-                {
-                    AccountSettingsPage => settingsPage.Account,
-                    StorageSettingsPage => settingsPage.Storage,
-                    _ => control.DataContext
-                };
-            }
-
-            control.Focus();
-        }
-
         foreach (NavigationViewItem nvi in nav.MenuItems)
         {
             if (nvi.Tag is Type tag)
             {
-                (int Order, int Depth) navItemNum = ToNumber(tag);
-                (int Order, int Depth) pageNum = ToNumber(e.SourcePageType);
+                int order1 = _pageResolver.GetOrder(tag);
+                int order2 = _pageResolver.GetOrder(e.SourcePageType);
 
-                if (navItemNum.Order == pageNum.Order)
+                if (order1 == order2)
                 {
                     nav.SelectedItem = nvi;
                     break;
@@ -150,51 +147,55 @@ public sealed partial class SettingsPage : UserControl
         }
     }
 
-    private void Frame_Navigating(object sender, NavigatingCancelEventArgs e)
+    private sealed class PageResolver : IPageResolver
     {
-        if (e.NavigationTransitionInfo is EntranceNavigationTransitionInfo entrance)
+        public int GetDepth(Type pagetype)
         {
-            Type type1 = frame.CurrentSourcePageType;
-            Type type2 = e.SourcePageType;
-            (int Order, int Depth) num1 = ToNumber(type1);
-            (int Order, int Depth) num2 = ToNumber(type2);
-            double horizontal = 28;
-            double vertical = 28;
-
-            if (num1.Order == num2.Order)
+            if (pagetype == typeof(AccountSettingsPage)
+                || pagetype == typeof(ViewSettingsPage)
+                || pagetype == typeof(FontSettingsPage)
+                || pagetype == typeof(ExtensionsSettingsPage)
+                || pagetype == typeof(StorageSettingsPage)
+                || pagetype == typeof(InfomationPage))
             {
-                horizontal *= Math.Clamp(num2.Depth - num1.Depth, -1, 1);
-                vertical = 0;
+                return 0;
             }
-            else if (num1.Order != num2.Order)
+            else if (pagetype == typeof(StorageDetailPage))
             {
-                horizontal = 0;
-                vertical *= Math.Clamp(num2.Order - num1.Order, -1, 1);
+                return 1;
             }
-
-            entrance.FromHorizontalOffset = horizontal;
-            entrance.FromVerticalOffset = vertical;
+            else
+            {
+                return 0;
+            }
         }
-    }
 
-    private static (int Order, int Depth) ToNumber(Type type)
-    {
-        if (type == typeof(AccountSettingsPage))
-            return (0, 0);
-        else if (type == typeof(ViewSettingsPage))
-            return (1, 0);
-        else if (type == typeof(FontSettingsPage))
-            return (2, 0);
-        else if (type == typeof(ExtensionsSettingsPage))
-            return (3, 0);
-        else if (type == typeof(StorageSettingsPage))
-            return (4, 0);
-        else if (type == typeof(InfomationPage))
-            return (5, 0);
+        public int GetOrder(Type pagetype)
+        {
+            return pagetype?.Name switch
+            {
+                "AccountSettingsPage" => 0,
+                "ViewSettingsPage" => 1,
+                "FontSettingsPage" => 2,
+                "ExtensionsSettingsPage" => 3,
+                "StorageSettingsPage" or "StorageDetailPage" => 4,
+                "InfomationPage" => 3,
+                _ => 0,
+            };
+        }
 
-        else if (type == typeof(StorageDetailPage))
-            return (4, 1);
-
-        return (0, 0);
+        public Type GetPageType(Type contextType)
+        {
+            return contextType?.Name switch
+            {
+                "AccountSettingsPageViewModel" => typeof(AccountSettingsPage),
+                "ViewSettingsPageViewModel" => typeof(ViewSettingsPage),
+                "FontSettingsPageViewModel" => typeof(FontSettingsPage),
+                "ExtensionsSettingsPageViewModel" => typeof(ExtensionsSettingsPage),
+                "StorageSettingsPageViewModel" => typeof(StorageSettingsPage),
+                "StorageDetailPageViewModel" => typeof(StorageDetailPage),
+                _ => typeof(InfomationPage),
+            };
+        }
     }
 }

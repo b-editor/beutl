@@ -44,6 +44,9 @@ public class OptionsDisplayItem : TemplatedControl
     public static readonly StyledProperty<ICommand> NavigationCommandProperty =
         AvaloniaProperty.Register<OptionsDisplayItem, ICommand>(nameof(NavigationCommand));
 
+    public static readonly StyledProperty<object> NavigationCommandParameterProperty =
+        AvaloniaProperty.Register<OptionsDisplayItem, object>(nameof(NavigationCommandParameter));
+
     public static readonly StyledProperty<IPageTransition> ContentTransitionProperty =
         AvaloniaProperty.Register<OptionsDisplayItem, IPageTransition>(nameof(ContentTransition));
 
@@ -99,6 +102,12 @@ public class OptionsDisplayItem : TemplatedControl
     {
         get => GetValue(NavigationCommandProperty);
         set => SetValue(NavigationCommandProperty, value);
+    }
+
+    public object NavigationCommandParameter
+    {
+        get => GetValue(NavigationCommandParameterProperty);
+        set => SetValue(NavigationCommandParameterProperty, value);
     }
 
     public IPageTransition ContentTransition
@@ -201,7 +210,8 @@ public class OptionsDisplayItem : TemplatedControl
             if (Navigates)
             {
                 RaiseEvent(new RoutedEventArgs(NavigationRequestedEvent, this));
-                NavigationCommand?.Execute(null);
+                if (NavigationCommand.CanExecute(NavigationCommandParameter))
+                    NavigationCommand?.Execute(NavigationCommandParameter);
             }
         }
     }
