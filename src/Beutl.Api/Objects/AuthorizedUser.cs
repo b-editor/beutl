@@ -1,9 +1,12 @@
 ﻿using System.Net.Http.Headers;
 
+using Nito.AsyncEx;
+
 namespace Beutl.Api.Objects;
 
 public class AuthorizedUser
 {
+    private readonly AsyncLock _mutex = new();
     private readonly BeutlClients _clients;
     private readonly HttpClient _httpClient;
     private AuthResponse _response;
@@ -28,14 +31,17 @@ public class AuthorizedUser
 
     public async ValueTask RefreshAsync(bool force = false)
     {
-        if (force || IsExpired)
+        using (await _mutex.LockAsync())
         {
-            _response = await _clients.Account.RefreshAsync(new RefeshTokenRequest(RefreshToken, Token));
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
-
-            if (_clients.AuthorizedUser.Value == this)
+            if (force || IsExpired)
             {
-                _clients.SaveUser();
+                _response = await _clients.Account.RefreshAsync(new RefeshTokenRequest(RefreshToken, Token));
+                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
+
+                if (_clients.AuthorizedUser.Value == this)
+                {
+                    _clients.SaveUser();
+                }
             }
         }
     }

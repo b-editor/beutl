@@ -9,6 +9,7 @@
   <Import Project="$(RootDirectory)\build\props\System.Reactive.props" />
   <Import Project="$(RootDirectory)\build\props\System.Interactive.props" />
   <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
+  <Import Project="$(RootDirectory)\build\props\Nito.AsyncEx.props" />
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\index.html" />
