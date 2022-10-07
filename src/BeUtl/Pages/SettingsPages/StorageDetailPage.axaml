@@ -40,15 +40,6 @@
         <ListBox Grid.Row="2" Items="{CompiledBinding Items}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <!--<Panel>
-                        <TextBlock VerticalAlignment="Center" Text="{CompiledBinding Model.Name}" />
-
-                        <ui:CommandBarButton HorizontalAlignment="Right"
-                                             Command="{Binding #root.DataContext.Delete, Mode=OneTime}"
-                                             CommandParameter="{Binding $self.DataContext}"
-                                             Icon="Delete"
-                                             Label="{DynamicResource S.Common.Delete}" />
-                    </Panel>-->
                     <Grid ColumnDefinitions="*,Auto,Auto">
                         <StackPanel VerticalAlignment="Center" Spacing="2">
                             <TextBlock Text="{CompiledBinding Model.Name}" />
@@ -59,14 +50,14 @@
                                         <Setter Property="FontSize" Value="12" />
                                     </Style>
                                 </WrapPanel.Styles>
-                                <TextBlock IsVisible="{CompiledBinding Physical}" Text="内部" />
-                                <TextBlock IsVisible="{CompiledBinding Virtual}" Text="外部" />
+                                <TextBlock IsVisible="{CompiledBinding Physical}" Text="{DynamicResource S.Common.Internal}" />
+                                <TextBlock IsVisible="{CompiledBinding Virtual}" Text="{DynamicResource S.Common.External}" />
                                 <TextBlock Text=" | " />
                                 <TextBlock Text="{CompiledBinding ShortUrl}" />
                                 <TextBlock Text=" | " />
                                 <TextBlock Text="{CompiledBinding Model.ContentType}" />
                                 <TextBlock Text=" | " />
-                                <TextBlock Text="{CompiledBinding DisplayUsing}" />
+                                <TextBlock Text="{CompiledBinding UsedCapacity}" />
 
                             </WrapPanel>
                         </StackPanel>
@@ -78,6 +69,7 @@
                         </ui:CommandBarButton>
 
                         <ui:CommandBarButton Grid.Column="2"
+                                             Click="Delete_Click"
                                              Icon="Delete"
                                              Label="{DynamicResource S.Common.Delete}" />
                     </Grid>

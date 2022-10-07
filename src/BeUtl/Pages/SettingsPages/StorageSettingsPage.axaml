@@ -1,6 +1,7 @@
 <UserControl x:Class="BeUtl.Pages.SettingsPages.StorageSettingsPage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:convert="using:Avalonia.Controls.Converters"
              xmlns:ctrls="using:BeUtl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
@@ -48,12 +49,30 @@
                 </Panel>
 
                 <Panel TextElement.Foreground="{DynamicResource TextFillColorSecondaryBrush}">
-                    <TextBlock HorizontalAlignment="Left"
-                               Text="{CompiledBinding Using.Value}"
-                               Theme="{StaticResource BodyStrongTextBlockStyle}" />
-                    <TextBlock HorizontalAlignment="Right"
-                               Text="{CompiledBinding Remaining.Value}"
-                               Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock HorizontalAlignment="Left" Theme="{StaticResource BodyStrongTextBlockStyle}">
+                        <TextBlock.Text>
+                            <MultiBinding>
+                                <MultiBinding.Converter>
+                                    <convert:StringFormatConverter />
+                                </MultiBinding.Converter>
+                                <MultiBinding.Bindings>
+                                    <DynamicResourceExtension ResourceKey="S.StorageSettingsPage.Used" />
+                                    <Binding Path="UsedCapacity.Value" />
+                                </MultiBinding.Bindings>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
+                    <TextBlock HorizontalAlignment="Right" Theme="{StaticResource BodyStrongTextBlockStyle}">
+                        <TextBlock.Text>
+                            <MultiBinding>
+                                <MultiBinding.Converter>
+                                    <convert:StringFormatConverter />
+                                </MultiBinding.Converter>
+                                <DynamicResourceExtension ResourceKey="S.StorageSettingsPage.Remaining" />
+                                <Binding Path="RemainingCapacity.Value" />
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
                 </Panel>
             </StackPanel>
 
@@ -76,7 +95,7 @@
                                     <TextBlock HorizontalAlignment="Right"
                                                VerticalAlignment="Center"
                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               Text="{CompiledBinding DisplayUsing}"
+                                               Text="{CompiledBinding UsedCapacity}"
                                                Theme="{StaticResource CaptionTextBlockStyle}" />
                                 </Panel>
                             </ctrls:OptionsDisplayItem.Header>
@@ -109,7 +128,7 @@
             </ItemsControl>
 
             <TextBlock Margin="0,16,0,0"
-                       Text="設定"
+                       Text="{DynamicResource S.Common.Settings}"
                        Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
 

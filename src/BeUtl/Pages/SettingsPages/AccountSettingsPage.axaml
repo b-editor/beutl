@@ -1,6 +1,7 @@
 <UserControl x:Class="BeUtl.Pages.SettingsPages.AccountSettingsPage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:asyncImage="using:AsyncImageLoader"
              xmlns:ctrls="using:BeUtl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
@@ -30,27 +31,27 @@
                     <Border Width="64"
                             Height="64"
                             Background="{DynamicResource ControlSolidFillColorDefaultBrush}"
-                            CornerRadius="32">
+                            CornerRadius="32"
+                            IsVisible="{CompiledBinding ProfileImage.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}">
 
-                        <!--  IsVisible="{CompiledBinding !HasProfileImage.Value}"  -->
                         <icons:SymbolIcon FontSize="30" Symbol="Person" />
                     </Border>
-                    <!--<Image Width="64"
+                    <Image Width="64"
                            Height="64"
-                           IsVisible="{CompiledBinding HasProfileImage.Value}"
-                           Source="{CompiledBinding ProfileImage.Value}">
+                           asyncImage:ImageLoader.Source="{CompiledBinding ProfileImage.Value}"
+                           IsVisible="{CompiledBinding ProfileImage.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                         <Image.Clip>
                             <EllipseGeometry Center="32,32"
                                              RadiusX="32"
                                              RadiusY="32" />
                         </Image.Clip>
-                    </Image>-->
+                    </Image>
                     <Button Width="64"
                             Height="64"
                             Padding="0"
                             HorizontalContentAlignment="Stretch"
                             VerticalContentAlignment="Stretch"
-                            Click="UploadProfileImage_Click"
+                            Click="UpdateProfileImage_Click"
                             CornerRadius="32">
                         <Button.Styles>
                             <Style Selector="Button:pointerover">

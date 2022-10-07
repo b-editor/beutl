@@ -34,7 +34,21 @@
         <x:String x:Key="S.AccountSettingsPage.SignOut">Sign out</x:String>
         <x:String x:Key="S.AccountSettingsPage.ChangeAccountSettings">Change account settings</x:String>
 
+        <x:String x:Key="S.StorageSettingsPage.Used">{0} Used</x:String>
+        <x:String x:Key="S.StorageSettingsPage.Remaining">{0} Remaining</x:String>
         <x:String x:Key="S.StorageSettingsPage.BackupSettings">Back up settings</x:String>
+
+        <x:String x:Key="S.SettingsPage.CreateAsset.Title">Upload file</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.InternalDescription">Upload the file to the b-editor server.</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.InternalExample">Example: Lightweight files such as images</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.ExternalDescription">The customer uploads the file to an external server&#xa;and b-editor maintains the download URL.</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.ExternalExample">Example: large files such as assets in a package release</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.PleaseEnterAtLeastOneHashValue">Please enter at least one hash value.</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.UploadingFiles">Uploading files.</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.PerformingAnOperation">Performing an operation.</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.Completed">Completed.</x:String>
+
+        <x:String x:Key="S.SettingsPage.SelectAvatarImage.Title">Set your avatar image</x:String>
 
     </Styles.Resources>
 </Styles>

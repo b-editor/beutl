@@ -195,6 +195,10 @@
         <x:String x:Key="S.Common.AddToCurrentProject">現在のプロジェクトに追加する</x:String>
         <x:String x:Key="S.Common.Unimplemented">未実装</x:String>
         <x:String x:Key="S.Common.Storage">ストレージ</x:String>
+        <x:String x:Key="S.Common.Internal">内部</x:String>
+        <x:String x:Key="S.Common.External">外部</x:String>
+        <x:String x:Key="S.Common.ContentType">コンテンツタイプ</x:String>
+        <x:String x:Key="S.Common.Submit">送信</x:String>
     </Styles.Resources>
 
     <!--  Views  -->

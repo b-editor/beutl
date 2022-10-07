@@ -70,9 +70,7 @@ public class Asset
 
     public async Task DeleteAsync()
     {
-        FileResponse response = await _clients.Packages.Delete2Async(Id);
-
-        response.Dispose();
+        await _clients.Assets.DeleteAsync(Owner.Name.Value, Name);
 
         _isDeleted.Value = true;
     }

@@ -1,0 +1,61 @@
+<ui:ContentDialog x:Class="BeUtl.Pages.SettingsPages.Dialogs.SelectAvatarImage"
+                  xmlns="https://github.com/avaloniaui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:asyncImage="using:AsyncImageLoader"
+                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:icons="using:FluentIcons.FluentAvalonia"
+                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:ui="using:FluentAvalonia.UI.Controls"
+                  xmlns:viewModel="using:BeUtl.ViewModels.SettingsPages.Dialogs"
+                  Title="{DynamicResource S.SettingsPage.SelectAvatarImage.Title}"
+                  d:DesignHeight="450"
+                  d:DesignWidth="800"
+                  x:CompileBindings="True"
+                  x:DataType="viewModel:SelectAvatarImageViewModel"
+                  CloseButtonText="{DynamicResource S.Common.Close}"
+                  DefaultButton="Primary"
+                  IsPrimaryButtonEnabled="{Binding IsPrimaryButtonEnabled.Value}"
+                  PrimaryButtonCommand="{Binding SubmitAsync}"
+                  PrimaryButtonText="{DynamicResource S.Common.Submit}"
+                  mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,150">
+        <ui:CommandBar DefaultLabelPosition="Right">
+            <ui:CommandBar.PrimaryCommands>
+                <ui:CommandBarButton Click="UploadImage_Click"
+                                     Icon="Add"
+                                     Label="{DynamicResource S.Common.Add}" />
+            </ui:CommandBar.PrimaryCommands>
+        </ui:CommandBar>
+
+
+        <ListBox x:Name="ListBox"
+                 Grid.Row="1"
+                 IsVisible="{Binding !!Items.Count}"
+                 Items="{Binding Items}"
+                 SelectedItem="{Binding SelectedItem.Value}">
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel ItemHeight="88"
+                               ItemWidth="88"
+                               Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Image Width="72"
+                           Height="72"
+                           Margin="8"
+                           asyncImage:ImageLoader.Source="{Binding DownloadUrl}"
+                           ToolTip.Tip="{Binding Name}" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <TextBlock Grid.Row="1"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   IsVisible="{Binding !Items.Count}">
+            Nothing
+        </TextBlock>
+    </Grid>
+</ui:ContentDialog>

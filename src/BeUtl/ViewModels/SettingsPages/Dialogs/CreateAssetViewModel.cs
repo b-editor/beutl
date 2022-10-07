@@ -54,22 +54,22 @@ public class CreateAssetViewModel
             .ToReadOnlyReactivePropertySlim();
 
         PrimaryButtonText = PageIndex
-            .Select(x => x is >= 0 and <= 2 ? "次へ" : null)
+            .Select(x => x is >= 0 and <= 2 ? S.Common.Next : null)
             .ToReadOnlyReactivePropertySlim()!;
 
         CloseButtonText = PageIndex.CombineLatest(Submitting)
-            .Select(x => x.First is >= 0 and <= 2 || x.Second ? "キャンセル" : "閉じる")
+            .Select(x => x.First is >= 0 and <= 2 || x.Second ? S.Common.Cancel : S.Common.Close)
             .ToReadOnlyReactivePropertySlim()!;
 
         UseInternalServer = SelectedMethod.Select(x => x == 0).ToReadOnlyReactivePropertySlim();
         UseExternalServer = SelectedMethod.Select(x => x == 1).ToReadOnlyReactivePropertySlim();
 
-        File.SetValidateNotifyError(file => !System.IO.File.Exists(file) ? "ファイルが存在しません。" : null);
+        File.SetValidateNotifyError(file => !System.IO.File.Exists(file) ? S.Warning.FileDoesNotExist : null);
         Url.SetValidateNotifyError(url => (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
             || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
             || url.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase))
                 ? null!
-                : "無効なURLです。");
+                : S.Warning.InvalidURL);
         _user = user;
     }
 
@@ -122,14 +122,14 @@ public class CreateAssetViewModel
             await _user.RefreshAsync();
             if (SelectedMethod.Value == 0)
             {
-                ProgressStatus.Value = "ファイルをアップロードしています";
+                ProgressStatus.Value = S.SettingsPage.CreateAsset.UploadingFiles;
                 using FileStream stream = System.IO.File.OpenRead(File.Value);
                 _ = RunProgressReporter(stream, cancellationToken);
                 Result = await _user.Profile.AddAssetAsync(Name.Value, stream, ContentType.Value);
             }
             else
             {
-                ProgressStatus.Value = "操作を実行しています";
+                ProgressStatus.Value = S.SettingsPage.CreateAsset.PerformingAnOperation;
                 Result = await _user.Profile.AddAssetAsync(Name.Value, new CreateVirtualAssetRequest()
                 {
                     ContentType = ContentType.Value,
@@ -140,16 +140,16 @@ public class CreateAssetViewModel
                 });
             }
 
-            ProgressStatus.Value = "完了しました。";
+            ProgressStatus.Value = S.SettingsPage.CreateAsset.Completed;
         }
         catch (BeutlApiException<ApiErrorResponse> ex)
         {
-            ProgressStatus.Value = "問題が発生しました";
+            ProgressStatus.Value = S.Warning.AnUnexpectedErrorHasOccurred;
             Error.Value = ex.Result.Message;
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            ProgressStatus.Value = "問題が発生しました";
+            ProgressStatus.Value = S.Warning.AnUnexpectedErrorHasOccurred;
             // Todo: 例外
             Error.Value = "Error";
         }

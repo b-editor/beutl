@@ -6,7 +6,7 @@
                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
                   xmlns:viewModel="using:BeUtl.ViewModels.SettingsPages.Dialogs"
-                  Title="ファイルをアップロード"
+                  Title="{DynamicResource S.SettingsPage.CreateAsset.Title}"
                   d:DesignHeight="450"
                   d:DesignWidth="800"
                   x:CompileBindings="True"
@@ -23,9 +23,15 @@
                         <icons:SymbolIcon FontSize="24" Symbol="CloudArrowUp" />
 
                         <RichTextBlock Margin="0,8">
-                            <Bold FontSize="14">内部</Bold><LineBreak />
-                            b-editorのサーバーにファイルをアップロードします。<LineBreak />
-                            <Italic>例: 画像などの軽量なファイル</Italic>
+                            <Bold FontSize="14">
+                                <Run Text="{DynamicResource S.Common.Internal}" />
+                            </Bold>
+                            <LineBreak />
+                            <Run Text="{DynamicResource S.SettingsPage.CreateAsset.InternalDescription}" />
+                            <LineBreak />
+                            <Italic>
+                                <Run Text="{DynamicResource S.SettingsPage.CreateAsset.InternalExample}" />
+                            </Italic>
                         </RichTextBlock>
                     </StackPanel>
                 </ListBoxItem>
@@ -34,28 +40,33 @@
                         <icons:SymbolIcon FontSize="24" Symbol="CloudLink" />
 
                         <RichTextBlock Margin="0,8">
-                            <Bold FontSize="14">外部</Bold><LineBreak />
-                            お客様がファイルを外部のサーバーにアップロードし、<LineBreak />
-                            b-editorはそのダウンロードURLを保持します。<LineBreak />
-                            <Italic>例: パッケージのリリースのアセットなどの大容量なファイル</Italic>
+                            <Bold FontSize="14">
+                                <Run Text="{DynamicResource S.Common.External}" />
+                            </Bold>
+                            <LineBreak />
+                            <Run Text="{DynamicResource S.SettingsPage.CreateAsset.ExternalDescription}" />
+                            <LineBreak />
+                            <Italic>
+                                <Run Text="{DynamicResource S.SettingsPage.CreateAsset.ExternalExample}" />
+                            </Italic>
                         </RichTextBlock>
                     </StackPanel>
                 </ListBoxItem>
             </ListBox>
 
             <StackPanel Spacing="4">
-                <TextBlock Text="名前" Theme="{StaticResource LabelTextBlockStyle}" />
+                <TextBlock Text="{DynamicResource S.Common.Name}" Theme="{StaticResource LabelTextBlockStyle}" />
                 <TextBox Text="{Binding Name.Value}" />
 
                 <Separator Height="4" />
 
-                <TextBlock Text="コンテンツタイプ" Theme="{StaticResource LabelTextBlockStyle}" />
+                <TextBlock Text="{DynamicResource S.Common.ContentType}" Theme="{StaticResource LabelTextBlockStyle}" />
                 <TextBox Text="{Binding ContentType.Value}" />
 
                 <Separator Height="4" />
 
                 <StackPanel IsVisible="{Binding UseInternalServer.Value}" Spacing="4">
-                    <TextBlock Text="ファイル" Theme="{StaticResource LabelTextBlockStyle}" />
+                    <TextBlock Text="{DynamicResource S.Common.File}" Theme="{StaticResource LabelTextBlockStyle}" />
                     <TextBox Text="{Binding File.Value, Mode=TwoWay}">
                         <TextBox.InnerRightContent>
                             <Button Click="OpenFile" Theme="{StaticResource TransparentButton}">
@@ -72,7 +83,7 @@
             </StackPanel>
 
             <StackPanel Spacing="4">
-                <TextBlock Text="少なくとも一つはハッシュ値を入力してください" Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock Text="{DynamicResource S.SettingsPage.CreateAsset.PleaseEnterAtLeastOneHashValue}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
                 <TextBlock Text="SHA256" Theme="{StaticResource LabelTextBlockStyle}" />
                 <TextBox Text="{Binding Sha256.Value, Mode=TwoWay}" />

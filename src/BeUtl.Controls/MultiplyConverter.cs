@@ -11,7 +11,7 @@ public sealed class MultiplyConverter : IMultiValueConverter
 
     public object Convert(IList<object> values, Type targetType, object parameter, CultureInfo culture)
     {
-        if (!values.All(x => x is double or UnsetValueType))
+        if (!values.All(x => x is double or UnsetValueType or null))
         {
             throw new InvalidOperationException("Multiplication other than double type is not supported.");
         }

@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Headers;
+﻿using System.Collections.Specialized;
+using System.Net.Http.Headers;
 using System.Reactive.Linq;
 using System.Text;
 
@@ -25,6 +26,7 @@ public class Profile
         GitHubUserName = Response.Select(x => x.Github_username).ToReadOnlyReactivePropertySlim()!;
         YouTubeUrl = Response.Select(x => x.Youtube_url).ToReadOnlyReactivePropertySlim()!;
         BlogUrl = Response.Select(x => x.Blog_url).ToReadOnlyReactivePropertySlim()!;
+        AvatarUrl = Response.Select(x => x.Avatar_url).ToReadOnlyReactivePropertySlim()!;
         Followers = Response.Select(x => x.Followers).ToReadOnlyReactivePropertySlim()!;
         Following = Response.Select(x => x.Following).ToReadOnlyReactivePropertySlim()!;
         PublicPackages = Response.Select(x => x.Public_packages).ToReadOnlyReactivePropertySlim()!;
@@ -49,6 +51,8 @@ public class Profile
     public IReadOnlyReactiveProperty<string> YouTubeUrl { get; }
 
     public IReadOnlyReactiveProperty<string> BlogUrl { get; }
+    
+    public IReadOnlyReactiveProperty<string> AvatarUrl { get; }
 
     public IReadOnlyReactiveProperty<int> Followers { get; }
 

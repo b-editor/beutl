@@ -34,6 +34,21 @@
         <x:String x:Key="S.AccountSettingsPage.SignOut">サインアウト</x:String>
         <x:String x:Key="S.AccountSettingsPage.ChangeAccountSettings">アカウントの設定を変更する</x:String>
 
+        <x:String x:Key="S.StorageSettingsPage.Used">{0} 使用済み</x:String>
+        <x:String x:Key="S.StorageSettingsPage.Remaining">{0} 空き</x:String>
         <x:String x:Key="S.StorageSettingsPage.BackupSettings">設定をバックアップする</x:String>
+
+        <x:String x:Key="S.SettingsPage.CreateAsset.Title">ファイルをアップロード</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.InternalDescription">b-editorのサーバーにファイルをアップロードします。</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.InternalExample">例: 画像などの軽量なファイル</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.ExternalDescription">お客様はファイルを外部サーバーにアップロードし、&#xa;b-editorがダウンロードURLを管理します。</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.ExternalExample">例：パッケージリリースに含まれるアセットなどの大きなファイル</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.PleaseEnterAtLeastOneHashValue">ハッシュ値を1つ以上入力してください。</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.UploadingFiles">ファイルをアップロードしています。</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.PerformingAnOperation">操作を行っています。</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.Completed">完了しました。</x:String>
+
+        <x:String x:Key="S.SettingsPage.SelectAvatarImage.Title">アバター画像を設定</x:String>
+
     </Styles.Resources>
 </Styles>

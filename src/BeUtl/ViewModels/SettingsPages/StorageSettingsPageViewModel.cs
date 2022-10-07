@@ -1,7 +1,4 @@
-﻿
-using System.Net.Mime;
-
-using Avalonia.Collections;
+﻿using Avalonia.Collections;
 
 using Beutl.Api;
 using Beutl.Api.Objects;
@@ -38,11 +35,11 @@ public sealed class StorageSettingsPageViewModel : PageContext
             .Select(x => ToHumanReadableSize(x!.Max_size))
             .ToReadOnlyReactivePropertySlim()!;
 
-        Using = _storageUsageResponse.Where(x => x != null)
+        UsedCapacity = _storageUsageResponse.Where(x => x != null)
             .Select(x => ToHumanReadableSize(x!.Size))
             .ToReadOnlyReactivePropertySlim()!;
 
-        Remaining = _storageUsageResponse.Where(x => x != null)
+        RemainingCapacity = _storageUsageResponse.Where(x => x != null)
             .Select(x => ToHumanReadableSize(x!.Max_size - x.Size))
             .ToReadOnlyReactivePropertySlim()!;
 
@@ -159,9 +156,9 @@ public sealed class StorageSettingsPageViewModel : PageContext
 
     public ReadOnlyReactivePropertySlim<string> MaxSize { get; }
 
-    public ReadOnlyReactivePropertySlim<string> Using { get; }
+    public ReadOnlyReactivePropertySlim<string> UsedCapacity { get; }
 
-    public ReadOnlyReactivePropertySlim<string> Remaining { get; }
+    public ReadOnlyReactivePropertySlim<string> RemainingCapacity { get; }
 
     public AvaloniaList<DetailItem> Details { get; } = new(5);
 
@@ -204,7 +201,7 @@ public sealed class StorageSettingsPageViewModel : PageContext
         Details.Add(DetailItem.Other);
     }
 
-    public record DetailItem(KnownType Type, string DisplayUsing, long Size, double Percent)
+    public record DetailItem(KnownType Type, string UsedCapacity, long Size, double Percent)
     {
         public static readonly DetailItem Image = new(KnownType.Image, "0.00 B", 0, 0);
         public static readonly DetailItem Zip = new(KnownType.Zip, "0.00 B", 0, 0);

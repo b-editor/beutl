@@ -195,6 +195,10 @@
         <x:String x:Key="S.Common.AddToCurrentProject">Add to current project</x:String>
         <x:String x:Key="S.Common.Unimplemented">Unimplemented</x:String>
         <x:String x:Key="S.Common.Storage">Storage</x:String>
+        <x:String x:Key="S.Common.Internal">Internal</x:String>
+        <x:String x:Key="S.Common.External">External</x:String>
+        <x:String x:Key="S.Common.ContentType">Content Type</x:String>
+        <x:String x:Key="S.Common.Submit">Submit</x:String>
     </Styles.Resources>
 
     <!--  Views  -->

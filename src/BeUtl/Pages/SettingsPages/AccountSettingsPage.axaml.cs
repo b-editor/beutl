@@ -2,6 +2,9 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
+using BeUtl.Pages.SettingsPages.Dialogs;
+using BeUtl.ViewModels.SettingsPages;
+
 using FluentAvalonia.Styling;
 
 namespace BeUtl.Pages.SettingsPages;
@@ -49,8 +52,16 @@ public sealed partial class AccountSettingsPage : UserControl
         }
     }
 
-    private void UploadProfileImage_Click(object? sender, RoutedEventArgs e)
+    private async void UpdateProfileImage_Click(object? sender, RoutedEventArgs e)
     {
+        if (DataContext is AccountSettingsPageViewModel viewModel)
+        {
+            var dialog = new SelectAvatarImage
+            {
+                DataContext = viewModel.CreateSelectAvatarImage()
+            };
 
+            await dialog.ShowAsync();
+        }
     }
 }

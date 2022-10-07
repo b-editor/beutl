@@ -10,5 +10,6 @@
         <x:String x:Key="S.Warning.NameCannotBeLeftBlank">Name cannot be left blank.</x:String>
         <x:String x:Key="S.Warning.APIErrorOccurred">API error occurred</x:String>
         <x:String x:Key="S.Warning.AnUnexpectedErrorHasOccurred">An unexpected error has occurred</x:String>
+        <x:String x:Key="S.Warning.InvalidURL">Invalid URL</x:String>
     </Styles.Resources>
 </Styles>

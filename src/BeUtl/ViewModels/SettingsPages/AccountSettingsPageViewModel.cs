@@ -1,12 +1,8 @@
-﻿using Avalonia;
-
-using Beutl.Api;
+﻿using Beutl.Api;
 using Beutl.Api.Objects;
 
 using BeUtl.Controls.Navigation;
-using BeUtl.Framework.Service;
-
-using Microsoft.Extensions.DependencyInjection;
+using BeUtl.ViewModels.SettingsPages.Dialogs;
 
 using Reactive.Bindings;
 
@@ -41,6 +37,11 @@ public sealed class AccountSettingsPageViewModel : PageContext, IDisposable
         Cancel.Subscribe(() => _cts.Value!.Cancel());
 
         SignedIn = clients.AuthorizedUser.Select(x => x != null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        ProfileImage = _clients.AuthorizedUser
+            .SelectMany(x => x?.Profile?.AvatarUrl ?? Observable.Return<string?>(null))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -97,6 +98,8 @@ public sealed class AccountSettingsPageViewModel : PageContext, IDisposable
 
     public ReadOnlyReactivePropertySlim<bool> SignedIn { get; }
 
+    public ReadOnlyReactivePropertySlim<string?> ProfileImage { get; }
+
     public ReadOnlyReactivePropertySlim<string?> Name { get; }
 
     public ReadOnlyReactivePropertySlim<string?> DisplayName { get; }
@@ -112,6 +115,11 @@ public sealed class AccountSettingsPageViewModel : PageContext, IDisposable
     public void Dispose()
     {
         _disposables.Dispose();
+    }
+
+    public SelectAvatarImageViewModel CreateSelectAvatarImage()
+    {
+        return new SelectAvatarImageViewModel(_clients.AuthorizedUser.Value!);
     }
 
     private async Task SignInCore(string? provider = null)

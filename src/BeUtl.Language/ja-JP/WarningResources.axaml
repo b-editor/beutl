@@ -10,5 +10,6 @@
         <x:String x:Key="S.Warning.NameCannotBeLeftBlank">名前は空白にできません</x:String>
         <x:String x:Key="S.Warning.APIErrorOccurred">APIエラーが発生しました</x:String>
         <x:String x:Key="S.Warning.AnUnexpectedErrorHasOccurred">予期しないエラーが発生しました</x:String>
+        <x:String x:Key="S.Warning.InvalidURL">無効なURL</x:String>
     </Styles.Resources>
 </Styles>

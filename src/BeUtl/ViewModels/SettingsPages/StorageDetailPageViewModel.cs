@@ -68,8 +68,6 @@ public class StorageDetailPageViewModel : PageContext
 
     public AvaloniaList<AssetViewModel> Items { get; } = new();
 
-    public AsyncReactiveCommand<AssetViewModel> Delete { get; } = new();
-
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
     public AsyncReactiveCommand Refresh { get; } = new();
@@ -81,7 +79,13 @@ public class StorageDetailPageViewModel : PageContext
         return new CreateAssetViewModel(_user);
     }
 
-    public record AssetViewModel(Asset Model, string DisplayUsing)
+    public async Task DeleteAsync(AssetViewModel asset)
+    {
+        await asset.Model.DeleteAsync();
+        Items.Remove(asset);
+    }
+
+    public record AssetViewModel(Asset Model, string UsedCapacity)
     {
         public bool Physical => Model.AssetType == Beutl.Api.AssetType.Physical;
 
