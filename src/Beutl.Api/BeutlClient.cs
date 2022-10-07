@@ -187,6 +187,7 @@ public class BeutlClients
                 {
                     var user = new AuthorizedUser(new Profile(profile, this), new AuthResponse(expiration.Value, refreshToken, token), this, _httpClient);
                     await user.RefreshAsync();
+                    await user.Profile.RefreshAsync();
                     _authorizedUser.Value = user;
                     SaveUser();
                 }

@@ -71,6 +71,7 @@ public sealed class AccountSettingsPageViewModel : PageContext, IDisposable
                 if (_clients.AuthorizedUser.Value is { } user)
                 {
                     await user.RefreshAsync();
+                    await user.Profile.RefreshAsync();
                 }
             }
             catch
