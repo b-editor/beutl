@@ -38,6 +38,10 @@
         <x:String x:Key="S.StorageSettingsPage.Remaining">{0} 空き</x:String>
         <x:String x:Key="S.StorageSettingsPage.BackupSettings">設定をバックアップする</x:String>
 
+        <x:String x:Key="S.StorageDetailPage.MakePublic">公開する</x:String>
+        <x:String x:Key="S.StorageDetailPage.MakePrivate">非公開にする</x:String>
+        <x:String x:Key="S.StorageDetailPage.ChangeVisibility">このファイルの可視性を"{0}"に変更します。</x:String>
+
         <x:String x:Key="S.SettingsPage.CreateAsset.Title">ファイルをアップロード</x:String>
         <x:String x:Key="S.SettingsPage.CreateAsset.InternalDescription">b-editorのサーバーにファイルをアップロードします。</x:String>
         <x:String x:Key="S.SettingsPage.CreateAsset.InternalExample">例: 画像などの軽量なファイル</x:String>

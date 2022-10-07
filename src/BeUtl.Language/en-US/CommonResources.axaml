@@ -199,6 +199,8 @@
         <x:String x:Key="S.Common.External">External</x:String>
         <x:String x:Key="S.Common.ContentType">Content Type</x:String>
         <x:String x:Key="S.Common.Submit">Submit</x:String>
+        <x:String x:Key="S.Common.Public">Public</x:String>
+        <x:String x:Key="S.Common.Private">Private</x:String>
     </Styles.Resources>
 
     <!--  Views  -->

@@ -38,6 +38,10 @@
         <x:String x:Key="S.StorageSettingsPage.Remaining">{0} Remaining</x:String>
         <x:String x:Key="S.StorageSettingsPage.BackupSettings">Back up settings</x:String>
 
+        <x:String x:Key="S.StorageDetailPage.MakePublic">Make public</x:String>
+        <x:String x:Key="S.StorageDetailPage.MakePrivate">Make private</x:String>
+        <x:String x:Key="S.StorageDetailPage.ChangeVisibility">Change the visibility of this file to "{0}".</x:String>
+
         <x:String x:Key="S.SettingsPage.CreateAsset.Title">Upload file</x:String>
         <x:String x:Key="S.SettingsPage.CreateAsset.InternalDescription">Upload the file to the b-editor server.</x:String>
         <x:String x:Key="S.SettingsPage.CreateAsset.InternalExample">Example: Lightweight files such as images</x:String>

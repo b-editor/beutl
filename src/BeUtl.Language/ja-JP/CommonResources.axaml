@@ -199,6 +199,8 @@
         <x:String x:Key="S.Common.External">外部</x:String>
         <x:String x:Key="S.Common.ContentType">コンテンツタイプ</x:String>
         <x:String x:Key="S.Common.Submit">送信</x:String>
+        <x:String x:Key="S.Common.Public">公開</x:String>
+        <x:String x:Key="S.Common.Private">非公開</x:String>
     </Styles.Resources>
 
     <!--  Views  -->

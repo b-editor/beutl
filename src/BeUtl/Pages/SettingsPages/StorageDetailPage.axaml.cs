@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
 
 using BeUtl.Pages.SettingsPages.Dialogs;
@@ -15,6 +16,36 @@ public partial class StorageDetailPage : UserControl
     public StorageDetailPage()
     {
         InitializeComponent();
+    }
+
+    public async void ChangeVisibility_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is CommandBarButton { DataContext: AssetViewModel itemViewModel })
+        {
+            bool current = itemViewModel.Model.IsPublic.Value;
+            var dialog = new ContentDialog
+            {
+                Title = current ? S.StorageDetailPage.MakePrivate : S.StorageDetailPage.MakePublic,
+                Content = string.Format(S.StorageDetailPage.ChangeVisibility, current ? S.Common.Private : S.Common.Public),
+                PrimaryButtonText = S.Common.OK,
+                CloseButtonText = S.Common.Cancel
+            };
+
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            {
+                await itemViewModel.Model.UpdateAsync(
+                    new Beutl.Api.UpdateAssetRequest(!current));
+            }
+        }
+    }
+
+    public async void CopyDownloadUrl_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is CommandBarButton { DataContext: AssetViewModel itemViewModel }
+            && Application.Current?.Clipboard is { } clipboard)
+        {
+            await clipboard.SetTextAsync(itemViewModel.Model.DownloadUrl);
+        }
     }
 
     private async void Delete_Click(object? sender, RoutedEventArgs e)

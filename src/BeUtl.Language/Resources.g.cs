@@ -529,6 +529,12 @@ public static class Resources {
             public static string Submit => "S.Common.Submit".GetStringResource(@"Submit");
             private static IObservable<string>? _SubmitObservable;
             public static IObservable<string> SubmitObservable => _SubmitObservable ??= "S.Common.Submit".GetStringObservable(global::BeUtl.Language.Resources.S.Common.Submit);
+            public static string Public => "S.Common.Public".GetStringResource(@"Public");
+            private static IObservable<string>? _PublicObservable;
+            public static IObservable<string> PublicObservable => _PublicObservable ??= "S.Common.Public".GetStringObservable(global::BeUtl.Language.Resources.S.Common.Public);
+            public static string Private => "S.Common.Private".GetStringResource(@"Private");
+            private static IObservable<string>? _PrivateObservable;
+            public static IObservable<string> PrivateObservable => _PrivateObservable ??= "S.Common.Private".GetStringObservable(global::BeUtl.Language.Resources.S.Common.Private);
         }
         public static class Message {
             public static string ItemsSaved => "S.Message.ItemsSaved".GetStringResource(@"{0} items saved!");
@@ -1025,9 +1031,26 @@ and b-editor maintains the download URL.");
             public static IObservable<string> ChangeAccountSettingsObservable => _ChangeAccountSettingsObservable ??= "S.AccountSettingsPage.ChangeAccountSettings".GetStringObservable(global::BeUtl.Language.Resources.S.AccountSettingsPage.ChangeAccountSettings);
         }
         public static class StorageSettingsPage {
+            public static string Used => "S.StorageSettingsPage.Used".GetStringResource(@"{0} Used");
+            private static IObservable<string>? _UsedObservable;
+            public static IObservable<string> UsedObservable => _UsedObservable ??= "S.StorageSettingsPage.Used".GetStringObservable(global::BeUtl.Language.Resources.S.StorageSettingsPage.Used);
+            public static string Remaining => "S.StorageSettingsPage.Remaining".GetStringResource(@"{0} Remaining");
+            private static IObservable<string>? _RemainingObservable;
+            public static IObservable<string> RemainingObservable => _RemainingObservable ??= "S.StorageSettingsPage.Remaining".GetStringObservable(global::BeUtl.Language.Resources.S.StorageSettingsPage.Remaining);
             public static string BackupSettings => "S.StorageSettingsPage.BackupSettings".GetStringResource(@"Back up settings");
             private static IObservable<string>? _BackupSettingsObservable;
             public static IObservable<string> BackupSettingsObservable => _BackupSettingsObservable ??= "S.StorageSettingsPage.BackupSettings".GetStringObservable(global::BeUtl.Language.Resources.S.StorageSettingsPage.BackupSettings);
+        }
+        public static class StorageDetailPage {
+            public static string MakePublic => "S.StorageDetailPage.MakePublic".GetStringResource(@"Make public");
+            private static IObservable<string>? _MakePublicObservable;
+            public static IObservable<string> MakePublicObservable => _MakePublicObservable ??= "S.StorageDetailPage.MakePublic".GetStringObservable(global::BeUtl.Language.Resources.S.StorageDetailPage.MakePublic);
+            public static string MakePrivate => "S.StorageDetailPage.MakePrivate".GetStringResource(@"Make private");
+            private static IObservable<string>? _MakePrivateObservable;
+            public static IObservable<string> MakePrivateObservable => _MakePrivateObservable ??= "S.StorageDetailPage.MakePrivate".GetStringObservable(global::BeUtl.Language.Resources.S.StorageDetailPage.MakePrivate);
+            public static string ChangeVisibility => "S.StorageDetailPage.ChangeVisibility".GetStringResource(@"Change the visibility of this file to ""{0}"".");
+            private static IObservable<string>? _ChangeVisibilityObservable;
+            public static IObservable<string> ChangeVisibilityObservable => _ChangeVisibilityObservable ??= "S.StorageDetailPage.ChangeVisibility".GetStringObservable(global::BeUtl.Language.Resources.S.StorageDetailPage.ChangeVisibility);
         }
         public static class Editors {
             public static class PixelPoint {

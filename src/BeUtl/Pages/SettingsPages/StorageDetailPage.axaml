@@ -40,7 +40,7 @@
         <ListBox Grid.Row="2" Items="{CompiledBinding Items}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Grid ColumnDefinitions="*,Auto,Auto">
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto">
                         <StackPanel VerticalAlignment="Center" Spacing="2">
                             <TextBlock Text="{CompiledBinding Model.Name}" />
                             <WrapPanel Orientation="Horizontal">
@@ -58,17 +58,40 @@
                                 <TextBlock Text="{CompiledBinding Model.ContentType}" />
                                 <TextBlock Text=" | " />
                                 <TextBlock Text="{CompiledBinding UsedCapacity}" />
+                                <TextBlock Text=" | " />
+                                <TextBlock IsVisible="{CompiledBinding Model.IsPublic.Value}" Text="{DynamicResource S.Common.Public}" />
+                                <TextBlock IsVisible="{CompiledBinding !Model.IsPublic.Value}" Text="{DynamicResource S.Common.Private}" />
 
                             </WrapPanel>
                         </StackPanel>
 
-                        <ui:CommandBarButton Grid.Column="1" Label="{DynamicResource S.Common.Copy}">
+                        <ui:CommandBarButton Grid.Column="1"
+                                             Click="ChangeVisibility_Click"
+                                             IsVisible="{CompiledBinding Model.IsPublic.Value}"
+                                             Label="{DynamicResource S.StorageDetailPage.MakePrivate}">
+                            <ui:CommandBarButton.Icon>
+                                <icons:SymbolIcon Symbol="EyeOff" />
+                            </ui:CommandBarButton.Icon>
+                        </ui:CommandBarButton>
+
+                        <ui:CommandBarButton Grid.Column="1"
+                                             Click="ChangeVisibility_Click"
+                                             IsVisible="{CompiledBinding !Model.IsPublic.Value}"
+                                             Label="{DynamicResource S.StorageDetailPage.MakePublic}">
+                            <ui:CommandBarButton.Icon>
+                                <icons:SymbolIcon Symbol="Eye" />
+                            </ui:CommandBarButton.Icon>
+                        </ui:CommandBarButton>
+
+                        <ui:CommandBarButton Grid.Column="2"
+                                             Click="CopyDownloadUrl_Click"
+                                             Label="{DynamicResource S.Common.Copy}">
                             <ui:CommandBarButton.Icon>
                                 <icons:SymbolIcon Symbol="ClipboardLink" />
                             </ui:CommandBarButton.Icon>
                         </ui:CommandBarButton>
 
-                        <ui:CommandBarButton Grid.Column="2"
+                        <ui:CommandBarButton Grid.Column="3"
                                              Click="Delete_Click"
                                              Icon="Delete"
                                              Label="{DynamicResource S.Common.Delete}" />
