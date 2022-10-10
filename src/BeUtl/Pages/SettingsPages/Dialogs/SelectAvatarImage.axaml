@@ -14,10 +14,15 @@
                   x:DataType="viewModel:SelectAvatarImageViewModel"
                   CloseButtonText="{DynamicResource S.Common.Close}"
                   DefaultButton="Primary"
+                  Focusable="True"
                   IsPrimaryButtonEnabled="{Binding IsPrimaryButtonEnabled.Value}"
                   PrimaryButtonCommand="{Binding SubmitAsync}"
                   PrimaryButtonText="{DynamicResource S.Common.Submit}"
                   mc:Ignorable="d">
+    <ui:ContentDialog.KeyBindings>
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="Ctrl+R" />
+    </ui:ContentDialog.KeyBindings>
     <Grid RowDefinitions="Auto,150">
         <ui:CommandBar DefaultLabelPosition="Right">
             <ui:CommandBar.PrimaryCommands>

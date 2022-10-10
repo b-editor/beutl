@@ -8,21 +8,14 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages;
 
-public sealed class DevelopPageViewModel : IDisposable
+public sealed class DevelopPageViewModel : BaseDevelopPageViewModel
 {
     private readonly CompositeDisposable _disposables = new();
-    private IReadOnlyReactiveProperty<AuthorizedUser?> _user;
+    private readonly IReadOnlyReactiveProperty<AuthorizedUser?> _user;
 
     public DevelopPageViewModel(BeutlClients clients)
     {
         _user = clients.AuthorizedUser;
-        _user.Skip(1).Subscribe(async _ =>
-        {
-            if (Refresh.CanExecute())
-            {
-                await Refresh.ExecuteAsync();
-            }
-        });
 
         Refresh.Subscribe(async () =>
         {
@@ -49,9 +42,9 @@ public sealed class DevelopPageViewModel : IDisposable
                     count += items.Length;
                 } while (prevCount == 30);
             }
-            catch
+            catch (Exception ex)
             {
-                // Todo
+                ErrorHandle(ex);
             }
             finally
             {
@@ -59,12 +52,13 @@ public sealed class DevelopPageViewModel : IDisposable
             }
         });
 
-        _user.Where(x => x != null)
-            .Timeout(TimeSpan.FromSeconds(10))
-            .Subscribe(
-                _ => Refresh.Execute(),
-                ex => { },
-                () => { });
+        _user.Subscribe(async _ =>
+        {
+            if (Refresh.CanExecute())
+            {
+                await Refresh.ExecuteAsync();
+            }
+        });
     }
 
     public CoreList<Package> Packages { get; } = new();
@@ -83,7 +77,7 @@ public sealed class DevelopPageViewModel : IDisposable
         return new PackageDetailsPageViewModel(_user.Value!, package);
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
         _disposables.Dispose();
         Packages.Clear();

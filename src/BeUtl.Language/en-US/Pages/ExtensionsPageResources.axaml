@@ -12,16 +12,15 @@
         <x:String x:Key="S.DevelopPage.DeletePackage.Content">Are you sure you want to delete the package?&#xa;If you do this, you will never be able to access this package again.</x:String>
         <x:String x:Key="S.DevelopPage.DeleteRelease.Title">Delete release</x:String>
         <x:String x:Key="S.DevelopPage.DeleteRelease.Content">Are you sure you want to delete the release?&#xa;If you do this, you will never be able to access this release again.</x:String>
-        <x:String x:Key="S.DevelopPage.DeleteResource.Title">Delete resource</x:String>
-        <x:String x:Key="S.DevelopPage.DeleteResource.Content">Are you sure you want to delete the resource?</x:String>
         <x:String x:Key="S.DevelopPage.MakePublicPackage.Title">Publish package</x:String>
         <x:String x:Key="S.DevelopPage.MakePublicPackage.Content">Are you sure you want to publish this package?&#xa;Doing so will allow others to download this package.</x:String>
         <x:String x:Key="S.DevelopPage.MakePrivatePackage.Title">Make the package private</x:String>
         <x:String x:Key="S.DevelopPage.MakePrivatePackage.Content">Are you sure you want to keep this package private?&#xa;Doing so will prevent others from downloading this package.</x:String>
         <x:String x:Key="S.DevelopPage.MakePublicRelease.Title">Publish release</x:String>
-        <x:String x:Key="S.DevelopPage.MakePublicRelease.Content">Are you sure you want to publish this release?&#xa;Doing so will allow others to download this release.</x:String>
+        <x:String x:Key="S.DevelopPage.MakePublicRelease.Description">To publish, a release asset must be set up.</x:String>
+        <x:String x:Key="S.DevelopPage.MakePublicRelease.Content">Are you sure you want to publish this release?&#xa;This will change the visibility of the asset to 'public'&#xa; and allow others to download this release.</x:String>
         <x:String x:Key="S.DevelopPage.MakePrivateRelease.Title">Make the release private</x:String>
-        <x:String x:Key="S.DevelopPage.MakePrivateRelease.Content">Are you sure you want to keep this release private?&#xa;Doing so will prevent others from downloading this release.</x:String>
+        <x:String x:Key="S.DevelopPage.MakePrivateRelease.Content">Are you sure you want to keep this release private?&#xa;This will change the visibility of the asset to 'private'&#xa; and prevent others from downloading this release.</x:String>
 
         <x:String x:Key="S.DevelopPage.AddRelease.Title">Add release</x:String>
         <x:String x:Key="S.DevelopPage.EditRelease.Title">Edit release</x:String>
@@ -31,12 +30,10 @@
         <x:String x:Key="S.DevelopPage.Release.Fields.BodyDescription">Description of this release.</x:String>
         <x:String x:Key="S.DevelopPage.Release.Fields.Version">Version</x:String>
         <x:String x:Key="S.DevelopPage.Release.Fields.VersionDescription">Version of this release.</x:String>
+        <x:String x:Key="S.DevelopPage.Release.Fields.Asset">Release asset</x:String>
+        <x:String x:Key="S.DevelopPage.Release.Fields.AssetDescription">The file specified here will be downloaded by the user when published.</x:String>
 
-        <x:String x:Key="S.DevelopPage.AddResource.Title">Add resource</x:String>
-        <x:String x:Key="S.DevelopPage.Resource.Fields.Culture">Locale</x:String>
-        <x:String x:Key="S.DevelopPage.Resource.Fields.CultureDescription">Locale in which this resource is displayed.</x:String>
-        <x:String x:Key="S.DevelopPage.Resource.Fields.InheritField">Inherit value</x:String>
-
+        <x:String x:Key="S.DevelopPage.SelectReleaseAsset.Title">Select release asset</x:String>
 
         <x:String x:Key="S.DevelopPage.Package.Fields.Name">Name</x:String>
         <x:String x:Key="S.DevelopPage.Package.Fields.NameDescription">String to identify this package.</x:String>
@@ -58,9 +55,6 @@
         <x:String x:Key="S.DevelopPage.Package.ReleasesDescription">Manage releases</x:String>
 
         <x:String x:Key="S.DevelopPage.Package.Resource">Resource</x:String>
-        <x:String x:Key="S.DevelopPage.Package.BaseResourceDescription">The value of this item is displayed in the locale not set in 'Locale-specific resources'.</x:String>
-        <x:String x:Key="S.DevelopPage.Package.LocaleSpecificResources">Locale-specific resources</x:String>
-        <x:String x:Key="S.DevelopPage.Package.LocaleSpecificResourcesDescription">Resources added here will be displayed in that locale.</x:String>
         <x:String x:Key="S.DevelopPage.Package.MoveOneFront">Move one front</x:String>
         <x:String x:Key="S.DevelopPage.Package.MoveOneBack">Move one back</x:String>
 

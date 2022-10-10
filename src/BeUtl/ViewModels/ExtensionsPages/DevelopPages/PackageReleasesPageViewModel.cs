@@ -6,7 +6,7 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
-public sealed class PackageReleasesPageViewModel : IDisposable
+public sealed class PackageReleasesPageViewModel : BaseDevelopPageViewModel
 {
     private readonly AuthorizedUser _user;
 
@@ -36,9 +36,9 @@ public sealed class PackageReleasesPageViewModel : IDisposable
                     count += items.Length;
                 } while (prevCount == 30);
             }
-            catch
+            catch (Exception ex)
             {
-                // Todo
+                ErrorHandle(ex);
             }
             finally
             {
@@ -80,13 +80,13 @@ public sealed class PackageReleasesPageViewModel : IDisposable
             await release.DeleteAsync();
             Items.Remove(release);
         }
-        catch
+        catch (Exception ex)
         {
-            // Todo
+            ErrorHandle(ex);
         }
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
         Items.Clear();
 

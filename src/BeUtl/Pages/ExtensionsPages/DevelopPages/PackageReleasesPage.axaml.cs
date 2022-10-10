@@ -93,8 +93,8 @@ public sealed partial class PackageReleasesPage : UserControl
         {
             var dialog = new ContentDialog
             {
-                Title = S.DevelopPage.DeleteResource.Title,
-                Content = S.DevelopPage.DeleteResource.Content,
+                Title = S.DevelopPage.DeleteRelease.Title,
+                Content = S.DevelopPage.DeleteRelease.Content,
                 PrimaryButtonText = S.Common.Yes,
                 CloseButtonText = S.Common.No,
                 DefaultButton = ContentDialogButton.Primary

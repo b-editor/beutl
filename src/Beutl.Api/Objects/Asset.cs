@@ -68,6 +68,11 @@ public class Asset
         _response.Value = await _clients.Assets.PatchAsync(Owner.Name.Value, Name, request);
     }
 
+    public async Task UpdateAsync(bool isPublic)
+    {
+        await UpdateAsync(new UpdateAssetRequest(isPublic));
+    }
+
     public async Task DeleteAsync()
     {
         await _clients.Assets.DeleteAsync(Owner.Name.Value, Name);

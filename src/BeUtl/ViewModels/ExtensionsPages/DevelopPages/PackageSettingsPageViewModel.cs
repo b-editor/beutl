@@ -3,13 +3,16 @@
 using Beutl.Api;
 using Beutl.Api.Objects;
 
+using BeUtl.Framework.Service;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
-public sealed class PackageSettingsPageViewModel : IDisposable
+public sealed class PackageSettingsPageViewModel : BaseDevelopPageViewModel
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly AuthorizedUser _user;
@@ -67,9 +70,9 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                     name: Name.Value,
                     shortDescription: ShortDescription.Value);
             }
-            catch
+            catch (Exception ex)
             {
-                // Todo
+                ErrorHandle(ex);
             }
         }).DisposeWith(_disposables);
 
@@ -88,9 +91,9 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                 await _user.RefreshAsync();
                 await Package.DeleteAsync();
             }
-            catch
+            catch (Exception ex)
             {
-                // Todo
+                ErrorHandle(ex);
             }
         }).DisposeWith(_disposables);
 
@@ -106,9 +109,9 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                 await _user.RefreshAsync();
                 await Package.RefreshAsync();
             }
-            catch
+            catch (Exception ex)
             {
-                // Todo
+                ErrorHandle(ex);
             }
             finally
             {
@@ -149,25 +152,13 @@ public sealed class PackageSettingsPageViewModel : IDisposable
     {
         return new PackageDetailsPageViewModel(_user, Package);
     }
-   
-    public void Dispose()
+
+    public override void Dispose()
     {
         Debug.WriteLine($"{GetType().Name} disposed (Count: {_disposables.Count}).");
 
         _disposables.Dispose();
 
         GC.SuppressFinalize(this);
-    }
-
-    private static string NotNullOrWhitespace(string str)
-    {
-        if (!string.IsNullOrWhiteSpace(str))
-        {
-            return null!;
-        }
-        else
-        {
-            return S.Message.PleaseEnterString;
-        }
     }
 }

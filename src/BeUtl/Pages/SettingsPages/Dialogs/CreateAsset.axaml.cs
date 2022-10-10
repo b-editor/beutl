@@ -50,7 +50,7 @@ public partial class CreateAsset : ContentDialog, IStyleable
             {
                 FileTypeFilter = new FilePickerFileType[]
                 {
-                    FilePickerFileTypes.All
+                    viewModel.RequestContentType ?? FilePickerFileTypes.All
                 }
             };
             IReadOnlyList<IStorageFile> result = await parent.StorageProvider.OpenFilePickerAsync(options);

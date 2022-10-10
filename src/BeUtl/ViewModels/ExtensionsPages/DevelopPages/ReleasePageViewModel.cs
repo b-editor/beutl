@@ -1,13 +1,16 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
 
+using BeUtl.Framework.Service;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
-public sealed class ReleasePageViewModel : IDisposable
+public sealed class ReleasePageViewModel : BaseDevelopPageViewModel
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly AuthorizedUser _user;
@@ -16,6 +19,14 @@ public sealed class ReleasePageViewModel : IDisposable
     {
         _user = user;
         Release = release;
+        ActualAsset = Release.AssetId
+            .SelectMany(async id =>
+            {
+                await _user.RefreshAsync();
+                return id.HasValue ? await _user.Profile.GetAssetAsync(id.Value) : null;
+            })
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
 
         Title = Release.Title
             .ToReactiveProperty()
@@ -23,14 +34,25 @@ public sealed class ReleasePageViewModel : IDisposable
         Body = Release.Body
             .ToReactiveProperty()
             .DisposeWith(_disposables)!;
+        Asset = ActualAsset
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
 
         Title.SetValidateNotifyError(NotNullOrWhitespace);
         Body.SetValidateNotifyError(NotNullOrWhitespace);
 
         IsChanging = Title.CombineLatest(Release.Title).Select(t => t.First == t.Second)
             .CombineLatest(
-                Body.CombineLatest(Release.Body).Select(t => t.First == t.Second))
-            .Select(t => !(t.First && t.Second))
+                Body.CombineLatest(Release.Body).Select(t => t.First == t.Second),
+                Asset.CombineLatest(ActualAsset).Select(t => t.First?.Id == t.Second?.Id))
+            .Select(t => !(t.First && t.Second && t.Third))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        CanPublish = Release.Title.CombineLatest(Release.Body, Release.AssetId)
+            .Select(x => !string.IsNullOrWhiteSpace(x.First)
+                && !string.IsNullOrWhiteSpace(x.Second)
+                && x.Third.HasValue)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -44,21 +66,26 @@ public sealed class ReleasePageViewModel : IDisposable
             {
                 await _user.RefreshAsync();
                 await Release.UpdateAsync(new UpdateReleaseRequest(
-                    null,
+                    Asset.Value?.Id,
                     Body.Value,
                     Release.IsPublic.Value,
                     Title.Value));
             }
-            catch
+            catch (Exception ex)
             {
-                // Todo
+                ErrorHandle(ex);
             }
         });
 
-        DiscardChanges.Subscribe(() =>
+        DiscardChanges.Subscribe(async () =>
         {
             Title.Value = Release.Title.Value;
             Body.Value = Release.Body.Value;
+            if (Asset.Value?.Id != Release.AssetId.Value)
+            {
+                await _user.RefreshAsync();
+                Asset.Value = await Release.GetAssetAsync();
+            }
         });
 
         Delete.Subscribe(async () =>
@@ -68,9 +95,9 @@ public sealed class ReleasePageViewModel : IDisposable
                 await _user.RefreshAsync();
                 await Release.DeleteAsync();
             }
-            catch
+            catch (Exception ex)
             {
-                // Todo
+                ErrorHandle(ex);
             }
         });
 
@@ -86,32 +113,36 @@ public sealed class ReleasePageViewModel : IDisposable
                 await _user.RefreshAsync();
                 await Release.RefreshAsync();
             }
-            catch
+            catch (Exception ex)
             {
-                // Todo
+                ErrorHandle(ex);
             }
             finally
             {
                 IsBusy.Value = false;
             }
         });
-
-        Refresh.Execute();
     }
 
     public Release Release { get; }
+
+    public ReadOnlyReactivePropertySlim<Asset?> ActualAsset { get; }
 
     public ReactiveProperty<string> Title { get; }
 
     public ReactiveProperty<string> Body { get; }
 
+    public ReactiveProperty<Asset?> Asset { get; }
+
     public ReadOnlyReactivePropertySlim<bool> IsChanging { get; }
 
     public AsyncReactiveCommand Save { get; }
 
-    public ReactiveCommand DiscardChanges { get; } = new();
+    public AsyncReactiveCommand DiscardChanges { get; } = new();
 
     public AsyncReactiveCommand Delete { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<bool> CanPublish { get; }
 
     public ReactiveCommand MakePublic { get; } = new();
 
@@ -131,23 +162,16 @@ public sealed class ReleasePageViewModel : IDisposable
         return new PackageReleasesPageViewModel(_user, Release.Package);
     }
 
-    public void Dispose()
+    public SelectReleaseAssetViewModel CreateSelectReleaseAsset()
+    {
+        return new SelectReleaseAssetViewModel(_user, Release);
+    }
+
+    public override void Dispose()
     {
         Debug.WriteLine($"{GetType().Name} disposed (Count: {_disposables.Count}).");
         _disposables.Dispose();
 
         GC.SuppressFinalize(this);
-    }
-
-    private static string NotNullOrWhitespace(string str)
-    {
-        if (!string.IsNullOrWhiteSpace(str))
-        {
-            return null!;
-        }
-        else
-        {
-            return S.Message.PleaseEnterString;
-        }
     }
 }

@@ -59,6 +59,7 @@ public sealed class StorageSettingsPageViewModel : PageContext
                 Details.Clear();
                 long imageSize = 0;
                 long zipSize = 0;
+                long bpkgSize = 0;
                 long textSize = 0;
                 long fontSize = 0;
                 long otherSize = 0;
@@ -72,6 +73,9 @@ public sealed class StorageSettingsPageViewModel : PageContext
                             break;
                         case KnownType.Zip:
                             zipSize += value;
+                            break;
+                        case KnownType.BeutlPackageFile:
+                            bpkgSize += value;
                             break;
                         case KnownType.Text:
                             textSize += value;
@@ -87,6 +91,7 @@ public sealed class StorageSettingsPageViewModel : PageContext
 
                 Details.Add(ToDetailItem(DetailItem.Image, imageSize));
                 Details.Add(ToDetailItem(DetailItem.Zip, zipSize));
+                Details.Add(ToDetailItem(DetailItem.BeutlPackageFile, bpkgSize));
                 Details.Add(ToDetailItem(DetailItem.Text, textSize));
                 Details.Add(ToDetailItem(DetailItem.Font, fontSize));
                 Details.Add(ToDetailItem(DetailItem.Other, otherSize));
@@ -160,7 +165,7 @@ public sealed class StorageSettingsPageViewModel : PageContext
 
     public ReadOnlyReactivePropertySlim<string> RemainingCapacity { get; }
 
-    public AvaloniaList<DetailItem> Details { get; } = new(5);
+    public AvaloniaList<DetailItem> Details { get; } = new(6);
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
@@ -174,6 +179,8 @@ public sealed class StorageSettingsPageViewModel : PageContext
             return KnownType.Image;
         else if (mediaType == "application/zip")
             return KnownType.Zip;
+        else if (mediaType == "application/x-beutl-package")
+            return KnownType.BeutlPackageFile;
         else if (mediaType is "application/json" or "application/xml" || mediaType.StartsWith("text/"))
             return KnownType.Text;
         else if (mediaType.StartsWith("font/"))
@@ -196,6 +203,7 @@ public sealed class StorageSettingsPageViewModel : PageContext
         Details.Clear();
         Details.Add(DetailItem.Image);
         Details.Add(DetailItem.Zip);
+        Details.Add(DetailItem.BeutlPackageFile);
         Details.Add(DetailItem.Text);
         Details.Add(DetailItem.Font);
         Details.Add(DetailItem.Other);
@@ -205,6 +213,7 @@ public sealed class StorageSettingsPageViewModel : PageContext
     {
         public static readonly DetailItem Image = new(KnownType.Image, "0.00 B", 0, 0);
         public static readonly DetailItem Zip = new(KnownType.Zip, "0.00 B", 0, 0);
+        public static readonly DetailItem BeutlPackageFile = new(KnownType.BeutlPackageFile, "0.00 B", 0, 0);
         public static readonly DetailItem Text = new(KnownType.Text, "0.00 B", 0, 0);
         public static readonly DetailItem Font = new(KnownType.Font, "0.00 B", 0, 0);
         public static readonly DetailItem Other = new(KnownType.Other, "0.00 B", 0, 0);
@@ -213,6 +222,7 @@ public sealed class StorageSettingsPageViewModel : PageContext
         {
             KnownType.Image => Symbol.Image,
             KnownType.Zip => Symbol.FolderZip,
+            KnownType.BeutlPackageFile => Symbol.Code,
             KnownType.Text => Symbol.Document,
             KnownType.Font => Symbol.TextFont,
             KnownType.Other => Symbol.Folder,
@@ -229,6 +239,9 @@ public sealed class StorageSettingsPageViewModel : PageContext
 
         // application/zip
         Zip,
+        
+        // application/x-beutl-package
+        BeutlPackageFile,
 
         // application/json
         // application/xml

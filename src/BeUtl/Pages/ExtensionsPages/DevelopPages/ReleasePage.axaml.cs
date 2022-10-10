@@ -2,7 +2,9 @@
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
+using BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
+using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
@@ -100,6 +102,25 @@ public sealed partial class ReleasePage : UserControl
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
                 viewModel.MakePrivate.Execute();
+            }
+        }
+    }
+
+    private async void SelectAsset_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is ReleasePageViewModel viewModel)
+        {
+            SelectReleaseAssetViewModel dialogViewModel = viewModel.CreateSelectReleaseAsset();
+            var dialog = new SelectReleaseAsset
+            {
+                DataContext = dialogViewModel
+            };
+
+            await dialog.ShowAsync();
+
+            if (dialogViewModel.SelectedItem.Value is { } selectedItem)
+            {
+                viewModel.Asset.Value = selectedItem.Model;
             }
         }
     }

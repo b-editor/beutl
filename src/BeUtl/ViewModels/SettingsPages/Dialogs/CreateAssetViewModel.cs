@@ -1,4 +1,6 @@
-﻿using Beutl.Api;
+﻿using Avalonia.Platform.Storage;
+
+using Beutl.Api;
 using Beutl.Api.Objects;
 
 using Reactive.Bindings;
@@ -10,7 +12,7 @@ public class CreateAssetViewModel
     private readonly AuthorizedUser _user;
     private CancellationTokenSource? _cts;
 
-    public CreateAssetViewModel(AuthorizedUser user)
+    public CreateAssetViewModel(AuthorizedUser user, FilePickerFileType? requestContentType = null)
     {
         IsPrimaryButtonEnabled = PageIndex.CombineLatest(
             SelectedMethod, Name.ObserveHasErrors, ContentType.ObserveHasErrors, File.ObserveHasErrors, Url.ObserveHasErrors,
@@ -71,6 +73,30 @@ public class CreateAssetViewModel
                 ? null!
                 : S.Warning.InvalidURL);
         _user = user;
+        RequestContentType = requestContentType;
+
+        if (RequestContentType != null)
+        {
+            ContentType.Value = RequestContentType.MimeTypes?[0] ?? "";
+        }
+
+        Name.SetValidateNotifyError(async x =>
+        {
+            if (string.IsNullOrWhiteSpace(x))
+            {
+                return S.Warning.NameCannotBeLeftBlank;
+            }
+
+            try
+            {
+                _ = await _user.Profile.GetAssetAsync(x);
+                return S.Warning.ItAlreadyExists;
+            }
+            catch
+            {
+                return null;
+            }
+        });
     }
 
     public ReadOnlyReactivePropertySlim<string?> PrimaryButtonText { get; }
@@ -110,6 +136,8 @@ public class CreateAssetViewModel
     public ReactivePropertySlim<bool> Submitting { get; } = new();
 
     public Asset? Result { get; private set; }
+
+    public FilePickerFileType? RequestContentType { get; }
 
     public async Task SubmitAsync()
     {

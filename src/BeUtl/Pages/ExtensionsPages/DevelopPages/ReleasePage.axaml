@@ -79,6 +79,19 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
+                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Release.Fields.AssetDescription}" Header="{DynamicResource S.DevelopPage.Release.Fields.Asset}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock VerticalAlignment="Center"
+                                       Classes="description"
+                                       Text="{CompiledBinding ActualAsset.Value.Name}" />
+                            <Button Classes="accent"
+                                    Click="SelectAsset_Click"
+                                    Content="{DynamicResource S.Common.Open}" />
+                        </StackPanel>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
                 <TextBlock Margin="0,16,0,0"
                            Text="{DynamicResource S.Common.Settings}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
@@ -88,7 +101,9 @@
                                           Navigates="True"
                                           NavigationRequested="DeleteRelease_Click" />
 
-                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.MakePublicRelease.Title}"
+                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.MakePublicRelease.Description}"
+                                          Header="{DynamicResource S.DevelopPage.MakePublicRelease.Title}"
+                                          IsEnabled="{CompiledBinding CanPublish.Value}"
                                           IsVisible="{CompiledBinding !Release.IsPublic.Value}"
                                           Navigates="True"
                                           NavigationRequested="MakePublic_Click">

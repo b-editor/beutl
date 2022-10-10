@@ -24,13 +24,13 @@
 
                         <RichTextBlock Margin="0,8">
                             <Bold FontSize="14">
-                                <Run Text="{DynamicResource S.Common.Internal}" />
+                                <Run Text="{StaticResource S.Common.Internal}" />
                             </Bold>
                             <LineBreak />
-                            <Run Text="{DynamicResource S.SettingsPage.CreateAsset.InternalDescription}" />
+                            <Run Text="{StaticResource S.SettingsPage.CreateAsset.InternalDescription}" />
                             <LineBreak />
                             <Italic>
-                                <Run Text="{DynamicResource S.SettingsPage.CreateAsset.InternalExample}" />
+                                <Run Text="{StaticResource S.SettingsPage.CreateAsset.InternalExample}" />
                             </Italic>
                         </RichTextBlock>
                     </StackPanel>
@@ -41,13 +41,13 @@
 
                         <RichTextBlock Margin="0,8">
                             <Bold FontSize="14">
-                                <Run Text="{DynamicResource S.Common.External}" />
+                                <Run Text="{StaticResource S.Common.External}" />
                             </Bold>
                             <LineBreak />
-                            <Run Text="{DynamicResource S.SettingsPage.CreateAsset.ExternalDescription}" />
+                            <Run Text="{StaticResource S.SettingsPage.CreateAsset.ExternalDescription}" />
                             <LineBreak />
                             <Italic>
-                                <Run Text="{DynamicResource S.SettingsPage.CreateAsset.ExternalExample}" />
+                                <Run Text="{StaticResource S.SettingsPage.CreateAsset.ExternalExample}" />
                             </Italic>
                         </RichTextBlock>
                     </StackPanel>

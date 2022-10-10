@@ -49,7 +49,7 @@ public class Profile
     public IReadOnlyReactiveProperty<string> YouTubeUrl { get; }
 
     public IReadOnlyReactiveProperty<string> BlogUrl { get; }
-    
+
     public IReadOnlyReactiveProperty<string> AvatarUrl { get; }
 
     public IReadOnlyReactiveProperty<int> PublicPackages { get; }
@@ -117,5 +117,17 @@ public class Profile
             .SelectAwait(async x => await _clients.Assets.GetAsset2Async(x.Id))
             .Select(x => new Asset(this, x, _clients))
             .ToArrayAsync();
+    }
+
+    public async Task<Asset> GetAssetAsync(long id)
+    {
+        AssetMetadataResponse response = await _clients.Assets.GetAsset2Async(id);
+        return new Asset(this, response, _clients);
+    }
+
+    public async Task<Asset> GetAssetAsync(string name)
+    {
+        AssetMetadataResponse response = await _clients.Assets.GetAssetAsync(Name.Value, name);
+        return new Asset(this, response, _clients);
     }
 }
