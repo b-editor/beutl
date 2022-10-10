@@ -64,6 +64,34 @@ public class Package
         _response.Value = await _clients.Packages.Patch2Async(Id, request);
     }
 
+    public async Task UpdateAsync(
+        string? description = null,
+        string? displayName = null,
+        long? logoImageId = null,
+        string? name = null,
+        bool? isPublic = null,
+        ICollection<long>? screenshots = null,
+        string? shortDescription = null,
+        ICollection<string>? tags = null,
+        string? website = null)
+    {
+        if (_isDeleted.Value)
+        {
+            throw new InvalidOperationException("This object has been deleted.");
+        }
+
+        _response.Value = await _clients.Packages.Patch2Async(Id, new UpdatePackageRequest(
+            description: description,
+            display_name: displayName,
+            logo_image_id: logoImageId,
+            name: name,
+            @public: isPublic,
+            screenshots: screenshots,
+            short_description: shortDescription,
+            tags: tags,
+            website: website));
+    }
+
     public async Task DeleteAsync()
     {
         FileResponse response = await _clients.Packages.Delete2Async(Id);
@@ -80,23 +108,9 @@ public class Package
             .ToArray();
     }
 
-    public async Task<PackageResource> AddResourceAsync(string locale, CreatePackageResourceRequest request)
-    {
-        PackageResourceResponse response = await _clients.PackageResources.PostAsync(Owner.Name.Value, Name.Value, locale, request);
-
-        return new PackageResource(this, response, _clients);
-    }
-
     public async Task<Release> AddReleaseAsync(string version, CreateReleaseRequest request)
     {
         ReleaseResponse response = await _clients.Releases.PostAsync(Owner.Name.Value, Name.Value, version, request);
         return new Release(this, response, _clients);
-    }
-
-    public async Task<PackageResource[]> GetResourcesAsync()
-    {
-        return (await _clients.PackageResources.GetResourcesAsync(Owner.Name.Value, _response.Value.Name))
-            .Select(x => new PackageResource(this, x, _clients))
-            .ToArray();
     }
 }

@@ -165,8 +165,6 @@ public sealed partial class ExtensionsPage : UserControl
             return 2;
         else if (type == typeof(PackageSettingsPage))
             return 2;
-        else if (type == typeof(ResourcePage))
-            return 3;
         else if (type == typeof(ReleasePage))
             return 3;
         return -1;

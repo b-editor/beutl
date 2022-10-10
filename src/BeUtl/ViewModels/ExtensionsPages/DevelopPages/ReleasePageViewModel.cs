@@ -85,8 +85,6 @@ public sealed class ReleasePageViewModel : IDisposable
                 IsBusy.Value = true;
                 await _user.RefreshAsync();
                 await Release.RefreshAsync();
-                Items.Clear();
-                Items.AddRange((await Release.GetResourcesAsync()).AsSpan());
             }
             catch
             {
@@ -119,21 +117,9 @@ public sealed class ReleasePageViewModel : IDisposable
 
     public ReactiveCommand MakePrivate { get; } = new();
 
-    public CoreList<ReleaseResource> Items { get; } = new();
-
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
     public AsyncReactiveCommand Refresh { get; } = new();
-
-    public AddReleaseResourceDialogViewModel CreateAddResourceDialog()
-    {
-        return new AddReleaseResourceDialogViewModel(_user, Release);
-    }
-    
-    public EditReleaseResourceDialogViewModel CreateEditResourceDialog(ReleaseResource resource)
-    {
-        return new EditReleaseResourceDialogViewModel(_user, resource);
-    }
 
     public PackageDetailsPageViewModel CreatePackageDetailsPage()
     {
@@ -145,19 +131,10 @@ public sealed class ReleasePageViewModel : IDisposable
         return new PackageReleasesPageViewModel(_user, Release.Package);
     }
 
-    public async Task DeleteResourceAsync(ReleaseResource resource)
-    {
-        await _user.RefreshAsync();
-        await resource.DeleteAsync();
-        Items.Remove(resource);
-    }
-
     public void Dispose()
     {
         Debug.WriteLine($"{GetType().Name} disposed (Count: {_disposables.Count}).");
         _disposables.Dispose();
-
-        Items.Clear();
 
         GC.SuppressFinalize(this);
     }

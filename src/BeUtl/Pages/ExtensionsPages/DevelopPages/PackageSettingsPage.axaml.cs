@@ -45,62 +45,6 @@ public sealed partial class PackageSettingsPage : UserControl
         }
     }
 
-    private async void AddResource_Click(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is PackageSettingsPageViewModel viewModel)
-        {
-            AddResourceDialogViewModel dialogViewModel = viewModel.CreateAddResourceDialog();
-            var dialog = new AddResourceDialog
-            {
-                DataContext = dialogViewModel
-            };
-
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary
-                && dialogViewModel.Result != null)
-            {
-                viewModel.Items.OrderedAdd(dialogViewModel.Result, x => x.Locale.Name);
-            }
-        }
-    }
-
-    private void EditResource_Click(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is PackageSettingsPageViewModel viewModel
-            && sender is Button { DataContext: PackageResource item }
-            && this.FindAncestorOfType<Frame>() is { } frame)
-        {
-            ResourcePageViewModel? param = frame.FindParameter<ResourcePageViewModel>(
-                x => x.Resource.Response.Value.Locale == item.Response.Value.Locale
-                    && x.Resource.Package.Id == item.Package.Id);
-
-            param ??= viewModel.CreateResourcePage(item);
-
-            frame.Navigate(typeof(ResourcePage), param, SharedNavigationTransitionInfo.Instance);
-        }
-    }
-
-    private async void DeleteResource_Click(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is PackageSettingsPageViewModel viewModel
-            && sender is Button { DataContext: PackageResource item }
-            && this.FindAncestorOfType<Frame>() is { } frame)
-        {
-            var dialog = new ContentDialog
-            {
-                Title = S.DevelopPage.DeleteResource.Title,
-                Content = S.DevelopPage.DeleteResource.Content,
-                PrimaryButtonText = S.Common.Yes,
-                CloseButtonText = S.Common.No,
-                DefaultButton = ContentDialogButton.Primary
-            };
-
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-            {
-                await viewModel.DeleteResourceAsync(item);
-            }
-        }
-    }
-
     private async void DeletePackage_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is PackageSettingsPageViewModel viewModel
@@ -120,7 +64,6 @@ public sealed partial class PackageSettingsPage : UserControl
                 frame.RemoveAllStack(
                     item => (item is PackageDetailsPageViewModel p1 && p1.Package.Id == viewModel.Package.Id)
                          || (item is PackageSettingsPageViewModel p2 && p2.Package.Id == viewModel.Package.Id)
-                         || (item is ResourcePageViewModel p3 && p3.Resource.Package.Id == viewModel.Package.Id)
                          || (item is ReleasePageViewModel p4 && p4.Release.Package.Id == viewModel.Package.Id)
                          || (item is PackageReleasesPageViewModel p5 && p5.Package.Id == viewModel.Package.Id));
 

@@ -61,11 +61,6 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <TextBlock Margin="0,8,0,0"
-                           FontStyle="Italic"
-                           Text="{DynamicResource S.DevelopPage.Package.BaseResourceDescription}"
-                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
-
                 <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.Fields.DisplayNameDescription}"
                                           Expands="True"
                                           Header="{DynamicResource S.DevelopPage.Package.Fields.DisplayName}">
@@ -188,77 +183,6 @@
                         </Grid>
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>-->
-
-                <TextBlock Margin="0,16,0,0"
-                           Text="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}"
-                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
-
-                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.LocaleSpecificResourcesDescription}" Header="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}">
-                    <ctrls:OptionsDisplayItem.ActionButton>
-                        <Button Classes="accent"
-                                Click="AddResource_Click"
-                                Content="{DynamicResource S.Common.Add}" />
-                    </ctrls:OptionsDisplayItem.ActionButton>
-                </ctrls:OptionsDisplayItem>
-
-                <ItemsControl Margin="0,4,0,0" Items="{CompiledBinding Items}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Spacing="4" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Padding="12"
-                                    Background="{DynamicResource ControlFillColorDefaultBrush}"
-                                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="{StaticResource ControlCornerRadius}">
-                                <Grid ColumnDefinitions="*,Auto,8,Auto,16">
-
-                                    <StackPanel Grid.Column="0"
-                                                VerticalAlignment="Center"
-                                                Orientation="Vertical">
-                                        <TextBlock Text="{CompiledBinding Locale.DisplayName}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
-
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock IsVisible="{CompiledBinding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                       Text="{CompiledBinding DisplayName.Value}"
-                                                       Theme="{StaticResource CaptionTextBlockStyle}" />
-                                            <TextBlock IsVisible="{CompiledBinding DisplayName.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}"
-                                                       Text="{CompiledBinding Package.DisplayName.Value}"
-                                                       Theme="{StaticResource CaptionTextBlockStyle}" />
-
-                                            <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                       IsVisible="{CompiledBinding ShortDescription.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                       MaxLines="1"
-                                                       Text="{CompiledBinding ShortDescription.Value}"
-                                                       Theme="{StaticResource CaptionTextBlockStyle}" />
-
-                                            <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                       IsVisible="{CompiledBinding ShortDescription.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}"
-                                                       MaxLines="1"
-                                                       Text="{CompiledBinding ShortDescription.Value}"
-                                                       Theme="{StaticResource CaptionTextBlockStyle}" />
-                                        </StackPanel>
-                                    </StackPanel>
-
-                                    <Button Grid.Column="1"
-                                            Padding="11"
-                                            Click="EditResource_Click">
-                                        <icons:SymbolIcon FontSize="16" Symbol="Edit" />
-                                    </Button>
-
-                                    <Button Grid.Column="3"
-                                            Padding="11"
-                                            Click="DeleteResource_Click">
-                                        <icons:SymbolIcon FontSize="16" Symbol="Delete" />
-                                    </Button>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
 
                 <TextBlock Margin="0,16,0,0"
                            Text="{DynamicResource S.Common.Settings}"

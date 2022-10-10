@@ -27,8 +27,6 @@ public class Profile
         YouTubeUrl = Response.Select(x => x.Youtube_url).ToReadOnlyReactivePropertySlim()!;
         BlogUrl = Response.Select(x => x.Blog_url).ToReadOnlyReactivePropertySlim()!;
         AvatarUrl = Response.Select(x => x.Avatar_url).ToReadOnlyReactivePropertySlim()!;
-        Followers = Response.Select(x => x.Followers).ToReadOnlyReactivePropertySlim()!;
-        Following = Response.Select(x => x.Following).ToReadOnlyReactivePropertySlim()!;
         PublicPackages = Response.Select(x => x.Public_packages).ToReadOnlyReactivePropertySlim()!;
     }
 
@@ -53,10 +51,6 @@ public class Profile
     public IReadOnlyReactiveProperty<string> BlogUrl { get; }
     
     public IReadOnlyReactiveProperty<string> AvatarUrl { get; }
-
-    public IReadOnlyReactiveProperty<int> Followers { get; }
-
-    public IReadOnlyReactiveProperty<int> Following { get; }
 
     public IReadOnlyReactiveProperty<int> PublicPackages { get; }
 

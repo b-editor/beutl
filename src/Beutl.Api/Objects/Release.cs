@@ -75,25 +75,6 @@ public class Release
         _isDeleted.Value = true;
     }
 
-    public async Task<ReleaseResource> AddResourceAsync(string locale, CreateReleaseResourceRequest request)
-    {
-        ReleaseResourceResponse response = await _clients.ReleaseResources.PostAsync(
-            Package.Owner.Name.Value,
-            Package.Name.Value,
-            Response.Value.Version,
-            locale,
-            request);
-
-        return new ReleaseResource(this, response, _clients);
-    }
-
-    public async Task<ReleaseResource[]> GetResourcesAsync()
-    {
-        return (await _clients.ReleaseResources.GetResourcesAsync(Package.Owner.Name.Value, Package.Name.Value, Response.Value.Version))
-            .Select(x => new ReleaseResource(this, x, _clients))
-            .ToArray();
-    }
-
     public async Task<Asset> GetAssetAsync()
     {
         if (!AssetId.Value.HasValue)

@@ -27,13 +27,14 @@ public class BeutlClients
     public BeutlClients(HttpClient httpClient)
     {
         _httpClient = httpClient;
-        PackageResources = new PackageResourcesClient(httpClient) { BaseUrl = BaseUrl };
         Packages = new PackagesClient(httpClient) { BaseUrl = BaseUrl };
-        ReleaseResources = new ReleaseResourcesClient(httpClient) { BaseUrl = BaseUrl };
         Releases = new ReleasesClient(httpClient) { BaseUrl = BaseUrl };
         Users = new UsersClient(httpClient) { BaseUrl = BaseUrl };
         Account = new AccountClient(httpClient) { BaseUrl = BaseUrl };
         Assets = new AssetsClient(httpClient) { BaseUrl = BaseUrl };
+        Discover = new DiscoverClient(httpClient) { BaseUrl = BaseUrl };
+        Library = new LibraryClient(httpClient) { BaseUrl = BaseUrl };
+
         GlobalConfiguration.Instance.ViewConfig.GetObservable(ViewConfig.UICultureProperty)
             .Subscribe(x =>
             {
@@ -42,11 +43,7 @@ public class BeutlClients
             });
     }
 
-    public PackageResourcesClient PackageResources { get; }
-
     public PackagesClient Packages { get; }
-
-    public ReleaseResourcesClient ReleaseResources { get; }
 
     public ReleasesClient Releases { get; }
 
@@ -55,6 +52,10 @@ public class BeutlClients
     public AccountClient Account { get; }
 
     public AssetsClient Assets { get; }
+
+    public DiscoverClient Discover { get; }
+
+    public LibraryClient Library { get; }
 
     public IReadOnlyReactiveProperty<AuthorizedUser?> AuthorizedUser => _authorizedUser;
 

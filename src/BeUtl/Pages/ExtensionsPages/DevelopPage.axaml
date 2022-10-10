@@ -60,7 +60,7 @@
                                         Spacing="4">
                                 <TextBlock Text="{CompiledBinding Name.Value}" />
 
-                                <TextBlock Text="{CompiledBinding DisplayName.Value}">
+                                <TextBlock IsVisible="{CompiledBinding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{CompiledBinding DisplayName.Value}">
                                     <TextBlock.Styles>
                                         <Style Selector="TextBlock">
                                             <Setter Property="FontFamily" Value="XamlAutoFontFamily" />

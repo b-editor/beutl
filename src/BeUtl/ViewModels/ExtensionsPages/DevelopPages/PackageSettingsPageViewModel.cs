@@ -61,13 +61,11 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             try
             {
                 await _user.RefreshAsync();
-                await Package.UpdateAsync(new UpdatePackageRequest(
+                await Package.UpdateAsync(
                     description: Description.Value,
-                    display_name: DisplayName.Value,
+                    displayName: DisplayName.Value,
                     name: Name.Value,
-                    short_description: ShortDescription.Value,
-                    tags: null,
-                    website: null));
+                    shortDescription: ShortDescription.Value);
             }
             catch
             {
@@ -107,9 +105,6 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                 IsBusy.Value = true;
                 await _user.RefreshAsync();
                 await Package.RefreshAsync();
-                Items.Clear();
-                PackageResource[] added = await Package.GetResourcesAsync();
-                Items.AddRange(added);
             }
             catch
             {
@@ -146,40 +141,20 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
     public ReactiveCommand MakePrivate { get; } = new();
 
-    public AvaloniaList<PackageResource> Items { get; } = new();
-
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
     public AsyncReactiveCommand Refresh { get; } = new();
-
-    public AddResourceDialogViewModel CreateAddResourceDialog()
-    {
-        return new AddResourceDialogViewModel(_user, Package);
-    }
 
     public PackageDetailsPageViewModel CreatePackageDetailsPage()
     {
         return new PackageDetailsPageViewModel(_user, Package);
     }
-    
-    public ResourcePageViewModel CreateResourcePage(PackageResource resource)
-    {
-        return new ResourcePageViewModel(_user, resource);
-    }
-
-    public async Task DeleteResourceAsync(PackageResource resource)
-    {
-        await _user.RefreshAsync();
-        await resource.DeleteAsync();
-        Items.Remove(resource);
-    }
-
+   
     public void Dispose()
     {
         Debug.WriteLine($"{GetType().Name} disposed (Count: {_disposables.Count}).");
 
         _disposables.Dispose();
-        Items.Clear();
 
         GC.SuppressFinalize(this);
     }

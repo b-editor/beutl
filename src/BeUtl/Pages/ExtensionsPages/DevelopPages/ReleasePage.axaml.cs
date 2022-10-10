@@ -2,11 +2,7 @@
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
-using Beutl.Api.Objects;
-
-using BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
-using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
@@ -64,58 +60,6 @@ public sealed partial class ReleasePage : UserControl
 
                 viewModel.Delete.Execute();
                 frame.GoBack();
-            }
-        }
-    }
-
-    private async void AddResource_Click(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is ReleasePageViewModel viewModel)
-        {
-            AddReleaseResourceDialogViewModel dialogViewModel = viewModel.CreateAddResourceDialog();
-            var dialog = new AddReleaseResourceDialog
-            {
-                DataContext = dialogViewModel
-            };
-
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary
-                && dialogViewModel.Result != null)
-            {
-                viewModel.Items.Add(dialogViewModel.Result);
-            }
-        }
-    }
-
-    private async void EditResource_Click(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is ReleasePageViewModel viewModel
-            && sender is Button { DataContext: ReleaseResource item })
-        {
-            var dialog = new EditReleaseResourceDialog
-            {
-                DataContext = viewModel.CreateEditResourceDialog(item)
-            };
-            await dialog.ShowAsync();
-        }
-    }
-
-    private async void DeleteResource_Click(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is ReleasePageViewModel viewModel
-            && sender is Button { DataContext: ReleaseResource item })
-        {
-            var dialog = new ContentDialog
-            {
-                Title = S.DevelopPage.DeleteResource.Title,
-                Content = S.DevelopPage.DeleteResource.Content,
-                PrimaryButtonText = S.Common.Yes,
-                CloseButtonText = S.Common.No,
-                DefaultButton = ContentDialogButton.Primary
-            };
-
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-            {
-                await viewModel.DeleteResourceAsync(item);
             }
         }
     }

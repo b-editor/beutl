@@ -210,8 +210,8 @@ public class OptionsDisplayItem : TemplatedControl
             if (Navigates)
             {
                 RaiseEvent(new RoutedEventArgs(NavigationRequestedEvent, this));
-                if (NavigationCommand.CanExecute(NavigationCommandParameter))
-                    NavigationCommand?.Execute(NavigationCommandParameter);
+                if (NavigationCommand?.CanExecute(NavigationCommandParameter) == true)
+                    NavigationCommand.Execute(NavigationCommandParameter);
             }
         }
     }
