@@ -1,6 +1,6 @@
 <Project>
   <ItemGroup>
-    <PackageReference Include="Avalonia.Xaml.Behaviors" Version="11.0.0-preview1" />
-    <PackageReference Include="Avalonia.Xaml.Interactivity" Version="11.0.0-preview1" />
+    <PackageReference Include="Avalonia.Xaml.Behaviors" Version="11.0.0-preview2" />
+    <PackageReference Include="Avalonia.Xaml.Interactivity" Version="11.0.0-preview2" />
   </ItemGroup>
 </Project>
