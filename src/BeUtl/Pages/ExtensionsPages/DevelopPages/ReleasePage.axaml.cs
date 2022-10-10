@@ -2,9 +2,9 @@
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
-using BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
+using BeUtl.ViewModels.Dialogs;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
-using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
+using BeUtl.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
@@ -110,8 +110,8 @@ public sealed partial class ReleasePage : UserControl
     {
         if (DataContext is ReleasePageViewModel viewModel)
         {
-            SelectReleaseAssetViewModel dialogViewModel = viewModel.CreateSelectReleaseAsset();
-            var dialog = new SelectReleaseAsset
+            SelectAssetViewModel dialogViewModel = viewModel.CreateSelectReleaseAsset();
+            var dialog = new SelectAsset
             {
                 DataContext = dialogViewModel
             };

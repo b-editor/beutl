@@ -5,7 +5,7 @@ using Beutl.Api.Objects;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.SettingsPages.Dialogs;
+namespace BeUtl.ViewModels.Dialogs;
 
 public class CreateAssetViewModel
 {
@@ -67,9 +67,9 @@ public class CreateAssetViewModel
         UseExternalServer = SelectedMethod.Select(x => x == 1).ToReadOnlyReactivePropertySlim();
 
         File.SetValidateNotifyError(file => !System.IO.File.Exists(file) ? S.Warning.FileDoesNotExist : null);
-        Url.SetValidateNotifyError(url => (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+        Url.SetValidateNotifyError(url => url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
             || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
-            || url.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase))
+            || url.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase)
                 ? null!
                 : S.Warning.InvalidURL);
         _user = user;

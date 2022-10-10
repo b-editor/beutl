@@ -201,6 +201,8 @@
         <x:String x:Key="S.Common.Submit">送信</x:String>
         <x:String x:Key="S.Common.Public">公開</x:String>
         <x:String x:Key="S.Common.Private">非公開</x:String>
+        <x:String x:Key="S.Common.SelectAsset">アセットを選択</x:String>
+        <x:String x:Key="S.Common.SelectImage">画像を選択</x:String>
     </Styles.Resources>
 
     <!--  Views  -->

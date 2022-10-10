@@ -33,8 +33,6 @@
         <x:String x:Key="S.DevelopPage.Release.Fields.Asset">リリースアセット</x:String>
         <x:String x:Key="S.DevelopPage.Release.Fields.AssetDescription">ここで指定するファイルは公開するとユーザーにダウンロードされます。</x:String>
 
-        <x:String x:Key="S.DevelopPage.SelectReleaseAsset.Title">リリースアセットを選択</x:String>
-
         <x:String x:Key="S.DevelopPage.Package.Fields.Name">名前</x:String>
         <x:String x:Key="S.DevelopPage.Package.Fields.NameDescription">このパッケージを識別するための文字列。</x:String>
         <x:String x:Key="S.DevelopPage.Package.Fields.DisplayName">表示名</x:String>

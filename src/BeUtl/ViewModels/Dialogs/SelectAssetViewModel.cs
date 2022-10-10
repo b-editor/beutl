@@ -3,23 +3,23 @@ using Avalonia.Platform.Storage;
 
 using Beutl.Api.Objects;
 
-using BeUtl.ViewModels.SettingsPages.Dialogs;
-
 using Reactive.Bindings;
 
 using static BeUtl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
 
-namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
+namespace BeUtl.ViewModels.Dialogs;
 
-public class SelectReleaseAssetViewModel
+public class SelectAssetViewModel
 {
     private readonly AuthorizedUser _user;
-    private readonly Release _release;
+    private readonly Func<string, bool> _contentTypeFilter;
+    private readonly FilePickerFileType? _defaultFileType;
 
-    public SelectReleaseAssetViewModel(AuthorizedUser user, Release release)
+    public SelectAssetViewModel(AuthorizedUser user, Func<string, bool> contentTypeFilter, FilePickerFileType? defaultFileType = null)
     {
         _user = user;
-        _release = release;
+        _contentTypeFilter = contentTypeFilter;
+        _defaultFileType = defaultFileType;
         IsPrimaryButtonEnabled = IsBusy.CombineLatest(SelectedItem)
             .Select(x => !x.First && x.Second != null)
             .ToReadOnlyReactivePropertySlim();
@@ -39,7 +39,7 @@ public class SelectReleaseAssetViewModel
                 do
                 {
                     Asset[] items = await _user.Profile.GetAssetsAsync(count, 30);
-                    Items.AddRange(items.Where(x => ToKnownType(x.ContentType) == KnownType.BeutlPackageFile)
+                    Items.AddRange(items.Where(x => _contentTypeFilter(x.ContentType))
                         .Select(x => new AssetViewModel(x, x.Size.HasValue ? ToHumanReadableSize(x.Size.Value) : string.Empty)));
                     prevCount = items.Length;
                     count += items.Length;
@@ -70,12 +70,7 @@ public class SelectReleaseAssetViewModel
 
     public CreateAssetViewModel CreateAssetViewModel()
     {
-        // Todo: FileTypeをStaticに移動
-        return new CreateAssetViewModel(_user, new FilePickerFileType("Beutl Package File")
-        {
-            MimeTypes = new string[] { "application/x-beutl-package" },
-            Patterns = new string[] { "*.bpkg" }
-        });
+        return new CreateAssetViewModel(_user, _defaultFileType);
     }
 
     public record AssetViewModel(Asset Model, string UsedCapacity)

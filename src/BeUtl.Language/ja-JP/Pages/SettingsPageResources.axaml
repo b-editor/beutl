@@ -52,7 +52,5 @@
         <x:String x:Key="S.SettingsPage.CreateAsset.PerformingAnOperation">操作を行っています。</x:String>
         <x:String x:Key="S.SettingsPage.CreateAsset.Completed">完了しました。</x:String>
 
-        <x:String x:Key="S.SettingsPage.SelectAvatarImage.Title">アバター画像を設定</x:String>
-
     </Styles.Resources>
 </Styles>

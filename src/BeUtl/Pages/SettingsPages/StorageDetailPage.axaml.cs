@@ -2,8 +2,8 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
-using BeUtl.Pages.SettingsPages.Dialogs;
 using BeUtl.ViewModels.SettingsPages;
+using BeUtl.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 

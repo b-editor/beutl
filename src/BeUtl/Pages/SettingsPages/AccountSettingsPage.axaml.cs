@@ -2,8 +2,9 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
-using BeUtl.Pages.SettingsPages.Dialogs;
+using BeUtl.ViewModels.Dialogs;
 using BeUtl.ViewModels.SettingsPages;
+using BeUtl.Views.Dialogs;
 
 using FluentAvalonia.Styling;
 
@@ -56,12 +57,18 @@ public sealed partial class AccountSettingsPage : UserControl
     {
         if (DataContext is AccountSettingsPageViewModel viewModel)
         {
-            var dialog = new SelectAvatarImage
+            SelectImageAssetViewModel dialogViewModel = viewModel.CreateSelectAvatarImage();
+            var dialog = new SelectImageAsset
             {
-                DataContext = viewModel.CreateSelectAvatarImage()
+                DataContext = dialogViewModel
             };
 
             await dialog.ShowAsync();
+
+            if (dialogViewModel.SelectedItem.Value is { } selectedItem)
+            {
+                await viewModel.UpdateAvatarImage(selectedItem);
+            }
         }
     }
 }

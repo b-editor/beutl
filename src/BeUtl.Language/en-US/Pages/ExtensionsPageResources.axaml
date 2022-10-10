@@ -33,8 +33,6 @@
         <x:String x:Key="S.DevelopPage.Release.Fields.Asset">Release asset</x:String>
         <x:String x:Key="S.DevelopPage.Release.Fields.AssetDescription">The file specified here will be downloaded by the user when published.</x:String>
 
-        <x:String x:Key="S.DevelopPage.SelectReleaseAsset.Title">Select release asset</x:String>
-
         <x:String x:Key="S.DevelopPage.Package.Fields.Name">Name</x:String>
         <x:String x:Key="S.DevelopPage.Package.Fields.NameDescription">String to identify this package.</x:String>
         <x:String x:Key="S.DevelopPage.Package.Fields.DisplayName">Display name</x:String>

@@ -1,12 +1,13 @@
-﻿using Beutl.Api;
+﻿using Avalonia.Platform.Storage;
+
+using Beutl.Api;
 using Beutl.Api.Objects;
 
-using BeUtl.Framework.Service;
-using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
-
-using Microsoft.Extensions.DependencyInjection;
+using BeUtl.ViewModels.Dialogs;
 
 using Reactive.Bindings;
+
+using static BeUtl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
@@ -162,9 +163,16 @@ public sealed class ReleasePageViewModel : BaseDevelopPageViewModel
         return new PackageReleasesPageViewModel(_user, Release.Package);
     }
 
-    public SelectReleaseAssetViewModel CreateSelectReleaseAsset()
+    public SelectAssetViewModel CreateSelectReleaseAsset()
     {
-        return new SelectReleaseAssetViewModel(_user, Release);
+        return new SelectAssetViewModel(
+            _user,
+            x => ToKnownType(x) == KnownType.BeutlPackageFile,
+            new FilePickerFileType("Beutl Package File")
+            {
+                MimeTypes = new string[] { "application/x-beutl-package" },
+                Patterns = new string[] { "*.bpkg" }
+            });
     }
 
     public override void Dispose()

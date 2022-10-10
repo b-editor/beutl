@@ -52,7 +52,5 @@
         <x:String x:Key="S.SettingsPage.CreateAsset.PerformingAnOperation">Performing an operation.</x:String>
         <x:String x:Key="S.SettingsPage.CreateAsset.Completed">Completed.</x:String>
 
-        <x:String x:Key="S.SettingsPage.SelectAvatarImage.Title">Set your avatar image</x:String>
-
     </Styles.Resources>
 </Styles>

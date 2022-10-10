@@ -89,12 +89,12 @@ public sealed class StorageSettingsPageViewModel : PageContext
                     }
                 }
 
-                Details.Add(ToDetailItem(DetailItem.Image, imageSize));
-                Details.Add(ToDetailItem(DetailItem.Zip, zipSize));
-                Details.Add(ToDetailItem(DetailItem.BeutlPackageFile, bpkgSize));
-                Details.Add(ToDetailItem(DetailItem.Text, textSize));
-                Details.Add(ToDetailItem(DetailItem.Font, fontSize));
-                Details.Add(ToDetailItem(DetailItem.Other, otherSize));
+                Details.OrderedAddDescending(ToDetailItem(DetailItem.Image, imageSize), x => x.Size);
+                Details.OrderedAddDescending(ToDetailItem(DetailItem.Zip, zipSize), x => x.Size);
+                Details.OrderedAddDescending(ToDetailItem(DetailItem.BeutlPackageFile, bpkgSize), x => x.Size);
+                Details.OrderedAddDescending(ToDetailItem(DetailItem.Text, textSize), x => x.Size);
+                Details.OrderedAddDescending(ToDetailItem(DetailItem.Font, fontSize), x => x.Size);
+                Details.OrderedAddDescending(ToDetailItem(DetailItem.Other, otherSize), x => x.Size);
             });
 
         _user = user;
@@ -239,7 +239,7 @@ public sealed class StorageSettingsPageViewModel : PageContext
 
         // application/zip
         Zip,
-        
+
         // application/x-beutl-package
         BeutlPackageFile,
 

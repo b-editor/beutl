@@ -1,19 +1,19 @@
 ﻿using Avalonia.Collections;
+using Avalonia.Platform.Storage;
 
-using Beutl.Api;
 using Beutl.Api.Objects;
 
 using Reactive.Bindings;
 
 using static BeUtl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
 
-namespace BeUtl.ViewModels.SettingsPages.Dialogs;
+namespace BeUtl.ViewModels.Dialogs;
 
-public class SelectAvatarImageViewModel
+public class SelectImageAssetViewModel
 {
     private readonly AuthorizedUser _user;
 
-    public SelectAvatarImageViewModel(AuthorizedUser user)
+    public SelectImageAssetViewModel(AuthorizedUser user)
     {
         _user = user;
         IsPrimaryButtonEnabled = IsBusy.CombineLatest(SelectedItem)
@@ -35,7 +35,7 @@ public class SelectAvatarImageViewModel
                 do
                 {
                     Asset[] items = await user.Profile.GetAssetsAsync(count, 30);
-                    Items.AddRange(items.Where(x => ToKnownType(x.ContentType) == KnownType.Image && x.IsPublic.Value));
+                    Items.AddRange(items.Where(x => ToKnownType(x.ContentType) == KnownType.Image));
                     prevCount = items.Length;
                     count += items.Length;
                 } while (prevCount == 30);
@@ -63,39 +63,8 @@ public class SelectAvatarImageViewModel
 
     public ReadOnlyReactivePropertySlim<bool> IsPrimaryButtonEnabled { get; }
 
-    public async Task SubmitAsync()
+    public CreateAssetViewModel CreateAssetViewModel()
     {
-        if (SelectedItem.Value != null)
-        {
-            await _user.Profile.UpdateAsync(new UpdateProfileRequest(
-                SelectedItem.Value.DownloadUrl,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null));
-        }
-    }
-
-    public async Task<Asset> UploadImage(string path, string contentType)
-    {
-        try
-        {
-            IsBusy.Value = true;
-
-            using FileStream stream = File.OpenRead(path);
-            Asset asset = await _user.Profile.AddAssetAsync(Guid.NewGuid().ToString(), stream, contentType);
-            await asset.UpdateAsync(new UpdateAssetRequest(true));
-
-            Items.Add(asset);
-
-            return asset;
-        }
-        finally
-        {
-            IsBusy.Value = false;
-        }
+        return new CreateAssetViewModel(_user, FilePickerFileTypes.ImageAll);
     }
 }

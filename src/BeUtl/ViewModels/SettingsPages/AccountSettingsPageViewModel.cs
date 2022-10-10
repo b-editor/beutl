@@ -2,7 +2,7 @@
 using Beutl.Api.Objects;
 
 using BeUtl.Controls.Navigation;
-using BeUtl.ViewModels.SettingsPages.Dialogs;
+using BeUtl.ViewModels.Dialogs;
 
 using Reactive.Bindings;
 
@@ -118,9 +118,27 @@ public sealed class AccountSettingsPageViewModel : PageContext, IDisposable
         _disposables.Dispose();
     }
 
-    public SelectAvatarImageViewModel CreateSelectAvatarImage()
+    public SelectImageAssetViewModel CreateSelectAvatarImage()
     {
-        return new SelectAvatarImageViewModel(_clients.AuthorizedUser.Value!);
+        return new SelectImageAssetViewModel(_clients.AuthorizedUser.Value!);
+    }
+
+    public async Task UpdateAvatarImage(Asset asset)
+    {
+        if (_clients.AuthorizedUser.Value is { } user)
+        {
+            await user.RefreshAsync();
+            await asset.UpdateAsync(true);
+            await user.Profile.UpdateAsync(new UpdateProfileRequest(
+                asset.DownloadUrl,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null));
+        }
     }
 
     private async Task SignInCore(string? provider = null)

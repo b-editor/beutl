@@ -9,7 +9,7 @@ using Avalonia.Collections;
 using Beutl.Api.Objects;
 
 using BeUtl.Controls.Navigation;
-using BeUtl.ViewModels.SettingsPages.Dialogs;
+using BeUtl.ViewModels.Dialogs;
 
 using Reactive.Bindings;
 

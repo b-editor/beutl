@@ -3,27 +3,23 @@ using Avalonia.Interactivity;
 using Avalonia.Styling;
 
 using Beutl.Api.Objects;
-
-using BeUtl.Pages.SettingsPages.Dialogs;
-using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
-using BeUtl.ViewModels.SettingsPages.Dialogs;
-
+using BeUtl.ViewModels.Dialogs;
 using FluentAvalonia.UI.Controls;
 
-namespace BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
+namespace BeUtl.Views.Dialogs;
 
-public partial class SelectReleaseAsset : ContentDialog, IStyleable
+public partial class SelectImageAsset : ContentDialog, IStyleable
 {
-    public SelectReleaseAsset()
+    public SelectImageAsset()
     {
         InitializeComponent();
     }
 
     Type IStyleable.StyleKey => typeof(ContentDialog);
 
-    private async void Add_Click(object? sender, RoutedEventArgs e)
+    private async void UploadImage_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is SelectReleaseAssetViewModel viewModel)
+        if (DataContext is SelectImageAssetViewModel viewModel && VisualRoot is Window parent)
         {
             CreateAssetViewModel dialogViewModel = viewModel.CreateAssetViewModel();
             var dialog = new CreateAsset
@@ -37,8 +33,8 @@ public partial class SelectReleaseAsset : ContentDialog, IStyleable
             if (dialogViewModel.Result is Asset asset)
             {
                 await viewModel.Refresh.ExecuteAsync();
-                SelectReleaseAssetViewModel.AssetViewModel? itemViewModel
-                    = viewModel.Items.FirstOrDefault(x => x.Model.Id == asset.Id);
+                Asset? itemViewModel
+                    = viewModel.Items.FirstOrDefault(x => x.Id == asset.Id);
 
                 if (itemViewModel != null)
                 {

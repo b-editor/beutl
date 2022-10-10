@@ -201,6 +201,8 @@
         <x:String x:Key="S.Common.Submit">Submit</x:String>
         <x:String x:Key="S.Common.Public">Public</x:String>
         <x:String x:Key="S.Common.Private">Private</x:String>
+        <x:String x:Key="S.Common.SelectAsset">Select Asset</x:String>
+        <x:String x:Key="S.Common.SelectImage">Select Image</x:String>
     </Styles.Resources>
 
     <!--  Views  -->

@@ -535,6 +535,12 @@ public static class Resources {
             public static string Private => "S.Common.Private".GetStringResource(@"Private");
             private static IObservable<string>? _PrivateObservable;
             public static IObservable<string> PrivateObservable => _PrivateObservable ??= "S.Common.Private".GetStringObservable(global::BeUtl.Language.Resources.S.Common.Private);
+            public static string SelectAsset => "S.Common.SelectAsset".GetStringResource(@"Select Asset");
+            private static IObservable<string>? _SelectAssetObservable;
+            public static IObservable<string> SelectAssetObservable => _SelectAssetObservable ??= "S.Common.SelectAsset".GetStringObservable(global::BeUtl.Language.Resources.S.Common.SelectAsset);
+            public static string SelectImage => "S.Common.SelectImage".GetStringResource(@"Select Image");
+            private static IObservable<string>? _SelectImageObservable;
+            public static IObservable<string> SelectImageObservable => _SelectImageObservable ??= "S.Common.SelectImage".GetStringObservable(global::BeUtl.Language.Resources.S.Common.SelectImage);
         }
         public static class Message {
             public static string ItemsSaved => "S.Message.ItemsSaved".GetStringResource(@"{0} items saved!");
@@ -744,14 +750,6 @@ If you do this, you will never be able to access this release again.");
                 private static IObservable<string>? _ContentObservable;
                 public static IObservable<string> ContentObservable => _ContentObservable ??= "S.DevelopPage.DeleteRelease.Content".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.DeleteRelease.Content);
             }
-            public static class DeleteResource {
-                public static string Title => "S.DevelopPage.DeleteResource.Title".GetStringResource(@"Delete resource");
-                private static IObservable<string>? _TitleObservable;
-                public static IObservable<string> TitleObservable => _TitleObservable ??= "S.DevelopPage.DeleteResource.Title".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.DeleteResource.Title);
-                public static string Content => "S.DevelopPage.DeleteResource.Content".GetStringResource(@"Are you sure you want to delete the resource?");
-                private static IObservable<string>? _ContentObservable;
-                public static IObservable<string> ContentObservable => _ContentObservable ??= "S.DevelopPage.DeleteResource.Content".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.DeleteResource.Content);
-            }
             public static class MakePublicPackage {
                 public static string Title => "S.DevelopPage.MakePublicPackage.Title".GetStringResource(@"Publish package");
                 private static IObservable<string>? _TitleObservable;
@@ -774,8 +772,12 @@ Doing so will prevent others from downloading this package.");
                 public static string Title => "S.DevelopPage.MakePublicRelease.Title".GetStringResource(@"Publish release");
                 private static IObservable<string>? _TitleObservable;
                 public static IObservable<string> TitleObservable => _TitleObservable ??= "S.DevelopPage.MakePublicRelease.Title".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.MakePublicRelease.Title);
+                public static string Description => "S.DevelopPage.MakePublicRelease.Description".GetStringResource(@"To publish, a release asset must be set up.");
+                private static IObservable<string>? _DescriptionObservable;
+                public static IObservable<string> DescriptionObservable => _DescriptionObservable ??= "S.DevelopPage.MakePublicRelease.Description".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.MakePublicRelease.Description);
                 public static string Content => "S.DevelopPage.MakePublicRelease.Content".GetStringResource(@"Are you sure you want to publish this release?
-Doing so will allow others to download this release.");
+This will change the visibility of the asset to 'public'
+ and allow others to download this release.");
                 private static IObservable<string>? _ContentObservable;
                 public static IObservable<string> ContentObservable => _ContentObservable ??= "S.DevelopPage.MakePublicRelease.Content".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.MakePublicRelease.Content);
             }
@@ -784,7 +786,8 @@ Doing so will allow others to download this release.");
                 private static IObservable<string>? _TitleObservable;
                 public static IObservable<string> TitleObservable => _TitleObservable ??= "S.DevelopPage.MakePrivateRelease.Title".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.MakePrivateRelease.Title);
                 public static string Content => "S.DevelopPage.MakePrivateRelease.Content".GetStringResource(@"Are you sure you want to keep this release private?
-Doing so will prevent others from downloading this release.");
+This will change the visibility of the asset to 'private'
+ and prevent others from downloading this release.");
                 private static IObservable<string>? _ContentObservable;
                 public static IObservable<string> ContentObservable => _ContentObservable ??= "S.DevelopPage.MakePrivateRelease.Content".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.MakePrivateRelease.Content);
             }
@@ -818,24 +821,12 @@ Doing so will prevent others from downloading this release.");
                     public static string VersionDescription => "S.DevelopPage.Release.Fields.VersionDescription".GetStringResource(@"Version of this release.");
                     private static IObservable<string>? _VersionDescriptionObservable;
                     public static IObservable<string> VersionDescriptionObservable => _VersionDescriptionObservable ??= "S.DevelopPage.Release.Fields.VersionDescription".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.Release.Fields.VersionDescription);
-                }
-            }
-            public static class AddResource {
-                public static string Title => "S.DevelopPage.AddResource.Title".GetStringResource(@"Add resource");
-                private static IObservable<string>? _TitleObservable;
-                public static IObservable<string> TitleObservable => _TitleObservable ??= "S.DevelopPage.AddResource.Title".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.AddResource.Title);
-            }
-            public static class Resource {
-                public static class Fields {
-                    public static string Culture => "S.DevelopPage.Resource.Fields.Culture".GetStringResource(@"Locale");
-                    private static IObservable<string>? _CultureObservable;
-                    public static IObservable<string> CultureObservable => _CultureObservable ??= "S.DevelopPage.Resource.Fields.Culture".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.Resource.Fields.Culture);
-                    public static string CultureDescription => "S.DevelopPage.Resource.Fields.CultureDescription".GetStringResource(@"Locale in which this resource is displayed.");
-                    private static IObservable<string>? _CultureDescriptionObservable;
-                    public static IObservable<string> CultureDescriptionObservable => _CultureDescriptionObservable ??= "S.DevelopPage.Resource.Fields.CultureDescription".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.Resource.Fields.CultureDescription);
-                    public static string InheritField => "S.DevelopPage.Resource.Fields.InheritField".GetStringResource(@"Inherit value");
-                    private static IObservable<string>? _InheritFieldObservable;
-                    public static IObservable<string> InheritFieldObservable => _InheritFieldObservable ??= "S.DevelopPage.Resource.Fields.InheritField".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.Resource.Fields.InheritField);
+                    public static string Asset => "S.DevelopPage.Release.Fields.Asset".GetStringResource(@"Release asset");
+                    private static IObservable<string>? _AssetObservable;
+                    public static IObservable<string> AssetObservable => _AssetObservable ??= "S.DevelopPage.Release.Fields.Asset".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.Release.Fields.Asset);
+                    public static string AssetDescription => "S.DevelopPage.Release.Fields.AssetDescription".GetStringResource(@"The file specified here will be downloaded by the user when published.");
+                    private static IObservable<string>? _AssetDescriptionObservable;
+                    public static IObservable<string> AssetDescriptionObservable => _AssetDescriptionObservable ??= "S.DevelopPage.Release.Fields.AssetDescription".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.Release.Fields.AssetDescription);
                 }
             }
             public static class Package {
@@ -856,15 +847,6 @@ Doing so will prevent others from downloading this release.");
                 public static string Resource => "S.DevelopPage.Package.Resource".GetStringResource(@"Resource");
                 private static IObservable<string>? _ResourceObservable;
                 public static IObservable<string> ResourceObservable => _ResourceObservable ??= "S.DevelopPage.Package.Resource".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.Package.Resource);
-                public static string BaseResourceDescription => "S.DevelopPage.Package.BaseResourceDescription".GetStringResource(@"The value of this item is displayed in the locale not set in 'Locale-specific resources'.");
-                private static IObservable<string>? _BaseResourceDescriptionObservable;
-                public static IObservable<string> BaseResourceDescriptionObservable => _BaseResourceDescriptionObservable ??= "S.DevelopPage.Package.BaseResourceDescription".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.Package.BaseResourceDescription);
-                public static string LocaleSpecificResources => "S.DevelopPage.Package.LocaleSpecificResources".GetStringResource(@"Locale-specific resources");
-                private static IObservable<string>? _LocaleSpecificResourcesObservable;
-                public static IObservable<string> LocaleSpecificResourcesObservable => _LocaleSpecificResourcesObservable ??= "S.DevelopPage.Package.LocaleSpecificResources".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.Package.LocaleSpecificResources);
-                public static string LocaleSpecificResourcesDescription => "S.DevelopPage.Package.LocaleSpecificResourcesDescription".GetStringResource(@"Resources added here will be displayed in that locale.");
-                private static IObservable<string>? _LocaleSpecificResourcesDescriptionObservable;
-                public static IObservable<string> LocaleSpecificResourcesDescriptionObservable => _LocaleSpecificResourcesDescriptionObservable ??= "S.DevelopPage.Package.LocaleSpecificResourcesDescription".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.Package.LocaleSpecificResourcesDescription);
                 public static string MoveOneFront => "S.DevelopPage.Package.MoveOneFront".GetStringResource(@"Move one front");
                 private static IObservable<string>? _MoveOneFrontObservable;
                 public static IObservable<string> MoveOneFrontObservable => _MoveOneFrontObservable ??= "S.DevelopPage.Package.MoveOneFront".GetStringObservable(global::BeUtl.Language.Resources.S.DevelopPage.Package.MoveOneFront);
@@ -953,11 +935,6 @@ and b-editor maintains the download URL.");
                 public static string Completed => "S.SettingsPage.CreateAsset.Completed".GetStringResource(@"Completed.");
                 private static IObservable<string>? _CompletedObservable;
                 public static IObservable<string> CompletedObservable => _CompletedObservable ??= "S.SettingsPage.CreateAsset.Completed".GetStringObservable(global::BeUtl.Language.Resources.S.SettingsPage.CreateAsset.Completed);
-            }
-            public static class SelectAvatarImage {
-                public static string Title => "S.SettingsPage.SelectAvatarImage.Title".GetStringResource(@"Set your avatar image");
-                private static IObservable<string>? _TitleObservable;
-                public static IObservable<string> TitleObservable => _TitleObservable ??= "S.SettingsPage.SelectAvatarImage.Title".GetStringObservable(global::BeUtl.Language.Resources.S.SettingsPage.SelectAvatarImage.Title);
             }
         }
         public static class InfomationPage {
