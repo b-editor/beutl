@@ -12,6 +12,7 @@ public class Release
 
     public Release(Package package, ReleaseResponse response, BeutlClients clients)
     {
+        Id = response.Id;
         Package = package;
         _clients = clients;
         _response = new ReactivePropertySlim<ReleaseResponse>(response);
