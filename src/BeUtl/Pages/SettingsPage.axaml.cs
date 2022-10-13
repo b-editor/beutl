@@ -179,7 +179,7 @@ public sealed partial class SettingsPage : UserControl
                 "FontSettingsPage" => 2,
                 "ExtensionsSettingsPage" => 3,
                 "StorageSettingsPage" or "StorageDetailPage" => 4,
-                "InfomationPage" => 3,
+                "InfomationPage" => 5,
                 _ => 0,
             };
         }

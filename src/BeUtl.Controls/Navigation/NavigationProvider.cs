@@ -85,7 +85,8 @@ public class NavigationProvider : INavigationProvider
             }
 
             entrance.FromHorizontalOffset = horizontal;
-            entrance.FromVerticalOffset = vertical;
+            entrance.FromVerticalOffset = Math.Abs(vertical);
+            //entrance.FromVerticalOffset = vertical;
         }
     }
 
