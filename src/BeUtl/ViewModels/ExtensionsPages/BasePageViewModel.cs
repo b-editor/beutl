@@ -13,9 +13,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BeUtl.ViewModels.ExtensionsPages;
 
-public abstract class BaseDevelopPageViewModel : PageContext, IDisposable
+public abstract class BasePageViewModel : PageContext, IDisposable
 {
-    protected BaseDevelopPageViewModel()
+    protected BasePageViewModel()
     {
         Notification = ServiceLocator.Current.GetRequiredService<INotificationService>();
     }

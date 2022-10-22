@@ -6,7 +6,7 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
-public sealed class PackageReleasesPageViewModel : BaseDevelopPageViewModel
+public sealed class PackageReleasesPageViewModel : BasePageViewModel
 {
     private readonly AuthorizedUser _user;
 

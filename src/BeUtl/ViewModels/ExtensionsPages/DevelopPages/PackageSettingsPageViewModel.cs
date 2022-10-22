@@ -12,7 +12,7 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
-public sealed class PackageSettingsPageViewModel : BaseDevelopPageViewModel
+public sealed class PackageSettingsPageViewModel : BasePageViewModel
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly AuthorizedUser _user;

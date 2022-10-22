@@ -8,7 +8,7 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages;
 
-public sealed class DevelopPageViewModel : BaseDevelopPageViewModel
+public sealed class DevelopPageViewModel : BasePageViewModel
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly IReadOnlyReactiveProperty<AuthorizedUser?> _user;

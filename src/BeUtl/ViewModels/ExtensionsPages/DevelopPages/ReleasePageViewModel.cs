@@ -11,7 +11,7 @@ using static BeUtl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
-public sealed class ReleasePageViewModel : BaseDevelopPageViewModel
+public sealed class ReleasePageViewModel : BasePageViewModel
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly AuthorizedUser _user;
