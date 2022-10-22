@@ -153,17 +153,9 @@ public sealed class ReleasePageViewModel : BasePageViewModel
 
     public AsyncReactiveCommand Refresh { get; } = new();
 
-    public PackageDetailsPageViewModel CreatePackageDetailsPage()
-    {
-        return new PackageDetailsPageViewModel(_user, Release.Package);
-    }
+    public override bool IsAuthorized => true;
 
-    public PackageReleasesPageViewModel CreatePackageReleasesPage()
-    {
-        return new PackageReleasesPageViewModel(_user, Release.Package);
-    }
-
-    public SelectAssetViewModel CreateSelectReleaseAsset()
+    public SelectAssetViewModel SelectReleaseAsset()
     {
         return new SelectAssetViewModel(
             _user,

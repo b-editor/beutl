@@ -16,9 +16,6 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel
         _user = user;
         Package = package;
 
-        Settings = new PackageSettingsPageViewModel(user, package);
-        Releases = new PackageReleasesPageViewModel(user, package);
-
         //LocalizedLogoImage = CreateResourceObservable(v => v.LogoImage)
         //    .CombineLatest(Package)
         //    .Select(t => t.First ?? t.Second)
@@ -55,16 +52,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel
         });
     }
 
-    ~PackageDetailsPageViewModel()
-    {
-        Dispose();
-    }
-
     public Package Package { get; }
-
-    public PackageSettingsPageViewModel Settings { get; }
-
-    public PackageReleasesPageViewModel Releases { get; }
 
     public ReadOnlyReactivePropertySlim<bool> HasLogoImage { get; }
 
@@ -74,15 +62,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel
 
     public AsyncReactiveCommand Refresh { get; } = new();
 
-    public PackageSettingsPageViewModel CreatePackageSettingsPage()
-    {
-        return new PackageSettingsPageViewModel(_user, Package);
-    }
-
-    public PackageReleasesPageViewModel CreatePackageReleasesPage()
-    {
-        return new PackageReleasesPageViewModel(_user, Package);
-    }
+    public override bool IsAuthorized => true;
 
     public override void Dispose()
     {

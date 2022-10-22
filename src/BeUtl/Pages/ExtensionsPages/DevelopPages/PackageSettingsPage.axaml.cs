@@ -1,5 +1,4 @@
 ﻿using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Platform.Storage;
@@ -7,11 +6,11 @@ using Avalonia.VisualTree;
 
 using Beutl.Api.Objects;
 
-using BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
+using BeUtl.ViewModels;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
-using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using FluentAvalonia.UI.Controls;
+using FluentAvalonia.UI.Navigation;
 
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
@@ -21,6 +20,39 @@ public sealed partial class PackageSettingsPage : UserControl
     {
         InitializeComponent();
         //ScreenshotsScrollViewer.AddHandler(PointerWheelChangedEvent, ScreenshotsScrollViewer_PointerWheelChanged, RoutingStrategies.Tunnel);
+
+        AddHandler(Frame.NavigatedFromEvent, OnNavigatedFrom, RoutingStrategies.Direct);
+        AddHandler(Frame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
+    }
+
+    private void OnNavigatedTo(object? sender, NavigationEventArgs e)
+    {
+        if (e.Parameter is Package package)
+        {
+            DestoryDataContext();
+            DataContextFactory factory = GetDataContextFactory();
+            DataContext = factory.PackageSettingsPage(package);
+        }
+    }
+
+    private void OnNavigatedFrom(object? sender, NavigationEventArgs e)
+    {
+        DestoryDataContext();
+    }
+
+    private void DestoryDataContext()
+    {
+        if (DataContext is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+
+        DataContext = null;
+    }
+
+    private DataContextFactory GetDataContextFactory()
+    {
+        return ((ExtensionsPageViewModel)this.FindLogicalAncestorOfType<ExtensionsPage>()!.DataContext!).Develop.DataContextFactory;
     }
 
     //private void ScreenshotsScrollViewer_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
@@ -38,10 +70,7 @@ public sealed partial class PackageSettingsPage : UserControl
         if (DataContext is PackageSettingsPageViewModel viewModel
             && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            PackageDetailsPageViewModel? param = frame.FindParameter<PackageDetailsPageViewModel>(x => x.Package.Id == viewModel.Package.Id);
-            param ??= viewModel.CreatePackageDetailsPage();
-
-            frame.Navigate(typeof(PackageDetailsPage), param, SharedNavigationTransitionInfo.Instance);
+            frame.Navigate(typeof(PackageDetailsPage), viewModel.Package, SharedNavigationTransitionInfo.Instance);
         }
     }
 

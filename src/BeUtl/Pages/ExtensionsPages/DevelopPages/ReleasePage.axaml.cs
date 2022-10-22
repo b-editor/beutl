@@ -1,12 +1,17 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 
+using Beutl.Api.Objects;
+
+using BeUtl.ViewModels;
 using BeUtl.ViewModels.Dialogs;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 using BeUtl.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
+using FluentAvalonia.UI.Navigation;
 
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
@@ -15,6 +20,38 @@ public sealed partial class ReleasePage : UserControl
     public ReleasePage()
     {
         InitializeComponent();
+        AddHandler(Frame.NavigatedFromEvent, OnNavigatedFrom, RoutingStrategies.Direct);
+        AddHandler(Frame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
+    }
+
+    private void OnNavigatedTo(object? sender, NavigationEventArgs e)
+    {
+        if (e.Parameter is Release release)
+        {
+            DestoryDataContext();
+            DataContextFactory factory = GetDataContextFactory();
+            DataContext = factory.ReleasePage(release);
+        }
+    }
+
+    private void OnNavigatedFrom(object? sender, NavigationEventArgs e)
+    {
+        DestoryDataContext();
+    }
+
+    private void DestoryDataContext()
+    {
+        if (DataContext is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+
+        DataContext = null;
+    }
+
+    private DataContextFactory GetDataContextFactory()
+    {
+        return ((ExtensionsPageViewModel)this.FindLogicalAncestorOfType<ExtensionsPage>()!.DataContext!).Develop.DataContextFactory;
     }
 
     private void NavigatePackageDetailsPage_Click(object? sender, RoutedEventArgs e)
@@ -22,10 +59,7 @@ public sealed partial class ReleasePage : UserControl
         if (DataContext is ReleasePageViewModel viewModel
             && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            PackageDetailsPageViewModel? param = frame.FindParameter<PackageDetailsPageViewModel>(x => x.Package.Id == viewModel.Release.Package.Id);
-            param ??= viewModel.CreatePackageDetailsPage();
-
-            frame.Navigate(typeof(PackageDetailsPage), param, SharedNavigationTransitionInfo.Instance);
+            frame.Navigate(typeof(PackageDetailsPage), viewModel.Release.Package, SharedNavigationTransitionInfo.Instance);
         }
     }
 
@@ -34,10 +68,7 @@ public sealed partial class ReleasePage : UserControl
         if (DataContext is ReleasePageViewModel viewModel
             && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            PackageReleasesPageViewModel? param = frame.FindParameter<PackageReleasesPageViewModel>(x => x.Package.Id == viewModel.Release.Package.Id);
-            param ??= viewModel.CreatePackageReleasesPage();
-
-            frame.Navigate(typeof(PackageReleasesPage), param, SharedNavigationTransitionInfo.Instance);
+            frame.Navigate(typeof(PackageReleasesPage), viewModel.Release.Package, SharedNavigationTransitionInfo.Instance);
         }
     }
 
@@ -115,7 +146,7 @@ public sealed partial class ReleasePage : UserControl
     {
         if (DataContext is ReleasePageViewModel viewModel)
         {
-            SelectAssetViewModel dialogViewModel = viewModel.CreateSelectReleaseAsset();
+            SelectAssetViewModel dialogViewModel = viewModel.SelectReleaseAsset();
             var dialog = new SelectAsset
             {
                 DataContext = dialogViewModel

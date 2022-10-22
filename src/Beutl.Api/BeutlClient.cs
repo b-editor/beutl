@@ -180,30 +180,31 @@ public class BeutlClients
         {
             if (storagefile.FileExists(fileName))
             {
+                JsonNode? node;
                 using (IsolatedStorageFileStream stream = storagefile.OpenFile(fileName, FileMode.Open, FileAccess.Read))
                 using (var reader = new StreamReader(stream))
                 {
                     string json = await reader.ReadToEndAsync();
-                    var node = JsonNode.Parse(json);
+                    node = JsonNode.Parse(json);
+                }
 
-                    if (node != null)
+                if (node != null)
+                {
+                    ProfileResponse? profile = JsonSerializer.Deserialize<ProfileResponse>(node["profile"]);
+                    string? token = (string?)node["token"];
+                    string? refreshToken = (string?)node["refresh_token"];
+                    var expiration = (DateTimeOffset?)node["expiration"];
+
+                    if (profile != null
+                        && token != null
+                        && refreshToken != null
+                        && expiration.HasValue)
                     {
-                        ProfileResponse? profile = JsonSerializer.Deserialize<ProfileResponse>(node["profile"]);
-                        string? token = (string?)node["token"];
-                        string? refreshToken = (string?)node["refresh_token"];
-                        var expiration = (DateTimeOffset?)node["expiration"];
-
-                        if (profile != null
-                            && token != null
-                            && refreshToken != null
-                            && expiration.HasValue)
-                        {
-                            var user = new AuthorizedUser(new Profile(profile, this), new AuthResponse(expiration.Value, refreshToken, token), this, _httpClient);
-                            await user.RefreshAsync();
-                            await user.Profile.RefreshAsync();
-                            _authorizedUser.Value = user;
-                            SaveUser();
-                        }
+                        var user = new AuthorizedUser(new Profile(profile, this), new AuthResponse(expiration.Value, refreshToken, token), this, _httpClient);
+                        await user.RefreshAsync();
+                        await user.Profile.RefreshAsync();
+                        _authorizedUser.Value = user;
+                        SaveUser();
                     }
                 }
             }

@@ -11,24 +11,19 @@ namespace BeUtl.ViewModels.ExtensionsPages;
 public sealed class DevelopPageViewModel : BasePageViewModel
 {
     private readonly CompositeDisposable _disposables = new();
-    private readonly IReadOnlyReactiveProperty<AuthorizedUser?> _user;
+    private readonly AuthorizedUser _user;
 
-    public DevelopPageViewModel(BeutlClients clients)
+    public DevelopPageViewModel(AuthorizedUser user)
     {
-        _user = clients.AuthorizedUser;
+        _user = user;
+        DataContextFactory = new DataContextFactory(user);
 
         Refresh.Subscribe(async () =>
         {
-            if (_user.Value == null)
-            {
-                Packages.Clear();
-                return;
-            }
-
             try
             {
                 IsBusy.Value = true;
-                await _user.Value!.RefreshAsync();
+                await _user.RefreshAsync();
                 Packages.Clear();
 
                 int prevCount = 0;
@@ -36,7 +31,7 @@ public sealed class DevelopPageViewModel : BasePageViewModel
 
                 do
                 {
-                    Package[] items = await _user.Value!.Profile.GetPackagesAsync(count, 30);
+                    Package[] items = await _user.Profile.GetPackagesAsync(count, 30);
                     Packages.AddRange(items.AsSpan());
                     prevCount = items.Length;
                     count += items.Length;
@@ -52,13 +47,7 @@ public sealed class DevelopPageViewModel : BasePageViewModel
             }
         });
 
-        _user.Subscribe(async _ =>
-        {
-            if (Refresh.CanExecute())
-            {
-                await Refresh.ExecuteAsync();
-            }
-        });
+        Refresh.Execute();
     }
 
     public CoreList<Package> Packages { get; } = new();
@@ -67,15 +56,7 @@ public sealed class DevelopPageViewModel : BasePageViewModel
 
     public AsyncReactiveCommand Refresh { get; } = new();
 
-    public CreatePackageDialogViewModel CreatePackageDialog()
-    {
-        return new CreatePackageDialogViewModel(_user.Value!);
-    }
-
-    public PackageDetailsPageViewModel CreatePackageDetailPage(Package package)
-    {
-        return new PackageDetailsPageViewModel(_user.Value!, package);
-    }
+    public DataContextFactory DataContextFactory { get; }
 
     public override void Dispose()
     {

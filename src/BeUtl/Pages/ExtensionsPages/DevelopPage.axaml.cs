@@ -13,6 +13,7 @@ using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using FluentAvalonia.UI.Controls;
+using FluentAvalonia.UI.Navigation;
 
 namespace BeUtl.Pages.ExtensionsPages;
 
@@ -25,20 +26,25 @@ public sealed partial class DevelopPage : UserControl
         InitializeComponent();
         PackagesList.AddHandler(PointerPressedEvent, PackagesList_PointerPressed, RoutingStrategies.Tunnel);
         PackagesList.AddHandler(PointerReleasedEvent, PackagesList_PointerReleased, RoutingStrategies.Tunnel);
+        AddHandler(Frame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
+    }
+
+    private void OnNavigatedTo(object? sender, NavigationEventArgs e)
+    {
+        if (e.Parameter is DevelopPageViewModel viewModel)
+        {
+            DataContext = viewModel;
+        }
     }
 
     private void PackagesList_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (_flag)
         {
-            if (DataContext is DevelopPageViewModel viewModel
-                && PackagesList.SelectedItem is Package selectedItem
+            if (PackagesList.SelectedItem is Package selectedItem
                 && this.FindAncestorOfType<Frame>() is { } frame)
             {
-                PackageDetailsPageViewModel? param = frame.FindParameter<PackageDetailsPageViewModel>(x => x.Package.Id == selectedItem.Id);
-                param ??= viewModel.CreatePackageDetailPage(selectedItem);
-
-                frame.Navigate(typeof(PackageDetailsPage), param, SharedNavigationTransitionInfo.Instance);
+                frame.Navigate(typeof(PackageDetailsPage), selectedItem, SharedNavigationTransitionInfo.Instance);
             }
             _flag = false;
         }
@@ -54,14 +60,10 @@ public sealed partial class DevelopPage : UserControl
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is DevelopPageViewModel viewModel
-                && sender is StyledElement { DataContext: Package item }
+        if (sender is StyledElement { DataContext: Package item }
             && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            PackageDetailsPageViewModel? param = frame.FindParameter<PackageDetailsPageViewModel>(x => x.Package.Id == item.Id);
-            param ??= viewModel.CreatePackageDetailPage(item);
-
-            frame.Navigate(typeof(PackageDetailsPage), param, SharedNavigationTransitionInfo.Instance);
+            frame.Navigate(typeof(PackageDetailsPage), item, SharedNavigationTransitionInfo.Instance);
         }
     }
 
@@ -70,7 +72,8 @@ public sealed partial class DevelopPage : UserControl
         if (DataContext is DevelopPageViewModel viewModel
             && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            CreatePackageDialogViewModel dialogViewModel = viewModel.CreatePackageDialog();
+            DataContextFactory factory = viewModel.DataContextFactory;
+            CreatePackageDialogViewModel dialogViewModel = factory.CreatePackageDialog();
             var dialog = new CreatePackageDialog()
             {
                 DataContext = dialogViewModel

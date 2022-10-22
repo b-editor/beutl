@@ -57,20 +57,7 @@ public sealed class PackageReleasesPageViewModel : BasePageViewModel
 
     public AsyncReactiveCommand Refresh { get; } = new();
 
-    public AddReleaseDialogViewModel CreateAddReleaseDialog()
-    {
-        return new AddReleaseDialogViewModel(_user, Package);
-    }
-
-    public PackageDetailsPageViewModel CreatePackageDetailsPage()
-    {
-        return new PackageDetailsPageViewModel(_user, Package);
-    }
-
-    public ReleasePageViewModel CreateReleasePage(Release release)
-    {
-        return new ReleasePageViewModel(_user, release);
-    }
+    public override bool IsAuthorized => true;
 
     public async Task DeleteReleaseAsync(Release release)
     {

@@ -148,10 +148,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
 
     public AsyncReactiveCommand Refresh { get; } = new();
 
-    public PackageDetailsPageViewModel CreatePackageDetailsPage()
-    {
-        return new PackageDetailsPageViewModel(_user, Package);
-    }
+    public override bool IsAuthorized => true;
 
     public override void Dispose()
     {

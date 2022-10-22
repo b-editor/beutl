@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using BeUtl.Pages.ExtensionsPages;
 using BeUtl.Pages.ExtensionsPages.DevelopPages;
 using BeUtl.ViewModels;
+using BeUtl.ViewModels.ExtensionsPages;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
@@ -87,9 +88,16 @@ public sealed partial class ExtensionsPage : UserControl
     {
         if (e.InvokedItemContainer is NavigationViewItem nvi && nvi.Tag is Type typ)
         {
-            if (typ == typeof(DevelopPage) && DataContext is ExtensionsPageViewModel viewModel)
+            if (DataContext is ExtensionsPageViewModel viewModel)
             {
-                frame.Navigate(typ, viewModel.Develop, e.RecommendedNavigationTransitionInfo);
+                if (typ == typeof(DevelopPage))
+                {
+                    frame.Navigate(typ, viewModel.Develop, e.RecommendedNavigationTransitionInfo);
+                }
+                else if (typ == typeof(HomePage))
+                {
+                    frame.Navigate(typ, viewModel.Home, e.RecommendedNavigationTransitionInfo);
+                }
             }
             else
             {
@@ -131,11 +139,6 @@ public sealed partial class ExtensionsPage : UserControl
 
     private void Frame_Navigated(object sender, NavigationEventArgs e)
     {
-        if (e.Content is StyledElement content && e.Parameter is { } param)
-        {
-            content.DataContext = param;
-        }
-
         foreach (NavigationViewItem nvi in nav.MenuItems)
         {
             if (nvi.Tag is Type tag && tag == e.SourcePageType)

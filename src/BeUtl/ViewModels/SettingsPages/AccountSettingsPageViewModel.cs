@@ -130,7 +130,7 @@ public sealed class AccountSettingsPageViewModel : PageContext, IDisposable
             await user.RefreshAsync();
             await asset.UpdateAsync(true);
             await user.Profile.UpdateAsync(new UpdateProfileRequest(
-                asset.DownloadUrl,
+                asset.Id,
                 null,
                 null,
                 null,

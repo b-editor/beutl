@@ -64,6 +64,27 @@ public class Profile
         _response.Value = await _clients.Users.PatchAsync(Name.Value, request);
     }
 
+    public async Task UpdateAsync(
+        long? avatarId = null,
+        string? bio = null,
+        string? blogUrl = null,
+        string? displayName = null,
+        string? githubUsername = null,
+        string? name = null,
+        string? twitterUsername = null,
+        string? youtubeUrl = null)
+    {
+        await UpdateAsync(new UpdateProfileRequest(
+            avatar_id: avatarId,
+            bio: bio,
+            blog_url: blogUrl,
+            display_name: displayName,
+            github_username: githubUsername,
+            name: name,
+            twitter_username: twitterUsername,
+            youtube_url: youtubeUrl));
+    }
+
     public async Task<Package> AddPackageAsync(string name, CreatePackageRequest request)
     {
         PackageResponse response = await _clients.Packages.PostAsync(Name.Value, name, request);
