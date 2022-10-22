@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.IO.IsolatedStorage;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Mime;
@@ -62,10 +63,13 @@ public class BeutlClients
     public void SignOut()
     {
         _authorizedUser.Value = null;
-        string file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "user.json");
-        if (File.Exists(file))
+        string fileName = "user.json";
+        using (var storagefile = IsolatedStorageFile.GetUserStoreForAssembly())
         {
-            File.Delete(file);
+            if (storagefile.FileExists(fileName))
+            {
+                storagefile.DeleteFile(fileName);
+            }
         }
     }
 
@@ -151,46 +155,56 @@ public class BeutlClients
     {
         if (_authorizedUser.Value is { } user)
         {
-            string file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "user.json");
-            var obj = new JsonObject
+            string fileName = "user.json";
+            using (var storagefile = IsolatedStorageFile.GetUserStoreForAssembly())
+            using (IsolatedStorageFileStream stream = storagefile.CreateFile(fileName))
             {
-                ["token"] = user.Token,
-                ["refresh_token"] = user.RefreshToken,
-                ["expiration"] = user.Expiration,
-                ["profile"] = JsonSerializer.SerializeToNode(user.Profile.Response.Value),
-            };
+                var obj = new JsonObject
+                {
+                    ["token"] = user.Token,
+                    ["refresh_token"] = user.RefreshToken,
+                    ["expiration"] = user.Expiration,
+                    ["profile"] = JsonSerializer.SerializeToNode(user.Profile.Response.Value),
+                };
 
-            using var stream = new FileStream(file, FileMode.Create);
-            using var writer = new Utf8JsonWriter(stream);
-            obj.WriteTo(writer);
+                using var writer = new Utf8JsonWriter(stream);
+                obj.WriteTo(writer);
+            }
         }
     }
 
     public async Task RestoreUserAsync()
     {
-        string file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "user.json");
-        if (File.Exists(file))
+        string fileName = "user.json";
+        using (var storagefile = IsolatedStorageFile.GetUserStoreForAssembly())
         {
-            string json = await File.ReadAllTextAsync(file);
-            var node = JsonNode.Parse(json);
-
-            if (node != null)
+            if (storagefile.FileExists(fileName))
             {
-                ProfileResponse? profile = JsonSerializer.Deserialize<ProfileResponse>(node["profile"]);
-                string? token = (string?)node["token"];
-                string? refreshToken = (string?)node["refresh_token"];
-                var expiration = (DateTimeOffset?)node["expiration"];
-
-                if (profile != null
-                    && token != null
-                    && refreshToken != null
-                    && expiration.HasValue)
+                using (IsolatedStorageFileStream stream = storagefile.OpenFile(fileName, FileMode.Open, FileAccess.Read))
+                using (var reader = new StreamReader(stream))
                 {
-                    var user = new AuthorizedUser(new Profile(profile, this), new AuthResponse(expiration.Value, refreshToken, token), this, _httpClient);
-                    await user.RefreshAsync();
-                    await user.Profile.RefreshAsync();
-                    _authorizedUser.Value = user;
-                    SaveUser();
+                    string json = await reader.ReadToEndAsync();
+                    var node = JsonNode.Parse(json);
+
+                    if (node != null)
+                    {
+                        ProfileResponse? profile = JsonSerializer.Deserialize<ProfileResponse>(node["profile"]);
+                        string? token = (string?)node["token"];
+                        string? refreshToken = (string?)node["refresh_token"];
+                        var expiration = (DateTimeOffset?)node["expiration"];
+
+                        if (profile != null
+                            && token != null
+                            && refreshToken != null
+                            && expiration.HasValue)
+                        {
+                            var user = new AuthorizedUser(new Profile(profile, this), new AuthResponse(expiration.Value, refreshToken, token), this, _httpClient);
+                            await user.RefreshAsync();
+                            await user.Profile.RefreshAsync();
+                            _authorizedUser.Value = user;
+                            SaveUser();
+                        }
+                    }
                 }
             }
         }
