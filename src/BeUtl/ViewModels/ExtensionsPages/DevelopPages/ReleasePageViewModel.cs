@@ -6,6 +6,7 @@ using Beutl.Api.Objects;
 using BeUtl.ViewModels.Dialogs;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 using static BeUtl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
 
@@ -30,23 +31,22 @@ public sealed class ReleasePageViewModel : BasePageViewModel
             .DisposeWith(_disposables);
 
         Title = Release.Title
-            .ToReactiveProperty()
-            .DisposeWith(_disposables)!;
+            .CopyToReactiveProperty()
+            .SetValidateNotifyError(NotNullOrWhitespace)
+            .DisposeWith(_disposables);
         Body = Release.Body
-            .ToReactiveProperty()
-            .DisposeWith(_disposables)!;
+            .CopyToReactiveProperty()
+            .SetValidateNotifyError(NotNullOrWhitespace)
+            .DisposeWith(_disposables);
         Asset = ActualAsset
-            .ToReactiveProperty()
+            .CopyToReactiveProperty()
             .DisposeWith(_disposables);
 
-        Title.SetValidateNotifyError(NotNullOrWhitespace);
-        Body.SetValidateNotifyError(NotNullOrWhitespace);
-
-        IsChanging = Title.CombineLatest(Release.Title).Select(t => t.First == t.Second)
-            .CombineLatest(
-                Body.CombineLatest(Release.Body).Select(t => t.First == t.Second),
-                Asset.CombineLatest(ActualAsset).Select(t => t.First?.Id == t.Second?.Id))
-            .Select(t => !(t.First && t.Second && t.Third))
+        IsChanging = Title.EqualTo(Release.Title)
+            .AreTrue(
+                Body.EqualTo(Release.Body),
+                Asset.EqualTo(ActualAsset, (x, y) => x?.Id == y?.Id))
+            .Not()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -57,72 +57,105 @@ public sealed class ReleasePageViewModel : BasePageViewModel
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Save = new AsyncReactiveCommand(Title.ObserveHasErrors
-            .CombineLatest(Body.ObserveHasErrors)
-            .Select(t => !(t.First || t.Second)));
+        Save = Title.ObserveHasErrors
+            .AnyTrue(Body.ObserveHasErrors)
+            .Not()
+            .ToAsyncReactiveCommand()
+            .WithSubscribe(async () =>
+            {
+                try
+                {
+                    await _user.RefreshAsync();
+                    await Release.UpdateAsync(new UpdateReleaseRequest(
+                        Asset.Value?.Id,
+                        Body.Value,
+                        Release.IsPublic.Value,
+                        Title.Value));
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandle(ex);
+                }
+            })
+            .DisposeWith(_disposables);
 
-        Save.Subscribe(async () =>
-        {
-            try
+        DiscardChanges = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
             {
-                await _user.RefreshAsync();
-                await Release.UpdateAsync(new UpdateReleaseRequest(
-                    Asset.Value?.Id,
-                    Body.Value,
-                    Release.IsPublic.Value,
-                    Title.Value));
-            }
-            catch (Exception ex)
-            {
-                ErrorHandle(ex);
-            }
-        });
+                Title.Value = Release.Title.Value;
+                Body.Value = Release.Body.Value;
+                if (Asset.Value?.Id != Release.AssetId.Value)
+                {
+                    await _user.RefreshAsync();
+                    Asset.Value = await Release.GetAssetAsync();
+                }
+            })
+            .DisposeWith(_disposables);
 
-        DiscardChanges.Subscribe(async () =>
-        {
-            Title.Value = Release.Title.Value;
-            Body.Value = Release.Body.Value;
-            if (Asset.Value?.Id != Release.AssetId.Value)
+        Delete = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
             {
-                await _user.RefreshAsync();
-                Asset.Value = await Release.GetAssetAsync();
-            }
-        });
+                try
+                {
+                    await _user.RefreshAsync();
+                    await Release.DeleteAsync();
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandle(ex);
+                }
+            })
+            .DisposeWith(_disposables);
 
-        Delete.Subscribe(async () =>
-        {
-            try
+        MakePublic = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
             {
-                await _user.RefreshAsync();
-                await Release.DeleteAsync();
-            }
-            catch (Exception ex)
-            {
-                ErrorHandle(ex);
-            }
-        });
+                try
+                {
+                    await _user.RefreshAsync();
+                    await Release.UpdateAsync(isPublic: true);
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandle(ex);
+                }
+            })
+            .DisposeWith(_disposables);
 
-        MakePublic.Subscribe(() => { /*Todo*/ }).DisposeWith(_disposables);
+        MakePrivate = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
+            {
+                try
+                {
+                    await _user.RefreshAsync();
+                    await Release.UpdateAsync(isPublic: true);
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandle(ex);
+                }
+            })
+            .DisposeWith(_disposables);
 
-        MakePrivate.Subscribe(() => { /*Todo*/ }).DisposeWith(_disposables);
-
-        Refresh.Subscribe(async () =>
-        {
-            try
+        Refresh = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
             {
-                IsBusy.Value = true;
-                await _user.RefreshAsync();
-                await Release.RefreshAsync();
-            }
-            catch (Exception ex)
-            {
-                ErrorHandle(ex);
-            }
-            finally
-            {
-                IsBusy.Value = false;
-            }
-        });
+                try
+                {
+                    IsBusy.Value = true;
+                    await _user.RefreshAsync();
+                    await Release.RefreshAsync();
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandle(ex);
+                }
+                finally
+                {
+                    IsBusy.Value = false;
+                }
+            })
+            .DisposeWith(_disposables);
     }
 
     public Release Release { get; }
@@ -139,21 +172,19 @@ public sealed class ReleasePageViewModel : BasePageViewModel
 
     public AsyncReactiveCommand Save { get; }
 
-    public AsyncReactiveCommand DiscardChanges { get; } = new();
+    public AsyncReactiveCommand DiscardChanges { get; }
 
-    public AsyncReactiveCommand Delete { get; } = new();
+    public AsyncReactiveCommand Delete { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanPublish { get; }
 
-    public ReactiveCommand MakePublic { get; } = new();
+    public AsyncReactiveCommand MakePublic { get; }
 
-    public ReactiveCommand MakePrivate { get; } = new();
+    public AsyncReactiveCommand MakePrivate { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
-    public AsyncReactiveCommand Refresh { get; } = new();
-
-    public override bool IsAuthorized => true;
+    public AsyncReactiveCommand Refresh { get; }
 
     public SelectAssetViewModel SelectReleaseAsset()
     {

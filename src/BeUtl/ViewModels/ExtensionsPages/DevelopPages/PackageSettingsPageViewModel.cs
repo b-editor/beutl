@@ -8,6 +8,8 @@ using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using Microsoft.Extensions.DependencyInjection;
 
+using Nito.Disposables;
+
 using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
@@ -23,101 +25,132 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
         Package = package;
 
         Name = Package.Name
-            .ToReactiveProperty()
-            .DisposeWith(_disposables)!;
+            .CopyToReactiveProperty()
+            .SetValidateNotifyError(NotNullOrWhitespace)
+            .DisposeWith(_disposables);
         DisplayName = Package.DisplayName
-            .ToReactiveProperty()
-            .DisposeWith(_disposables)!;
+            .CopyToReactiveProperty()
+            .SetValidateNotifyError(NotNullOrWhitespace)
+            .DisposeWith(_disposables);
         Description = Package.Description
-            .ToReactiveProperty()
-            .DisposeWith(_disposables)!;
+            .CopyToReactiveProperty()
+            .SetValidateNotifyError(NotNullOrWhitespace)
+            .DisposeWith(_disposables);
         ShortDescription = Package.ShortDescription
-            .ToReactiveProperty()
-            .DisposeWith(_disposables)!;
+            .CopyToReactiveProperty()
+            .SetValidateNotifyError(NotNullOrWhitespace)
+            .DisposeWith(_disposables);
 
         // 値が変更されるか
-        IsChanging = Name.CombineLatest(Package.Name).Select(t => t.First == t.Second)
-            .CombineLatest(
-                DisplayName.CombineLatest(Package.DisplayName).Select(t => t.First == t.Second),
-                Description.CombineLatest(Package.Description).Select(t => t.First == t.Second),
-                ShortDescription.CombineLatest(Package.ShortDescription).Select(t => t.First == t.Second))
-            .Select(t => !(t.First && t.Second && t.Third && t.Fourth))
+        IsChanging = Name.EqualTo(Package.Name)
+            .AreTrue(
+                DisplayName.EqualTo(Package.DisplayName),
+                Description.EqualTo(Package.Description),
+                ShortDescription.EqualTo(Package.ShortDescription))
+            .Not()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        // データ検証を設定
-        Name.SetValidateNotifyError(NotNullOrWhitespace);
-        DisplayName.SetValidateNotifyError(NotNullOrWhitespace);
-        Description.SetValidateNotifyError(NotNullOrWhitespace);
-        ShortDescription.SetValidateNotifyError(NotNullOrWhitespace);
-
         // コマンドを初期化
-        Save = new AsyncReactiveCommand(Name.ObserveHasErrors
-            .CombineLatest(
+        Save = Name.ObserveHasErrors
+            .AnyTrue(
                 DisplayName.ObserveHasErrors,
                 Description.ObserveHasErrors,
                 ShortDescription.ObserveHasErrors)
-            .Select(t => !(t.First || t.Second || t.Third || t.Fourth)))
+            .Not()
+            .ToAsyncReactiveCommand()
+            .WithSubscribe(async () =>
+            {
+                try
+                {
+                    await _user.RefreshAsync();
+                    await Package.UpdateAsync(
+                        description: Description.Value,
+                        displayName: DisplayName.Value,
+                        name: Name.Value,
+                        shortDescription: ShortDescription.Value);
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandle(ex);
+                }
+            })
             .DisposeWith(_disposables);
-        Save.Subscribe(async () =>
-        {
-            try
-            {
-                await _user.RefreshAsync();
-                await Package.UpdateAsync(
-                    description: Description.Value,
-                    displayName: DisplayName.Value,
-                    name: Name.Value,
-                    shortDescription: ShortDescription.Value);
-            }
-            catch (Exception ex)
-            {
-                ErrorHandle(ex);
-            }
-        }).DisposeWith(_disposables);
 
-        DiscardChanges.Subscribe(() =>
-        {
-            Name.Value = Package.Name.Value;
-            DisplayName.Value = Package.DisplayName.Value;
-            Description.Value = Package.Description.Value;
-            ShortDescription.Value = Package.ShortDescription.Value;
-        }).DisposeWith(_disposables);
+        DiscardChanges = new ReactiveCommand()
+            .WithSubscribe(() =>
+            {
+                Name.Value = Package.Name.Value;
+                DisplayName.Value = Package.DisplayName.Value;
+                Description.Value = Package.Description.Value;
+                ShortDescription.Value = Package.ShortDescription.Value;
+            })
+            .DisposeWith(_disposables);
 
-        Delete.Subscribe(async () =>
-        {
-            try
+        Delete = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
             {
-                await _user.RefreshAsync();
-                await Package.DeleteAsync();
-            }
-            catch (Exception ex)
-            {
-                ErrorHandle(ex);
-            }
-        }).DisposeWith(_disposables);
+                try
+                {
+                    await _user.RefreshAsync();
+                    await Package.DeleteAsync();
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandle(ex);
+                }
+            })
+            .DisposeWith(_disposables);
 
-        MakePublic.Subscribe(() => { /*Todo*/ }).DisposeWith(_disposables);
+        MakePublic = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
+            {
+                try
+                {
+                    await _user.RefreshAsync();
+                    await Package.UpdateAsync(isPublic: true);
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandle(ex);
+                }
+            })
+            .DisposeWith(_disposables);
 
-        MakePrivate.Subscribe(() => { /*Todo*/ }).DisposeWith(_disposables);
+        MakePrivate = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
+            {
+                try
+                {
+                    await _user.RefreshAsync();
+                    await Package.UpdateAsync(isPublic: false);
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandle(ex);
+                }
+            })
+            .DisposeWith(_disposables);
 
-        Refresh.Subscribe(async () =>
-        {
-            try
+        Refresh = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
             {
-                IsBusy.Value = true;
-                await _user.RefreshAsync();
-                await Package.RefreshAsync();
-            }
-            catch (Exception ex)
-            {
-                ErrorHandle(ex);
-            }
-            finally
-            {
-                IsBusy.Value = false;
-            }
-        });
+                try
+                {
+                    IsBusy.Value = true;
+                    await _user.RefreshAsync();
+                    await Package.RefreshAsync();
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandle(ex);
+                }
+                finally
+                {
+                    IsBusy.Value = false;
+                }
+            })
+            .DisposeWith(_disposables);
 
         Refresh.Execute();
     }
@@ -136,19 +169,17 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
 
     public AsyncReactiveCommand Save { get; }
 
-    public ReactiveCommand DiscardChanges { get; } = new();
+    public ReactiveCommand DiscardChanges { get; }
 
-    public ReactiveCommand Delete { get; } = new();
+    public AsyncReactiveCommand Delete { get; }
 
-    public ReactiveCommand MakePublic { get; } = new();
+    public AsyncReactiveCommand MakePublic { get; }
 
-    public ReactiveCommand MakePrivate { get; } = new();
+    public AsyncReactiveCommand MakePrivate { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
-    public AsyncReactiveCommand Refresh { get; } = new();
-
-    public override bool IsAuthorized => true;
+    public AsyncReactiveCommand Refresh { get; }
 
     public override void Dispose()
     {

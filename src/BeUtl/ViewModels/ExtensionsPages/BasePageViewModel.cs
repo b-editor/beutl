@@ -20,8 +20,6 @@ public abstract class BasePageViewModel : PageContext, IDisposable
         Notification = ServiceLocator.Current.GetRequiredService<INotificationService>();
     }
 
-    public virtual bool IsAuthorized { get; }
-
     protected INotificationService Notification { get; }
 
     public abstract void Dispose();

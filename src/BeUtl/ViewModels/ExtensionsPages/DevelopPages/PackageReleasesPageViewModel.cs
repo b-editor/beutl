@@ -57,8 +57,6 @@ public sealed class PackageReleasesPageViewModel : BasePageViewModel
 
     public AsyncReactiveCommand Refresh { get; } = new();
 
-    public override bool IsAuthorized => true;
-
     public async Task DeleteReleaseAsync(Release release)
     {
         try

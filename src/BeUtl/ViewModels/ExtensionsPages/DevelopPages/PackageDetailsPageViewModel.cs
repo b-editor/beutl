@@ -62,8 +62,6 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel
 
     public AsyncReactiveCommand Refresh { get; } = new();
 
-    public override bool IsAuthorized => true;
-
     public override void Dispose()
     {
         Debug.WriteLine($"{GetType().Name} disposed (Count: {_disposables.Count}).");
