@@ -1,4 +1,5 @@
 ﻿using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Platform.Storage;
@@ -7,7 +8,9 @@ using Avalonia.VisualTree;
 using Beutl.Api.Objects;
 
 using BeUtl.ViewModels;
+using BeUtl.ViewModels.Dialogs;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
+using BeUtl.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
@@ -19,8 +22,6 @@ public sealed partial class PackageSettingsPage : UserControl
     public PackageSettingsPage()
     {
         InitializeComponent();
-        //ScreenshotsScrollViewer.AddHandler(PointerWheelChangedEvent, ScreenshotsScrollViewer_PointerWheelChanged, RoutingStrategies.Tunnel);
-
         AddHandler(Frame.NavigatedFromEvent, OnNavigatedFrom, RoutingStrategies.Direct);
         AddHandler(Frame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
     }
@@ -54,16 +55,6 @@ public sealed partial class PackageSettingsPage : UserControl
     {
         return ((ExtensionsPageViewModel)this.FindLogicalAncestorOfType<ExtensionsPage>()!.DataContext!).Develop.DataContextFactory;
     }
-
-    //private void ScreenshotsScrollViewer_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
-    //{
-    //    Avalonia.Vector offset = ScreenshotsScrollViewer.Offset;
-
-    //    // オフセット(X) をスクロール
-    //    ScreenshotsScrollViewer.Offset = offset.WithX(offset.X - (e.Delta.Y * 50));
-
-    //    e.Handled = true;
-    //}
 
     private void NavigatePackageDetailsPage_Click(object? sender, RoutedEventArgs e)
     {
@@ -145,44 +136,55 @@ public sealed partial class PackageSettingsPage : UserControl
 
     private async void OpenLogoFile_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PackageSettingsPageViewModel viewModel
-            && this.FindLogicalAncestorOfType<Window>() is { } window)
+        if (DataContext is PackageSettingsPageViewModel viewModel)
         {
-            var options = new FilePickerOpenOptions
+            SelectImageAssetViewModel dialogViewModel = viewModel.SelectImageAssetViewModel();
+            var dialog = new SelectImageAsset
             {
-                FileTypeFilter = new FilePickerFileType[]
-                {
-                    FilePickerFileTypes.ImageAll
-                }
+                DataContext = dialogViewModel
             };
-            IReadOnlyList<IStorageFile> result = await window.StorageProvider.OpenFilePickerAsync(options);
-            if (result.Count > 0)
+
+            await dialog.ShowAsync();
+
+            if (dialogViewModel.SelectedItem.Value is { } selectedItem)
             {
-                // Todo
-                //await viewModel.SetLogo.ExecuteAsync(result[0]);
+                viewModel.Logo.Value = selectedItem;
             }
+        }
+    }
+
+    private void RemoveLogo_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is PackageSettingsPageViewModel viewModel)
+        {
+            viewModel.Logo.Value = null;
         }
     }
 
     private async void AddScreenshotFile_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PackageSettingsPageViewModel viewModel
-            && this.FindLogicalAncestorOfType<Window>() is { } window)
+        if (DataContext is PackageSettingsPageViewModel viewModel)
         {
-            var options = new FilePickerOpenOptions
+            SelectImageAssetViewModel dialogViewModel = viewModel.SelectImageAssetViewModel();
+            var dialog = new SelectImageAsset
             {
-                AllowMultiple = true,
-                FileTypeFilter = new FilePickerFileType[]
-                {
-                    FilePickerFileTypes.ImageAll
-                }
+                DataContext = dialogViewModel
             };
-            IReadOnlyList<IStorageFile> result = await window.StorageProvider.OpenFilePickerAsync(options);
-            // Todo
-            //foreach (IStorageFile item in result)
-            //{
-            //    await viewModel.AddScreenshot.ExecuteAsync(item);
-            //}
+
+            await dialog.ShowAsync();
+
+            if (dialogViewModel.SelectedItem.Value is { } selectedItem)
+            {
+                viewModel.AddScreenshot.Execute(selectedItem);
+            }
+        }
+    }
+
+    private void OnImagePointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Image image)
+        {
+            image.ContextMenu?.Open(image);
         }
     }
 }

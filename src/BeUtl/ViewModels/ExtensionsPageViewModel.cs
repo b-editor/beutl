@@ -11,7 +11,7 @@ public sealed class ExtensionsPageViewModel : IDisposable
     private readonly CompositeDisposable _disposables = new();
     private readonly CompositeDisposable _authDisposables = new();
     private readonly BeutlClients _clients;
-    private HomePageViewModel? _home;
+    private DiscoverPageViewModel? _discover;
     private LibraryPageViewModel? _library;
     private DevelopPageViewModel? _develop;
 
@@ -28,13 +28,13 @@ public sealed class ExtensionsPageViewModel : IDisposable
                 if (user == null)
                 {
                     _authDisposables.Clear();
-                    _home = null;
+                    _discover = null;
                     _library = null;
                     _develop = null;
                 }
                 else
                 {
-                    _home = new HomePageViewModel(_clients)
+                    _discover = new DiscoverPageViewModel(_clients)
                         .DisposeWith(_authDisposables);
                     _library = new LibraryPageViewModel(user)
                         .DisposeWith(_authDisposables);
@@ -47,8 +47,8 @@ public sealed class ExtensionsPageViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<bool> IsAuthorized { get; }
 
-    public HomePageViewModel Home
-        => _home ?? throw new Exception("Authorization is required.");
+    public DiscoverPageViewModel Discover
+        => _discover ?? throw new Exception("Authorization is required.");
     
     public LibraryPageViewModel Library
         => _library ?? throw new Exception("Authorization is required.");

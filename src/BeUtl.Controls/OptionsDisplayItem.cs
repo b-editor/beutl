@@ -7,6 +7,7 @@ using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Styling;
 
 using FluentAvalonia.UI.Controls;
@@ -155,6 +156,18 @@ public class OptionsDisplayItem : TemplatedControl
         else if (change.Property == IconProperty)
         {
             PseudoClasses.Set(":icon", change.NewValue != null);
+        }
+        else if (change.Property == ContentProperty)
+        {
+            if (change.OldValue is ILogical oldChild)
+            {
+                LogicalChildren.Remove(oldChild);
+            }
+
+            if (change.NewValue is ILogical newChild)
+            {
+                LogicalChildren.Add(newChild);
+            }
         }
     }
 

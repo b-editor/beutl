@@ -5292,7 +5292,7 @@ namespace Beutl.Api
     {
         [System.Text.Json.Serialization.JsonConstructor]
 
-        public PackageResponse(System.DateTimeOffset @created_at, string @description, string @display_name, long @id, string @logo_url, string @name, SimpleProfileResponse @owner, bool @public, string @releases_url, System.Collections.Generic.ICollection<string> @screenshots, string @short_description, System.Collections.Generic.ICollection<string> @tags, System.DateTimeOffset @updated_at, string @url, string @website)
+        public PackageResponse(System.DateTimeOffset @created_at, string @description, string @display_name, long @id, long? @logo_id, string @logo_url, string @name, SimpleProfileResponse @owner, bool @public, string @releases_url, System.Collections.Generic.IDictionary<string, string> @screenshots, string @short_description, System.Collections.Generic.ICollection<string> @tags, System.DateTimeOffset @updated_at, string @url, string @website)
 
         {
 
@@ -5317,6 +5317,8 @@ namespace Beutl.Api
             this.Website = @website;
 
             this.Tags = @tags;
+
+            this.Logo_id = @logo_id;
 
             this.Logo_url = @logo_url;
 
@@ -5391,6 +5393,11 @@ namespace Beutl.Api
         [System.ComponentModel.DataAnnotations.Required]
         public System.Collections.Generic.ICollection<string> Tags { get; }
 
+        [System.Text.Json.Serialization.JsonPropertyName("logo_id")]
+
+        [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]   
+        public long? Logo_id { get; }
+
         [System.Text.Json.Serialization.JsonPropertyName("logo_url")]
 
         [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]   
@@ -5399,7 +5406,7 @@ namespace Beutl.Api
         [System.Text.Json.Serialization.JsonPropertyName("screenshots")]
 
         [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]   
-        public System.Collections.Generic.ICollection<string> Screenshots { get; }
+        public System.Collections.Generic.IDictionary<string, string> Screenshots { get; }
 
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
 

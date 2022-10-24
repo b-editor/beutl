@@ -1,6 +1,8 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 
 using Beutl.Api.Objects;
@@ -21,7 +23,7 @@ public sealed partial class PackageDetailsPage : UserControl
         AddHandler(Frame.NavigatedFromEvent, OnNavigatedFrom, RoutingStrategies.Direct);
         AddHandler(Frame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
     }
-
+    
     private void OnNavigatedTo(object? sender, NavigationEventArgs e)
     {
         if (e.Parameter is Package package)

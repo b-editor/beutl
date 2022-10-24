@@ -45,6 +45,12 @@
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Update="Pages\ExtensionsPages\DiscoverPage.axaml.cs">
+      <DependentUpon>DiscoverPage.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="Pages\ExtensionsPages\DiscoverPages\PublicPackageDetailsPage.axaml.cs">
+      <DependentUpon>PublicPackageDetailsPage.axaml</DependentUpon>
+    </Compile>
     <Compile Update="Pages\SettingsPages\StorageSettingsPage.axaml.cs">
       <DependentUpon>StorageSettingsPage.axaml</DependentUpon>
     </Compile>

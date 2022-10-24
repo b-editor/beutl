@@ -23,6 +23,9 @@ public class Package
         ShortDescription = _response.Select(x => x.Short_description).ToReadOnlyReactivePropertySlim()!;
         WebSite = _response.Select(x => x.Website).ToReadOnlyReactivePropertySlim()!;
         Tags = _response.Select(x => x.Tags).ToReadOnlyReactivePropertySlim()!;
+        LogoId = _response.Select(x => x.Logo_id).ToReadOnlyReactivePropertySlim()!;
+        LogoUrl = _response.Select(x => x.Logo_url).ToReadOnlyReactivePropertySlim()!;
+        Screenshots = _response.Select(x => x.Screenshots).ToReadOnlyReactivePropertySlim()!;
         IsPublic = _response.Select(x => x.Public).ToReadOnlyReactivePropertySlim()!;
     }
 
@@ -41,8 +44,14 @@ public class Package
     public IReadOnlyReactiveProperty<string> ShortDescription { get; }
 
     public IReadOnlyReactiveProperty<string> WebSite { get; }
-
+    
     public IReadOnlyReactiveProperty<ICollection<string>> Tags { get; }
+
+    public IReadOnlyReactiveProperty<long?> LogoId { get; }
+
+    public IReadOnlyReactiveProperty<string> LogoUrl { get; }
+
+    public IReadOnlyReactiveProperty<IDictionary<string, string>> Screenshots { get; }
 
     public IReadOnlyReactiveProperty<bool> IsPublic { get; }
 

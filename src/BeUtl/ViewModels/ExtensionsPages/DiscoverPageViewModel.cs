@@ -19,14 +19,14 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages;
 
-public class HomePageViewModel : BasePageViewModel
+public class DiscoverPageViewModel : BasePageViewModel
 {
     private readonly BeutlClients _clients;
     private readonly DiscoverService _discoverService;
 
-    public HomePageViewModel(BeutlClients clients)
+    public DiscoverPageViewModel(BeutlClients clients)
     {
-        async Task LoadAsync(CoreList<Package> packages, Func<int, int, Task<Package[]>> func)
+        static async Task LoadAsync(CoreList<Package> packages, Func<int, int, Task<Package[]>> func, int maxCount = int.MaxValue)
         {
             packages.Clear();
 
@@ -36,10 +36,18 @@ public class HomePageViewModel : BasePageViewModel
             do
             {
                 Package[] items = await func(count, 30);
-                packages.AddRange(items.AsSpan<Package>());
-                prevCount = items.Length;
                 count += items.Length;
-            } while (prevCount == 30);
+
+                if (maxCount < count)
+                {
+                    packages.AddRange(items.AsSpan<Package>().Slice(0, count - maxCount));
+                }
+                else
+                {
+                    packages.AddRange(items.AsSpan<Package>());
+                    prevCount = items.Length;
+                }
+            } while (prevCount == 30 && maxCount > count);
         }
 
         _clients = clients;
@@ -57,7 +65,7 @@ public class HomePageViewModel : BasePageViewModel
 
                 await LoadAsync(DailyRanking, (start, count) => _discoverService.GetDailyRanking(start, count));
                 await LoadAsync(WeeklyRanking, (start, count) => _discoverService.GetWeeklyRanking(start, count));
-                await LoadAsync(OverallRanking, (start, count) => _discoverService.GetOverallRanking(start, count));
+                await LoadAsync(Top10, (start, count) => _discoverService.GetOverallRanking(start, count), 10);
                 await LoadAsync(RecentlyRanking, (start, count) => _discoverService.GetRecentlyRanking(start, count));
             }
             catch (Exception ex)
@@ -74,16 +82,18 @@ public class HomePageViewModel : BasePageViewModel
     }
 
     public CoreList<Package> DailyRanking { get; } = new();
-    
+
     public CoreList<Package> WeeklyRanking { get; } = new();
 
-    public CoreList<Package> OverallRanking { get; } = new();
+    public CoreList<Package> Top10 { get; } = new();
 
     public CoreList<Package> RecentlyRanking { get; } = new();
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
     public AsyncReactiveCommand Refresh { get; } = new();
+
+    public Package? PrevClick { get; set; }
 
     public override void Dispose()
     {

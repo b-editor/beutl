@@ -6,6 +6,7 @@ using Avalonia.LogicalTree;
 
 using BeUtl.Pages.ExtensionsPages;
 using BeUtl.Pages.ExtensionsPages.DevelopPages;
+using BeUtl.Pages.ExtensionsPages.DiscoverPages;
 using BeUtl.ViewModels;
 using BeUtl.Views;
 
@@ -38,7 +39,7 @@ public sealed partial class ExtensionsPage : UserControl
             {
                 if (nav.SelectedItem is NavigationViewItem selected)
                 {
-                    frame.Navigate((Type)selected.Tag!);
+                    OnItemInvoked(selected);
                 }
             }
             else
@@ -63,7 +64,7 @@ public sealed partial class ExtensionsPage : UserControl
             new NavigationViewItem()
             {
                 Content = "Home",
-                Tag = typeof(HomePage),
+                Tag = typeof(DiscoverPage),
                 Icon = new SymbolIcon
                 {
                     Symbol = Symbol.Home
@@ -97,21 +98,29 @@ public sealed partial class ExtensionsPage : UserControl
 
     private void Nav_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)
     {
-        if (e.InvokedItemContainer is NavigationViewItem nvi
-            && nvi.Tag is Type typ
+        if (e.InvokedItemContainer is NavigationViewItem nvi)
+        {
+            OnItemInvoked(nvi);
+        }
+    }
+
+    private void OnItemInvoked(NavigationViewItem nvi)
+    {
+        if (nvi.Tag is Type typ
             && DataContext is ExtensionsPageViewModel viewModel)
         {
+            NavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
             if (typ == typeof(DevelopPage))
             {
-                frame.Navigate(typ, viewModel.Develop, e.RecommendedNavigationTransitionInfo);
+                frame.Navigate(typ, viewModel.Develop, transitionInfo);
             }
             else if (typ == typeof(LibraryPage))
             {
-                frame.Navigate(typ, viewModel.Library, e.RecommendedNavigationTransitionInfo);
+                frame.Navigate(typ, viewModel.Library, transitionInfo);
             }
-            else if (typ == typeof(HomePage))
+            else if (typ == typeof(DiscoverPage))
             {
-                frame.Navigate(typ, viewModel.Home, e.RecommendedNavigationTransitionInfo);
+                frame.Navigate(typ, viewModel.Discover, transitionInfo);
             }
         }
     }
@@ -170,9 +179,9 @@ public sealed partial class ExtensionsPage : UserControl
 
     private static int ToNumber(Type type)
     {
-        if (type == typeof(DevelopPage))
+        if (type == typeof(DevelopPage) || type == typeof(DiscoverPage))
             return 0;
-        else if (type == typeof(PackageDetailsPage))
+        else if (type == typeof(PackageDetailsPage) || type == typeof(PublicPackageDetailsPage))
             return 1;
         else if (type == typeof(PackageReleasesPage))
             return 2;
