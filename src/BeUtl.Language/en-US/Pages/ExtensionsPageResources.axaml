@@ -1,6 +1,11 @@
 <Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
         <!--  Strings  -->
+        <x:String x:Key="S.ExtensionsPage.AuthorizationIsRequired">Authorization is required.</x:String>
+        <x:String x:Key="S.ExtensionsPage.AnAccountIsRequiredToGetExtension">An account is required to get the extension.</x:String>
+        <x:String x:Key="S.ExtensionsPage.GotoSettings_Account">Go to &quot;Settings &gt; Accounts&quot; and sign in.</x:String>
+        <x:String x:Key="S.ExtensionsPage.OpenSettings">Open Settings</x:String>
+
         <x:String x:Key="S.DevelopPage.Shortcuts">Shortcuts</x:String>
         <x:String x:Key="S.DevelopPage.CreateNewPackage">Create new package</x:String>
         <x:String x:Key="S.DevelopPage.CreateNewPackageDescription">Create a new package for distribution</x:String>

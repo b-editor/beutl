@@ -1,10 +1,13 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
+using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 
 using BeUtl.Pages.ExtensionsPages;
 using BeUtl.Pages.ExtensionsPages.DevelopPages;
 using BeUtl.ViewModels;
-using BeUtl.ViewModels.ExtensionsPages;
+using BeUtl.Views;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
@@ -43,6 +46,14 @@ public sealed partial class ExtensionsPage : UserControl
                 frame.SetNavigationState("|\n0\n0");
             }
         });
+    }
+
+    private void OpenSettings_Click(object? sender, RoutedEventArgs e)
+    {
+        if (this.FindLogicalAncestorOfType<MainView>() is { DataContext: MainViewModel viewModel } mainView)
+        {
+            viewModel.SelectedPage.Value = viewModel.SettingsPage;
+        }
     }
 
     private static List<NavigationViewItem> GetItems()
@@ -86,22 +97,21 @@ public sealed partial class ExtensionsPage : UserControl
 
     private void Nav_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)
     {
-        if (e.InvokedItemContainer is NavigationViewItem nvi && nvi.Tag is Type typ)
+        if (e.InvokedItemContainer is NavigationViewItem nvi
+            && nvi.Tag is Type typ
+            && DataContext is ExtensionsPageViewModel viewModel)
         {
-            if (DataContext is ExtensionsPageViewModel viewModel)
+            if (typ == typeof(DevelopPage))
             {
-                if (typ == typeof(DevelopPage))
-                {
-                    frame.Navigate(typ, viewModel.Develop, e.RecommendedNavigationTransitionInfo);
-                }
-                else if (typ == typeof(HomePage))
-                {
-                    frame.Navigate(typ, viewModel.Home, e.RecommendedNavigationTransitionInfo);
-                }
+                frame.Navigate(typ, viewModel.Develop, e.RecommendedNavigationTransitionInfo);
             }
-            else
+            else if (typ == typeof(LibraryPage))
             {
-                frame.Navigate(typ, null, e.RecommendedNavigationTransitionInfo);
+                frame.Navigate(typ, viewModel.Library, e.RecommendedNavigationTransitionInfo);
+            }
+            else if (typ == typeof(HomePage))
+            {
+                frame.Navigate(typ, viewModel.Home, e.RecommendedNavigationTransitionInfo);
             }
         }
     }

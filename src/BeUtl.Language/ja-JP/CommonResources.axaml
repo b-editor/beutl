@@ -203,6 +203,8 @@
         <x:String x:Key="S.Common.Private">非公開</x:String>
         <x:String x:Key="S.Common.SelectAsset">アセットを選択</x:String>
         <x:String x:Key="S.Common.SelectImage">画像を選択</x:String>
+        <x:String x:Key="S.Common.PrivacyPolicy">プライバシーポリシー</x:String>
+        <x:String x:Key="S.Common.TermsOfService">利用規約</x:String>
     </Styles.Resources>
 
     <!--  Views  -->
