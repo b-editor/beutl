@@ -74,7 +74,7 @@ public sealed class App : Application
         {
             Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (LocalizeService.Instance.IsSupportedCulture(v))
+                if (LocalizeService.Instance.IsSupportedCulture(v) || v.Name == "en-US")
                 {
                     IStyle? tmp = _cultureStyle;
                     _cultureStyle = new StyleInclude(_baseUri)
@@ -86,8 +86,18 @@ public sealed class App : Application
                     {
                         Styles.Remove(tmp);
                     }
-                    CultureInfo.CurrentUICulture = v;
                 }
+                else
+                {
+                    if (_cultureStyle != null)
+                    {
+                        Styles.Remove(_cultureStyle);
+                    }
+
+                    _cultureStyle = null;
+                }
+
+                CultureInfo.CurrentUICulture = v;
             });
         });
 
