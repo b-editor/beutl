@@ -11,6 +11,8 @@ using Avalonia.Collections;
 using Beutl.Api;
 using Beutl.Api.Objects;
 
+using BeUtl.ViewModels.ExtensionsPages.DiscoverPages;
+
 using DynamicData;
 
 using FluentAvalonia.UI.Data;
@@ -19,7 +21,7 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages;
 
-public class DiscoverPageViewModel : BasePageViewModel
+public sealed class DiscoverPageViewModel : BasePageViewModel
 {
     private readonly BeutlClients _clients;
     private readonly DiscoverService _discoverService;
@@ -52,6 +54,7 @@ public class DiscoverPageViewModel : BasePageViewModel
 
         _clients = clients;
         _discoverService = new DiscoverService(clients);
+        DataContextFactory = new DataContextFactory(_discoverService);
         Refresh.Subscribe(async () =>
         {
             try
@@ -63,10 +66,10 @@ public class DiscoverPageViewModel : BasePageViewModel
                     await user.RefreshAsync();
                 }
 
-                await LoadAsync(DailyRanking, (start, count) => _discoverService.GetDailyRanking(start, count));
-                await LoadAsync(WeeklyRanking, (start, count) => _discoverService.GetWeeklyRanking(start, count));
+                await LoadAsync(DailyRanking, (start, count) => _discoverService.GetDailyRanking(start, count), 10);
+                await LoadAsync(WeeklyRanking, (start, count) => _discoverService.GetWeeklyRanking(start, count), 10);
                 await LoadAsync(Top10, (start, count) => _discoverService.GetOverallRanking(start, count), 10);
-                await LoadAsync(RecentlyRanking, (start, count) => _discoverService.GetRecentlyRanking(start, count));
+                await LoadAsync(RecentlyRanking, (start, count) => _discoverService.GetRecentlyRanking(start, count), 10);
             }
             catch (Exception ex)
             {
@@ -81,11 +84,11 @@ public class DiscoverPageViewModel : BasePageViewModel
         Refresh.Execute();
     }
 
+    public CoreList<Package> Top10 { get; } = new();
+
     public CoreList<Package> DailyRanking { get; } = new();
 
     public CoreList<Package> WeeklyRanking { get; } = new();
-
-    public CoreList<Package> Top10 { get; } = new();
 
     public CoreList<Package> RecentlyRanking { get; } = new();
 
@@ -93,7 +96,7 @@ public class DiscoverPageViewModel : BasePageViewModel
 
     public AsyncReactiveCommand Refresh { get; } = new();
 
-    public Package? PrevClick { get; set; }
+    public DataContextFactory DataContextFactory { get; }
 
     public override void Dispose()
     {

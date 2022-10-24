@@ -19,25 +19,19 @@
         <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />
     </ui:ContentDialog.Resources>
     <StackPanel Spacing="4">
-        <StackPanel.Styles>
-            <Style Selector="Separator">
-                <Setter Property="Height" Value="4" />
-            </Style>
-        </StackPanel.Styles>
-
         <TextBlock Text="{DynamicResource S.DevelopPage.Release.Fields.Title}" Theme="{StaticResource LabelTextBlockStyle}" />
         <TextBox Text="{CompiledBinding Title.Value}" ToolTip.Tip="{DynamicResource S.DevelopPage.Release.Fields.TitleDescription}" />
 
-        <Separator />
-
-        <TextBlock Text="{DynamicResource S.DevelopPage.Release.Fields.Body}" Theme="{StaticResource LabelTextBlockStyle}" />
+        <TextBlock Margin="0,8,0,0"
+                   Text="{DynamicResource S.DevelopPage.Release.Fields.Body}"
+                   Theme="{StaticResource LabelTextBlockStyle}" />
         <TextBox AcceptsReturn="True"
                  Text="{CompiledBinding Body.Value}"
                  ToolTip.Tip="{DynamicResource S.DevelopPage.Release.Fields.BodyDescription}" />
 
-        <Separator />
-
-        <TextBlock Text="{DynamicResource S.DevelopPage.Release.Fields.Version}" Theme="{StaticResource LabelTextBlockStyle}" />
+        <TextBlock Margin="0,8,0,0"
+                   Text="{DynamicResource S.DevelopPage.Release.Fields.Version}"
+                   Theme="{StaticResource LabelTextBlockStyle}" />
         <TextBox Text="{CompiledBinding Version.Value}" ToolTip.Tip="{DynamicResource S.DevelopPage.Release.Fields.VersionDescription}" />
 
         <TextBlock Classes="error"

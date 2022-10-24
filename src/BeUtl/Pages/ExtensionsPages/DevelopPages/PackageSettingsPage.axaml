@@ -154,9 +154,7 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Image MaxHeight="300"
-                                                   asyncImageLoader:ImageLoader.Source="{Binding DownloadUrl}"
-                                                   PointerPressed="OnImagePointerPressed">
+                                            <Image Height="240" asyncImageLoader:ImageLoader.Source="{Binding DownloadUrl}">
                                                 <Image.ContextMenu>
                                                     <ContextMenu>
                                                         <MenuItem Command="{Binding #root.DataContext.DeleteScreenshot}"

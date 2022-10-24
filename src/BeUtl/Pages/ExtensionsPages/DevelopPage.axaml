@@ -42,8 +42,9 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <Separator Height="8" />
-            <TextBlock Text="{DynamicResource S.DevelopPage.Packages}" Theme="{StaticResource SubtitleTextBlockStyle}" />
+            <TextBlock Margin="0,8,0,0"
+                       Text="{DynamicResource S.DevelopPage.Packages}"
+                       Theme="{StaticResource SubtitleTextBlockStyle}" />
 
             <ListBox x:Name="PackagesList"
                      IsEnabled="{CompiledBinding !IsBusy.Value}"

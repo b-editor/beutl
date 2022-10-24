@@ -26,11 +26,11 @@ public sealed class AddReleaseDialogViewModel
             .ToReadOnlyReactivePropertySlim();
     }
 
-    public ReactiveProperty<string> Title { get; } = new();
+    public ReactiveProperty<string> Title { get; } = new(mode: ReactivePropertyMode.Default | ReactivePropertyMode.IgnoreInitialValidationError);
 
-    public ReactiveProperty<string> Body { get; } = new();
+    public ReactiveProperty<string> Body { get; } = new(mode: ReactivePropertyMode.Default | ReactivePropertyMode.IgnoreInitialValidationError);
 
-    public ReactiveProperty<string> Version { get; } = new();
+    public ReactiveProperty<string> Version { get; } = new(mode: ReactivePropertyMode.Default | ReactivePropertyMode.IgnoreInitialValidationError);
 
     public ReadOnlyReactivePropertySlim<bool> IsValid { get; }
 
@@ -42,6 +42,14 @@ public sealed class AddReleaseDialogViewModel
     {
         try
         {
+            Title.ForceValidate();
+            Body.ForceValidate();
+            Version.ForceValidate();
+            if (!IsValid.Value)
+            {
+                return null;
+            }
+
             await _user.RefreshAsync();
 
             var request = new CreateReleaseRequest(Body.Value, Title.Value);

@@ -179,12 +179,4 @@ public sealed partial class PackageSettingsPage : UserControl
             }
         }
     }
-
-    private void OnImagePointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is Image image)
-        {
-            image.ContextMenu?.Open(image);
-        }
-    }
 }

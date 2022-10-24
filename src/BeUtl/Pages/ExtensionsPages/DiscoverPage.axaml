@@ -24,21 +24,34 @@
                            Text="トップ10"
                            Theme="{StaticResource SubtitleTextBlockStyle}" />
 
-                <ui:HyperlinkButton HorizontalAlignment="Right" Content="もっと表示" />
+                <ui:HyperlinkButton HorizontalAlignment="Right"
+                                    Click="MoreRanking_Click"
+                                    Content="もっと表示"
+                                    Tag="Overall" />
             </Panel>
-            <ScrollViewer Margin="0,8,0,0">
-                <ItemsControl Items="{Binding Top10}">
-                    <ItemsControl.ItemTemplate>
+            <ScrollViewer Margin="0,8,0,0"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled">
+                <ItemsRepeater Items="{Binding Top10}">
+                    <ItemsRepeater.Layout>
+                        <UniformGridLayout MaximumRowsOrColumns="2"
+                                           MinColumnSpacing="16"
+                                           MinItemHeight="114"
+                                           MinItemWidth="350"
+                                           MinRowSpacing="16"
+                                           Orientation="Vertical" />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
                         <DataTemplate>
-                            <Button Width="350"
-                                    Padding="0"
+                            <Button Padding="0"
+                                    HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Stretch"
                                     Click="Package_Click">
                                 <Grid Margin="16" ColumnDefinitions="Auto,16,*">
                                     <Image Width="80"
                                            Height="80"
                                            asyncImageLoader:ImageLoader.Source="{Binding LogoUrl.Value}"
-                                           Clip="M3.99899 0L76.001 0Q76.1975 0 76.393 0.0192562Q76.5885 0.0385125 76.7812 0.0768395Q76.9739 0.115167 77.1618 0.172195Q77.3498 0.229224 77.5313 0.304405Q77.7129 0.379586 77.8861 0.472196Q78.0594 0.564806 78.2227 0.673952Q78.3861 0.783098 78.5379 0.90773Q78.6898 1.03236 78.8287 1.17128Q78.9676 1.31019 79.0923 1.46206Q79.2169 1.61392 79.326 1.77727Q79.4352 1.94062 79.5278 2.11388Q79.6204 2.28714 79.6956 2.46864Q79.7708 2.65015 79.8278 2.83815Q79.8848 3.02614 79.9231 3.21883Q79.9615 3.41151 79.9807 3.60702Q80 3.80254 80 3.99899L80 76.001Q80 76.1975 79.9807 76.393Q79.9615 76.5885 79.9231 76.7812Q79.8848 76.9739 79.8278 77.1618Q79.7708 77.3498 79.6956 77.5313Q79.6204 77.7129 79.5278 77.8861Q79.4352 78.0594 79.326 78.2227Q79.2169 78.3861 79.0923 78.5379Q78.9676 78.6898 78.8287 78.8287Q78.6898 78.9676 78.5379 79.0923Q78.3861 79.2169 78.2227 79.326Q78.0594 79.4352 77.8861 79.5278Q77.7129 79.6204 77.5313 79.6956Q77.3498 79.7708 77.1618 79.8278Q76.9739 79.8848 76.7812 79.9231Q76.5885 79.9615 76.393 79.9807Q76.1975 80 76.001 80L3.99899 80Q3.80254 80 3.60702 79.9807Q3.41151 79.9615 3.21883 79.9231Q3.02614 79.8848 2.83815 79.8278Q2.65015 79.7708 2.46864 79.6956Q2.28714 79.6204 2.11388 79.5278Q1.94062 79.4352 1.77727 79.326Q1.61392 79.2169 1.46206 79.0923Q1.31019 78.9676 1.17128 78.8287Q1.03236 78.6898 0.90773 78.5379Q0.783098 78.3861 0.673952 78.2227Q0.564806 78.0594 0.472196 77.8861Q0.379586 77.7129 0.304405 77.5313Q0.229224 77.3498 0.172195 77.1618Q0.115167 76.9739 0.0768395 76.7812Q0.0385125 76.5885 0.0192562 76.393Q0 76.1975 0 76.001L0 3.99899Q0 3.80254 0.0192562 3.60702Q0.0385125 3.41151 0.0768395 3.21883Q0.115167 3.02614 0.172195 2.83815Q0.229224 2.65015 0.304405 2.46864Q0.379586 2.28714 0.472196 2.11388Q0.564806 1.94062 0.673952 1.77727Q0.783098 1.61392 0.90773 1.46206Q1.03236 1.31019 1.17128 1.17128Q1.31019 1.03236 1.46206 0.90773Q1.61392 0.783098 1.77727 0.673952Q1.94062 0.564806 2.11388 0.472196Q2.28714 0.379586 2.46864 0.304405Q2.65015 0.229224 2.83815 0.172195Q3.02614 0.115167 3.21883 0.0768395Q3.41151 0.0385125 3.60702 0.0192562Q3.80254 0 3.99899 0Z" />
+                                           ImageClipping.CornerRadius="8" />
 
                                     <Grid Grid.Column="2"
                                           Margin="0,2"
@@ -68,8 +81,178 @@
                                 </Grid>
                             </Button>
                         </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+            </ScrollViewer>
+
+            <Panel Margin="0,32,0,0">
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <TextBlock HorizontalAlignment="Left"
+                               Text="ランキング"
+                               Theme="{StaticResource SubtitleTextBlockStyle}" />
+
+                    <ComboBox x:Name="RankingComboBox"
+                              VerticalAlignment="Bottom"
+                              SelectedIndex="0">
+                        <ComboBox.Styles>
+                            <Style Selector="ComboBox">
+                                <Setter Property="Padding" Value="0,5,0,7" />
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderBrush" Value="Transparent" />
+                                <Setter Property="BorderThickness" Value="0" />
+
+                                <Style Selector="^:pointerover">
+                                    <Style Selector="^ /template/ ContentPresenter#ContentPresenter">
+                                        <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
+                                    </Style>
+                                    <Style Selector="^ /template/ TextBlock#PlaceholderTextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
+                                    </Style>
+                                    <Style Selector="^ /template/ Border#Background">
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="BorderBrush" Value="Transparent" />
+                                    </Style>
+                                </Style>
+
+                                <Style Selector="^:pressed">
+                                    <Style Selector="^ /template/ TextBlock#PlaceholderTextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
+                                        <Setter Property="Opacity" Value="0.5" />
+                                    </Style>
+                                    <Style Selector="^ /template/ ContentPresenter#ContentPresenter">
+                                        <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
+                                        <Setter Property="Opacity" Value="0.5" />
+                                    </Style>
+                                    <Style Selector="^ /template/ Border#Background">
+                                        <Setter Property="Background" Value="Transparent" />
+                                    </Style>
+                                </Style>
+                            </Style>
+                        </ComboBox.Styles>
+                        <ComboBoxItem Content="日次" Tag="{Binding DailyRanking}" />
+                        <ComboBoxItem Content="週別" Tag="{Binding WeeklyRanking}" />
+                    </ComboBox>
+                </StackPanel>
+
+                <ui:HyperlinkButton HorizontalAlignment="Right"
+                                    Click="MoreRanking_Click"
+                                    Content="もっと表示"
+                                    Tag="" />
+            </Panel>
+            <ScrollViewer Margin="0,8,0,0"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled">
+                <ItemsRepeater Items="{Binding #RankingComboBox.SelectedItem.Tag}">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Orientation="Horizontal" Spacing="16" />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate>
+                            <Button Width="160"
+                                    Height="270"
+                                    Padding="0"
+                                    HorizontalContentAlignment="Stretch"
+                                    VerticalContentAlignment="Stretch"
+                                    Click="Package_Click">
+                                <Grid Margin="16" RowDefinitions="Auto,16,*">
+                                    <Image Width="120"
+                                           Height="120"
+                                           asyncImageLoader:ImageLoader.Source="{Binding LogoUrl.Value}"
+                                           ImageClipping.CornerRadius="8" />
+
+                                    <Grid Grid.Row="2"
+                                          Margin="0,2"
+                                          VerticalAlignment="Stretch"
+                                          RowDefinitions="*,Auto">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="{Binding Name.Value}" />
+
+                                            <TextBlock IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding DisplayName.Value}">
+                                                <TextBlock.Styles>
+                                                    <Style Selector="TextBlock">
+                                                        <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+                                                        <Setter Property="FontSize" Value="16" />
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                                        <Setter Property="TextWrapping" Value="Wrap" />
+                                                    </Style>
+                                                </TextBlock.Styles>
+                                            </TextBlock>
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Row="1"
+                                                   VerticalAlignment="Bottom"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                   Text="{Binding Owner.Name.Value}" />
+                                    </Grid>
+                                </Grid>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+            </ScrollViewer>
+
+            <Panel Margin="0,32,0,0">
+                <TextBlock HorizontalAlignment="Left"
+                           Text="最近"
+                           Theme="{StaticResource SubtitleTextBlockStyle}" />
+
+                <ui:HyperlinkButton HorizontalAlignment="Right"
+                                    Click="MoreRanking_Click"
+                                    Content="もっと表示"
+                                    Tag="Recently" />
+            </Panel>
+            <ScrollViewer Margin="0,8,0,0"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled">
+                <ItemsRepeater Items="{Binding RecentlyRanking}">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Orientation="Horizontal" Spacing="16" />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate>
+                            <Button Width="160"
+                                    Height="270"
+                                    Padding="0"
+                                    HorizontalContentAlignment="Stretch"
+                                    VerticalContentAlignment="Stretch"
+                                    Click="Package_Click">
+                                <Grid Margin="16" RowDefinitions="Auto,16,*">
+                                    <Image Width="120"
+                                           Height="120"
+                                           asyncImageLoader:ImageLoader.Source="{Binding LogoUrl.Value}"
+                                           ImageClipping.CornerRadius="8" />
+
+                                    <Grid Grid.Row="2"
+                                          Margin="0,2"
+                                          VerticalAlignment="Stretch"
+                                          RowDefinitions="*,Auto">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="{Binding Name.Value}" />
+
+                                            <TextBlock IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding DisplayName.Value}">
+                                                <TextBlock.Styles>
+                                                    <Style Selector="TextBlock">
+                                                        <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+                                                        <Setter Property="FontSize" Value="16" />
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                                        <Setter Property="TextWrapping" Value="Wrap" />
+                                                    </Style>
+                                                </TextBlock.Styles>
+                                            </TextBlock>
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Row="1"
+                                                   VerticalAlignment="Bottom"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                   Text="{Binding Owner.Name.Value}" />
+                                    </Grid>
+                                </Grid>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
             </ScrollViewer>
 
         </StackPanel>

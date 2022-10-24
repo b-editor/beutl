@@ -1,5 +1,10 @@
-﻿using Avalonia.Controls;
+﻿using AsyncImageLoader;
+
+using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
 using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
 
 using Beutl.Api.Objects;
 
@@ -40,5 +45,29 @@ public partial class PublicPackageDetailsPage : UserControl
         }
 
         DataContext = null;
+    }
+
+    private async void OpenWebSite_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is PublicPackageDetailsPageViewModel viewModel)
+        {
+            string url = viewModel.Package.WebSite.Value;
+            var dialog = new ContentDialog()
+            {
+                Title = "URLを開きますか？",
+                Content = new RichTextBlock()
+                {
+                    IsTextSelectionEnabled = true,
+                    Text = $"'{url}'を開こうとしています。\n不審なURLの場合、開かないことをおすすめします。"
+                },
+                PrimaryButtonText = "開く",
+                CloseButtonText = "キャンセル"
+            };
+
+            if (await dialog.ShowAsync() is ContentDialogResult.Primary)
+            {
+                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true, Verb = "open" });
+            }
+        }
     }
 }

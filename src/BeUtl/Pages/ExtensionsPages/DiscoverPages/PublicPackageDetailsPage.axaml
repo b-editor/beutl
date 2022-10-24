@@ -4,6 +4,7 @@
              xmlns:asyncImageLoader="using:AsyncImageLoader"
              xmlns:ctrls="using:BeUtl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DiscoverPages"
@@ -35,7 +36,7 @@
                            Height="125"
                            Margin="0,16,0,0"
                            asyncImageLoader:ImageLoader.Source="{CompiledBinding Package.LogoUrl.Value}"
-                           Clip="M7.999 0L117.001 0Q117.197 0 117.394 0.00963514Q117.59 0.0192703 117.785 0.0385174Q117.98 0.0577644 118.175 0.0865771Q118.369 0.11539 118.562 0.153699Q118.754 0.192007 118.945 0.23972Q119.135 0.287433 119.323 0.344434Q119.511 0.401436 119.696 0.467589Q119.881 0.533742 120.062 0.608888Q120.243 0.684033 120.421 0.76799Q120.599 0.851946 120.772 0.944512Q120.945 1.03708 121.113 1.13803Q121.282 1.23898 121.445 1.34807Q121.608 1.45717 121.766 1.57414Q121.924 1.69112 122.076 1.81569Q122.227 1.94026 122.373 2.07213Q122.518 2.204 122.657 2.34285Q122.796 2.4817 122.928 2.6272Q123.06 2.7727 123.184 2.92449Q123.309 3.07628 123.426 3.234Q123.543 3.39172 123.652 3.55499Q123.761 3.71826 123.862 3.88669Q123.963 4.05512 124.055 4.2283Q124.148 4.40148 124.232 4.57899Q124.316 4.7565 124.391 4.93791Q124.466 5.11933 124.532 5.30422Q124.599 5.4891 124.656 5.67701Q124.713 5.86492 124.76 6.0554Q124.808 6.24588 124.846 6.43847Q124.885 6.63106 124.913 6.8253Q124.942 7.01954 124.961 7.21496Q124.981 7.41038 124.99 7.60651Q125 7.80264 125 7.999L125 117.001Q125 117.197 124.99 117.394Q124.981 117.59 124.961 117.785Q124.942 117.98 124.913 118.175Q124.885 118.369 124.846 118.562Q124.808 118.754 124.76 118.945Q124.713 119.135 124.656 119.323Q124.599 119.511 124.532 119.696Q124.466 119.881 124.391 120.062Q124.316 120.243 124.232 120.421Q124.148 120.599 124.055 120.772Q123.963 120.945 123.862 121.113Q123.761 121.282 123.652 121.445Q123.543 121.608 123.426 121.766Q123.309 121.924 123.184 122.076Q123.06 122.227 122.928 122.373Q122.796 122.518 122.657 122.657Q122.518 122.796 122.373 122.928Q122.227 123.06 122.076 123.184Q121.924 123.309 121.766 123.426Q121.608 123.543 121.445 123.652Q121.282 123.761 121.113 123.862Q120.945 123.963 120.772 124.055Q120.599 124.148 120.421 124.232Q120.243 124.316 120.062 124.391Q119.881 124.466 119.696 124.532Q119.511 124.599 119.323 124.656Q119.135 124.713 118.945 124.76Q118.754 124.808 118.562 124.846Q118.369 124.885 118.175 124.913Q117.98 124.942 117.785 124.961Q117.59 124.981 117.394 124.99Q117.197 125 117.001 125L7.999 125Q7.80264 125 7.60651 124.99Q7.41038 124.981 7.21496 124.961Q7.01954 124.942 6.8253 124.913Q6.63106 124.885 6.43847 124.846Q6.24588 124.808 6.0554 124.76Q5.86492 124.713 5.67701 124.656Q5.4891 124.599 5.30422 124.532Q5.11933 124.466 4.93791 124.391Q4.7565 124.316 4.57899 124.232Q4.40148 124.148 4.2283 124.055Q4.05512 123.963 3.88669 123.862Q3.71826 123.761 3.55499 123.652Q3.39172 123.543 3.234 123.426Q3.07628 123.309 2.92449 123.184Q2.7727 123.06 2.6272 122.928Q2.4817 122.796 2.34285 122.657Q2.204 122.518 2.07213 122.373Q1.94026 122.227 1.81569 122.076Q1.69112 121.924 1.57414 121.766Q1.45717 121.608 1.34807 121.445Q1.23898 121.282 1.13803 121.113Q1.03708 120.945 0.944512 120.772Q0.851946 120.599 0.76799 120.421Q0.684033 120.243 0.608888 120.062Q0.533742 119.881 0.467589 119.696Q0.401436 119.511 0.344434 119.323Q0.287433 119.135 0.23972 118.945Q0.192007 118.754 0.153699 118.562Q0.11539 118.369 0.0865771 118.175Q0.0577644 117.98 0.0385174 117.785Q0.0192703 117.59 0.00963514 117.394Q0 117.197 0 117.001L0 7.999Q0 7.80264 0.00963514 7.60651Q0.0192703 7.41038 0.0385174 7.21496Q0.0577644 7.01954 0.0865771 6.8253Q0.11539 6.63106 0.153699 6.43847Q0.192007 6.24588 0.23972 6.0554Q0.287433 5.86492 0.344434 5.67701Q0.401436 5.4891 0.467589 5.30422Q0.533742 5.11933 0.608888 4.93791Q0.684033 4.7565 0.76799 4.57899Q0.851946 4.40148 0.944512 4.2283Q1.03708 4.05512 1.13803 3.88669Q1.23898 3.71826 1.34807 3.55499Q1.45717 3.39172 1.57414 3.234Q1.69112 3.07628 1.81569 2.92449Q1.94026 2.7727 2.07213 2.6272Q2.204 2.4817 2.34285 2.34285Q2.4817 2.204 2.6272 2.07213Q2.7727 1.94026 2.92449 1.81569Q3.07628 1.69112 3.234 1.57414Q3.39172 1.45717 3.55499 1.34807Q3.71826 1.23898 3.88669 1.13803Q4.05512 1.03708 4.2283 0.944512Q4.40148 0.851946 4.57899 0.76799Q4.7565 0.684033 4.93791 0.608888Q5.11933 0.533742 5.30422 0.467589Q5.4891 0.401436 5.67701 0.344434Q5.86492 0.287433 6.0554 0.23972Q6.24588 0.192007 6.43847 0.153699Q6.63106 0.11539 6.8253 0.0865771Q7.01954 0.0577644 7.21496 0.0385174Q7.41038 0.0192703 7.60651 0.00963514Q7.80264 0 7.999 0Z"
+                           ImageClipping.CornerRadius="8"
                            IsVisible="{Binding $self.Source, Converter={x:Static ObjectConverters.IsNotNull}}" />
 
                     <Label Width="125"
@@ -46,12 +47,16 @@
                            Content="{DynamicResource S.DevelopPage.Package.NoLogoImageAvailable}"
                            IsVisible="{Binding #logoImage.Source, Converter={x:Static ObjectConverters.IsNull}}" />
 
-
                     <TextBlock x:Name="displayName"
-                               Margin="0,32"
+                               Margin="0,32,0,8"
                                HorizontalAlignment="Center"
                                Text="{CompiledBinding Package.DisplayName.Value}"
                                Theme="{StaticResource SubtitleTextBlockStyle}" />
+
+                    <Button Margin="0,0,0,32"
+                            HorizontalAlignment="Center"
+                            Classes="simple"
+                            Content="{Binding Package.Owner.Name.Value}" />
 
                     <Button Padding="48,5,48,6"
                             HorizontalAlignment="Center"
@@ -70,11 +75,115 @@
                 <Border Classes="card">
                     <StackPanel>
                         <TextBlock Margin="16,8"
-                                   Text="説明"
-                                   Theme="{StaticResource SubtitleTextBlockStyle}" />
+                                   Text="スクリーンショット"
+                                   Theme="{StaticResource BodyStrongTextBlockStyle}" />
                         <Border Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
 
-                        <TextBlock Margin="16" Text="{Binding Package.Description.Value}" />
+                        <ScrollViewer Margin="16"
+                                      HorizontalScrollBarVisibility="Visible"
+                                      VerticalScrollBarVisibility="Disabled">
+                            <ItemsControl Items="{CompiledBinding Package.Screenshots.Value}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="8" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Image Height="240"
+                                               asyncImageLoader:ImageLoader.Source="{Binding Value}"
+                                               ImageClipping.CornerRadius="12" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="card">
+                    <StackPanel>
+                        <TextBlock Margin="16,8"
+                                   Text="説明"
+                                   Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                        <Border Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+
+                        <RichTextBlock Margin="16"
+                                       IsTextSelectionEnabled="True"
+                                       Text="{Binding Package.Description.Value}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="card" IsVisible="{Binding LatestRelease.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <StackPanel>
+                        <TextBlock Margin="16,8"
+                                   Text="最新のリリース"
+                                   Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                        <Border Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+
+                        <TextBlock Margin="16,16,16,0" Text="{Binding LatestRelease.Value.Title.Value}" />
+                        <RichTextBlock Margin="16"
+                                       IsTextSelectionEnabled="True"
+                                       Text="{Binding LatestRelease.Value.Body.Value}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="card">
+                    <StackPanel>
+                        <TextBlock Margin="16,8"
+                                   Text="その他"
+                                   Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                        <Border Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+
+                        <StackPanel Margin="16" Spacing="16">
+                            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
+                                <icons:SymbolIcon Margin="0,0,8,0"
+                                                  VerticalAlignment="Bottom"
+                                                  Symbol="Tag" />
+                                <TextBlock Grid.Column="1" Text="タグ" />
+
+                                <ItemsRepeater Grid.Row="1"
+                                               Grid.Column="1"
+                                               Margin="4"
+                                               Items="{Binding Package.Tags.Value}">
+                                    <ItemsRepeater.Layout>
+                                        <WrapLayout HorizontalSpacing="8"
+                                                    Orientation="Horizontal"
+                                                    VerticalSpacing="8" />
+                                    </ItemsRepeater.Layout>
+                                    <ItemsRepeater.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Classes="accent"
+                                                    Content="{Binding}"
+                                                    CornerRadius="16" />
+                                        </DataTemplate>
+                                    </ItemsRepeater.ItemTemplate>
+                                </ItemsRepeater>
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
+                                <icons:SymbolIcon Margin="0,0,8,0"
+                                                  VerticalAlignment="Bottom"
+                                                  Symbol="Link" />
+                                <TextBlock Grid.Column="1" Text="リンク" />
+
+                                <ui:HyperlinkButton Grid.Row="1"
+                                                    Grid.Column="1"
+                                                    Click="OpenWebSite_Click"
+                                                    Content="{Binding Package.WebSite.Value}"
+                                                    IsVisible="{Binding Package.WebSite.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
+                                <icons:SymbolIcon Margin="0,0,8,0"
+                                                  VerticalAlignment="Bottom"
+                                                  Symbol="Bookmark" />
+                                <TextBlock Grid.Column="1" Text="最新のバージョン" />
+
+                                <TextBlock Grid.Row="1"
+                                           Grid.Column="1"
+                                           Margin="0,8,0,0"
+                                           IsVisible="{Binding LatestRelease.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                           Text="{Binding LatestRelease.Value.Version.Value}" />
+                            </Grid>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
             </StackPanel>

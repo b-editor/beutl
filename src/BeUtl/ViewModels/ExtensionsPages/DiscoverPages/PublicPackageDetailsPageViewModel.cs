@@ -18,11 +18,38 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
         Refresh = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
+                try
+                {
+                    await package.RefreshAsync();
+                    int totalCount = 0;
+                    int prevCount = 0;
 
+                    do
+                    {
+                        Release[] array = await package.GetReleasesAsync(totalCount, 30);
+                        if (Array.Find(array, x => x.IsPublic.Value) is { } publicRelease)
+                        {
+                            await publicRelease.RefreshAsync();
+                            LatestRelease.Value = publicRelease;
+                            break;
+                        }
+
+                        totalCount += array.Length;
+                        prevCount = array.Length;
+                    } while (prevCount == 30);
+                }
+                catch (Exception e)
+                {
+                    ErrorHandle(e);
+                }
             });
+
+        Refresh.Execute();
     }
 
     public Package Package { get; }
+
+    public ReactivePropertySlim<Release> LatestRelease { get; } = new();
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 

@@ -8,6 +8,7 @@ using BeUtl.Pages.ExtensionsPages;
 using BeUtl.Pages.ExtensionsPages.DevelopPages;
 using BeUtl.Pages.ExtensionsPages.DiscoverPages;
 using BeUtl.ViewModels;
+using BeUtl.ViewModels.ExtensionsPages.DiscoverPages;
 using BeUtl.Views;
 
 using FluentAvalonia.UI.Controls;
@@ -181,7 +182,9 @@ public sealed partial class ExtensionsPage : UserControl
     {
         if (type == typeof(DevelopPage) || type == typeof(DiscoverPage))
             return 0;
-        else if (type == typeof(PackageDetailsPage) || type == typeof(PublicPackageDetailsPage))
+        else if (type == typeof(PackageDetailsPage)
+            || type == typeof(PublicPackageDetailsPage)
+            || type == typeof(RankingPageViewModel))
             return 1;
         else if (type == typeof(PackageReleasesPage))
             return 2;

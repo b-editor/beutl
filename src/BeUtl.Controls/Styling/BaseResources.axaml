@@ -7,7 +7,7 @@
         <x:Double x:Key="SecondWidth">150</x:Double>
     </Styles.Resources>
 
-    <!--<FluentTheme Mode="Dark" />-->
+    <FluentTheme />
     <sty:FluentAvaloniaTheme />
 
     <Style Selector="PopupRoot">
