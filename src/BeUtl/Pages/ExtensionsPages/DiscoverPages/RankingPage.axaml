@@ -9,8 +9,16 @@
              xmlns:viewModel="using:BeUtl.ViewModels.ExtensionsPages.DiscoverPages"
              d:DesignHeight="450"
              d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="viewModel:RankingPageViewModel"
              Focusable="True"
              mc:Ignorable="d">
+
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{Binding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{Binding Refresh}" Gesture="Ctrl+R" />
+    </UserControl.KeyBindings>
+
     <ScrollViewer Padding="18">
         <StackPanel Margin="10,0">
             <StackPanel Orientation="Horizontal" Spacing="16">
@@ -58,7 +66,7 @@
                         </Style>
                     </ComboBox.Styles>
                     <ComboBox.ItemTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="viewModel:RankingModel">
                             <TextBlock Text="{Binding DisplayName}" />
                         </DataTemplate>
                     </ComboBox.ItemTemplate>

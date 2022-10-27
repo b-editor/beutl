@@ -50,6 +50,11 @@ public sealed partial class ExtensionsPage : UserControl
         });
     }
 
+    private void Search_Click(object? sender, RoutedEventArgs e)
+    {
+        frame.Navigate(typeof(SearchPage), searchTextBox.Text);
+    }
+
     private void OpenSettings_Click(object? sender, RoutedEventArgs e)
     {
         if (this.FindLogicalAncestorOfType<MainView>() is { DataContext: MainViewModel viewModel } mainView)
@@ -108,7 +113,7 @@ public sealed partial class ExtensionsPage : UserControl
     private void OnItemInvoked(NavigationViewItem nvi)
     {
         if (nvi.Tag is Type typ
-            && DataContext is ExtensionsPageViewModel viewModel)
+            && DataContext is ExtensionsPageViewModel { IsAuthorized.Value: true } viewModel)
         {
             NavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
             if (typ == typeof(DevelopPage))

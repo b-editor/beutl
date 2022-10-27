@@ -12,9 +12,9 @@ using FluentAvalonia.UI.Navigation;
 
 namespace BeUtl.Pages.ExtensionsPages.DiscoverPages;
 
-public partial class RankingPage : UserControl
+public partial class SearchPage : UserControl
 {
-    public RankingPage()
+    public SearchPage()
     {
         InitializeComponent();
         AddHandler(Frame.NavigatedFromEvent, OnNavigatedFrom, RoutingStrategies.Direct);
@@ -23,11 +23,11 @@ public partial class RankingPage : UserControl
 
     private void OnNavigatedTo(object? sender, NavigationEventArgs e)
     {
-        if (e.Parameter is RankingType rankingType)
+        if (e.Parameter is string keyword)
         {
             DestoryDataContext();
             DataContextFactory factory = GetDataContextFactory();
-            DataContext = factory.RankingPage(rankingType);
+            DataContext = factory.SearchPage(keyword);
         }
     }
 
@@ -51,6 +51,12 @@ public partial class RankingPage : UserControl
         return ((ExtensionsPageViewModel)this.FindLogicalAncestorOfType<ExtensionsPage>()!.DataContext!).Discover.DataContextFactory;
     }
 
+    private void ShowQueryTip_Click(object? sender, RoutedEventArgs e)
+    {
+        QueryTip.Target = ShowQueryTip;
+        QueryTip.IsOpen = true;
+    }
+
     private void Package_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { DataContext: Package package }
@@ -58,7 +64,20 @@ public partial class RankingPage : UserControl
         {
             frame.Navigate(typeof(PublicPackageDetailsPage), package);
         }
-        else if (DataContext is RankingPageViewModel viewModel)
+        else if (DataContext is SearchPageViewModel viewModel)
+        {
+            viewModel.More.Execute();
+        }
+    }
+
+    private void User_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: Profile user }
+            && this.FindLogicalAncestorOfType<Frame>() is { } frame)
+        {
+            frame.Navigate(typeof(UserProfilePage), user);
+        }
+        else if (DataContext is SearchPageViewModel viewModel)
         {
             viewModel.More.Execute();
         }

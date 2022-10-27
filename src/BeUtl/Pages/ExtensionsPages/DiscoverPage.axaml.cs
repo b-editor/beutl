@@ -45,13 +45,13 @@ public sealed partial class DiscoverPage : UserControl
         if (sender is HyperlinkButton { Tag: { } tag }
             && this.FindLogicalAncestorOfType<Frame>() is { } frame)
         {
-            RankingPageViewModel.RankingType type = tag switch
+            RankingType type = tag switch
             {
-                "Overall" => RankingPageViewModel.RankingType.Overall,
-                "Recently" => RankingPageViewModel.RankingType.Recently,
+                "Overall" => RankingType.Overall,
+                "Recently" => RankingType.Recently,
                 _ => RankingComboBox.SelectedIndex == 0
-                    ? RankingPageViewModel.RankingType.Daily
-                    : RankingPageViewModel.RankingType.Weekly,
+                    ? RankingType.Daily
+                    : RankingType.Weekly,
             };
 
             frame.Navigate(typeof(RankingPage), type);

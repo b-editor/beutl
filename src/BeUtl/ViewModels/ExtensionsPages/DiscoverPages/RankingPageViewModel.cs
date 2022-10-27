@@ -6,6 +6,16 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DiscoverPages;
 
+public enum RankingType
+{
+    Overall,
+    Daily,
+    Weekly,
+    Recently,
+}
+
+public record RankingModel(string DisplayName, RankingType Type);
+
 public sealed class RankingPageViewModel : BasePageViewModel
 {
     private readonly CompositeDisposable _disposables = new();
@@ -90,16 +100,6 @@ public sealed class RankingPageViewModel : BasePageViewModel
     public AsyncReactiveCommand More { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
-
-    public record RankingModel(string DisplayName, RankingType Type);
-
-    public enum RankingType
-    {
-        Overall,
-        Daily,
-        Weekly,
-        Recently,
-    }
 
     private async Task<Package[]> LoadItems(RankingType rankingType, int start, int count)
     {

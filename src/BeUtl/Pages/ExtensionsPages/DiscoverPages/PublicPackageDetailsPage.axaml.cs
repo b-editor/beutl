@@ -1,10 +1,6 @@
-﻿using AsyncImageLoader;
-
-using Avalonia.Controls;
-using Avalonia.Controls.Shapes;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Media;
-using Avalonia.Media.Imaging;
+using Avalonia.LogicalTree;
 
 using Beutl.Api.Objects;
 
@@ -14,6 +10,7 @@ using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 
 namespace BeUtl.Pages.ExtensionsPages.DiscoverPages;
+
 public partial class PublicPackageDetailsPage : UserControl
 {
     public PublicPackageDetailsPage()
@@ -68,6 +65,15 @@ public partial class PublicPackageDetailsPage : UserControl
             {
                 Process.Start(new ProcessStartInfo(url) { UseShellExecute = true, Verb = "open" });
             }
+        }
+    }
+
+    private void OpenPublisherPage_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is PublicPackageDetailsPageViewModel viewModel
+            && this.FindLogicalAncestorOfType<Frame>() is { } frame)
+        {
+            frame.Navigate(typeof(UserProfilePage), viewModel.Package.Owner);
         }
     }
 }

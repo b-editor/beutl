@@ -16,8 +16,13 @@ public class DataContextFactory
         _discoverService = discoverService;
     }
 
-    public RankingPageViewModel RankingPage(RankingPageViewModel.RankingType rankingType = RankingPageViewModel.RankingType.Overall)
+    public RankingPageViewModel RankingPage(RankingType rankingType = RankingType.Overall)
     {
         return new RankingPageViewModel(_discoverService, rankingType);
+    }
+
+    public SearchPageViewModel SearchPage(string keyword)
+    {
+        return new SearchPageViewModel(_discoverService, keyword);
     }
 }

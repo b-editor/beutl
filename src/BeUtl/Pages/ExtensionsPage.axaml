@@ -29,13 +29,14 @@
                 <Thickness x:Key="NavigationViewContentGridBorderThickness">0</Thickness>
             </ui:NavigationView.Resources>
             <ui:NavigationView.PaneCustomContent>
-                <TextBox MinWidth="250"
+                <TextBox x:Name="searchTextBox"
+                         MinWidth="250"
                          Margin="8,0"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Center"
                          Watermark="{DynamicResource S.Common.Search}">
                     <TextBox.InnerRightContent>
-                        <Button Theme="{StaticResource TransparentButton}">
+                        <Button Click="Search_Click" Theme="{StaticResource TransparentButton}">
                             <ui:SymbolIcon Symbol="Find" />
                         </Button>
                     </TextBox.InnerRightContent>

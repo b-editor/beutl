@@ -62,6 +62,22 @@ public class DiscoverService
             .ToArrayAsync();
     }
 
+    public async Task<Package[]> SearchPackages(string query, int start = 0, int count = 30)
+    {
+        return await (await _clients.Discover.SearchPackagesAsync(query, start, count))
+            .ToAsyncEnumerable()
+            .SelectAwait(async x => await GetPackage(x.Id))
+            .ToArrayAsync();
+    }
+    
+    public async Task<Profile[]> SearchUsers(string query, int start = 0, int count = 30)
+    {
+        return await (await _clients.Discover.SearchUsersAsync(query, start, count))
+            .ToAsyncEnumerable()
+            .SelectAwait(async x => await GetProfileById(x.Id))
+            .ToArrayAsync();
+    }
+
     public async Task<Package[]> Search(string query, int start = 0, int count = 30)
     {
         return await (await _clients.Discover.SearchAsync(query, start, count))
