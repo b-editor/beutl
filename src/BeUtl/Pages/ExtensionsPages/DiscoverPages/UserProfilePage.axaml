@@ -73,9 +73,11 @@
                             <Style Selector="Button">
                                 <Setter Property="Padding" Value="8" />
                                 <Setter Property="CornerRadius" Value="32" />
+                                <Setter Property="Width" Value="40" />
+                                <Setter Property="Height" Value="40" />
                             </Style>
                             <Style Selector="Image">
-                                <Setter Property="Height" Value="24" />
+                                <Setter Property="Stretch" Value="Uniform" />
                             </Style>
                         </StackPanel.Styles>
                         <Button Click="OpenSocial_Click"
@@ -96,6 +98,12 @@
                                 Tag="Twitter"
                                 ToolTip.Tip="{Binding TwitterUrl.Value}">
                             <Image Source="/Assets/social/TwitterSocialIconsCircleBlue.png" />
+                        </Button>
+                        <Button Click="OpenSocial_Click"
+                                IsVisible="{Binding YouTubeUrl.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                Tag="YouTube"
+                                ToolTip.Tip="{Binding YouTubeUrl.Value}">
+                            <Image Source="/Assets/social/youtube_social_icon_red.png" />
                         </Button>
                         <Button Click="OpenSocial_Click"
                                 IsVisible="{Binding BlogUrl.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"

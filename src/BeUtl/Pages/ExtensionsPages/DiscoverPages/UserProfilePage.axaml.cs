@@ -99,7 +99,7 @@ public partial class UserProfilePage : UserControl
     {
         static async void OpenBrowser(string? url, bool showDialog = false)
         {
-            if (url != null)
+            if (!string.IsNullOrWhiteSpace(url))
             {
                 if (showDialog)
                 {
@@ -145,6 +145,9 @@ public partial class UserProfilePage : UserControl
                     break;
                 case "Twitter":
                     OpenBrowser(viewModel.TwitterUrl.Value);
+                    break;
+                case "YouTube":
+                    OpenBrowser(viewModel.YouTubeUrl.Value);
                     break;
                 case "Blog":
                     OpenBrowser(viewModel.BlogUrl.Value, true);

@@ -22,7 +22,7 @@ public class PackageInfo
     [JsonPropertyName("description")]
     public string Description { get; set; } = string.Empty;
     
-    [JsonPropertyName("description")]
+    [JsonPropertyName("short_description")]
     public string ShortDescription { get; set; } = string.Empty;
     
     [JsonPropertyName("assembly")]

@@ -62,6 +62,10 @@ public sealed class UserProfilePageViewModel : BasePageViewModel
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
+        YouTubeUrl = profile.YouTubeUrl
+            .CopyToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
         BlogUrl = profile.BlogUrl
             .CopyToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -76,6 +80,8 @@ public sealed class UserProfilePageViewModel : BasePageViewModel
     public IReadOnlyReactiveProperty<string?> TwitterUrl { get; }
 
     public IReadOnlyReactiveProperty<string?> GitHubUrl { get; }
+    
+    public IReadOnlyReactiveProperty<string?> YouTubeUrl { get; }
 
     public IReadOnlyReactiveProperty<string?> BlogUrl { get; }
 
