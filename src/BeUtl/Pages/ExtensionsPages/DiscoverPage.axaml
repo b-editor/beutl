@@ -58,7 +58,7 @@
                                           VerticalAlignment="Stretch"
                                           RowDefinitions="*,Auto">
                                         <StackPanel Spacing="4">
-                                            <TextBlock Text="{Binding Name.Value}" />
+                                            <TextBlock Text="{Binding Name}" />
 
                                             <TextBlock IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding DisplayName.Value}">
                                                 <TextBlock.Styles>
@@ -76,7 +76,7 @@
                                         <TextBlock Grid.Row="1"
                                                    VerticalAlignment="Bottom"
                                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                   Text="{Binding Owner.Name.Value}" />
+                                                   Text="{Binding Owner.Name}" />
                                     </Grid>
                                 </Grid>
                             </Button>
@@ -165,7 +165,7 @@
                                           VerticalAlignment="Stretch"
                                           RowDefinitions="*,Auto">
                                         <StackPanel Spacing="4">
-                                            <TextBlock Text="{Binding Name.Value}" />
+                                            <TextBlock Text="{Binding Name}" />
 
                                             <TextBlock IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding DisplayName.Value}">
                                                 <TextBlock.Styles>
@@ -183,7 +183,7 @@
                                         <TextBlock Grid.Row="1"
                                                    VerticalAlignment="Bottom"
                                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                   Text="{Binding Owner.Name.Value}" />
+                                                   Text="{Binding Owner.Name}" />
                                     </Grid>
                                 </Grid>
                             </Button>
@@ -228,7 +228,7 @@
                                           VerticalAlignment="Stretch"
                                           RowDefinitions="*,Auto">
                                         <StackPanel Spacing="4">
-                                            <TextBlock Text="{Binding Name.Value}" />
+                                            <TextBlock Text="{Binding Name}" />
 
                                             <TextBlock IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding DisplayName.Value}">
                                                 <TextBlock.Styles>
@@ -246,7 +246,7 @@
                                         <TextBlock Grid.Row="1"
                                                    VerticalAlignment="Bottom"
                                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                   Text="{Binding Owner.Name.Value}" />
+                                                   Text="{Binding Owner.Name}" />
                                     </Grid>
                                 </Grid>
                             </Button>

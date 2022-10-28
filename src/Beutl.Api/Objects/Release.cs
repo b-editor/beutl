@@ -17,7 +17,7 @@ public class Release
         _clients = clients;
         _response = new ReactivePropertySlim<ReleaseResponse>(response);
 
-        Version = _response.Select(x => new Version(x.Version)).ToReadOnlyReactivePropertySlim()!;
+        Version = _response.Select(x => x.Version).ToReadOnlyReactivePropertySlim()!;
         Title = _response.Select(x => x.Title).ToReadOnlyReactivePropertySlim()!;
         Body = _response.Select(x => x.Body).ToReadOnlyReactivePropertySlim()!;
         AssetId = _response.Select(x => x.Asset_id).ToReadOnlyReactivePropertySlim()!;
@@ -30,7 +30,7 @@ public class Release
 
     public IReadOnlyReactiveProperty<ReleaseResponse> Response => _response;
 
-    public IReadOnlyReactiveProperty<Version> Version { get; }
+    public IReadOnlyReactiveProperty<string> Version { get; }
 
     public IReadOnlyReactiveProperty<string> Title { get; }
 
@@ -44,8 +44,7 @@ public class Release
 
     public async Task RefreshAsync()
     {
-        _response.Value = await _clients.Releases.GetReleaseAsync(
-            Package.Owner.Name.Value, Package.Name.Value, _response.Value.Version);
+        _response.Value = await _clients.Releases.GetReleaseAsync(Package.Name, _response.Value.Version);
 
         _isDeleted.Value = false;
     }
@@ -63,8 +62,7 @@ public class Release
         }
 
         _response.Value = await _clients.Releases.PatchAsync(
-            Package.Owner.Name.Value,
-            Package.Name.Value,
+            Package.Name,
             Response.Value.Version,
             request);
     }
@@ -72,8 +70,7 @@ public class Release
     public async Task DeleteAsync()
     {
         FileResponse response = await _clients.Releases.DeleteAsync(
-            Package.Owner.Name.Value,
-            Package.Name.Value,
+            Package.Name,
             Response.Value.Version);
 
         response.Dispose();

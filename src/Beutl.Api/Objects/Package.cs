@@ -17,7 +17,7 @@ public class Package
         Owner = profile;
 
         Id = response.Id;
-        Name = _response.Select(x => x.Name).ToReadOnlyReactivePropertySlim()!;
+        Name = response.Name;
         DisplayName = _response.Select(x => x.Display_name).ToReadOnlyReactivePropertySlim()!;
         Description = _response.Select(x => x.Description).ToReadOnlyReactivePropertySlim()!;
         ShortDescription = _response.Select(x => x.Short_description).ToReadOnlyReactivePropertySlim()!;
@@ -35,7 +35,7 @@ public class Package
 
     public long Id { get; }
 
-    public IReadOnlyReactiveProperty<string> Name { get; }
+    public string Name { get; }
 
     public IReadOnlyReactiveProperty<string> DisplayName { get; }
 
@@ -44,7 +44,7 @@ public class Package
     public IReadOnlyReactiveProperty<string> ShortDescription { get; }
 
     public IReadOnlyReactiveProperty<string> WebSite { get; }
-    
+
     public IReadOnlyReactiveProperty<ICollection<string>> Tags { get; }
 
     public IReadOnlyReactiveProperty<long?> LogoId { get; }
@@ -59,7 +59,7 @@ public class Package
 
     public async Task RefreshAsync()
     {
-        _response.Value = await _clients.Packages.GetPackage2Async(Id);
+        _response.Value = await _clients.Packages.GetPackageAsync(Name);
         _isDeleted.Value = false;
     }
 
@@ -70,14 +70,13 @@ public class Package
             throw new InvalidOperationException("This object has been deleted.");
         }
 
-        _response.Value = await _clients.Packages.Patch2Async(Id, request);
+        _response.Value = await _clients.Packages.PatchAsync(Name, request);
     }
 
     public async Task UpdateAsync(
         string? description = null,
         string? displayName = null,
         long? logoImageId = null,
-        string? name = null,
         bool? isPublic = null,
         ICollection<long>? screenshots = null,
         string? shortDescription = null,
@@ -89,11 +88,10 @@ public class Package
             throw new InvalidOperationException("This object has been deleted.");
         }
 
-        _response.Value = await _clients.Packages.Patch2Async(Id, new UpdatePackageRequest(
+        _response.Value = await _clients.Packages.PatchAsync(Name, new UpdatePackageRequest(
             description: description,
             display_name: displayName,
             logo_image_id: logoImageId,
-            name: name,
             @public: isPublic,
             screenshots: screenshots,
             short_description: shortDescription,
@@ -103,23 +101,29 @@ public class Package
 
     public async Task DeleteAsync()
     {
-        FileResponse response = await _clients.Packages.Delete2Async(Id);
+        FileResponse response = await _clients.Packages.DeleteAsync(Name);
 
         response.Dispose();
 
         _isDeleted.Value = true;
     }
 
+    public async Task<Release> GetReleaseAsync(string version)
+    {
+        ReleaseResponse response = await _clients.Releases.GetReleaseAsync(Name, version);
+        return new Release(this, response, _clients);
+    }
+
     public async Task<Release[]> GetReleasesAsync(int start = 0, int count = 30)
     {
-        return (await _clients.Releases.GetReleasesAsync(Owner.Name.Value, Name.Value, start, count))
+        return (await _clients.Releases.GetReleasesAsync(Name, start, count))
             .Select(x => new Release(this, x, _clients))
             .ToArray();
     }
 
     public async Task<Release> AddReleaseAsync(string version, CreateReleaseRequest request)
     {
-        ReleaseResponse response = await _clients.Releases.PostAsync(Owner.Name.Value, Name.Value, version, request);
+        ReleaseResponse response = await _clients.Releases.PostAsync(Name, version, request);
         return new Release(this, response, _clients);
     }
 }

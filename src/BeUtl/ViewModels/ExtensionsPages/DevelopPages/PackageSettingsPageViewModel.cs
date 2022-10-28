@@ -35,10 +35,6 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Name = Package.Name
-            .CopyToReactiveProperty()
-            .SetValidateNotifyError(NotNullOrWhitespace)
-            .DisposeWith(_disposables);
         DisplayName = Package.DisplayName
             .CopyToReactiveProperty()
             .SetValidateNotifyError(NotNullOrWhitespace)
@@ -60,9 +56,8 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
             .DisposeWith(_disposables);
 
         // 値が変更されるか
-        IsChanging = Name.EqualTo(Package.Name)
+        IsChanging = DisplayName.EqualTo(Package.DisplayName)
             .AreTrue(
-                DisplayName.EqualTo(Package.DisplayName),
                 Description.EqualTo(Package.Description),
                 ShortDescription.EqualTo(Package.ShortDescription),
                 Logo.EqualTo(ActualLogo, (x, y) => x?.Id == y?.Id),
@@ -72,9 +67,8 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
             .DisposeWith(_disposables);
 
         // コマンドを初期化
-        Save = Name.ObserveHasErrors
+        Save = DisplayName.ObserveHasErrors
             .AnyTrue(
-                DisplayName.ObserveHasErrors,
                 Description.ObserveHasErrors,
                 ShortDescription.ObserveHasErrors)
             .Not()
@@ -87,7 +81,6 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
                     await Package.UpdateAsync(
                         description: Description.Value,
                         displayName: DisplayName.Value,
-                        name: Name.Value,
                         shortDescription: ShortDescription.Value,
                         logoImageId: Logo.Value?.Id,
                         screenshots: Screenshots.Select(x => x.Id).ToArray());
@@ -102,7 +95,6 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
         DiscardChanges = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
-                Name.Value = Package.Name.Value;
                 DisplayName.Value = Package.DisplayName.Value;
                 Description.Value = Package.Description.Value;
                 ShortDescription.Value = Package.ShortDescription.Value;
@@ -219,8 +211,6 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
     public Package Package { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsChanging { get; }
-
-    public ReactiveProperty<string> Name { get; } = new();
 
     public ReactiveProperty<string> DisplayName { get; } = new();
 

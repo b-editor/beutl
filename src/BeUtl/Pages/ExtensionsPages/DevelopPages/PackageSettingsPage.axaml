@@ -38,7 +38,7 @@
                     Spacing="16">
             <Button Classes="breadcrumb"
                     Click="NavigatePackageDetailsPage_Click"
-                    Content="{CompiledBinding Package.Name.Value}" />
+                    Content="{CompiledBinding Package.Name}" />
 
             <Label Classes="breadcrumb" />
 
@@ -55,10 +55,12 @@
                                           Expands="True"
                                           Header="{DynamicResource S.DevelopPage.Package.Fields.Name}">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Classes="description" Text="{CompiledBinding Package.Name.Value}" />
+                        <TextBlock Classes="description" Text="{CompiledBinding Package.Name}" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
-                        <TextBox Classes="customStyle" Text="{CompiledBinding Name.Value}" />
+                        <TextBox Classes="customStyle"
+                                 IsReadOnly="True"
+                                 Text="{CompiledBinding Package.Name}" />
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 

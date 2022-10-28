@@ -4,8 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Beutl.Api.Objects;
 
-namespace Beutl.Api.Objects;
+namespace Beutl.Api.Services;
 
 public class DiscoverService
 {
@@ -16,17 +17,17 @@ public class DiscoverService
         _clients = clients;
     }
 
-    public async Task<Package> GetPackage(long id)
+    public async Task<Package> GetPackage(string name)
     {
-        PackageResponse package = await _clients.Packages.GetPackage2Async(id);
-        Profile owner = await GetProfileById(package.Owner.Id);
+        PackageResponse package = await _clients.Packages.GetPackageAsync(name);
+        Profile owner = await GetProfile(package.Owner.Name);
 
         return new Package(owner, package, _clients);
     }
 
-    public async Task<Profile> GetProfileById(string id)
+    public async Task<Profile> GetProfile(string name)
     {
-        ProfileResponse response = await _clients.Users.GetUserAsync(id);
+        ProfileResponse response = await _clients.Users.GetUserAsync(name);
         return new Profile(response, _clients);
     }
 
@@ -34,7 +35,7 @@ public class DiscoverService
     {
         return await (await _clients.Discover.GetDailyAsync(start, count))
             .ToAsyncEnumerable()
-            .SelectAwait(async x => await GetPackage(x.Id))
+            .SelectAwait(async x => await GetPackage(x.Name))
             .ToArrayAsync();
     }
 
@@ -42,7 +43,7 @@ public class DiscoverService
     {
         return await (await _clients.Discover.GetWeeklyAsync(start, count))
             .ToAsyncEnumerable()
-            .SelectAwait(async x => await GetPackage(x.Id))
+            .SelectAwait(async x => await GetPackage(x.Name))
             .ToArrayAsync();
     }
 
@@ -50,7 +51,7 @@ public class DiscoverService
     {
         return await (await _clients.Discover.GetOverallAsync(start, count))
             .ToAsyncEnumerable()
-            .SelectAwait(async x => await GetPackage(x.Id))
+            .SelectAwait(async x => await GetPackage(x.Name))
             .ToArrayAsync();
     }
 
@@ -58,7 +59,7 @@ public class DiscoverService
     {
         return await (await _clients.Discover.GetRecentlyAsync(start, count))
             .ToAsyncEnumerable()
-            .SelectAwait(async x => await GetPackage(x.Id))
+            .SelectAwait(async x => await GetPackage(x.Name))
             .ToArrayAsync();
     }
 
@@ -66,15 +67,15 @@ public class DiscoverService
     {
         return await (await _clients.Discover.SearchPackagesAsync(query, start, count))
             .ToAsyncEnumerable()
-            .SelectAwait(async x => await GetPackage(x.Id))
+            .SelectAwait(async x => await GetPackage(x.Name))
             .ToArrayAsync();
     }
-    
+
     public async Task<Profile[]> SearchUsers(string query, int start = 0, int count = 30)
     {
         return await (await _clients.Discover.SearchUsersAsync(query, start, count))
             .ToAsyncEnumerable()
-            .SelectAwait(async x => await GetProfileById(x.Id))
+            .SelectAwait(async x => await GetProfile(x.Name))
             .ToArrayAsync();
     }
 
@@ -82,7 +83,7 @@ public class DiscoverService
     {
         return await (await _clients.Discover.SearchAsync(query, start, count))
             .ToAsyncEnumerable()
-            .SelectAwait(async x => await GetPackage(x.Id))
+            .SelectAwait(async x => await GetPackage(x.Name))
             .ToArrayAsync();
     }
 }

@@ -99,7 +99,7 @@
                                                   VerticalAlignment="Stretch"
                                                   ColumnDefinitions="*,Auto"
                                                   RowDefinitions="Auto,Auto,Auto">
-                                                <TextBlock Text="{Binding Name.Value}" />
+                                                <TextBlock Text="{Binding Name}" />
 
                                                 <TextBlock Grid.Row="1"
                                                            Grid.ColumnSpan="2"
@@ -114,7 +114,7 @@
 
                                                 <TextBlock Grid.Column="1"
                                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                           Text="{Binding Owner.Name.Value}" />
+                                                           Text="{Binding Owner.Name}" />
                                             </Grid>
                                         </Grid>
                                         <Grid Margin="16"
@@ -171,7 +171,7 @@
                                                            Text="{Binding DisplayName.Value}" />
                                                 <TextBlock Classes="name"
                                                            IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}"
-                                                           Text="{Binding Name.Value}" />
+                                                           Text="{Binding Name}" />
 
                                                 <TextBlock Grid.Row="2"
                                                            Grid.ColumnSpan="2"
@@ -180,7 +180,7 @@
 
                                                 <TextBlock Grid.Column="1"
                                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                           Text="{Binding Name.Value}" />
+                                                           Text="{Binding Name}" />
                                             </Grid>
                                         </Grid>
                                         <Grid Margin="16"

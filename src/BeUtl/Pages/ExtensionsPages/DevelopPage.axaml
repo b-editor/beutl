@@ -59,7 +59,7 @@
                             <StackPanel Grid.Column="2"
                                         VerticalAlignment="Center"
                                         Spacing="4">
-                                <TextBlock Text="{CompiledBinding Name.Value}" />
+                                <TextBlock Text="{CompiledBinding Name}" />
 
                                 <TextBlock IsVisible="{CompiledBinding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{CompiledBinding DisplayName.Value}">
                                     <TextBlock.Styles>

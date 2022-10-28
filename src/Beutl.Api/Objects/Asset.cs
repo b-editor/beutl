@@ -54,7 +54,7 @@ public class Asset
 
     public async Task RefreshAsync()
     {
-        _response.Value = await _clients.Assets.GetAsset2Async(Id);
+        _response.Value = await _clients.Assets.GetAssetAsync(Owner.Name, Name);
         _isDeleted.Value = false;
     }
 
@@ -65,7 +65,7 @@ public class Asset
             throw new InvalidOperationException("This object has been deleted.");
         }
 
-        _response.Value = await _clients.Assets.PatchAsync(Owner.Name.Value, Name, request);
+        _response.Value = await _clients.Assets.PatchAsync(Owner.Name, Name, request);
     }
 
     public async Task UpdateAsync(bool isPublic)
@@ -75,7 +75,7 @@ public class Asset
 
     public async Task DeleteAsync()
     {
-        await _clients.Assets.DeleteAsync(Owner.Name.Value, Name);
+        await _clients.Assets.DeleteAsync(Owner.Name, Name);
 
         _isDeleted.Value = true;
     }

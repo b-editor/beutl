@@ -52,9 +52,9 @@
                                    Text="{Binding Profile.DisplayName.Value}" />
                         <TextBlock Classes="name"
                                    IsVisible="{Binding Profile.DisplayName.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}"
-                                   Text="{Binding Profile.Name.Value}" />
+                                   Text="{Binding Profile.Name}" />
 
-                        <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Profile.Name.Value}" />
+                        <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Profile.Name}" />
                     </StackPanel>
 
                     <!--
@@ -168,7 +168,7 @@
                                               VerticalAlignment="Stretch"
                                               ColumnDefinitions="*,Auto"
                                               RowDefinitions="Auto,Auto,Auto">
-                                            <TextBlock Text="{Binding Name.Value}" />
+                                            <TextBlock Text="{Binding Name}" />
 
                                             <TextBlock Grid.Row="1"
                                                        Grid.ColumnSpan="2"
@@ -183,7 +183,7 @@
 
                                             <TextBlock Grid.Column="1"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                       Text="{Binding Owner.Name.Value}" />
+                                                       Text="{Binding Owner.Name}" />
                                         </Grid>
                                     </Grid>
                                     <Grid Margin="16"

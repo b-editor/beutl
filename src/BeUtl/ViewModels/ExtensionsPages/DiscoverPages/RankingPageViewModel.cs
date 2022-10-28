@@ -1,7 +1,7 @@
 ﻿using Avalonia.Collections;
 
 using Beutl.Api.Objects;
-
+using Beutl.Api.Services;
 using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DiscoverPages;

@@ -36,7 +36,7 @@ public sealed class ExtensionsPageViewModel : IDisposable
                 {
                     _discover = new DiscoverPageViewModel(_clients)
                         .DisposeWith(_authDisposables);
-                    _library = new LibraryPageViewModel(user)
+                    _library = new LibraryPageViewModel(user, _clients)
                         .DisposeWith(_authDisposables);
                     _develop = new DevelopPageViewModel(user)
                         .DisposeWith(_authDisposables);

@@ -58,7 +58,7 @@
                             HorizontalAlignment="Center"
                             Classes="simple"
                             Click="OpenPublisherPage_Click"
-                            Content="{Binding Package.Owner.Name.Value}" />
+                            Content="{Binding Package.Owner.Name}" />
 
                     <Button Padding="48,5,48,6"
                             HorizontalAlignment="Center"

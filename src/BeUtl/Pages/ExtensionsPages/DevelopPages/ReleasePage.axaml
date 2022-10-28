@@ -36,7 +36,7 @@
                     Spacing="16">
             <Button Classes="breadcrumb"
                     Click="NavigatePackageDetailsPage_Click"
-                    Content="{CompiledBinding Release.Package.Name.Value}" />
+                    Content="{CompiledBinding Release.Package.Name}" />
 
             <Label Classes="breadcrumb" />
 

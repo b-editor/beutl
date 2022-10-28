@@ -80,7 +80,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel
     public IReadOnlyReactiveProperty<string?> TwitterUrl { get; }
 
     public IReadOnlyReactiveProperty<string?> GitHubUrl { get; }
-    
+
     public IReadOnlyReactiveProperty<string?> YouTubeUrl { get; }
 
     public IReadOnlyReactiveProperty<string?> BlogUrl { get; }

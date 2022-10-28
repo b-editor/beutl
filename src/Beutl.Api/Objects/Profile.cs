@@ -18,7 +18,7 @@ public class Profile
         _response = new(response);
 
         Id = response.Id;
-        Name = Response.Select(x => x.Name).ToReadOnlyReactivePropertySlim()!;
+        Name = response.Name;
         Biography = Response.Select(x => x.Bio).ToReadOnlyReactivePropertySlim()!;
         DisplayName = Response.Select(x => x.Display_name).ToReadOnlyReactivePropertySlim()!;
         Email = Response.Select(x => x.Email).ToReadOnlyReactivePropertySlim()!;
@@ -34,7 +34,7 @@ public class Profile
 
     public string Id { get; }
 
-    public IReadOnlyReactiveProperty<string> Name { get; }
+    public string Name { get; }
 
     public IReadOnlyReactiveProperty<string> Biography { get; }
 
@@ -56,12 +56,12 @@ public class Profile
 
     public async Task RefreshAsync()
     {
-        _response.Value = await _clients.Users.GetUserAsync(Name.Value);
+        _response.Value = await _clients.Users.GetUserAsync(Name);
     }
 
     public async Task UpdateAsync(UpdateProfileRequest request)
     {
-        _response.Value = await _clients.Users.PatchAsync(Name.Value, request);
+        _response.Value = await _clients.Users.PatchAsync(Name, request);
     }
 
     public async Task UpdateAsync(
@@ -70,7 +70,6 @@ public class Profile
         string? blogUrl = null,
         string? displayName = null,
         string? githubUsername = null,
-        string? name = null,
         string? twitterUsername = null,
         string? youtubeUrl = null)
     {
@@ -80,29 +79,28 @@ public class Profile
             blog_url: blogUrl,
             display_name: displayName,
             github_username: githubUsername,
-            name: name,
             twitter_username: twitterUsername,
             youtube_url: youtubeUrl));
     }
 
     public async Task<Package> AddPackageAsync(string name, CreatePackageRequest request)
     {
-        PackageResponse response = await _clients.Packages.PostAsync(Name.Value, name, request);
+        PackageResponse response = await _clients.Packages.PostAsync(name, request);
         return new Package(this, response, _clients);
     }
 
     public async Task<Package[]> GetPackagesAsync(int start = 0, int count = 30)
     {
-        return await (await _clients.Users.GetPackagesAsync(Name.Value, start, count))
+        return await (await _clients.Users.GetPackagesAsync(Name, start, count))
             .ToAsyncEnumerable()
-            .SelectAwait(async x => await _clients.Packages.GetPackage2Async(x.Id))
+            .SelectAwait(async x => await _clients.Packages.GetPackageAsync(x.Name))
             .Select(x => new Package(this, x, _clients))
             .ToArrayAsync();
     }
 
     public async Task<Asset> AddAssetAsync(string name, CreateVirtualAssetRequest request)
     {
-        AssetMetadataResponse response = await _clients.Assets.PostAsync(Name.Value, name, request);
+        AssetMetadataResponse response = await _clients.Assets.PostAsync(Name, name, request);
         return new Asset(this, response, _clients);
     }
 
@@ -127,15 +125,15 @@ public class Profile
             streamContent
         };
 
-        AssetMetadataResponse response = await _clients.Assets.PostAsync(Name.Value, name, multiPartContent);
+        AssetMetadataResponse response = await _clients.Assets.PostAsync(Name, name, multiPartContent);
         return new Asset(this, response, _clients);
     }
 
     public async Task<Asset[]> GetAssetsAsync(int start = 0, int count = 30)
     {
-        return await (await _clients.Users.GetAssetsAsync(Name.Value, start, count))
+        return await (await _clients.Users.GetAssetsAsync(Name, start, count))
             .ToAsyncEnumerable()
-            .SelectAwait(async x => await _clients.Assets.GetAsset2Async(x.Id))
+            .SelectAwait(async x => await _clients.Assets.GetAssetAsync(Name, x.Name))
             .Select(x => new Asset(this, x, _clients))
             .ToArrayAsync();
     }
@@ -148,7 +146,7 @@ public class Profile
 
     public async Task<Asset> GetAssetAsync(string name)
     {
-        AssetMetadataResponse response = await _clients.Assets.GetAssetAsync(Name.Value, name);
+        AssetMetadataResponse response = await _clients.Assets.GetAssetAsync(Name, name);
         return new Asset(this, response, _clients);
     }
 }

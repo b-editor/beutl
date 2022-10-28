@@ -10,7 +10,7 @@ using Avalonia.Collections;
 
 using Beutl.Api;
 using Beutl.Api.Objects;
-
+using Beutl.Api.Services;
 using BeUtl.ViewModels.ExtensionsPages.DiscoverPages;
 
 using DynamicData;

@@ -46,7 +46,7 @@ public sealed class AccountSettingsPageViewModel : PageContext, IDisposable
             .DisposeWith(_disposables);
 
         Name = _clients.AuthorizedUser
-            .SelectMany(x => x?.Profile?.Name ?? Observable.Return<string?>(null))
+            .Select(x => x?.Profile?.Name)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -129,15 +129,7 @@ public sealed class AccountSettingsPageViewModel : PageContext, IDisposable
         {
             await user.RefreshAsync();
             await asset.UpdateAsync(true);
-            await user.Profile.UpdateAsync(new UpdateProfileRequest(
-                asset.Id,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null));
+            await user.Profile.UpdateAsync(avatarId: asset.Id);
         }
     }
 
