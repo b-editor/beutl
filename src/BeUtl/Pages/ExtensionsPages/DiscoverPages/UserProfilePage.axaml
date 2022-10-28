@@ -5,7 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:panelx="clr-namespace:PanelExntension;assembly=PanelExntension.Avalonia"
+             xmlns:panelx="using:PanelExtension"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:BeUtl.ViewModels.ExtensionsPages.DiscoverPages"
              d:DesignHeight="450"
