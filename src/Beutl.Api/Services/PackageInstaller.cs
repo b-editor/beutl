@@ -1,12 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Runtime.Versioning;
-using System.Text;
-using System.Threading.Tasks;
-
-using Beutl.Api.Objects;
+﻿using Beutl.Api.Objects;
 
 using NuGet.Common;
 using NuGet.Configuration;
@@ -14,204 +6,244 @@ using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Packaging.Signing;
-using NuGet.ProjectModel;
 using NuGet.Protocol.Core.Types;
 using NuGet.Resolver;
 using NuGet.Versioning;
 
-using Reactive.Bindings;
-
 namespace Beutl.Api.Services;
 
-public class PackageInstaller
+public partial class PackageInstaller
 {
+    private static readonly Mutex s_mutex = new(false, "Beutl.PackageInstaller");
+
+
     private readonly HttpClient _httpClient;
     private readonly InstalledPackageRepository _installedPackageRepository;
 
-    private readonly ISettings settings;
-    private readonly PackageSourceProvider packageSourceProvider;
-    private readonly SourceRepositoryProvider sourceRepositoryProvider;
-    private readonly SourceCacheContext cacheContext;
-    private readonly PackageResolver resolver;
+    private readonly ISettings _settings;
+    private readonly PackageSourceProvider _packageSourceProvider;
+    private readonly SourceRepositoryProvider _sourceRepositoryProvider;
+    private readonly SourceCacheContext _cacheContext;
+    private readonly PackageResolver _resolver;
 
     public PackageInstaller(HttpClient httpClient, InstalledPackageRepository installedPackageRepository)
     {
         _httpClient = httpClient;
         _installedPackageRepository = installedPackageRepository;
 
-        settings = Settings.LoadDefaultSettings(Helper.AppRoot);
-        packageSourceProvider = new PackageSourceProvider(settings);
+        _settings = Settings.LoadDefaultSettings(Helper.AppRoot);
+        _packageSourceProvider = new PackageSourceProvider(_settings);
         var localPkgSource = new PackageSource(Helper.LocalSourcePath);
-        packageSourceProvider.AddPackageSource(localPkgSource);
+        _packageSourceProvider.AddPackageSource(localPkgSource);
 
-        sourceRepositoryProvider = new SourceRepositoryProvider(packageSourceProvider, Repository.Provider.GetCoreV3());
-        cacheContext = new SourceCacheContext()
+        _sourceRepositoryProvider = new SourceRepositoryProvider(_packageSourceProvider, Repository.Provider.GetCoreV3());
+        _cacheContext = new SourceCacheContext()
         {
             DirectDownload = true
         };
 
-        resolver = new PackageResolver();
+        _resolver = new PackageResolver();
     }
 
-    public async Task Install(Package package, Release release, Asset asset, IPackageInstallProgress reporter, CancellationToken cancellationToken)
+    private static void CreateLocalSourceDirectory()
     {
         if (!Directory.Exists(Helper.LocalSourcePath))
         {
             Directory.CreateDirectory(Helper.LocalSourcePath);
         }
+    }
 
-        var name = package.Name;
-        var version = release.Version.Value;
-        using (var destination = File.Create(Path.Combine(Helper.LocalSourcePath, $"{name}.{version}.nupkg")))
+    private static string GetSpecFilePath(string packageId, string version)
+    {
+        return Path.Combine(Helper.LocalSourcePath, $"{packageId}.{version}.nupkg");
+    }
+
+    private static Task WaitAny(params WaitHandle[] waitHandles)
+    {
+        return Task.Run(() => WaitHandle.WaitAny(waitHandles));
+    }
+
+    public async Task<PackageInstallContext> PrepareForInstall(
+        Release release,
+        bool force = false,
+        CancellationToken cancellationToken = default)
+    {
+        try
         {
-            await Download(asset.DownloadUrl, destination, reporter, cancellationToken);
+            await WaitAny(s_mutex, cancellationToken.WaitHandle);
+            cancellationToken.ThrowIfCancellationRequested();
 
-            await ResolveDependencies(name, version, Helper.GetFrameworkName(), reporter);
+            if (!force && _installedPackageRepository.ExistsPackage(GetSpecFilePath(release.Package.Name, release.Version.Value)))
+            {
+                throw new Exception("This package is already installed.");
+            }
 
+            Asset asset = await release.GetAssetAsync();
 
+            return new PackageInstallContext(release.Package, release, asset);
+        }
+        finally
+        {
+            s_mutex.ReleaseMutex();
         }
     }
 
-    public async Task Download(
-        string url,
-        Stream destination,
-        IPackageInstallProgress reporter, CancellationToken cancellationToken)
+    public async Task DownloadPackageFile(
+        PackageInstallContext context,
+        IProgress<double> progress,
+        CancellationToken cancellationToken = default)
     {
-        using (HttpResponseMessage response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead))
+        try
         {
-            var contentLength = response.Content.Headers.ContentLength;
+            await WaitAny(s_mutex, cancellationToken.WaitHandle);
+            cancellationToken.ThrowIfCancellationRequested();
 
-            using (var download = await response.Content.ReadAsStreamAsync())
+            context.Phase = PackageInstallPhase.Downloading;
+            CreateLocalSourceDirectory();
+
+            string name = context.Package.Name;
+            string version = context.Release.Version.Value;
+            string downloadUrl = context.Asset.DownloadUrl;
+            using (FileStream destination = File.Create(GetSpecFilePath(name, version)))
             {
-                if (!contentLength.HasValue)
+                await Download(downloadUrl, destination, progress, cancellationToken);
+            }
+
+            context.Phase = PackageInstallPhase.Downloaded;
+        }
+        finally
+        {
+            s_mutex.ReleaseMutex();
+        }
+    }
+
+    public async Task ResolveDependencies(
+        PackageInstallContext context,
+        ILogger logger,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await WaitAny(s_mutex, cancellationToken.WaitHandle);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            context.Phase = PackageInstallPhase.ResolvingDependencies;
+
+            string packageId = context.Package.Name;
+            string version = context.Release.Version.Value;
+            NuGetFramework nuGetFramework = Helper.GetFrameworkName();
+            var package = new PackageIdentity(packageId, NuGetVersion.Parse(version));
+
+#if DEBUG
+            logger ??= new ConsoleLogger();
+#else
+        logger ??= NullLogger.Instance;
+#endif
+
+            IEnumerable<SourceRepository> repositories = _sourceRepositoryProvider.GetRepositories();
+            var availablePackages = new HashSet<SourcePackageDependencyInfo>(PackageIdentityComparer.Default);
+            await Helper.GetPackageDependencies(
+                package,
+                nuGetFramework,
+                _cacheContext,
+                logger,
+                repositories,
+                availablePackages,
+                cancellationToken);
+
+            var resolverContext = new PackageResolverContext(
+                DependencyBehavior.Lowest,
+                new[] { packageId },
+                Enumerable.Empty<string>(),
+                Enumerable.Empty<PackageReference>(),
+                Enumerable.Empty<PackageIdentity>(),
+                availablePackages,
+                repositories.Select(s => s.PackageSource),
+                logger);
+
+            SourcePackageDependencyInfo[] packagesToInstall
+                = _resolver.Resolve(resolverContext, cancellationToken)
+                    .Select(p => availablePackages.Single(x => PackageIdentityComparer.Default.Equals(x, p)))
+                    .ToArray();
+
+            var packageExtractionContext = new PackageExtractionContext(
+                PackageSaveMode.Nuspec | PackageSaveMode.Files,
+                XmlDocFileSaveMode.None,
+                ClientPolicyContext.GetClientPolicy(_settings, logger),
+                logger);
+
+            var installedPaths = new List<string>(packagesToInstall.Length);
+            foreach (SourcePackageDependencyInfo packageToInstall in packagesToInstall)
+            {
+                string installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
+                if (installedPath != null)
                 {
-                    reporter.Indeterminate(IPackageInstallProgress.ActionType.Downloading);
-                    await download.CopyToAsync(destination);
+                    installedPaths.Add(installedPath);
                 }
                 else
                 {
-                    var bufferSize = 81920;
-                    var buffer = new byte[bufferSize];
+                    DownloadResource downloadResource = await packageToInstall.Source.GetResourceAsync<DownloadResource>(cancellationToken);
+                    using DownloadResourceResult downloadResult = await downloadResource.GetDownloadResourceResultAsync(
+                        packageToInstall,
+                        new PackageDownloadContext(_cacheContext),
+                        SettingsUtility.GetGlobalPackagesFolder(_settings),
+                        logger, cancellationToken);
+
+                    await PackageExtractor.ExtractPackageAsync(
+                            downloadResult.PackageSource,
+                            downloadResult.PackageStream,
+                            Helper.PackagePathResolver,
+                            packageExtractionContext,
+                            cancellationToken);
+
+                    installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
+                    if (installedPath != null)
+                    {
+                        installedPaths.Add(installedPath);
+                    }
+                }
+            }
+
+            context.Phase = PackageInstallPhase.ResolvedDependencies;
+            context.InstalledPaths = installedPaths;
+        }
+        finally
+        {
+            s_mutex.ReleaseMutex();
+        }
+    }
+
+    private async Task Download(
+        string url,
+        Stream destination,
+        IProgress<double> progress,
+        CancellationToken cancellationToken)
+    {
+        using (HttpResponseMessage response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead))
+        {
+            long? contentLength = response.Content.Headers.ContentLength;
+
+            using (Stream download = await response.Content.ReadAsStreamAsync(cancellationToken))
+            {
+                if (!contentLength.HasValue)
+                {
+                    progress.Report(double.PositiveInfinity);
+                    await download.CopyToAsync(destination, cancellationToken);
+                }
+                else
+                {
+                    int bufferSize = 81920;
+                    byte[] buffer = new byte[bufferSize];
                     long totalBytesRead = 0;
                     int bytesRead;
                     while ((bytesRead = await download.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) != 0)
                     {
                         await destination.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
                         totalBytesRead += bytesRead;
-                        reporter.Download(totalBytesRead, contentLength.Value);
+                        progress.Report(totalBytesRead / (double)contentLength.Value);
                     }
                 }
-
-                reporter.DownloadComplete();
             }
         }
-    }
-
-    public async Task ResolveDependencies(
-        string packageId,
-        string version,
-        NuGetFramework nuGetFramework,
-        IPackageInstallProgress reporter)
-    {
-        var package = new PackageIdentity(packageId, NuGetVersion.Parse(version));
-
-        var logger = new ConsoleLogger();
-
-        reporter.Indeterminate(IPackageInstallProgress.ActionType.ResolvingDependencies);
-        var repositories = sourceRepositoryProvider.GetRepositories();
-        var availablePackages = new HashSet<SourcePackageDependencyInfo>(PackageIdentityComparer.Default);
-        await Helper.GetPackageDependencies(
-            new PackageIdentity(packageId, NuGetVersion.Parse(version)),
-            nuGetFramework,
-            cacheContext,
-            logger,
-            repositories,
-            availablePackages);
-
-        var resolverContext = new PackageResolverContext(
-            DependencyBehavior.Lowest,
-            new[] { packageId },
-            Enumerable.Empty<string>(),
-            Enumerable.Empty<PackageReference>(),
-            Enumerable.Empty<PackageIdentity>(),
-            availablePackages,
-            repositories.Select(s => s.PackageSource),
-            logger);
-
-        IEnumerable<SourcePackageDependencyInfo> packagesToInstall
-            = resolver.Resolve(resolverContext, CancellationToken.None)
-                .Select(p => availablePackages.Single(x => PackageIdentityComparer.Default.Equals(x, p)));
-
-        var packageExtractionContext = new PackageExtractionContext(
-            PackageSaveMode.Nuspec | PackageSaveMode.Files,
-            XmlDocFileSaveMode.None,
-            ClientPolicyContext.GetClientPolicy(settings, logger),
-            logger);
-
-        foreach (SourcePackageDependencyInfo packageToInstall in packagesToInstall)
-        {
-            PackageReaderBase packageReader;
-            string installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
-            if (installedPath == null)
-            {
-                reporter.Indeterminate(IPackageInstallProgress.ActionType.Downloading);
-                DownloadResource downloadResource = await packageToInstall.Source.GetResourceAsync<DownloadResource>(CancellationToken.None);
-                DownloadResourceResult downloadResult = await downloadResource.GetDownloadResourceResultAsync(
-                    packageToInstall,
-                    new PackageDownloadContext(cacheContext),
-                    SettingsUtility.GetGlobalPackagesFolder(settings),
-                    logger, CancellationToken.None);
-
-                reporter.Indeterminate(IPackageInstallProgress.ActionType.Extracting);
-                await PackageExtractor.ExtractPackageAsync(
-                        downloadResult.PackageSource,
-                        downloadResult.PackageStream,
-                        Helper.PackagePathResolver,
-                        packageExtractionContext,
-                        CancellationToken.None);
-
-                packageReader = downloadResult.PackageReader;
-            }
-        }
-    }
-
-    public string[] UnnecessaryPackages()
-    {
-        if (!Directory.Exists(Helper.InstallPath))
-        {
-            return Array.Empty<string>();
-        }
-
-        NuGetFramework framework = Helper.GetFrameworkName();
-
-        var logger = new ConsoleLogger();
-
-        var availablePackages = new HashSet<PackageDependencyInfo>(PackageIdentityComparer.Default);
-
-        foreach (string item in _installedPackageRepository.GetLocalPackages())
-        {
-            var reader = new NuspecReader(item);
-            PackageIdentity packageId = reader.GetIdentity();
-
-            var deps = reader.GetDependencyGroups();
-            var nearest = Helper.FrameworkReducer.GetNearest(
-                framework,
-                deps.Select(x => x.TargetFramework));
-
-            Helper.GetPackageDependencies(
-                new PackageDependencyInfo(packageId, deps
-                    .Where(x => x.TargetFramework == nearest)
-                    .SelectMany(x => x.Packages)),
-                framework,
-                logger,
-                availablePackages);
-        }
-
-        string[] directories = Directory.GetDirectories(Helper.InstallPath);
-
-        return directories.ExceptBy(
-            availablePackages.Select(x => $"{x.Id}.{x.Version}"),
-            y => Path.GetDirectoryName(y))
-            .ToArray();
     }
 }

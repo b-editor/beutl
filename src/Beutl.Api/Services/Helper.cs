@@ -52,31 +52,40 @@ internal class Helper
         SourceCacheContext cacheContext,
         ILogger logger,
         IEnumerable<SourceRepository> repositories,
-        ISet<SourcePackageDependencyInfo> availablePackages)
+        ISet<SourcePackageDependencyInfo> availablePackages,
+        CancellationToken cancellationToken = default)
     {
         if (availablePackages.Contains(package)) return;
 
-        foreach (var sourceRepository in repositories)
+        foreach (SourceRepository sourceRepository in repositories)
         {
-            var dependencyInfoResource = await sourceRepository.GetResourceAsync<DependencyInfoResource>();
-            var dependencyInfo = await dependencyInfoResource.ResolvePackage(
-                package, framework, cacheContext, logger, CancellationToken.None);
+            DependencyInfoResource dependencyInfoResource
+                = await sourceRepository.GetResourceAsync<DependencyInfoResource>(cancellationToken);
+
+            SourcePackageDependencyInfo dependencyInfo
+                = await dependencyInfoResource.ResolvePackage(
+                    package, framework, cacheContext, logger, cancellationToken);
 
             if (dependencyInfo == null) continue;
 
             availablePackages.Add(dependencyInfo);
-            foreach (var dependency in dependencyInfo.Dependencies)
+            foreach (PackageDependency? dependency in dependencyInfo.Dependencies)
             {
                 await GetPackageDependencies(
                     new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion),
-                    framework, cacheContext, logger, repositories, availablePackages);
+                    framework,
+                    cacheContext,
+                    logger,
+                    repositories,
+                    availablePackages,
+                    cancellationToken);
             }
         }
     }
 
-    public static void GetPackageDependencies(PackageDependencyInfo package,
+    public static void GetPackageDependencies(
+        PackageDependencyInfo package,
         NuGetFramework framework,
-        ILogger logger,
         ISet<PackageDependencyInfo> availablePackages)
     {
         if (availablePackages.Contains(package)) return;
@@ -99,7 +108,7 @@ internal class Helper
                     dependentPackage,
                     deps.Where(x => x.TargetFramework == nearest)
                         .SelectMany(x => x.Packages)),
-                framework, logger, availablePackages);
+                framework, availablePackages);
         }
     }
 

@@ -18,19 +18,24 @@ public class InstalledPackageRepository
         return _packages;
     }
 
-    public void AddPackage(string specFile)
+    public void AddPackage(string installedPath)
     {
-        if (!Directory.Exists(specFile))
+        if (!Directory.Exists(installedPath))
             throw new DirectoryNotFoundException();
 
-        _packages.Add(specFile);
+        _packages.Add(installedPath);
         Save();
     }
 
-    public void RemovePackage(string specFile)
+    public void RemovePackage(string installedPath)
     {
-        _packages.Remove(specFile);
+        _packages.Remove(installedPath);
         Save();
+    }
+    
+    public bool ExistsPackage(string installedPath)
+    {
+        return _packages.Contains(installedPath);
     }
 
     private void Save()
