@@ -18,14 +18,14 @@ using Reactive.Bindings;
 
 namespace Beutl.Api;
 
-public class BeutlClients
+public class BeutlApiApplication
 {
     //private const string BaseUrl = "https://localhost:7278";
     private const string BaseUrl = "https://beutl.beditor.net";
     private readonly HttpClient _httpClient;
     private readonly ReactivePropertySlim<AuthorizedUser?> _authorizedUser = new();
 
-    public BeutlClients(HttpClient httpClient)
+    public BeutlApiApplication(HttpClient httpClient)
     {
         _httpClient = httpClient;
         Packages = new PackagesClient(httpClient) { BaseUrl = BaseUrl };
@@ -275,7 +275,7 @@ public class BeutlClients
 
     private static Stream ReadClosePageResponse()
     {
-        Stream? stream = typeof(BeutlClients).Assembly.GetManifestResourceStream("Beutl.Api.Resources.index.html");
+        Stream? stream = typeof(BeutlApiApplication).Assembly.GetManifestResourceStream("Beutl.Api.Resources.index.html");
 
         if (stream == null)
         {

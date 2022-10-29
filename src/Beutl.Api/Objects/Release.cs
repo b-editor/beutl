@@ -6,11 +6,11 @@ namespace Beutl.Api.Objects;
 
 public class Release
 {
-    private readonly BeutlClients _clients;
+    private readonly BeutlApiApplication _clients;
     private readonly ReactivePropertySlim<ReleaseResponse> _response;
     private readonly ReactivePropertySlim<bool> _isDeleted = new();
 
-    public Release(Package package, ReleaseResponse response, BeutlClients clients)
+    public Release(Package package, ReleaseResponse response, BeutlApiApplication clients)
     {
         Id = response.Id;
         Package = package;

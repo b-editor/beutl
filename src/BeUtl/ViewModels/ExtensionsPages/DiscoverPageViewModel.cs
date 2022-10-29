@@ -23,10 +23,10 @@ namespace BeUtl.ViewModels.ExtensionsPages;
 
 public sealed class DiscoverPageViewModel : BasePageViewModel
 {
-    private readonly BeutlClients _clients;
+    private readonly BeutlApiApplication _clients;
     private readonly DiscoverService _discoverService;
 
-    public DiscoverPageViewModel(BeutlClients clients)
+    public DiscoverPageViewModel(BeutlApiApplication clients)
     {
         static async Task LoadAsync(CoreList<Package> packages, Func<int, int, Task<Package[]>> func, int maxCount = int.MaxValue)
         {

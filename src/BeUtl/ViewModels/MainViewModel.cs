@@ -30,7 +30,7 @@ public sealed class MainViewModel
     private readonly EditorService _editorService;
     private readonly INotificationService _notificationService;
     private readonly PageExtension[] _primitivePageExtensions;
-    private readonly BeutlClients _beutlClients;
+    private readonly BeutlApiApplication _beutlClients;
     private readonly HttpClient _authorizedHttpClient;
     internal readonly Task _packageLoadTask;
 
@@ -64,7 +64,7 @@ public sealed class MainViewModel
     public MainViewModel()
     {
         _authorizedHttpClient = new HttpClient();
-        _beutlClients = new BeutlClients(_authorizedHttpClient);
+        _beutlClients = new BeutlApiApplication(_authorizedHttpClient);
         Task.Run(async () =>
         {
             try

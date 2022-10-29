@@ -10,12 +10,12 @@ public sealed class ExtensionsPageViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly CompositeDisposable _authDisposables = new();
-    private readonly BeutlClients _clients;
+    private readonly BeutlApiApplication _clients;
     private DiscoverPageViewModel? _discover;
     private LibraryPageViewModel? _library;
     private DevelopPageViewModel? _develop;
 
-    public ExtensionsPageViewModel(BeutlClients clients)
+    public ExtensionsPageViewModel(BeutlApiApplication clients)
     {
         _clients = clients;
         IsAuthorized = clients.AuthorizedUser

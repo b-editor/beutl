@@ -6,7 +6,7 @@ namespace BeUtl.ViewModels;
 
 public sealed class SettingsPageViewModel
 {
-    public SettingsPageViewModel(BeutlClients clients)
+    public SettingsPageViewModel(BeutlApiApplication clients)
     {
         Account = new AccountSettingsPageViewModel(clients);
         Storage = new StorageSettingsPageViewModel(clients.AuthorizedUser);

@@ -8,11 +8,11 @@ namespace Beutl.Api.Objects;
 public class AuthorizedUser
 {
     private readonly AsyncLock _mutex = new();
-    private readonly BeutlClients _clients;
+    private readonly BeutlApiApplication _clients;
     private readonly HttpClient _httpClient;
     private AuthResponse _response;
 
-    public AuthorizedUser(Profile profile, AuthResponse response, BeutlClients clients, HttpClient httpClient)
+    public AuthorizedUser(Profile profile, AuthResponse response, BeutlApiApplication clients, HttpClient httpClient)
     {
         Profile = profile;
         _response = response;

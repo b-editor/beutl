@@ -6,11 +6,11 @@ namespace Beutl.Api.Objects;
 
 public class Asset
 {
-    private readonly BeutlClients _clients;
+    private readonly BeutlApiApplication _clients;
     private readonly ReactivePropertySlim<AssetMetadataResponse> _response;
     private readonly ReactivePropertySlim<bool> _isDeleted = new();
 
-    public Asset(Profile profile, AssetMetadataResponse response, BeutlClients clients)
+    public Asset(Profile profile, AssetMetadataResponse response, BeutlApiApplication clients)
     {
         _clients = clients;
         _response = new ReactivePropertySlim<AssetMetadataResponse>(response);

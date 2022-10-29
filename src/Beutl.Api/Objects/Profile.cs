@@ -9,10 +9,10 @@ namespace Beutl.Api.Objects;
 
 public class Profile
 {
-    private readonly BeutlClients _clients;
+    private readonly BeutlApiApplication _clients;
     private readonly ReactivePropertySlim<ProfileResponse> _response;
 
-    public Profile(ProfileResponse response, BeutlClients clients)
+    public Profile(ProfileResponse response, BeutlApiApplication clients)
     {
         _clients = clients;
         _response = new(response);

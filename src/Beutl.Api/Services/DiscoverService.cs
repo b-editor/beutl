@@ -10,9 +10,9 @@ namespace Beutl.Api.Services;
 
 public class DiscoverService
 {
-    private readonly BeutlClients _clients;
+    private readonly BeutlApiApplication _clients;
 
-    public DiscoverService(BeutlClients clients)
+    public DiscoverService(BeutlApiApplication clients)
     {
         _clients = clients;
     }

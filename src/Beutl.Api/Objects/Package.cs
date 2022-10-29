@@ -6,11 +6,11 @@ namespace Beutl.Api.Objects;
 
 public class Package
 {
-    private readonly BeutlClients _clients;
+    private readonly BeutlApiApplication _clients;
     private readonly ReactivePropertySlim<PackageResponse> _response;
     private readonly ReactivePropertySlim<bool> _isDeleted = new();
 
-    public Package(Profile profile, PackageResponse response, BeutlClients clients)
+    public Package(Profile profile, PackageResponse response, BeutlApiApplication clients)
     {
         _clients = clients;
         _response = new ReactivePropertySlim<PackageResponse>(response);

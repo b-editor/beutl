@@ -4,9 +4,9 @@ namespace Beutl.Api.Services;
 
 public class LibraryService
 {
-    private readonly BeutlClients _clients;
+    private readonly BeutlApiApplication _clients;
 
-    public LibraryService(BeutlClients clients)
+    public LibraryService(BeutlApiApplication clients)
     {
         _clients = clients;
     }

@@ -16,11 +16,11 @@ namespace BeUtl.ViewModels.ExtensionsPages;
 public sealed class LibraryPageViewModel : BasePageViewModel
 {
     private readonly AuthorizedUser _user;
-    private readonly BeutlClients _clients;
+    private readonly BeutlApiApplication _clients;
     private readonly CompositeDisposable _disposables = new();
     private readonly LibraryService _service;
 
-    public LibraryPageViewModel(AuthorizedUser user, BeutlClients clients)
+    public LibraryPageViewModel(AuthorizedUser user, BeutlApiApplication clients)
     {
         _user = user;
         _clients = clients;

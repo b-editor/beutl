@@ -11,10 +11,10 @@ namespace BeUtl.ViewModels.SettingsPages;
 public sealed class AccountSettingsPageViewModel : PageContext, IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
-    private readonly BeutlClients _clients;
+    private readonly BeutlApiApplication _clients;
     private readonly ReactivePropertySlim<CancellationTokenSource?> _cts = new();
 
-    public AccountSettingsPageViewModel(BeutlClients clients)
+    public AccountSettingsPageViewModel(BeutlApiApplication clients)
     {
         _clients = clients;
 
