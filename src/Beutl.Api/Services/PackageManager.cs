@@ -77,17 +77,30 @@ public sealed class PackageManager : PackageLoader
         return list;
     }
 
-    public Assembly Load(LocalPackage package)
+    public Assembly[] Load(LocalPackage package)
     {
         var packageId = new PackageIdentity(package.Name, NuGetVersion.Parse(package.Version));
         package.InstalledPath ??= Helper.PackagePathResolver.GetInstallPath(packageId);
 
-        Assembly asm = Load(package.InstalledPath);
+        Assembly[] assemblies = Load(package.InstalledPath);
 
         _loadedPackage.Add(package);
 
         var extensions = new List<Extension>();
-        foreach (Type type in asm.GetExportedTypes())
+
+        foreach (var assembly in assemblies)
+        {
+            LoadExtensions(assembly, extensions);
+        }
+
+        ExtensionProvider._allExtensions.Add(package.LocalId, extensions.ToArray());
+        
+        return assemblies;
+    }
+
+    private void LoadExtensions(Assembly assembly, List<Extension> extensions)
+    {
+        foreach (Type type in assembly.GetExportedTypes())
         {
             if (type.GetCustomAttribute<ExportAttribute>() is { })
             {
@@ -101,9 +114,5 @@ public sealed class PackageManager : PackageLoader
                 }
             }
         }
-
-        ExtensionProvider._allExtensions.Add(package.LocalId, extensions.ToArray());
-
-        return asm;
     }
 }

@@ -8,7 +8,7 @@ namespace Beutl.Api.Services;
 public abstract class PackageLoader : IBeutlApiResource
 {
 #pragma warning disable CA1822
-    protected Assembly Load(string installedPath)
+    protected Assembly[] Load(string installedPath)
 #pragma warning restore CA1822
     {
         NuGetFramework framework = Helper.GetFrameworkName();
@@ -21,6 +21,15 @@ public abstract class PackageLoader : IBeutlApiResource
         string mainDirectory = Path.Combine(installedPath, "lib", nearest.ToString());
 
         var loadContext = new PluginLoadContext(mainDirectory);
-        return loadContext.LoadFromAssemblyName(new AssemblyName(name));
+        string[] asmFiles = Directory.GetFiles("*.dll");
+        Assembly[] assemblies = new Assembly[asmFiles.Length];
+
+        int index = 0;
+        foreach (string asmFile in asmFiles)
+        {
+            assemblies[index++] = loadContext.LoadFromAssemblyPath(asmFile);
+        }
+
+        return assemblies;
     }
 }

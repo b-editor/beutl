@@ -175,6 +175,12 @@ public partial class PackageInstaller : IBeutlApiResource
             var installedPaths = new List<string>(packagesToInstall.Length);
             foreach (SourcePackageDependencyInfo packageToInstall in packagesToInstall)
             {
+                // BeUtl.Sdkに含まれるライブラリの場合、飛ばす。
+                if (Helper.IsCoreLibraries(packageToInstall.Id))
+                {
+                    continue;
+                }
+
                 string installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
                 if (installedPath != null)
                 {

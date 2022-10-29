@@ -112,4 +112,17 @@ internal class Helper
         }
     }
 
+    public static bool IsCoreLibraries(string name)
+    {
+        return name is "BeUtl.Sdk"
+            or "BeUtl.Configuration"
+            or "BeUtl.Core"
+            or "BeUtl.Framework"
+            or "BeUtl.Graphics"
+            or "BeUtl.Language"
+            or "BeUtl.Operators"
+            or "BeUtl.ProjectSystem"
+            or "BeUtl.Threading"
+            or "BeUtl.Utilities";
+    }
 }
