@@ -1,30 +1,26 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Reflection;
 
 using NuGet.Frameworks;
 using NuGet.Packaging;
 
 namespace Beutl.Api.Services;
 
-public class PackageLoader
+public abstract class PackageLoader : IBeutlApiResource
 {
-    public Assembly Load(string specFile)
+#pragma warning disable CA1822
+    protected Assembly Load(string installedPath)
+#pragma warning restore CA1822
     {
-        var framework = Helper.GetFrameworkName();
-        var reader = new NuspecReader(specFile);
+        NuGetFramework framework = Helper.GetFrameworkName();
+        var reader = new PackageFolderReader(installedPath);
 
-        var nearest = Helper.FrameworkReducer.GetNearest(framework, reader.GetDependencyGroups().Select(x => x.TargetFramework));
+        NuGetFramework nearest = Helper.FrameworkReducer.GetNearest(framework, reader.GetPackageDependencies().Select(x => x.TargetFramework));
 
-        string directory = Directory.GetParent(specFile)!.FullName;
-        string name = Path.GetFileNameWithoutExtension(specFile);
+        string name = Path.GetFileNameWithoutExtension(installedPath);
 
-        string mainLibrary = Path.Combine(directory, "lib", nearest.ToString(), $"{name}.dll");
+        string mainDirectory = Path.Combine(installedPath, "lib", nearest.ToString());
 
-        PluginLoadContext loadContext = new PluginLoadContext(specFile);
+        var loadContext = new PluginLoadContext(mainDirectory);
         return loadContext.LoadFromAssemblyName(new AssemblyName(name));
     }
 }

@@ -4,13 +4,16 @@ using System.Numerics;
 
 using Avalonia.Controls;
 
+using Beutl.Api.Services;
+
 using BeUtl.Framework;
-using BeUtl.Framework.Services;
 using BeUtl.Graphics;
 using BeUtl.Graphics.Transformation;
 using BeUtl.Media;
 using BeUtl.ViewModels.Editors;
 using BeUtl.Views.Editors;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BeUtl.Services;
 
@@ -23,7 +26,7 @@ public static class PropertyEditorService
 
     public static (CoreProperty[] Properties, PropertyEditorExtension Extension) MatchProperty(IReadOnlyList<CoreProperty> properties)
     {
-        ExtensionProvider extp = PackageManager.Instance.ExtensionProvider;
+        ExtensionProvider extp = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
 
         PropertyEditorExtension[] items = extp.GetExtensions<PropertyEditorExtension>();
         for (int i = items.Length - 1; i >= 0; i--)
@@ -41,7 +44,7 @@ public static class PropertyEditorService
 
     public static IObservable<string> GetPropertyName(CoreProperty property)
     {
-        ExtensionProvider extp = PackageManager.Instance.ExtensionProvider;
+        ExtensionProvider extp = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
 
         LocalizedPropertyNameExtension[] items = extp.GetExtensions<LocalizedPropertyNameExtension>();
         for (int i = items.Length - 1; i >= 0; i--)

@@ -152,6 +152,7 @@ public sealed partial class MainView : UserControl
         _disposables.Clear();
         if (DataContext is MainViewModel viewModel)
         {
+            Task task = viewModel.RunSplachScreenTask();
             _settingsView = new SettingsPage
             {
                 DataContext = viewModel.SettingsPage.Context
@@ -251,8 +252,8 @@ Error:
 
             InitCommands(viewModel);
 
-            await viewModel._packageLoadTask;
-            InitExtMenuItems();
+            await task;
+            InitExtMenuItems(viewModel);
 
             InitRecentItems(viewModel);
         }
@@ -358,10 +359,9 @@ Error:
                 return;
             }
 
-
             var filters = new List<FilePickerFileType>();
 
-            filters.AddRange(await PackageManager.Instance.ExtensionProvider.GetExtensions<EditorExtension>()
+            filters.AddRange(await viewModel.GetEditorExtensions()
                 .ToAsyncEnumerable()
                 .SelectAwait(async e => new FilePickerFileType(await e.FileTypeName.FirstOrDefaultAsync())
                 {
@@ -600,9 +600,8 @@ Error:
         }).AddTo(_disposables);
     }
 
-    private void InitExtMenuItems()
+    private void InitExtMenuItems(MainViewModel viewModel)
     {
-        PackageManager manager = PackageManager.Instance;
         if (toolTabMenuItem.Items is not IList items1)
         {
             items1 = new AvaloniaList<object>();
@@ -611,7 +610,7 @@ Error:
 
         // Todo: Extensionの実行時アンロードの実現時、
         //       ForEachItemメソッドを使うかeventにする
-        foreach (ToolTabExtension item in manager.ExtensionProvider.AllExtensions.OfType<ToolTabExtension>())
+        foreach (ToolTabExtension item in viewModel.GetToolTabExtensions())
         {
             if (item.Header == null)
                 continue;
@@ -660,7 +659,7 @@ Error:
             }
         };
 
-        foreach (EditorExtension item in manager.ExtensionProvider.AllExtensions.OfType<EditorExtension>())
+        foreach (EditorExtension item in viewModel.GetEditorExtensions())
         {
             var menuItem = new MenuItem()
             {

@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
 
 using Beutl.Api.Objects;
 
@@ -12,23 +8,27 @@ namespace Beutl.Api.Services;
 public class LocalPackage
 {
     internal static int s_nextId;
-    internal readonly int _id;
 
     public LocalPackage()
     {
-        _id = s_nextId++;
+        LocalId = s_nextId++;
     }
 
-    public LocalPackage(Package package, Release release)
+    public LocalPackage(Package package)
     {
         Name = package.Name;
         DisplayName = package.DisplayName.Value;
-        Version = release.Version.Value;
         Publisher = package.Owner.Name;
         WebSite = package.WebSite.Value;
         Description = package.Description.Value;
         ShortDescription = package.ShortDescription.Value;
         Tags = package.Tags.Value.ToList();
+    }
+
+    public LocalPackage(Package package, Release release)
+        : this(package)
+    {
+        Version = release.Version.Value;
     }
 
     [JsonPropertyName("name")]
@@ -54,7 +54,7 @@ public class LocalPackage
 
     [JsonPropertyName("assembly")]
     public string Assembly { get; set; } = string.Empty;
-    
+
     [JsonPropertyName("logo")]
     public string Logo { get; set; } = string.Empty;
 
@@ -62,8 +62,9 @@ public class LocalPackage
     public List<string> Tags { get; set; } = new List<string>();
 
     [JsonIgnore]
-    public string? BasePath { get; set; }
+    [AllowNull]
+    public string InstalledPath { get; internal set; }
 
     [JsonIgnore]
-    public int LocalId => _id;
+    public int LocalId { get; }
 }

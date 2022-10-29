@@ -1,28 +1,33 @@
 ﻿using BeUtl.Collections;
 using BeUtl.Configuration;
+using BeUtl.Framework;
 
 using static BeUtl.Configuration.ExtensionConfig;
 
-namespace BeUtl.Framework.Services;
+namespace Beutl.Api.Services;
 
-public sealed class ExtensionProvider
+public sealed class ExtensionProvider : IBeutlApiResource
 {
     internal readonly Dictionary<int, Extension[]> _allExtensions = new();
     private readonly ExtensionConfig _config = GlobalConfiguration.Instance.ExtensionConfig;
     private readonly Dictionary<Type, Array> _cache = new();
+    private bool _cacheInvalidated;
 
-    public ExtensionProvider(PackageManager packageManager)
+    public ExtensionProvider()
     {
-        PackageManager = packageManager;
     }
-
-    public PackageManager PackageManager { get; }
 
     public IEnumerable<Extension> AllExtensions => _allExtensions.Values.SelectMany(ext => ext);
 
     public TExtension[] GetExtensions<TExtension>()
         where TExtension : Extension
     {
+        if (_cacheInvalidated)
+        {
+            _cache.Clear();
+            _cacheInvalidated = true;
+        }
+
         if (_cache.TryGetValue(typeof(TExtension), out Array? result))
         {
             return (TExtension[])result;
@@ -93,5 +98,10 @@ public sealed class ExtensionProvider
                 yield return wsiExtension;
             }
         }
+    }
+
+    public void InvalidateCache()
+    {
+        _cacheInvalidated = true;
     }
 }

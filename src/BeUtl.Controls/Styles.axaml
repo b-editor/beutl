@@ -5,6 +5,22 @@
         xmlns:local="using:BeUtl.Controls"
         xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
+    <Styles.Resources>
+        <x:Double x:Key="LayerHeight">25</x:Double>
+        <x:Double x:Key="SecondWidth">150</x:Double>
+    </Styles.Resources>
+
+    <Style Selector="PopupRoot">
+        <Setter Property="TransparencyLevelHint" Value="AcrylicBlur" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="TransparencyBackgroundFallback" Value="Transparent" />
+    </Style>
+    <Style Selector="MenuFlyoutPresenter /template/ Border#LayoutRoot">
+        <Setter Property="Background">
+            <SolidColorBrush Opacity="0.725" Color="{DynamicResource SolidBackgroundFillColorBase}" />
+        </Setter>
+    </Style>
+
     <Style Selector="Border.CardStyle">
         <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
@@ -28,7 +44,6 @@
         <Setter Property="Opacity" Value="0" />
     </Style>
 
-    <StyleInclude Source="avares://BeUtl.Controls/Styling/BaseResources.axaml" />
     <StyleInclude Source="avares://BeUtl.Controls/Styling/FluentIconsFilled.axaml" />
     <StyleInclude Source="avares://BeUtl.Controls/Styling/FluentIconsRegular.axaml" />
     <StyleInclude Source="avares://BeUtl.Controls/Styling/Player.axaml" />

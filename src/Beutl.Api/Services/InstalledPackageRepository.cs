@@ -3,12 +3,12 @@ using System.Text.Json;
 
 namespace Beutl.Api.Services;
 
-public class InstalledPackageRepository
+public class InstalledPackageRepository : IBeutlApiResource
 {
     private readonly List<string> _packages = new();
     private const string FileName = "installedPackages.json";
 
-    private InstalledPackageRepository()
+    public InstalledPackageRepository()
     {
         Restore();
     }

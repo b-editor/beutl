@@ -5,6 +5,7 @@ using Avalonia.Threading;
 
 using Beutl.Api;
 using Beutl.Api.Objects;
+using Beutl.Api.Services;
 
 using BeUtl.Configuration;
 using BeUtl.Framework;
@@ -13,6 +14,7 @@ using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
 using BeUtl.Services.PrimitiveImpls;
+using BeUtl.ViewModels.ExtensionsPages;
 
 using DynamicData;
 
@@ -20,19 +22,15 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
-using Package = BeUtl.Framework.Package;
-
 namespace BeUtl.ViewModels;
 
-public sealed class MainViewModel
+public sealed class MainViewModel : BasePageViewModel
 {
     private readonly IProjectService _projectService;
     private readonly EditorService _editorService;
-    private readonly INotificationService _notificationService;
     private readonly PageExtension[] _primitivePageExtensions;
     private readonly BeutlApiApplication _beutlClients;
     private readonly HttpClient _authorizedHttpClient;
-    internal readonly Task _packageLoadTask;
 
     public sealed class NavItemViewModel
     {
@@ -65,21 +63,9 @@ public sealed class MainViewModel
     {
         _authorizedHttpClient = new HttpClient();
         _beutlClients = new BeutlApiApplication(_authorizedHttpClient);
-        Task.Run(async () =>
-        {
-            try
-            {
-                await _beutlClients.RestoreUserAsync();
-            }
-            catch (Exception e)
-            {
-
-            }
-        });
 
         _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
         _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
-        _notificationService = ServiceLocator.Current.GetRequiredService<INotificationService>();
         _primitivePageExtensions = new PageExtension[]
         {
             EditPageExtension.Instance,
@@ -124,14 +110,14 @@ public sealed class MainViewModel
 
                     if (result)
                     {
-                        _notificationService.Show(new Notification(
+                        Notification.Show(new Notification(
                             string.Empty,
                             string.Format(S.Message.ItemSaved, item.FileName),
                             NotificationType.Success));
                     }
                     else
                     {
-                        _notificationService.Show(new Notification(
+                        Notification.Show(new Notification(
                             string.Empty,
                             S.Message.OperationCouldNotBeExecuted,
                             NotificationType.Information));
@@ -139,7 +125,7 @@ public sealed class MainViewModel
                 }
                 catch
                 {
-                    _notificationService.Show(new Notification(
+                    Notification.Show(new Notification(
                         string.Empty,
                         S.Message.OperationCouldNotBeExecuted,
                         NotificationType.Error));
@@ -166,14 +152,14 @@ public sealed class MainViewModel
                     }
                 }
 
-                _notificationService.Show(new Notification(
+                Notification.Show(new Notification(
                     string.Empty,
                     string.Format(S.Message.ItemsSaved, itemsCount.ToString()),
                     NotificationType.Success));
             }
             catch
             {
-                _notificationService.Show(new Notification(
+                Notification.Show(new Notification(
                     string.Empty,
                     S.Message.OperationCouldNotBeExecuted,
                     NotificationType.Error));
@@ -203,41 +189,6 @@ public sealed class MainViewModel
             IKnownEditorCommands? commands = _editorService.SelectedTabItem.Value?.Commands.Value;
             if (commands != null)
                 await commands.OnRedo();
-        });
-
-        _packageLoadTask = Task.Run(async () =>
-        {
-            PackageManager manager = PackageManager.Instance;
-
-            manager.ExtensionProvider._allExtensions.Add(Package.s_nextId++, _primitivePageExtensions);
-
-            // NOTE: ここでSceneEditorExtensionを登録しているので、
-            //       パッケージとして分離する場合ここを削除
-            manager.ExtensionProvider._allExtensions.Add(Package.s_nextId++, new Extension[]
-            {
-                SceneEditorExtension.Instance,
-                SceneWorkspaceItemExtension.Instance,
-                TimelineTabExtension.Instance,
-                AnimationTimelineTabExtension.Instance,
-                ObjectPropertyTabExtension.Instance,
-                StyleEditorTabExtension.Instance,
-                StreamOperatorsTabExtension.Instance,
-                EasingsTabExtension.Instance,
-                AnimationTabExtension.Instance,
-                PropertyEditorExtension.Instance,
-                AlignmentsPropertyEditorExtension.Instance,
-                DefaultPropertyNameExtension.Instance,
-            });
-
-            manager.LoadPackages(manager.GetPackageInfos());
-
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (Application.Current != null)
-                {
-                    PackageManager.Instance.AttachToApplication(Application.Current);
-                }
-            });
         });
 
         Pages = new()
@@ -278,14 +229,6 @@ public sealed class MainViewModel
                     Title: "",
                     Message: S.Warning.CouldNotOpenProject));
             }
-        });
-
-        _packageLoadTask.ContinueWith(_ =>
-        {
-            PackageManager manager = PackageManager.Instance;
-            IEnumerable<PageExtension> toAdd
-                = manager.ExtensionProvider.AllExtensions.OfType<PageExtension>().Except(_primitivePageExtensions);
-            Dispatcher.UIThread.InvokeAsync(() => Pages.AddRange(toAdd.Select(item => new NavItemViewModel(item))));
         });
     }
 
@@ -376,4 +319,68 @@ public sealed class MainViewModel
     public ReactiveProperty<NavItemViewModel?> SelectedPage { get; } = new();
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
+
+    public async Task RunSplachScreenTask()
+    {
+        try
+        {
+            await _beutlClients.RestoreUserAsync();
+        }
+        catch (Exception e)
+        {
+            ErrorHandle(e);
+        }
+
+        PackageManager manager = _beutlClients.GetResource<PackageManager>();
+        ExtensionProvider provider = _beutlClients.GetResource<ExtensionProvider>();
+
+        provider._allExtensions.Add(LocalPackage.s_nextId++, _primitivePageExtensions);
+
+        // NOTE: ここでSceneEditorExtensionを登録しているので、
+        //       パッケージとして分離する場合ここを削除
+        provider._allExtensions.Add(LocalPackage.s_nextId++, new Extension[]
+        {
+            SceneEditorExtension.Instance,
+            SceneWorkspaceItemExtension.Instance,
+            TimelineTabExtension.Instance,
+            AnimationTimelineTabExtension.Instance,
+            ObjectPropertyTabExtension.Instance,
+            StyleEditorTabExtension.Instance,
+            StreamOperatorsTabExtension.Instance,
+            EasingsTabExtension.Instance,
+            AnimationTabExtension.Instance,
+            PropertyEditorExtension.Instance,
+            AlignmentsPropertyEditorExtension.Instance,
+            DefaultPropertyNameExtension.Instance,
+        });
+
+        foreach (LocalPackage item in await manager.GetPackages())
+        {
+            manager.Load(item);
+        }
+
+        IEnumerable<PageExtension> toAdd
+            = provider.AllExtensions.OfType<PageExtension>().Except(_primitivePageExtensions);
+        await Dispatcher.UIThread.InvokeAsync(() => Pages.AddRange(toAdd.Select(item => new NavItemViewModel(item))));
+    }
+
+    public ToolTabExtension[] GetToolTabExtensions()
+    {
+        return _beutlClients.GetResource<ExtensionProvider>().GetExtensions<ToolTabExtension>();
+    }
+
+    public EditorExtension[] GetEditorExtensions()
+    {
+        return _beutlClients.GetResource<ExtensionProvider>().GetExtensions<EditorExtension>();
+    }
+
+    public void RegisterServices()
+    {
+        ServiceLocator.Current
+            .Bind<ExtensionProvider>().ToConstant(_beutlClients.GetResource<ExtensionProvider>());
+    }
+
+    public override void Dispose()
+    {
+    }
 }

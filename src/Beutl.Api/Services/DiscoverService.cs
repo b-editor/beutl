@@ -8,7 +8,7 @@ using Beutl.Api.Objects;
 
 namespace Beutl.Api.Services;
 
-public class DiscoverService
+public class DiscoverService : IBeutlApiResource
 {
     private readonly BeutlApiApplication _clients;
 

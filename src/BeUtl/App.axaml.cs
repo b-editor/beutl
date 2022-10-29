@@ -32,6 +32,7 @@ public sealed class App : Application
 {
     private readonly Uri _baseUri = new("avares://BeUtl/App.axaml");
     private IStyle? _cultureStyle;
+    private MainViewModel? _mainViewModel;
 
     public override void Initialize()
     {
@@ -123,6 +124,8 @@ public sealed class App : Application
             .BindToSelf<INotificationService>(new NotificationService())
             .BindToSelf<IResourceProvider>(new DefaultResourceProvider());
 
+        GetMainViewModel().RegisterServices();
+
         OperatorsRegistrar.RegisterAll();
         UIDispatcherScheduler.Initialize();
     }
@@ -134,7 +137,7 @@ public sealed class App : Application
         {
             desktop.MainWindow = new MainWindow
             {
-                DataContext = new MainViewModel(),
+                DataContext = GetMainViewModel(),
             };
 
             desktop.Exit += Application_Exit;
@@ -143,11 +146,16 @@ public sealed class App : Application
         {
             singleViewPlatform.MainView = new MainView
             {
-                DataContext = new MainViewModel(),
+                DataContext = GetMainViewModel(),
             };
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private MainViewModel GetMainViewModel()
+    {
+        return _mainViewModel ??= new MainViewModel();
     }
 
     private void Application_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)

@@ -12,7 +12,7 @@ using NuGet.Versioning;
 
 namespace Beutl.Api.Services;
 
-public partial class PackageInstaller
+public partial class PackageInstaller : IBeutlApiResource
 {
     private static readonly Mutex s_mutex = new(false, "Beutl.PackageInstaller");
 
@@ -219,7 +219,7 @@ public partial class PackageInstaller
         IProgress<double> progress,
         CancellationToken cancellationToken)
     {
-        using (HttpResponseMessage response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead))
+        using (HttpResponseMessage response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
         {
             long? contentLength = response.Content.Headers.ContentLength;
 

@@ -10,6 +10,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 using Beutl.Api.Objects;
+using Beutl.Api.Services;
 
 using BeUtl;
 using BeUtl.Configuration;
@@ -24,6 +25,7 @@ public class BeutlApiApplication
     private const string BaseUrl = "https://beutl.beditor.net";
     private readonly HttpClient _httpClient;
     private readonly ReactivePropertySlim<AuthorizedUser?> _authorizedUser = new();
+    private readonly Dictionary<Type, Func<object>> _services = new();
 
     public BeutlApiApplication(HttpClient httpClient)
     {
@@ -42,6 +44,8 @@ public class BeutlApiApplication
                 httpClient.DefaultRequestHeaders.AcceptLanguage.Clear();
                 httpClient.DefaultRequestHeaders.AcceptLanguage.Add(new StringWithQualityHeaderValue(x.Name));
             });
+
+        RegisterAll();
     }
 
     public PackagesClient Packages { get; }
@@ -59,6 +63,46 @@ public class BeutlApiApplication
     public LibraryClient Library { get; }
 
     public IReadOnlyReactiveProperty<AuthorizedUser?> AuthorizedUser => _authorizedUser;
+
+    public T GetResource<T>()
+        where T : IBeutlApiResource
+    {
+        if (_services.TryGetValue(typeof(T), out Func<object>? func))
+        {
+            return (T)func();
+        }
+
+        foreach (KeyValuePair<Type, Func<object>> item in _services)
+        {
+            if (item.Key.IsAssignableTo(typeof(T)))
+            {
+                return (T)item.Value();
+            }
+        }
+
+        throw new Exception("Resource not found");
+    }
+
+    private void RegisterAll()
+    {
+        Register(() => new DiscoverService(this));
+        Register(() => GetResource<PackageManager>().ExtensionProvider);
+        Register(() => new InstalledPackageRepository());
+        Register(() => new LibraryService(this));
+        Register(() => new PackageInstaller(new HttpClient(), GetResource<InstalledPackageRepository>()));
+        Register(() => new PackageManager(GetResource<InstalledPackageRepository>(), this));
+    }
+
+    private void Register<T>(Func<T> factory)
+        where T : IBeutlApiResource
+    {
+        IBeutlApiResource? obj = null;
+        _services.Add(typeof(T), () =>
+        {
+            obj ??= factory();
+            return obj;
+        });
+    }
 
     public void SignOut()
     {

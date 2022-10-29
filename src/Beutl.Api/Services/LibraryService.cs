@@ -2,7 +2,7 @@
 
 namespace Beutl.Api.Services;
 
-public class LibraryService
+public class LibraryService : IBeutlApiResource
 {
     private readonly BeutlApiApplication _clients;
 
