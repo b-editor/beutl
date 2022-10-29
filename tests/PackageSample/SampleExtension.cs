@@ -6,6 +6,7 @@ using BeUtl.Streaming;
 
 namespace PackageSample;
 
+[Export]
 public sealed class SampleExtension : LayerExtension
 {
     public override string Name => "SampleExtension";

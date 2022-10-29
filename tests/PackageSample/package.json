@@ -1,7 +1,0 @@
-{
-    "name": "samplepackage",
-    "displayName": "SamplePackage",
-    "version": "0.0.0",
-    "publisher": "beutl",
-    "assembly": "PackageSample.dll"
-}

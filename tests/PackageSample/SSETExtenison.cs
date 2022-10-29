@@ -5,7 +5,6 @@ using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Layout;
 
-using BeUtl;
 using BeUtl.Framework;
 
 using Reactive.Bindings;
@@ -13,6 +12,7 @@ using Reactive.Bindings;
 namespace PackageSample;
 
 // SampleSceneEditorTabExtenison
+[Export]
 public sealed class SSETExtenison : ToolTabExtension
 {
     public override bool CanMultiple => true;

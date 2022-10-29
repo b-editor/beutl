@@ -7,7 +7,16 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-    <OutputPath>$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))\.beutl\extensions\package-sample-0.0.0</OutputPath>
+    <!--<OutputPath>$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))\.beutl\extensions\package-sample-0.0.0</OutputPath>-->
+
+    <RepositoryUrl>https://github.com/b-editor/beutl</RepositoryUrl>
+    <PackageId>SamplePackage</PackageId>
+    <Description>サンプル</Description>
+    <PackageTags>sample</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <Authors>tyrudt</Authors>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,12 +27,6 @@
     <ProjectReference Include="..\..\src\BeUtl.Controls\BeUtl.Controls.csproj" />
     <ProjectReference Include="..\..\src\BeUtl.Framework\BeUtl.Framework.csproj" />
     <ProjectReference Include="..\..\src\BeUtl.ProjectSystem\BeUtl.ProjectSystem.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="package.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
 
 </Project>
