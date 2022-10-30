@@ -1,11 +1,19 @@
 ﻿using System.IO.IsolatedStorage;
+using System.Reactive.Subjects;
 using System.Text.Json;
+
+using BeUtl.Reactive;
+
+using NuGet.Packaging;
+using NuGet.Packaging.Core;
+using NuGet.Versioning;
 
 namespace Beutl.Api.Services;
 
 public class InstalledPackageRepository : IBeutlApiResource
 {
-    private readonly List<string> _packages = new();
+    private readonly HashSet<PackageIdentity> _packages = new();
+    private readonly Subject<(PackageIdentity Package, bool Exists)> _subject = new();
     private const string FileName = "installedPackages.json";
 
     public InstalledPackageRepository()
@@ -13,29 +21,84 @@ public class InstalledPackageRepository : IBeutlApiResource
         Restore();
     }
 
-    public IEnumerable<string> GetLocalPackages()
+    public IEnumerable<PackageIdentity> GetLocalPackages()
     {
         return _packages;
     }
 
-    public void AddPackage(string installedPath)
+    public IEnumerable<PackageIdentity> GetLocalPackages(string name)
     {
+        return _packages.Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name));
+    }
+
+    public void AddPackage(string name, string version)
+    {
+        var package = new PackageIdentity(name, new NuGetVersion(version));
+        string installedPath = Helper.PackagePathResolver.GetInstalledPath(package);
         if (!Directory.Exists(installedPath))
             throw new DirectoryNotFoundException();
 
-        _packages.Add(installedPath);
-        Save();
+        if (_packages.Add(package))
+        {
+            Save();
+            _subject.OnNext((package, true));
+        }
     }
 
-    public void RemovePackage(string installedPath)
+    public void AddPackage(PackageIdentity package)
     {
-        _packages.Remove(installedPath);
-        Save();
+        string installedPath = Helper.PackagePathResolver.GetInstalledPath(package);
+        if (!Directory.Exists(installedPath))
+            throw new DirectoryNotFoundException();
+
+        if (_packages.Add(package))
+        {
+            Save();
+            _subject.OnNext((package, true));
+        }
     }
-    
-    public bool ExistsPackage(string installedPath)
+
+    public void RemovePackage(string name, string version)
     {
-        return _packages.Contains(installedPath);
+        var nugetVersion = new NuGetVersion(version);
+        PackageIdentity? package = _packages.FirstOrDefault(
+            x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name) && x.Version == nugetVersion);
+        if (package != null && _packages.Remove(package))
+        {
+            Save();
+            _subject.OnNext((package, false));
+        }
+    }
+
+    public void RemovePackage(PackageIdentity package)
+    {
+        if (_packages.Remove(package))
+        {
+            Save();
+            _subject.OnNext((package, false));
+        }
+    }
+
+    public bool ExistsPackage(PackageIdentity package)
+    {
+        return _packages.Contains(package);
+    }
+
+    public bool ExistsPackage(string name, string version)
+    {
+        var nugetVersion = new NuGetVersion(version);
+        return _packages.Any(
+            x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name) && x.Version == nugetVersion);
+    }
+
+    public bool ExistsPackage(string name)
+    {
+        return _packages.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name));
+    }
+
+    public IObservable<bool> GetObservable(string name, string? version = null)
+    {
+        return new _Observable(this, name, version);
     }
 
     private void Save()
@@ -43,7 +106,7 @@ public class InstalledPackageRepository : IBeutlApiResource
         using (var storagefile = IsolatedStorageFile.GetUserStoreForAssembly())
         using (IsolatedStorageFileStream stream = storagefile.CreateFile(FileName))
         {
-            JsonSerializer.Serialize(stream, _packages);
+            JsonSerializer.Serialize(stream, _packages.Select(x => new S_Package(x.Id, x.Version.ToString())));
         }
     }
 
@@ -55,13 +118,68 @@ public class InstalledPackageRepository : IBeutlApiResource
             {
                 using (IsolatedStorageFileStream stream = storagefile.CreateFile(FileName))
                 {
-                    if(JsonSerializer.Deserialize<string[]>(stream) is string[] packages)
+                    if (JsonSerializer.Deserialize<S_Package[]>(stream) is S_Package[] packages)
                     {
                         _packages.Clear();
 
-                        _packages.AddRange(packages);
+                        _packages.AddRange(packages.Select(x => new PackageIdentity(x.Name, new NuGetVersion(x.Version))));
                     }
                 }
+            }
+        }
+    }
+
+    // Serializable
+    private record S_Package(string Name, string Version);
+
+    private sealed class _Observable : LightweightObservableBase<bool>
+    {
+        private readonly InstalledPackageRepository _repository;
+        private readonly string _name;
+        private readonly PackageIdentity? _packageIdentity;
+        private IDisposable? _disposable;
+
+        public _Observable(InstalledPackageRepository repository, string name, string? version)
+        {
+            _repository = repository;
+            _name = name;
+
+            if (version is { })
+            {
+                _packageIdentity = new PackageIdentity(name, new NuGetVersion(version));
+            }
+        }
+
+        protected override void Subscribed(IObserver<bool> observer, bool first)
+        {
+            if (_packageIdentity is { })
+            {
+                observer.OnNext(_repository.ExistsPackage(_packageIdentity));
+            }
+            else
+            {
+                observer.OnNext(_repository.ExistsPackage(_name));
+            }
+        }
+
+        protected override void Deinitialize()
+        {
+            _disposable?.Dispose();
+            _disposable = null;
+        }
+
+        protected override void Initialize()
+        {
+            _disposable = _repository._subject
+                .Subscribe(OnReceived);
+        }
+
+        private void OnReceived((PackageIdentity Package, bool Exists) obj)
+        {
+            if ((_packageIdentity != null && _packageIdentity == obj.Package)
+                || StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name))
+            {
+                PublishNext(obj.Exists);
             }
         }
     }

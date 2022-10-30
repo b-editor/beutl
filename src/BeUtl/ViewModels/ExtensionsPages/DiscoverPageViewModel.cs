@@ -54,7 +54,7 @@ public sealed class DiscoverPageViewModel : BasePageViewModel
 
         _clients = clients;
         _discoverService = new DiscoverService(clients);
-        DataContextFactory = new DataContextFactory(_discoverService);
+        DataContextFactory = new DataContextFactory(_discoverService, _clients);
         Refresh.Subscribe(async () =>
         {
             try

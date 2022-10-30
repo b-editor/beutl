@@ -88,6 +88,7 @@ public class BeutlApiApplication
         Register(() => new DiscoverService(this));
         Register(() => GetResource<PackageManager>().ExtensionProvider);
         Register(() => new InstalledPackageRepository());
+        Register(() => new PackageChangesQueue());
         Register(() => new LibraryService(this));
         Register(() => new PackageInstaller(new HttpClient(), GetResource<InstalledPackageRepository>()));
         Register(() => new PackageManager(GetResource<InstalledPackageRepository>(), this));
@@ -246,6 +247,8 @@ public class BeutlApiApplication
                     {
                         var user = new AuthorizedUser(new Profile(profile, this), new AuthResponse(expiration.Value, refreshToken, token), this, _httpClient);
                         await user.RefreshAsync();
+
+                        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
                         await user.Profile.RefreshAsync();
                         _authorizedUser.Value = user;
                         SaveUser();

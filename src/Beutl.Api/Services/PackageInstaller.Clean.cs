@@ -6,11 +6,11 @@ namespace Beutl.Api.Services;
 
 public partial class PackageInstaller
 {
-    private string[] UnnecessaryPackages(IEnumerable<string>? installedPackages = null)
+    private PackageIdentity[] UnnecessaryPackages(IEnumerable<PackageIdentity>? installedPackages = null)
     {
         if (!Directory.Exists(Helper.InstallPath))
         {
-            return Array.Empty<string>();
+            return Array.Empty<PackageIdentity>();
         }
 
         NuGetFramework framework = Helper.GetFrameworkName();
@@ -19,30 +19,31 @@ public partial class PackageInstaller
 
         installedPackages ??= _installedPackageRepository.GetLocalPackages();
 
-        foreach (string item in installedPackages)
+        foreach (PackageIdentity packageId in installedPackages)
         {
-            var reader = new PackageFolderReader(item);
-            PackageIdentity packageId = reader.GetIdentity();
+            string directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
+            if (directory != null)
+            {
+                var reader = new PackageFolderReader(directory);
 
-            IEnumerable<PackageDependencyGroup> deps = reader.GetPackageDependencies();
-            NuGetFramework nearest = Helper.FrameworkReducer.GetNearest(
-                framework,
-                deps.Select(x => x.TargetFramework));
+                IEnumerable<PackageDependencyGroup> deps = reader.GetPackageDependencies();
+                NuGetFramework nearest = Helper.FrameworkReducer.GetNearest(
+                    framework,
+                    deps.Select(x => x.TargetFramework));
 
-            Helper.GetPackageDependencies(
-                new PackageDependencyInfo(packageId, deps
-                    .Where(x => x.TargetFramework == nearest)
-                    .SelectMany(x => x.Packages)),
-                framework,
-                availablePackages);
+                Helper.GetPackageDependencies(
+                    new PackageDependencyInfo(packageId, deps
+                        .Where(x => x.TargetFramework == nearest)
+                        .SelectMany(x => x.Packages)),
+                    framework,
+                    availablePackages);
+            }
         }
 
-        string[] directories = Directory.GetDirectories(Helper.InstallPath);
+        IEnumerable<PackageIdentity> all = Directory.GetDirectories(Helper.InstallPath)
+            .Select(x => new PackageFolderReader(x).GetIdentity());
 
-        return directories.ExceptBy(
-            availablePackages.Select(x => $"{x.Id}.{x.Version}"),
-            y => Path.GetFileName(y))
-            .ToArray();
+        return all.Except(availablePackages).ToArray();
     }
 
     public async Task<PackageCleanContext> PrepareForClean(CancellationToken cancellationToken = default)
@@ -52,11 +53,12 @@ public partial class PackageInstaller
             await WaitAny(s_mutex, cancellationToken.WaitHandle);
             cancellationToken.ThrowIfCancellationRequested();
 
-            string[] unnecessaryPackages = UnnecessaryPackages();
+            PackageIdentity[] unnecessaryPackages = UnnecessaryPackages();
 
             long size = 0;
-            foreach (string directory in unnecessaryPackages)
+            foreach (PackageIdentity package in unnecessaryPackages)
             {
+                string directory = Helper.PackagePathResolver.GetInstalledPath(package);
                 foreach (string file in Directory.GetFiles(directory))
                 {
                     size += new FileInfo(file).Length;
@@ -83,8 +85,9 @@ public partial class PackageInstaller
 
             var failedPackages = new List<string>();
             long totalSize = 0;
-            foreach (string directory in context.UnnecessaryPackages)
+            foreach (PackageIdentity package in context.UnnecessaryPackages)
             {
+                string directory = Helper.PackagePathResolver.GetInstalledPath(package);
                 bool hasAnyFailtures = false;
                 foreach (string file in Directory.GetFiles(directory))
                 {
@@ -107,7 +110,7 @@ public partial class PackageInstaller
                     failedPackages.Add(directory);
                 }
 
-                _installedPackageRepository.RemovePackage(directory);
+                _installedPackageRepository.RemovePackage(package);
             }
 
             context.FailedPackages = failedPackages;

@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Beutl.Api;
+﻿using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 
@@ -13,60 +7,21 @@ using NuGet.Versioning;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.ExtensionsPages.DiscoverPages;
+namespace BeUtl.ViewModels.ExtensionsPages;
 
-public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
+public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageViewModel
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly PackageChangesQueue _queue;
-    private readonly PackageManager _manager;
     private readonly BeutlApiApplication _app;
 
-    public PublicPackageDetailsPageViewModel(Package package, BeutlApiApplication app)
+    public RemoteYourPackageViewModel(Package package, BeutlApiApplication app)
     {
         Package = package;
         _app = app;
         _installedPackageRepository = app.GetResource<InstalledPackageRepository>();
-        _manager = app.GetResource<PackageManager>();
         _queue = app.GetResource<PackageChangesQueue>();
-
-        Refresh = new AsyncReactiveCommand(IsBusy.Not())
-            .WithSubscribe(async () =>
-            {
-                try
-                {
-                    IsBusy.Value = true;
-                    await package.RefreshAsync();
-                    int totalCount = 0;
-                    int prevCount = 0;
-
-                    do
-                    {
-                        Release[] array = await package.GetReleasesAsync(totalCount, 30);
-                        if (Array.Find(array, x => x.IsPublic.Value) is { } publicRelease)
-                        {
-                            await publicRelease.RefreshAsync();
-                            LatestRelease.Value = publicRelease;
-                            break;
-                        }
-
-                        totalCount += array.Length;
-                        prevCount = array.Length;
-                    } while (prevCount == 30);
-                }
-                catch (Exception e)
-                {
-                    ErrorHandle(e);
-                }
-                finally
-                {
-                    IsBusy.Value = false;
-                }
-            })
-            .DisposeWith(_disposables);
-
-        Refresh.Execute();
 
         IObservable<PackageChangesQueue.EventType> observable = _queue.GetObservable(package.Name);
         CanCancel = observable.Select(x => x != PackageChangesQueue.EventType.None)
@@ -81,7 +36,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
             .DisposeWith(_disposables);
 
         IsUninstallButtonVisible = installed
-            .AreTrue(CanCancel.Not())
+            .AreTrue(CanCancel.Not(), IsUpdateButtonVisible.Not())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -188,7 +143,13 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
 
     public Package Package { get; }
 
-    public ReactivePropertySlim<Release> LatestRelease { get; } = new();
+    public string Name => Package.Name;
+
+    public IReadOnlyReactiveProperty<string> DisplayName => Package.DisplayName;
+
+    public IReadOnlyReactiveProperty<string> LogoUrl => Package.LogoUrl;
+
+    public string Publisher => Package.Owner.Name;
 
     public ReadOnlyReactivePropertySlim<bool> IsInstallButtonVisible { get; }
 
@@ -207,8 +168,6 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
     public ReactiveCommand Cancel { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
-
-    public AsyncReactiveCommand Refresh { get; }
 
     public override void Dispose()
     {

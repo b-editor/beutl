@@ -4,6 +4,7 @@ using Avalonia.LogicalTree;
 
 using Beutl.Api.Objects;
 
+using BeUtl.ViewModels;
 using BeUtl.ViewModels.ExtensionsPages.DiscoverPages;
 
 using FluentAvalonia.UI.Controls;
@@ -25,7 +26,8 @@ public partial class PublicPackageDetailsPage : UserControl
         if (e.Parameter is Package package)
         {
             DestoryDataContext();
-            DataContext = new PublicPackageDetailsPageViewModel(package);
+            DataContextFactory factory = GetDataContextFactory();
+            DataContext = factory.PublicPackageDetailPage(package);
         }
     }
 
@@ -42,6 +44,11 @@ public partial class PublicPackageDetailsPage : UserControl
         }
 
         DataContext = null;
+    }
+
+    private DataContextFactory GetDataContextFactory()
+    {
+        return ((ExtensionsPageViewModel)this.FindLogicalAncestorOfType<ExtensionsPage>()!.DataContext!).Discover.DataContextFactory;
     }
 
     private async void OpenWebSite_Click(object? sender, RoutedEventArgs e)

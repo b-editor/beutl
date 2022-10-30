@@ -20,7 +20,11 @@ public sealed partial class MainWindow : CoreWindow
     {
         InitializeComponent();
 
-        NotificationManager = new WindowNotificationManager(this);
+        NotificationManager = new WindowNotificationManager(this)
+        {
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+            Margin = new Thickness(64, 40, 0, 0)
+        };
 
 #if DEBUG
         this.AttachDevTools();

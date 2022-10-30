@@ -8,29 +8,18 @@ namespace Beutl.Api.Services;
 
 public class PackageUninstallContext
 {
-    public PackageUninstallContext(string packageId, string version)
+    public PackageUninstallContext(PackageIdentity packageIdentity, string? installedPath = null)
     {
-        PackageId = packageId;
-        Version = version;
-
-        Id = new PackageIdentity(packageId, NuGetVersion.Parse(version));
-        InstalledPath = Helper.PackagePathResolver.GetInstalledPath(Id);
-    }
-
-    public PackageUninstallContext(string installedPath)
-    {
-        var reader = new PackageFolderReader(installedPath);
-
-        Id = reader.NuspecReader.GetIdentity();
+        Id = packageIdentity;
         PackageId = Id.Id;
         Version = Id.Version.ToString();
-        InstalledPath = installedPath;
+        InstalledPath = installedPath??Helper.PackagePathResolver.GetInstalledPath(packageIdentity);
     }
 
     internal PackageIdentity Id { get; }
 
     [AllowNull]
-    internal string[] UnnecessaryPackages { get; init; }
+    internal PackageIdentity[] UnnecessaryPackages { get; init; }
 
     //internal string[] UnnecessaryPackages { get; require init; }
 

@@ -112,6 +112,16 @@ internal class Helper
         }
     }
 
+    public static string GetNupkgFilePath(string packageId, string version)
+    {
+        return Path.Combine(LocalSourcePath, $"{packageId}.{version}.nupkg");
+    }
+
+    public static string GetNuspecFilePath(string packageId, string version)
+    {
+        return Path.Combine(InstallPath, $"{packageId}.{version}", $"{packageId}.{version}.nuspec");
+    }
+
     public static bool IsCoreLibraries(string name)
     {
         return name is "BeUtl.Sdk"
@@ -124,5 +134,29 @@ internal class Helper
             or "BeUtl.ProjectSystem"
             or "BeUtl.Threading"
             or "BeUtl.Utilities";
+    }
+
+    public static T? TryGetOrDefault<T>(Func<T> func)
+    {
+        try
+        {
+            return func();
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
+    public static async Task<T?> TryGetOrDefault<T>(Func<Task<T>> func)
+    {
+        try
+        {
+            return await func();
+        }
+        catch
+        {
+            return default;
+        }
     }
 }

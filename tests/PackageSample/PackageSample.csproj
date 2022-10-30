@@ -11,6 +11,7 @@
 
     <RepositoryUrl>https://github.com/b-editor/beutl</RepositoryUrl>
     <PackageId>SamplePackage</PackageId>
+    <Title>サンプルパッケージ</Title>
     <Description>サンプル</Description>
     <PackageTags>sample</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

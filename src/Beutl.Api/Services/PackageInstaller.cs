@@ -1,4 +1,9 @@
-﻿using Beutl.Api.Objects;
+﻿using System.Reactive.Linq;
+using System.Reactive.Subjects;
+
+using Beutl.Api.Objects;
+
+using BeUtl.Reactive;
 
 using NuGet.Common;
 using NuGet.Configuration;
@@ -25,6 +30,17 @@ public partial class PackageInstaller : IBeutlApiResource
     private readonly SourceRepositoryProvider _sourceRepositoryProvider;
     private readonly SourceCacheContext _cacheContext;
     private readonly PackageResolver _resolver;
+
+    private readonly Dictionary<PackageIdentity, PackageInstallContext> _installingContexts = new();
+
+    private readonly Subject<(PackageIdentity Package, EventType Type)> _subject = new();
+
+    public enum EventType
+    {
+        Idle,
+        Installing,
+        Uninstalling,
+    }
 
     public PackageInstaller(HttpClient httpClient, InstalledPackageRepository installedPackageRepository)
     {
@@ -53,14 +69,14 @@ public partial class PackageInstaller : IBeutlApiResource
         }
     }
 
-    private static string GetSpecFilePath(string packageId, string version)
-    {
-        return Path.Combine(Helper.LocalSourcePath, $"{packageId}.{version}.nupkg");
-    }
-
     private static Task WaitAny(params WaitHandle[] waitHandles)
     {
         return Task.Run(() => WaitHandle.WaitAny(waitHandles));
+    }
+
+    public IObservable<EventType> GetObservable(string name, string? version = null)
+    {
+        return new _Observable(this, name, version);
     }
 
     public async Task<PackageInstallContext> PrepareForInstall(
@@ -73,14 +89,64 @@ public partial class PackageInstaller : IBeutlApiResource
             await WaitAny(s_mutex, cancellationToken.WaitHandle);
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!force && _installedPackageRepository.ExistsPackage(GetSpecFilePath(release.Package.Name, release.Version.Value)))
+            string name = release.Package.Name;
+            string version = release.Version.Value;
+            var packageId = new PackageIdentity(name, new NuGetVersion(version));
+
+            if (!force && _installedPackageRepository.ExistsPackage(Helper.GetNuspecFilePath(name, version)))
             {
                 throw new Exception("This package is already installed.");
             }
 
-            Asset asset = await release.GetAssetAsync();
+            if (_installingContexts.TryGetValue(packageId, out PackageInstallContext? context))
+            {
+                return context;
+            }
+            else
+            {
+                Asset asset = await release.GetAssetAsync();
 
-            return new PackageInstallContext(release.Package, release, asset);
+                context = new PackageInstallContext(name, version, asset.DownloadUrl);
+                _installingContexts.Add(packageId, context);
+                return context;
+            }
+        }
+        finally
+        {
+            s_mutex.ReleaseMutex();
+        }
+    }
+
+    public async Task<PackageInstallContext> PrepareForInstall(
+        string name,
+        string version,
+        bool force = false,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await WaitAny(s_mutex, cancellationToken.WaitHandle);
+            cancellationToken.ThrowIfCancellationRequested();
+            var packageId = new PackageIdentity(name, new NuGetVersion(version));
+
+            if (!force && _installedPackageRepository.ExistsPackage(Helper.GetNuspecFilePath(name, version)))
+            {
+                throw new Exception("This package is already installed.");
+            }
+
+            if (_installingContexts.TryGetValue(packageId, out PackageInstallContext? context))
+            {
+                return context;
+            }
+            else
+            {
+                context = new PackageInstallContext(name, version, string.Empty)
+                {
+                    Phase = PackageInstallPhase.Downloaded
+                };
+                _installingContexts.Add(packageId, context);
+                return context;
+            }
         }
         finally
         {
@@ -97,19 +163,21 @@ public partial class PackageInstaller : IBeutlApiResource
         {
             await WaitAny(s_mutex, cancellationToken.WaitHandle);
             cancellationToken.ThrowIfCancellationRequested();
-
-            context.Phase = PackageInstallPhase.Downloading;
-            CreateLocalSourceDirectory();
-
-            string name = context.Package.Name;
-            string version = context.Release.Version.Value;
-            string downloadUrl = context.Asset.DownloadUrl;
-            using (FileStream destination = File.Create(GetSpecFilePath(name, version)))
+            if ((int)context.Phase <= (int)PackageInstallPhase.Downloading)
             {
-                await Download(downloadUrl, destination, progress, cancellationToken);
-            }
+                context.Phase = PackageInstallPhase.Downloading;
+                CreateLocalSourceDirectory();
 
-            context.Phase = PackageInstallPhase.Downloaded;
+                string name = context.PackageName;
+                string version = context.Version;
+                string downloadUrl = context.DownloadUrl;
+                using (FileStream destination = File.Create(Helper.GetNupkgFilePath(name, version)))
+                {
+                    await Download(downloadUrl, destination, progress, cancellationToken);
+                }
+
+                context.Phase = PackageInstallPhase.Downloaded;
+            }
         }
         finally
         {
@@ -122,99 +190,107 @@ public partial class PackageInstaller : IBeutlApiResource
         ILogger logger,
         CancellationToken cancellationToken = default)
     {
+        PackageIdentity? package = null;
         try
         {
             await WaitAny(s_mutex, cancellationToken.WaitHandle);
             cancellationToken.ThrowIfCancellationRequested();
+            if ((int)context.Phase <= (int)PackageInstallPhase.ResolvingDependencies)
+            {
+                context.Phase = PackageInstallPhase.ResolvingDependencies;
 
-            context.Phase = PackageInstallPhase.ResolvingDependencies;
-
-            string packageId = context.Package.Name;
-            string version = context.Release.Version.Value;
-            NuGetFramework nuGetFramework = Helper.GetFrameworkName();
-            var package = new PackageIdentity(packageId, NuGetVersion.Parse(version));
+                string packageId = context.PackageName;
+                string version = context.Version;
+                NuGetFramework nuGetFramework = Helper.GetFrameworkName();
+                package = new PackageIdentity(packageId, NuGetVersion.Parse(version));
 
 #if DEBUG
-            logger ??= new ConsoleLogger();
+                logger ??= new ConsoleLogger();
 #else
-        logger ??= NullLogger.Instance;
+                logger ??= NullLogger.Instance;
 #endif
 
-            IEnumerable<SourceRepository> repositories = _sourceRepositoryProvider.GetRepositories();
-            var availablePackages = new HashSet<SourcePackageDependencyInfo>(PackageIdentityComparer.Default);
-            await Helper.GetPackageDependencies(
-                package,
-                nuGetFramework,
-                _cacheContext,
-                logger,
-                repositories,
-                availablePackages,
-                cancellationToken);
+                IEnumerable<SourceRepository> repositories = _sourceRepositoryProvider.GetRepositories();
+                var availablePackages = new HashSet<SourcePackageDependencyInfo>(PackageIdentityComparer.Default);
+                await Helper.GetPackageDependencies(
+                    package,
+                    nuGetFramework,
+                    _cacheContext,
+                    logger,
+                    repositories,
+                    availablePackages,
+                    cancellationToken);
 
-            var resolverContext = new PackageResolverContext(
-                DependencyBehavior.Lowest,
-                new[] { packageId },
-                Enumerable.Empty<string>(),
-                Enumerable.Empty<PackageReference>(),
-                Enumerable.Empty<PackageIdentity>(),
-                availablePackages,
-                repositories.Select(s => s.PackageSource),
-                logger);
+                var resolverContext = new PackageResolverContext(
+                    DependencyBehavior.Lowest,
+                    new[] { packageId },
+                    Enumerable.Empty<string>(),
+                    Enumerable.Empty<PackageReference>(),
+                    Enumerable.Empty<PackageIdentity>(),
+                    availablePackages,
+                    repositories.Select(s => s.PackageSource),
+                    logger);
 
-            SourcePackageDependencyInfo[] packagesToInstall
-                = _resolver.Resolve(resolverContext, cancellationToken)
-                    .Select(p => availablePackages.Single(x => PackageIdentityComparer.Default.Equals(x, p)))
-                    .ToArray();
+                SourcePackageDependencyInfo[] packagesToInstall
+                    = _resolver.Resolve(resolverContext, cancellationToken)
+                        .Select(p => availablePackages.Single(x => PackageIdentityComparer.Default.Equals(x, p)))
+                        .ToArray();
 
-            var packageExtractionContext = new PackageExtractionContext(
-                PackageSaveMode.Nuspec | PackageSaveMode.Files,
-                XmlDocFileSaveMode.None,
-                ClientPolicyContext.GetClientPolicy(_settings, logger),
-                logger);
+                var packageExtractionContext = new PackageExtractionContext(
+                    PackageSaveMode.Nuspec | PackageSaveMode.Files,
+                    XmlDocFileSaveMode.None,
+                    ClientPolicyContext.GetClientPolicy(_settings, logger),
+                    logger);
 
-            var installedPaths = new List<string>(packagesToInstall.Length);
-            foreach (SourcePackageDependencyInfo packageToInstall in packagesToInstall)
-            {
-                // BeUtl.Sdkに含まれるライブラリの場合、飛ばす。
-                if (Helper.IsCoreLibraries(packageToInstall.Id))
+                var installedPaths = new List<string>(packagesToInstall.Length);
+                foreach (SourcePackageDependencyInfo packageToInstall in packagesToInstall)
                 {
-                    continue;
-                }
+                    // BeUtl.Sdkに含まれるライブラリの場合、飛ばす。
+                    if (Helper.IsCoreLibraries(packageToInstall.Id))
+                    {
+                        continue;
+                    }
 
-                string installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
-                if (installedPath != null)
-                {
-                    installedPaths.Add(installedPath);
-                }
-                else
-                {
-                    DownloadResource downloadResource = await packageToInstall.Source.GetResourceAsync<DownloadResource>(cancellationToken);
-                    using DownloadResourceResult downloadResult = await downloadResource.GetDownloadResourceResultAsync(
-                        packageToInstall,
-                        new PackageDownloadContext(_cacheContext),
-                        SettingsUtility.GetGlobalPackagesFolder(_settings),
-                        logger, cancellationToken);
-
-                    await PackageExtractor.ExtractPackageAsync(
-                            downloadResult.PackageSource,
-                            downloadResult.PackageStream,
-                            Helper.PackagePathResolver,
-                            packageExtractionContext,
-                            cancellationToken);
-
-                    installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
+                    string installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
                     if (installedPath != null)
                     {
                         installedPaths.Add(installedPath);
                     }
-                }
-            }
+                    else
+                    {
+                        DownloadResource downloadResource = await packageToInstall.Source.GetResourceAsync<DownloadResource>(cancellationToken);
+                        using DownloadResourceResult downloadResult = await downloadResource.GetDownloadResourceResultAsync(
+                            packageToInstall,
+                            new PackageDownloadContext(_cacheContext),
+                            SettingsUtility.GetGlobalPackagesFolder(_settings),
+                            logger, cancellationToken);
 
-            context.Phase = PackageInstallPhase.ResolvedDependencies;
-            context.InstalledPaths = installedPaths;
+                        await PackageExtractor.ExtractPackageAsync(
+                                downloadResult.PackageSource,
+                                downloadResult.PackageStream,
+                                Helper.PackagePathResolver,
+                                packageExtractionContext,
+                                cancellationToken);
+
+                        installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
+                        if (installedPath != null)
+                        {
+                            installedPaths.Add(installedPath);
+                        }
+                    }
+                }
+
+                context.Phase = PackageInstallPhase.ResolvedDependencies;
+                context.InstalledPaths = installedPaths;
+                _installedPackageRepository.AddPackage(package);
+            }
         }
         finally
         {
+            if (package is { })
+            {
+                _installingContexts.Remove(package);
+            }
             s_mutex.ReleaseMutex();
         }
     }
@@ -249,6 +325,76 @@ public partial class PackageInstaller : IBeutlApiResource
                         progress.Report(totalBytesRead / (double)contentLength.Value);
                     }
                 }
+            }
+        }
+    }
+
+    private sealed class _Observable : LightweightObservableBase<EventType>
+    {
+        private readonly PackageInstaller _installer;
+        private readonly string _name;
+        private readonly PackageIdentity? _packageIdentity;
+        private IDisposable? _disposable;
+
+        public _Observable(PackageInstaller installer, string name, string? version)
+        {
+            _installer = installer;
+            _name = name;
+
+            if (version is { })
+            {
+                _packageIdentity = new PackageIdentity(name, new NuGetVersion(version));
+            }
+        }
+
+        protected override void Subscribed(IObserver<EventType> observer, bool first)
+        {
+            if (_packageIdentity is { })
+            {
+                if (_installer._installingContexts.ContainsKey(_packageIdentity))
+                {
+                    observer.OnNext(EventType.Installing);
+                }
+                //else if (_installer._uninstallingContexts.ContainsKey(_packageIdentity))
+                //{
+                //    observer.OnNext(EventType.Uninstalling);
+                //}
+                else
+                {
+                    observer.OnNext(EventType.Idle);
+                }
+            }
+            else
+            {
+                if (_installer._installingContexts.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Key.Id, _name)))
+                {
+                    observer.OnNext(EventType.Installing);
+                }
+                else
+                {
+                    observer.OnNext(EventType.Idle);
+                }
+            }
+        }
+
+        protected override void Deinitialize()
+        {
+            _disposable?.Dispose();
+            _disposable = null;
+        }
+
+        protected override void Initialize()
+        {
+            _disposable = _installer._subject
+                .Subscribe(OnReceived);
+        }
+
+        private void OnReceived((PackageIdentity Package, EventType Type) obj)
+        {
+            if ((_packageIdentity != null && _packageIdentity == obj.Package)
+                || StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name))
+            {
+                PublishNext(obj.Type);
             }
         }
     }

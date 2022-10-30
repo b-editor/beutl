@@ -1,16 +1,18 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
+using NuGet.Packaging.Core;
+
 namespace Beutl.Api.Services;
 
 public class PackageCleanContext
 {
-    public PackageCleanContext(string[] unnecessaryPackages, long sizeToBeReleased)
+    public PackageCleanContext(PackageIdentity[] unnecessaryPackages, long sizeToBeReleased)
     {
         UnnecessaryPackages = unnecessaryPackages;
         SizeToBeReleased = sizeToBeReleased;
     }
 
-    public string[] UnnecessaryPackages { get; }
+    public PackageIdentity[] UnnecessaryPackages { get; }
 
     public long SizeToBeReleased { get; }
 

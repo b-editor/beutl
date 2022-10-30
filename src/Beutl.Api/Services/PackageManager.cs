@@ -1,8 +1,11 @@
-﻿using System.Reflection;
+﻿using System.IO.Compression;
+using System.Reactive.Subjects;
+using System.Reflection;
 
 using Beutl.Api.Objects;
 
 using BeUtl.Framework;
+using BeUtl.Reactive;
 
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
@@ -15,6 +18,7 @@ public sealed class PackageManager : PackageLoader
     internal readonly List<LocalPackage> _loadedPackage = new();
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly BeutlApiApplication _apiApplication;
+    private readonly Subject<(PackageIdentity Package, bool Loaded)> _subject = new();
 
     public PackageManager(
         InstalledPackageRepository installedPackageRepository,
@@ -28,6 +32,107 @@ public sealed class PackageManager : PackageLoader
     public IReadOnlyList<LocalPackage> LoadedPackage => _loadedPackage;
 
     public ExtensionProvider ExtensionProvider { get; }
+
+    public IObservable<bool> GetObservable(string name, string? version = null)
+    {
+        return new _Observable(this, name, version);
+    }
+
+    public bool IsLoaded(string name, string? version = null)
+    {
+        if (version is { })
+        {
+            var nugetVersion = new NuGetVersion(version);
+            return _loadedPackage.Any(
+                x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, name)
+                    && new NuGetVersion(x.Version) == nugetVersion);
+        }
+        else
+        {
+            return _loadedPackage.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, name));
+        }
+    }
+
+    public IReadOnlyList<LocalPackage> GetLocalSourcePackages()
+    {
+        string[] files = Directory.GetFiles(Helper.LocalSourcePath, "*.nupkg");
+        var list = new List<LocalPackage>(files.Length);
+
+        foreach (string file in files)
+        {
+            using FileStream stream = File.OpenRead(file);
+            using var zip = new ZipArchive(stream);
+
+            var nuspecEntry = zip.Entries.FirstOrDefault(x => x.Name.EndsWith(".nuspec") && !x.FullName.Contains('/'));
+            if (nuspecEntry is { })
+            {
+                using (Stream nuspecStream = nuspecEntry.Open())
+                {
+                    var nuspecReader = new NuspecReader(nuspecStream);
+                    var localPackage = new LocalPackage(nuspecReader);
+
+                    if (!_loadedPackage.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, localPackage.Name)))
+                    {
+                        list.Add(localPackage);
+                    }
+                }
+            }
+        }
+
+        return list;
+    }
+
+    public async Task<IReadOnlyList<PackageUpdate>> CheckUpdate()
+    {
+        var updates = new List<PackageUpdate>(_loadedPackage.Count);
+        DiscoverService discover = _apiApplication.GetResource<DiscoverService>();
+
+        for (int i = 0; i < _loadedPackage.Count; i++)
+        {
+            LocalPackage pkg = _loadedPackage[i];
+            Package remotePackage = await discover.GetPackage(pkg.Name);
+
+            foreach (Release? item in await remotePackage.GetReleasesAsync())
+            {
+                // 降順
+                if (item.Version.Value.CompareTo(pkg.Version) > 0)
+                {
+                    // Todo: CompareTo
+                    Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(pkg.Version));
+                    updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
+                }
+            }
+        }
+
+        return updates;
+    }
+
+    public async Task<PackageUpdate?> CheckUpdate(string name)
+    {
+        DiscoverService discover = _apiApplication.GetResource<DiscoverService>();
+
+        for (int i = 0; i < _loadedPackage.Count; i++)
+        {
+            LocalPackage pkg = _loadedPackage[i];
+            if (StringComparer.OrdinalIgnoreCase.Equals(pkg.Name == name))
+            {
+                Package remotePackage = await discover.GetPackage(pkg.Name);
+
+                foreach (Release? item in await remotePackage.GetReleasesAsync())
+                {
+                    // 降順
+                    if (item.Version.Value.CompareTo(pkg.Version) > 0)
+                    {
+                        // Todo: CompareTo
+                        Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(pkg.Version));
+                        return new PackageUpdate(remotePackage, oldRelease, item);
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
 
     public async Task<IReadOnlyList<LocalPackage>> GetPackages()
     {
@@ -49,26 +154,29 @@ public sealed class PackageManager : PackageLoader
             }
         }
 
-        IEnumerable<string> packages = _installedPackageRepository.GetLocalPackages();
+        IEnumerable<PackageIdentity> packages = _installedPackageRepository.GetLocalPackages();
         var list = new List<LocalPackage>(packages.TryGetNonEnumeratedCount(out int count) ? count : 4);
 
-        foreach (string item in packages)
+        foreach (PackageIdentity packageId in packages)
         {
-            if (Directory.Exists(item))
+            string directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
+            if (Directory.Exists(directory))
             {
-                var reader = new PackageFolderReader(item);
-                NuspecReader nuspec = reader.NuspecReader;
-                Package? package = await GetPackage(item);
+                Package? package = await GetPackage(packageId.Id);
                 if (package == null)
                 {
-                    // Todo: リモートから取得できない場合
+                    var reader = new PackageFolderReader(directory);
+                    list.Add(new LocalPackage(reader.NuspecReader)
+                    {
+                        InstalledPath = directory
+                    });
                 }
                 else
                 {
                     list.Add(new LocalPackage(package)
                     {
-                        Version = nuspec.GetVersion().ToString(),
-                        InstalledPath = item,
+                        Version = packageId.Version.ToString(),
+                        InstalledPath = directory,
                     });
                 }
             }
@@ -88,13 +196,13 @@ public sealed class PackageManager : PackageLoader
 
         var extensions = new List<Extension>();
 
-        foreach (var assembly in assemblies)
+        foreach (Assembly assembly in assemblies)
         {
             LoadExtensions(assembly, extensions);
         }
 
         ExtensionProvider._allExtensions.Add(package.LocalId, extensions.ToArray());
-        
+
         return assemblies;
     }
 
@@ -112,6 +220,60 @@ public sealed class PackageManager : PackageLoader
                     extensions.Add(extension);
                     ExtensionProvider.InvalidateCache();
                 }
+            }
+        }
+    }
+
+    private sealed class _Observable : LightweightObservableBase<bool>
+    {
+        private readonly PackageManager _manager;
+        private readonly string _name;
+        private readonly PackageIdentity? _packageIdentity;
+        private IDisposable? _disposable;
+
+        public _Observable(PackageManager manager, string name, string? version)
+        {
+            _manager = manager;
+            _name = name;
+
+            if (version is { })
+            {
+                _packageIdentity = new PackageIdentity(name, new NuGetVersion(version));
+            }
+        }
+
+        protected override void Subscribed(IObserver<bool> observer, bool first)
+        {
+            if (_packageIdentity is { })
+            {
+                observer.OnNext(_manager._loadedPackage.Any(
+                    x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, _name)
+                        && new NuGetVersion(x.Version) == _packageIdentity.Version));
+            }
+            else
+            {
+                observer.OnNext(_manager._loadedPackage.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, _name)));
+            }
+        }
+
+        protected override void Deinitialize()
+        {
+            _disposable?.Dispose();
+            _disposable = null;
+        }
+
+        protected override void Initialize()
+        {
+            _disposable = _manager._subject
+                .Subscribe(OnReceived);
+        }
+
+        private void OnReceived((PackageIdentity Package, bool Loaded) obj)
+        {
+            if ((_packageIdentity != null && _packageIdentity == obj.Package)
+                || StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name))
+            {
+                PublishNext(obj.Loaded);
             }
         }
     }

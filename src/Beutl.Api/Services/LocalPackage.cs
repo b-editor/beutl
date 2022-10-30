@@ -1,7 +1,8 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Text.Json.Serialization;
 
 using Beutl.Api.Objects;
+
+using NuGet.Packaging;
 
 namespace Beutl.Api.Services;
 
@@ -15,6 +16,7 @@ public class LocalPackage
     }
 
     public LocalPackage(Package package)
+        : this()
     {
         Name = package.Name;
         DisplayName = package.DisplayName.Value;
@@ -31,40 +33,41 @@ public class LocalPackage
         Version = release.Version.Value;
     }
 
-    [JsonPropertyName("name")]
+    public LocalPackage(NuspecReader nuspecReader)
+    {
+        Name = nuspecReader.GetId();
+        DisplayName = nuspecReader.GetTitle();
+        Version = nuspecReader.GetVersion().ToString();
+        Publisher = nuspecReader.GetAuthors();
+        WebSite = nuspecReader.GetProjectUrl();
+        Description = nuspecReader.GetReadme();
+        ShortDescription = nuspecReader.GetDescription();
+        //Logo = nuspecReader.GetIcon();
+        Tags = nuspecReader.GetTags().Split(' ', ';').ToList();
+
+        LocalId = -1;
+    }
+
     public string Name { get; set; } = string.Empty;
 
-    [JsonPropertyName("display_name")]
     public string DisplayName { get; set; } = string.Empty;
 
-    [JsonPropertyName("version")]
     public string Version { get; set; } = string.Empty;
 
-    [JsonPropertyName("publisher")]
     public string Publisher { get; set; } = string.Empty;
 
-    [JsonPropertyName("website")]
     public string WebSite { get; set; } = string.Empty;
 
-    [JsonPropertyName("description")]
     public string Description { get; set; } = string.Empty;
 
-    [JsonPropertyName("short_description")]
     public string ShortDescription { get; set; } = string.Empty;
 
-    [JsonPropertyName("assembly")]
-    public string Assembly { get; set; } = string.Empty;
-
-    [JsonPropertyName("logo")]
     public string Logo { get; set; } = string.Empty;
 
-    [JsonPropertyName("tags")]
     public List<string> Tags { get; set; } = new List<string>();
 
-    [JsonIgnore]
     [AllowNull]
     public string InstalledPath { get; internal set; }
 
-    [JsonIgnore]
     public int LocalId { get; }
 }

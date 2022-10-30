@@ -1,4 +1,7 @@
-﻿namespace Beutl.Api.Services;
+﻿using NuGet.Packaging;
+using NuGet.Packaging.Core;
+
+namespace Beutl.Api.Services;
 
 public partial class PackageInstaller
 {
@@ -12,27 +15,29 @@ public partial class PackageInstaller
             await WaitAny(s_mutex, cancellationToken.WaitHandle);
             cancellationToken.ThrowIfCancellationRequested();
 
-            string[] unnecessaryPackages = new string[] { installedPath };
+            PackageIdentity uninstallPackage = new PackageFolderReader(installedPath).GetIdentity();
+            PackageIdentity[] unnecessaryPackages = { uninstallPackage };
 
             if (clean)
             {
-                string[] installedPackages = _installedPackageRepository.GetLocalPackages()
-                    .ExceptBy(unnecessaryPackages, x => Path.GetFileName(x))
+                PackageIdentity[] installedPackages = _installedPackageRepository.GetLocalPackages()
+                    .Except(unnecessaryPackages)
                     .ToArray();
 
                 unnecessaryPackages = UnnecessaryPackages(installedPackages);
             }
 
             long size = 0;
-            foreach (string directory in unnecessaryPackages)
+            foreach (PackageIdentity package in unnecessaryPackages)
             {
+                string directory = Helper.PackagePathResolver.GetInstalledPath(package);
                 foreach (string file in Directory.GetFiles(directory))
                 {
                     size += new FileInfo(file).Length;
                 }
             }
 
-            return new PackageUninstallContext(installedPath)
+            return new PackageUninstallContext(uninstallPackage, installedPath)
             {
                 UnnecessaryPackages = unnecessaryPackages,
                 SizeToBeReleased = size
@@ -56,8 +61,9 @@ public partial class PackageInstaller
 
             var failedPackages = new List<string>();
             long totalSize = 0;
-            foreach (string directory in context.UnnecessaryPackages)
+            foreach (PackageIdentity package in context.UnnecessaryPackages)
             {
+                string directory = Helper.PackagePathResolver.GetInstalledPath(package);
                 bool hasAnyFailtures = false;
                 foreach (string file in Directory.GetFiles(directory))
                 {
@@ -80,7 +86,7 @@ public partial class PackageInstaller
                     failedPackages.Add(directory);
                 }
 
-                _installedPackageRepository.RemovePackage(directory);
+                _installedPackageRepository.RemovePackage(package);
             }
 
             context.FailedPackages = failedPackages;

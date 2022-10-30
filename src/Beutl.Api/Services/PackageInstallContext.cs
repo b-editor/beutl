@@ -15,18 +15,18 @@ public class PackageInstallContext
     private PackageInstallPhase _phase;
     private IReadOnlyList<string>? _installedPaths;
 
-    public PackageInstallContext(Package package, Release release, Asset asset)
+    public PackageInstallContext(string packageName, string version, string downloadUrl)
     {
-        Package = package;
-        Release = release;
-        Asset = asset;
+        PackageName = packageName;
+        Version = version;
+        DownloadUrl = downloadUrl;
     }
 
-    public Package Package { get; }
+    public string PackageName { get; }
 
-    public Release Release { get; }
+    public string Version { get; }
 
-    public Asset Asset { get; }
+    public string DownloadUrl { get; }
 
     public PackageInstallPhase Phase
     {

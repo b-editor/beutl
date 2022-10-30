@@ -60,10 +60,33 @@
                             Click="OpenPublisherPage_Click"
                             Content="{Binding Package.Owner.Name}" />
 
-                    <Button Padding="48,5,48,6"
-                            HorizontalAlignment="Center"
-                            Classes="accent"
-                            Content="インストール" />
+                    <StackPanel HorizontalAlignment="Center" Spacing="8">
+                        <Button Padding="48,5,48,6"
+                                HorizontalAlignment="Stretch"
+                                Classes="accent"
+                                Command="{Binding Install}"
+                                Content="インストール"
+                                IsVisible="{Binding IsInstallButtonVisible.Value}" />
+
+                        <Button Padding="48,5,48,6"
+                                HorizontalAlignment="Stretch"
+                                Classes="accent"
+                                Command="{Binding Update}"
+                                Content="更新"
+                                IsVisible="{Binding IsUpdateButtonVisible.Value}" />
+
+                        <Button Padding="48,5,48,6"
+                                HorizontalAlignment="Stretch"
+                                Command="{Binding Uninstall}"
+                                Content="アンインストール"
+                                IsVisible="{Binding IsUninstallButtonVisible.Value}" />
+
+                        <Button Padding="48,5,48,6"
+                                HorizontalAlignment="Stretch"
+                                Command="{Binding Cancel}"
+                                Content="キャンセル"
+                                IsVisible="{Binding CanCancel.Value}" />
+                    </StackPanel>
 
                     <TextBlock Margin="0,64,0,0"
                                HorizontalAlignment="Center"
