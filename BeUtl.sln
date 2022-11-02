@@ -27,7 +27,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{BBF37951
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Props", "Props", "{74C34E00-E924-4463-A38B-F691AFBAE362}"
 	ProjectSection(SolutionItems) = preProject
+		build\props\AsyncImageLoader.Avalonia.props = build\props\AsyncImageLoader.Avalonia.props
 		build\props\Avalonia.props = build\props\Avalonia.props
+		build\props\Avalonia.Svg.Skia.props = build\props\Avalonia.Svg.Skia.props
 		build\props\Avalonia.Xaml.Interactivity.props = build\props\Avalonia.Xaml.Interactivity.props
 		build\props\CopyProjectReferencesToPackage.props = build\props\CopyProjectReferencesToPackage.props
 		build\props\CopyProjectReferencesToPackage.targets = build\props\CopyProjectReferencesToPackage.targets
@@ -46,6 +48,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Props", "Props", "{74C34E00
 		build\props\SkiaSharp.props = build\props\SkiaSharp.props
 		build\props\System.Interactive.props = build\props\System.Interactive.props
 		build\props\System.Reactive.props = build\props\System.Reactive.props
+		build\props\UnitTest.props = build\props\UnitTest.props
+		build\props\XamlNameReferenceGenerator.props = build\props\XamlNameReferenceGenerator.props
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Configuration", "src\BeUtl.Configuration\BeUtl.Configuration.csproj", "{985AFD44-4A83-43DE-A700-269F5175E8C5}"
@@ -107,7 +111,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Sdk", "packages\BeUtl
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Api", "src\Beutl.Api\Beutl.Api.csproj", "{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beutl.PackageInstaller", "src\Beutl.PackageInstaller\Beutl.PackageInstaller.csproj", "{B8AC5E84-DFBA-49BE-ADD7-6AF10C4D0F14}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.PackageInstaller", "src\Beutl.PackageInstaller\Beutl.PackageInstaller.csproj", "{B8AC5E84-DFBA-49BE-ADD7-6AF10C4D0F14}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

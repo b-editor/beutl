@@ -13,15 +13,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AsyncImageLoader.Avalonia" Version="3.0.0-avalonia11" />
-    <PackageReference Include="Avalonia.Svg.Skia" Version="11.0.0-preview2" />
-    <PackageReference Include="FluentAvalonia.UI.Windowing" Version="2.0.0-preview3" />
     <PackageReference Include="PanelExtension" Version="1.0.0-preview2" />
     <PackageReference Include="Roslynator.Analyzers" Version="4.1.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="XamlNameReferenceGenerator" Version="1.3.4" />
   </ItemGroup>
 
   <ItemGroup>
@@ -82,7 +78,9 @@
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.props" />
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.targets" />
 
+  <Import Project="$(RootDirectory)\build\props\AsyncImageLoader.Avalonia.props" />
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\Avalonia.Svg.Skia.props" />
   <Import Project="$(RootDirectory)\build\props\Avalonia.Xaml.Interactivity.props" />
   <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
   <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
@@ -90,4 +88,5 @@
   <Import Project="$(RootDirectory)\build\props\CoreLibraries.props" />
   <Import Project="$(RootDirectory)\build\props\FluentIcons.FluentAvalonia.props" />
   <Import Project="$(RootDirectory)\build\props\System.Interactive.props" />
+  <Import Project="$(RootDirectory)\build\props\XamlNameReferenceGenerator.props" />
 </Project>
