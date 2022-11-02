@@ -24,6 +24,7 @@
     <Application.Styles>
         <FluentTheme />
         <sty:FluentAvaloniaTheme />
+        <StyleInclude Source="avares://FluentAvalonia.UI.Windowing/Styles/FAWindowingStyles.axaml" />
 
         <StyleInclude Source="avares://BeUtl.Controls/Styles.axaml" />
         <StyleInclude Source="avares://BeUtl.Language/en-US/CommonResources.axaml" />

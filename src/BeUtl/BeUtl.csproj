@@ -13,19 +13,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <AvaloniaXaml Remove="Pages\SettingsPages\Dialogs\**" />
-    <AvaloniaXaml Remove="ViewModels\SettingsPages\Dialogs\**" />
-    <Compile Remove="Pages\SettingsPages\Dialogs\**" />
-    <Compile Remove="ViewModels\SettingsPages\Dialogs\**" />
-    <EmbeddedResource Remove="Pages\SettingsPages\Dialogs\**" />
-    <EmbeddedResource Remove="ViewModels\SettingsPages\Dialogs\**" />
-    <None Remove="Pages\SettingsPages\Dialogs\**" />
-    <None Remove="ViewModels\SettingsPages\Dialogs\**" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="AsyncImageLoader.Avalonia" Version="3.0.0-avalonia11" />
     <PackageReference Include="Avalonia.Svg.Skia" Version="11.0.0-preview2" />
+    <PackageReference Include="FluentAvalonia.UI.Windowing" Version="2.0.0-preview3" />
     <PackageReference Include="PanelExtension" Version="1.0.0-preview2" />
     <PackageReference Include="Roslynator.Analyzers" Version="4.1.1">
       <PrivateAssets>all</PrivateAssets>

@@ -1,6 +1,8 @@
 ﻿using Avalonia;
 using Avalonia.ReactiveUI;
 
+using FluentAvalonia.UI.Windowing;
+
 namespace BeUtl;
 
 internal static class Program
@@ -30,6 +32,7 @@ internal static class Program
                 //EnableMultitouch = true,
                 CompositionBackdropCornerRadius = 8f
             })
+            .UseFAWindowing()
             .LogToTrace();
     }
 }

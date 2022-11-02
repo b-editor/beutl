@@ -32,7 +32,7 @@ using BeUtl.Views.Dialogs;
 
 using DynamicData;
 
-using FluentAvalonia.Core.ApplicationModel;
+using FluentAvalonia.UI.Windowing;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -276,24 +276,17 @@ Error:
             window.Opened -= OnParentWindowOpened;
         }
 
-        if (sender is FA.CoreWindow cw)
+        if (sender is AppWindow cw)
         {
-            CoreApplicationViewTitleBar titleBar = cw.TitleBar;
+            AppWindowTitleBar titleBar = cw.TitleBar;
             if (titleBar != null)
             {
-                titleBar.ExtendViewIntoTitleBar = true;
+                titleBar.ExtendsContentIntoTitleBar = true;
 
-                titleBar.LayoutMetricsChanged += OnApplicationTitleBarLayoutMetricsChanged;
-
-                cw.SetTitleBar(Titlebar);
-                Titlebar.Margin = new Thickness(0, 0, titleBar.SystemOverlayRightInset, 0);
+                Titlebar.Margin = new Thickness(titleBar.RightInset, 0, titleBar.LeftInset, 0);
+                AppWindow.SetAllowInteractionInTitleBar(MenuBar, true);
             }
         }
-    }
-
-    private void OnApplicationTitleBarLayoutMetricsChanged(CoreApplicationViewTitleBar sender, object args)
-    {
-        Titlebar.Margin = new Thickness(0, 0, sender.SystemOverlayRightInset, 0);
     }
 
     private void NavigationView_ItemInvoked(object? sender, FA.NavigationViewItemInvokedEventArgs e)

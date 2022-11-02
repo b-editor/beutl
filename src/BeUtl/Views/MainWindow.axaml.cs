@@ -9,12 +9,12 @@ using Avalonia.Threading;
 using BeUtl.Configuration;
 
 using FluentAvalonia.Styling;
-using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media;
+using FluentAvalonia.UI.Windowing;
 
 namespace BeUtl.Views;
 
-public sealed partial class MainWindow : CoreWindow
+public sealed partial class MainWindow : AppWindow
 {
     public MainWindow()
     {

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Remove=".gitignore" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="AsyncImageLoader.Avalonia" Version="3.0.0-avalonia11" />
+    <PackageReference Include="Avalonia.Svg.Skia" Version="11.0.0-preview2" />
+    <PackageReference Include="XamlNameReferenceGenerator" Version="1.3.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />
+    <ProjectReference Include="..\BeUtl.Controls\BeUtl.Controls.csproj" />
+  </ItemGroup>
+
+  <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\Avalonia.Xaml.Interactivity.props" />
+  <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
+  <Import Project="$(RootDirectory)\build\props\FluentIcons.FluentAvalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\System.Interactive.props" />
+</Project>
