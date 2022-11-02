@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
@@ -7,7 +7,7 @@ using BeUtl.Controls;
 using FluentAvalonia.UI.Controls;
 
 namespace DirectoryViewTest;
-public partial class MainWindow : CoreWindow
+public partial class MainWindow : Window
 {
     public MainWindow()
     {
