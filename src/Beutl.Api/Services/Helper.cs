@@ -55,7 +55,7 @@ internal class Helper
         ISet<SourcePackageDependencyInfo> availablePackages,
         CancellationToken cancellationToken = default)
     {
-        if (availablePackages.Contains(package)) return;
+        if (availablePackages.Contains(package) || IsCoreLibraries(package.Id)) return;
 
         foreach (SourceRepository sourceRepository in repositories)
         {
@@ -67,6 +67,17 @@ internal class Helper
                     package, framework, cacheContext, logger, cancellationToken);
 
             if (dependencyInfo == null) continue;
+
+            if (dependencyInfo.Dependencies.Any(x => IsCoreLibraries(x.Id)))
+            {
+                dependencyInfo = new SourcePackageDependencyInfo(
+                    dependencyInfo,
+                    dependencyInfo.Dependencies.Where(x => !IsCoreLibraries(x.Id)),
+                    dependencyInfo.Listed,
+                    dependencyInfo.Source,
+                    dependencyInfo.DownloadUri,
+                    dependencyInfo.PackageHash);
+            }
 
             availablePackages.Add(dependencyInfo);
             foreach (PackageDependency? dependency in dependencyInfo.Dependencies)
@@ -88,7 +99,7 @@ internal class Helper
         NuGetFramework framework,
         ISet<PackageDependencyInfo> availablePackages)
     {
-        if (availablePackages.Contains(package)) return;
+        if (availablePackages.Contains(package) || IsCoreLibraries(package.Id)) return;
 
         availablePackages.Add(package);
 
@@ -96,19 +107,22 @@ internal class Helper
         {
             var dependentPackage = new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion);
             var path = PackagePathResolver.GetInstalledPath(dependentPackage);
-            var reader = new PackageFolderReader(path);
+            if (path != null)
+            {
+                var reader = new PackageFolderReader(path);
 
-            var deps = reader.GetPackageDependencies();
-            var nearest = FrameworkReducer.GetNearest(
-                framework,
-                deps.Select(x => x.TargetFramework));
+                var deps = reader.GetPackageDependencies();
+                var nearest = FrameworkReducer.GetNearest(
+                    framework,
+                    deps.Select(x => x.TargetFramework));
 
-            GetPackageDependencies(
-                new PackageDependencyInfo(
-                    dependentPackage,
-                    deps.Where(x => x.TargetFramework == nearest)
-                        .SelectMany(x => x.Packages)),
-                framework, availablePackages);
+                GetPackageDependencies(
+                    new PackageDependencyInfo(
+                        dependentPackage,
+                        deps.Where(x => x.TargetFramework == nearest)
+                            .SelectMany(x => x.Packages)),
+                    framework, availablePackages);
+            }
         }
     }
 
@@ -126,6 +140,7 @@ internal class Helper
     {
         return name is "BeUtl.Sdk"
             or "BeUtl.Configuration"
+            or "BeUtl.Controls"
             or "BeUtl.Core"
             or "BeUtl.Framework"
             or "BeUtl.Graphics"

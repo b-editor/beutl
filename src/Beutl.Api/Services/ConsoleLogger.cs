@@ -3,13 +3,16 @@
 namespace Beutl.Api.Services;
 public class ConsoleLogger : LoggerBase
 {
+    public static readonly ConsoleLogger Instance = new();
+
     public override void Log(ILogMessage message)
     {
         Console.WriteLine(message.ToString());
     }
 
-    public override async Task LogAsync(ILogMessage message)
+    public override Task LogAsync(ILogMessage message)
     {
         Console.WriteLine(message.ToString());
+        return Task.CompletedTask;
     }
 }

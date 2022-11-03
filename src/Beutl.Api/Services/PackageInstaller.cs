@@ -19,9 +19,6 @@ namespace Beutl.Api.Services;
 
 public partial class PackageInstaller : IBeutlApiResource
 {
-    private static readonly Mutex s_mutex = new(false, "Beutl.PackageInstaller");
-
-
     private readonly HttpClient _httpClient;
     private readonly InstalledPackageRepository _installedPackageRepository;
 
@@ -34,6 +31,22 @@ public partial class PackageInstaller : IBeutlApiResource
     private readonly Dictionary<PackageIdentity, PackageInstallContext> _installingContexts = new();
 
     private readonly Subject<(PackageIdentity Package, EventType Type)> _subject = new();
+
+    private static readonly NuGetVersion s_beutlVersion = new NuGetVersion("0.3.0");
+    private static readonly PackageIdentity[] s_preferredVersions =
+    {
+        new PackageIdentity("BeUtl.Sdk", s_beutlVersion),
+        new PackageIdentity("BeUtl.Configuration", s_beutlVersion),
+        new PackageIdentity("BeUtl.Controls", s_beutlVersion),
+        new PackageIdentity("BeUtl.Core", s_beutlVersion),
+        new PackageIdentity("BeUtl.Framework", s_beutlVersion),
+        new PackageIdentity("BeUtl.Graphics", s_beutlVersion),
+        new PackageIdentity("BeUtl.Language", s_beutlVersion),
+        new PackageIdentity("BeUtl.Operators", s_beutlVersion),
+        new PackageIdentity("BeUtl.ProjectSystem", s_beutlVersion),
+        new PackageIdentity("BeUtl.Threading", s_beutlVersion),
+        new PackageIdentity("BeUtl.Utilities", s_beutlVersion),
+    };
 
     public enum EventType
     {
@@ -69,11 +82,6 @@ public partial class PackageInstaller : IBeutlApiResource
         }
     }
 
-    private static Task WaitAny(params WaitHandle[] waitHandles)
-    {
-        return Task.Run(() => WaitHandle.WaitAny(waitHandles));
-    }
-
     public IObservable<EventType> GetObservable(string name, string? version = null)
     {
         return new _Observable(this, name, version);
@@ -84,116 +92,91 @@ public partial class PackageInstaller : IBeutlApiResource
         bool force = false,
         CancellationToken cancellationToken = default)
     {
-        try
+        cancellationToken.ThrowIfCancellationRequested();
+
+        string name = release.Package.Name;
+        string version = release.Version.Value;
+        var packageId = new PackageIdentity(name, new NuGetVersion(version));
+
+        if (!force && _installedPackageRepository.ExistsPackage(name, version))
         {
-            await WaitAny(s_mutex, cancellationToken.WaitHandle);
-            cancellationToken.ThrowIfCancellationRequested();
-
-            string name = release.Package.Name;
-            string version = release.Version.Value;
-            var packageId = new PackageIdentity(name, new NuGetVersion(version));
-
-            if (!force && _installedPackageRepository.ExistsPackage(Helper.GetNuspecFilePath(name, version)))
-            {
-                throw new Exception("This package is already installed.");
-            }
-
-            if (_installingContexts.TryGetValue(packageId, out PackageInstallContext? context))
-            {
-                return context;
-            }
-            else
-            {
-                Asset asset = await release.GetAssetAsync();
-
-                context = new PackageInstallContext(name, version, asset.DownloadUrl);
-                _installingContexts.Add(packageId, context);
-                return context;
-            }
+            throw new Exception("This package is already installed.");
         }
-        finally
+
+        if (_installingContexts.TryGetValue(packageId, out PackageInstallContext? context))
         {
-            s_mutex.ReleaseMutex();
+            return context;
+        }
+        else
+        {
+            Asset asset = await release.GetAssetAsync();
+
+            context = new PackageInstallContext(name, version, asset.DownloadUrl);
+            _installingContexts.Add(packageId, context);
+            return context;
         }
     }
 
-    public async Task<PackageInstallContext> PrepareForInstall(
+    public PackageInstallContext PrepareForInstall(
         string name,
         string version,
         bool force = false,
         CancellationToken cancellationToken = default)
     {
-        try
+        cancellationToken.ThrowIfCancellationRequested();
+        var packageId = new PackageIdentity(name, new NuGetVersion(version));
+
+        if (!force && _installedPackageRepository.ExistsPackage(name, version))
         {
-            await WaitAny(s_mutex, cancellationToken.WaitHandle);
-            cancellationToken.ThrowIfCancellationRequested();
-            var packageId = new PackageIdentity(name, new NuGetVersion(version));
-
-            if (!force && _installedPackageRepository.ExistsPackage(Helper.GetNuspecFilePath(name, version)))
-            {
-                throw new Exception("This package is already installed.");
-            }
-
-            if (_installingContexts.TryGetValue(packageId, out PackageInstallContext? context))
-            {
-                return context;
-            }
-            else
-            {
-                context = new PackageInstallContext(name, version, string.Empty)
-                {
-                    Phase = PackageInstallPhase.Downloaded
-                };
-                _installingContexts.Add(packageId, context);
-                return context;
-            }
+            throw new Exception("This package is already installed.");
         }
-        finally
+
+        if (_installingContexts.TryGetValue(packageId, out PackageInstallContext? context))
         {
-            s_mutex.ReleaseMutex();
+            return context;
+        }
+        else
+        {
+            context = new PackageInstallContext(name, version, string.Empty)
+            {
+                Phase = PackageInstallPhase.Downloaded
+            };
+            _installingContexts.Add(packageId, context);
+            return context;
         }
     }
 
     public async Task DownloadPackageFile(
         PackageInstallContext context,
-        IProgress<double> progress,
+        IProgress<double>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        try
+        cancellationToken.ThrowIfCancellationRequested();
+        if ((int)context.Phase <= (int)PackageInstallPhase.Downloading)
         {
-            await WaitAny(s_mutex, cancellationToken.WaitHandle);
-            cancellationToken.ThrowIfCancellationRequested();
-            if ((int)context.Phase <= (int)PackageInstallPhase.Downloading)
+            context.Phase = PackageInstallPhase.Downloading;
+            CreateLocalSourceDirectory();
+
+            string name = context.PackageName;
+            string version = context.Version;
+            string downloadUrl = context.DownloadUrl;
+            using (FileStream destination = File.Create(Helper.GetNupkgFilePath(name, version)))
             {
-                context.Phase = PackageInstallPhase.Downloading;
-                CreateLocalSourceDirectory();
-
-                string name = context.PackageName;
-                string version = context.Version;
-                string downloadUrl = context.DownloadUrl;
-                using (FileStream destination = File.Create(Helper.GetNupkgFilePath(name, version)))
-                {
-                    await Download(downloadUrl, destination, progress, cancellationToken);
-                }
-
-                context.Phase = PackageInstallPhase.Downloaded;
+                await Download(downloadUrl, destination, progress, cancellationToken);
             }
-        }
-        finally
-        {
-            s_mutex.ReleaseMutex();
+
+            context.Phase = PackageInstallPhase.Downloaded;
         }
     }
 
     public async Task ResolveDependencies(
         PackageInstallContext context,
-        ILogger logger,
+        ILogger? logger,
         CancellationToken cancellationToken = default)
     {
         PackageIdentity? package = null;
         try
         {
-            await WaitAny(s_mutex, cancellationToken.WaitHandle);
             cancellationToken.ThrowIfCancellationRequested();
             if ((int)context.Phase <= (int)PackageInstallPhase.ResolvingDependencies)
             {
@@ -226,7 +209,7 @@ public partial class PackageInstaller : IBeutlApiResource
                     new[] { packageId },
                     Enumerable.Empty<string>(),
                     Enumerable.Empty<PackageReference>(),
-                    Enumerable.Empty<PackageIdentity>(),
+                    s_preferredVersions,
                     availablePackages,
                     repositories.Select(s => s.PackageSource),
                     logger);
@@ -237,7 +220,7 @@ public partial class PackageInstaller : IBeutlApiResource
                         .ToArray();
 
                 var packageExtractionContext = new PackageExtractionContext(
-                    PackageSaveMode.Nuspec | PackageSaveMode.Files,
+                    PackageSaveMode.Defaultv3,
                     XmlDocFileSaveMode.None,
                     ClientPolicyContext.GetClientPolicy(_settings, logger),
                     logger);
@@ -291,14 +274,13 @@ public partial class PackageInstaller : IBeutlApiResource
             {
                 _installingContexts.Remove(package);
             }
-            s_mutex.ReleaseMutex();
         }
     }
 
     private async Task Download(
         string url,
         Stream destination,
-        IProgress<double> progress,
+        IProgress<double>? progress,
         CancellationToken cancellationToken)
     {
         using (HttpResponseMessage response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
@@ -309,7 +291,7 @@ public partial class PackageInstaller : IBeutlApiResource
             {
                 if (!contentLength.HasValue)
                 {
-                    progress.Report(double.PositiveInfinity);
+                    progress?.Report(double.PositiveInfinity);
                     await download.CopyToAsync(destination, cancellationToken);
                 }
                 else
@@ -322,7 +304,7 @@ public partial class PackageInstaller : IBeutlApiResource
                     {
                         await destination.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
                         totalBytesRead += bytesRead;
-                        progress.Report(totalBytesRead / (double)contentLength.Value);
+                        progress?.Report(totalBytesRead / (double)contentLength.Value);
                     }
                 }
             }

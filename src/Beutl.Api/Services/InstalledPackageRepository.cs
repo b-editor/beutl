@@ -79,6 +79,21 @@ public class InstalledPackageRepository : IBeutlApiResource
         }
     }
 
+    public void RemovePackages(string name)
+    {
+        PackageIdentity[] removed = Array.Empty<PackageIdentity>();
+        if (_subject.HasObservers)
+        {
+            removed = GetLocalPackages(name).ToArray();
+        }
+        _packages.RemoveWhere(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name));
+        Save();
+        foreach (PackageIdentity package in removed)
+        {
+            _subject.OnNext((package, false));
+        }
+    }
+
     public bool ExistsPackage(PackageIdentity package)
     {
         return _packages.Contains(package);
@@ -106,7 +121,9 @@ public class InstalledPackageRepository : IBeutlApiResource
         using (var storagefile = IsolatedStorageFile.GetUserStoreForAssembly())
         using (IsolatedStorageFileStream stream = storagefile.CreateFile(FileName))
         {
-            JsonSerializer.Serialize(stream, _packages.Select(x => new S_Package(x.Id, x.Version.ToString())));
+            JsonSerializer.Serialize(stream, _packages
+                .Select(x => new S_Package(x.Id, x.Version.ToString()))
+                .ToArray());
         }
     }
 
@@ -116,13 +133,20 @@ public class InstalledPackageRepository : IBeutlApiResource
         {
             if (storagefile.FileExists(FileName))
             {
-                using (IsolatedStorageFileStream stream = storagefile.CreateFile(FileName))
+                using (IsolatedStorageFileStream stream = storagefile.OpenFile(FileName, FileMode.Open))
                 {
-                    if (JsonSerializer.Deserialize<S_Package[]>(stream) is S_Package[] packages)
+                    try
                     {
-                        _packages.Clear();
+                        if (JsonSerializer.Deserialize<S_Package[]>(stream) is S_Package[] packages)
+                        {
+                            _packages.Clear();
 
-                        _packages.AddRange(packages.Select(x => new PackageIdentity(x.Name, new NuGetVersion(x.Version))));
+                            _packages.AddRange(packages.Select(x => new PackageIdentity(x.Name, new NuGetVersion(x.Version))));
+                        }
+                    }
+                    catch
+                    {
+
                     }
                 }
             }

@@ -111,7 +111,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Sdk", "packages\BeUtl
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Api", "src\Beutl.Api\Beutl.Api.csproj", "{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.PackageInstaller", "src\Beutl.PackageInstaller\Beutl.PackageInstaller.csproj", "{B8AC5E84-DFBA-49BE-ADD7-6AF10C4D0F14}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.PackageTools", "src\Beutl.PackageTools\Beutl.PackageTools.csproj", "{A7F8F486-8D17-43E4-A175-82A991FB5F31}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -313,14 +313,14 @@ Global
 		{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}.Release|Any CPU.Build.0 = Release|Any CPU
 		{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}.Release|x64.ActiveCfg = Release|Any CPU
 		{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}.Release|x64.Build.0 = Release|Any CPU
-		{B8AC5E84-DFBA-49BE-ADD7-6AF10C4D0F14}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B8AC5E84-DFBA-49BE-ADD7-6AF10C4D0F14}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B8AC5E84-DFBA-49BE-ADD7-6AF10C4D0F14}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{B8AC5E84-DFBA-49BE-ADD7-6AF10C4D0F14}.Debug|x64.Build.0 = Debug|Any CPU
-		{B8AC5E84-DFBA-49BE-ADD7-6AF10C4D0F14}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B8AC5E84-DFBA-49BE-ADD7-6AF10C4D0F14}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B8AC5E84-DFBA-49BE-ADD7-6AF10C4D0F14}.Release|x64.ActiveCfg = Release|Any CPU
-		{B8AC5E84-DFBA-49BE-ADD7-6AF10C4D0F14}.Release|x64.Build.0 = Release|Any CPU
+		{A7F8F486-8D17-43E4-A175-82A991FB5F31}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A7F8F486-8D17-43E4-A175-82A991FB5F31}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A7F8F486-8D17-43E4-A175-82A991FB5F31}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A7F8F486-8D17-43E4-A175-82A991FB5F31}.Debug|x64.Build.0 = Debug|Any CPU
+		{A7F8F486-8D17-43E4-A175-82A991FB5F31}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A7F8F486-8D17-43E4-A175-82A991FB5F31}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A7F8F486-8D17-43E4-A175-82A991FB5F31}.Release|x64.ActiveCfg = Release|Any CPU
+		{A7F8F486-8D17-43E4-A175-82A991FB5F31}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

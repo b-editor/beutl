@@ -1,4 +1,5 @@
-﻿using NuGet.Frameworks;
+﻿using NuGet.Common;
+using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
 
@@ -43,81 +44,68 @@ public partial class PackageInstaller
         IEnumerable<PackageIdentity> all = Directory.GetDirectories(Helper.InstallPath)
             .Select(x => new PackageFolderReader(x).GetIdentity());
 
-        return all.Except(availablePackages).ToArray();
+        return all.Except(availablePackages, PackageIdentityComparer.Default).ToArray();
     }
 
-    public async Task<PackageCleanContext> PrepareForClean(CancellationToken cancellationToken = default)
+    public PackageCleanContext PrepareForClean(IEnumerable<PackageIdentity>? excludedPackages = null, CancellationToken cancellationToken = default)
     {
-        try
+        cancellationToken.ThrowIfCancellationRequested();
+        excludedPackages ??= Enumerable.Empty<PackageIdentity>();
+
+        PackageIdentity[] unnecessaryPackages = UnnecessaryPackages()
+            .Except(excludedPackages, PackageIdentityComparer.Default)
+            .ToArray();
+
+        long size = 0;
+        foreach (PackageIdentity package in unnecessaryPackages)
         {
-            await WaitAny(s_mutex, cancellationToken.WaitHandle);
-            cancellationToken.ThrowIfCancellationRequested();
-
-            PackageIdentity[] unnecessaryPackages = UnnecessaryPackages();
-
-            long size = 0;
-            foreach (PackageIdentity package in unnecessaryPackages)
+            string directory = Helper.PackagePathResolver.GetInstalledPath(package);
+            foreach (string file in Directory.GetFiles(directory))
             {
-                string directory = Helper.PackagePathResolver.GetInstalledPath(package);
-                foreach (string file in Directory.GetFiles(directory))
-                {
-                    size += new FileInfo(file).Length;
-                }
+                size += new FileInfo(file).Length;
             }
+        }
 
-            return new PackageCleanContext(unnecessaryPackages, size);
-        }
-        finally
-        {
-            s_mutex.ReleaseMutex();
-        }
+        return new PackageCleanContext(unnecessaryPackages, size);
     }
 
-    public async Task Clean(
+    public void Clean(
         PackageCleanContext context,
         IProgress<double> progress,
         CancellationToken cancellationToken = default)
     {
-        try
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var failedPackages = new List<string>();
+        long totalSize = 0;
+        foreach (PackageIdentity package in context.UnnecessaryPackages)
         {
-            await WaitAny(s_mutex, cancellationToken.WaitHandle);
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var failedPackages = new List<string>();
-            long totalSize = 0;
-            foreach (PackageIdentity package in context.UnnecessaryPackages)
+            string directory = Helper.PackagePathResolver.GetInstalledPath(package);
+            bool hasAnyFailtures = false;
+            foreach (string file in Directory.GetFiles(directory))
             {
-                string directory = Helper.PackagePathResolver.GetInstalledPath(package);
-                bool hasAnyFailtures = false;
-                foreach (string file in Directory.GetFiles(directory))
+                try
                 {
-                    try
-                    {
-                        var fi = new FileInfo(file);
-                        totalSize += fi.Length;
-                        fi.Delete();
-                    }
-                    catch
-                    {
-                        hasAnyFailtures = true;
-                    }
-
-                    progress.Report(totalSize / (double)context.SizeToBeReleased);
+                    var fi = new FileInfo(file);
+                    totalSize += fi.Length;
+                    fi.Delete();
+                }
+                catch
+                {
+                    hasAnyFailtures = true;
                 }
 
-                if (hasAnyFailtures)
-                {
-                    failedPackages.Add(directory);
-                }
-
-                _installedPackageRepository.RemovePackage(package);
+                progress.Report(totalSize / (double)context.SizeToBeReleased);
             }
 
-            context.FailedPackages = failedPackages;
+            if (hasAnyFailtures)
+            {
+                failedPackages.Add(directory);
+            }
+
+            _installedPackageRepository.RemovePackage(package);
         }
-        finally
-        {
-            s_mutex.ReleaseMutex();
-        }
+
+        context.FailedPackages = failedPackages;
     }
 }
