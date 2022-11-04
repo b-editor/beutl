@@ -64,7 +64,7 @@ public class Profile
         _response.Value = await _clients.Users.PatchAsync(Name, request);
     }
 
-    public async Task UpdateAsync(
+    public Task UpdateAsync(
         long? avatarId = null,
         string? bio = null,
         string? blogUrl = null,
@@ -73,7 +73,7 @@ public class Profile
         string? twitterUsername = null,
         string? youtubeUrl = null)
     {
-        await UpdateAsync(new UpdateProfileRequest(
+        return UpdateAsync(new UpdateProfileRequest(
             avatar_id: avatarId,
             bio: bio,
             blog_url: blogUrl,

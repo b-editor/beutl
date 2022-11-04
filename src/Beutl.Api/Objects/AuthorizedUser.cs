@@ -36,7 +36,8 @@ public class AuthorizedUser
         {
             if (force || IsExpired)
             {
-                _response = await _clients.Account.RefreshAsync(new RefeshTokenRequest(RefreshToken, Token));
+                _response = await _clients.Account.RefreshAsync(new RefeshTokenRequest(RefreshToken, Token))
+                    .ConfigureAwait(false);
                 _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
 
                 if (_clients.AuthorizedUser.Value == this)

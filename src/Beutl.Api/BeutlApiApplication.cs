@@ -112,14 +112,14 @@ public class BeutlApiApplication
         }
     }
 
-    public async Task<AuthorizedUser> SignInWithGoogleAsync(CancellationToken cancellationToken)
+    public Task<AuthorizedUser> SignInWithGoogleAsync(CancellationToken cancellationToken)
     {
-        return await SignInExternalAsync("Google", cancellationToken);
+        return SignInExternalAsync("Google", cancellationToken);
     }
 
-    public async Task<AuthorizedUser> SignInWithGitHubAsync(CancellationToken cancellationToken)
+    public Task<AuthorizedUser> SignInWithGitHubAsync(CancellationToken cancellationToken)
     {
-        return await SignInExternalAsync("GitHub", cancellationToken);
+        return SignInExternalAsync("GitHub", cancellationToken);
     }
 
     private async Task<AuthorizedUser> SignInExternalAsync(string provider, CancellationToken cancellationToken)
@@ -277,7 +277,7 @@ public class BeutlApiApplication
         {
             try
             {
-                context = await listener.GetContextAsync();
+                context = await listener.GetContextAsync().ConfigureAwait(false);
             }
             catch (Exception) when (ct.IsCancellationRequested)
             {

@@ -49,9 +49,9 @@ public class Release
         _isDeleted.Value = false;
     }
 
-    public async Task UpdateAsync(long? assetId = null, string? body = null, bool? isPublic = null, string? title = null)
+    public Task UpdateAsync(long? assetId = null, string? body = null, bool? isPublic = null, string? title = null)
     {
-        await UpdateAsync(new UpdateReleaseRequest(assetId, body, isPublic, title));
+        return UpdateAsync(new UpdateReleaseRequest(assetId, body, isPublic, title));
     }
 
     public async Task UpdateAsync(UpdateReleaseRequest request)

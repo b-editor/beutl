@@ -60,11 +60,13 @@ internal class Helper
         foreach (SourceRepository sourceRepository in repositories)
         {
             DependencyInfoResource dependencyInfoResource
-                = await sourceRepository.GetResourceAsync<DependencyInfoResource>(cancellationToken);
+                = await sourceRepository.GetResourceAsync<DependencyInfoResource>(cancellationToken)
+                    .ConfigureAwait(false);
 
             SourcePackageDependencyInfo dependencyInfo
                 = await dependencyInfoResource.ResolvePackage(
-                    package, framework, cacheContext, logger, cancellationToken);
+                    package, framework, cacheContext, logger, cancellationToken)
+                        .ConfigureAwait(false);
 
             if (dependencyInfo == null) continue;
 
@@ -89,7 +91,8 @@ internal class Helper
                     logger,
                     repositories,
                     availablePackages,
-                    cancellationToken);
+                    cancellationToken)
+                    .ConfigureAwait(false);
             }
         }
     }
@@ -167,7 +170,7 @@ internal class Helper
     {
         try
         {
-            return await func();
+            return await func().ConfigureAwait(false);
         }
         catch
         {

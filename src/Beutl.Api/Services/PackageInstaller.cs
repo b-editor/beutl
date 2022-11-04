@@ -126,7 +126,7 @@ public partial class PackageInstaller : IBeutlApiResource
         }
         else
         {
-            Asset asset = await release.GetAssetAsync();
+            Asset asset = await release.GetAssetAsync().ConfigureAwait(false);
 
             context = new PackageInstallContext(name, version, asset.DownloadUrl);
             _installingContexts.Add(packageId, context);
@@ -180,7 +180,7 @@ public partial class PackageInstaller : IBeutlApiResource
             context.NuGetPackageFile = Helper.GetNupkgFilePath(name, version);
             using (FileStream destination = File.Create(context.NuGetPackageFile))
             {
-                await Download(downloadUrl, destination, progress, cancellationToken);
+                await Download(downloadUrl, destination, progress, cancellationToken).ConfigureAwait(false);
             }
 
             context.Phase = PackageInstallPhase.Downloaded;
@@ -220,7 +220,8 @@ public partial class PackageInstaller : IBeutlApiResource
                     logger,
                     repositories,
                     availablePackages,
-                    cancellationToken);
+                    cancellationToken)
+                    .ConfigureAwait(false);
 
                 var resolverContext = new PackageResolverContext(
                     DependencyBehavior.Lowest,
@@ -259,19 +260,21 @@ public partial class PackageInstaller : IBeutlApiResource
                     }
                     else
                     {
-                        DownloadResource downloadResource = await packageToInstall.Source.GetResourceAsync<DownloadResource>(cancellationToken);
+                        DownloadResource downloadResource = await packageToInstall.Source.GetResourceAsync<DownloadResource>(cancellationToken).ConfigureAwait(false);
                         using DownloadResourceResult downloadResult = await downloadResource.GetDownloadResourceResultAsync(
                             packageToInstall,
                             new PackageDownloadContext(_cacheContext),
                             SettingsUtility.GetGlobalPackagesFolder(_settings),
-                            logger, cancellationToken);
+                            logger, cancellationToken)
+                            .ConfigureAwait(false);
 
                         await PackageExtractor.ExtractPackageAsync(
-                                downloadResult.PackageSource,
-                                downloadResult.PackageStream,
-                                Helper.PackagePathResolver,
-                                packageExtractionContext,
-                                cancellationToken);
+                            downloadResult.PackageSource,
+                            downloadResult.PackageStream,
+                            Helper.PackagePathResolver,
+                            packageExtractionContext,
+                            cancellationToken)
+                            .ConfigureAwait(false);
 
                         installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
                         if (installedPath != null)
@@ -301,16 +304,16 @@ public partial class PackageInstaller : IBeutlApiResource
         IProgress<double>? progress,
         CancellationToken cancellationToken)
     {
-        using (HttpResponseMessage response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
+        using (HttpResponseMessage response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
         {
             long? contentLength = response.Content.Headers.ContentLength;
 
-            using (Stream download = await response.Content.ReadAsStreamAsync(cancellationToken))
+            using (Stream download = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
             {
                 if (!contentLength.HasValue)
                 {
                     progress?.Report(double.PositiveInfinity);
-                    await download.CopyToAsync(destination, cancellationToken);
+                    await download.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {

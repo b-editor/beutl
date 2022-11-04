@@ -63,7 +63,7 @@ public sealed class PackageManager : PackageLoader
             using FileStream stream = File.OpenRead(file);
             using var zip = new ZipArchive(stream);
 
-            var nuspecEntry = zip.Entries.FirstOrDefault(x => x.Name.EndsWith(".nuspec") && !x.FullName.Contains('/'));
+            ZipArchiveEntry? nuspecEntry = zip.Entries.FirstOrDefault(x => x.Name.EndsWith(".nuspec") && !x.FullName.Contains('/'));
             if (nuspecEntry is { })
             {
                 using (Stream nuspecStream = nuspecEntry.Open())
@@ -91,18 +91,19 @@ public sealed class PackageManager : PackageLoader
 
         for (int i = 0; i < packages.Length; i++)
         {
-            var pkg = packages[i];
-            var version = pkg.Version.ToString();
+            PackageIdentity pkg = packages[i];
+            string version = pkg.Version.ToString();
             try
             {
-                Package remotePackage = await discover.GetPackage(pkg.Id);
+                Package remotePackage = await discover.GetPackage(pkg.Id).ConfigureAwait(false);
 
-                foreach (Release? item in await remotePackage.GetReleasesAsync())
+                foreach (Release? item in await remotePackage.GetReleasesAsync().ConfigureAwait(false))
                 {
                     // 降順
                     if (item.Version.Value.CompareTo(version) > 0)
                     {
-                        Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(version));
+                        Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(version))
+                            .ConfigureAwait(false);
                         updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
                         break;
                     }
@@ -126,15 +127,15 @@ public sealed class PackageManager : PackageLoader
             LocalPackage pkg = _loadedPackage[i];
             if (StringComparer.OrdinalIgnoreCase.Equals(pkg.Name == name))
             {
-                Package remotePackage = await discover.GetPackage(pkg.Name);
+                Package remotePackage = await discover.GetPackage(pkg.Name).ConfigureAwait(false);
 
-                foreach (Release? item in await remotePackage.GetReleasesAsync())
+                foreach (Release? item in await remotePackage.GetReleasesAsync().ConfigureAwait(false))
                 {
                     // 降順
                     if (item.Version.Value.CompareTo(pkg.Version) > 0)
                     {
-                        // Todo: CompareTo
-                        Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(pkg.Version));
+                        Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(pkg.Version))
+                            .ConfigureAwait(false);
                         return new PackageUpdate(remotePackage, oldRelease, item);
                     }
                 }
@@ -150,8 +151,8 @@ public sealed class PackageManager : PackageLoader
         {
             try
             {
-                PackageResponse package = await _apiApplication.Packages.GetPackageAsync(id);
-                ProfileResponse profile = await _apiApplication.Users.GetUserAsync(package.Owner.Name);
+                PackageResponse package = await _apiApplication.Packages.GetPackageAsync(id).ConfigureAwait(false);
+                ProfileResponse profile = await _apiApplication.Users.GetUserAsync(package.Owner.Name).ConfigureAwait(false);
 
                 return new Package(
                     profile: new Profile(profile, _apiApplication),
@@ -172,7 +173,7 @@ public sealed class PackageManager : PackageLoader
             string directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
             if (Directory.Exists(directory))
             {
-                Package? package = await GetPackage(packageId.Id);
+                Package? package = await GetPackage(packageId.Id).ConfigureAwait(false);
                 if (package == null)
                 {
                     var reader = new PackageFolderReader(directory);

@@ -327,7 +327,7 @@ public sealed class MainViewModel : BasePageViewModel
     {
         try
         {
-            await _beutlClients.RestoreUserAsync();
+            await _beutlClients.RestoreUserAsync().ConfigureAwait(false);
         }
         catch (Exception e)
         {
@@ -357,7 +357,7 @@ public sealed class MainViewModel : BasePageViewModel
             DefaultPropertyNameExtension.Instance,
         });
 
-        foreach (LocalPackage item in await manager.GetPackages())
+        foreach (LocalPackage item in await manager.GetPackages().ConfigureAwait(false))
         {
             manager.Load(item);
         }
