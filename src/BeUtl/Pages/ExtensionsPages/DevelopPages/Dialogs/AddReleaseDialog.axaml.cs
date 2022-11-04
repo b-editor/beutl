@@ -22,12 +22,16 @@ public sealed partial class AddReleaseDialog : ContentDialog, IStyleable
         base.OnPrimaryButtonClick(args);
         if (DataContext is AddReleaseDialogViewModel viewModel)
         {
-            ContentDialogButtonClickDeferral deferral = args.GetDeferral();
-
+            args.Cancel = true;
+            IsEnabled = false;
             Release? result = await viewModel.AddAsync();
             if (result != null)
             {
-                deferral.Complete();
+                Hide(ContentDialogResult.Primary);
+            }
+            else
+            {
+                IsEnabled = true;
             }
         }
     }

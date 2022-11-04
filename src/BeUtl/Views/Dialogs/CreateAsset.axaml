@@ -60,12 +60,14 @@
 
                 <Separator Height="4" />
 
-                <TextBlock Text="{DynamicResource S.Common.ContentType}" Theme="{StaticResource LabelTextBlockStyle}" />
+                <TextBlock Margin="0,8,0,0"
+                           Text="{DynamicResource S.Common.ContentType}"
+                           Theme="{StaticResource LabelTextBlockStyle}" />
                 <TextBox Text="{Binding ContentType.Value}" />
 
-                <Separator Height="4" />
-
-                <StackPanel IsVisible="{Binding UseInternalServer.Value}" Spacing="4">
+                <StackPanel Margin="0,8,0,0"
+                            IsVisible="{Binding UseInternalServer.Value}"
+                            Spacing="4">
                     <TextBlock Text="{DynamicResource S.Common.File}" Theme="{StaticResource LabelTextBlockStyle}" />
                     <TextBox Text="{Binding File.Value, Mode=TwoWay}">
                         <TextBox.InnerRightContent>
@@ -76,7 +78,9 @@
                     </TextBox>
                 </StackPanel>
 
-                <StackPanel IsVisible="{Binding UseExternalServer.Value}" Spacing="4">
+                <StackPanel Margin="0,8,0,0"
+                            IsVisible="{Binding UseExternalServer.Value}"
+                            Spacing="4">
                     <TextBlock Text="URL" Theme="{StaticResource LabelTextBlockStyle}" />
                     <TextBox Text="{Binding Url.Value, Mode=TwoWay}" Watermark="https://" />
                 </StackPanel>
@@ -88,14 +92,14 @@
                 <TextBlock Text="SHA256" Theme="{StaticResource LabelTextBlockStyle}" />
                 <TextBox Text="{Binding Sha256.Value, Mode=TwoWay}" />
 
-                <Separator Height="4" />
-
-                <TextBlock Text="SHA384" Theme="{StaticResource LabelTextBlockStyle}" />
+                <TextBlock Margin="0,8,0,0"
+                           Text="SHA384"
+                           Theme="{StaticResource LabelTextBlockStyle}" />
                 <TextBox Text="{Binding Sha384.Value, Mode=TwoWay}" />
 
-                <Separator Height="4" />
-
-                <TextBlock Text="SHA512" Theme="{StaticResource LabelTextBlockStyle}" />
+                <TextBlock Margin="0,8,0,0"
+                           Text="SHA512"
+                           Theme="{StaticResource LabelTextBlockStyle}" />
                 <TextBox Text="{Binding Sha512.Value, Mode=TwoWay}" />
             </StackPanel>
 

@@ -20,7 +20,7 @@ public sealed class CreatePackageDialogViewModel
             .ToReadOnlyReactivePropertySlim();
     }
 
-    public ReactiveProperty<string> Name { get; } = new();
+    public ReactiveProperty<string> Name { get; } = new(mode: ReactivePropertyMode.Default | ReactivePropertyMode.IgnoreInitialValidationError);
 
     public ReadOnlyReactivePropertySlim<bool> IsValid { get; }
 
@@ -32,6 +32,12 @@ public sealed class CreatePackageDialogViewModel
     {
         try
         {
+            Name.ForceValidate();
+            if (!IsValid.Value)
+            {
+                return null;
+            }
+
             await _user.RefreshAsync();
 
             var request = new CreatePackageRequest("", "", "", Array.Empty<string>(), "");

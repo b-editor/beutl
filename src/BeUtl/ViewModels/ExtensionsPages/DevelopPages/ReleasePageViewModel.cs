@@ -191,10 +191,10 @@ public sealed class ReleasePageViewModel : BasePageViewModel
         return new SelectAssetViewModel(
             _user,
             x => ToKnownType(x) == KnownType.BeutlPackageFile,
-            new FilePickerFileType("Beutl Package File")
+            new FilePickerFileType("NuGet Package File")
             {
                 MimeTypes = new string[] { "application/x-beutl-package" },
-                Patterns = new string[] { "*.bpkg" }
+                Patterns = new string[] { "*.nupkg" }
             });
     }
 
