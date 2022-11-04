@@ -13,8 +13,9 @@ internal static class Program
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
     [STAThread]
-    public static async Task Main(string[] args)
+    public static void Main(string[] args)
     {
+        // STAThread属性がついている時に 'async Task Main' にするとDrag and Dropが動作しなくなる。
         Process[] processes = Process.GetProcessesByName("bpt");
         if (processes.Length > 0)
         {
@@ -36,7 +37,7 @@ internal static class Program
             {
                 if (!item.HasExited)
                 {
-                    await item.WaitForExitAsync();
+                    item.WaitForExit();
                 }
             }
 
