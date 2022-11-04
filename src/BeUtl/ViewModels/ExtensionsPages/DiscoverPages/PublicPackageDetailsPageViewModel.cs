@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Beutl.Api;
+﻿using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 
@@ -20,7 +14,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
     private readonly CompositeDisposable _disposables = new();
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly PackageChangesQueue _queue;
-    private readonly PackageManager _manager;
+    private readonly LibraryService _library;
     private readonly BeutlApiApplication _app;
 
     public PublicPackageDetailsPageViewModel(Package package, BeutlApiApplication app)
@@ -28,8 +22,8 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
         Package = package;
         _app = app;
         _installedPackageRepository = app.GetResource<InstalledPackageRepository>();
-        _manager = app.GetResource<PackageManager>();
         _queue = app.GetResource<PackageChangesQueue>();
+        _library = app.GetResource<LibraryService>();
 
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
@@ -46,7 +40,6 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
                         Release[] array = await package.GetReleasesAsync(totalCount, 30);
                         if (Array.Find(array, x => x.IsPublic.Value) is { } publicRelease)
                         {
-                            await publicRelease.RefreshAsync();
                             LatestRelease.Value = publicRelease;
                             break;
                         }
@@ -54,6 +47,14 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
                         totalCount += array.Length;
                         prevCount = array.Length;
                     } while (prevCount == 30);
+
+                    if (_installedPackageRepository.ExistsPackage(package.Name))
+                    {
+                        PackageIdentity mostLatested = _installedPackageRepository.GetLocalPackages(package.Name)
+                            .Aggregate((x, y) => x.Version > y.Version ? x : y);
+
+                        CurrentRelease.Value = await package.GetReleaseAsync(mostLatested.Version.ToString());
+                    }
                 }
                 catch (Exception e)
                 {
@@ -80,8 +81,24 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsUninstallButtonVisible = installed
+        IsUpdateButtonVisible = LatestRelease.CombineLatest(CurrentRelease)
+            .Select(x =>
+            {
+                if (x.First is { } latest && x.Second is { } current)
+                {
+                    return latest.Version.Value.CompareTo(current.Version.Value) > 0;
+                }
+                else
+                {
+                    return false;
+                }
+            })
             .AreTrue(CanCancel.Not())
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        IsUninstallButtonVisible = installed
+            .AreTrue(CanCancel.Not(), IsUpdateButtonVisible.Not())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -92,15 +109,13 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
                 {
                     IsBusy.Value = true;
                     await _app.AuthorizedUser.Value!.RefreshAsync();
-                    Release? release = (await package.GetReleasesAsync(0, 1)).FirstOrDefault();
-                    if (release != null)
-                    {
-                        var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
-                        _queue.InstallQueue(packageId);
-                        Notification.Show(new Notification(
-                            Title: "パッケージインストーラー",
-                            Message: $"'{packageId}'のインストールを予約しました。\nパッケージの変更を適用するには、Beutlを終了してください。"));
-                    }
+
+                    Release release = await _library.GetPackage(Package);
+                    var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
+                    _queue.InstallQueue(packageId);
+                    Notification.Show(new Notification(
+                        Title: "パッケージインストーラー",
+                        Message: $"'{packageId}'のインストールを予約しました。\nパッケージの変更を適用するには、Beutlを終了してください。"));
                 }
                 catch (Exception e)
                 {
@@ -120,15 +135,12 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
                 {
                     IsBusy.Value = true;
                     await _app.AuthorizedUser.Value!.RefreshAsync();
-                    Release? release = (await package.GetReleasesAsync(0, 1)).FirstOrDefault();
-                    if (release != null)
-                    {
-                        var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
-                        _queue.InstallQueue(packageId);
-                        Notification.Show(new Notification(
-                            Title: "パッケージインストーラー",
-                            Message: $"'{packageId}'のインストールを予約しました。\nパッケージの変更を適用するには、Beutlを終了してください。"));
-                    }
+                    Release release = await _library.GetPackage(Package);
+                    var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
+                    _queue.InstallQueue(packageId);
+                    Notification.Show(new Notification(
+                        Title: "パッケージインストーラー",
+                        Message: $"'{packageId}'の更新を予約しました。\nパッケージの変更を適用するには、Beutlを終了してください。"));
                 }
                 catch (Exception e)
                 {
@@ -188,13 +200,15 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
 
     public Package Package { get; }
 
-    public ReactivePropertySlim<Release> LatestRelease { get; } = new();
+    public ReactivePropertySlim<Release?> LatestRelease { get; } = new();
+
+    public ReactivePropertySlim<Release?> CurrentRelease { get; } = new();
 
     public ReadOnlyReactivePropertySlim<bool> IsInstallButtonVisible { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsUninstallButtonVisible { get; }
 
-    public ReactivePropertySlim<bool> IsUpdateButtonVisible { get; } = new();
+    public ReadOnlyReactivePropertySlim<bool> IsUpdateButtonVisible { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanCancel { get; }
 

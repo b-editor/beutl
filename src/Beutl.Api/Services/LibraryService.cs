@@ -42,6 +42,6 @@ public class LibraryService : IBeutlApiResource
 
     public async Task RemovePackage(Package package)
     {
-        await _clients.Library.DeletePackageAsync(package.Name);
+        (await _clients.Library.DeletePackageAsync(package.Name)).Dispose();
     }
 }

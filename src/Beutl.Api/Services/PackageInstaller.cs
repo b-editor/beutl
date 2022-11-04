@@ -177,7 +177,8 @@ public partial class PackageInstaller : IBeutlApiResource
             string name = context.PackageName;
             string version = context.Version;
             string downloadUrl = context.DownloadUrl;
-            using (FileStream destination = File.Create(Helper.GetNupkgFilePath(name, version)))
+            context.NuGetPackageFile = Helper.GetNupkgFilePath(name, version);
+            using (FileStream destination = File.Create(context.NuGetPackageFile))
             {
                 await Download(downloadUrl, destination, progress, cancellationToken);
             }

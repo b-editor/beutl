@@ -1,4 +1,6 @@
-﻿using Beutl.Api.Objects;
+﻿using System.Diagnostics.CodeAnalysis;
+
+using Beutl.Api.Objects;
 
 namespace Beutl.Api.Services;
 
@@ -27,6 +29,8 @@ public class PackageInstallContext
     public string Version { get; }
 
     public string DownloadUrl { get; }
+
+    public string? NuGetPackageFile { get; internal set; }
 
     public PackageInstallPhase Phase
     {

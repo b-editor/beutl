@@ -1,4 +1,5 @@
 ﻿using Beutl.Api;
+using Beutl.Api.Objects;
 using Beutl.Api.Services;
 
 using NuGet.Packaging.Core;
@@ -37,8 +38,13 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsUninstallButtonVisible = installed
+        IsUpdateButtonVisible = LatestRelease.Select(x => x != null)
             .AreTrue(CanCancel.Not())
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        IsUninstallButtonVisible = installed
+            .AreTrue(CanCancel.Not(), IsUpdateButtonVisible.Not())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -66,7 +72,33 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
             })
             .DisposeWith(_disposables);
 
-        Update = new AsyncReactiveCommand(IsBusy.Not());
+        Update = new AsyncReactiveCommand(IsBusy.Not())
+            .WithSubscribe(() =>
+            {
+                try
+                {
+                    IsBusy.Value = true;
+                    if (LatestRelease.Value != null)
+                    {
+                        var packageId = new PackageIdentity(Package.Name, new NuGetVersion(LatestRelease.Value.Version.Value));
+                        _queue.InstallQueue(packageId);
+                        Notification.Show(new Notification(
+                            Title: "パッケージインストーラー",
+                            Message: $"'{packageId}'の更新を予約しました。\nパッケージの変更を適用するには、Beutlを終了してください。"));
+                    }
+                }
+                catch (Exception e)
+                {
+                    ErrorHandle(e);
+                }
+                finally
+                {
+                    IsBusy.Value = false;
+                }
+
+                return Task.CompletedTask;
+            })
+            .DisposeWith(_disposables);
 
         Uninstall = new ReactiveCommand(IsBusy.Not())
             .WithSubscribe(() =>
@@ -96,7 +128,7 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                 try
                 {
                     IsBusy.Value = true;
-                    _queue.Cancel(_packageIdentity);
+                    _queue.Cancel(_packageIdentity.Id);
                 }
                 catch (Exception e)
                 {
@@ -124,7 +156,9 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
 
     public ReadOnlyReactivePropertySlim<bool> IsUninstallButtonVisible { get; }
 
-    public ReactivePropertySlim<bool> IsUpdateButtonVisible { get; } = new();
+    public ReadOnlyReactivePropertySlim<bool> IsUpdateButtonVisible { get; }
+
+    public ReactivePropertySlim<Release?> LatestRelease { get; } = new();
 
     public ReadOnlyReactivePropertySlim<bool> CanCancel { get; }
 
@@ -137,6 +171,10 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
     public ReactiveCommand Cancel { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
+
+    IReadOnlyReactiveProperty<bool> IYourPackageViewModel.IsUpdateButtonVisible => IsUpdateButtonVisible;
+
+    bool IYourPackageViewModel.IsRemote => false;
 
     public override void Dispose()
     {

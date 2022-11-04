@@ -12,11 +12,13 @@ public interface IYourPackageViewModel : IDisposable
 
     string Publisher { get; }
 
+    bool IsRemote { get; }
+
     ReadOnlyReactivePropertySlim<bool> IsInstallButtonVisible { get; }
 
     ReadOnlyReactivePropertySlim<bool> IsUninstallButtonVisible { get; }
 
-    ReactivePropertySlim<bool> IsUpdateButtonVisible { get; }
+    IReadOnlyReactiveProperty<bool> IsUpdateButtonVisible { get; }
 
     ReadOnlyReactivePropertySlim<bool> CanCancel { get; }
 

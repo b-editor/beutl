@@ -110,6 +110,9 @@
                                     <MenuItem Command="{Binding Update}"
                                               Header="更新"
                                               IsEnabled="{Binding IsUpdateButtonVisible.Value}" />
+                                    <MenuItem Command="{ReflectionBinding RemoveFromLibrary}"
+                                              Header="ライブラリから削除"
+                                              IsVisible="{Binding IsRemote}" />
                                 </ContextMenu>
                             </Button.ContextMenu>
                             <icons:SymbolIcon FontSize="20" Symbol="MoreHorizontal" />
@@ -132,31 +135,38 @@
     </UserControl.Resources>
 
     <ScrollViewer Padding="18">
-        <TabControl Margin="10,0" Padding="0">
-            <TabControl.Styles>
-                <Style Selector="TabItem">
-                    <Setter Property="Padding" Value="8" />
-                    <Setter Property="FontSize" Value="16" />
-                </Style>
-            </TabControl.Styles>
-            <TabItem Header="パッケージ">
-                <ItemsRepeater Margin="0,16,0,0"
-                               ItemTemplate="{StaticResource YourPackageItemTemplate}"
-                               Items="{Binding Packages}">
-                    <ItemsRepeater.Layout>
-                        <StackLayout Spacing="8" />
-                    </ItemsRepeater.Layout>
-                </ItemsRepeater>
-            </TabItem>
-            <TabItem Header="ローカル">
-                <ItemsRepeater Margin="0,16,0,0"
-                               ItemTemplate="{StaticResource YourPackageItemTemplate}"
-                               Items="{Binding LocalPackages}">
-                    <ItemsRepeater.Layout>
-                        <StackLayout Spacing="8" />
-                    </ItemsRepeater.Layout>
-                </ItemsRepeater>
-            </TabItem>
-        </TabControl>
+        <Grid Margin="10,0" RowDefinitions="Auto,*">
+            <Button HorizontalAlignment="Right"
+                    Classes="accent"
+                    Command="{Binding CheckUpdate}"
+                    Content="更新を確認" />
+
+            <TabControl Grid.Row="1" Padding="0">
+                <TabControl.Styles>
+                    <Style Selector="TabItem">
+                        <Setter Property="Padding" Value="8" />
+                        <Setter Property="FontSize" Value="16" />
+                    </Style>
+                </TabControl.Styles>
+                <TabItem Header="パッケージ">
+                    <ItemsRepeater Margin="0,16,0,0"
+                                   ItemTemplate="{StaticResource YourPackageItemTemplate}"
+                                   Items="{Binding Packages}">
+                        <ItemsRepeater.Layout>
+                            <StackLayout Spacing="8" />
+                        </ItemsRepeater.Layout>
+                    </ItemsRepeater>
+                </TabItem>
+                <TabItem Header="ローカル">
+                    <ItemsRepeater Margin="0,16,0,0"
+                                   ItemTemplate="{StaticResource YourPackageItemTemplate}"
+                                   Items="{Binding LocalPackages}">
+                        <ItemsRepeater.Layout>
+                            <StackLayout Spacing="8" />
+                        </ItemsRepeater.Layout>
+                    </ItemsRepeater>
+                </TabItem>
+            </TabControl>
+        </Grid>
     </ScrollViewer>
 </UserControl>

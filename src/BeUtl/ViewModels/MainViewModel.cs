@@ -395,34 +395,38 @@ public sealed class MainViewModel : BasePageViewModel
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
         PackageChangesQueue queue = _beutlClients.GetResource<PackageChangesQueue>();
-        var startInfo = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "bpt"))
-        {
-            UseShellExecute = true,
-        };
+        PackageIdentity[] installs = queue.GetInstalls().ToArray();
+        PackageIdentity[] uninstalls = queue.GetUninstalls().ToArray();
 
-        var installs = queue.GetInstalls().ToArray();
-        if (installs.Length > 0)
+        if (installs.Length > 0 || uninstalls.Length > 0)
         {
-            startInfo.ArgumentList.Add("--installs");
-            foreach (PackageIdentity? item in installs)
+            var startInfo = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "bpt"))
             {
-                startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
-            }
-        }
+                UseShellExecute = true,
+            };
 
-        var uninstalls = queue.GetUninstalls().ToArray();
-        if (uninstalls.Length > 0)
-        {
-            startInfo.ArgumentList.Add("--uninstalls");
-            foreach (PackageIdentity? item in uninstalls)
+            if (installs.Length > 0)
             {
-                startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
+                startInfo.ArgumentList.Add("--installs");
+                foreach (PackageIdentity? item in installs)
+                {
+                    startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
+                }
             }
+
+            if (uninstalls.Length > 0)
+            {
+                startInfo.ArgumentList.Add("--uninstalls");
+                foreach (PackageIdentity? item in uninstalls)
+                {
+                    startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
+                }
+            }
+
+            startInfo.ArgumentList.Add("--verbose");
+            startInfo.ArgumentList.Add("--stay-open");
+
+            Process.Start(startInfo);
         }
-
-        startInfo.ArgumentList.Add("--verbose");
-        startInfo.ArgumentList.Add("--stay-open");
-
-        Process.Start(startInfo);
     }
 }

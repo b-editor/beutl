@@ -208,6 +208,20 @@
                                            IsVisible="{Binding LatestRelease.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                                            Text="{Binding LatestRelease.Value.Version.Value}" />
                             </Grid>
+                            <Grid ColumnDefinitions="Auto,*"
+                                  IsVisible="{Binding CurrentRelease.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                  RowDefinitions="Auto,Auto">
+                                <icons:SymbolIcon Margin="0,0,8,0"
+                                                  VerticalAlignment="Bottom"
+                                                  Symbol="ArrowDownload" />
+                                <TextBlock Grid.Column="1" Text="インストール済みのバージョン" />
+
+                                <TextBlock Grid.Row="1"
+                                           Grid.Column="1"
+                                           Margin="0,8,0,0"
+                                           IsVisible="{Binding CurrentRelease.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                           Text="{Binding CurrentRelease.Value.Version.Value}" />
+                            </Grid>
                         </StackPanel>
                     </StackPanel>
                 </Border>

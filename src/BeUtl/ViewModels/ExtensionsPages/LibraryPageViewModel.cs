@@ -1,20 +1,8 @@
-﻿using System.Collections.ObjectModel;
-
-using Avalonia.Collections;
-using Avalonia.Media;
+﻿using Avalonia.Collections;
 
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
-
-using BeUtl.Framework.Service;
-
-using DynamicData;
-
-using Microsoft.Extensions.DependencyInjection;
-
-using NuGet.Packaging.Core;
-using NuGet.Versioning;
 
 using Reactive.Bindings;
 
@@ -76,18 +64,38 @@ public sealed class LibraryPageViewModel : BasePageViewModel
             })
             .DisposeWith(_disposables);
 
-        CheckUpdate = new AsyncReactiveCommand(IsBusy.AnyTrue(CheckingForUpdate).Not())
+        CheckUpdate = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
                 try
                 {
                     IsBusy.Value = true;
-                    CheckingForUpdate.Value = true;
                     await _user.RefreshAsync();
 
                     PackageManager manager = _clients.GetResource<PackageManager>();
-                    //UpgradablePackages.Clear();
-                    //UpgradablePackages.AddRange(await manager.CheckUpdate());
+                    foreach (PackageUpdate item in await manager.CheckUpdate())
+                    {
+                        LocalYourPackageViewModel? localPackage = LocalPackages.FirstOrDefault(
+                            x => x.Package.Name.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase));
+
+                        if (localPackage != null)
+                        {
+                            localPackage.LatestRelease.Value = item.NewVersion;
+                        }
+
+                        RemoteYourPackageViewModel? remotePackage = Packages.FirstOrDefault(
+                            x => x?.Package?.Name?.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase) == true);
+
+                        Packages.Remove(remotePackage);
+                        remotePackage ??= new RemoteYourPackageViewModel(item.Package, _clients)
+                        {
+                            OnRemoveFromLibrary = OnPackageRemoveFromLibrary
+                        };
+
+                        remotePackage.LatestRelease.Value = item.NewVersion;
+
+                        Packages.Insert(0, remotePackage);
+                    }
                 }
                 catch (Exception e)
                 {
@@ -96,13 +104,10 @@ public sealed class LibraryPageViewModel : BasePageViewModel
                 finally
                 {
                     IsBusy.Value = false;
-                    CheckingForUpdate.Value = false;
                 }
             })
             .DisposeWith(_disposables);
     }
-
-    public AvaloniaList<RemoteYourPackageViewModel?> UpgradablePackages { get; } = new();
 
     public AvaloniaList<RemoteYourPackageViewModel?> Packages { get; } = new();
 
@@ -115,8 +120,6 @@ public sealed class LibraryPageViewModel : BasePageViewModel
     public AsyncReactiveCommand More { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
-
-    public ReactivePropertySlim<bool> CheckingForUpdate { get; } = new();
 
     public override void Dispose()
     {
@@ -136,23 +139,37 @@ public sealed class LibraryPageViewModel : BasePageViewModel
         }
     }
 
+    private void OnPackageRemoveFromLibrary(RemoteYourPackageViewModel obj)
+    {
+        Packages.Remove(obj);
+        obj.Dispose();
+    }
+
     private async Task RefreshLocalPackages()
     {
         PackageManager manager = _clients.GetResource<PackageManager>();
+        DisposeAll(LocalPackages);
         LocalPackages.Clear();
 
-        var dict = new Dictionary<PackageIdentity, LocalPackage>();
-        foreach (LocalPackage item in manager.GetLocalSourcePackages())
+        var dict = new Dictionary<string, LocalPackage>(StringComparer.OrdinalIgnoreCase);
+        foreach (LocalPackage item in manager.GetLocalSourcePackages()
+            .Concat(await manager.GetPackages()))
         {
-            dict.TryAdd(new PackageIdentity(item.Name, new NuGetVersion(item.Version)), item);
+            if (dict.TryGetValue(item.Name, out LocalPackage? localPackage))
+            {
+                // itemのほうが新しいバージョン
+                if (item.Version.CompareTo(localPackage.Version) >= 0)
+                {
+                    dict[item.Name] = item;
+                }
+            }
+            else
+            {
+                dict.Add(item.Name, item);
+            }
         }
 
-        foreach (LocalPackage item in await manager.GetPackages())
-        {
-            dict.TryAdd(new PackageIdentity(item.Name, new NuGetVersion(item.Version)), item);
-        }
-
-        foreach (KeyValuePair<PackageIdentity, LocalPackage> item in dict)
+        foreach (KeyValuePair<string, LocalPackage> item in dict)
         {
             LocalPackages.Add(new LocalYourPackageViewModel(item.Value, _clients));
         }
@@ -166,7 +183,10 @@ public sealed class LibraryPageViewModel : BasePageViewModel
 
         foreach (Package item in array)
         {
-            Packages.Add(new RemoteYourPackageViewModel(item, _clients));
+            Packages.Add(new RemoteYourPackageViewModel(item, _clients)
+            {
+                OnRemoveFromLibrary = OnPackageRemoveFromLibrary
+            });
         }
 
         if (array.Length == 30)
@@ -182,7 +202,10 @@ public sealed class LibraryPageViewModel : BasePageViewModel
 
         foreach (Package item in array)
         {
-            Packages.Add(new RemoteYourPackageViewModel(item, _clients));
+            Packages.Add(new RemoteYourPackageViewModel(item, _clients)
+            {
+                OnRemoveFromLibrary = OnPackageRemoveFromLibrary
+            });
         }
 
         if (array.Length == 30)
