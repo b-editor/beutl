@@ -3,6 +3,8 @@ using Avalonia.Platform.Storage;
 
 using Beutl.Api.Objects;
 
+using BeUtl.Utilities;
+
 using Reactive.Bindings;
 
 using static BeUtl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
@@ -40,7 +42,7 @@ public class SelectAssetViewModel
                 {
                     Asset[] items = await _user.Profile.GetAssetsAsync(count, 30);
                     Items.AddRange(items.Where(x => _contentTypeFilter(x.ContentType))
-                        .Select(x => new AssetViewModel(x, x.Size.HasValue ? ToHumanReadableSize(x.Size.Value) : string.Empty)));
+                        .Select(x => new AssetViewModel(x, x.Size.HasValue ? StringFormats.ToHumanReadableSize(x.Size.Value) : string.Empty)));
                     prevCount = items.Length;
                     count += items.Length;
                 } while (prevCount == 30);

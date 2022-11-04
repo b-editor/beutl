@@ -5,6 +5,7 @@ using Beutl.Api.Objects;
 
 using BeUtl.Configuration;
 using BeUtl.Controls.Navigation;
+using BeUtl.Utilities;
 
 using FluentIcons.Common;
 
@@ -32,15 +33,15 @@ public sealed class StorageSettingsPageViewModel : PageContext
             .ToReadOnlyReactivePropertySlim();
 
         MaxSize = _storageUsageResponse.Where(x => x != null)
-            .Select(x => ToHumanReadableSize(x!.Max_size))
+            .Select(x => StringFormats.ToHumanReadableSize(x!.Max_size))
             .ToReadOnlyReactivePropertySlim()!;
 
         UsedCapacity = _storageUsageResponse.Where(x => x != null)
-            .Select(x => ToHumanReadableSize(x!.Size))
+            .Select(x => StringFormats.ToHumanReadableSize(x!.Size))
             .ToReadOnlyReactivePropertySlim()!;
 
         RemainingCapacity = _storageUsageResponse.Where(x => x != null)
-            .Select(x => ToHumanReadableSize(x!.Max_size - x.Size))
+            .Select(x => StringFormats.ToHumanReadableSize(x!.Max_size - x.Size))
             .ToReadOnlyReactivePropertySlim()!;
 
         _storageUsageResponse.Where(x => x != null)
@@ -53,7 +54,7 @@ public sealed class StorageSettingsPageViewModel : PageContext
                         return defaultValue;
                     }
 
-                    return new DetailItem(defaultValue.Type, ToHumanReadableSize(size), size, size / (double)x.Size);
+                    return new DetailItem(defaultValue.Type, StringFormats.ToHumanReadableSize(size), size, size / (double)x.Size);
                 }
 
                 Details.Clear();
@@ -187,15 +188,6 @@ public sealed class StorageSettingsPageViewModel : PageContext
             return KnownType.Font;
         else
             return KnownType.Other;
-    }
-
-    // https://teratail.com/questions/136799#reply-207332
-    // Todo: 移動
-    public static string ToHumanReadableSize(double size, int scale = 0, int standard = 1024)
-    {
-        string[] unit = new[] { "B", "KB", "MB", "GB" };
-        if (scale == unit.Length - 1 || size <= standard) { return $"{size:F} {unit[scale]}"; }
-        return ToHumanReadableSize(size / standard, scale + 1, standard);
     }
 
     private void FillBlankItems()

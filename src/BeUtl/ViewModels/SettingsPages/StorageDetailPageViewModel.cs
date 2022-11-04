@@ -9,6 +9,7 @@ using Avalonia.Collections;
 using Beutl.Api.Objects;
 
 using BeUtl.Controls.Navigation;
+using BeUtl.Utilities;
 using BeUtl.ViewModels.Dialogs;
 
 using Reactive.Bindings;
@@ -40,7 +41,7 @@ public class StorageDetailPageViewModel : PageContext
                 {
                     Asset[] items = await user.Profile.GetAssetsAsync(count, 30);
                     Items.AddRange(items.Where(x => StorageSettingsPageViewModel.ToKnownType(x.ContentType) == Type)
-                        .Select(x => new AssetViewModel(x, x.Size.HasValue ? StorageSettingsPageViewModel.ToHumanReadableSize(x.Size.Value) : string.Empty)));
+                        .Select(x => new AssetViewModel(x, x.Size.HasValue ? StringFormats.ToHumanReadableSize(x.Size.Value) : string.Empty)));
                     prevCount = items.Length;
                     count += items.Length;
                 } while (prevCount == 30);
