@@ -1,6 +1,7 @@
 ﻿
 using Avalonia;
 using Avalonia.Collections;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 
 using Beutl.Api;
@@ -19,6 +20,8 @@ using BeUtl.ViewModels.ExtensionsPages;
 using DynamicData;
 
 using Microsoft.Extensions.DependencyInjection;
+
+using NuGet.Packaging.Core;
 
 using Reactive.Bindings;
 
@@ -378,9 +381,48 @@ public sealed class MainViewModel : BasePageViewModel
     {
         ServiceLocator.Current
             .Bind<ExtensionProvider>().ToConstant(_beutlClients.GetResource<ExtensionProvider>());
+
+        if (Application.Current is { ApplicationLifetime: IControlledApplicationLifetime lifetime })
+        {
+            lifetime.Exit += OnExit;
+        }
     }
 
     public override void Dispose()
     {
+    }
+
+    private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
+    {
+        PackageChangesQueue queue = _beutlClients.GetResource<PackageChangesQueue>();
+        var startInfo = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "bpt"))
+        {
+            UseShellExecute = true,
+        };
+
+        var installs = queue.GetInstalls().ToArray();
+        if (installs.Length > 0)
+        {
+            startInfo.ArgumentList.Add("--installs");
+            foreach (PackageIdentity? item in installs)
+            {
+                startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
+            }
+        }
+
+        var uninstalls = queue.GetUninstalls().ToArray();
+        if (uninstalls.Length > 0)
+        {
+            startInfo.ArgumentList.Add("--uninstalls");
+            foreach (PackageIdentity? item in uninstalls)
+            {
+                startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
+            }
+        }
+
+        startInfo.ArgumentList.Add("--verbose");
+        startInfo.ArgumentList.Add("--stay-open");
+
+        Process.Start(startInfo);
     }
 }

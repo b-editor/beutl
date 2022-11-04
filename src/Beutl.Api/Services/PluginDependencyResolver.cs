@@ -21,23 +21,21 @@ internal sealed class PluginDependencyResolver
     private readonly List<string> _resourceSearchPaths = new();
     private readonly string[] _assemblyDirectorySearchPaths;
 
-    public PluginDependencyResolver(string specFile)
+    public PluginDependencyResolver(string mainDirectory, PackageFolderReader reader)
     {
         NuGetFramework framework = Helper.GetFrameworkName();
 
-        string directory = Path.GetDirectoryName(specFile)!;
-        var reader = new PackageFolderReader(directory);
         var availablePackages = new HashSet<PackageIdentity>();
 
         GetPackageDependencies(
-            directory,
+            mainDirectory,
             reader,
             reader.GetIdentity(),
             framework,
             NullLogger.Instance,
             availablePackages);
 
-        _assemblyDirectorySearchPaths = new string[1] { directory };
+        _assemblyDirectorySearchPaths = new string[1] { mainDirectory };
     }
 
     private void GetPackageDependencies(
@@ -69,7 +67,7 @@ internal sealed class PluginDependencyResolver
         foreach (string item in libItems)
         {
             string? parent = Path.GetDirectoryName(item);
-            string? culture = Path.GetFileNameWithoutExtension(parent);
+            string? culture = Path.GetFileName(parent);
             if (parent is { }
                 && !_resourceSearchPaths.Contains(parent)
                 && item.EndsWith(".resources.dll")
@@ -97,13 +95,16 @@ internal sealed class PluginDependencyResolver
         {
             var dependentPackage = new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion);
             path = Helper.PackagePathResolver.GetInstalledPath(dependentPackage);
-            reader = new PackageFolderReader(path);
+            if (path != null)
+            {
+                reader = new PackageFolderReader(path);
 
-            GetPackageDependencies(
-                path,
-                reader,
-                dependentPackage,
-                framework, logger, availablePackages);
+                GetPackageDependencies(
+                    path,
+                    reader,
+                    dependentPackage,
+                    framework, logger, availablePackages);
+            }
         }
     }
 

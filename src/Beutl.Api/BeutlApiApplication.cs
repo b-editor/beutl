@@ -1,13 +1,10 @@
 ﻿using System.Diagnostics;
-using System.IO.IsolatedStorage;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Mime;
 using System.Net.Sockets;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
@@ -108,13 +105,10 @@ public class BeutlApiApplication
     public void SignOut()
     {
         _authorizedUser.Value = null;
-        string fileName = "user.json";
-        using (var storagefile = IsolatedStorageFile.GetUserStoreForAssembly())
+        string fileName = Path.Combine(Helper.AppRoot, "user.json");
+        if (File.Exists(fileName))
         {
-            if (storagefile.FileExists(fileName))
-            {
-                storagefile.DeleteFile(fileName);
-            }
+            File.Delete(fileName);
         }
     }
 
@@ -200,9 +194,8 @@ public class BeutlApiApplication
     {
         if (_authorizedUser.Value is { } user)
         {
-            string fileName = "user.json";
-            using (var storagefile = IsolatedStorageFile.GetUserStoreForAssembly())
-            using (IsolatedStorageFileStream stream = storagefile.CreateFile(fileName))
+            string fileName = Path.Combine(Helper.AppRoot, "user.json");
+            using (FileStream stream = File.Create(fileName))
             {
                 var obj = new JsonObject
                 {
@@ -220,39 +213,35 @@ public class BeutlApiApplication
 
     public async Task RestoreUserAsync()
     {
-        string fileName = "user.json";
-        using (var storagefile = IsolatedStorageFile.GetUserStoreForAssembly())
+        string fileName = Path.Combine(Helper.AppRoot, "user.json");
+        if (File.Exists(fileName))
         {
-            if (storagefile.FileExists(fileName))
+            JsonNode? node;
+            using (StreamReader reader = File.OpenText(fileName))
             {
-                JsonNode? node;
-                using (IsolatedStorageFileStream stream = storagefile.OpenFile(fileName, FileMode.Open, FileAccess.Read))
-                using (var reader = new StreamReader(stream))
+                string json = await reader.ReadToEndAsync();
+                node = JsonNode.Parse(json);
+            }
+
+            if (node != null)
+            {
+                ProfileResponse? profile = JsonSerializer.Deserialize<ProfileResponse>(node["profile"]);
+                string? token = (string?)node["token"];
+                string? refreshToken = (string?)node["refresh_token"];
+                var expiration = (DateTimeOffset?)node["expiration"];
+
+                if (profile != null
+                    && token != null
+                    && refreshToken != null
+                    && expiration.HasValue)
                 {
-                    string json = await reader.ReadToEndAsync();
-                    node = JsonNode.Parse(json);
-                }
+                    var user = new AuthorizedUser(new Profile(profile, this), new AuthResponse(expiration.Value, refreshToken, token), this, _httpClient);
+                    await user.RefreshAsync();
 
-                if (node != null)
-                {
-                    ProfileResponse? profile = JsonSerializer.Deserialize<ProfileResponse>(node["profile"]);
-                    string? token = (string?)node["token"];
-                    string? refreshToken = (string?)node["refresh_token"];
-                    var expiration = (DateTimeOffset?)node["expiration"];
-
-                    if (profile != null
-                        && token != null
-                        && refreshToken != null
-                        && expiration.HasValue)
-                    {
-                        var user = new AuthorizedUser(new Profile(profile, this), new AuthResponse(expiration.Value, refreshToken, token), this, _httpClient);
-                        await user.RefreshAsync();
-
-                        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
-                        await user.Profile.RefreshAsync();
-                        _authorizedUser.Value = user;
-                        SaveUser();
-                    }
+                    _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
+                    await user.Profile.RefreshAsync();
+                    _authorizedUser.Value = user;
+                    SaveUser();
                 }
             }
         }

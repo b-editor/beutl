@@ -13,6 +13,7 @@ public sealed class SamplePageViewModel
 
 }
 
+[Export]
 public sealed class SamplePageExtension : PageExtension
 {
     public override Geometry FilledIcon => FluentIconsFilled.Mail.GetGeometry();

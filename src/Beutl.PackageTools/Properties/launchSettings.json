@@ -6,15 +6,23 @@
     },
     "Install": {
       "commandName": "Project",
-      "commandLineArgs": "perform --installs SamplePackage/1.0.0 --verbose"
+      "commandLineArgs": "--installs SamplePackage/1.0.0 --verbose"
     },
     "Uninstall": {
       "commandName": "Project",
-      "commandLineArgs": "perform --uninstalls SamplePackage/1.0.0 --verbose --clean"
+      "commandLineArgs": "--uninstalls SamplePackage/1.0.0 --verbose --clean"
     },
     "Clean": {
       "commandName": "Project",
-      "commandLineArgs": "perform --verbose --clean"
+      "commandLineArgs": "--verbose --clean"
+    },
+    "List": {
+      "commandName": "Project",
+      "commandLineArgs": "list --verbose"
+    },
+    "Update": {
+      "commandName": "Project",
+      "commandLineArgs": "--updates SamplePackage/1.1.0 --verbose --clean"
     }
   }
 }

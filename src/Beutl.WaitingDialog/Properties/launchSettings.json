@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Beutl.WaitingDialog": {
+      "commandName": "Project",
+      "commandLineArgs": "--title DialogTitle\r\n--subtitle Subtitle\r\n--content Content\r\n--progress\r\n--icon Info\r\n--closable"
+    }
+  }
+}

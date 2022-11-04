@@ -4,30 +4,36 @@
     <TargetFramework>net6.0</TargetFramework>
     <Nullable>enable</Nullable>
     <AssemblyName>bpt</AssemblyName>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup>
     <None Remove=".gitignore" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="ConsoleAppFramework" Version="4.2.4" />
+    <PackageReference Include="FluentTextTable" Version="1.0.0" />
     <PackageReference Include="Kokuban" Version="0.2.0" />
     <PackageReference Include="Kurukuru" Version="1.4.2" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="6.0.0" />
     <PackageReference Include="Sharprompt" Version="2.4.5" />
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />
-    <ProjectReference Include="..\BeUtl.Controls\BeUtl.Controls.csproj" />
   </ItemGroup>
 
-  <!--<Import Project="$(RootDirectory)\build\props\AsyncImageLoader.Avalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\Avalonia.Svg.Skia.props" />
-  <Import Project="$(RootDirectory)\build\props\Avalonia.Xaml.Interactivity.props" />
-  <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
-  <Import Project="$(RootDirectory)\build\props\FluentIcons.FluentAvalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\System.Interactive.props" />
-  <Import Project="$(RootDirectory)\build\props\XamlNameReferenceGenerator.props" />-->
+  <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  
 </Project>

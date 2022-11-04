@@ -16,7 +16,7 @@ public class PackageUninstallContext
         InstalledPath = installedPath??Helper.PackagePathResolver.GetInstalledPath(packageIdentity);
     }
 
-    internal PackageIdentity Id { get; }
+    public PackageIdentity Id { get; }
 
     [AllowNull]
     internal PackageIdentity[] UnnecessaryPackages { get; init; }

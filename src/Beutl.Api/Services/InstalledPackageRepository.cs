@@ -1,5 +1,4 @@
-﻿using System.IO.IsolatedStorage;
-using System.Reactive.Subjects;
+﻿using System.Reactive.Subjects;
 using System.Text.Json;
 
 using BeUtl.Reactive;
@@ -29,6 +28,25 @@ public class InstalledPackageRepository : IBeutlApiResource
     public IEnumerable<PackageIdentity> GetLocalPackages(string name)
     {
         return _packages.Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name));
+    }
+
+    public void UpgradePackages(PackageIdentity package)
+    {
+        PackageIdentity[] removedItems = Array.Empty<PackageIdentity>();
+        if (_subject.HasObservers)
+        {
+            removedItems = GetLocalPackages(package.Id).ToArray();
+        }
+        _packages.RemoveWhere(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, package.Id));
+        _packages.Add(package);
+        Save();
+
+        foreach (PackageIdentity removed in removedItems)
+        {
+            _subject.OnNext((removed, false));
+        }
+
+        _subject.OnNext((package, true));
     }
 
     public void AddPackage(string name, string version)
@@ -118,8 +136,8 @@ public class InstalledPackageRepository : IBeutlApiResource
 
     private void Save()
     {
-        using (var storagefile = IsolatedStorageFile.GetUserStoreForAssembly())
-        using (IsolatedStorageFileStream stream = storagefile.CreateFile(FileName))
+        string fileName = Path.Combine(Helper.AppRoot, FileName);
+        using (FileStream stream = File.Create(fileName))
         {
             JsonSerializer.Serialize(stream, _packages
                 .Select(x => new S_Package(x.Id, x.Version.ToString()))
@@ -129,25 +147,23 @@ public class InstalledPackageRepository : IBeutlApiResource
 
     private void Restore()
     {
-        using (var storagefile = IsolatedStorageFile.GetUserStoreForAssembly())
+        string fileName = Path.Combine(Helper.AppRoot, FileName);
+        if (File.Exists(fileName))
         {
-            if (storagefile.FileExists(FileName))
+            using (FileStream stream = File.OpenRead(fileName))
             {
-                using (IsolatedStorageFileStream stream = storagefile.OpenFile(FileName, FileMode.Open))
+                try
                 {
-                    try
+                    if (JsonSerializer.Deserialize<S_Package[]>(stream) is S_Package[] packages)
                     {
-                        if (JsonSerializer.Deserialize<S_Package[]>(stream) is S_Package[] packages)
-                        {
-                            _packages.Clear();
+                        _packages.Clear();
 
-                            _packages.AddRange(packages.Select(x => new PackageIdentity(x.Name, new NuGetVersion(x.Version))));
-                        }
+                        _packages.AddRange(packages.Select(x => new PackageIdentity(x.Name, new NuGetVersion(x.Version))));
                     }
-                    catch
-                    {
+                }
+                catch
+                {
 
-                    }
                 }
             }
         }

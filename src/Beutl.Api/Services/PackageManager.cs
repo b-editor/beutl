@@ -84,23 +84,33 @@ public sealed class PackageManager : PackageLoader
 
     public async Task<IReadOnlyList<PackageUpdate>> CheckUpdate()
     {
-        var updates = new List<PackageUpdate>(_loadedPackage.Count);
+        PackageIdentity[] packages = _installedPackageRepository.GetLocalPackages().ToArray();
+
+        var updates = new List<PackageUpdate>(packages.Length);
         DiscoverService discover = _apiApplication.GetResource<DiscoverService>();
 
-        for (int i = 0; i < _loadedPackage.Count; i++)
+        for (int i = 0; i < packages.Length; i++)
         {
-            LocalPackage pkg = _loadedPackage[i];
-            Package remotePackage = await discover.GetPackage(pkg.Name);
-
-            foreach (Release? item in await remotePackage.GetReleasesAsync())
+            var pkg = packages[i];
+            var version = pkg.Version.ToString();
+            try
             {
-                // 降順
-                if (item.Version.Value.CompareTo(pkg.Version) > 0)
+                Package remotePackage = await discover.GetPackage(pkg.Id);
+
+                foreach (Release? item in await remotePackage.GetReleasesAsync())
                 {
-                    // Todo: CompareTo
-                    Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(pkg.Version));
-                    updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
+                    // 降順
+                    if (item.Version.Value.CompareTo(version) > 0)
+                    {
+                        Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(version));
+                        updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
+                        break;
+                    }
                 }
+            }
+            catch
+            {
+
             }
         }
 

@@ -1,0 +1,73 @@
+<wnd:AppWindow x:Class="Beutl.WaitingDialog.MainWindow"
+               xmlns="https://github.com/avaloniaui"
+               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+               xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+               xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+               xmlns:ui="using:FluentAvalonia.UI.Controls"
+               xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
+               xmlns:wnd="using:FluentAvalonia.UI.Windowing"
+               Title="Beutl.WaitingDialog"
+               Width="440"
+               Height="160"
+               MinWidth="{DynamicResource TaskDialogMinWidth}"
+               MinHeight="{DynamicResource TaskDialogMinHeight}"
+               MaxWidth="{DynamicResource TaskDialogMaxWidth}"
+               MaxHeight="{DynamicResource TaskDialogMaxHeight}"
+               CanResize="False"
+               SizeToContent="WidthAndHeight"
+               WindowStartupLocation="CenterScreen"
+               mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,Auto,*" Background="{DynamicResource TaskDialogSmokeFill}">
+        <Border x:Name="headerRoot"
+                Padding="{DynamicResource TaskDialogHeaderPadding}"
+                Background="{DynamicResource TaskDialogHeaderBackground}"
+                IsVisible="False">
+            <TextBlock x:Name="header"
+                       FontSize="{DynamicResource TaskDialogHeaderFontSize}"
+                       FontWeight="{StaticResource TaskDialogHeaderFontWeight}"
+                       TextWrapping="Wrap" />
+        </Border>
+
+        <DockPanel x:Name="subheaderRoot"
+                   Grid.Row="1"
+                   Margin="{DynamicResource TaskDialogSubHeaderPadding}"
+                   IsVisible="False">
+            <Viewbox x:Name="iconHost"
+                     Width="{StaticResource TaskDialogIconSize}"
+                     Height="{StaticResource TaskDialogIconSize}"
+                     Margin="0,0,12,0"
+                     DockPanel.Dock="Left"
+                     IsVisible="False">
+                <ui:IconSourceElement x:Name="iconSourceElement" />
+            </Viewbox>
+
+            <TextBlock x:Name="subheader"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Center"
+                       FontSize="{StaticResource TaskDialogSubHeaderFontSize}"
+                       FontWeight="{StaticResource TaskDialogSubHeaderFontWeight}"
+                       TextWrapping="Wrap" />
+        </DockPanel>
+
+        <ScrollViewer Grid.Row="2"
+                      Margin="{StaticResource TaskDialogContentMargin}"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="18">
+                <ContentPresenter x:Name="contentPresenter"
+                                  HorizontalAlignment="Stretch"
+                                  VerticalAlignment="Stretch"
+                                  HorizontalContentAlignment="Stretch"
+                                  VerticalContentAlignment="Stretch">
+                    <ContentPresenter.Styles>
+                        <Style Selector="TextBlock">
+                            <Setter Property="TextWrapping" Value="Wrap" />
+                        </Style>
+                    </ContentPresenter.Styles>
+                </ContentPresenter>
+
+                <ProgressBar x:Name="progress" IsVisible="False" />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</wnd:AppWindow>

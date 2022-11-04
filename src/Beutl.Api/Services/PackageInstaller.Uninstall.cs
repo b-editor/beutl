@@ -28,7 +28,7 @@ public partial class PackageInstaller
         foreach (PackageIdentity package in unnecessaryPackages)
         {
             string directory = Helper.PackagePathResolver.GetInstalledPath(package);
-            foreach (string file in Directory.GetFiles(directory))
+            foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
             {
                 size += new FileInfo(file).Length;
             }
@@ -54,7 +54,7 @@ public partial class PackageInstaller
         {
             string directory = Helper.PackagePathResolver.GetInstalledPath(package);
             bool hasAnyFailtures = false;
-            foreach (string file in Directory.GetFiles(directory))
+            foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
             {
                 try
                 {
@@ -68,6 +68,15 @@ public partial class PackageInstaller
                 }
 
                 progress.Report(totalSize / (double)context.SizeToBeReleased);
+            }
+
+            try
+            {
+                Directory.Delete(directory, true);
+            }
+            catch
+            {
+                hasAnyFailtures = true;
             }
 
             if (hasAnyFailtures)

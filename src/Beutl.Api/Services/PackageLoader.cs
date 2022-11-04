@@ -16,12 +16,12 @@ public abstract class PackageLoader : IBeutlApiResource
 
         NuGetFramework nearest = Helper.FrameworkReducer.GetNearest(framework, reader.GetPackageDependencies().Select(x => x.TargetFramework));
 
-        string name = Path.GetFileNameWithoutExtension(installedPath);
+        string name = Path.GetFileName(installedPath);
 
         string mainDirectory = Path.Combine(installedPath, "lib", nearest.ToString());
 
-        var loadContext = new PluginLoadContext(mainDirectory);
-        string[] asmFiles = Directory.GetFiles("*.dll");
+        var loadContext = new PluginLoadContext(mainDirectory, reader);
+        string[] asmFiles = Directory.GetFiles(mainDirectory, "*.dll");
         Assembly[] assemblies = new Assembly[asmFiles.Length];
 
         int index = 0;

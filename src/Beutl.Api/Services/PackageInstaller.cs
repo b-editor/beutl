@@ -32,7 +32,7 @@ public partial class PackageInstaller : IBeutlApiResource
 
     private readonly Subject<(PackageIdentity Package, EventType Type)> _subject = new();
 
-    private static readonly NuGetVersion s_beutlVersion = new NuGetVersion("0.3.0");
+    private static readonly NuGetVersion s_beutlVersion = new("0.3.0");
     private static readonly PackageIdentity[] s_preferredVersions =
     {
         new PackageIdentity("BeUtl.Sdk", s_beutlVersion),
@@ -48,6 +48,15 @@ public partial class PackageInstaller : IBeutlApiResource
         new PackageIdentity("BeUtl.Utilities", s_beutlVersion),
     };
 
+    private const string DefaultNuGetConfigContentTemplate = @"<?xml version=""1.0"" encoding=""utf-8""?>
+<configuration>
+  <packageSources>
+    <add key=""Beutl Local Packages"" value=""{0}"" />
+    <add key=""nuget.org"" value=""https://api.nuget.org/v3/index.json"" protocolVersion=""3"" />
+  </packageSources>
+</configuration>
+";
+
     public enum EventType
     {
         Idle,
@@ -60,10 +69,18 @@ public partial class PackageInstaller : IBeutlApiResource
         _httpClient = httpClient;
         _installedPackageRepository = installedPackageRepository;
 
+        string configPath = Path.Combine(Helper.AppRoot, "nuget.config");
+        if (!File.Exists(configPath))
+        {
+            using (StreamWriter writer =File.CreateText(configPath))
+            {
+                writer.Write(string.Format(DefaultNuGetConfigContentTemplate, Helper.LocalSourcePath));
+            }
+        }
+
         _settings = Settings.LoadDefaultSettings(Helper.AppRoot);
+        _settings = new Settings(Helper.AppRoot);
         _packageSourceProvider = new PackageSourceProvider(_settings);
-        var localPkgSource = new PackageSource(Helper.LocalSourcePath);
-        _packageSourceProvider.AddPackageSource(localPkgSource);
 
         _sourceRepositoryProvider = new SourceRepositoryProvider(_packageSourceProvider, Repository.Provider.GetCoreV3());
         _cacheContext = new SourceCacheContext()

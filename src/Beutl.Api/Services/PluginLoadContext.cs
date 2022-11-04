@@ -1,6 +1,8 @@
 ﻿using System.Reflection;
 using System.Runtime.Loader;
 
+using NuGet.Packaging;
+
 namespace Beutl.Api.Services;
 
 // Todo: 最初に許可されたアセンブリのリストから探すようにする。
@@ -9,10 +11,10 @@ public class PluginLoadContext : AssemblyLoadContext
     private readonly AssemblyDependencyResolver _resolver;
     private readonly PluginDependencyResolver _pluginResolver;
 
-    public PluginLoadContext(string specFile) : base(isCollectible: true)
+    public PluginLoadContext(string mainDirectory, PackageFolderReader reader) : base(isCollectible: true)
     {
         _resolver = new AssemblyDependencyResolver(AppContext.BaseDirectory);
-        _pluginResolver = new PluginDependencyResolver(specFile);
+        _pluginResolver = new PluginDependencyResolver(mainDirectory, reader);
     }
 
     protected override Assembly? Load(AssemblyName name)
@@ -29,7 +31,8 @@ public class PluginLoadContext : AssemblyLoadContext
             return LoadFromAssemblyPath(assemblyPath);
         }
 
-        return null;
+        var a = base.Load(name);
+        return a;
     }
 
     protected override IntPtr LoadUnmanagedDll(string unmanagedDllName)
