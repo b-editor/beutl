@@ -26,7 +26,7 @@ public class PackageIdArgumentParser
         }
     }
 
-    private (PackageIdentity?, Release?) CheckLocalSource(PackageIdentity pkg, (PackageIdentity?, Release?) fallback)
+    private static (PackageIdentity?, Release?) CheckLocalSource(PackageIdentity pkg, (PackageIdentity?, Release?) fallback)
     {
         string localNupkgPath = Path.Combine(Helper.LocalSourcePath, $"{pkg}.nupkg");
         if (File.Exists(localNupkgPath))

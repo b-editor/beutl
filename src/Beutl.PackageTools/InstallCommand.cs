@@ -74,6 +74,8 @@ public partial class InstallerCommands
         foreach ((PackageIdentity package, Release? release) in items)
         {
             Console.WriteLine();
+            string? nupkgPath = null;
+
             try
             {
                 Console.WriteLine(Resources.InstallingXXX, package);
@@ -89,6 +91,7 @@ public partial class InstallerCommands
                         var progress = new KurukuruProgress(spinner, message);
                         await _installer.DownloadPackageFile(context, null, _cancellationToken);
                     });
+                    nupkgPath = context.NuGetPackageFile;
                 }
                 else
                 {
@@ -111,6 +114,13 @@ public partial class InstallerCommands
                 if (verbose)
                 {
                     Console.Error.WriteLine(ex);
+                }
+            }
+            finally
+            {
+                if (File.Exists(nupkgPath))
+                {
+                    File.Delete(nupkgPath);
                 }
             }
         }

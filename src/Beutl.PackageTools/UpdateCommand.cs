@@ -106,6 +106,7 @@ public partial class InstallerCommands
         foreach ((PackageIdentity package, Release? release) in items)
         {
             Console.WriteLine();
+            string? nupkgPath = null;
 
             try
             {
@@ -122,6 +123,7 @@ public partial class InstallerCommands
                         var progress = new KurukuruProgress(spinner, message);
                         await _installer.DownloadPackageFile(context, progress, _cancellationToken);
                     });
+                    nupkgPath = context.NuGetPackageFile;
                 }
                 else
                 {
@@ -136,6 +138,11 @@ public partial class InstallerCommands
 
                 _installedPackageRepository.UpgradePackages(package);
 
+                if (File.Exists(context.NuGetPackageFile))
+                {
+                    File.Delete(context.NuGetPackageFile);
+                }
+
                 Console.WriteLine(Chalk.BrightGreen[string.Format(Resources.UpdatedXXX, package.Id)]);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -144,6 +151,13 @@ public partial class InstallerCommands
                 if (verbose)
                 {
                     Console.Error.WriteLine(ex);
+                }
+            }
+            finally
+            {
+                if (File.Exists(nupkgPath))
+                {
+                    File.Delete(nupkgPath);
                 }
             }
         }
