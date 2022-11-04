@@ -74,7 +74,7 @@ public partial class UserProfilePage : UserControl
 
     private void DestoryDataContext()
     {
-        if (DataContext is IDisposable disposable)
+        if (DataContext is UserProfilePageViewModel disposable)
         {
             disposable.Dispose();
         }

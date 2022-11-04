@@ -38,7 +38,7 @@ public partial class SearchPage : UserControl
 
     private void DestoryDataContext()
     {
-        if (DataContext is IDisposable disposable)
+        if (DataContext is SearchPageViewModel disposable)
         {
             disposable.Dispose();
         }

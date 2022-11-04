@@ -47,7 +47,7 @@ public sealed partial class PackageReleasesPage : UserControl
 
     private void DestoryDataContext()
     {
-        if (DataContext is IDisposable disposable)
+        if (DataContext is PackageReleasesPageViewModel disposable)
         {
             disposable.Dispose();
         }

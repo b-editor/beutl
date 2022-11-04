@@ -38,7 +38,7 @@ public partial class RankingPage : UserControl
 
     private void DestoryDataContext()
     {
-        if (DataContext is IDisposable disposable)
+        if (DataContext is RankingPageViewModel disposable)
         {
             disposable.Dispose();
         }

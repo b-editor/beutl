@@ -43,7 +43,7 @@ public sealed partial class PackageSettingsPage : UserControl
 
     private void DestoryDataContext()
     {
-        if (DataContext is IDisposable disposable)
+        if (DataContext is PackageSettingsPageViewModel disposable)
         {
             disposable.Dispose();
         }
