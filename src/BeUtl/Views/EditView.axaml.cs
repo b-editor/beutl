@@ -14,6 +14,8 @@ using BeUtl.Media.Pixel;
 using BeUtl.ProjectSystem;
 using BeUtl.ViewModels;
 
+using FluentAvalonia.UI.Controls;
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BeUtl.Views;
@@ -23,8 +25,8 @@ public sealed partial class EditView : UserControl, IEditor
     private readonly SynchronizationContext _syncContext;
     private static readonly Binding s_isSelectedBinding = new("Context.IsSelected.Value", BindingMode.TwoWay);
     private static readonly Binding s_headerBinding = new("Context.Header.Value");
-    private readonly AvaloniaList<FA.TabViewItem> _bottomTabItems = new();
-    private readonly AvaloniaList<FA.TabViewItem> _rightTabItems = new();
+    private readonly AvaloniaList<TabViewItem> _bottomTabItems = new();
+    private readonly AvaloniaList<TabViewItem> _rightTabItems = new();
     private Image? _image;
     //private FileSystemWatcher? _watcher;
     private IDisposable? _disposable0;
@@ -49,14 +51,14 @@ public sealed partial class EditView : UserControl, IEditor
 
     private void TabItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (sender is FA.TabView { TabItems: AvaloniaList<FA.TabViewItem> tabItems })
+        if (sender is TabView { TabItems: AvaloniaList<TabViewItem> tabItems })
         {
             switch (e.Action)
             {
                 case NotifyCollectionChangedAction.Add:
                     for (int i = e.NewStartingIndex; i < tabItems.Count; i++)
                     {
-                        FA.TabViewItem? item = tabItems[i];
+                        TabViewItem? item = tabItems[i];
                         if (item.DataContext is ToolTabViewModel itemViewModel)
                         {
                             itemViewModel.Order = i;
@@ -71,7 +73,7 @@ public sealed partial class EditView : UserControl, IEditor
                 case NotifyCollectionChangedAction.Remove:
                     for (int i = e.OldStartingIndex; i < tabItems.Count; i++)
                     {
-                        FA.TabViewItem? item = tabItems[i];
+                        TabViewItem? item = tabItems[i];
                         if (item.DataContext is ToolTabViewModel itemViewModel)
                         {
                             itemViewModel.Order = i;
@@ -161,9 +163,9 @@ Error:
                     }
 
                     control.DataContext = item.Context;
-                    var tabItem = new FA.TabViewItem
+                    var tabItem = new TabViewItem
                     {
-                        [!FA.TabViewItem.HeaderProperty] = s_headerBinding,
+                        [!TabViewItem.HeaderProperty] = s_headerBinding,
                         [!ListBoxItem.IsSelectedProperty] = s_isSelectedBinding,
                         DataContext = item,
                         Content = control,
@@ -171,7 +173,7 @@ Error:
 
                     tabItem.CloseRequested += (s, _) =>
                     {
-                        if (s is FA.TabViewItem { DataContext: ToolTabViewModel tabViewModel } && DataContext is IEditorContext viewModel)
+                        if (s is TabViewItem { DataContext: ToolTabViewModel tabViewModel } && DataContext is IEditorContext viewModel)
                         {
                             viewModel.CloseToolTab(tabViewModel.Context);
                         }
@@ -188,7 +190,7 @@ Error:
                 {
                     for (int i = 0; i < _bottomTabItems.Count; i++)
                     {
-                        FA.TabViewItem tabItem = _bottomTabItems[i];
+                        TabViewItem tabItem = _bottomTabItems[i];
                         if (tabItem.DataContext is ToolTabViewModel itemViewModel
                             && itemViewModel.Context == item.Context)
                         {
@@ -216,9 +218,9 @@ Error:
                     }
 
                     control.DataContext = item.Context;
-                    var tabItem = new FA.TabViewItem
+                    var tabItem = new TabViewItem
                     {
-                        [!FA.TabViewItem.HeaderProperty] = s_headerBinding,
+                        [!TabViewItem.HeaderProperty] = s_headerBinding,
                         [!ListBoxItem.IsSelectedProperty] = s_isSelectedBinding,
                         DataContext = item,
                         Content = control,
@@ -226,7 +228,7 @@ Error:
 
                     tabItem.CloseRequested += (s, _) =>
                     {
-                        if (s is FA.TabViewItem { DataContext: ToolTabViewModel tabViewModel } && DataContext is IEditorContext viewModel)
+                        if (s is TabViewItem { DataContext: ToolTabViewModel tabViewModel } && DataContext is IEditorContext viewModel)
                         {
                             viewModel.CloseToolTab(tabViewModel.Context);
                         }
@@ -243,7 +245,7 @@ Error:
                 {
                     for (int i = 0; i < _rightTabItems.Count; i++)
                     {
-                        FA.TabViewItem tabItem = _rightTabItems[i];
+                        TabViewItem tabItem = _rightTabItems[i];
                         if (tabItem.DataContext is ToolTabViewModel itemViewModel
                             && itemViewModel.Context == item.Context)
                         {

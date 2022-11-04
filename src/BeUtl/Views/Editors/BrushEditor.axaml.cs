@@ -14,6 +14,8 @@ using BeUtl.ViewModels.Editors;
 using BeUtl.ViewModels.Tools;
 using BeUtl.Views.Tools;
 
+using FluentAvalonia.UI.Controls;
+
 namespace BeUtl.Views.Editors;
 
 public sealed partial class BrushEditor : UserControl
@@ -23,7 +25,7 @@ public sealed partial class BrushEditor : UserControl
         InitializeComponent();
     }
 
-    public void ColorPicker_FlyoutConfirmed(FA.ColorPickerButton sender, FA.ColorButtonColorChangedEventArgs e)
+    public void ColorPicker_FlyoutConfirmed(ColorPickerButton sender, ColorButtonColorChangedEventArgs e)
     {
         if (DataContext is BrushEditorViewModel viewModel
             && viewModel.Value.Value is SolidColorBrush brush
@@ -84,7 +86,7 @@ public sealed partial class BrushEditor : UserControl
                     build: (x, _) => new TextBlock { Text = x.Item2 })
             };
 
-            var dialog = new FA.ContentDialog
+            var dialog = new ContentDialog
             {
                 Content = combobox,
                 Title = S.Message.MultipleTypesAreAvailable,
@@ -92,7 +94,7 @@ public sealed partial class BrushEditor : UserControl
                 CloseButtonText = S.Common.Cancel
             };
 
-            if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary
                 && combobox.SelectedItem is (Type type, string _))
             {
                 ConstructorInfo? constructorInfo = type.GetConstructor(Array.Empty<Type>());

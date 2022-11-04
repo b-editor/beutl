@@ -13,6 +13,8 @@ using BeUtl.ViewModels.Editors;
 using BeUtl.ViewModels.Tools;
 using BeUtl.Views.Tools;
 
+using FluentAvalonia.UI.Controls;
+
 namespace BeUtl.Views.Editors;
 
 public partial class NavigateButton : UserControl
@@ -107,7 +109,7 @@ public sealed class NavigateButton<T> : NavigateButton
                             SelectedIndex = 0
                         };
 
-                        var dialog = new FA.ContentDialog
+                        var dialog = new ContentDialog
                         {
                             Content = combobox,
                             Title = S.Message.MultipleTypesAreAvailable,
@@ -115,7 +117,7 @@ public sealed class NavigateButton<T> : NavigateButton
                             CloseButtonText = S.Common.Cancel
                         };
 
-                        if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
+                        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
                         {
                             return combobox.SelectedItem as Type;
                         }

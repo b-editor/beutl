@@ -32,6 +32,7 @@ using BeUtl.Views.Dialogs;
 
 using DynamicData;
 
+using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -88,7 +89,7 @@ public sealed partial class MainView : UserControl
     private readonly AvaloniaList<MenuItem> _rawRecentProjItems = new();
     private readonly Cache<MenuItem> _menuItemCache = new(4);
     private readonly CompositeDisposable _disposables = new();
-    private readonly AvaloniaList<FA.NavigationViewItem> _navigationItems = new();
+    private readonly AvaloniaList<NavigationViewItem> _navigationItems = new();
     private readonly EditorService _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
     private readonly IProjectService _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
     private readonly INotificationService _notificationService = ServiceLocator.Current.GetRequiredService<INotificationService>();
@@ -198,7 +199,7 @@ Error:
                     view.IsVisible = false;
 
                     NaviContent.Children.Insert(idx, view);
-                    _navigationItems.Insert(idx, new FA.NavigationViewItem()
+                    _navigationItems.Insert(idx, new NavigationViewItem()
                     {
                         Classes = { "SideNavigationViewItem" },
                         DataContext = item,
@@ -289,7 +290,7 @@ Error:
         }
     }
 
-    private void NavigationView_ItemInvoked(object? sender, FA.NavigationViewItemInvokedEventArgs e)
+    private void NavigationView_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)
     {
         if (e.InvokedItemContainer.DataContext is MainViewModel.NavItemViewModel itemViewModel
             && DataContext is MainViewModel viewModel)
@@ -387,11 +388,11 @@ Error:
                                     IsChecked = false,
                                     Content = S.Message.RememberThisChoice
                                 };
-                                var contentDialog = new FA.ContentDialog
+                                var contentDialog = new ContentDialog
                                 {
                                     PrimaryButtonText = S.Common.Yes,
                                     CloseButtonText = S.Common.No,
-                                    DefaultButton = FA.ContentDialogButton.Primary,
+                                    DefaultButton = ContentDialogButton.Primary,
                                     Content = new StackPanel
                                     {
                                         Children =
@@ -405,14 +406,14 @@ Error:
                                     }
                                 };
 
-                                FA.ContentDialogResult result = await contentDialog.ShowAsync();
+                                ContentDialogResult result = await contentDialog.ShowAsync();
                                 // 選択を記憶する
                                 if (checkBox.IsChecked.Value)
                                 {
-                                    addToProject = result == FA.ContentDialogResult.Primary;
+                                    addToProject = result == ContentDialogResult.Primary;
                                 }
 
-                                if (result == FA.ContentDialogResult.Primary)
+                                if (result == ContentDialogResult.Primary)
                                 {
                                     project.Items.Add(item);
                                     _editorService.ActivateTabItem(path, TabOpenMode.FromProject);
@@ -461,15 +462,15 @@ Error:
                 if (wsItem == null)
                     return;
 
-                var dialog = new FA.ContentDialog
+                var dialog = new ContentDialog
                 {
                     CloseButtonText = S.Common.Cancel,
                     PrimaryButtonText = S.Common.OK,
-                    DefaultButton = FA.ContentDialogButton.Primary,
+                    DefaultButton = ContentDialogButton.Primary,
                     Content = S.Message.DoYouWantToExcludeThisItemFromProject + "\n" + filePath
                 };
 
-                if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
+                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
                 {
                     project.Items.Remove(wsItem);
                 }
@@ -503,15 +504,15 @@ Error:
                 && viewModel.SelectedObject.Value is Layer layer)
             {
                 string name = Path.GetFileName(layer.FileName);
-                var dialog = new FA.ContentDialog
+                var dialog = new ContentDialog
                 {
                     CloseButtonText = S.Common.Cancel,
                     PrimaryButtonText = S.Common.OK,
-                    DefaultButton = FA.ContentDialogButton.Primary,
+                    DefaultButton = ContentDialogButton.Primary,
                     Content = S.Message.DoYouWantToDeleteThisFile + "\n" + name
                 };
 
-                if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
+                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
                 {
                     scene.RemoveChild(layer).Do();
                     if (File.Exists(layer.FileName))
