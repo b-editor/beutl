@@ -1,15 +1,19 @@
-﻿using BeUtl.Configuration;
+﻿using Beutl.Api.Services;
+
+using BeUtl.Configuration;
+using BeUtl.Controls.Navigation;
 using BeUtl.Framework;
-using BeUtl.Framework.Services;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.SettingsPages;
 
-public sealed class ExtensionsSettingsPageViewModel
+public sealed class ExtensionsSettingsPageViewModel : PageContext
 {
     private readonly ExtensionConfig _extensionConfig = GlobalConfiguration.Instance.ExtensionConfig;
-    private readonly ExtensionProvider _extensionProvider = PackageManager.Instance.ExtensionProvider;
+    private readonly ExtensionProvider _extensionProvider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
     private readonly EditorExtension[] _loadedEExt;
     private IDisposable? _disposable1;
 

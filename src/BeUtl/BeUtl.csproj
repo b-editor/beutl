@@ -13,18 +13,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="PanelExtension" Version="1.0.0-preview2" />
     <PackageReference Include="Roslynator.Analyzers" Version="4.1.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="XamlNameReferenceGenerator" Version="1.3.4" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\external\firebase-authentication-dotnet\src\Auth.UI\Auth.UI.csproj" PrivateAssets="All" />
-    <ProjectReference Include="..\..\external\firebase-authentication-dotnet\src\Firebase.Auth.UI\Firebase.Auth.UI.csproj" PrivateAssets="All" />
-    <ProjectReference Include="..\..\build\generators\ApiKeyGenerator\ApiKeyGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />
     <ProjectReference Include="..\BeUtl.Controls\BeUtl.Controls.csproj" />
+    <ProjectReference Include="..\Beutl.PackageTools\Beutl.PackageTools.csproj" />
+    <ProjectReference Include="..\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -45,6 +45,18 @@
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Update="Pages\ExtensionsPages\DevelopPages\Dialogs\UpdatePackageDialog.axaml.cs">
+      <DependentUpon>UpdatePackageDialog.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="Pages\ExtensionsPages\DiscoverPage.axaml.cs">
+      <DependentUpon>DiscoverPage.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="Pages\ExtensionsPages\DiscoverPages\PublicPackageDetailsPage.axaml.cs">
+      <DependentUpon>PublicPackageDetailsPage.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="Pages\SettingsPages\StorageSettingsPage.axaml.cs">
+      <DependentUpon>StorageSettingsPage.axaml</DependentUpon>
+    </Compile>
     <Compile Update="Services\Editors\NumberEditorServiceGen.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
@@ -54,6 +66,12 @@
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
       <DependentUpon>EditorViewModels.tt</DependentUpon>
+    </Compile>
+    <Compile Update="Views\Dialogs\SelectAsset.axaml.cs">
+      <DependentUpon>SelectAsset.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\Dialogs\SelectImageAsset.axaml.cs">
+      <DependentUpon>SelectImageAsset.axaml</DependentUpon>
     </Compile>
     <Compile Update="Views\Editors\Editors.cs">
       <DesignTime>True</DesignTime>
@@ -65,15 +83,15 @@
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.props" />
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.targets" />
 
+  <Import Project="$(RootDirectory)\build\props\AsyncImageLoader.Avalonia.props" />
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\Avalonia.Svg.Skia.props" />
   <Import Project="$(RootDirectory)\build\props\Avalonia.Xaml.Interactivity.props" />
   <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
   <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
   <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.DependencyInjection.props" />
   <Import Project="$(RootDirectory)\build\props\CoreLibraries.props" />
-  <Import Project="$(RootDirectory)\build\props\FirebaseDatabase.net.props" />
-  <Import Project="$(RootDirectory)\build\props\FirebaseStorage.net.props" />
-  <Import Project="$(RootDirectory)\build\props\Google.Cloud.Firestore.props" />
   <Import Project="$(RootDirectory)\build\props\FluentIcons.FluentAvalonia.props" />
   <Import Project="$(RootDirectory)\build\props\System.Interactive.props" />
+  <Import Project="$(RootDirectory)\build\props\XamlNameReferenceGenerator.props" />
 </Project>

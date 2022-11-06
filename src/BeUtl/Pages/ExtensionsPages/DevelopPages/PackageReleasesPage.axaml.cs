@@ -2,13 +2,18 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 
+using Beutl.Api.Objects;
+
 using BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
+using BeUtl.ViewModels;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using FluentAvalonia.UI.Controls;
+using FluentAvalonia.UI.Navigation;
 
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
@@ -19,24 +24,56 @@ public sealed partial class PackageReleasesPage : UserControl
     public PackageReleasesPage()
     {
         InitializeComponent();
-        ReleasesList.AddHandler(PointerPressedEvent, ReleasesList_PointerPressed, RoutingStrategies.Tunnel);
-        ReleasesList.AddHandler(PointerReleasedEvent, ReleasesList_PointerReleased, RoutingStrategies.Tunnel);
+        ReleasesList.AddHandler(PointerPressedEvent, OnReleasesListPointerPressed, RoutingStrategies.Tunnel);
+        ReleasesList.AddHandler(PointerReleasedEvent, OnReleasesListPointerReleased, RoutingStrategies.Tunnel);
+        AddHandler(Frame.NavigatedFromEvent, OnNavigatedFrom, RoutingStrategies.Direct);
+        AddHandler(Frame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
     }
 
-    private void ReleasesList_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    private void OnNavigatedTo(object? sender, NavigationEventArgs e)
+    {
+        if (e.Parameter is Package package)
+        {
+            DestoryDataContext();
+            DataContextFactory factory = GetDataContextFactory();
+            DataContext = factory.PackageReleasesPage(package);
+        }
+    }
+
+    private void OnNavigatedFrom(object? sender, NavigationEventArgs e)
+    {
+        DestoryDataContext();
+    }
+
+    private void DestoryDataContext()
+    {
+        if (DataContext is PackageReleasesPageViewModel disposable)
+        {
+            disposable.Dispose();
+        }
+
+        DataContext = null;
+    }
+
+    private DataContextFactory GetDataContextFactory()
+    {
+        return ((ExtensionsPageViewModel)this.FindLogicalAncestorOfType<ExtensionsPage>()!.DataContext!).Develop.DataContextFactory;
+    }
+
+    private void OnReleasesListPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (_flag)
         {
-            if (ReleasesList.SelectedItem is ReleasePageViewModel item
-                && this.FindAncestorOfType<Frame>() is { } frame)
+            if (ReleasesList.SelectedItem is Release item)
             {
-                frame.Navigate(typeof(ReleasePage), item, SharedNavigationTransitionInfo.Instance);
+                NavigateToReleasePage(item);
             }
+
             _flag = false;
         }
     }
 
-    private void ReleasesList_PointerPressed(object? sender, PointerPressedEventArgs e)
+    private void OnReleasesListPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (e.ClickCount == 2)
         {
@@ -48,37 +85,48 @@ public sealed partial class PackageReleasesPage : UserControl
     {
         if (DataContext is PackageReleasesPageViewModel viewModel)
         {
-            var dialogViewModel = new AddReleaseDialogViewModel();
+            DataContextFactory factory = GetDataContextFactory();
+            AddReleaseDialogViewModel dialogViewModel = factory.AddReleaseDialog(viewModel.Package);
             var dialog = new AddReleaseDialog
             {
                 DataContext = dialogViewModel
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary
+                && dialogViewModel.Result != null)
             {
-                viewModel.Add.Execute(dialogViewModel);
+                viewModel.Items.OrderedAddDescending(dialogViewModel.Result, x => x.Version.Value);
             }
         }
     }
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is StyledElement { DataContext: ReleasePageViewModel item }
+        if (sender is StyledElement { DataContext: Release item })
+        {
+            NavigateToReleasePage(item);
+        }
+    }
+
+    private void NavigateToReleasePage(Release release)
+    {
+        if (DataContext is PackageReleasesPageViewModel viewModel
             && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            frame.Navigate(typeof(ReleasePage), item, SharedNavigationTransitionInfo.Instance);
+            frame.Navigate(typeof(ReleasePage), release, SharedNavigationTransitionInfo.Instance);
         }
     }
 
     private async void Delete_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is StyledElement { DataContext: ReleasePageViewModel item }
+        if (DataContext is PackageReleasesPageViewModel viewModel
+            && sender is StyledElement { DataContext: Release release }
             && this.FindAncestorOfType<Frame>() is { } frame)
         {
             var dialog = new ContentDialog
             {
-                Title = S.DevelopPage.DeleteResource.Title,
-                Content = S.DevelopPage.DeleteResource.Content,
+                Title = S.DevelopPage.DeleteRelease.Title,
+                Content = S.DevelopPage.DeleteRelease.Content,
                 PrimaryButtonText = S.Common.Yes,
                 CloseButtonText = S.Common.No,
                 DefaultButton = ContentDialogButton.Primary
@@ -86,13 +134,10 @@ public sealed partial class PackageReleasesPage : UserControl
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                string releaseId = item.Release.Value.Snapshot.Id;
-                string packageId = item.Parent.Parent.Package.Value.Snapshot.Id;
-                frame.RemoveAllStack(item => item is ReleasePageViewModel p
-                    && p.Release.Value.Snapshot.Id == releaseId
-                    && p.Parent.Parent.Package.Value.Snapshot.Id == packageId);
+                frame.RemoveAllStack(item => item is ReleasePageViewModel p && p.Release.Id == release.Id);
 
-                item.Delete.Execute();
+                await viewModel.DeleteReleaseAsync(release);
+                frame.GoBack();
             }
         }
     }
@@ -102,7 +147,7 @@ public sealed partial class PackageReleasesPage : UserControl
         if (DataContext is PackageReleasesPageViewModel viewModel
             && this.FindAncestorOfType<Frame>() is { } frame)
         {
-            frame.Navigate(typeof(PackageDetailsPage), viewModel.Parent, SharedNavigationTransitionInfo.Instance);
+            frame.Navigate(typeof(PackageDetailsPage), viewModel.Package, SharedNavigationTransitionInfo.Instance);
         }
     }
 }

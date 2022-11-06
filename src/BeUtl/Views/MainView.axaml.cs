@@ -32,7 +32,8 @@ using BeUtl.Views.Dialogs;
 
 using DynamicData;
 
-using FluentAvalonia.Core.ApplicationModel;
+using FluentAvalonia.UI.Controls;
+using FluentAvalonia.UI.Windowing;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -88,7 +89,7 @@ public sealed partial class MainView : UserControl
     private readonly AvaloniaList<MenuItem> _rawRecentProjItems = new();
     private readonly Cache<MenuItem> _menuItemCache = new(4);
     private readonly CompositeDisposable _disposables = new();
-    private readonly AvaloniaList<FA.NavigationViewItem> _navigationItems = new();
+    private readonly AvaloniaList<NavigationViewItem> _navigationItems = new();
     private readonly EditorService _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
     private readonly IProjectService _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
     private readonly INotificationService _notificationService = ServiceLocator.Current.GetRequiredService<INotificationService>();
@@ -152,6 +153,7 @@ public sealed partial class MainView : UserControl
         _disposables.Clear();
         if (DataContext is MainViewModel viewModel)
         {
+            Task task = viewModel.RunSplachScreenTask();
             _settingsView = new SettingsPage
             {
                 DataContext = viewModel.SettingsPage.Context
@@ -197,7 +199,7 @@ Error:
                     view.IsVisible = false;
 
                     NaviContent.Children.Insert(idx, view);
-                    _navigationItems.Insert(idx, new FA.NavigationViewItem()
+                    _navigationItems.Insert(idx, new NavigationViewItem()
                     {
                         Classes = { "SideNavigationViewItem" },
                         DataContext = item,
@@ -244,13 +246,15 @@ Error:
                     newControl.Opacity = 0;
                     await _animation.RunAsync((Animatable)newControl, null);
                     newControl.Opacity = 1;
+
+                    newControl.Focus();
                 }
             }).AddTo(_disposables);
 
             InitCommands(viewModel);
 
-            await viewModel._packageLoadTask;
-            InitExtMenuItems();
+            await task;
+            InitExtMenuItems(viewModel);
 
             InitRecentItems(viewModel);
         }
@@ -273,27 +277,20 @@ Error:
             window.Opened -= OnParentWindowOpened;
         }
 
-        if (sender is FA.CoreWindow cw)
+        if (sender is AppWindow cw)
         {
-            CoreApplicationViewTitleBar titleBar = cw.TitleBar;
+            AppWindowTitleBar titleBar = cw.TitleBar;
             if (titleBar != null)
             {
-                titleBar.ExtendViewIntoTitleBar = true;
+                titleBar.ExtendsContentIntoTitleBar = true;
 
-                titleBar.LayoutMetricsChanged += OnApplicationTitleBarLayoutMetricsChanged;
-
-                cw.SetTitleBar(Titlebar);
-                Titlebar.Margin = new Thickness(0, 0, titleBar.SystemOverlayRightInset, 0);
+                Titlebar.Margin = new Thickness(titleBar.RightInset, 0, titleBar.LeftInset, 0);
+                AppWindow.SetAllowInteractionInTitleBar(MenuBar, true);
             }
         }
     }
 
-    private void OnApplicationTitleBarLayoutMetricsChanged(CoreApplicationViewTitleBar sender, object args)
-    {
-        Titlebar.Margin = new Thickness(0, 0, sender.SystemOverlayRightInset, 0);
-    }
-
-    private void NavigationView_ItemInvoked(object? sender, FA.NavigationViewItemInvokedEventArgs e)
+    private void NavigationView_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)
     {
         if (e.InvokedItemContainer.DataContext is MainViewModel.NavItemViewModel itemViewModel
             && DataContext is MainViewModel viewModel)
@@ -356,10 +353,9 @@ Error:
                 return;
             }
 
-
             var filters = new List<FilePickerFileType>();
 
-            filters.AddRange(await PackageManager.Instance.ExtensionProvider.GetExtensions<EditorExtension>()
+            filters.AddRange(await viewModel.GetEditorExtensions()
                 .ToAsyncEnumerable()
                 .SelectAwait(async e => new FilePickerFileType(await e.FileTypeName.FirstOrDefaultAsync())
                 {
@@ -392,11 +388,11 @@ Error:
                                     IsChecked = false,
                                     Content = S.Message.RememberThisChoice
                                 };
-                                var contentDialog = new FA.ContentDialog
+                                var contentDialog = new ContentDialog
                                 {
                                     PrimaryButtonText = S.Common.Yes,
                                     CloseButtonText = S.Common.No,
-                                    DefaultButton = FA.ContentDialogButton.Primary,
+                                    DefaultButton = ContentDialogButton.Primary,
                                     Content = new StackPanel
                                     {
                                         Children =
@@ -410,14 +406,14 @@ Error:
                                     }
                                 };
 
-                                FA.ContentDialogResult result = await contentDialog.ShowAsync();
+                                ContentDialogResult result = await contentDialog.ShowAsync();
                                 // 選択を記憶する
                                 if (checkBox.IsChecked.Value)
                                 {
-                                    addToProject = result == FA.ContentDialogResult.Primary;
+                                    addToProject = result == ContentDialogResult.Primary;
                                 }
 
-                                if (result == FA.ContentDialogResult.Primary)
+                                if (result == ContentDialogResult.Primary)
                                 {
                                     project.Items.Add(item);
                                     _editorService.ActivateTabItem(path, TabOpenMode.FromProject);
@@ -466,15 +462,15 @@ Error:
                 if (wsItem == null)
                     return;
 
-                var dialog = new FA.ContentDialog
+                var dialog = new ContentDialog
                 {
                     CloseButtonText = S.Common.Cancel,
                     PrimaryButtonText = S.Common.OK,
-                    DefaultButton = FA.ContentDialogButton.Primary,
+                    DefaultButton = ContentDialogButton.Primary,
                     Content = S.Message.DoYouWantToExcludeThisItemFromProject + "\n" + filePath
                 };
 
-                if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
+                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
                 {
                     project.Items.Remove(wsItem);
                 }
@@ -508,15 +504,15 @@ Error:
                 && viewModel.SelectedObject.Value is Layer layer)
             {
                 string name = Path.GetFileName(layer.FileName);
-                var dialog = new FA.ContentDialog
+                var dialog = new ContentDialog
                 {
                     CloseButtonText = S.Common.Cancel,
                     PrimaryButtonText = S.Common.OK,
-                    DefaultButton = FA.ContentDialogButton.Primary,
+                    DefaultButton = ContentDialogButton.Primary,
                     Content = S.Message.DoYouWantToDeleteThisFile + "\n" + name
                 };
 
-                if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
+                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
                 {
                     scene.RemoveChild(layer).Do();
                     if (File.Exists(layer.FileName))
@@ -598,9 +594,8 @@ Error:
         }).AddTo(_disposables);
     }
 
-    private void InitExtMenuItems()
+    private void InitExtMenuItems(MainViewModel viewModel)
     {
-        PackageManager manager = PackageManager.Instance;
         if (toolTabMenuItem.Items is not IList items1)
         {
             items1 = new AvaloniaList<object>();
@@ -609,7 +604,7 @@ Error:
 
         // Todo: Extensionの実行時アンロードの実現時、
         //       ForEachItemメソッドを使うかeventにする
-        foreach (ToolTabExtension item in manager.ExtensionProvider.AllExtensions.OfType<ToolTabExtension>())
+        foreach (ToolTabExtension item in viewModel.GetToolTabExtensions())
         {
             if (item.Header == null)
                 continue;
@@ -658,7 +653,7 @@ Error:
             }
         };
 
-        foreach (EditorExtension item in manager.ExtensionProvider.AllExtensions.OfType<EditorExtension>())
+        foreach (EditorExtension item in viewModel.GetEditorExtensions())
         {
             var menuItem = new MenuItem()
             {

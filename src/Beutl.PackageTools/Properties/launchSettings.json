@@ -1,0 +1,28 @@
+{
+  "profiles": {
+    "WSL": {
+      "commandName": "WSL2",
+      "distributionName": ""
+    },
+    "Install": {
+      "commandName": "Project",
+      "commandLineArgs": "--installs SamplePackage/1.0.0 --verbose"
+    },
+    "Uninstall": {
+      "commandName": "Project",
+      "commandLineArgs": "--uninstalls SamplePackage/1.0.0 --verbose --clean"
+    },
+    "Clean": {
+      "commandName": "Project",
+      "commandLineArgs": "--verbose --clean"
+    },
+    "List": {
+      "commandName": "Project",
+      "commandLineArgs": "list --verbose"
+    },
+    "Update": {
+      "commandName": "Project",
+      "commandLineArgs": "--updates SamplePackage/1.1.0 --verbose --clean"
+    }
+  }
+}

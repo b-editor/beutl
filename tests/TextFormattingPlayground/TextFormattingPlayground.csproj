@@ -12,12 +12,9 @@
     <Compile Remove="$(MSBuildThisFileDirectory)\..\ArtifactProvider.cs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.0-preview1" />
-    <PackageReference Include="XamlNameReferenceGenerator" Version="1.3.4" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\..\src\BeUtl.Graphics\BeUtl.Graphics.csproj" />
   </ItemGroup>
 
   <Import Project="..\..\build\props\Avalonia.props" />
+  <Import Project="..\..\build\props\XamlNameReferenceGenerator.props" />
 </Project>

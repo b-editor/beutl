@@ -10,7 +10,15 @@
              d:DesignHeight="600"
              d:DesignWidth="800"
              x:DataType="viewModels:ReleasePageViewModel"
+             Focusable="True"
+             IsEnabled="{CompiledBinding !IsBusy.Value}"
              mc:Ignorable="d">
+
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="Ctrl+R" />
+    </UserControl.KeyBindings>
+
     <UserControl.Styles>
         <Style Selector="TextBox.customStyle">
             <Setter Property="MinWidth" Value="250" />
@@ -28,7 +36,7 @@
                     Spacing="16">
             <Button Classes="breadcrumb"
                     Click="NavigatePackageDetailsPage_Click"
-                    Content="{CompiledBinding Parent.Parent.Package.Value.Name}" />
+                    Content="{CompiledBinding Release.Package.Name}" />
 
             <Label Classes="breadcrumb" />
 
@@ -38,7 +46,7 @@
 
             <Label Classes="breadcrumb" />
 
-            <TextBlock Classes="breadcrumb" Text="{CompiledBinding Release.Value.Title}" />
+            <TextBlock Classes="breadcrumb" Text="{CompiledBinding Release.Version.Value}" />
         </StackPanel>
 
 
@@ -48,7 +56,7 @@
                                           Expands="True"
                                           Header="{DynamicResource S.DevelopPage.Release.Fields.Title}">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Classes="description" Text="{CompiledBinding Release.Value.Title}" />
+                        <TextBlock Classes="description" Text="{CompiledBinding Release.Title.Value}" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
                         <TextBox Classes="customStyle" Text="{CompiledBinding Title.Value}" />
@@ -61,7 +69,7 @@
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBlock MaxWidth="150"
                                    Classes="description"
-                                   Text="{CompiledBinding Release.Value.Body}"
+                                   Text="{CompiledBinding Release.Body.Value}"
                                    TextTrimming="CharacterEllipsis" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
@@ -71,88 +79,32 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Release.Fields.VersionDescription}"
-                                          Expands="True"
-                                          Header="{DynamicResource S.DevelopPage.Release.Fields.Version}">
+                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Release.Fields.AssetDescription}" Header="{DynamicResource S.DevelopPage.Release.Fields.Asset}">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Classes="description" Text="{CompiledBinding Release.Value.Version}" />
-                    </ctrls:OptionsDisplayItem.ActionButton>
-                    <ctrls:OptionsDisplayItem.Content>
-                        <TextBox Classes="customStyle" Text="{CompiledBinding VersionInput.Value}" />
-                    </ctrls:OptionsDisplayItem.Content>
-                </ctrls:OptionsDisplayItem>
-
-
-                <TextBlock Margin="0,16,0,0"
-                           Classes="BodyStrongTextBlockStyle"
-                           Text="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}" />
-
-                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.LocaleSpecificResourcesDescription}" Header="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}">
-                    <ctrls:OptionsDisplayItem.ActionButton>
-                        <Button Classes="accent"
-                                Click="AddResource_Click"
-                                Content="{DynamicResource S.Common.Add}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock VerticalAlignment="Center"
+                                       Classes="description"
+                                       Text="{CompiledBinding ActualAsset.Value.Name}" />
+                            <Button Classes="accent"
+                                    Click="SelectAsset_Click"
+                                    Content="{DynamicResource S.Common.Open}" />
+                        </StackPanel>
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ItemsControl Margin="0,4,0,0" Items="{CompiledBinding Items}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Spacing="4" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Padding="12"
-                                    Background="{DynamicResource ControlFillColorDefaultBrush}"
-                                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="{StaticResource ControlCornerRadius}">
-                                <Grid ColumnDefinitions="*,Auto,8,Auto,16">
-
-                                    <StackPanel Grid.Column="0"
-                                                VerticalAlignment="Center"
-                                                Orientation="Vertical">
-                                        <TextBlock Classes="BodyStrongTextBlockStyle" Text="{CompiledBinding Culture.Value.DisplayName}" />
-
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Classes="CaptionTextBlockStyle" Text="{CompiledBinding Title.Value}" />
-
-                                            <TextBlock Classes="CaptionTextBlockStyle"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                       MaxLines="1"
-                                                       Text="{CompiledBinding Body.Value}" />
-                                        </StackPanel>
-                                    </StackPanel>
-
-                                    <Button Grid.Column="1"
-                                            Padding="11"
-                                            Click="EditResource_Click">
-                                        <icons:SymbolIcon FontSize="16" Symbol="Edit" />
-                                    </Button>
-
-                                    <Button Grid.Column="3"
-                                            Padding="11"
-                                            Click="DeleteResource_Click">
-                                        <icons:SymbolIcon FontSize="16" Symbol="Delete" />
-                                    </Button>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-
                 <TextBlock Margin="0,16,0,0"
-                           Classes="BodyStrongTextBlockStyle"
-                           Text="{DynamicResource S.Common.Settings}" />
+                           Text="{DynamicResource S.Common.Settings}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
                 <ctrls:OptionsDisplayItem Header="{DynamicResource S.Common.Delete}"
                                           Icon="Delete"
                                           Navigates="True"
                                           NavigationRequested="DeleteRelease_Click" />
 
-                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.MakePublicRelease.Title}"
-                                          IsVisible="{CompiledBinding !Release.Value.IsVisible}"
+                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.MakePublicRelease.Description}"
+                                          Header="{DynamicResource S.DevelopPage.MakePublicRelease.Title}"
+                                          IsEnabled="{CompiledBinding CanPublish.Value}"
+                                          IsVisible="{CompiledBinding !Release.IsPublic.Value}"
                                           Navigates="True"
                                           NavigationRequested="MakePublic_Click">
                     <ctrls:OptionsDisplayItem.Icon>
@@ -161,7 +113,7 @@
                 </ctrls:OptionsDisplayItem>
 
                 <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.MakePrivateRelease.Title}"
-                                          IsVisible="{CompiledBinding Release.Value.IsVisible}"
+                                          IsVisible="{CompiledBinding Release.IsPublic.Value}"
                                           Navigates="True"
                                           NavigationRequested="MakePrivate_Click">
                     <ctrls:OptionsDisplayItem.Icon>

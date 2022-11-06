@@ -1,13 +1,12 @@
-<Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
-        <!--Strings-->
+        <!--  Strings  -->
         <StaticResource x:Key="S.SettingsPage.Account" ResourceKey="S.Common.Account" />
         <StaticResource x:Key="S.SettingsPage.View" ResourceKey="S.Common.View" />
         <StaticResource x:Key="S.SettingsPage.Font" ResourceKey="S.Common.Font" />
         <StaticResource x:Key="S.SettingsPage.Extensions" ResourceKey="S.Common.Extensions" />
         <StaticResource x:Key="S.SettingsPage.Info" ResourceKey="S.Common.Info" />
-        <StaticResource x:Key="S.SettingsPage.Backup" ResourceKey="S.Common.Backup" />
+        <StaticResource x:Key="S.SettingsPage.Storage" ResourceKey="S.Common.Storage" />
 
         <StaticResource x:Key="S.InfomationPage.Links" ResourceKey="S.Common.Links" />
         <StaticResource x:Key="S.InfomationPage.SourceCode" ResourceKey="S.Common.SourceCode" />
@@ -29,28 +28,29 @@
         <x:String x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.All">All Editor Extensions</x:String>
         <x:String x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Title">Add file extension</x:String>
 
+        <x:String x:Key="S.AccountSettingsPage.SignInViaBrowser">Sign in via browser</x:String>
+        <x:String x:Key="S.AccountSettingsPage.SignIn">Sign in</x:String>
+        <x:String x:Key="S.AccountSettingsPage.SignInWith">Sign in with your social accounts</x:String>
         <x:String x:Key="S.AccountSettingsPage.SignOut">Sign out</x:String>
-        <x:String x:Key="S.AccountSettingsPage.ChangeDisplayName">Change display name</x:String>
-        <x:String x:Key="S.AccountSettingsPage.Change">Change</x:String>
-        <x:String x:Key="S.AccountSettingsPage.DeleteAccount">Delete account</x:String>
-        <x:String x:Key="S.AccountSettingsPage.ChangePassword">Change password</x:String>
-        <x:String x:Key="S.AccountSettingsPage.NewPassword">New password</x:String>
-        <x:String x:Key="S.AccountSettingsPage.YourEmailAddressHasBeenVerified">Your email address has been verified.</x:String>
-        <x:String x:Key="S.AccountSettingsPage.Dialog1.Title">Do you want to delete your account?</x:String>
-        <x:String x:Key="S.AccountSettingsPage.Dialog1.Content">
-Delete the '{0}' account.
-This operation cannot be undone.
-        </x:String>
-        <x:String x:Key="S.AccountSettingsPage.WithGoogle">With Google.</x:String>
-        <x:String x:Key="S.AccountSettingsPage.WithPassword">With Password.</x:String>
-        <x:String x:Key="S.AccountSettingsPage.UnlinkFromGoogle">Unlink from Google</x:String>
-        <x:String x:Key="S.AccountSettingsPage.UnlinkFromGoogleBody">
-Unlink from Google.
-If you perform this operation, you will not be able to sign in using your Google account.
-Do you want to remove the linkage?
-        </x:String>
-        <x:String x:Key="S.AccountSettingsPage.LinkWithGoogle">Link with Google</x:String>
+        <x:String x:Key="S.AccountSettingsPage.ChangeAccountSettings">Change account settings</x:String>
 
-        <x:String x:Key="S.BackupSettingsPage.BackupSettings">Back up settings</x:String>
+        <x:String x:Key="S.StorageSettingsPage.Used">{0} Used</x:String>
+        <x:String x:Key="S.StorageSettingsPage.Remaining">{0} Remaining</x:String>
+        <x:String x:Key="S.StorageSettingsPage.BackupSettings">Back up settings</x:String>
+
+        <x:String x:Key="S.StorageDetailPage.MakePublic">Make public</x:String>
+        <x:String x:Key="S.StorageDetailPage.MakePrivate">Make private</x:String>
+        <x:String x:Key="S.StorageDetailPage.ChangeVisibility">Change the visibility of this file to "{0}".</x:String>
+
+        <x:String x:Key="S.SettingsPage.CreateAsset.Title">Upload file</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.InternalDescription">Upload the file to the b-editor server.</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.InternalExample">Example: Lightweight files such as images</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.ExternalDescription">The customer uploads the file to an external server&#xa;and b-editor maintains the download URL.</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.ExternalExample">Example: large files such as assets in a package release</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.PleaseEnterAtLeastOneHashValue">Please enter at least one hash value.</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.UploadingFiles">Uploading files.</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.PerformingAnOperation">Performing an operation.</x:String>
+        <x:String x:Key="S.SettingsPage.CreateAsset.Completed">Completed.</x:String>
+
     </Styles.Resources>
 </Styles>

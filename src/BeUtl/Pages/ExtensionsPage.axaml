@@ -1,16 +1,20 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="BeUtl.Pages.ExtensionsPage"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="BeUtl.Pages.ExtensionsPage">
-    <ui:NavigationView IsSettingsVisible="False"
-                       IsBackButtonVisible="True"
-                       IsBackEnabled="{Binding #frame.CanGoBack}"
-                       PaneDisplayMode="Top"
-                       x:Name="nav">
-        <ui:NavigationView.Styles>
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             mc:Ignorable="d">
+    <Panel>
+        <ui:NavigationView x:Name="nav"
+                           IsBackButtonVisible="True"
+                           IsBackEnabled="{Binding #frame.CanGoBack}"
+                           IsSettingsVisible="False"
+                           IsVisible="{Binding IsAuthorized.Value}"
+                           PaneDisplayMode="Top">
+            <!--<ui:NavigationView.Styles>
             <Style Selector="ui|NavigationView /template/ SplitView Border#ContentGridBorder">
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderBrush" Value="Transparent" />
@@ -18,21 +22,59 @@
                 <Setter Property="Margin" Value="{DynamicResource NavigationViewContentMargin}" />
                 <Setter Property="CornerRadius" Value="{DynamicResource NavigationViewContentGridCornerRadius}" />
             </Style>
-        </ui:NavigationView.Styles>
-        <ui:NavigationView.PaneCustomContent>
-            <TextBox VerticalAlignment="Center"
-                     HorizontalAlignment="Right"
-                     Margin="8,0"
-                     Watermark="{DynamicResource S.Common.Search}"
-                     MinWidth="250">
-                <TextBox.InnerRightContent>
-                    <Button Classes="AppBarButton">
-                        <ui:SymbolIcon Symbol="Find" />
-                    </Button>
-                </TextBox.InnerRightContent>
-            </TextBox>
-        </ui:NavigationView.PaneCustomContent>
+        </ui:NavigationView.Styles>-->
+            <ui:NavigationView.Resources>
+                <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+                <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
+                <Thickness x:Key="NavigationViewContentGridBorderThickness">0</Thickness>
+            </ui:NavigationView.Resources>
+            <ui:NavigationView.PaneCustomContent>
+                <TextBox x:Name="searchTextBox"
+                         MinWidth="250"
+                         Margin="8,0"
+                         HorizontalAlignment="Right"
+                         VerticalAlignment="Center"
+                         Watermark="{DynamicResource S.Common.Search}">
+                    <TextBox.InnerRightContent>
+                        <Button Click="Search_Click" Theme="{StaticResource TransparentButton}">
+                            <ui:SymbolIcon Symbol="Find" />
+                        </Button>
+                    </TextBox.InnerRightContent>
+                </TextBox>
+            </ui:NavigationView.PaneCustomContent>
 
-        <ui:Frame x:Name="frame" />
-    </ui:NavigationView>
+            <ui:Frame x:Name="frame" />
+        </ui:NavigationView>
+
+        <StackPanel HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    IsVisible="{Binding !IsAuthorized.Value}"
+                    Spacing="8">
+            <TextBlock Text="{DynamicResource S.ExtensionsPage.AuthorizationIsRequired}" Theme="{StaticResource SubtitleTextBlockStyle}" />
+
+            <RichTextBlock>
+                <Run Text="{StaticResource S.ExtensionsPage.AnAccountIsRequiredToGetExtension}" />
+                <LineBreak />
+                <Run Text="{StaticResource S.ExtensionsPage.GotoSettings_Account}" />
+            </RichTextBlock>
+
+            <Button Height="40"
+                    Margin="0,16,0,0"
+                    HorizontalAlignment="Stretch"
+                    Classes="accent"
+                    Click="OpenSettings_Click"
+                    Content="{DynamicResource S.ExtensionsPage.OpenSettings}" />
+
+            <Grid ColumnDefinitions="*,*">
+                <ui:HyperlinkButton Grid.Column="0"
+                                    HorizontalAlignment="Center"
+                                    Content="{DynamicResource S.Common.PrivacyPolicy}"
+                                    NavigateUri="https://beutl.beditor.net/Privacy" />
+                <ui:HyperlinkButton Grid.Column="1"
+                                    HorizontalAlignment="Center"
+                                    Content="{DynamicResource S.Common.TermsOfService}"
+                                    NavigateUri="https://beutl.beditor.net/TermsOfService" />
+            </Grid>
+        </StackPanel>
+    </Panel>
 </UserControl>

@@ -25,4 +25,27 @@ public static class FrameHelper
             }
         }
     }
+
+    public static T? FindParameter<T>(this Frame frame, Func<T, bool> func)
+    {
+        for (int i = 0; i < frame.BackStack.Count; i++)
+        {
+            PageStackEntry item = frame.BackStack[i];
+            if (item.Parameter is T typed && func(typed))
+            {
+                return typed;
+            }
+        }
+
+        for (int i = 0; i < frame.ForwardStack.Count; i++)
+        {
+            PageStackEntry item = frame.ForwardStack[i];
+            if (item.Parameter is T typed && func(typed))
+            {
+                return typed;
+            }
+        }
+
+        return default;
+    }
 }

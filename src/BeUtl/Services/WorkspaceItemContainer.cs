@@ -1,7 +1,10 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
+using Beutl.Api.Services;
+
 using BeUtl.Framework;
-using BeUtl.ProjectSystem;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BeUtl.Services;
 
@@ -43,7 +46,8 @@ public sealed class WorkspaceItemContainer : IWorkspaceItemContainer
             return true;
         }
 
-        foreach (WorkspaceItemExtension ext in PackageManager.Instance.ExtensionProvider.MatchWorkspaceItemExtensions(file))
+        var extensionProvider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
+        foreach (WorkspaceItemExtension ext in extensionProvider.MatchWorkspaceItemExtensions(file))
         {
             if (ext.TryCreateItem(file, out IWorkspaceItem? result) && result is T typed)
             {
@@ -73,7 +77,8 @@ public sealed class WorkspaceItemContainer : IWorkspaceItemContainer
             return true;
         }
 
-        foreach (WorkspaceItemExtension ext in PackageManager.Instance.ExtensionProvider.MatchWorkspaceItemExtensions(file))
+        var extensionProvider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
+        foreach (WorkspaceItemExtension ext in extensionProvider.MatchWorkspaceItemExtensions(file))
         {
             if (ext.TryCreateItem(file, out IWorkspaceItem? result))
             {

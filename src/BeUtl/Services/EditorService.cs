@@ -1,7 +1,11 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
+using Beutl.Api.Services;
+
 using BeUtl.Configuration;
 using BeUtl.Framework;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -97,7 +101,8 @@ public sealed class EditorService
             }
             else
             {
-                EditorExtension? ext = PackageManager.Instance.ExtensionProvider.MatchEditorExtension(file);
+                ExtensionProvider extensionProvider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
+                EditorExtension? ext = extensionProvider.MatchEditorExtension(file);
 
                 if (ext?.TryCreateContext(file, out IEditorContext? context) == true)
                 {

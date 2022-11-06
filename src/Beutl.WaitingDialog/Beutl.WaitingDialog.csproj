@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove=".gitignore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+  </ItemGroup>
+
+  <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\FluentIcons.FluentAvalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\XamlNameReferenceGenerator.props" />
+
+</Project>

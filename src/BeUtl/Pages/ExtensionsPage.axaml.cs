@@ -1,8 +1,15 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
+using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 
 using BeUtl.Pages.ExtensionsPages;
 using BeUtl.Pages.ExtensionsPages.DevelopPages;
+using BeUtl.Pages.ExtensionsPages.DiscoverPages;
+using BeUtl.ViewModels;
+using BeUtl.ViewModels.ExtensionsPages.DiscoverPages;
+using BeUtl.Views;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
@@ -33,7 +40,7 @@ public sealed partial class ExtensionsPage : UserControl
             {
                 if (nav.SelectedItem is NavigationViewItem selected)
                 {
-                    frame.Navigate((Type)selected.Tag!);
+                    OnItemInvoked(selected);
                 }
             }
             else
@@ -43,6 +50,19 @@ public sealed partial class ExtensionsPage : UserControl
         });
     }
 
+    private void Search_Click(object? sender, RoutedEventArgs e)
+    {
+        frame.Navigate(typeof(SearchPage), searchTextBox.Text);
+    }
+
+    private void OpenSettings_Click(object? sender, RoutedEventArgs e)
+    {
+        if (this.FindLogicalAncestorOfType<MainView>() is { DataContext: MainViewModel viewModel } mainView)
+        {
+            viewModel.SelectedPage.Value = viewModel.SettingsPage;
+        }
+    }
+
     private static List<NavigationViewItem> GetItems()
     {
         return new List<NavigationViewItem>()
@@ -50,7 +70,7 @@ public sealed partial class ExtensionsPage : UserControl
             new NavigationViewItem()
             {
                 Content = "Home",
-                Tag = typeof(HomePage),
+                Tag = typeof(DiscoverPage),
                 Icon = new SymbolIcon
                 {
                     Symbol = Symbol.Home
@@ -84,9 +104,30 @@ public sealed partial class ExtensionsPage : UserControl
 
     private void Nav_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)
     {
-        if (e.InvokedItemContainer is NavigationViewItem nvi && nvi.Tag is Type typ)
+        if (e.InvokedItemContainer is NavigationViewItem nvi)
         {
-            frame.Navigate(typ, null, e.RecommendedNavigationTransitionInfo);
+            OnItemInvoked(nvi);
+        }
+    }
+
+    private void OnItemInvoked(NavigationViewItem nvi)
+    {
+        if (nvi.Tag is Type typ
+            && DataContext is ExtensionsPageViewModel { IsAuthorized.Value: true } viewModel)
+        {
+            NavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
+            if (typ == typeof(DevelopPage))
+            {
+                frame.Navigate(typ, viewModel.Develop, transitionInfo);
+            }
+            else if (typ == typeof(LibraryPage))
+            {
+                frame.Navigate(typ, viewModel.Library, transitionInfo);
+            }
+            else if (typ == typeof(DiscoverPage))
+            {
+                frame.Navigate(typ, viewModel.Discover, transitionInfo);
+            }
         }
     }
 
@@ -123,11 +164,6 @@ public sealed partial class ExtensionsPage : UserControl
 
     private void Frame_Navigated(object sender, NavigationEventArgs e)
     {
-        if (e.Content is StyledElement content && e.Parameter is { } param)
-        {
-            content.DataContext = param;
-        }
-
         foreach (NavigationViewItem nvi in nav.MenuItems)
         {
             if (nvi.Tag is Type tag && tag == e.SourcePageType)
@@ -149,16 +185,16 @@ public sealed partial class ExtensionsPage : UserControl
 
     private static int ToNumber(Type type)
     {
-        if (type == typeof(DevelopPage))
+        if (type == typeof(DevelopPage) || type == typeof(DiscoverPage))
             return 0;
-        else if (type == typeof(PackageDetailsPage))
+        else if (type == typeof(PackageDetailsPage)
+            || type == typeof(PublicPackageDetailsPage)
+            || type == typeof(RankingPageViewModel))
             return 1;
         else if (type == typeof(PackageReleasesPage))
             return 2;
         else if (type == typeof(PackageSettingsPage))
             return 2;
-        else if (type == typeof(ResourcePage))
-            return 3;
         else if (type == typeof(ReleasePage))
             return 3;
         return -1;

@@ -10,14 +10,22 @@
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="viewModels:PackageReleasesPageViewModel"
+             Focusable="True"
+             IsEnabled="{CompiledBinding !IsBusy.Value}"
              mc:Ignorable="d">
+
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="Ctrl+R" />
+    </UserControl.KeyBindings>
+
     <Grid RowDefinitions="Auto,Auto,*">
         <StackPanel Margin="10,8"
                     Orientation="Horizontal"
                     Spacing="16">
             <Button Classes="breadcrumb"
                     Click="NavigatePackageDetailsPage_Click"
-                    Content="{CompiledBinding Parent.Package.Value.Name}" />
+                    Content="{CompiledBinding Package.Name}" />
 
             <Label Classes="breadcrumb" />
 
@@ -42,10 +50,10 @@
                 <DataTemplate>
                     <Grid MaxHeight="64" ColumnDefinitions="Auto,*,2*,Auto,Auto">
                         <icons:SymbolIcon Margin="0,0,16,0"
-                                          IsVisible="{CompiledBinding Release.Value.IsVisible}"
+                                          IsVisible="{CompiledBinding IsPublic.Value}"
                                           Symbol="Eye" />
                         <icons:SymbolIcon Margin="0,0,16,0"
-                                          IsVisible="{CompiledBinding !Release.Value.IsVisible}"
+                                          IsVisible="{CompiledBinding !IsPublic.Value}"
                                           Symbol="EyeOff" />
 
                         <StackPanel Grid.Column="1"
@@ -53,9 +61,9 @@
                                     HorizontalAlignment="Left"
                                     VerticalAlignment="Center"
                                     Orientation="Vertical">
-                            <TextBlock Classes="BodyStrongTextBlockStyle" Text="{CompiledBinding Release.Value.Title}" />
+                            <TextBlock Text="{CompiledBinding Title.Value}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-                            <TextBlock Text="{CompiledBinding Release.Value.Version}" />
+                            <TextBlock Text="{CompiledBinding Version.Value}" />
                         </StackPanel>
 
                         <TextBlock Grid.Column="2"
@@ -63,7 +71,7 @@
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                   Text="{CompiledBinding Release.Value.Body}"
+                                   Text="{CompiledBinding Body.Value}"
                                    TextTrimming="CharacterEllipsis" />
 
                         <ui:CommandBarButton Grid.Column="3"

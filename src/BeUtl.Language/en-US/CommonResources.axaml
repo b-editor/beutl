@@ -1,9 +1,8 @@
-<Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
         <FontFamily x:Key="ContentControlThemeFontFamily">Segoe UI, Helvetica Neue, Ubuntu</FontFamily>
 
-        <!--KeyGestures-->
+        <!--  KeyGestures  -->
         <KeyGesture x:Key="CreateNewProjectKeyGesture">Ctrl+Shift+N</KeyGesture>
         <KeyGesture x:Key="CreateNewKeyGesture">Ctrl+N</KeyGesture>
         <KeyGesture x:Key="OpenProjectKeyGesture">Ctrl+Shift+O</KeyGesture>
@@ -24,7 +23,7 @@
         <KeyGesture x:Key="EndKeyGesture">End</KeyGesture>
         <KeyGesture x:Key="LayerDeleteKeyGesture">Ctrl+Delete</KeyGesture>
 
-        <!--Strings-->
+        <!--  Strings  -->
         <x:String x:Key="S.Common.File">File</x:String>
         <x:String x:Key="S.Common.Create">Create</x:String>
         <x:String x:Key="S.Common.CreateNew">Create New</x:String>
@@ -194,24 +193,36 @@
         <x:String x:Key="S.Common.Editors">Editors</x:String>
         <x:String x:Key="S.Common.Tools">Tools</x:String>
         <x:String x:Key="S.Common.AddToCurrentProject">Add to current project</x:String>
+        <x:String x:Key="S.Common.Unimplemented">Unimplemented</x:String>
+        <x:String x:Key="S.Common.Storage">Storage</x:String>
+        <x:String x:Key="S.Common.Internal">Internal</x:String>
+        <x:String x:Key="S.Common.External">External</x:String>
+        <x:String x:Key="S.Common.ContentType">Content Type</x:String>
+        <x:String x:Key="S.Common.Submit">Submit</x:String>
+        <x:String x:Key="S.Common.Public">Public</x:String>
+        <x:String x:Key="S.Common.Private">Private</x:String>
+        <x:String x:Key="S.Common.SelectAsset">Select Asset</x:String>
+        <x:String x:Key="S.Common.SelectImage">Select Image</x:String>
+        <x:String x:Key="S.Common.PrivacyPolicy">Privacy Policy</x:String>
+        <x:String x:Key="S.Common.TermsOfService">Terms Of Service</x:String>
     </Styles.Resources>
 
-    <!--Views-->
+    <!--  Views  -->
     <StyleInclude Source="/en-US/Views/MainViewResources.axaml" />
 
-    <!--Views.Editors-->
+    <!--  Views.Editors  -->
     <StyleInclude Source="/en-US/Views/EditorsResources.axaml" />
 
-    <!--Pages-->
+    <!--  Pages  -->
     <StyleInclude Source="/en-US/Pages/ExtensionsPageResources.axaml" />
     <StyleInclude Source="/en-US/Pages/SettingsPageResources.axaml" />
 
-    <!--Messages-->
+    <!--  Messages  -->
     <StyleInclude Source="/en-US/MessageResources.axaml" />
 
-    <!--Operators-->
+    <!--  Operators  -->
     <StyleInclude Source="/en-US/OperatorsResources.axaml" />
 
-    <!--Warnings-->
+    <!--  Warnings  -->
     <StyleInclude Source="/en-US/WarningResources.axaml" />
 </Styles>

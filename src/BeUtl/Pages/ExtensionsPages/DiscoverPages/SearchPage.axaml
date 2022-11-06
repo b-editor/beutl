@@ -1,0 +1,206 @@
+<UserControl x:Class="BeUtl.Pages.ExtensionsPages.DiscoverPages.SearchPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:asyncImageLoader="using:AsyncImageLoader"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:panelx="using:PanelExtension"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:BeUtl.ViewModels.ExtensionsPages.DiscoverPages"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="viewModel:SearchPageViewModel"
+             Focusable="True"
+             IsEnabled="{Binding !IsBusy.Value}"
+             mc:Ignorable="d">
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock.name">
+            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{Binding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{Binding Refresh}" Gesture="Ctrl+R" />
+    </UserControl.KeyBindings>
+
+    <ScrollViewer Padding="18">
+        <StackPanel Margin="10,0">
+            <TextBlock HorizontalAlignment="Left"
+                       Text="{Binding Keyword, StringFormat='&quot;{0}&quot;'}"
+                       Theme="{StaticResource SubtitleTextBlockStyle}" />
+
+            <ui:HyperlinkButton x:Name="ShowQueryTip"
+                                Classes.transparent="{Binding !!SearchType.Value}"
+                                Click="ShowQueryTip_Click"
+                                Content="検索クエリにはLuceneクエリを利用できます。" />
+            <ui:TeachingTip x:Name="QueryTip"
+                            Title="クエリの例"
+                            PreferredPlacement="Bottom">
+                <RichTextBlock>
+                    <Run Text="- display_name:とてもよきパッケージ名" />
+                    <LineBreak />
+                    <Run Text="  [表示名が" />
+                    <Run FontStyle="Italic" Text="'とてもよきパッケージ名'" />
+                    <Run Text="]" />
+                    <LineBreak />
+                    <LineBreak />
+
+                    <Run FontWeight="Bold" Text="利用可能フィールド" />
+                    <LineBreak />
+                    display_name, name, description,<LineBreak />
+                    short_description, tags<LineBreak />
+                    <LineBreak />
+                    <Run Text="ワイルドカードが利用可能です。" />
+                    <LineBreak />
+                    デフォルトでは完全一致検索なので、<LineBreak />
+                    部分一致させたい場合ワイルドカードを使用してください。</RichTextBlock>
+            </ui:TeachingTip>
+
+            <TabControl Padding="0" SelectedIndex="{Binding SearchType.Value}">
+                <TabControl.Styles>
+                    <Style Selector="TabItem">
+                        <Setter Property="Padding" Value="8" />
+                        <Setter Property="FontSize" Value="16" />
+                    </Style>
+                </TabControl.Styles>
+                <TabItem Header="パッケージ">
+                    <ItemsRepeater Items="{Binding Packages}">
+                        <ItemsRepeater.Layout>
+                            <panelx:HorizontalGridLayout ColumnSpacing="16"
+                                                         MinItemWidth="345"
+                                                         RowSpacing="16" />
+                        </ItemsRepeater.Layout>
+                        <ItemsRepeater.ItemTemplate>
+                            <DataTemplate>
+                                <Button Padding="0"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch"
+                                        VerticalContentAlignment="Stretch"
+                                        Click="Package_Click">
+                                    <Panel>
+                                        <Grid Margin="16"
+                                              ColumnDefinitions="Auto,16,*"
+                                              IsVisible="{Binding Converter={x:Static ObjectConverters.IsNotNull}}">
+                                            <Image Width="80"
+                                                   Height="80"
+                                                   asyncImageLoader:ImageLoader.Source="{Binding LogoUrl.Value}"
+                                                   ImageClipping.CornerRadius="8" />
+
+                                            <Grid Grid.Column="2"
+                                                  Margin="0,2"
+                                                  VerticalAlignment="Stretch"
+                                                  ColumnDefinitions="*,Auto"
+                                                  RowDefinitions="Auto,Auto,Auto">
+                                                <TextBlock Text="{Binding Name}" />
+
+                                                <TextBlock Grid.Row="1"
+                                                           Grid.ColumnSpan="2"
+                                                           Classes="name"
+                                                           IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                           Text="{Binding DisplayName.Value}" />
+
+                                                <TextBlock Grid.Row="2"
+                                                           Grid.ColumnSpan="2"
+                                                           Margin="0,8,0,0"
+                                                           Text="{Binding ShortDescription.Value}" />
+
+                                                <TextBlock Grid.Column="1"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                           Text="{Binding Owner.Name}" />
+                                            </Grid>
+                                        </Grid>
+                                        <Grid Margin="16"
+                                              ColumnDefinitions="Auto,16,*"
+                                              IsVisible="{Binding Converter={x:Static ObjectConverters.IsNull}}">
+                                            <Border Width="80" Height="80">
+                                                <icons:SymbolIcon FontSize="32" Symbol="MoreHorizontal" />
+                                            </Border>
+
+                                            <TextBlock Grid.Column="2"
+                                                       VerticalAlignment="Center"
+                                                       Text="もっと表示" />
+                                        </Grid>
+                                    </Panel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsRepeater.ItemTemplate>
+                    </ItemsRepeater>
+                </TabItem>
+                <TabItem Header="ユーザー">
+                    <ItemsRepeater Items="{Binding Users}">
+                        <ItemsRepeater.Layout>
+                            <panelx:HorizontalGridLayout ColumnSpacing="16"
+                                                         MinItemWidth="345"
+                                                         RowSpacing="16" />
+                        </ItemsRepeater.Layout>
+                        <ItemsRepeater.ItemTemplate>
+                            <DataTemplate>
+                                <Button Padding="0"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch"
+                                        VerticalContentAlignment="Stretch"
+                                        Click="User_Click">
+                                    <Panel>
+                                        <Grid Margin="16"
+                                              ColumnDefinitions="Auto,16,*"
+                                              IsVisible="{Binding Converter={x:Static ObjectConverters.IsNotNull}}">
+                                            <Image Width="80"
+                                                   Height="80"
+                                                   asyncImageLoader:ImageLoader.Source="{Binding AvatarUrl.Value}">
+                                                <Image.Clip>
+                                                    <EllipseGeometry Center="40,40"
+                                                                     RadiusX="40"
+                                                                     RadiusY="40" />
+                                                </Image.Clip>
+                                            </Image>
+                                            <Grid Grid.Column="2"
+                                                  Margin="0,2"
+                                                  VerticalAlignment="Stretch"
+                                                  ColumnDefinitions="*,Auto"
+                                                  RowDefinitions="Auto,Auto,Auto">
+                                                <TextBlock Classes="name"
+                                                           IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                           Text="{Binding DisplayName.Value}" />
+                                                <TextBlock Classes="name"
+                                                           IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}"
+                                                           Text="{Binding Name}" />
+
+                                                <TextBlock Grid.Row="2"
+                                                           Grid.ColumnSpan="2"
+                                                           Margin="0,8,0,0"
+                                                           Text="{Binding Biography.Value}" />
+
+                                                <TextBlock Grid.Column="1"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                           Text="{Binding Name}" />
+                                            </Grid>
+                                        </Grid>
+                                        <Grid Margin="16"
+                                              ColumnDefinitions="Auto,16,*"
+                                              IsVisible="{Binding Converter={x:Static ObjectConverters.IsNull}}">
+                                            <Border Width="80" Height="80">
+                                                <icons:SymbolIcon FontSize="32" Symbol="MoreHorizontal" />
+                                            </Border>
+
+                                            <TextBlock Grid.Column="2"
+                                                       VerticalAlignment="Center"
+                                                       Text="もっと表示" />
+                                        </Grid>
+                                    </Panel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsRepeater.ItemTemplate>
+                    </ItemsRepeater>
+                </TabItem>
+            </TabControl>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

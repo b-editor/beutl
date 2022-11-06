@@ -1,16 +1,15 @@
-<Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
-        <!--Strings-->
+        <!--  Strings  -->
         <x:String x:Key="S.Warning.ItAlreadyExists">既に存在しています。</x:String>
         <x:String x:Key="S.Warning.ValueLessThanOrEqualToZero">0以下の値は指定できません。</x:String>
         <x:String x:Key="S.Warning.ValueLessThanZero">0未満の値は指定できません。</x:String>
-        <x:String x:Key="S.Warning.CannotRenameBecauseConflicts">
-            新しい名前が既存のフォルダーと競合するため、
-            "{0}" から "{1}" に名前を変更できません。
-        </x:String>
+        <x:String x:Key="S.Warning.CannotRenameBecauseConflicts">新しい名前が既存のフォルダーと競合するため、&#xa;"{0}" から "{1}" に名前を変更できません。</x:String>
         <x:String x:Key="S.Warning.FileDoesNotExist">ファイルが存在しません。</x:String>
         <x:String x:Key="S.Warning.CouldNotOpenProject">プロジェクトを開けませんでした。</x:String>
         <x:String x:Key="S.Warning.NameCannotBeLeftBlank">名前は空白にできません</x:String>
+        <x:String x:Key="S.Warning.APIErrorOccurred">APIエラーが発生しました</x:String>
+        <x:String x:Key="S.Warning.AnUnexpectedErrorHasOccurred">予期しないエラーが発生しました</x:String>
+        <x:String x:Key="S.Warning.InvalidURL">無効なURL</x:String>
     </Styles.Resources>
 </Styles>

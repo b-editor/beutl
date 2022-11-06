@@ -11,6 +11,7 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
              xmlns:vm="using:BeUtl.ViewModels"
+             xmlns:wnd="using:FluentAvalonia.UI.Windowing"
              x:Name="root"
              Padding="0"
              d:DesignHeight="450"
@@ -36,9 +37,7 @@
     </UserControl.KeyBindings>
 
     <Grid RowDefinitions="Auto,*">
-        <Grid x:Name="Titlebar"
-              Background="Transparent"
-              ColumnDefinitions="Auto,Auto,*">
+        <Grid x:Name="Titlebar" ColumnDefinitions="Auto,Auto,*">
             <Image MaxWidth="24"
                    MaxHeight="24"
                    Margin="8,0"
@@ -51,7 +50,9 @@
                 </Image.Clip>
             </Image>
 
-            <Menu Grid.Column="1">
+            <Menu x:Name="MenuBar"
+                  Grid.Column="1"
+                  wnd:AppWindow.AllowInteractionInTitleBar="True">
                 <!--  ファイル  -->
                 <MenuItem Header="{DynamicResource S.MainView.File}">
                     <!--  新規作成  -->

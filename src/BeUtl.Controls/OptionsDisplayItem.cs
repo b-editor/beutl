@@ -7,6 +7,7 @@ using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Styling;
 
 using FluentAvalonia.UI.Controls;
@@ -16,11 +17,11 @@ namespace BeUtl.Controls;
 // https://github.com/amwx/FluentAvalonia/blob/master/FluentAvaloniaSamples/Controls/OptionsDisplayItem.cs
 public class OptionsDisplayItem : TemplatedControl
 {
-    public static readonly StyledProperty<string> HeaderProperty =
-        AvaloniaProperty.Register<OptionsDisplayItem, string>(nameof(Header));
+    public static readonly StyledProperty<object> HeaderProperty =
+        AvaloniaProperty.Register<OptionsDisplayItem, object>(nameof(Header));
 
-    public static readonly StyledProperty<string> DescriptionProperty =
-        AvaloniaProperty.Register<OptionsDisplayItem, string>(nameof(Description));
+    public static readonly StyledProperty<object> DescriptionProperty =
+        AvaloniaProperty.Register<OptionsDisplayItem, object>(nameof(Description));
 
     public static readonly StyledProperty<FAIconElement> IconProperty =
         AvaloniaProperty.Register<OptionsDisplayItem, FAIconElement>(nameof(Icon));
@@ -44,16 +45,19 @@ public class OptionsDisplayItem : TemplatedControl
     public static readonly StyledProperty<ICommand> NavigationCommandProperty =
         AvaloniaProperty.Register<OptionsDisplayItem, ICommand>(nameof(NavigationCommand));
 
+    public static readonly StyledProperty<object> NavigationCommandParameterProperty =
+        AvaloniaProperty.Register<OptionsDisplayItem, object>(nameof(NavigationCommandParameter));
+
     public static readonly StyledProperty<IPageTransition> ContentTransitionProperty =
         AvaloniaProperty.Register<OptionsDisplayItem, IPageTransition>(nameof(ContentTransition));
 
-    public string Header
+    public object Header
     {
         get => GetValue(HeaderProperty);
         set => SetValue(HeaderProperty, value);
     }
 
-    public string Description
+    public object Description
     {
         get => GetValue(DescriptionProperty);
         set => SetValue(DescriptionProperty, value);
@@ -101,6 +105,12 @@ public class OptionsDisplayItem : TemplatedControl
         set => SetValue(NavigationCommandProperty, value);
     }
 
+    public object NavigationCommandParameter
+    {
+        get => GetValue(NavigationCommandParameterProperty);
+        set => SetValue(NavigationCommandParameterProperty, value);
+    }
+
     public IPageTransition ContentTransition
     {
         get => GetValue(ContentTransitionProperty);
@@ -146,6 +156,18 @@ public class OptionsDisplayItem : TemplatedControl
         else if (change.Property == IconProperty)
         {
             PseudoClasses.Set(":icon", change.NewValue != null);
+        }
+        else if (change.Property == ContentProperty)
+        {
+            if (change.OldValue is ILogical oldChild)
+            {
+                LogicalChildren.Remove(oldChild);
+            }
+
+            if (change.NewValue is ILogical newChild)
+            {
+                LogicalChildren.Add(newChild);
+            }
         }
     }
 
@@ -201,7 +223,8 @@ public class OptionsDisplayItem : TemplatedControl
             if (Navigates)
             {
                 RaiseEvent(new RoutedEventArgs(NavigationRequestedEvent, this));
-                NavigationCommand?.Execute(null);
+                if (NavigationCommand?.CanExecute(NavigationCommandParameter) == true)
+                    NavigationCommand.Execute(NavigationCommandParameter);
             }
         }
     }

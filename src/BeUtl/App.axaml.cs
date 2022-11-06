@@ -32,6 +32,7 @@ public sealed class App : Application
 {
     private readonly Uri _baseUri = new("avares://BeUtl/App.axaml");
     private IStyle? _cultureStyle;
+    private MainViewModel? _mainViewModel;
 
     public override void Initialize()
     {
@@ -74,7 +75,7 @@ public sealed class App : Application
         {
             Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (LocalizeService.Instance.IsSupportedCulture(v))
+                if (LocalizeService.Instance.IsSupportedCulture(v) || v.Name == "en-US")
                 {
                     IStyle? tmp = _cultureStyle;
                     _cultureStyle = new StyleInclude(_baseUri)
@@ -86,8 +87,18 @@ public sealed class App : Application
                     {
                         Styles.Remove(tmp);
                     }
-                    CultureInfo.CurrentUICulture = v;
                 }
+                else
+                {
+                    if (_cultureStyle != null)
+                    {
+                        Styles.Remove(_cultureStyle);
+                    }
+
+                    _cultureStyle = null;
+                }
+
+                CultureInfo.CurrentUICulture = v;
             });
         });
 
@@ -101,19 +112,19 @@ public sealed class App : Application
     public override void RegisterServices()
     {
         base.RegisterServices();
-        AvaloniaLocator.CurrentMutable
-                .Bind<IFontManagerImpl>().ToConstant(new CustomFontManagerImpl());
+        //AvaloniaLocator.CurrentMutable
+        //        .Bind<IFontManagerImpl>().ToConstant(new CustomFontManagerImpl());
 
         ServiceLocator.Current
             .BindToSelfSingleton<EditorService>()
             .BindToSelfSingleton<HttpClient>()
             .Bind<IPropertyEditorExtensionImpl>().ToSingleton<PropertyEditorService.PropertyEditorExtensionImpl>()
-            .BindToSelf(new AccountService())
-            .Bind<PackageController>().ToLazy(() => new PackageController(ServiceLocator.Current.GetRequiredService<AccountService>()))
             .BindToSelf<IWorkspaceItemContainer>(new WorkspaceItemContainer())
             .BindToSelf<IProjectService>(new ProjectService())
             .BindToSelf<INotificationService>(new NotificationService())
             .BindToSelf<IResourceProvider>(new DefaultResourceProvider());
+
+        GetMainViewModel().RegisterServices();
 
         OperatorsRegistrar.RegisterAll();
         UIDispatcherScheduler.Initialize();
@@ -126,7 +137,7 @@ public sealed class App : Application
         {
             desktop.MainWindow = new MainWindow
             {
-                DataContext = new MainViewModel(),
+                DataContext = GetMainViewModel(),
             };
 
             desktop.Exit += Application_Exit;
@@ -135,11 +146,16 @@ public sealed class App : Application
         {
             singleViewPlatform.MainView = new MainView
             {
-                DataContext = new MainViewModel(),
+                DataContext = GetMainViewModel(),
             };
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private MainViewModel GetMainViewModel()
+    {
+        return _mainViewModel ??= new MainViewModel();
     }
 
     private void Application_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)

@@ -4,21 +4,41 @@
              xmlns:aconverters="using:Avalonia.Markup.Xaml.Converters"
              xmlns:convert="using:BeUtl.Converters"
              xmlns:local="using:BeUtl"
+             xmlns:sty="using:FluentAvalonia.Styling"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives">
     <Application.Resources>
         <convert:PixelSizeConverter x:Key="PixelSizeConverter" />
         <convert:TimeSpanToDoubleConverter x:Key="TimeSpanToDoubleConverter" />
         <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
+
+        <ControlTheme x:Key="LabelTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </ControlTheme>
     </Application.Resources>
     <Application.Styles>
+        <FluentTheme />
+        <sty:FluentAvaloniaTheme />
+        <StyleInclude Source="avares://FluentAvalonia.UI.Windowing/Styles/FAWindowingStyles.axaml" />
+
         <StyleInclude Source="avares://BeUtl.Controls/Styles.axaml" />
+        <StyleInclude Source="avares://BeUtl.Language/en-US/CommonResources.axaml" />
 
         <Style Selector="TextBlock.ErrorTextBlockStyle">
             <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
             <Setter Property="Opacity" Value="0.7" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <Style Selector="TextBlock.error">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
 
         <Style Selector="Button.breadcrumb">
@@ -32,29 +52,63 @@
             <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundPressed}" />
+
+            <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Transitions">
+                    <Transitions />
+                </Setter>
+            </Style>
+
+            <Style Selector="^:pointerover /template/ Border#BorderElement">
+                <Setter Property="BorderBrush" Value="Transparent" />
+            </Style>
+            <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForeground}" />
+            </Style>
+
+            <Style Selector="^:pointerover /template/ Border#BorderElement">
+                <Setter Property="BorderBrush" Value="Transparent" />
+            </Style>
+            <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForeground}" />
+                <Setter Property="Opacity" Value="0.5" />
+            </Style>
         </Style>
 
-        <Style Selector="Button.breadcrumb /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Transitions">
-                <Transitions />
-            </Setter>
-        </Style>
-
-        <Style Selector="Button.breadcrumb:pointerover /template/ Border#BorderElement">
-            <Setter Property="BorderBrush" Value="Transparent" />
-        </Style>
-        <Style Selector="Button.breadcrumb:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Style Selector="Button.simple">
+            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+            <Setter Property="TextBlock.TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="TextBlock.TextWrapping" Value="Wrap" />
+            <Setter Property="Padding" Value="0" />
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForeground}" />
-        </Style>
-
-        <Style Selector="Button.breadcrumb:pointerover /template/ Border#BorderElement">
             <Setter Property="BorderBrush" Value="Transparent" />
-        </Style>
-        <Style Selector="Button.breadcrumb:pressed /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForeground}" />
-            <Setter Property="Opacity" Value="0.5" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundPressed}" />
+
+            <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Transitions">
+                    <Transitions />
+                </Setter>
+            </Style>
+
+            <Style Selector="^:pointerover /template/ Border#BorderElement">
+                <Setter Property="BorderBrush" Value="Transparent" />
+            </Style>
+            <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForeground}" />
+            </Style>
+
+            <Style Selector="^:pointerover /template/ Border#BorderElement">
+                <Setter Property="BorderBrush" Value="Transparent" />
+            </Style>
+            <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForeground}" />
+                <Setter Property="Opacity" Value="0.5" />
+            </Style>
         </Style>
 
         <Style Selector="Label.breadcrumb">
@@ -68,12 +122,13 @@
         </Style>
 
         <Style Selector="TextBlock.breadcrumb">
-            <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
+            <Setter Property="FontFamily" Value="{DynamicResource XamlAutoFontFamily}" />
             <Setter Property="FontSize" Value="24" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="TextBlock.TextTrimming" Value="CharacterEllipsis" />
             <Setter Property="TextBlock.TextWrapping" Value="Wrap" />
             <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="ClipToBounds" Value="False" />
         </Style>
 
         <Style Selector="ui|TabView.bottom">

@@ -1,73 +1,78 @@
-﻿using BeUtl.Models.Extensions.Develop;
+﻿using Beutl.Api.Objects;
+
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
-public sealed class PackageReleasesPageViewModel : IDisposable
+public sealed class PackageReleasesPageViewModel : BasePageViewModel
 {
-    private readonly IDisposable _disposable;
-    private readonly WeakReference<PackageDetailsPageViewModel> _parentWeak;
+    private readonly AuthorizedUser _user;
 
-    public PackageReleasesPageViewModel(PackageDetailsPageViewModel parent)
+    public PackageReleasesPageViewModel(AuthorizedUser user, Package package)
     {
-        _parentWeak = new WeakReference<PackageDetailsPageViewModel>(parent);
+        _user = user;
+        Package = package;
 
-        _disposable = parent.Package.Value.SubscribeReleases(
-            item =>
-            {
-                if (!Items.Any(p => p.Release.Value.Snapshot.Id == item.Id))
-                {
-                    var viewModel = new ReleasePageViewModel(new PackageReleaseLink(item), this);
-                    Items.Add(viewModel);
-                }
-            },
-            item =>
-            {
-                ReleasePageViewModel? viewModel = Items.FirstOrDefault(p => p.Release.Value.Snapshot.Id == item.Id);
-                if (viewModel != null)
-                {
-                    Items.Remove(viewModel);
-                    viewModel.Dispose();
-                }
-            },
-            _ => { });
-
-        Add.Subscribe(async p =>
+        Refresh.Subscribe(async () =>
         {
-            await Parent.Package.Value.AddRelease(new PackageRelease(
-                Version: Version.Parse(p.Version.Value),
-                Title: p.Title.Value,
-                Body: p.Body.Value,
-                IsVisible: false,
-                DownloadLink: null,
-                SHA256: null));
+            try
+            {
+                IsBusy.Value = true;
+                await _user.RefreshAsync();
+
+                await Package.RefreshAsync();
+                Items.Clear();
+
+                int prevCount = 0;
+                int count = 0;
+
+                do
+                {
+                    Release[] items = await Package.GetReleasesAsync(count, 30);
+                    Items.AddRange(items.AsSpan<Release>());
+                    prevCount = items.Length;
+                    count += items.Length;
+                } while (prevCount == 30);
+            }
+            catch (Exception ex)
+            {
+                ErrorHandle(ex);
+            }
+            finally
+            {
+                IsBusy.Value = false;
+            }
         });
+
+        Refresh.Execute();
     }
 
-    ~PackageReleasesPageViewModel()
+    public Package Package { get; }
+
+    public CoreList<Release> Items { get; } = new();
+
+    public ReactivePropertySlim<bool> IsBusy { get; } = new();
+
+    public AsyncReactiveCommand Refresh { get; } = new();
+
+    public async Task DeleteReleaseAsync(Release release)
     {
-        Dispose();
-    }
-
-    public PackageDetailsPageViewModel Parent
-        => _parentWeak.TryGetTarget(out PackageDetailsPageViewModel? parent)
-            ? parent
-            : null!;
-
-    public CoreList<ReleasePageViewModel> Items { get; } = new();
-
-    public AsyncReactiveCommand<AddReleaseDialogViewModel> Add { get; } = new();
-
-    public void Dispose()
-    {
-        _disposable.Dispose();
-
-        foreach (ReleasePageViewModel item in Items)
+        try
         {
-            item.Dispose();
+            await _user.RefreshAsync();
+            await release.DeleteAsync();
+            Items.Remove(release);
         }
+        catch (Exception ex)
+        {
+            ErrorHandle(ex);
+        }
+    }
+
+    public override void Dispose()
+    {
         Items.Clear();
 
         GC.SuppressFinalize(this);

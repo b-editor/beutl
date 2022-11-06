@@ -1,7 +1,12 @@
 ﻿
 using Avalonia;
 using Avalonia.Collections;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+
+using Beutl.Api;
+using Beutl.Api.Objects;
+using Beutl.Api.Services;
 
 using BeUtl.Configuration;
 using BeUtl.Framework;
@@ -10,22 +15,25 @@ using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
 using BeUtl.Services.PrimitiveImpls;
+using BeUtl.ViewModels.ExtensionsPages;
 
 using DynamicData;
 
 using Microsoft.Extensions.DependencyInjection;
 
+using NuGet.Packaging.Core;
+
 using Reactive.Bindings;
 
 namespace BeUtl.ViewModels;
 
-public sealed class MainViewModel
+public sealed class MainViewModel : BasePageViewModel
 {
     private readonly IProjectService _projectService;
     private readonly EditorService _editorService;
-    private readonly INotificationService _notificationService;
     private readonly PageExtension[] _primitivePageExtensions;
-    internal readonly Task _packageLoadTask;
+    private readonly BeutlApiApplication _beutlClients;
+    private readonly HttpClient _authorizedHttpClient;
 
     public sealed class NavItemViewModel
     {
@@ -56,9 +64,11 @@ public sealed class MainViewModel
 
     public MainViewModel()
     {
+        _authorizedHttpClient = new HttpClient();
+        _beutlClients = new BeutlApiApplication(_authorizedHttpClient);
+
         _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
         _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
-        _notificationService = ServiceLocator.Current.GetRequiredService<INotificationService>();
         _primitivePageExtensions = new PageExtension[]
         {
             EditPageExtension.Instance,
@@ -103,14 +113,14 @@ public sealed class MainViewModel
 
                     if (result)
                     {
-                        _notificationService.Show(new Notification(
+                        Notification.Show(new Notification(
                             string.Empty,
                             string.Format(S.Message.ItemSaved, item.FileName),
                             NotificationType.Success));
                     }
                     else
                     {
-                        _notificationService.Show(new Notification(
+                        Notification.Show(new Notification(
                             string.Empty,
                             S.Message.OperationCouldNotBeExecuted,
                             NotificationType.Information));
@@ -118,7 +128,7 @@ public sealed class MainViewModel
                 }
                 catch
                 {
-                    _notificationService.Show(new Notification(
+                    Notification.Show(new Notification(
                         string.Empty,
                         S.Message.OperationCouldNotBeExecuted,
                         NotificationType.Error));
@@ -145,14 +155,14 @@ public sealed class MainViewModel
                     }
                 }
 
-                _notificationService.Show(new Notification(
+                Notification.Show(new Notification(
                     string.Empty,
                     string.Format(S.Message.ItemsSaved, itemsCount.ToString()),
                     NotificationType.Success));
             }
             catch
             {
-                _notificationService.Show(new Notification(
+                Notification.Show(new Notification(
                     string.Empty,
                     S.Message.OperationCouldNotBeExecuted,
                     NotificationType.Error));
@@ -184,47 +194,13 @@ public sealed class MainViewModel
                 await commands.OnRedo();
         });
 
-        _packageLoadTask = Task.Run(async () =>
-        {
-            PackageManager manager = PackageManager.Instance;
-
-            manager.ExtensionProvider._allExtensions.Add(Package.s_nextId++, _primitivePageExtensions);
-
-            // NOTE: ここでSceneEditorExtensionを登録しているので、
-            //       パッケージとして分離する場合ここを削除
-            manager.ExtensionProvider._allExtensions.Add(Package.s_nextId++, new Extension[]
-            {
-                SceneEditorExtension.Instance,
-                SceneWorkspaceItemExtension.Instance,
-                TimelineTabExtension.Instance,
-                AnimationTimelineTabExtension.Instance,
-                ObjectPropertyTabExtension.Instance,
-                StyleEditorTabExtension.Instance,
-                StreamOperatorsTabExtension.Instance,
-                EasingsTabExtension.Instance,
-                AnimationTabExtension.Instance,
-                PropertyEditorExtension.Instance,
-                AlignmentsPropertyEditorExtension.Instance,
-                DefaultPropertyNameExtension.Instance,
-            });
-
-            manager.LoadPackages(manager.GetPackageInfos());
-
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (Application.Current != null)
-                {
-                    PackageManager.Instance.AttachToApplication(Application.Current);
-                }
-            });
-        });
-
         Pages = new()
         {
             new(EditPageExtension.Instance),
-            new(ExtensionsPageExtension.Instance),
+            new(ExtensionsPageExtension.Instance, new ExtensionsPageViewModel(_beutlClients)),
             new(OutputPageExtension.Instance),
         };
+        SettingsPage = new(SettingsPageExtension.Instance, new SettingsPageViewModel(_beutlClients));
         SelectedPage.Value = Pages[0];
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         viewConfig.RecentFiles.ForEachItem(
@@ -256,14 +232,6 @@ public sealed class MainViewModel
                     Title: "",
                     Message: S.Warning.CouldNotOpenProject));
             }
-        });
-
-        _packageLoadTask.ContinueWith(_ =>
-        {
-            PackageManager manager = PackageManager.Instance;
-            IEnumerable<PageExtension> toAdd
-                = manager.ExtensionProvider.AllExtensions.OfType<PageExtension>().Except(_primitivePageExtensions);
-            Dispatcher.UIThread.InvokeAsync(() => Pages.AddRange(toAdd.Select(item => new NavItemViewModel(item))));
         });
     }
 
@@ -347,11 +315,118 @@ public sealed class MainViewModel
 
     public ReactiveCommand PasteLayer { get; }
 
-    public NavItemViewModel SettingsPage { get; } = new(SettingsPageExtension.Instance);
+    public NavItemViewModel SettingsPage { get; }
 
     public CoreList<NavItemViewModel> Pages { get; }
 
     public ReactiveProperty<NavItemViewModel?> SelectedPage { get; } = new();
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
+
+    public async Task RunSplachScreenTask()
+    {
+        try
+        {
+            await _beutlClients.RestoreUserAsync().ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            ErrorHandle(e);
+        }
+
+        PackageManager manager = _beutlClients.GetResource<PackageManager>();
+        ExtensionProvider provider = _beutlClients.GetResource<ExtensionProvider>();
+
+        provider._allExtensions.Add(LocalPackage.s_nextId++, _primitivePageExtensions);
+
+        // NOTE: ここでSceneEditorExtensionを登録しているので、
+        //       パッケージとして分離する場合ここを削除
+        provider._allExtensions.Add(LocalPackage.s_nextId++, new Extension[]
+        {
+            SceneEditorExtension.Instance,
+            SceneWorkspaceItemExtension.Instance,
+            TimelineTabExtension.Instance,
+            AnimationTimelineTabExtension.Instance,
+            ObjectPropertyTabExtension.Instance,
+            StyleEditorTabExtension.Instance,
+            StreamOperatorsTabExtension.Instance,
+            EasingsTabExtension.Instance,
+            AnimationTabExtension.Instance,
+            PropertyEditorExtension.Instance,
+            AlignmentsPropertyEditorExtension.Instance,
+            DefaultPropertyNameExtension.Instance,
+        });
+
+        foreach (LocalPackage item in await manager.GetPackages().ConfigureAwait(false))
+        {
+            manager.Load(item);
+        }
+
+        IEnumerable<PageExtension> toAdd
+            = provider.AllExtensions.OfType<PageExtension>().Except(_primitivePageExtensions);
+        await Dispatcher.UIThread.InvokeAsync(() => Pages.AddRange(toAdd.Select(item => new NavItemViewModel(item))));
+    }
+
+    public ToolTabExtension[] GetToolTabExtensions()
+    {
+        return _beutlClients.GetResource<ExtensionProvider>().GetExtensions<ToolTabExtension>();
+    }
+
+    public EditorExtension[] GetEditorExtensions()
+    {
+        return _beutlClients.GetResource<ExtensionProvider>().GetExtensions<EditorExtension>();
+    }
+
+    public void RegisterServices()
+    {
+        ServiceLocator.Current
+            .Bind<ExtensionProvider>().ToConstant(_beutlClients.GetResource<ExtensionProvider>());
+
+        if (Application.Current is { ApplicationLifetime: IControlledApplicationLifetime lifetime })
+        {
+            lifetime.Exit += OnExit;
+        }
+    }
+
+    public override void Dispose()
+    {
+    }
+
+    private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
+    {
+        PackageChangesQueue queue = _beutlClients.GetResource<PackageChangesQueue>();
+        PackageIdentity[] installs = queue.GetInstalls().ToArray();
+        PackageIdentity[] uninstalls = queue.GetUninstalls().ToArray();
+
+        if (installs.Length > 0 || uninstalls.Length > 0)
+        {
+            var startInfo = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "bpt"))
+            {
+                UseShellExecute = true,
+            };
+
+            if (installs.Length > 0)
+            {
+                startInfo.ArgumentList.Add("--installs");
+                foreach (PackageIdentity? item in installs)
+                {
+                    startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
+                }
+            }
+
+            if (uninstalls.Length > 0)
+            {
+                startInfo.ArgumentList.Add("--uninstalls");
+                foreach (PackageIdentity? item in uninstalls)
+                {
+                    startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
+                }
+            }
+
+            startInfo.ArgumentList.Add("--verbose");
+            startInfo.ArgumentList.Add("--stay-open");
+
+            Process.Start(startInfo);
+        }
+    }
 }

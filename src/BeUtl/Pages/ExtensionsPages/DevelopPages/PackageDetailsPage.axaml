@@ -1,76 +1,70 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.PackageDetailsPage"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:asyncImageLoader="using:AsyncImageLoader"
+             xmlns:ctrls="using:BeUtl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:ctrls="using:BeUtl.Controls"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
              x:DataType="viewModels:PackageDetailsPageViewModel"
-             x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.PackageDetailsPage">
-    <UserControl.Styles>
-        <Style Selector="TextBox.customStyle">
-            <Setter Property="MinWidth" Value="250" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
-        </Style>
-        <Style Selector="TextBlock.description">
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-        </Style>
-    </UserControl.Styles>
+             Focusable="True"
+             mc:Ignorable="d">
 
-    <Grid RowDefinitions="*,Auto" ColumnDefinitions="380,*">
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="Ctrl+R" />
+    </UserControl.KeyBindings>
+
+    <Grid ColumnDefinitions="380,*" RowDefinitions="*,Auto">
         <ScrollViewer Margin="10,12,0,8">
-            <Border Background="{DynamicResource ControlFillColorDefaultBrush}"
+            <Border Padding="12"
+                    Background="{DynamicResource ControlFillColorDefaultBrush}"
                     BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
-                    Padding="12"
                     CornerRadius="{StaticResource ControlCornerRadius}">
                 <StackPanel>
-                    <Border CornerRadius="{StaticResource ControlCornerRadius}"
-                            IsVisible="{CompiledBinding HasLogoImage.Value}"
-                            Width="140"
-                            Margin="0,16,0,0"
-                            Height="140">
-                        <Border.Background>
-                            <ImageBrush Source="{CompiledBinding LocalizedLogoImage.Value}" />
-                        </Border.Background>
-                    </Border>
+                    <Image x:Name="logoImage"
+                           Width="125"
+                           Height="125"
+                           Margin="0,16,0,0"
+                           asyncImageLoader:ImageLoader.Source="{CompiledBinding Package.LogoUrl.Value}"
+                           ImageClipping.CornerRadius="8"
+                           IsVisible="{Binding $self.Source, Converter={x:Static ObjectConverters.IsNotNull}}" />
 
-                    <Label Content="{DynamicResource S.DevelopPage.Package.NoLogoImageAvailable}"
-                           IsVisible="{CompiledBinding !HasLogoImage.Value}"
+                    <Label Width="125"
+                           Height="125"
+                           Margin="0,16,0,0"
                            HorizontalContentAlignment="Center"
                            VerticalContentAlignment="Center"
-                           Width="140"
-                           Margin="0,16,0,0"
-                           Height="140" />
+                           Content="{DynamicResource S.DevelopPage.Package.NoLogoImageAvailable}"
+                           IsVisible="{Binding #logoImage.Source, Converter={x:Static ObjectConverters.IsNull}}" />
 
 
-                    <TextBlock HorizontalAlignment="Center"
-                               Margin="0,32"
-                               Classes="SubtitleTextBlockStyle"
-                               Text="{CompiledBinding LocalizedDisplayName.Value}" />
+                    <TextBlock Margin="0,32"
+                               HorizontalAlignment="Center"
+                               Text="{CompiledBinding Package.DisplayName.Value}"
+                               Theme="{StaticResource SubtitleTextBlockStyle}" />
 
-                    <TextBlock HorizontalAlignment="Center"
-                               Text="{CompiledBinding LocalizedDescription.Value}" />
+                    <TextBlock HorizontalAlignment="Center" Text="{CompiledBinding Package.Description.Value}" />
                 </StackPanel>
             </Border>
         </ScrollViewer>
 
-        <ScrollViewer Grid.Column="1"
-                      Margin="4,0,10,0">
+        <ScrollViewer Grid.Column="1" Margin="4,0,10,0">
             <StackPanel Spacing="4">
-                <Separator Height="8" />
-
-                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Settings}"
-                                          Icon="Settings"
+                <ctrls:OptionsDisplayItem Margin="0,8,0,0"
                                           Description="{DynamicResource S.DevelopPage.Package.SettingsDescription}"
+                                          Header="{DynamicResource S.DevelopPage.Package.Settings}"
+                                          Icon="Settings"
                                           Navigates="True"
                                           NavigationRequested="NavigatePackageSettingsPage_Click" />
 
-                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Releases}"
+                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.ReleasesDescription}"
+                                          Header="{DynamicResource S.DevelopPage.Package.Releases}"
                                           Icon="Document"
-                                          Description="{DynamicResource S.DevelopPage.Package.ReleasesDescription}"
                                           Navigates="True"
                                           NavigationRequested="NavigatePackageReleasesPage_Click" />
             </StackPanel>

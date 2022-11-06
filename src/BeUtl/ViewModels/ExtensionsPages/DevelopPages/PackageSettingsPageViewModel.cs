@@ -1,335 +1,216 @@
-﻿using Avalonia;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform.Storage;
-using Avalonia.Skia;
-using Avalonia.Threading;
+﻿using Avalonia.Collections;
 
-using BeUtl.Models.Extensions.Develop;
-using BeUtl.Models.ExtensionsPages.DevelopPages;
+using Beutl.Api;
+using Beutl.Api.Objects;
 
-using DynamicData;
+using BeUtl.Framework.Service;
+using BeUtl.ViewModels.Dialogs;
+using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
-using Google.Cloud.Firestore;
+using Microsoft.Extensions.DependencyInjection;
+
+using Nito.Disposables;
 
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
-
-using SkiaSharp;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
-public sealed class PackageSettingsPageViewModel : IDisposable
+public sealed class PackageSettingsPageViewModel : BasePageViewModel
 {
     private readonly CompositeDisposable _disposables = new();
-    private readonly WeakReference<PackageDetailsPageViewModel?> _parentWeak;
-    private readonly string _imagesPath;
+    private readonly AuthorizedUser _user;
+    private readonly ReactivePropertySlim<bool> _screenshotsChange = new();
 
-    public PackageSettingsPageViewModel(PackageDetailsPageViewModel parent)
+    public PackageSettingsPageViewModel(AuthorizedUser user, Package package)
     {
-        _parentWeak = new WeakReference<PackageDetailsPageViewModel?>(parent);
-        _imagesPath = $"users/{Reference.Parent.Parent.Id}/packages/{Reference.Id}/images";
+        _user = user;
+        Package = package;
 
-        // 入力用プロパティの作成（オリジナルが変更されたら同期する）
-        Name = parent.Package.Select(p => p.Name)
-            .ToReactiveProperty("")
-            .DisposeWith(_disposables);
-        DisplayName = parent.Package.Select(p => p.DisplayName)
-            .ToReactiveProperty("")
-            .DisposeWith(_disposables);
-        Description = parent.Package.Select(p => p.Description)
-            .ToReactiveProperty("")
-            .DisposeWith(_disposables);
-        ShortDescription = parent.Package.Select(p => p.ShortDescription)
-            .ToReactiveProperty("")
-            .DisposeWith(_disposables);
-        LogoImageLink = parent.Package.Select(i => i.LogoImage)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-
-        LogoStream = LogoImageLink
-            .Do(_ => IsLogoLoading.Value = true)
-            .SelectMany(async st => st != null ? await st.TryGetStreamAsync() : null)
-            .Do(_ => IsLogoLoading.Value = false)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-
-        LogoImage = LogoStream
-            .Select(st => st != null ? new Bitmap(st) : null)
-            .DisposePreviousValue()
-            .ToReadOnlyReactivePropertySlim(null)
-            .DisposeWith(_disposables);
-
-        ScreenshotsArray = parent.Package
-            .Select(i => i.Screenshots)
-            .ToReactiveProperty(Array.Empty<ImageLink>())
-            .DisposeWith(_disposables);
-        ScreenshotsArray.Subscribe(async array =>
-        {
-            IsScreenshotLoading.Value = true;
-            var list = new List<ImageModel>(array.Length);
-            foreach (ImageLink item in array)
+        ActualLogo = package.LogoId
+            .SelectMany(async id =>
             {
-                ImageModel? exits = Screenshots.FirstOrDefault(i => i.Name == item.Name);
+                await _user.RefreshAsync();
+                return id.HasValue ? await _user.Profile.GetAssetAsync(id.Value) : null;
+            })
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
 
-                if (exits != null)
-                {
-                    list.Add(exits);
-                }
-                else
-                {
-                    MemoryStream? stream = await item.TryGetStreamAsync();
-                    if (stream != null)
-                    {
-                        var bitmap = new Bitmap(stream);
-                        list.Add(new ImageModel(stream, bitmap, item.Name));
-                    }
-                }
-            }
+        DisplayName = Package.DisplayName
+            .CopyToReactiveProperty()
+            .SetValidateNotifyError(NotNullOrWhitespace)
+            .DisposeWith(_disposables);
+        Description = Package.Description
+            .CopyToReactiveProperty()
+            .SetValidateNotifyError(NotNullOrWhitespace)
+            .DisposeWith(_disposables);
+        ShortDescription = Package.ShortDescription
+            .CopyToReactiveProperty()
+            .SetValidateNotifyError(NotNullOrWhitespace)
+            .DisposeWith(_disposables);
+        Logo = ActualLogo
+            .CopyToReactiveProperty()
+            .DisposeWith(_disposables);
 
-            ImageModel[] excepted = Screenshots.ExceptBy(list.Select(i => i.Name), i => i.Name).ToArray();
-
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                Screenshots.Clear();
-                Screenshots.AddRange(list);
-            });
-            IsScreenshotLoading.Value = false;
-
-            foreach (ImageModel item in excepted)
-            {
-                item.Stream.Dispose();
-                item.Bitmap.Dispose();
-            }
-        }).DisposeWith(_disposables);
+        Screenshots = new AvaloniaList<Asset>();
+        package.Screenshots.Subscribe(async x => await ResetScreenshots(x))
+            .DisposeWith(_disposables);
 
         // 値が変更されるか
-        IsChanging = Name.CombineLatest(parent.Package).Select(t => t.First == t.Second.Name)
-            .CombineLatest(
-                DisplayName.CombineLatest(parent.Package).Select(t => t.First == t.Second.DisplayName),
-                Description.CombineLatest(parent.Package).Select(t => t.First == t.Second.Description),
-                ShortDescription.CombineLatest(parent.Package).Select(t => t.First == t.Second.ShortDescription),
-                LogoNoChanged,
-                ScreenshotsArray.CombineLatest(Screenshots.ToCollectionChanged<ImageModel>().Select(_ => Screenshots).Publish(Screenshots).RefCount())
-                    .Select(t => t.First.Select(i => i.Name).SequenceEqual(t.Second.Select(i => i.Name))))
-            .Select(t => !(t.First && t.Second && t.Third && t.Fourth && t.Fifth && t.Sixth))
+        IsChanging = DisplayName.EqualTo(Package.DisplayName)
+            .AreTrue(
+                Description.EqualTo(Package.Description),
+                ShortDescription.EqualTo(Package.ShortDescription),
+                Logo.EqualTo(ActualLogo, (x, y) => x?.Id == y?.Id),
+                _screenshotsChange.Not())
+            .Not()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-
-        // データ検証を設定
-        Name.SetValidateNotifyError(NotNullOrWhitespace);
-        DisplayName.SetValidateNotifyError(NotNullOrWhitespace);
-        Description.SetValidateNotifyError(NotNullOrWhitespace);
-        ShortDescription.SetValidateNotifyError(NotNullOrWhitespace);
 
         // コマンドを初期化
-        // Todo: IsLogoLoading, IsScreenshotLoadingの場合、実行できないようにする。
-        Save = new AsyncReactiveCommand(Name.ObserveHasErrors
-            .CombineLatest(
-                DisplayName.ObserveHasErrors,
+        Save = DisplayName.ObserveHasErrors
+            .AnyTrue(
                 Description.ObserveHasErrors,
                 ShortDescription.ObserveHasErrors)
-            .Select(t => !(t.First || t.Second || t.Third || t.Fourth)))
+            .Not()
+            .ToAsyncReactiveCommand()
+            .WithSubscribe(async () =>
+            {
+                try
+                {
+                    await _user.RefreshAsync();
+                    await Package.UpdateAsync(
+                        description: Description.Value,
+                        displayName: DisplayName.Value,
+                        shortDescription: ShortDescription.Value,
+                        logoImageId: Logo.Value?.Id,
+                        screenshots: Screenshots.Select(x => x.Id).ToArray());
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandle(ex);
+                }
+            })
             .DisposeWith(_disposables);
-        Save.Subscribe(async () =>
-        {
-            ImageLink? newLogo;
-            if (LogoStream.Value?.CanRead == true && !LogoNoChanged.Value)
+
+        DiscardChanges = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
             {
-                string? newName = Guid.NewGuid().ToString();
-                LogoStream.Value.Position = 0;
-                newLogo = await ImageLink.UploadAsync(_imagesPath, newName, LogoStream.Value.GetBuffer());
-
-                if (LogoImageLink.Value is ImageLink oldLogo)
-                {
-                    await oldLogo.DeleteAsync();
-                }
-            }
-            else
-            {
-                newLogo = LogoImageLink.Value;
-            }
-
-            LogoNoChanged.Value = true;
-
-            var newValue = new PackageInfo(
-                DisplayName: DisplayName.Value,
-                Name: Name.Value,
-                Description: Description.Value,
-                ShortDescription: ShortDescription.Value,
-                IsVisible: Parent.Package.Value.IsVisible,
-                LogoImage: newLogo,
-                Screenshots: Screenshots.Select(i => ImageLink.Open(_imagesPath, i.Name)).ToArray());
-
-            ImageLink[] oldScreenshots = ScreenshotsArray.Value;
-            ImageModel[] newScreenshots = Screenshots.ToArray();
-
-            // 作成
-            foreach (ImageModel item in newScreenshots.ExceptBy(oldScreenshots.Select(i => i.Name), i => i.Name))
-            {
-                item.Stream.Position = 0;
-                await ImageLink.UploadAsync(_imagesPath, item.Name, item.Stream.GetBuffer());
-            }
-
-            await Parent.Package.Value.SyncronizeToAsync(newValue, PackageInfoFields.None);
-
-            // 削除
-            foreach (ImageLink item in oldScreenshots.ExceptBy(newScreenshots.Select(i => i.Name), i => i.Name))
-            {
-                await item.DeleteAsync();
-            }
-        }).DisposeWith(_disposables);
-
-        DiscardChanges.Subscribe(() =>
-        {
-            IPackage.ILink link = Parent.Package.Value;
-            Name.Value = link.Name;
-            DisplayName.Value = link.DisplayName;
-            Description.Value = link.Description;
-            ShortDescription.Value = link.ShortDescription;
-
-            LogoImageLink.ForceNotify();
-            LogoNoChanged.Value = true;
-
-            ScreenshotsArray.ForceNotify();
-        }).DisposeWith(_disposables);
-
-        Delete.Subscribe(async () => await Parent.Package.Value.PermanentlyDeleteAsync()).DisposeWith(_disposables);
-
-        MakePublic.Subscribe(async () => await Parent.Package.Value.ChangeVisibility(true)).DisposeWith(_disposables);
-
-        MakePrivate.Subscribe(async () => await Parent.Package.Value.ChangeVisibility(false)).DisposeWith(_disposables);
-
-        SetLogo.Subscribe(async file =>
-        {
-            if (file.CanOpenRead)
-            {
-                const int SIZE = 400;
-                var dstBmp = new SKBitmap(SIZE, SIZE, SKColorType.Bgra8888, SKAlphaType.Opaque);
-                using (var srcStream = await file.OpenReadAsync())
-                using (var srcBmp = SKBitmap.Decode(srcStream))
-                using (var canvas = new SKCanvas(dstBmp))
-                {
-                    float x = SIZE / (float)srcBmp.Width;
-                    float y = SIZE / (float)srcBmp.Height;
-                    float w = srcBmp.Width * MathF.Max(x, y);
-                    float h = srcBmp.Height * MathF.Max(x, y);
-                    Rect rect = new Rect(0, 0, SIZE, SIZE)
-                        .CenterRect(new Rect(0, 0, w, h));
-                    canvas.DrawBitmap(srcBmp, rect.ToSKRect());
-                    canvas.Flush();
-                }
-
-                var stream = new MemoryStream();
-                dstBmp.Encode(stream, SKEncodedImageFormat.Jpeg, 100);
-                dstBmp.Dispose();
-                stream.Position = 0;
-                LogoStream.Value = stream;
-
-                LogoNoChanged.Value = false;
-            }
-            file.Dispose();
-        }).DisposeWith(_disposables);
-
-        CanAddScreenshot = Screenshots.ObserveProperty(i => i.Count)
-            .Select(c => c < 4)
-            .ToReadOnlyReactivePropertySlim()
+                DisplayName.Value = Package.DisplayName.Value;
+                Description.Value = Package.Description.Value;
+                ShortDescription.Value = Package.ShortDescription.Value;
+                Logo.Value = ActualLogo.Value;
+                await ResetScreenshots(Package.Screenshots.Value);
+            })
             .DisposeWith(_disposables);
-        AddScreenshot = new AsyncReactiveCommand<IStorageFile>(CanAddScreenshot)
+
+        Delete = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
+            {
+                try
+                {
+                    await _user.RefreshAsync();
+                    await Package.DeleteAsync();
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandle(ex);
+                }
+            })
             .DisposeWith(_disposables);
-        AddScreenshot.Subscribe(async file =>
-        {
-            if (file.CanOpenRead)
-            {
-                const int SIZE = 800;
 
-                using (var srcStream = await file.OpenReadAsync())
-                using (var srcBmp = SKBitmap.Decode(srcStream))
+        MakePublic = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
+            {
+                try
                 {
-                    float x = SIZE / (float)srcBmp.Width;
-                    float y = SIZE / (float)srcBmp.Height;
-                    float w = srcBmp.Width * MathF.Max(x, y);
-                    float h = srcBmp.Height * MathF.Max(x, y);
-                    SKBitmap dstBmp = srcBmp.Resize(new SKImageInfo((int)w, (int)h, SKColorType.Bgra8888, SKAlphaType.Opaque), SKFilterQuality.Medium);
-                    var stream = new MemoryStream();
-                    dstBmp.Encode(stream, SKEncodedImageFormat.Jpeg, 100);
-                    dstBmp.Dispose();
-                    stream.Position = 0;
-
-                    Screenshots.Add(new ImageModel(stream, new Bitmap(stream), Guid.NewGuid().ToString()));
+                    await _user.RefreshAsync();
+                    await Package.UpdateAsync(isPublic: true);
                 }
-            }
-            file.Dispose();
-        }).DisposeWith(_disposables);
-
-        MoveScreenshotFront.Subscribe(item =>
-        {
-            int idx = Screenshots.IndexOf(item);
-            if (idx == 0)
-            {
-                Screenshots.Move(idx, Screenshots.Count - 1);
-            }
-            else
-            {
-                Screenshots.Move(idx, idx - 1);
-            }
-        }).DisposeWith(_disposables);
-
-        MoveScreenshotBack.Subscribe(item =>
-        {
-            int idx = Screenshots.IndexOf(item);
-            if (idx == Screenshots.Count - 1)
-            {
-                Screenshots.Move(idx, 0);
-            }
-            else
-            {
-                Screenshots.Move(idx, idx + 1);
-            }
-        }).DisposeWith(_disposables);
-
-        DeleteScreenshot.Subscribe(item =>
-        {
-            Screenshots.Remove(item);
-            item.Bitmap.Dispose();
-            item.Stream.Dispose();
-        }).DisposeWith(_disposables);
-
-        Parent.Package.Value.SubscribeResources(
-            item =>
-            {
-                if (!Items.Any(p => p.Resource.Value.Snapshot.Id == item.Id))
+                catch (Exception ex)
                 {
-                    ResourcePageViewModel viewModel = new(this, new LocalizedPackageResourceLink(item));
-                    Items.Add(viewModel);
+                    ErrorHandle(ex);
                 }
-            },
-            item =>
-            {
-                ResourcePageViewModel? viewModel = Items.FirstOrDefault(p => p.Resource.Value.Snapshot.Id == item.Id);
-                if (viewModel != null)
-                {
-                    Items.Remove(viewModel);
-                }
-            },
-            _ => { })
+            })
             .DisposeWith(_disposables);
+
+        MakePrivate = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
+            {
+                try
+                {
+                    await _user.RefreshAsync();
+                    await Package.UpdateAsync(isPublic: false);
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandle(ex);
+                }
+            })
+            .DisposeWith(_disposables);
+
+        Refresh = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
+            {
+                try
+                {
+                    IsBusy.Value = true;
+                    await _user.RefreshAsync();
+                    await Package.RefreshAsync();
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandle(ex);
+                }
+                finally
+                {
+                    IsBusy.Value = false;
+                }
+            })
+            .DisposeWith(_disposables);
+
+        AddScreenshot = new ReactiveCommand<Asset>()
+            .WithSubscribe(item =>
+            {
+                if (!Screenshots.Contains(item))
+                {
+                    Screenshots.Insert(0, item);
+                    _screenshotsChange.Value = true;
+                }
+            })
+            .DisposeWith(_disposables);
+        
+        DeleteScreenshot = new ReactiveCommand<Asset>()
+            .WithSubscribe(item =>
+            {
+                Screenshots.Remove(item);
+                _screenshotsChange.Value = true;
+            })
+            .DisposeWith(_disposables);
+
+        MoveScreenshotFront = new ReactiveCommand<Asset>()
+            .WithSubscribe(item =>
+            {
+                int oldIndex = Screenshots.IndexOf(item);
+                int newIndex = Math.Max(oldIndex - 1, 0);
+                Screenshots.Move(oldIndex, newIndex);
+            })
+            .DisposeWith(_disposables);
+        
+        MoveScreenshotBack = new ReactiveCommand<Asset>()
+            .WithSubscribe(item =>
+            {
+                int oldIndex = Screenshots.IndexOf(item);
+                int newIndex = Math.Min(oldIndex + 1, Screenshots.Count - 1);
+                Screenshots.Move(oldIndex, newIndex);
+            })
+            .DisposeWith(_disposables);
+
+        Refresh.Execute();
     }
 
-    ~PackageSettingsPageViewModel()
-    {
-        Dispose();
-    }
-
-    public DocumentReference Reference => Parent.Package.Value.Snapshot.Reference;
-
-    public PackageDetailsPageViewModel Parent
-        => _parentWeak.TryGetTarget(out PackageDetailsPageViewModel? parent)
-            ? parent
-            : null!;
+    public Package Package { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsChanging { get; }
-
-    public ReactiveProperty<string> Name { get; } = new();
 
     public ReactiveProperty<string> DisplayName { get; } = new();
 
@@ -337,70 +218,57 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
     public ReactiveProperty<string> ShortDescription { get; } = new();
 
-    public ReactiveProperty<ImageLink?> LogoImageLink { get; }
+    public ReadOnlyReactivePropertySlim<Asset?> ActualLogo { get; }
 
-    public ReactiveProperty<MemoryStream?> LogoStream { get; }
+    public ReactiveProperty<Asset?> Logo { get; }
 
-    public ReactivePropertySlim<bool> LogoNoChanged { get; } = new(true);
-
-    public ReactivePropertySlim<bool> IsLogoLoading { get; } = new(false);
-
-    public ReadOnlyReactivePropertySlim<Bitmap?> LogoImage { get; }
-
-    public AsyncReactiveCommand<IStorageFile> SetLogo { get; } = new();
-
-    public ReactiveProperty<ImageLink[]> ScreenshotsArray { get; }
-
-    public CoreList<ImageModel> Screenshots { get; } = new();
-
-    public ReactivePropertySlim<bool> IsScreenshotLoading { get; } = new(false);
+    public AvaloniaList<Asset> Screenshots { get; }
 
     public AsyncReactiveCommand Save { get; }
 
-    public ReadOnlyReactivePropertySlim<bool> CanAddScreenshot { get; }
+    public AsyncReactiveCommand DiscardChanges { get; }
 
-    public AsyncReactiveCommand<IStorageFile> AddScreenshot { get; }
+    public AsyncReactiveCommand Delete { get; }
 
-    public ReactiveCommand<ImageModel> MoveScreenshotFront { get; } = new();
+    public AsyncReactiveCommand MakePublic { get; }
 
-    public ReactiveCommand<ImageModel> MoveScreenshotBack { get; } = new();
+    public AsyncReactiveCommand MakePrivate { get; }
 
-    public ReactiveCommand<ImageModel> DeleteScreenshot { get; } = new();
+    public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
-    public ReactiveCommand DiscardChanges { get; } = new();
+    public AsyncReactiveCommand Refresh { get; }
 
-    public ReactiveCommand Delete { get; } = new();
+    public ReactiveCommand<Asset> AddScreenshot { get; }
+    
+    public ReactiveCommand<Asset> DeleteScreenshot { get; }
 
-    public ReactiveCommand MakePublic { get; } = new();
+    public ReactiveCommand<Asset> MoveScreenshotFront { get; }
 
-    public ReactiveCommand MakePrivate { get; } = new();
+    public ReactiveCommand<Asset> MoveScreenshotBack { get; }
 
-    public CoreList<ResourcePageViewModel> Items { get; } = new();
-
-    public void Dispose()
+    public override void Dispose()
     {
         Debug.WriteLine($"{GetType().Name} disposed (Count: {_disposables.Count}).");
 
         _disposables.Dispose();
 
-        foreach (ResourcePageViewModel item in Items.GetMarshal().Value)
-        {
-            item.Dispose();
-        }
-        Items.Clear();
-
         GC.SuppressFinalize(this);
     }
 
-    private static string NotNullOrWhitespace(string str)
+    public SelectImageAssetViewModel SelectImageAssetViewModel()
     {
-        if (!string.IsNullOrWhiteSpace(str))
+        return new SelectImageAssetViewModel(_user);
+    }
+
+    private async ValueTask ResetScreenshots(IDictionary<string, string> items)
+    {
+        Screenshots.Clear();
+        foreach ((string key, string _) in items)
         {
-            return null!;
+            long id = long.Parse(key);
+            Screenshots.Add(await Package.Owner.GetAssetAsync(id));
         }
-        else
-        {
-            return S.Message.PleaseEnterString;
-        }
+
+        _screenshotsChange.Value = false;
     }
 }

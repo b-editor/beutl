@@ -14,6 +14,8 @@ using BeUtl.ViewModels;
 using BeUtl.Views;
 using BeUtl.Views.Dialogs;
 
+using FluentAvalonia.UI.Controls;
+
 using Reactive.Bindings;
 
 namespace BeUtl.Pages;
@@ -23,14 +25,14 @@ public sealed partial class EditPage : UserControl
     private static readonly Binding s_headerBinding = new("FileName.Value");
     private static readonly Binding s_iconSourceBinding = new("Extension.Value.Icon")
     {
-        Converter = new FuncValueConverter<Geometry?, FA.PathIconSource?>(
+        Converter = new FuncValueConverter<Geometry?, PathIconSource?>(
             geometry => geometry != null
-                            ? new FA.PathIconSource { Data = geometry }
+                            ? new PathIconSource { Data = geometry }
                             : null)
     };
     private static readonly Binding s_isSelectedBinding = new("IsSelected.Value", BindingMode.TwoWay);
     private static readonly Binding s_contentBinding = new("Value", BindingMode.OneWay);
-    private readonly AvaloniaList<FA.TabViewItem> _tabItems = new();
+    private readonly AvaloniaList<TabViewItem> _tabItems = new();
     private IDisposable? _disposable0;
 
     public EditPage()
@@ -53,10 +55,10 @@ public sealed partial class EditPage : UserControl
                 (item) =>
                 {
                     EditorExtension ext = item.Extension.Value;
-                    var tabItem = new FA.TabViewItem
+                    var tabItem = new TabViewItem
                     {
-                        [!FA.TabViewItem.HeaderProperty] = s_headerBinding,
-                        [!FA.TabViewItem.IconSourceProperty] = s_iconSourceBinding,
+                        [!TabViewItem.HeaderProperty] = s_headerBinding,
+                        [!TabViewItem.IconSourceProperty] = s_iconSourceBinding,
                         [!ListBoxItem.IsSelectedProperty] = s_isSelectedBinding,
                         DataContext = item,
                         Content = new ContentControl
@@ -91,7 +93,7 @@ Error:
 
                     tabItem.CloseRequested += (s, _) =>
                     {
-                        if (s is FA.TabViewItem { DataContext: EditorTabItem itemViewModel } && DataContext is EditPageViewModel viewModel)
+                        if (s is TabViewItem { DataContext: EditorTabItem itemViewModel } && DataContext is EditPageViewModel viewModel)
                         {
                             viewModel.CloseTabItem(itemViewModel.FilePath.Value, itemViewModel.TabOpenMode);
                         }
@@ -108,7 +110,7 @@ Error:
                 {
                     for (int i = 0; i < _tabItems.Count; i++)
                     {
-                        FA.TabViewItem tabItem = _tabItems[i];
+                        TabViewItem tabItem = _tabItems[i];
                         if (tabItem.DataContext is EditorTabItem itemViewModel
                             && itemViewModel.FilePath.Value == item.FilePath.Value)
                         {
@@ -126,7 +128,7 @@ Error:
     {
         if (DataContext is EditPageViewModel viewModel)
         {
-            if (tabview.SelectedItem is FA.TabViewItem { DataContext: EditorTabItem tabViewModel })
+            if (tabview.SelectedItem is TabViewItem { DataContext: EditorTabItem tabViewModel })
             {
                 viewModel.SelectedTabItem.Value = tabViewModel;
             }
@@ -144,7 +146,7 @@ Error:
             case NotifyCollectionChangedAction.Add:
                 for (int i = e.NewStartingIndex; i < _tabItems.Count; i++)
                 {
-                    FA.TabViewItem? item = _tabItems[i];
+                    TabViewItem? item = _tabItems[i];
                     if (item.DataContext is EditorTabItem itemViewModel)
                     {
                         itemViewModel.Order = i;
@@ -159,7 +161,7 @@ Error:
             case NotifyCollectionChangedAction.Remove:
                 for (int i = e.OldStartingIndex; i < _tabItems.Count; i++)
                 {
-                    FA.TabViewItem? item = _tabItems[i];
+                    TabViewItem? item = _tabItems[i];
                     if (item.DataContext is EditorTabItem itemViewModel)
                     {
                         itemViewModel.Order = i;
@@ -197,7 +199,7 @@ Error:
     }
 
 #pragma warning disable RCS1163, IDE0060
-    public void AddButtonClick(FA.TabView? sender, EventArgs e)
+    public void AddButtonClick(TabView? sender, EventArgs e)
 #pragma warning restore RCS1163, IDE0060
     {
         if (Resources["AddButtonFlyout"] is MenuFlyout flyout)

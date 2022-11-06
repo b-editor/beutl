@@ -1,4 +1,5 @@
 ﻿
+using Avalonia.Media;
 using Avalonia.Media.Fonts;
 using Avalonia.Platform;
 
@@ -27,7 +28,7 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
 
     public CustomFontManagerImpl()
     {
-        Media.Typeface defaultTf = FontManager.Instance.DefaultTypeface;
+        Media.Typeface defaultTf = Media.FontManager.Instance.DefaultTypeface;
         _defaultTypeface = defaultTf.ToSkia();
     }
 
@@ -106,7 +107,7 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
         return false;
     }
 
-    public IGlyphTypefaceImpl CreateGlyphTypeface(Typeface typeface)
+    public IGlyphTypeface CreateGlyphTypeface(Typeface typeface)
     {
         SKTypeface skTypeface = null;
 
@@ -148,7 +149,12 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
         bool isFakeBold = (int)typeface.Weight >= 600 && !skTypeface.IsBold;
 
         bool isFakeItalic = typeface.Style == FontStyle.Italic && !skTypeface.IsItalic;
+        FontSimulations fontSimulations = FontSimulations.None;
+        if (isFakeBold)
+            fontSimulations |= FontSimulations.Bold;
+        if (isFakeItalic)
+            fontSimulations |= FontSimulations.Oblique;
 
-        return new GlyphTypefaceImpl(skTypeface, isFakeBold, isFakeItalic);
+        return new GlyphTypefaceImpl(skTypeface, fontSimulations);
     }
 }

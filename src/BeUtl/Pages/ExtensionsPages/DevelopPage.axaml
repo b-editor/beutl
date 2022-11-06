@@ -10,18 +10,24 @@
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="viewModels:DevelopPageViewModel"
+             Background="Transparent"
+             Focusable="True"
              mc:Ignorable="d">
-    <UserControl.DataContext>
-        <viewModels:DevelopPageViewModel />
-    </UserControl.DataContext>
+
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="Ctrl+R" />
+    </UserControl.KeyBindings>
+
     <ScrollViewer Padding="18">
         <StackPanel Margin="8" Spacing="8">
-            <TextBlock Classes="SubtitleTextBlockStyle" Text="{DynamicResource S.DevelopPage.Shortcuts}" />
+            <TextBlock Text="{DynamicResource S.DevelopPage.Shortcuts}" Theme="{StaticResource SubtitleTextBlockStyle}" />
 
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.CreateNewPackageDescription}"
                                               Header="{DynamicResource S.DevelopPage.CreateNewPackage}"
+                                              IsEnabled="{CompiledBinding !IsBusy.Value}"
                                               Navigates="True"
                                               NavigationRequested="CreateNewPackage_Click">
                         <ctrls:OptionsDisplayItem.Icon>
@@ -37,24 +43,26 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <Separator Height="8" />
-            <TextBlock Classes="SubtitleTextBlockStyle" Text="{DynamicResource S.DevelopPage.Packages}" />
+            <TextBlock Margin="0,8,0,0"
+                       Text="{DynamicResource S.DevelopPage.Packages}"
+                       Theme="{StaticResource SubtitleTextBlockStyle}" />
 
             <ListBox x:Name="PackagesList"
+                     IsEnabled="{CompiledBinding !IsBusy.Value}"
                      Items="{CompiledBinding Packages}"
                      SelectionMode="Multiple">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Grid ColumnDefinitions="Auto,16,*,Auto">
-                            <icons:SymbolIcon IsVisible="{CompiledBinding Package.Value.IsVisible}" Symbol="Eye" />
-                            <icons:SymbolIcon IsVisible="{CompiledBinding !Package.Value.IsVisible}" Symbol="EyeOff" />
+                            <icons:SymbolIcon IsVisible="{CompiledBinding IsPublic.Value}" Symbol="Eye" />
+                            <icons:SymbolIcon IsVisible="{CompiledBinding !IsPublic.Value}" Symbol="EyeOff" />
 
                             <StackPanel Grid.Column="2"
                                         VerticalAlignment="Center"
                                         Spacing="4">
-                                <TextBlock Text="{CompiledBinding Package.Value.Name}" />
+                                <TextBlock Text="{CompiledBinding Name}" />
 
-                                <TextBlock Text="{CompiledBinding LocalizedDisplayName.Value}">
+                                <TextBlock IsVisible="{CompiledBinding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{CompiledBinding DisplayName.Value}">
                                     <TextBlock.Styles>
                                         <Style Selector="TextBlock">
                                             <Setter Property="FontFamily" Value="XamlAutoFontFamily" />

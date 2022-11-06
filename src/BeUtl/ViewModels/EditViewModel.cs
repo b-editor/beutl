@@ -1,11 +1,14 @@
 ﻿using System.Numerics;
 using System.Text.Json.Nodes;
 
+using Beutl.Api.Services;
+
 using BeUtl.Framework;
-using BeUtl.Framework.Services;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
 using BeUtl.Services.PrimitiveImpls;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -31,6 +34,7 @@ public sealed class ToolTabViewModel : IDisposable
 public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
 {
     private readonly CompositeDisposable _disposables = new();
+    private readonly ExtensionProvider _extensionProvider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
 
     public EditViewModel(Scene scene)
     {
@@ -300,7 +304,6 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
 
             void RestoreTabItems(JsonArray source, CoreList<ToolTabViewModel> destination)
             {
-                ExtensionProvider provider = PackageManager.Instance.ExtensionProvider;
                 int count = 0;
                 foreach (JsonNode? item in source)
                 {
@@ -310,7 +313,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
                         && typeValue.TryGetValue(out string? typeStr)
                         && typeStr != null
                         && TypeFormat.ToType(typeStr) is Type type
-                        && provider.AllExtensions.FirstOrDefault(x => x.GetType() == type) is ToolTabExtension extension
+                        && _extensionProvider.AllExtensions.FirstOrDefault(x => x.GetType() == type) is ToolTabExtension extension
                         && extension.TryCreateContext(this, out IToolContext? context))
                     {
                         context.ReadFromJson(item);

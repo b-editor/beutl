@@ -1,0 +1,305 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+		Microsoft ResX Schema
+
+		Version 1.3
+
+		The primary goals of this format is to allow a simple XML format 
+		that is mostly human readable. The generation and parsing of the 
+		various data types are done through the TypeConverter classes 
+		associated with the data types.
+
+		Example:
+
+		... ado.net/XML headers & schema ...
+		<resheader name="resmimetype">text/microsoft-resx</resheader>
+		<resheader name="version">1.3</resheader>
+		<resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+		<resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+		<data name="Name1">this is my long string</data>
+		<data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+		<data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+			[base64 mime encoded serialized .NET Framework object]
+		</data>
+		<data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+			[base64 mime encoded string representing a byte array form of the .NET Framework object]
+		</data>
+
+		There are any number of "resheader" rows that contain simple 
+		name/value pairs.
+
+		Each data row contains a name, and value. The row also contains a 
+		type or mimetype. Type corresponds to a .NET class that support 
+		text/value conversion through the TypeConverter architecture. 
+		Classes that don't support this are serialized and stored with the 
+		mimetype set.
+
+		The mimetype is used for serialized objects, and tells the 
+		ResXResourceReader how to depersist the object. This is currently not 
+		extensible. For a given mimetype the value must be set accordingly:
+
+		Note - application/x-microsoft.net.object.binary.base64 is the format 
+		that the ResXResourceWriter will generate, however the reader can 
+		read any of the formats listed below.
+
+		mimetype: application/x-microsoft.net.object.binary.base64
+		value   : The object must be serialized with 
+			: System.Serialization.Formatters.Binary.BinaryFormatter
+			: and then encoded with base64 encoding.
+
+		mimetype: application/x-microsoft.net.object.soap.base64
+		value   : The object must be serialized with 
+			: System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+			: and then encoded with base64 encoding.
+
+		mimetype: application/x-microsoft.net.object.bytearray.base64
+		value   : The object must be serialized into a byte array 
+			: using a System.ComponentModel.TypeConverter
+			: and then encoded with base64 encoding.
+	-->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="VerboseDescription" xml:space="preserve">
+    <value>Show more details.</value>
+  </data>
+  <data name="CleanDescription" xml:space="preserve">
+    <value>Whether to remove packages that are no longer needed.</value>
+  </data>
+  <data name="InstallsDescription" xml:space="preserve">
+    <value>Packages to install.</value>
+  </data>
+  <data name="UninstallsDescription" xml:space="preserve">
+    <value>Package to uninstall.</value>
+  </data>
+  <data name="UpdatesDescription" xml:space="preserve">
+    <value>Packages to update.
+If not specified, packages with updates are automatically fetched.</value>
+  </data>
+  <data name="PerformTheAboveOperations" xml:space="preserve">
+    <value>Perform the above operations.</value>
+  </data>
+  <data name="AreYouReady" xml:space="preserve">
+    <value>Are you ready?</value>
+  </data>
+  <data name="OperationCanceled" xml:space="preserve">
+    <value>Operation canceled.</value>
+  </data>
+  <data name="UpdatingXXX" xml:space="preserve">
+    <value>Updating '{0}'.</value>
+  </data>
+  <data name="DownloadingAPackage" xml:space="preserve">
+    <value>Downloading a package...</value>
+  </data>
+  <data name="PackageDownloadWasOmitted" xml:space="preserve">
+    <value>Package download was omitted.</value>
+  </data>
+  <data name="ResolvingDependencies" xml:space="preserve">
+    <value>Resolving dependencies...</value>
+  </data>
+  <data name="UpdatedXXX" xml:space="preserve">
+    <value>Updated '{0}'.</value>
+  </data>
+  <data name="FailedToUpdateXXX" xml:space="preserve">
+    <value>Failed to update '{0}'.</value>
+  </data>
+  <data name="UninstallingXXX" xml:space="preserve">
+    <value>Uninstalling '{0}'.</value>
+  </data>
+  <data name="ThisPackageHasAlreadyBeenUninstalled" xml:space="preserve">
+    <value>This package has already been uninstalled.</value>
+  </data>
+  <data name="DeletingFiles" xml:space="preserve">
+    <value>Deleting files...</value>
+  </data>
+  <data name="UninstalledXXX" xml:space="preserve">
+    <value>Uninstalled '{0}'.</value>
+  </data>
+  <data name="ThesePackagesWereNotDeletedSuccessfully" xml:space="preserve">
+    <value>These packages were not deleted successfully.</value>
+  </data>
+  <data name="FailedToUninstallXXX" xml:space="preserve">
+    <value>Failed to uninstall '{0}'.</value>
+  </data>
+  <data name="InstallingXXX" xml:space="preserve">
+    <value>Installing '{0}'.</value>
+  </data>
+  <data name="InstalledXXX" xml:space="preserve">
+    <value>Installed '{0}'.</value>
+  </data>
+  <data name="FailedToInstallXXX" xml:space="preserve">
+    <value>Failed to install '{0}'.</value>
+  </data>
+  <data name="DeleteUnnecessaryPackages" xml:space="preserve">
+    <value>Delete unnecessary packages.</value>
+  </data>
+  <data name="SelectThePackagesToBeDeleted" xml:space="preserve">
+    <value>Select the packages to be deleted.</value>
+  </data>
+  <data name="SomePackagesWillBeDeletedAndSomeDiskWillBeReleased" xml:space="preserve">
+    <value>{0} packages will be deleted and {1} will be released.</value>
+  </data>
+  <data name="DeletingUnnecessaryPackages" xml:space="preserve">
+    <value>Deleting unnecessary packages...</value>
+  </data>
+  <data name="DeletedUnnecessaryPackages" xml:space="preserve">
+    <value>Deleted unnecessary packages.</value>
+  </data>
+  <data name="Local" xml:space="preserve">
+    <value>Local</value>
+  </data>
+  <data name="Remote" xml:space="preserve">
+    <value>Remote</value>
+  </data>
+  <data name="Uninstalls" xml:space="preserve">
+    <value>Uninstalls:</value>
+  </data>
+  <data name="Installs" xml:space="preserve">
+    <value>Installs:</value>
+  </data>
+  <data name="Updates" xml:space="preserve">
+    <value>Updates:</value>
+  </data>
+  <data name="ThisPackageIsAlreadyRegistered" xml:space="preserve">
+    <value>This package is already registered.</value>
+  </data>
+  <data name="DoYouWantToReinstallIt" xml:space="preserve">
+    <value>Do you want to reinstall it?</value>
+  </data>
+  <data name="CouldNotGetXXX" xml:space="preserve">
+    <value>Could not get '{0}'.</value>
+  </data>
+  <data name="APackageWithTheSameIDWasFoundInTheLocalSource" xml:space="preserve">
+    <value>A package with the same ID was found in the local source.</value>
+  </data>
+  <data name="DoYouWantToUseThisPackage" xml:space="preserve">
+    <value>Do you want to use this package?</value>
+  </data>
+  <data name="PleaseSpecifyTheVersion" xml:space="preserve">
+    <value>Please specify the version.</value>
+  </data>
+  <data name="XXXHasNoRelease" xml:space="preserve">
+    <value>'{0}' has no release.</value>
+  </data>
+  <data name="CheckingForUpdates" xml:space="preserve">
+    <value>Checking for updates...</value>
+  </data>
+  <data name="Installed" xml:space="preserve">
+    <value>Installed:</value>
+  </data>
+  <data name="Nothing" xml:space="preserve">
+    <value>Nothing</value>
+  </data>
+  <data name="UpdateAvailable" xml:space="preserve">
+    <value>Update available:</value>
+  </data>
+  <data name="Publisher" xml:space="preserve">
+    <value>Publisher</value>
+  </data>
+  <data name="Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="CurrentVersion" xml:space="preserve">
+    <value>Current version</value>
+  </data>
+  <data name="NewVersion" xml:space="preserve">
+    <value>New version</value>
+  </data>
+  <data name="Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="NotFound" xml:space="preserve">
+    <value>Not Found</value>
+  </data>
+  <data name="SelectThePackagesToBeUpdated" xml:space="preserve">
+    <value>Select the packages to be updated.</value>
+  </data>
+  <data name="UnnecessaryPackages" xml:space="preserve">
+    <value>Unnecessary packages:</value>
+  </data>
+  <data name="XXXUpdatesFound" xml:space="preserve">
+    <value>{0} updates found.</value>
+  </data>
+  <data name="NoUpdatesFound" xml:space="preserve">
+    <value>No updates found.</value>
+  </data>
+  <data name="ListCommandDescription" xml:space="preserve">
+    <value>Enumerate installed packages, packages with updates, and packages that are not needed.</value>
+  </data>
+  <data name="CleanCommandDescription" xml:space="preserve">
+    <value>Delete unnecessary packages.</value>
+  </data>
+  <data name="InstallCommandDescription" xml:space="preserve">
+    <value>Install the packages.</value>
+  </data>
+  <data name="UninstallCommandDescription" xml:space="preserve">
+    <value>Uninstall the packages.</value>
+  </data>
+  <data name="UpdateCommandDescription" xml:space="preserve">
+    <value>Update the packages.</value>
+  </data>
+  <data name="RunCommandDescription" xml:space="preserve">
+    <value>Install, uninstall, or update packages.</value>
+  </data>
+  <data name="ToCloseThisWindowPressAnyKey" xml:space="preserve">
+    <value>To close this window, press any key ...</value>
+  </data>
+  <data name="PleaseTerminateOtherInstances" xml:space="preserve">
+    <value>Please terminate other Beutl.PackageTools instances.</value>
+  </data>
+  <data name="XXXInstancesAreRunning" xml:space="preserve">
+    <value>{0} instances are running</value>
+  </data>
+  <data name="PleaseTerminateThem" xml:space="preserve">
+    <value>Please terminate them.</value>
+  </data>
+  <data name="VerifyingHashValues" xml:space="preserve">
+    <value>Verifying hash values...</value>
+  </data>
+  <data name="InvalidHashValue" xml:space="preserve">
+    <value>Invalid hash value.</value>
+  </data>
+  <data name="ThisPackageFileMayHaveBeenTamperedWith" xml:space="preserve">
+    <value>This package file may have been tampered with.</value>
+  </data>
+  <data name="AreYouSureYouWantToContinueWithTheInstallation" xml:space="preserve">
+    <value>Are you sure you want to continue with the installation?</value>
+  </data>
+</root>

@@ -1,97 +1,68 @@
 ﻿using Avalonia.Media.Imaging;
 
-using BeUtl.Models.Extensions.Develop;
+using Beutl.Api.Objects;
 
 using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
-public sealed class PackageDetailsPageViewModel : IDisposable
+public sealed class PackageDetailsPageViewModel : BasePageViewModel
 {
     private readonly CompositeDisposable _disposables = new();
+    private readonly AuthorizedUser _user;
 
-    public PackageDetailsPageViewModel(IPackage.ILink package)
+    public PackageDetailsPageViewModel(AuthorizedUser user, Package package)
     {
-        DisplayCulture.Value = CultureInfo.CurrentUICulture;
+        _user = user;
+        Package = package;
 
-        Package = package.GetObservable()
-            .ToReadOnlyReactivePropertySlim(package);
-
-        Settings = new PackageSettingsPageViewModel(this)
-            .DisposeWith(_disposables);
-        Releases = new PackageReleasesPageViewModel(this)
-            .DisposeWith(_disposables);
-
-        IObservable<CoreList<ResourcePageViewModel>> resourceObservable = Settings.Items.ToCollectionChanged<ResourcePageViewModel>()
-            .Select(_ => Settings.Items)
-            .Publish(Settings.Items)
-            .RefCount();
-
-        IObservable<T?> CreateResourceObservable<T>(Func<ILocalizedPackageResource, T?> func)
-            where T : class
-        {
-            return Package
-                .CombineLatest(resourceObservable, DisplayCulture)
-                .SelectMany(t =>
-                {
-                    foreach (ResourcePageViewModel item in t.Second)
-                    {
-                        if (item.Resource.Value.Culture.Name == t.Third.Name)
-                        {
-                            return item.Resource.Select(func);
-                        }
-                    }
-
-                    return Observable.Return<T?>(null);
-                });
-        }
-
-        LocalizedDisplayName = CreateResourceObservable(v => v.DisplayName)
-            .CombineLatest(Package)
-            .Select(t => t.First ?? t.Second.DisplayName)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        LocalizedDescription = CreateResourceObservable(v => v.Description)
-            .CombineLatest(Package)
-            .Select(t => t.First ?? t.Second.Description)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        LocalizedLogoImage = CreateResourceObservable(v => v.LogoImage)
-            .CombineLatest(Package)
-            .Select(t => t.First ?? t.Second.LogoImage)
-            .SelectMany(async link => link != null ? await link.TryGetBitmapAsync() : null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
+        //LocalizedLogoImage = CreateResourceObservable(v => v.LogoImage)
+        //    .CombineLatest(Package)
+        //    .Select(t => t.First ?? t.Second)
+        //    .SelectMany(async link => link != null ? await link.TryGetBitmapAsync() : null)
+        //    .ToReadOnlyReactivePropertySlim()
+        //    .DisposeWith(_disposables);
+        LocalizedLogoImage = Observable.Return<Bitmap?>(null).ToReadOnlyReactivePropertySlim();
 
         HasLogoImage = LocalizedLogoImage.Select(i => i != null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
+
+        Refresh.Subscribe(async () =>
+        {
+            if (IsBusy.Value)
+                return;
+
+            try
+            {
+                IsBusy.Value = true;
+
+                await _user.RefreshAsync();
+
+                await Package.RefreshAsync();
+            }
+            catch (Exception ex)
+            {
+                ErrorHandle(ex);
+            }
+            finally
+            {
+                IsBusy.Value = false;
+            }
+        });
     }
 
-    ~PackageDetailsPageViewModel()
-    {
-        Dispose();
-    }
-
-    public ReadOnlyReactivePropertySlim<IPackage.ILink> Package { get; }
-
-    public PackageSettingsPageViewModel Settings { get; }
-
-    public PackageReleasesPageViewModel Releases { get; }
+    public Package Package { get; }
 
     public ReadOnlyReactivePropertySlim<bool> HasLogoImage { get; }
 
-    public ReadOnlyReactivePropertySlim<string?> LocalizedDisplayName { get; }
-
-    public ReadOnlyReactivePropertySlim<string?> LocalizedDescription { get; }
-
     public ReadOnlyReactivePropertySlim<Bitmap?> LocalizedLogoImage { get; }
 
-    public ReactiveProperty<CultureInfo> DisplayCulture { get; } = new();
+    public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
-    public void Dispose()
+    public AsyncReactiveCommand Refresh { get; } = new();
+
+    public override void Dispose()
     {
         Debug.WriteLine($"{GetType().Name} disposed (Count: {_disposables.Count}).");
         _disposables.Dispose();

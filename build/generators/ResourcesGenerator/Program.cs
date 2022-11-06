@@ -25,47 +25,49 @@ foreach (string file in files)
             continue;
 
         string key2 = key1.Split('.')[^1];
-        string content = item.Value.ReplaceLineEndings("\n");
-        if (content.Length > 0 && content[0] == '\n')
-        {
-            var builder = new StringBuilder(content.Length);
-            for (int i = 0; i < content.Length; i++)
-            {
-                char c1 = content[i];
-                if (c1 is '\n')
-                {
-                    if (i != 0)
-                    {
-                        builder.Append("\\n");
-                    }
+        string content = item.Value.ReplaceLineEndings("\n")
+            .Replace("&#xa;", "\n")
+            .Replace("\"", "\"\"");
+        //if (content.Length > 0 && content[0] == '\n')
+        //{
+        //    var builder = new StringBuilder(content.Length);
+        //    for (int i = 0; i < content.Length; i++)
+        //    {
+        //        char c1 = content[i];
+        //        if (c1 is '\n')
+        //        {
+        //            if (i != 0)
+        //            {
+        //                builder.Append("\\n");
+        //            }
 
-                    i++;
-                    for (int ii = i; ii < content.Length; ii++)
-                    {
-                        char c2 = content[ii];
-                        if (c2 is ' ')
-                        {
-                            i++;
-                        }
-                        else
-                        {
-                            i--;
-                            break;
-                        }
-                    }
-                }
-                else if (c1 is '"')
-                {
-                    builder.Append("\\\"");
-                }
-                else
-                {
-                    builder.Append(c1);
-                }
-            }
+        //            i++;
+        //            for (int ii = i; ii < content.Length; ii++)
+        //            {
+        //                char c2 = content[ii];
+        //                if (c2 is ' ')
+        //                {
+        //                    i++;
+        //                }
+        //                else
+        //                {
+        //                    i--;
+        //                    break;
+        //                }
+        //            }
+        //        }
+        //        else if (c1 is '"')
+        //        {
+        //            builder.Append("\\\"");
+        //        }
+        //        else
+        //        {
+        //            builder.Append(c1);
+        //        }
+        //    }
 
-            content = builder.ToString();
-        }
+        //    content = builder.ToString();
+        //}
 
         if (item.Name.LocalName == "String")
         {
@@ -278,7 +280,7 @@ namespace ResourcesGenerator
 
         public void GenerateGetValueCode(Span<char> indentStr, StringBuilder sb, string rootNamespace, Dictionary<string, string> redirects)
         {
-            sb.AppendLine($"{indentStr}public static string {Key} => \"{RawKey}\".GetStringResource(\"{Value}\");");
+            sb.AppendLine($"{indentStr}public static string {Key} => \"{RawKey}\".GetStringResource(@\"{Value}\");");
         }
 
         public string GetPath()
