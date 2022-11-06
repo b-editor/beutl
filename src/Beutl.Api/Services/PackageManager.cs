@@ -61,20 +61,11 @@ public sealed class PackageManager : PackageLoader
         foreach (string file in files)
         {
             using FileStream stream = File.OpenRead(file);
-            using var zip = new ZipArchive(stream);
-
-            ZipArchiveEntry? nuspecEntry = zip.Entries.FirstOrDefault(x => x.Name.EndsWith(".nuspec") && !x.FullName.Contains('/'));
-            if (nuspecEntry is { })
+            if (Helper.ReadLocalPackageFromNupkgFile(stream) is { } localPackage)
             {
-                using (Stream nuspecStream = nuspecEntry.Open())
+                if (!_loadedPackage.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, localPackage.Name)))
                 {
-                    var nuspecReader = new NuspecReader(nuspecStream);
-                    var localPackage = new LocalPackage(nuspecReader);
-
-                    if (!_loadedPackage.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, localPackage.Name)))
-                    {
-                        list.Add(localPackage);
-                    }
+                    list.Add(localPackage);
                 }
             }
         }

@@ -40,7 +40,7 @@ public class LocalPackage
         Version = nuspecReader.GetVersion().ToString();
         Publisher = nuspecReader.GetAuthors();
         WebSite = nuspecReader.GetProjectUrl();
-        Description = nuspecReader.GetReadme();
+        Description = nuspecReader.GetReleaseNotes();
         ShortDescription = nuspecReader.GetDescription();
         //Logo = nuspecReader.GetIcon();
         Tags = nuspecReader.GetTags().Split(' ', ';').ToList();

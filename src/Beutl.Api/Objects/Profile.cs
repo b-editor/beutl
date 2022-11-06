@@ -89,6 +89,16 @@ public class Profile
         return new Package(this, response, _clients);
     }
 
+    public Task<Package> AddPackageAsync(string name)
+    {
+        return AddPackageAsync(name, new CreatePackageRequest(
+            description: "",
+            display_name: "",
+            short_description: "",
+            tags: Array.Empty<string>(),
+            website: ""));
+    }
+
     public async Task<Package[]> GetPackagesAsync(int start = 0, int count = 30)
     {
         return await (await _clients.Users.GetPackagesAsync(Name, start, count))

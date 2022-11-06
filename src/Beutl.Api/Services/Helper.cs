@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Threading.Tasks;
+
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 using NuGet.Common;
 using NuGet.Frameworks;
@@ -14,7 +17,7 @@ using NuGet.Protocol.Core.Types;
 
 namespace Beutl.Api.Services;
 
-internal class Helper
+internal static class Helper
 {
     public static readonly string AppRoot;
     public static readonly string LocalSourcePath;
@@ -176,5 +179,28 @@ internal class Helper
         {
             return default;
         }
+    }
+
+    public static LocalPackage ReadLocalPackageFromNuspecFile(Stream stream)
+    {
+        return new LocalPackage(new NuspecReader(stream));
+    }
+
+    public static LocalPackage? ReadLocalPackageFromNupkgFile(Stream stream)
+    {
+        using var zip = new ZipArchive(stream);
+
+        ZipArchiveEntry? nuspecEntry = zip.Entries.FirstOrDefault(x => x.Name.EndsWith(".nuspec") && !x.FullName.Contains('/'));
+        if (nuspecEntry is { })
+        {
+            using (Stream nuspecStream = nuspecEntry.Open())
+            {
+                var nuspecReader = new NuspecReader(nuspecStream);
+
+                return new LocalPackage(nuspecReader);
+            }
+        }
+
+        return null;
     }
 }

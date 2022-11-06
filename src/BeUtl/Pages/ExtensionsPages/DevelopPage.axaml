@@ -10,6 +10,7 @@
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="viewModels:DevelopPageViewModel"
+             Background="Transparent"
              Focusable="True"
              mc:Ignorable="d">
 

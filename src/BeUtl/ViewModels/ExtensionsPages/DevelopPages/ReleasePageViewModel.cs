@@ -191,11 +191,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel
         return new SelectAssetViewModel(
             _user,
             x => ToKnownType(x) == KnownType.BeutlPackageFile,
-            new FilePickerFileType("NuGet Package File")
-            {
-                MimeTypes = new string[] { "application/x-beutl-package" },
-                Patterns = new string[] { "*.nupkg" }
-            });
+            SharedFilePickerOptions.NuGetPackageFileType);
     }
 
     public override void Dispose()

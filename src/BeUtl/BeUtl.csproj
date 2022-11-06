@@ -45,6 +45,9 @@
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Update="Pages\ExtensionsPages\DevelopPages\Dialogs\UpdatePackageDialog.axaml.cs">
+      <DependentUpon>UpdatePackageDialog.axaml</DependentUpon>
+    </Compile>
     <Compile Update="Pages\ExtensionsPages\DiscoverPage.axaml.cs">
       <DependentUpon>DiscoverPage.axaml</DependentUpon>
     </Compile>

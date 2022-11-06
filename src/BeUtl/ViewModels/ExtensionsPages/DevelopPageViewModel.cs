@@ -1,5 +1,6 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
+using Beutl.Api.Services;
 
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
@@ -13,10 +14,10 @@ public sealed class DevelopPageViewModel : BasePageViewModel
     private readonly CompositeDisposable _disposables = new();
     private readonly AuthorizedUser _user;
 
-    public DevelopPageViewModel(AuthorizedUser user)
+    public DevelopPageViewModel(AuthorizedUser user, BeutlApiApplication apiApplication)
     {
         _user = user;
-        DataContextFactory = new DataContextFactory(user);
+        DataContextFactory = new DataContextFactory(user, apiApplication);
 
         Refresh.Subscribe(async () =>
         {

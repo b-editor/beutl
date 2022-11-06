@@ -9,9 +9,9 @@ using FluentAvalonia.UI.Controls;
 
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
 
-public sealed partial class CreatePackageDialog : ContentDialog, IStyleable
+public sealed partial class UpdatePackageDialog : ContentDialog, IStyleable
 {
-    public CreatePackageDialog()
+    public UpdatePackageDialog()
     {
         InitializeComponent();
         fileInput.OpenOptions = new FilePickerOpenOptions
@@ -29,11 +29,11 @@ public sealed partial class CreatePackageDialog : ContentDialog, IStyleable
     protected override async void OnPrimaryButtonClick(ContentDialogButtonClickEventArgs args)
     {
         base.OnPrimaryButtonClick(args);
-        if (DataContext is CreatePackageDialogViewModel viewModel)
+        if (DataContext is UpdatePackageDialogViewModel viewModel)
         {
             args.Cancel = true;
             IsEnabled = false;
-            Package? result = await viewModel.CreateAsync();
+            Release? result = await viewModel.UpdateAsync();
             if (result != null)
             {
                 Hide(ContentDialogResult.Primary);

@@ -1,4 +1,6 @@
-﻿using Beutl.Api.Objects;
+﻿using Beutl.Api;
+using Beutl.Api.Objects;
+using Beutl.Api.Services;
 
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
@@ -7,10 +9,12 @@ namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 public class DataContextFactory
 {
     private readonly AuthorizedUser _user;
+    private readonly DiscoverService _discoverService;
 
-    public DataContextFactory(AuthorizedUser user)
+    public DataContextFactory(AuthorizedUser user, BeutlApiApplication apiApplication)
     {
         _user = user;
+        _discoverService = apiApplication.GetResource<DiscoverService>();
     }
 
     public AddReleaseDialogViewModel AddReleaseDialog(Package package)
@@ -21,6 +25,11 @@ public class DataContextFactory
     public CreatePackageDialogViewModel CreatePackageDialog()
     {
         return new CreatePackageDialogViewModel(_user);
+    }
+
+    public UpdatePackageDialogViewModel UpdatePackageDialog()
+    {
+        return new UpdatePackageDialogViewModel(_user, _discoverService);
     }
 
     public PackageDetailsPageViewModel PackageDetailsPage(Package package)
