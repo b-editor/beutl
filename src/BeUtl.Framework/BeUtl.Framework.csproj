@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <ProjectReference Include="..\BeUtl.Core\BeUtl.Core.csproj" />
-    <ProjectReference Include="..\BeUtl.Graphics\BeUtl.Graphics.csproj" />
+    <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
+    <ProjectReference Include="..\Beutl.Graphics\Beutl.Graphics.csproj" />
   </ItemGroup>
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
   <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />

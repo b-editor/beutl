@@ -30,7 +30,7 @@ namespace Beutl;
 
 public sealed class App : Application
 {
-    private readonly Uri _baseUri = new("avares://BeUtl/App.axaml");
+    private readonly Uri _baseUri = new("avares://Beutl/App.axaml");
     private IStyle? _cultureStyle;
     private MainViewModel? _mainViewModel;
 

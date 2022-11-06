@@ -3,7 +3,7 @@
 using System.Text;
 using System.Xml.Linq;
 
-const string RootNamespace = "BeUtl.Language";
+const string RootNamespace = "Beutl.Language";
 string dir = Environment.CurrentDirectory;
 string[] files = Directory.GetFiles(dir, "*.axaml", SearchOption.AllDirectories);
 

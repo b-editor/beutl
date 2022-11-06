@@ -11,7 +11,7 @@ public static class WaitForProcessExited
 
     static WaitForProcessExited()
     {
-        _beutlProcesses = Process.GetProcessesByName("BeUtl");
+        _beutlProcesses = Process.GetProcessesByName("Beutl");
         _bptProcesses = Process.GetProcessesByName("bpt");
     }
 

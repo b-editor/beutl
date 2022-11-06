@@ -8,8 +8,8 @@ using Beutl.Threading;
 
 using SkiaSharp;
 
-[assembly: InternalsVisibleTo("BeUtl.ProjectSystem")]
-[assembly: InternalsVisibleTo("BeUtl")]
+[assembly: InternalsVisibleTo("Beutl.ProjectSystem")]
+[assembly: InternalsVisibleTo("Beutl")]
 
 namespace Beutl.Graphics;
 

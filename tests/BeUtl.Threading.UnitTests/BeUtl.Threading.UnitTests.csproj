@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\BeUtl.Threading\BeUtl.Threading.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Threading\Beutl.Threading.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,4 @@
 ﻿using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("BeUtl.Graphics.UnitTests")]
-[assembly: InternalsVisibleTo("BeUtl.Benchmarks")]
+[assembly: InternalsVisibleTo("Beutl.Graphics.UnitTests")]
+[assembly: InternalsVisibleTo("Beutl.Benchmarks")]

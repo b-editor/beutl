@@ -15,6 +15,6 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\BeUtl.Configuration\BeUtl.Configuration.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Configuration\Beutl.Configuration.csproj" />
   </ItemGroup>
 </Project>

@@ -1,4 +1,4 @@
 ﻿using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("BeUtl")]
+[assembly: InternalsVisibleTo("Beutl")]
 [assembly: InternalsVisibleTo("bpt")]

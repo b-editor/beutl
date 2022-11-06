@@ -33,4 +33,4 @@ jobs:
         BEUTL_FIREBASE_KEY: ${{ secrets.BEUTL_FIREBASE_KEY }}
 
     - name: Test
-      run: dotnet test BeUtl.sln --no-build --verbosity normal
+      run: dotnet test Beutl.sln --no-build --verbosity normal

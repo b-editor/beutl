@@ -19,7 +19,7 @@ public sealed class LocalizeService
     public Uri GetUri(CultureInfo ci)
     {
         if (!IsSupportedCulture(ci)) throw new InvalidOperationException();
-        return new Uri($"avares://BeUtl.Language/{ci.Name}/CommonResources.axaml");
+        return new Uri($"avares://Beutl.Language/{ci.Name}/CommonResources.axaml");
     }
 
     public IEnumerable<CultureInfo> SupportedCultures()

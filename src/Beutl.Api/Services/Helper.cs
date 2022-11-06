@@ -144,17 +144,17 @@ internal static class Helper
 
     public static bool IsCoreLibraries(string name)
     {
-        return name is "BeUtl.Sdk"
-            or "BeUtl.Configuration"
-            or "BeUtl.Controls"
-            or "BeUtl.Core"
-            or "BeUtl.Framework"
-            or "BeUtl.Graphics"
-            or "BeUtl.Language"
-            or "BeUtl.Operators"
-            or "BeUtl.ProjectSystem"
-            or "BeUtl.Threading"
-            or "BeUtl.Utilities";
+        return name is "Beutl.Sdk"
+            or "Beutl.Configuration"
+            or "Beutl.Controls"
+            or "Beutl.Core"
+            or "Beutl.Framework"
+            or "Beutl.Graphics"
+            or "Beutl.Language"
+            or "Beutl.Operators"
+            or "Beutl.ProjectSystem"
+            or "Beutl.Threading"
+            or "Beutl.Utilities";
     }
 
     public static T? TryGetOrDefault<T>(Func<T> func)

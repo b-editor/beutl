@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <RootNameSpace>BeUtl</RootNameSpace>
+    <RootNameSpace>Beutl</RootNameSpace>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Collections\PooledArray.cs" />
@@ -8,7 +8,7 @@
     <Compile Remove="Collections\UnmanagedList.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\BeUtl.Utilities\BeUtl.Utilities.csproj" />
+    <ProjectReference Include="..\Beutl.Utilities\Beutl.Utilities.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="Validation\RangeValidatorGen.tt">
