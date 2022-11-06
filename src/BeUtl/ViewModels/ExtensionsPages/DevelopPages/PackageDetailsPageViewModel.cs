@@ -16,18 +16,6 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel
         _user = user;
         Package = package;
 
-        //LocalizedLogoImage = CreateResourceObservable(v => v.LogoImage)
-        //    .CombineLatest(Package)
-        //    .Select(t => t.First ?? t.Second)
-        //    .SelectMany(async link => link != null ? await link.TryGetBitmapAsync() : null)
-        //    .ToReadOnlyReactivePropertySlim()
-        //    .DisposeWith(_disposables);
-        LocalizedLogoImage = Observable.Return<Bitmap?>(null).ToReadOnlyReactivePropertySlim();
-
-        HasLogoImage = LocalizedLogoImage.Select(i => i != null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
         Refresh.Subscribe(async () =>
         {
             if (IsBusy.Value)
@@ -50,13 +38,16 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel
                 IsBusy.Value = false;
             }
         });
+
+        DisplayName = package.DisplayName
+            .Select(x => !string.IsNullOrWhiteSpace(x) ? x : Package.Name)
+            .ToReadOnlyReactivePropertySlim(Package.Name)
+            .DisposeWith(_disposables);
     }
 
     public Package Package { get; }
 
-    public ReadOnlyReactivePropertySlim<bool> HasLogoImage { get; }
-
-    public ReadOnlyReactivePropertySlim<Bitmap?> LocalizedLogoImage { get; }
+    public ReadOnlyReactivePropertySlim<string> DisplayName { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
@@ -64,9 +55,6 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel
 
     public override void Dispose()
     {
-        Debug.WriteLine($"{GetType().Name} disposed (Count: {_disposables.Count}).");
         _disposables.Dispose();
-
-        GC.SuppressFinalize(this);
     }
 }

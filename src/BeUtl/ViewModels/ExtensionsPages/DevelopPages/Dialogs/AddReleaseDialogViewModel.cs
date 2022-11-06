@@ -17,12 +17,8 @@ public sealed class AddReleaseDialogViewModel
 
         Version.SetValidateNotifyError(str => System.Version.TryParse(str, out _) ? null : S.Message.InvalidString);
 
-        Title.SetValidateNotifyError(NotNullOrWhitespace);
-        Body.SetValidateNotifyError(NotNullOrWhitespace);
-
         IsValid = Version.ObserveHasErrors
-            .CombineLatest(Title.ObserveHasErrors, Body.ObserveHasErrors)
-            .Select(t => !(t.First || t.Second || t.Third))
+            .Not()
             .ToReadOnlyReactivePropertySlim();
     }
 
@@ -59,18 +55,6 @@ public sealed class AddReleaseDialogViewModel
         {
             Error.Value = e.Result.Message;
             return null;
-        }
-    }
-
-    private static string NotNullOrWhitespace(string str)
-    {
-        if (!string.IsNullOrWhiteSpace(str))
-        {
-            return null!;
-        }
-        else
-        {
-            return S.Message.PleaseEnterString;
         }
     }
 }

@@ -1,13 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO.Compression;
-using System.Linq;
+﻿using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.Versioning;
-using System.Text;
-using System.Threading.Tasks;
-
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 using NuGet.Common;
 using NuGet.Frameworks;

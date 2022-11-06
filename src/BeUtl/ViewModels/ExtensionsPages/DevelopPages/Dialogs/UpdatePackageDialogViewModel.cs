@@ -31,8 +31,8 @@ public sealed class UpdatePackageDialogViewModel
                     using (Stream stream = await file.OpenReadAsync().ConfigureAwait(false))
                     {
                         LocalPackage.Value = nuspec
-                            ? Beutl.Api.Services.Helper.ReadLocalPackageFromNuspecFile(stream)
-                            : Beutl.Api.Services.Helper.ReadLocalPackageFromNupkgFile(stream);
+                            ? Api.Services.Helper.ReadLocalPackageFromNuspecFile(stream)
+                            : Api.Services.Helper.ReadLocalPackageFromNupkgFile(stream);
                     }
                 }
             }

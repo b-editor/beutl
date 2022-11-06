@@ -74,7 +74,5 @@ public sealed class PackageReleasesPageViewModel : BasePageViewModel
     public override void Dispose()
     {
         Items.Clear();
-
-        GC.SuppressFinalize(this);
     }
 }

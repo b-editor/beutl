@@ -36,8 +36,8 @@ public sealed class CreatePackageDialogViewModel
                     using (Stream stream = await file.OpenReadAsync().ConfigureAwait(false))
                     {
                         _localPackage = nuspec
-                            ? Beutl.Api.Services.Helper.ReadLocalPackageFromNuspecFile(stream)
-                            : Beutl.Api.Services.Helper.ReadLocalPackageFromNupkgFile(stream);
+                            ? Api.Services.Helper.ReadLocalPackageFromNuspecFile(stream)
+                            : Api.Services.Helper.ReadLocalPackageFromNupkgFile(stream);
 
                         if (_localPackage != null)
                         {

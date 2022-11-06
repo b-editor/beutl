@@ -45,7 +45,7 @@
 
                     <TextBlock Margin="0,32"
                                HorizontalAlignment="Center"
-                               Text="{CompiledBinding Package.DisplayName.Value}"
+                               Text="{CompiledBinding DisplayName.Value}"
                                Theme="{StaticResource SubtitleTextBlockStyle}" />
 
                     <TextBlock HorizontalAlignment="Center" Text="{CompiledBinding Package.Description.Value}" />

@@ -1,12 +1,9 @@
-﻿using Avalonia.Platform.Storage;
-
-using Beutl.Api;
+﻿using Beutl.Api;
 using Beutl.Api.Objects;
 
 using Beutl.ViewModels.Dialogs;
 
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 using static Beutl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
 
@@ -32,11 +29,9 @@ public sealed class ReleasePageViewModel : BasePageViewModel
 
         Title = Release.Title
             .CopyToReactiveProperty()
-            .SetValidateNotifyError(NotNullOrWhitespace)
             .DisposeWith(_disposables);
         Body = Release.Body
             .CopyToReactiveProperty()
-            .SetValidateNotifyError(NotNullOrWhitespace)
             .DisposeWith(_disposables);
         Asset = ActualAsset
             .CopyToReactiveProperty()
@@ -50,17 +45,12 @@ public sealed class ReleasePageViewModel : BasePageViewModel
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        CanPublish = Release.Title.CombineLatest(Release.Body, Release.AssetId)
-            .Select(x => !string.IsNullOrWhiteSpace(x.First)
-                && !string.IsNullOrWhiteSpace(x.Second)
-                && x.Third.HasValue)
+        CanPublish = Release.AssetId
+            .Select(x => x.HasValue)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Save = Title.ObserveHasErrors
-            .AnyTrue(Body.ObserveHasErrors)
-            .Not()
-            .ToAsyncReactiveCommand()
+        Save = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
                 try
@@ -162,9 +152,9 @@ public sealed class ReleasePageViewModel : BasePageViewModel
 
     public ReadOnlyReactivePropertySlim<Asset?> ActualAsset { get; }
 
-    public ReactiveProperty<string> Title { get; }
+    public ReactiveProperty<string?> Title { get; }
 
-    public ReactiveProperty<string> Body { get; }
+    public ReactiveProperty<string?> Body { get; }
 
     public ReactiveProperty<Asset?> Asset { get; }
 
@@ -196,9 +186,6 @@ public sealed class ReleasePageViewModel : BasePageViewModel
 
     public override void Dispose()
     {
-        Debug.WriteLine($"{GetType().Name} disposed (Count: {_disposables.Count}).");
         _disposables.Dispose();
-
-        GC.SuppressFinalize(this);
     }
 }

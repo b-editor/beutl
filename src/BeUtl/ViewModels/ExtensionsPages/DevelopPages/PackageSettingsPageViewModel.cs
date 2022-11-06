@@ -37,15 +37,12 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
 
         DisplayName = Package.DisplayName
             .CopyToReactiveProperty()
-            .SetValidateNotifyError(NotNullOrWhitespace)
             .DisposeWith(_disposables);
         Description = Package.Description
             .CopyToReactiveProperty()
-            .SetValidateNotifyError(NotNullOrWhitespace)
             .DisposeWith(_disposables);
         ShortDescription = Package.ShortDescription
             .CopyToReactiveProperty()
-            .SetValidateNotifyError(NotNullOrWhitespace)
             .DisposeWith(_disposables);
         Logo = ActualLogo
             .CopyToReactiveProperty()
@@ -67,12 +64,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
             .DisposeWith(_disposables);
 
         // コマンドを初期化
-        Save = DisplayName.ObserveHasErrors
-            .AnyTrue(
-                Description.ObserveHasErrors,
-                ShortDescription.ObserveHasErrors)
-            .Not()
-            .ToAsyncReactiveCommand()
+        Save = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
                 try
@@ -178,7 +170,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
                 }
             })
             .DisposeWith(_disposables);
-        
+
         DeleteScreenshot = new ReactiveCommand<Asset>()
             .WithSubscribe(item =>
             {
@@ -195,7 +187,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
                 Screenshots.Move(oldIndex, newIndex);
             })
             .DisposeWith(_disposables);
-        
+
         MoveScreenshotBack = new ReactiveCommand<Asset>()
             .WithSubscribe(item =>
             {
@@ -212,11 +204,11 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
 
     public ReadOnlyReactivePropertySlim<bool> IsChanging { get; }
 
-    public ReactiveProperty<string> DisplayName { get; } = new();
+    public ReactiveProperty<string?> DisplayName { get; } = new();
 
-    public ReactiveProperty<string> Description { get; } = new();
+    public ReactiveProperty<string?> Description { get; } = new();
 
-    public ReactiveProperty<string> ShortDescription { get; } = new();
+    public ReactiveProperty<string?> ShortDescription { get; } = new();
 
     public ReadOnlyReactivePropertySlim<Asset?> ActualLogo { get; }
 
@@ -239,7 +231,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
     public AsyncReactiveCommand Refresh { get; }
 
     public ReactiveCommand<Asset> AddScreenshot { get; }
-    
+
     public ReactiveCommand<Asset> DeleteScreenshot { get; }
 
     public ReactiveCommand<Asset> MoveScreenshotFront { get; }
@@ -248,11 +240,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
 
     public override void Dispose()
     {
-        Debug.WriteLine($"{GetType().Name} disposed (Count: {_disposables.Count}).");
-
         _disposables.Dispose();
-
-        GC.SuppressFinalize(this);
     }
 
     public SelectImageAssetViewModel SelectImageAssetViewModel()

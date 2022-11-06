@@ -6,14 +6,14 @@
     <Nullable>enable</Nullable>
 
     <RepositoryUrl>https://github.com/b-editor/beutl</RepositoryUrl>
-    <PackageId>SamplePackage</PackageId>
+    <PackageId>Beutl.Extensions.SamplePackage</PackageId>
     <Title>サンプルパッケージ</Title>
     <Description>サンプル</Description>
     <PackageTags>sample</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Version>1.0.1</Version>
     <AssemblyVersion>1.0.1.0</AssemblyVersion>
-    <Authors>tyrudt</Authors>
+    <Authors>b-editor</Authors>
   </PropertyGroup>
 
   <ItemGroup>

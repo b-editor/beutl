@@ -37,19 +37,19 @@ public class Package
 
     public string Name { get; }
 
-    public IReadOnlyReactiveProperty<string> DisplayName { get; }
+    public IReadOnlyReactiveProperty<string?> DisplayName { get; }
 
-    public IReadOnlyReactiveProperty<string> Description { get; }
+    public IReadOnlyReactiveProperty<string?> Description { get; }
 
-    public IReadOnlyReactiveProperty<string> ShortDescription { get; }
+    public IReadOnlyReactiveProperty<string?> ShortDescription { get; }
 
-    public IReadOnlyReactiveProperty<string> WebSite { get; }
+    public IReadOnlyReactiveProperty<string?> WebSite { get; }
 
     public IReadOnlyReactiveProperty<ICollection<string>> Tags { get; }
 
     public IReadOnlyReactiveProperty<long?> LogoId { get; }
 
-    public IReadOnlyReactiveProperty<string> LogoUrl { get; }
+    public IReadOnlyReactiveProperty<string?> LogoUrl { get; }
 
     public IReadOnlyReactiveProperty<IDictionary<string, string>> Screenshots { get; }
 

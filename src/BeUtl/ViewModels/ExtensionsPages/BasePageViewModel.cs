@@ -48,20 +48,6 @@ public abstract class BasePageViewModel : PageContext, IDisposable
                 NotificationType.Error));
         }
     }
-
-#pragma warning disable CA1822
-    protected string NotNullOrWhitespace(string str)
-#pragma warning restore CA1822
-    {
-        if (!string.IsNullOrWhiteSpace(str))
-        {
-            return null!;
-        }
-        else
-        {
-            return S.Message.PleaseEnterString;
-        }
-    }
 }
 
 public abstract class BaseViewModel : IDisposable
@@ -95,20 +81,6 @@ public abstract class BaseViewModel : IDisposable
                 "Error",
                 exception.Message,
                 NotificationType.Error));
-        }
-    }
-
-#pragma warning disable CA1822
-    protected string NotNullOrWhitespace(string str)
-#pragma warning restore CA1822
-    {
-        if (!string.IsNullOrWhiteSpace(str))
-        {
-            return null!;
-        }
-        else
-        {
-            return S.Message.PleaseEnterString;
         }
     }
 }

@@ -25,6 +25,11 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
         _queue = app.GetResource<PackageChangesQueue>();
         _library = app.GetResource<LibraryService>();
 
+        DisplayName = package.DisplayName
+            .Select(x => !string.IsNullOrWhiteSpace(x) ? x : Package.Name)
+            .ToReadOnlyReactivePropertySlim(Package.Name)
+            .DisposeWith(_disposables);
+
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
@@ -199,6 +204,8 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
     }
 
     public Package Package { get; }
+
+    public ReadOnlyReactivePropertySlim<string> DisplayName { get; }
 
     public ReactivePropertySlim<Release?> LatestRelease { get; } = new();
 
