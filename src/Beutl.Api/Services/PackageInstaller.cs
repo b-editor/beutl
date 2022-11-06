@@ -1,5 +1,7 @@
 ﻿using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Security.Cryptography;
+using System.Text;
 
 using Beutl.Api.Objects;
 
@@ -72,7 +74,7 @@ public partial class PackageInstaller : IBeutlApiResource
         string configPath = Path.Combine(Helper.AppRoot, "nuget.config");
         if (!File.Exists(configPath))
         {
-            using (StreamWriter writer =File.CreateText(configPath))
+            using (StreamWriter writer = File.CreateText(configPath))
             {
                 writer.Write(string.Format(DefaultNuGetConfigContentTemplate, Helper.LocalSourcePath));
             }
@@ -129,6 +131,7 @@ public partial class PackageInstaller : IBeutlApiResource
             Asset asset = await release.GetAssetAsync().ConfigureAwait(false);
 
             context = new PackageInstallContext(name, version, asset.DownloadUrl);
+            context.Asset = asset;
             _installingContexts.Add(packageId, context);
             return context;
         }
@@ -184,6 +187,99 @@ public partial class PackageInstaller : IBeutlApiResource
             }
 
             context.Phase = PackageInstallPhase.Downloaded;
+        }
+    }
+
+    public async Task VerifyPackageFile(
+        PackageInstallContext context,
+        IProgress<double>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        async Task<bool> Varify(HashAlgorithm algorithm, Stream stream, long totalLength, string hashValue)
+        {
+            long length = stream.Length;
+            int bufferSize = 81920;
+            byte[] buffer = new byte[bufferSize];
+            long totalBytesRead = 0;
+            int bytesRead;
+            while ((bytesRead = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) != 0)
+            {
+                totalBytesRead += bytesRead;
+                if (totalBytesRead < length)
+                {
+                    algorithm.TransformBlock(buffer, 0, bytesRead, null, 0);
+                }
+                else
+                {
+                    algorithm.TransformFinalBlock(buffer, 0, bytesRead);
+                }
+
+                progress?.Report(totalBytesRead / (double)totalLength);
+            }
+
+            if (algorithm.Hash == null)
+            {
+                return false;
+            }
+            else
+            {
+                string computedHash = ByteArrayToString(algorithm.Hash);
+                return StringComparer.OrdinalIgnoreCase.Equals(computedHash, hashValue);
+            }
+        }
+
+        static string ByteArrayToString(byte[] bytes)
+        {
+            var sb = new StringBuilder(bytes.Length * 2);
+            foreach (byte item in bytes.AsSpan())
+            {
+                sb.Append($"{item:X2}");
+            }
+
+            return sb.ToString();
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if ((int)context.Phase <= (int)PackageInstallPhase.Verifying)
+        {
+            context.Phase = PackageInstallPhase.Verifying;
+            if (context.Asset is { } asset
+                && context.NuGetPackageFile != null)
+            {
+                using FileStream stream = File.OpenRead(context.NuGetPackageFile);
+                using var sha256 = SHA256.Create();
+                using var sha384 = SHA384.Create();
+                using var sha512 = SHA512.Create();
+                (HashAlgorithm, string?)[] items =
+                {
+                    (sha256, asset.Sha256),
+                    (sha384, asset.Sha384),
+                    (sha512, asset.Sha512),
+                };
+
+                long totalLength = items.Count(x => !string.IsNullOrWhiteSpace(x.Item2)) * stream.Length;
+                if (totalLength == 0)
+                {
+                    context.HashVerified = false;
+                    return;
+                }
+
+                foreach ((HashAlgorithm algorithm, string? hash) in items)
+                {
+                    if (!string.IsNullOrWhiteSpace(hash))
+                    {
+                        stream.Position = 0;
+                        if (!await Varify(algorithm, stream, totalLength, hash))
+                        {
+                            context.HashVerified = false;
+                            return;
+                        }
+                    }
+                }
+
+                context.HashVerified = true;
+                context.Phase = PackageInstallPhase.Verified;
+            }
         }
     }
 

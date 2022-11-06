@@ -79,6 +79,15 @@ namespace Beutl.PackageTools.Properties {
         }
         
         /// <summary>
+        ///   Are you sure you want to continue with the installation? に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string AreYouSureYouWantToContinueWithTheInstallation {
+            get {
+                return ResourceManager.GetString("AreYouSureYouWantToContinueWithTheInstallation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Checking for updates... に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string CheckingForUpdates {
@@ -264,6 +273,15 @@ namespace Beutl.PackageTools.Properties {
         internal static string InstallsDescription {
             get {
                 return ResourceManager.GetString("InstallsDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Invalid hash value. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string InvalidHashValue {
+            get {
+                return ResourceManager.GetString("InvalidHashValue", resourceCulture);
             }
         }
         
@@ -457,6 +475,15 @@ namespace Beutl.PackageTools.Properties {
         }
         
         /// <summary>
+        ///   This package file may have been tampered with. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string ThisPackageFileMayHaveBeenTamperedWith {
+            get {
+                return ResourceManager.GetString("ThisPackageFileMayHaveBeenTamperedWith", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   This package has already been uninstalled. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string ThisPackageHasAlreadyBeenUninstalled {
@@ -607,6 +634,15 @@ namespace Beutl.PackageTools.Properties {
         internal static string VerboseDescription {
             get {
                 return ResourceManager.GetString("VerboseDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Verifying hash values... に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string VerifyingHashValues {
+            get {
+                return ResourceManager.GetString("VerifyingHashValues", resourceCulture);
             }
         }
         

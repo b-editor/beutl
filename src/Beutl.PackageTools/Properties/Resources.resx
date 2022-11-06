@@ -290,4 +290,16 @@ If not specified, packages with updates are automatically fetched.</value>
   <data name="PleaseTerminateThem" xml:space="preserve">
     <value>Please terminate them.</value>
   </data>
+  <data name="VerifyingHashValues" xml:space="preserve">
+    <value>Verifying hash values...</value>
+  </data>
+  <data name="InvalidHashValue" xml:space="preserve">
+    <value>Invalid hash value.</value>
+  </data>
+  <data name="ThisPackageFileMayHaveBeenTamperedWith" xml:space="preserve">
+    <value>This package file may have been tampered with.</value>
+  </data>
+  <data name="AreYouSureYouWantToContinueWithTheInstallation" xml:space="preserve">
+    <value>Are you sure you want to continue with the installation?</value>
+  </data>
 </root>

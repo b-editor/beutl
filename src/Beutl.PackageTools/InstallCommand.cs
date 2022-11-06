@@ -89,9 +89,26 @@ public partial class InstallerCommands
                     await Spinner.StartAsync(message, async spinner =>
                     {
                         var progress = new KurukuruProgress(spinner, message);
-                        await _installer.DownloadPackageFile(context, null, _cancellationToken);
+                        await _installer.DownloadPackageFile(context, progress, _cancellationToken);
                     });
                     nupkgPath = context.NuGetPackageFile;
+
+                    message = Resources.VerifyingHashValues;
+                    await Spinner.StartAsync(message, async spinner =>
+                    {
+                        var progress = new KurukuruProgress(spinner, message);
+                        await _installer.VerifyPackageFile(context, progress, _cancellationToken);
+                    });
+
+                    if (!context.HashVerified)
+                    {
+                        Console.Error.WriteLine(Chalk.BrightRed[Resources.InvalidHashValue]);
+                        Console.Error.WriteLine(Chalk.BrightRed[Resources.ThisPackageFileMayHaveBeenTamperedWith]);
+                        if (!Prompt.Confirm(Resources.AreYouSureYouWantToContinueWithTheInstallation, false))
+                        {
+                            return;
+                        }
+                    }
                 }
                 else
                 {

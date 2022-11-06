@@ -8,8 +8,10 @@ public enum PackageInstallPhase
 {
     Downloading = 0,
     Downloaded = 1,
-    ResolvingDependencies = 2,
-    ResolvedDependencies = 3
+    Verifying = 2,
+    Verified = 3,
+    ResolvingDependencies = 4,
+    ResolvedDependencies = 5
 }
 
 public class PackageInstallContext
@@ -32,6 +34,8 @@ public class PackageInstallContext
 
     public string? NuGetPackageFile { get; internal set; }
 
+    public bool HashVerified { get; internal set; }
+
     public PackageInstallPhase Phase
     {
         get => _phase;
@@ -51,4 +55,6 @@ public class PackageInstallContext
         get => _installedPaths ?? throw new InvalidOperationException("ResolvedDependencies <= Phase");
         internal set => _installedPaths = value;
     }
+
+    internal Asset? Asset { get; set; }
 }
