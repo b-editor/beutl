@@ -1,20 +1,20 @@
 # 🎬 Beutl
 
-![](https://img.shields.io/github/issues/b-editor/Beutl)
-![](https://img.shields.io/github/forks/b-editor/Beutl)
-![](https://img.shields.io/github/stars/b-editor/Beutl)
-![](https://img.shields.io/github/license/b-editor/Beutl)
-![](https://img.shields.io/github/downloads/b-editor/Beutl/total)
-![](https://img.shields.io/github/v/release/b-editor/Beutl)
-![](https://img.shields.io/github/repo-size/b-editor/Beutl)
-[![Daily build](https://github.com/b-editor/Beutl/actions/workflows/daily-build.yml/badge.svg)](https://github.com/b-editor/Beutl/actions/workflows/daily-build.yml)
+![](https://img.shields.io/github/issues/b-editor/beutl)
+![](https://img.shields.io/github/forks/b-editor/beutl)
+![](https://img.shields.io/github/stars/b-editor/beutl)
+![](https://img.shields.io/github/license/b-editor/beutl)
+![](https://img.shields.io/github/downloads/b-editor/beutl/total)
+![](https://img.shields.io/github/v/release/b-editor/beutl)
+![](https://img.shields.io/github/repo-size/b-editor/beutl)
+[![Daily build](https://github.com/b-editor/beutl/actions/workflows/daily-build.yml/badge.svg)](https://github.com/b-editor/beutl/actions/workflows/daily-build.yml)
 [![Discord](https://img.shields.io/discord/868076100511760385.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/Bm3pnVc928)
 
 Beutlはクロスプラットフォームで動作する動画編集ソフトウェアです。  
 
-[古いバージョン(BEditor)のソースコード](https://github.com/b-editor/Beutl/tree/old/main)
+[古いバージョン(BEditor)のソースコード](https://github.com/b-editor/beutl/tree/old/main)
 
-![](https://raw.github.com/b-editor/Beutl/main/assets/screenshots/screenshot-light-dark.png)
+![](https://raw.github.com/b-editor/beutl/main/assets/screenshots/screenshot-light-dark.png)
 
 ## 📖 Feature
 
@@ -25,17 +25,6 @@ Beutlはクロスプラットフォームで動作する動画編集ソフトウ
 🚧 プラグイン機能  
 🚧 シーン機能  
 
-## ビルド方法
-このビルド方法で生成された実行ファイルはあくまでテスト用に使ってください。
-それ以外の用途の場合、[日次ビルド](https://github.com/b-editor/Beutl/actions/workflows/daily-build.yml)
-からダウンロードしたものを使用してください。
-1. このリポジトリを`--recursive`を付けてクローンします。
-3. Authentication(Email, Google)、Firestore, Storageを有効にしたFirebaseプロジェクトを用意します。
-4. 環境変数`BEUTL_FIREBASE_KEY`に上のAPIキーを設定します。
-5. `src/Beutl/Models/Constants.cs`の`FirebaseProjectId`変数の値を変更します。
-6. `src/Beutl.NetCore`内で`dotnet build`コマンドを実行
-7. `src/Beutl.NetCore/bin`以下に実行ファイルが生成されます。
-
 ## ブランチ
 | 名前 | 目標 |
 | --- | --- |
@@ -43,7 +32,7 @@ Beutlはクロスプラットフォームで動作する動画編集ソフトウ
 
 ## License
 
-- [MIT License](https://github.com/b-editor/Beutl/blob/main/LICENSE)
+- [MIT License](https://github.com/b-editor/beutl/blob/main/LICENSE)
 
 ## Patrons
 
