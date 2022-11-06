@@ -7,11 +7,11 @@
 <#
     var vec2Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY)[]
     {
-        ("BeUtl.Media", "PixelPoint", "System.Int32", "X", "Y"),
-        ("BeUtl.Media", "PixelSize", "System.Int32", "Width", "Height"),
-        ("BeUtl.Graphics", "Point", "System.Single", "X", "Y"),
-        ("BeUtl.Graphics", "Size", "System.Single", "Width", "Height"),
-        ("BeUtl.Graphics", "Vector", "System.Single", "X", "Y"),
+        ("Beutl.Media", "PixelPoint", "System.Int32", "X", "Y"),
+        ("Beutl.Media", "PixelSize", "System.Int32", "Width", "Height"),
+        ("Beutl.Graphics", "Point", "System.Single", "X", "Y"),
+        ("Beutl.Graphics", "Size", "System.Single", "Width", "Height"),
+        ("Beutl.Graphics", "Vector", "System.Single", "X", "Y"),
         ("System.Numerics", "Vector2", "System.Single", "X", "Y"),
     };
 
@@ -22,8 +22,8 @@
 
     var vec4Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY, string FieldZ, string FieldW)[]
     {
-        ("BeUtl.Media", "PixelRect", "System.Int32", "X", "Y", "Width", "Height"),
-        ("BeUtl.Graphics", "Rect", "System.Single", "X", "Y", "Width", "Height"),
+        ("Beutl.Media", "PixelRect", "System.Int32", "X", "Y", "Width", "Height"),
+        ("Beutl.Graphics", "Rect", "System.Single", "X", "Y", "Width", "Height"),
         ("System.Numerics", "Vector4", "System.Single", "X", "Y", "Z", "W"),
     };
 #>
@@ -32,11 +32,11 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 
-using BeUtl.ViewModels.Editors;
+using Beutl.ViewModels.Editors;
 
 #pragma warning disable IDE0001, IDE0049
 
-namespace BeUtl.Views.Editors
+namespace Beutl.Views.Editors
 {
     // Vector2
 <# foreach(var t in vec2Types) { #>
