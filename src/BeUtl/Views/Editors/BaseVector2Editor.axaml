@@ -2,10 +2,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:vm="using:BeUtl.ViewModels.Editors"
-             xmlns:local="using:BeUtl.Views.Editors"
+             xmlns:vm="using:Beutl.ViewModels.Editors"
+             xmlns:local="using:Beutl.Views.Editors"
              mc:Ignorable="d" d:DesignWidth="300"
-             x:Class="BeUtl.Views.Editors.BaseVector2Editor">
+             x:Class="Beutl.Views.Editors.BaseVector2Editor">
     <Grid RowDefinitions="*,*" ColumnDefinitions="2*,3*,Auto">
         <Grid.Styles>
             <Style Selector="TextBox">

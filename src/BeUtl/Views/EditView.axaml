@@ -3,14 +3,14 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:local="using:BeUtl.Views"
-    xmlns:editors="using:BeUtl.Views.Editors"
+    xmlns:local="using:Beutl.Views"
+    xmlns:editors="using:Beutl.Views.Editors"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
-    xmlns:vm="using:BeUtl.ViewModels"
+    xmlns:vm="using:Beutl.ViewModels"
     mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
     x:DataType="vm:EditViewModel"
-    x:Class="BeUtl.Views.EditView">
+    x:Class="Beutl.Views.EditView">
     <UserControl.Styles>
         <Style Selector="GridSplitter.EditViewSplitter">
             <Setter Property="Background" Value="Transparent" />

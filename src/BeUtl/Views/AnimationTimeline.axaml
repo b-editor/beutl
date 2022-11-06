@@ -3,13 +3,13 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:local="using:BeUtl.Views"
-    xmlns:editors="using:BeUtl.Views.AnimationEditors"
-    xmlns:vm="using:BeUtl.ViewModels"
+    xmlns:local="using:Beutl.Views"
+    xmlns:editors="using:Beutl.Views.AnimationEditors"
+    xmlns:vm="using:Beutl.ViewModels"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     IsEnabled="{Binding Layer.IsEnabled}"
     x:DataType="vm:AnimationTimelineViewModel"
-    x:Class="BeUtl.Views.AnimationTimeline">
+    x:Class="Beutl.Views.AnimationTimeline">
     <Grid RowDefinitions="Auto,*">
 
         <ScrollViewer

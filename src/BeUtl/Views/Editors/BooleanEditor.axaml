@@ -4,10 +4,10 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    xmlns:vm="using:BeUtl.ViewModels.Editors"
-    xmlns:local="using:BeUtl.Views.Editors"
+    xmlns:vm="using:Beutl.ViewModels.Editors"
+    xmlns:local="using:Beutl.Views.Editors"
     x:DataType="vm:BooleanEditorViewModel"
-    x:Class="BeUtl.Views.Editors.BooleanEditor">
+    x:Class="Beutl.Views.Editors.BooleanEditor">
     <Grid ColumnDefinitions="*,Auto">
         <CheckBox Margin="8,0"
                   Click="CheckBox_Click"

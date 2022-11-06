@@ -3,9 +3,9 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             xmlns:ctrls="using:BeUtl.Controls"
+             xmlns:ctrls="using:Beutl.Controls"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             x:Class="BeUtl.Pages.SettingsPages.InfomationPage">
+             x:Class="Beutl.Pages.SettingsPages.InfomationPage">
 
     <ScrollViewer Padding="18">        
         <StackPanel Orientation="Vertical"
@@ -19,12 +19,12 @@
                     <Grid ColumnDefinitions="*,*" Margin="32,16">
                         <StackPanel>
                             <ui:HyperlinkButton Content="{DynamicResource S.InfomationPage.SourceCode}"
-                                                NavigateUri="https://github.com/b-editor/BeUtl" />
+                                                NavigateUri="https://github.com/b-editor/Beutl" />
                         </StackPanel>
 
                         <StackPanel Grid.Column="1">
                             <ui:HyperlinkButton Content="{DynamicResource S.InfomationPage.License}"
-                                                NavigateUri="https://github.com/b-editor/BeUtl/blob/main/LICENSE" />
+                                                NavigateUri="https://github.com/b-editor/Beutl/blob/main/LICENSE" />
                             <ui:HyperlinkButton Content="{DynamicResource S.InfomationPage.ThirdPartyLicenses}" />
                         </StackPanel>
                     </Grid>

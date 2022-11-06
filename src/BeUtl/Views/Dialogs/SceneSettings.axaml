@@ -4,7 +4,7 @@
                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
                   mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-                  xmlns:vm="using:BeUtl.ViewModels.Dialogs"
+                  xmlns:vm="using:Beutl.ViewModels.Dialogs"
                   Title="{DynamicResource S.Common.SceneSettings}"
                   PrimaryButtonText="{DynamicResource S.Common.Apply}"
                   PrimaryButtonCommand="{CompiledBinding Apply}"
@@ -12,7 +12,7 @@
                   CloseButtonText="{DynamicResource S.Common.Close}"
                   DefaultButton="Primary"
                   x:DataType="vm:SceneSettingsViewModel"
-                  x:Class="BeUtl.Views.Dialogs.SceneSettings">
+                  x:Class="Beutl.Views.Dialogs.SceneSettings">
     <StackPanel Spacing="8">
         <TextBlock Text="{DynamicResource S.Common.Size}" />
         <TextBox Text="{CompiledBinding Size.Value, Mode=TwoWay, Converter={StaticResource PixelSizeConverter}}" />
