@@ -123,7 +123,7 @@ public sealed class CreatePackageDialogViewModel
         }
         else
         {
-            return S.Message.PleaseEnterString;
+            return Message.PleaseEnterString;
         }
     }
 }

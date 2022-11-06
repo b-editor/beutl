@@ -6,9 +6,9 @@ public interface IYourPackageViewModel : IDisposable
 {
     string Name { get; }
 
-    IReadOnlyReactiveProperty<string> DisplayName { get; }
+    IReadOnlyReactiveProperty<string?> DisplayName { get; }
 
-    IReadOnlyReactiveProperty<string> LogoUrl { get; }
+    IReadOnlyReactiveProperty<string?> LogoUrl { get; }
 
     string Publisher { get; }
 

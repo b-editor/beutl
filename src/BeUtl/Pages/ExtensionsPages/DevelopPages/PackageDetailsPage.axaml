@@ -4,6 +4,7 @@
              xmlns:asyncImageLoader="using:AsyncImageLoader"
              xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModels="using:Beutl.ViewModels.ExtensionsPages.DevelopPages"
@@ -39,7 +40,7 @@
                            Margin="0,16,0,0"
                            HorizontalContentAlignment="Center"
                            VerticalContentAlignment="Center"
-                           Content="{DynamicResource S.DevelopPage.Package.NoLogoImageAvailable}"
+                           Content="{x:Static lang:ExtensionsPage.NoLogoImageAvailable}"
                            IsVisible="{Binding #logoImage.Source, Converter={x:Static ObjectConverters.IsNull}}" />
 
 
@@ -56,14 +57,14 @@
         <ScrollViewer Grid.Column="1" Margin="4,0,10,0">
             <StackPanel Spacing="4">
                 <ctrls:OptionsDisplayItem Margin="0,8,0,0"
-                                          Description="{DynamicResource S.DevelopPage.Package.SettingsDescription}"
-                                          Header="{DynamicResource S.DevelopPage.Package.Settings}"
+                                          Description="{x:Static lang:ExtensionsPage.Package_Settings_Tip}"
+                                          Header="{x:Static lang:Strings.Settings}"
                                           Icon="Settings"
                                           Navigates="True"
                                           NavigationRequested="NavigatePackageSettingsPage_Click" />
 
-                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.ReleasesDescription}"
-                                          Header="{DynamicResource S.DevelopPage.Package.Releases}"
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:ExtensionsPage.Package_Releases_Tip}"
+                                          Header="{x:Static lang:ExtensionsPage.Package_Releases_Tip}"
                                           Icon="Document"
                                           Navigates="True"
                                           NavigationRequested="NavigatePackageReleasesPage_Click" />

@@ -64,15 +64,15 @@ public sealed partial class LibraryPage : UserControl
         {
             var dialog = new ContentDialog
             {
-                Title = "ローカルパッケージ",
-                Content = $"リモートから'{localPackage.Name}'が見つかりませんでした。\n" +
+                Title = Language.ExtensionsPage.LocalPackage,
+                Content = $"{string.Format(Language.ExtensionsPage.Could_not_find_a_package_from_remote, localPackage.Name)}\n" +
                 $"Name: {localPackage.Name}\n" +
                 $"DisplayName: {localPackage.DisplayName}\n" +
                 $"Publisher: {localPackage.Publisher}\n" +
                 $"Description: {localPackage.Package.Description}\n" +
                 $"Version: {localPackage.Package.Version}\n" +
                 $"WebSite: {localPackage.Package.WebSite}",
-                CloseButtonText = "閉じる"
+                CloseButtonText = Strings.Close
             };
             await dialog.ShowAsync();
         }

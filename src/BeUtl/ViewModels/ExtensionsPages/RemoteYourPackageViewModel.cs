@@ -59,8 +59,8 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                     var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
                     _queue.InstallQueue(packageId);
                     Notification.Show(new Notification(
-                        Title: "パッケージインストーラー",
-                        Message: $"'{packageId}'のインストールを予約しました。\nパッケージの変更を適用するには、Beutlを終了してください。"));
+                        Title: ExtensionsPage.PackageInstaller,
+                        Message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation, packageId)));
                 }
                 catch (Exception e)
                 {
@@ -84,8 +84,8 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                     var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
                     _queue.InstallQueue(packageId);
                     Notification.Show(new Notification(
-                        Title: "パッケージインストーラー",
-                        Message: $"'{packageId}'の更新を予約しました。\nパッケージの変更を適用するには、Beutlを終了してください。"));
+                        Title: ExtensionsPage.PackageInstaller,
+                        Message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId)));
                 }
                 catch (Exception e)
                 {
@@ -108,8 +108,8 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                     {
                         _queue.UninstallQueue(item);
                         Notification.Show(new Notification(
-                            Title: "パッケージインストーラー",
-                            Message: $"'{item}'のアンインストールを予約しました。\nパッケージの変更を適用するには、Beutlを終了してください。"));
+                            Title: ExtensionsPage.PackageInstaller,
+                            Message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation, item)));
                     }
                 }
                 catch (Exception e)
@@ -169,9 +169,9 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
 
     public string Name => Package.Name;
 
-    public IReadOnlyReactiveProperty<string> DisplayName => Package.DisplayName;
+    public IReadOnlyReactiveProperty<string?> DisplayName => Package.DisplayName;
 
-    public IReadOnlyReactiveProperty<string> LogoUrl => Package.LogoUrl;
+    public IReadOnlyReactiveProperty<string?> LogoUrl => Package.LogoUrl;
 
     public string Publisher => Package.Owner.Name;
 

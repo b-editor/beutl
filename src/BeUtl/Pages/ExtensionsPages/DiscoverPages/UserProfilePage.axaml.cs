@@ -105,14 +105,14 @@ public partial class UserProfilePage : UserControl
                 {
                     var dialog = new ContentDialog()
                     {
-                        Title = "URLを開きますか？",
+                        Title = Language.ExtensionsPage.OpenUrl_Title,
                         Content = new RichTextBlock()
                         {
                             IsTextSelectionEnabled = true,
-                            Text = $"'{url}'を開こうとしています。\n不審なURLの場合、開かないことをおすすめします。"
+                            Text = string.Format(Language.ExtensionsPage.OpenUrl_Content, url)
                         },
-                        PrimaryButtonText = "開く",
-                        CloseButtonText = "キャンセル"
+                        PrimaryButtonText = Strings.Open,
+                        CloseButtonText = Strings.Cancel
                     };
 
                     if (await dialog.ShowAsync() is ContentDialogResult.Primary)
@@ -158,5 +158,4 @@ public partial class UserProfilePage : UserControl
             }
         }
     }
-
 }

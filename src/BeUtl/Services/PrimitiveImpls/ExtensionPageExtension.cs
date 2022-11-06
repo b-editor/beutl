@@ -18,7 +18,7 @@ public sealed class ExtensionsPageExtension : PageExtension
 
     public override IObservable<string> Header => S.MainView.ExtensionsObservable;
 
-    public override Type Control => typeof(ExtensionsPage);
+    public override Type Control => typeof(Pages.ExtensionsPage);
 
     public override Type Context => typeof(ExtensionsPageViewModel);
 

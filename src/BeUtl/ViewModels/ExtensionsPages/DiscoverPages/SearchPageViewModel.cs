@@ -35,7 +35,6 @@ public sealed class SearchPageViewModel : BasePageViewModel
                 {
                     IsBusy.Value = false;
                 }
-
             })
             .DisposeWith(_disposables);
 

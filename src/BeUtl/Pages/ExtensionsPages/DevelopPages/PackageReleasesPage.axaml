@@ -4,6 +4,7 @@
              xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModels="using:Beutl.ViewModels.ExtensionsPages.DevelopPages"
@@ -29,7 +30,7 @@
 
             <Label Classes="breadcrumb" />
 
-            <TextBlock Classes="breadcrumb" Text="{DynamicResource S.DevelopPage.Package.ReleasesDescription}" />
+            <TextBlock Classes="breadcrumb" Text="{x:Static lang:ExtensionsPage.Package_Releases_Tip}" />
         </StackPanel>
 
         <ui:CommandBar Grid.Row="1"
@@ -38,7 +39,7 @@
             <ui:CommandBar.PrimaryCommands>
                 <ui:CommandBarButton Click="Add_Click"
                                      Icon="Add"
-                                     Label="{DynamicResource S.Common.Add}" />
+                                     Label="{x:Static lang:Strings.Add}" />
             </ui:CommandBar.PrimaryCommands>
         </ui:CommandBar>
 
@@ -77,12 +78,12 @@
                         <ui:CommandBarButton Grid.Column="3"
                                              Click="Edit_Click"
                                              Icon="Edit"
-                                             Label="{DynamicResource S.Common.Edit}" />
+                                             Label="{x:Static lang:Strings.Edit}" />
 
                         <ui:CommandBarButton Grid.Column="4"
                                              Click="Delete_Click"
                                              Icon="Delete"
-                                             Label="{DynamicResource S.Common.Delete}" />
+                                             Label="{x:Static lang:Strings.Delete}" />
                     </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>

@@ -72,10 +72,10 @@ public sealed partial class PackageSettingsPage : UserControl
         {
             var dialog = new ContentDialog
             {
-                Title = S.DevelopPage.DeletePackage.Title,
-                Content = S.DevelopPage.DeletePackage.Content,
-                PrimaryButtonText = S.Common.Yes,
-                CloseButtonText = S.Common.No,
+                Title = Language.ExtensionsPage.DeletePackage_Title,
+                Content = Language.ExtensionsPage.DeletePackage_Content,
+                PrimaryButtonText = Strings.Yes,
+                CloseButtonText = Strings.No,
                 DefaultButton = ContentDialogButton.Primary
             };
 
@@ -100,10 +100,10 @@ public sealed partial class PackageSettingsPage : UserControl
         {
             var dialog = new ContentDialog
             {
-                Title = S.DevelopPage.MakePublicPackage.Title,
-                Content = S.DevelopPage.MakePublicPackage.Content,
-                PrimaryButtonText = S.Common.Yes,
-                CloseButtonText = S.Common.No,
+                Title = Language.ExtensionsPage.MakePublicPackage_Title,
+                Content = Language.ExtensionsPage.MakePublicPackage_Content,
+                PrimaryButtonText = Strings.Yes,
+                CloseButtonText = Strings.No,
                 DefaultButton = ContentDialogButton.Primary
             };
 
@@ -120,10 +120,10 @@ public sealed partial class PackageSettingsPage : UserControl
         {
             var dialog = new ContentDialog
             {
-                Title = S.DevelopPage.MakePrivatePackage.Title,
-                Content = S.DevelopPage.MakePrivatePackage.Content,
-                PrimaryButtonText = S.Common.Yes,
-                CloseButtonText = S.Common.No,
+                Title = Language.ExtensionsPage.MakePrivatePackage_Title,
+                Content = Language.ExtensionsPage.MakePrivatePackage_Content,
+                PrimaryButtonText = Strings.Yes,
+                CloseButtonText = Strings.No,
                 DefaultButton = ContentDialogButton.Primary
             };
 

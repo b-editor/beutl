@@ -4,6 +4,7 @@
              xmlns:asyncImageLoader="using:AsyncImageLoader"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:panelx="using:PanelExtension"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -40,28 +41,28 @@
             <ui:HyperlinkButton x:Name="ShowQueryTip"
                                 Classes.transparent="{Binding !!SearchType.Value}"
                                 Click="ShowQueryTip_Click"
-                                Content="検索クエリにはLuceneクエリを利用できます。" />
+                                Content="{x:Static lang:ExtensionsPage.Lucene_queries_are_available_for_search_queries}" />
             <ui:TeachingTip x:Name="QueryTip"
-                            Title="クエリの例"
+                            Title="{x:Static lang:ExtensionsPage.QueryExample}"
                             PreferredPlacement="Bottom">
                 <RichTextBlock>
-                    <Run Text="- display_name:とてもよきパッケージ名" />
+                    <Run Text="{x:Static lang:ExtensionsPage.QueryExample_1}" />
                     <LineBreak />
-                    <Run Text="  [表示名が" />
-                    <Run FontStyle="Italic" Text="'とてもよきパッケージ名'" />
-                    <Run Text="]" />
+                    <Run Text="{x:Static lang:ExtensionsPage.QueryExample_2}" />
+                    <Run FontStyle="Italic" Text="{x:Static lang:ExtensionsPage.QueryExample_3}" />
+                    <Run Text="{x:Static lang:ExtensionsPage.QueryExample_4}" />
                     <LineBreak />
                     <LineBreak />
 
-                    <Run FontWeight="Bold" Text="利用可能フィールド" />
+                    <Run FontWeight="Bold" Text="{x:Static lang:ExtensionsPage.Query_AvailableFields}" />
                     <LineBreak />
                     display_name, name, description,<LineBreak />
                     short_description, tags<LineBreak />
                     <LineBreak />
-                    <Run Text="ワイルドカードが利用可能です。" />
+                    <Run Text="{x:Static lang:ExtensionsPage.Query_WildcardsAreAvailable}" />
                     <LineBreak />
-                    デフォルトでは完全一致検索なので、<LineBreak />
-                    部分一致させたい場合ワイルドカードを使用してください。</RichTextBlock>
+                    <Run Text="{x:Static lang:ExtensionsPage.Query_WildcardsAreAvailable_Body}" />
+                </RichTextBlock>
             </ui:TeachingTip>
 
             <TabControl Padding="0" SelectedIndex="{Binding SearchType.Value}">
@@ -71,7 +72,7 @@
                         <Setter Property="FontSize" Value="16" />
                     </Style>
                 </TabControl.Styles>
-                <TabItem Header="パッケージ">
+                <TabItem Header="{x:Static lang:ExtensionsPage.Search_Packages}">
                     <ItemsRepeater Items="{Binding Packages}">
                         <ItemsRepeater.Layout>
                             <panelx:HorizontalGridLayout ColumnSpacing="16"
@@ -126,7 +127,7 @@
 
                                             <TextBlock Grid.Column="2"
                                                        VerticalAlignment="Center"
-                                                       Text="もっと表示" />
+                                                       Text="{x:Static lang:Strings.ShowMore}" />
                                         </Grid>
                                     </Panel>
                                 </Button>
@@ -134,7 +135,7 @@
                         </ItemsRepeater.ItemTemplate>
                     </ItemsRepeater>
                 </TabItem>
-                <TabItem Header="ユーザー">
+                <TabItem Header="{x:Static lang:ExtensionsPage.Search_Users}">
                     <ItemsRepeater Items="{Binding Users}">
                         <ItemsRepeater.Layout>
                             <panelx:HorizontalGridLayout ColumnSpacing="16"
@@ -192,7 +193,7 @@
 
                                             <TextBlock Grid.Column="2"
                                                        VerticalAlignment="Center"
-                                                       Text="もっと表示" />
+                                                       Text="{x:Static lang:Strings.ShowMore}" />
                                         </Grid>
                                     </Panel>
                                 </Button>
