@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Graphics;
+﻿namespace Beutl.Graphics;
 
 internal static class StackExtensions
 {

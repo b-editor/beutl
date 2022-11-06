@@ -1,9 +1,9 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
-using BeUtl.Media;
+using Beutl.Media;
 
-namespace BeUtl.Converters;
+namespace Beutl.Converters;
 
 internal sealed class CornerRadiusJsonConverter : JsonConverter<CornerRadius>
 {

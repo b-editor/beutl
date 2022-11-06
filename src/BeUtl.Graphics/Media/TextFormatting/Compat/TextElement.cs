@@ -1,8 +1,8 @@
-﻿using BeUtl.Graphics;
+﻿using Beutl.Graphics;
 
 using SkiaSharp;
 
-namespace BeUtl.Media.TextFormatting.Compat;
+namespace Beutl.Media.TextFormatting.Compat;
 
 [Obsolete("Use TextBlock APIs.")]
 public class TextElement : Drawable

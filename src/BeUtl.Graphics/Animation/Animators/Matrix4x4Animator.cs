@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace BeUtl.Animation.Animators;
+namespace Beutl.Animation.Animators;
 
 public sealed class Matrix4x4Animator : Animator<Matrix4x4>
 {

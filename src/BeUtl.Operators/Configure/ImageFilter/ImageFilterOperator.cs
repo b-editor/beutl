@@ -1,7 +1,7 @@
-﻿using BeUtl.Graphics;
-using BeUtl.Graphics.Filters;
+﻿using Beutl.Graphics;
+using Beutl.Graphics.Filters;
 
-namespace BeUtl.Operators.Configure.ImageFilter;
+namespace Beutl.Operators.Configure.ImageFilter;
 
 #pragma warning disable IDE0065
 using ImageFilter = Graphics.Filters.ImageFilter;

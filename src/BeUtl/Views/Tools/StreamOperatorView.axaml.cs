@@ -5,13 +5,13 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Xaml.Interactivity;
 
-using BeUtl.Commands;
-using BeUtl.Controls.Behaviors;
-using BeUtl.ProjectSystem;
-using BeUtl.Streaming;
-using BeUtl.ViewModels.Tools;
+using Beutl.Commands;
+using Beutl.Controls.Behaviors;
+using Beutl.ProjectSystem;
+using Beutl.Streaming;
+using Beutl.ViewModels.Tools;
 
-namespace BeUtl.Views.Tools;
+namespace Beutl.Views.Tools;
 
 public sealed partial class StreamOperatorView : UserControl
 {

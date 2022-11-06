@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 
-namespace BeUtl.Views.Editors;
+namespace Beutl.Views.Editors;
 
 public sealed class RelativePointEditor : BaseVector2Editor<Graphics.RelativePoint>
 {

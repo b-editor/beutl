@@ -1,6 +1,6 @@
-﻿using BeUtl.Media.Immutable;
+﻿using Beutl.Media.Immutable;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 public static class ColorExtensions
 {

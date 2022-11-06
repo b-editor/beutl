@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Framework;
+﻿namespace Beutl.Framework;
 
 public enum KnownLicense
 {

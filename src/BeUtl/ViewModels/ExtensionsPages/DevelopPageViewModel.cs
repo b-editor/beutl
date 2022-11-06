@@ -2,12 +2,12 @@
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 
-using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
-using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
+using Beutl.ViewModels.ExtensionsPages.DevelopPages;
+using Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.ExtensionsPages;
+namespace Beutl.ViewModels.ExtensionsPages;
 
 public sealed class DevelopPageViewModel : BasePageViewModel
 {

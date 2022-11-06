@@ -8,7 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Styling;
 
-namespace BeUtl.Framework;
+namespace Beutl.Framework;
 
 public abstract class PageExtension : Extension
 {

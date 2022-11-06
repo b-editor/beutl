@@ -6,19 +6,19 @@ using Avalonia.Data;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 
-using BeUtl.Controls;
-using BeUtl.Framework;
-using BeUtl.Framework.Services;
-using BeUtl.Media;
-using BeUtl.Media.Pixel;
-using BeUtl.ProjectSystem;
-using BeUtl.ViewModels;
+using Beutl.Controls;
+using Beutl.Framework;
+using Beutl.Framework.Services;
+using Beutl.Media;
+using Beutl.Media.Pixel;
+using Beutl.ProjectSystem;
+using Beutl.ViewModels;
 
 using FluentAvalonia.UI.Controls;
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace BeUtl.Views;
+namespace Beutl.Views;
 
 public sealed partial class EditView : UserControl, IEditor
 {

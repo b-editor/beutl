@@ -1,10 +1,10 @@
 ﻿using System.Reflection;
 
-using BeUtl.Framework;
+using Beutl.Framework;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Editors;
+namespace Beutl.ViewModels.Editors;
 
 public interface INavigationButtonViewModel
 {

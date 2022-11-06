@@ -1,8 +1,8 @@
-﻿using BeUtl.Animation.Easings;
-using BeUtl.Collections;
-using BeUtl.Styling;
+﻿using Beutl.Animation.Easings;
+using Beutl.Collections;
+using Beutl.Styling;
 
-namespace BeUtl.Animation;
+namespace Beutl.Animation;
 
 public interface IAnimation : IJsonSerializable
 {

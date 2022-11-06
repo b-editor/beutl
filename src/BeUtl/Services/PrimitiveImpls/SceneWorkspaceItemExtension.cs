@@ -2,12 +2,12 @@
 
 using Avalonia.Media;
 
-using BeUtl.Controls;
-using BeUtl.Framework;
-using BeUtl.Models;
-using BeUtl.ProjectSystem;
+using Beutl.Controls;
+using Beutl.Framework;
+using Beutl.Models;
+using Beutl.ProjectSystem;
 
-namespace BeUtl.Services.PrimitiveImpls;
+namespace Beutl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
 public sealed class SceneWorkspaceItemExtension : WorkspaceItemExtension

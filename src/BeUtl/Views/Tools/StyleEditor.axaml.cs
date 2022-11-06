@@ -5,14 +5,14 @@ using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 
-using BeUtl.Commands;
-using BeUtl.ViewModels.Tools;
+using Beutl.Commands;
+using Beutl.ViewModels.Tools;
 
 using FluentAvalonia.UI.Controls;
 
 using Reactive.Bindings;
 
-namespace BeUtl.Views.Tools;
+namespace Beutl.Views.Tools;
 
 public sealed partial class StyleEditor : UserControl
 {

@@ -3,9 +3,9 @@
 using Beutl.Api;
 using Beutl.Api.Objects;
 
-using BeUtl.Framework.Service;
-using BeUtl.ViewModels.Dialogs;
-using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
+using Beutl.Framework.Service;
+using Beutl.ViewModels.Dialogs;
+using Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,7 +13,7 @@ using Nito.Disposables;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
+namespace Beutl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class PackageSettingsPageViewModel : BasePageViewModel
 {

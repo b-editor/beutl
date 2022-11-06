@@ -1,9 +1,9 @@
-﻿using BeUtl.Framework;
+﻿using Beutl.Framework;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace BeUtl.ViewModels.Editors;
+namespace Beutl.ViewModels.Editors;
 
 public sealed class StringEditorViewModel : BaseEditorViewModel<string>
 {

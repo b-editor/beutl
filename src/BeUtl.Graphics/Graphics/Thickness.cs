@@ -1,10 +1,10 @@
 ﻿using System.Globalization;
 using System.Text.Json.Serialization;
 
-using BeUtl.Converters;
-using BeUtl.Utilities;
+using Beutl.Converters;
+using Beutl.Utilities;
 
-namespace BeUtl.Graphics;
+namespace Beutl.Graphics;
 
 /// <summary>
 /// Describes the thickness of a frame around a rectangle.

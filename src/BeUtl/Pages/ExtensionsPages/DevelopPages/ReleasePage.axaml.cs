@@ -5,15 +5,15 @@ using Avalonia.VisualTree;
 
 using Beutl.Api.Objects;
 
-using BeUtl.ViewModels;
-using BeUtl.ViewModels.Dialogs;
-using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
-using BeUtl.Views.Dialogs;
+using Beutl.ViewModels;
+using Beutl.ViewModels.Dialogs;
+using Beutl.ViewModels.ExtensionsPages.DevelopPages;
+using Beutl.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 
-namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
+namespace Beutl.Pages.ExtensionsPages.DevelopPages;
 
 public sealed partial class ReleasePage : UserControl
 {

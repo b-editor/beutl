@@ -3,16 +3,16 @@ using System.Text.Json.Nodes;
 
 using Beutl.Api.Services;
 
-using BeUtl.Framework;
-using BeUtl.Models;
-using BeUtl.ProjectSystem;
-using BeUtl.Services.PrimitiveImpls;
+using Beutl.Framework;
+using Beutl.Models;
+using Beutl.ProjectSystem;
+using Beutl.Services.PrimitiveImpls;
 
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels;
+namespace Beutl.ViewModels;
 
 public sealed class ToolTabViewModel : IDisposable
 {

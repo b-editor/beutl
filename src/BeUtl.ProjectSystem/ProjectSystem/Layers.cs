@@ -1,7 +1,7 @@
 ﻿
-using BeUtl.Collections;
+using Beutl.Collections;
 
-namespace BeUtl.ProjectSystem;
+namespace Beutl.ProjectSystem;
 
 public sealed class Layers : LogicalList<Layer>
 {

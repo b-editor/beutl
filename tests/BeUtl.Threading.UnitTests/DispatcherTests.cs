@@ -1,6 +1,6 @@
 using NUnit.Framework;
 
-namespace BeUtl.Threading.UnitTests;
+namespace Beutl.Threading.UnitTests;
 
 public class DispatcherTests
 {

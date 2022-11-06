@@ -1,14 +1,14 @@
 ﻿using Beutl.Api.Services;
 
-using BeUtl.Configuration;
-using BeUtl.Controls.Navigation;
-using BeUtl.Framework;
+using Beutl.Configuration;
+using Beutl.Controls.Navigation;
+using Beutl.Framework;
 
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.SettingsPages;
+namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class ExtensionsSettingsPageViewModel : PageContext
 {

@@ -1,8 +1,8 @@
 ﻿using System.Collections;
 
-using BeUtl.Collections;
+using Beutl.Collections;
 
-namespace BeUtl.Commands;
+namespace Beutl.Commands;
 
 internal sealed class MoveCommand : IRecordableCommand
 {

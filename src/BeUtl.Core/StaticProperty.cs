@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 
-namespace BeUtl;
+namespace Beutl;
 
 public abstract class StaticProperty<T> : CoreProperty<T>
 {

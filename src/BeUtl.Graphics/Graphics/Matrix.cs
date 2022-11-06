@@ -1,11 +1,11 @@
 ﻿using System.Numerics;
 using System.Text.Json.Serialization;
 
-using BeUtl.Converters;
-using BeUtl.Graphics.Transformation;
-using BeUtl.Utilities;
+using Beutl.Converters;
+using Beutl.Graphics.Transformation;
+using Beutl.Utilities;
 
-namespace BeUtl.Graphics;
+namespace Beutl.Graphics;
 
 /// <summary>
 /// A 3x3 matrix.

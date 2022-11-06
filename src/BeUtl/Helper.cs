@@ -3,14 +3,14 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 
-using BeUtl.Animation;
-using BeUtl.Framework;
-using BeUtl.ProjectSystem;
-using BeUtl.Services.Editors.Wrappers;
-using BeUtl.Streaming;
-using BeUtl.Styling;
+using Beutl.Animation;
+using Beutl.Framework;
+using Beutl.ProjectSystem;
+using Beutl.Services.Editors.Wrappers;
+using Beutl.Streaming;
+using Beutl.Styling;
 
-namespace BeUtl;
+namespace Beutl;
 
 internal static class Helper
 {

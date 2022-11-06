@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 
-namespace BeUtl;
+namespace Beutl;
 public static class ArtifactProvider
 {
     public static string GetArtifactDirectory()

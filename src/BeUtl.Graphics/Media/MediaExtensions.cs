@@ -1,7 +1,7 @@
-﻿using BeUtl.Graphics;
-using BeUtl.Utilities;
+﻿using Beutl.Graphics;
+using Beutl.Utilities;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 /// <summary>
 /// Describes the type of scaling that can be used when scaling content.

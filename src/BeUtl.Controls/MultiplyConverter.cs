@@ -3,7 +3,7 @@
 using Avalonia;
 using Avalonia.Data.Converters;
 
-namespace BeUtl.Controls;
+namespace Beutl.Controls;
 
 public sealed class MultiplyConverter : IMultiValueConverter
 {

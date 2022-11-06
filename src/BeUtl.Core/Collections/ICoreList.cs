@@ -1,6 +1,6 @@
 ﻿using System.Collections;
 
-namespace BeUtl.Collections;
+namespace Beutl.Collections;
 
 public interface ICoreList : IList
 {

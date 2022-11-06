@@ -1,7 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using System.Text;
 
-namespace BeUtl.Media.TextFormatting;
+namespace Beutl.Media.TextFormatting;
 
 public struct FormattedTextTokenizer
 {

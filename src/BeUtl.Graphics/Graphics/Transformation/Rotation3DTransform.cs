@@ -1,8 +1,8 @@
 ﻿using System.Numerics;
 
-using BeUtl.Utilities;
+using Beutl.Utilities;
 
-namespace BeUtl.Graphics.Transformation;
+namespace Beutl.Graphics.Transformation;
 
 public sealed class Rotation3DTransform : Transform
 {

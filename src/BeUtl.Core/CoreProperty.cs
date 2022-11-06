@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace BeUtl;
+namespace Beutl;
 
 public abstract class CoreProperty : ICoreProperty
 {

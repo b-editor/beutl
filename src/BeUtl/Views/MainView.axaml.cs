@@ -18,17 +18,17 @@ using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Xaml.Interactivity;
 
-using BeUtl.Controls;
-using BeUtl.Framework;
-using BeUtl.Framework.Service;
-using BeUtl.Framework.Services;
-using BeUtl.Models;
-using BeUtl.Pages;
-using BeUtl.ProjectSystem;
-using BeUtl.Services;
-using BeUtl.ViewModels;
-using BeUtl.ViewModels.Dialogs;
-using BeUtl.Views.Dialogs;
+using Beutl.Controls;
+using Beutl.Framework;
+using Beutl.Framework.Service;
+using Beutl.Framework.Services;
+using Beutl.Models;
+using Beutl.Pages;
+using Beutl.ProjectSystem;
+using Beutl.Services;
+using Beutl.ViewModels;
+using Beutl.ViewModels.Dialogs;
+using Beutl.Views.Dialogs;
 
 using DynamicData;
 
@@ -40,7 +40,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace BeUtl.Views;
+namespace Beutl.Views;
 
 internal readonly struct Cache<T>
     where T : class

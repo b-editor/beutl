@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace BeUtl.Validation;
+namespace Beutl.Validation;
 
 public sealed class RangeValidationService
 {

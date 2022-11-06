@@ -5,7 +5,7 @@ using Avalonia.Xaml.Interactivity;
 
 using FluentAvalonia.UI.Controls;
 
-namespace BeUtl.Controls;
+namespace Beutl.Controls;
 
 public class NavItemHelper : Behavior<NavigationViewItem>
 {

@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 
-namespace BeUtl;
+namespace Beutl;
 
 public abstract class CorePropertyChangedEventArgs : PropertyChangedEventArgs
 {

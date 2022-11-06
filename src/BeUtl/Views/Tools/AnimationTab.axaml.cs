@@ -1,11 +1,11 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Input;
 
-using BeUtl.Animation;
-using BeUtl.Animation.Easings;
-using BeUtl.ViewModels.Tools;
+using Beutl.Animation;
+using Beutl.Animation.Easings;
+using Beutl.ViewModels.Tools;
 
-namespace BeUtl.Views.Tools;
+namespace Beutl.Views.Tools;
 public partial class AnimationTab : UserControl
 {
     public AnimationTab()

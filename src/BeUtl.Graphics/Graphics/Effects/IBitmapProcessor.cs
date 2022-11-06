@@ -1,7 +1,7 @@
-﻿using BeUtl.Media;
-using BeUtl.Media.Pixel;
+﻿using Beutl.Media;
+using Beutl.Media.Pixel;
 
-namespace BeUtl.Graphics.Effects;
+namespace Beutl.Graphics.Effects;
 
 public interface IBitmapProcessor : IProcessor<Bitmap<Bgra8888>>
 {

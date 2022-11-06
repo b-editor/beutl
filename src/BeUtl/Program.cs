@@ -5,7 +5,7 @@ using Beutl.Api.Services;
 
 using FluentAvalonia.UI.Windowing;
 
-namespace BeUtl;
+namespace Beutl;
 
 internal static class Program
 {

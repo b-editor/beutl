@@ -3,7 +3,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Metadata;
 using Avalonia.Styling;
 
-namespace BeUtl.Controls.Behaviors;
+namespace Beutl.Controls.Behaviors;
 
 public class SharedContentTemplate : ITemplate<SharedContent>
 {

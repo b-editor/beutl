@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Animation.Easings;
+﻿namespace Beutl.Animation.Easings;
 
 public class SplineEasing : Easing
 {

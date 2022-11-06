@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Animation;
+﻿namespace Beutl.Animation;
 
 public interface IAnimationSpan<T> : IAnimationSpan
 {

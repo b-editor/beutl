@@ -1,10 +1,10 @@
 ﻿using System.ComponentModel;
 
-using BeUtl.Animation.Easings;
-using BeUtl.Media;
-using BeUtl.Styling;
+using Beutl.Animation.Easings;
+using Beutl.Media;
+using Beutl.Styling;
 
-namespace BeUtl.Animation;
+namespace Beutl.Animation;
 
 public sealed class AnimationSpan<T> : AnimationSpan, IAnimationSpan<T>
 {

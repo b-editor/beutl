@@ -1,10 +1,10 @@
 ﻿using System.Diagnostics;
 
-using BeUtl.Configuration;
+using Beutl.Configuration;
 
 using SkiaSharp;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 public sealed class FontManager
 {

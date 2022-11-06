@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Commands;
+﻿namespace Beutl.Commands;
 
 public sealed class ChangePropertyCommand<T> : IRecordableCommand
 {

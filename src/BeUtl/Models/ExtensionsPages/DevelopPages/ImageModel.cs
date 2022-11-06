@@ -1,6 +1,6 @@
 ﻿using Avalonia.Media.Imaging;
 
-namespace BeUtl.Models.ExtensionsPages.DevelopPages;
+namespace Beutl.Models.ExtensionsPages.DevelopPages;
 
 public sealed record ImageModel(MemoryStream Stream, Bitmap Bitmap, string Name) : IDisposable
 {

@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Validation;
+﻿namespace Beutl.Validation;
 
 public abstract class RangeValidator<T> : IValidator<T>
 {

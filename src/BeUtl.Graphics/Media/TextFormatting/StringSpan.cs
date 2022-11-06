@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Media.TextFormatting;
+﻿namespace Beutl.Media.TextFormatting;
 
 public readonly record struct StringSpan(string Source, int Start, int Length)
 {

@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Media;
+﻿namespace Beutl.Media;
 
 /// <summary>
 /// Controls the performance and quality of bitmap scaling.

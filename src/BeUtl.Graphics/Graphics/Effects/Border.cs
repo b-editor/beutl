@@ -1,10 +1,10 @@
-﻿using BeUtl.Media;
-using BeUtl.Media.Immutable;
-using BeUtl.Media.Pixel;
+﻿using Beutl.Media;
+using Beutl.Media.Immutable;
+using Beutl.Media.Pixel;
 
 using OpenCvSharp;
 
-namespace BeUtl.Graphics.Effects;
+namespace Beutl.Graphics.Effects;
 
 public class Border : BitmapEffect
 {

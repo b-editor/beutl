@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Services.Editors;
+﻿namespace Beutl.Services.Editors;
 
 public interface INumberEditorService<T>
     where T : struct

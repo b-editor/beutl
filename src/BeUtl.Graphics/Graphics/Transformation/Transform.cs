@@ -1,9 +1,9 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-using BeUtl.Animation;
-using BeUtl.Media.Immutable;
+using Beutl.Animation;
+using Beutl.Media.Immutable;
 
-namespace BeUtl.Graphics.Transformation;
+namespace Beutl.Graphics.Transformation;
 
 public abstract class Transform : Animatable, IMutableTransform
 {

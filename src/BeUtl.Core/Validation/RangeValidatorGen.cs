@@ -1,7 +1,7 @@
 
 #pragma warning disable IDE0001, IDE0049
 
-namespace BeUtl.Validation
+namespace Beutl.Validation
 {
     internal sealed class ByteRangeValidator : RangeValidator<System.Byte>
     {

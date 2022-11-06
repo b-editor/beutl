@@ -1,6 +1,6 @@
-﻿using BeUtl.Media.Pixel;
+﻿using Beutl.Media.Pixel;
 
-namespace BeUtl.Graphics.Operations;
+namespace Beutl.Graphics.Operations;
 
 public readonly unsafe struct AlphaSubtractOperation
 {

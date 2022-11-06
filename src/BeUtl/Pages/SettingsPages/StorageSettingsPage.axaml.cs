@@ -4,7 +4,7 @@ using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 
-namespace BeUtl.Pages.SettingsPages;
+namespace Beutl.Pages.SettingsPages;
 
 public sealed partial class StorageSettingsPage : UserControl
 {

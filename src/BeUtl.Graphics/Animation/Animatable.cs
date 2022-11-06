@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
-namespace BeUtl.Animation;
+namespace Beutl.Animation;
 
 public abstract class Animatable : CoreObject, IAnimatable
 {

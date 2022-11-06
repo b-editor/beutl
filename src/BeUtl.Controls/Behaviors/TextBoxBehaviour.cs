@@ -2,7 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Xaml.Interactivity;
 
-namespace BeUtl.Controls.Behaviors;
+namespace Beutl.Controls.Behaviors;
 
 public sealed class TextBoxBehaviour : Behavior<TextBox>
 {

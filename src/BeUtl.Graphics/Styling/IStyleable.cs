@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Styling;
+﻿namespace Beutl.Styling;
 
 public interface IStyleable : ICoreObject, ILogicalElement
 {

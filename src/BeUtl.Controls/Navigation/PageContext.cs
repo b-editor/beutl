@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Controls.Navigation;
+﻿namespace Beutl.Controls.Navigation;
 
 public abstract class PageContext
 {

@@ -1,4 +1,4 @@
-﻿namespace BeUtl.ProjectSystem;
+﻿namespace Beutl.ProjectSystem;
 
 public enum PreviewMode
 {

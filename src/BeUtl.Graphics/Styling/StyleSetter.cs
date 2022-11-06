@@ -1,10 +1,10 @@
 ﻿using System.Reactive;
 using System.Reactive.Linq;
 
-using BeUtl.Animation;
-using BeUtl.Reactive;
+using Beutl.Animation;
+using Beutl.Reactive;
 
-namespace BeUtl.Styling;
+namespace Beutl.Styling;
 
 public class StyleSetter<T> : LightweightObservableBase<Style?>, ISetter
 {

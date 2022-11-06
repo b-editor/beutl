@@ -2,11 +2,11 @@
 
 using Avalonia.Controls;
 
-using BeUtl.Framework;
-using BeUtl.ViewModels;
-using BeUtl.Views;
+using Beutl.Framework;
+using Beutl.ViewModels;
+using Beutl.Views;
 
-namespace BeUtl.Services.PrimitiveImpls;
+namespace Beutl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
 public sealed class AnimationTimelineTabExtension : ToolTabExtension

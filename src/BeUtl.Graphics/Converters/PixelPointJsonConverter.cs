@@ -1,9 +1,9 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
-using BeUtl.Media;
+using Beutl.Media;
 
-namespace BeUtl.Converters;
+namespace Beutl.Converters;
 internal sealed class PixelPointJsonConverter : JsonConverter<PixelPoint>
 {
     public override PixelPoint Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)

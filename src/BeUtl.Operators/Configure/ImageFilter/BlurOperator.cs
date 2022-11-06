@@ -1,6 +1,6 @@
-﻿using BeUtl.Graphics.Filters;
+﻿using Beutl.Graphics.Filters;
 
-namespace BeUtl.Operators.Configure.ImageFilter;
+namespace Beutl.Operators.Configure.ImageFilter;
 
 public sealed class BlurOperator : ImageFilterOperator<Blur>
 {

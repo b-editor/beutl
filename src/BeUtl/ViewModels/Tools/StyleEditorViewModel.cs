@@ -1,16 +1,16 @@
 ﻿using System.Buffers;
 using System.Text.Json.Nodes;
 
-using BeUtl.Framework;
-using BeUtl.Services;
-using BeUtl.Services.Editors.Wrappers;
-using BeUtl.Services.PrimitiveImpls;
-using BeUtl.Styling;
-using BeUtl.ViewModels.Editors;
+using Beutl.Framework;
+using Beutl.Services;
+using Beutl.Services.Editors.Wrappers;
+using Beutl.Services.PrimitiveImpls;
+using Beutl.Styling;
+using Beutl.ViewModels.Editors;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Tools;
+namespace Beutl.ViewModels.Tools;
 
 public sealed class StyleEditorViewModel : IToolContext
 {

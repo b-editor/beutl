@@ -4,13 +4,13 @@ using Avalonia;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 
-using BeUtl.Models;
-using BeUtl.ProjectSystem;
+using Beutl.Models;
+using Beutl.ProjectSystem;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace BeUtl.ViewModels;
+namespace Beutl.ViewModels;
 
 public sealed class TimelineLayerViewModel : IDisposable
 {

@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Media;
+﻿namespace Beutl.Media;
 
 /// <summary>
 /// Predefined brushes.

@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Text.Json.Nodes;
 
-namespace BeUtl;
+namespace Beutl;
 
 public interface ICoreObject : INotifyPropertyChanged, IJsonSerializable
 {

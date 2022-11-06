@@ -1,6 +1,6 @@
 ﻿using System.Globalization;
 
-namespace BeUtl;
+namespace Beutl;
 
 public static class CultureNameValidation
 {

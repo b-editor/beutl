@@ -6,9 +6,9 @@ using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 
-using BeUtl.ViewModels.Editors;
+using Beutl.ViewModels.Editors;
 
-namespace BeUtl.Views.Editors;
+namespace Beutl.Views.Editors;
 
 public partial class EnumEditor : UserControl
 {

@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Validation;
+﻿namespace Beutl.Validation;
 
 public sealed class MultipleValidator<T> : IValidator<T>
 {

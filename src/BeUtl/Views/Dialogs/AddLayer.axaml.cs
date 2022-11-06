@@ -1,11 +1,11 @@
 ﻿using Avalonia;
 using Avalonia.Styling;
 
-using BeUtl.ViewModels.Dialogs;
+using Beutl.ViewModels.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
-namespace BeUtl.Views.Dialogs;
+namespace Beutl.Views.Dialogs;
 
 public sealed partial class AddLayer : ContentDialog, IStyleable
 {

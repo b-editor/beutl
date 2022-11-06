@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Media;
+﻿namespace Beutl.Media;
 
 /// <summary>
 /// Describes how content is resized to fill its allocated space.

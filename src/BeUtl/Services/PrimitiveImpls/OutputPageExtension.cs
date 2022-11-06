@@ -1,10 +1,10 @@
 ﻿using Avalonia.Media;
 
-using BeUtl.Controls;
-using BeUtl.Framework;
-using BeUtl.ViewModels;
+using Beutl.Controls;
+using Beutl.Framework;
+using Beutl.ViewModels;
 
-namespace BeUtl.Services.PrimitiveImpls;
+namespace Beutl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
 public sealed class OutputPageExtension : PageExtension

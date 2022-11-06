@@ -1,8 +1,8 @@
 ﻿using System.Text.Json.Serialization;
 
-using BeUtl.Converters;
+using Beutl.Converters;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 [JsonConverter(typeof(TypefaceJsonConverter))]
 public readonly struct Typeface : IEquatable<Typeface>

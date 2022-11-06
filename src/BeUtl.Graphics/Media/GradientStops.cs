@@ -1,8 +1,8 @@
 ﻿using System.Text.Json.Nodes;
 
-using BeUtl.Media.Immutable;
+using Beutl.Media.Immutable;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 /// <summary>
 /// A collection of <see cref="GradientStop"/>s.

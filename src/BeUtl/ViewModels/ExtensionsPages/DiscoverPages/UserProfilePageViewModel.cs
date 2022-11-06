@@ -4,7 +4,7 @@ using Beutl.Api.Objects;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.ExtensionsPages.DiscoverPages;
+namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 public sealed class UserProfilePageViewModel : BasePageViewModel
 {

@@ -3,13 +3,13 @@ using System.Reactive.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-using BeUtl.Collections;
-using BeUtl.Commands;
-using BeUtl.Media;
-using BeUtl.Rendering;
-using BeUtl.Streaming;
+using Beutl.Collections;
+using Beutl.Commands;
+using Beutl.Media;
+using Beutl.Rendering;
+using Beutl.Streaming;
 
-namespace BeUtl.ProjectSystem;
+namespace Beutl.ProjectSystem;
 
 public class Layer : Element, IStorable, ILogicalElement
 {

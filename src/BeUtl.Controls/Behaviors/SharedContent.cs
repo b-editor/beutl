@@ -1,7 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Metadata;
 
-namespace BeUtl.Controls.Behaviors;
+namespace Beutl.Controls.Behaviors;
 
 public class SharedContent : Control
 {

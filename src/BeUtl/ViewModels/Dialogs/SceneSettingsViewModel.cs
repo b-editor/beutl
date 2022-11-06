@@ -1,10 +1,10 @@
 ﻿using Avalonia;
 
-using BeUtl.ProjectSystem;
+using Beutl.ProjectSystem;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Dialogs;
+namespace Beutl.ViewModels.Dialogs;
 
 public sealed class SceneSettingsViewModel
 {

@@ -6,16 +6,16 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 
-using BeUtl.Animation;
-using BeUtl.Animation.Easings;
-using BeUtl.ProjectSystem;
-using BeUtl.ViewModels;
+using Beutl.Animation;
+using Beutl.Animation.Easings;
+using Beutl.ProjectSystem;
+using Beutl.ViewModels;
 
 using Reactive.Bindings;
 
-using static BeUtl.Views.Timeline;
+using static Beutl.Views.Timeline;
 
-namespace BeUtl.Views;
+namespace Beutl.Views;
 
 public sealed partial class AnimationTimeline : UserControl
 {

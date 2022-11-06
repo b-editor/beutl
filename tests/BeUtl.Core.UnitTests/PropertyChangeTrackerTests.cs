@@ -1,9 +1,9 @@
 ﻿
-using BeUtl.Collections;
+using Beutl.Collections;
 
 using NUnit.Framework;
 
-namespace BeUtl.Core.UnitTests;
+namespace Beutl.Core.UnitTests;
 
 public class PropertyChangeTrackerTests
 {

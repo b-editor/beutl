@@ -2,9 +2,9 @@
 using System.Reflection;
 using System.Text.Json.Serialization;
 
-using BeUtl.Validation;
+using Beutl.Validation;
 
-namespace BeUtl;
+namespace Beutl;
 
 public sealed class CorePropertyBuilder<T, TOwner>
 {

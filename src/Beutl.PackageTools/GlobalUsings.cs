@@ -2,7 +2,7 @@
 global using Beutl.Api.Objects;
 global using Beutl.Api.Services;
 
-global using BeUtl.Utilities;
+global using Beutl.Utilities;
 
 global using Kokuban;
 

@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Threading;
+﻿namespace Beutl.Threading;
 
 internal sealed class QueueSynchronizationContext : SynchronizationContext
 {

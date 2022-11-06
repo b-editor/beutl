@@ -1,6 +1,6 @@
-﻿using BeUtl.Graphics;
+﻿using Beutl.Graphics;
 
-namespace BeUtl.Animation.Animators;
+namespace Beutl.Animation.Animators;
 
 public sealed class SizeAnimator : Animator<Size>
 {

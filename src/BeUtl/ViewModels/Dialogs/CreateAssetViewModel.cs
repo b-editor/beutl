@@ -5,7 +5,7 @@ using Beutl.Api.Objects;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Dialogs;
+namespace Beutl.ViewModels.Dialogs;
 
 public class CreateAssetViewModel
 {

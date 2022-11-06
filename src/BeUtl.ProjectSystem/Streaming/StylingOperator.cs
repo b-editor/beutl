@@ -6,14 +6,14 @@ using System.Text.Json.Nodes;
 
 using Avalonia.Collections.Pooled;
 
-using BeUtl.Animation;
-using BeUtl.Framework;
-using BeUtl.Reactive;
-using BeUtl.Styling;
+using Beutl.Animation;
+using Beutl.Framework;
+using Beutl.Reactive;
+using Beutl.Styling;
 
 using Reactive.Bindings.Extensions;
 
-namespace BeUtl.Streaming;
+namespace Beutl.Streaming;
 
 public interface IStylingSetterPropertyImpl : IAbstractProperty
 {

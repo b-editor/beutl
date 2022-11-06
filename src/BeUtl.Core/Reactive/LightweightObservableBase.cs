@@ -1,6 +1,6 @@
 ﻿using System.Reactive.Disposables;
 
-namespace BeUtl.Reactive;
+namespace Beutl.Reactive;
 
 public abstract class LightweightObservableBase<T> : IObservable<T>
 {

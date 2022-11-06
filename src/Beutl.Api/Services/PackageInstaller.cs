@@ -5,7 +5,7 @@ using System.Text;
 
 using Beutl.Api.Objects;
 
-using BeUtl.Reactive;
+using Beutl.Reactive;
 
 using NuGet.Common;
 using NuGet.Configuration;

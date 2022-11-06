@@ -1,8 +1,8 @@
-﻿using BeUtl.Media;
+﻿using Beutl.Media;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Dialogs;
+namespace Beutl.ViewModels.Dialogs;
 
 public sealed class PickFontFamilyViewModel
 {

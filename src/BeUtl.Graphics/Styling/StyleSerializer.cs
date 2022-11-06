@@ -1,9 +1,9 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 
-using BeUtl.Animation;
+using Beutl.Animation;
 
-namespace BeUtl.Styling;
+namespace Beutl.Styling;
 
 public static class StyleSerializer
 {

@@ -1,10 +1,10 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
-using BeUtl.Media;
-using BeUtl.Utilities;
+using Beutl.Media;
+using Beutl.Utilities;
 
-namespace BeUtl.Animation;
+namespace Beutl.Animation;
 
 // https://github.com/AvaloniaUI/Avalonia/blob/d3b21f589389b8bedfa75ed06d546658745e2089/src/Avalonia.Animation/KeySpline.cs#L20
 public class KeySpline

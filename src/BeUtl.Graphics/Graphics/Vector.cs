@@ -1,11 +1,11 @@
 ﻿using System.Globalization;
 using System.Text.Json.Serialization;
 
-using BeUtl.Converters;
-using BeUtl.Utilities;
-using BeUtl.Validation;
+using Beutl.Converters;
+using Beutl.Utilities;
+using Beutl.Validation;
 
-namespace BeUtl.Graphics;
+namespace Beutl.Graphics;
 
 /// <summary>
 /// Defines a vector.

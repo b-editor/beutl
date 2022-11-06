@@ -1,18 +1,18 @@
 ﻿using System.Collections;
 
-using BeUtl.Animation;
-using BeUtl.Animation.Easings;
-using BeUtl.Commands;
-using BeUtl.Framework;
-using BeUtl.ProjectSystem;
-using BeUtl.Services;
-using BeUtl.Services.Editors.Wrappers;
-using BeUtl.ViewModels.Editors;
+using Beutl.Animation;
+using Beutl.Animation.Easings;
+using Beutl.Commands;
+using Beutl.Framework;
+using Beutl.ProjectSystem;
+using Beutl.Services;
+using Beutl.Services.Editors.Wrappers;
+using Beutl.ViewModels.Editors;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace BeUtl.ViewModels.AnimationEditors;
+namespace Beutl.ViewModels.AnimationEditors;
 
 public sealed class AnimationEditorViewModel : IDisposable
 {

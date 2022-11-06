@@ -1,9 +1,9 @@
 ﻿
-using BeUtl.Configuration;
+using Beutl.Configuration;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.SettingsPages;
+namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class ViewSettingsPageViewModel
 {

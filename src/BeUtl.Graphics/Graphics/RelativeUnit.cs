@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Graphics;
+﻿namespace Beutl.Graphics;
 
 /// <summary>
 /// Defines the reference point units of an <see cref="RelativePoint"/> or 

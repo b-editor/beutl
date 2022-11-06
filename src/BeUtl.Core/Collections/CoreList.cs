@@ -5,7 +5,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace BeUtl.Collections;
+namespace Beutl.Collections;
 
 public readonly ref struct CoreListMarshal<T>
 {

@@ -7,7 +7,7 @@ using NuGet.Versioning;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.ExtensionsPages;
+namespace Beutl.ViewModels.ExtensionsPages;
 
 public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewModel
 {

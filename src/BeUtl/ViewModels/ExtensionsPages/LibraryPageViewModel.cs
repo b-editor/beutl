@@ -6,7 +6,7 @@ using Beutl.Api.Services;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.ExtensionsPages;
+namespace Beutl.ViewModels.ExtensionsPages;
 
 public sealed class LibraryPageViewModel : BasePageViewModel
 {

@@ -1,18 +1,18 @@
-using BeUtl.Framework;
-using BeUtl.Services.Editors;
-using BeUtl.Services.Editors.Wrappers;
+using Beutl.Framework;
+using Beutl.Services.Editors;
+using Beutl.Services.Editors.Wrappers;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 #pragma warning disable IDE0001, IDE0049
 
-namespace BeUtl.ViewModels.Editors
+namespace Beutl.ViewModels.Editors
 {
     // Vector2
-    public sealed class PixelPointEditorViewModel : BaseEditorViewModel<BeUtl.Media.PixelPoint>
+    public sealed class PixelPointEditorViewModel : BaseEditorViewModel<Beutl.Media.PixelPoint>
     {
-        public PixelPointEditorViewModel(IAbstractProperty<BeUtl.Media.PixelPoint> property)
+        public PixelPointEditorViewModel(IAbstractProperty<Beutl.Media.PixelPoint> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -20,11 +20,11 @@ namespace BeUtl.ViewModels.Editors
                 .AddTo(Disposables);
         }
 
-        public ReadOnlyReactivePropertySlim<BeUtl.Media.PixelPoint> Value { get; }
+        public ReadOnlyReactivePropertySlim<Beutl.Media.PixelPoint> Value { get; }
     }
-    public sealed class PixelSizeEditorViewModel : BaseEditorViewModel<BeUtl.Media.PixelSize>
+    public sealed class PixelSizeEditorViewModel : BaseEditorViewModel<Beutl.Media.PixelSize>
     {
-        public PixelSizeEditorViewModel(IAbstractProperty<BeUtl.Media.PixelSize> property)
+        public PixelSizeEditorViewModel(IAbstractProperty<Beutl.Media.PixelSize> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -32,11 +32,11 @@ namespace BeUtl.ViewModels.Editors
                 .AddTo(Disposables);
         }
 
-        public ReadOnlyReactivePropertySlim<BeUtl.Media.PixelSize> Value { get; }
+        public ReadOnlyReactivePropertySlim<Beutl.Media.PixelSize> Value { get; }
     }
-    public sealed class PointEditorViewModel : BaseEditorViewModel<BeUtl.Graphics.Point>
+    public sealed class PointEditorViewModel : BaseEditorViewModel<Beutl.Graphics.Point>
     {
-        public PointEditorViewModel(IAbstractProperty<BeUtl.Graphics.Point> property)
+        public PointEditorViewModel(IAbstractProperty<Beutl.Graphics.Point> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -44,11 +44,11 @@ namespace BeUtl.ViewModels.Editors
                 .AddTo(Disposables);
         }
 
-        public ReadOnlyReactivePropertySlim<BeUtl.Graphics.Point> Value { get; }
+        public ReadOnlyReactivePropertySlim<Beutl.Graphics.Point> Value { get; }
     }
-    public sealed class SizeEditorViewModel : BaseEditorViewModel<BeUtl.Graphics.Size>
+    public sealed class SizeEditorViewModel : BaseEditorViewModel<Beutl.Graphics.Size>
     {
-        public SizeEditorViewModel(IAbstractProperty<BeUtl.Graphics.Size> property)
+        public SizeEditorViewModel(IAbstractProperty<Beutl.Graphics.Size> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -56,11 +56,11 @@ namespace BeUtl.ViewModels.Editors
                 .AddTo(Disposables);
         }
 
-        public ReadOnlyReactivePropertySlim<BeUtl.Graphics.Size> Value { get; }
+        public ReadOnlyReactivePropertySlim<Beutl.Graphics.Size> Value { get; }
     }
-    public sealed class VectorEditorViewModel : BaseEditorViewModel<BeUtl.Graphics.Vector>
+    public sealed class VectorEditorViewModel : BaseEditorViewModel<Beutl.Graphics.Vector>
     {
-        public VectorEditorViewModel(IAbstractProperty<BeUtl.Graphics.Vector> property)
+        public VectorEditorViewModel(IAbstractProperty<Beutl.Graphics.Vector> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -68,11 +68,11 @@ namespace BeUtl.ViewModels.Editors
                 .AddTo(Disposables);
         }
 
-        public ReadOnlyReactivePropertySlim<BeUtl.Graphics.Vector> Value { get; }
+        public ReadOnlyReactivePropertySlim<Beutl.Graphics.Vector> Value { get; }
     }
-    public sealed class RelativePointEditorViewModel : BaseEditorViewModel<BeUtl.Graphics.RelativePoint>
+    public sealed class RelativePointEditorViewModel : BaseEditorViewModel<Beutl.Graphics.RelativePoint>
     {
-        public RelativePointEditorViewModel(IAbstractProperty<BeUtl.Graphics.RelativePoint> property)
+        public RelativePointEditorViewModel(IAbstractProperty<Beutl.Graphics.RelativePoint> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -80,7 +80,7 @@ namespace BeUtl.ViewModels.Editors
                 .AddTo(Disposables);
         }
 
-        public ReadOnlyReactivePropertySlim<BeUtl.Graphics.RelativePoint> Value { get; }
+        public ReadOnlyReactivePropertySlim<Beutl.Graphics.RelativePoint> Value { get; }
     }
     public sealed class Vector2EditorViewModel : BaseEditorViewModel<System.Numerics.Vector2>
     {
@@ -110,9 +110,9 @@ namespace BeUtl.ViewModels.Editors
     }
 
     // Vector4
-    public sealed class PixelRectEditorViewModel : BaseEditorViewModel<BeUtl.Media.PixelRect>
+    public sealed class PixelRectEditorViewModel : BaseEditorViewModel<Beutl.Media.PixelRect>
     {
-        public PixelRectEditorViewModel(IAbstractProperty<BeUtl.Media.PixelRect> property)
+        public PixelRectEditorViewModel(IAbstractProperty<Beutl.Media.PixelRect> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -120,11 +120,11 @@ namespace BeUtl.ViewModels.Editors
                 .AddTo(Disposables);
         }
 
-        public ReadOnlyReactivePropertySlim<BeUtl.Media.PixelRect> Value { get; }
+        public ReadOnlyReactivePropertySlim<Beutl.Media.PixelRect> Value { get; }
     }
-    public sealed class CornerRadiusEditorViewModel : BaseEditorViewModel<BeUtl.Media.CornerRadius>
+    public sealed class CornerRadiusEditorViewModel : BaseEditorViewModel<Beutl.Media.CornerRadius>
     {
-        public CornerRadiusEditorViewModel(IAbstractProperty<BeUtl.Media.CornerRadius> property)
+        public CornerRadiusEditorViewModel(IAbstractProperty<Beutl.Media.CornerRadius> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -132,11 +132,11 @@ namespace BeUtl.ViewModels.Editors
                 .AddTo(Disposables);
         }
 
-        public ReadOnlyReactivePropertySlim<BeUtl.Media.CornerRadius> Value { get; }
+        public ReadOnlyReactivePropertySlim<Beutl.Media.CornerRadius> Value { get; }
     }
-    public sealed class ThicknessEditorViewModel : BaseEditorViewModel<BeUtl.Graphics.Thickness>
+    public sealed class ThicknessEditorViewModel : BaseEditorViewModel<Beutl.Graphics.Thickness>
     {
-        public ThicknessEditorViewModel(IAbstractProperty<BeUtl.Graphics.Thickness> property)
+        public ThicknessEditorViewModel(IAbstractProperty<Beutl.Graphics.Thickness> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -144,11 +144,11 @@ namespace BeUtl.ViewModels.Editors
                 .AddTo(Disposables);
         }
 
-        public ReadOnlyReactivePropertySlim<BeUtl.Graphics.Thickness> Value { get; }
+        public ReadOnlyReactivePropertySlim<Beutl.Graphics.Thickness> Value { get; }
     }
-    public sealed class RectEditorViewModel : BaseEditorViewModel<BeUtl.Graphics.Rect>
+    public sealed class RectEditorViewModel : BaseEditorViewModel<Beutl.Graphics.Rect>
     {
-        public RectEditorViewModel(IAbstractProperty<BeUtl.Graphics.Rect> property)
+        public RectEditorViewModel(IAbstractProperty<Beutl.Graphics.Rect> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -156,7 +156,7 @@ namespace BeUtl.ViewModels.Editors
                 .AddTo(Disposables);
         }
 
-        public ReadOnlyReactivePropertySlim<BeUtl.Graphics.Rect> Value { get; }
+        public ReadOnlyReactivePropertySlim<Beutl.Graphics.Rect> Value { get; }
     }
     public sealed class Vector4EditorViewModel : BaseEditorViewModel<System.Numerics.Vector4>
     {

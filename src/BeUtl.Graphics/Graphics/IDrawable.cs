@@ -1,9 +1,9 @@
-﻿using BeUtl.Graphics.Filters;
-using BeUtl.Graphics.Transformation;
-using BeUtl.Media;
-using BeUtl.Rendering;
+﻿using Beutl.Graphics.Filters;
+using Beutl.Graphics.Transformation;
+using Beutl.Media;
+using Beutl.Rendering;
 
-namespace BeUtl.Graphics;
+namespace Beutl.Graphics;
 
 public interface IDrawable : IRenderable
 {

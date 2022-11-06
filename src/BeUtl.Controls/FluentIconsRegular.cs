@@ -1,4 +1,4 @@
-namespace BeUtl.Controls;
+namespace Beutl.Controls;
 
 public enum FluentIconsRegular
 {

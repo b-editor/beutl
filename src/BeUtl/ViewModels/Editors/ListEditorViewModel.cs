@@ -1,12 +1,12 @@
 ﻿using System.Collections;
 using System.ComponentModel;
 
-using BeUtl.Framework;
+using Beutl.Framework;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace BeUtl.ViewModels.Editors;
+namespace Beutl.ViewModels.Editors;
 
 public sealed class ListEditorViewModel : BaseEditorViewModel
 {

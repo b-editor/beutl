@@ -4,18 +4,18 @@ using Avalonia.Controls.Documents;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
-using BeUtl.Pages.ExtensionsPages;
-using BeUtl.Pages.ExtensionsPages.DevelopPages;
-using BeUtl.Pages.ExtensionsPages.DiscoverPages;
-using BeUtl.ViewModels;
-using BeUtl.ViewModels.ExtensionsPages.DiscoverPages;
-using BeUtl.Views;
+using Beutl.Pages.ExtensionsPages;
+using Beutl.Pages.ExtensionsPages.DevelopPages;
+using Beutl.Pages.ExtensionsPages.DiscoverPages;
+using Beutl.ViewModels;
+using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
+using Beutl.Views;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Navigation;
 
-namespace BeUtl.Pages;
+namespace Beutl.Pages;
 
 public sealed partial class ExtensionsPage : UserControl
 {

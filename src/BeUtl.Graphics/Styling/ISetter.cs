@@ -1,9 +1,9 @@
 ﻿using System.Reactive;
 
-using BeUtl.Animation;
-using BeUtl.Collections;
+using Beutl.Animation;
+using Beutl.Collections;
 
-namespace BeUtl.Styling;
+namespace Beutl.Styling;
 
 public interface ISetter
 {

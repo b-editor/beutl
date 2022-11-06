@@ -1,10 +1,10 @@
 ﻿using System.Numerics;
 
-using BeUtl.Animation.Animators;
-using BeUtl.Graphics;
-using BeUtl.Media;
+using Beutl.Animation.Animators;
+using Beutl.Graphics;
+using Beutl.Media;
 
-namespace BeUtl.Animation;
+namespace Beutl.Animation;
 
 public static class AnimatorRegistry
 {

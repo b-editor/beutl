@@ -3,16 +3,16 @@ using System.Text.Json.Nodes;
 
 using Avalonia;
 
-using BeUtl.Framework;
-using BeUtl.Models;
-using BeUtl.ProjectSystem;
-using BeUtl.Services.PrimitiveImpls;
-using BeUtl.Streaming;
+using Beutl.Framework;
+using Beutl.Models;
+using Beutl.ProjectSystem;
+using Beutl.Services.PrimitiveImpls;
+using Beutl.Streaming;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace BeUtl.ViewModels;
+namespace Beutl.ViewModels;
 
 public interface ITimelineOptionsProvider
 {

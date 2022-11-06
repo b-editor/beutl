@@ -6,14 +6,14 @@ using Avalonia.Threading;
 
 using Beutl.Api.Objects;
 
-using BeUtl.Pages.ExtensionsPages.DiscoverPages;
-using BeUtl.ViewModels.ExtensionsPages;
-using BeUtl.ViewModels.ExtensionsPages.DiscoverPages;
+using Beutl.Pages.ExtensionsPages.DiscoverPages;
+using Beutl.ViewModels.ExtensionsPages;
+using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 
-namespace BeUtl.Pages.ExtensionsPages;
+namespace Beutl.Pages.ExtensionsPages;
 
 public sealed partial class DiscoverPage : UserControl
 {

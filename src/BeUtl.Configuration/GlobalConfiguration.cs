@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
-namespace BeUtl.Configuration;
+namespace Beutl.Configuration;
 
 public sealed class GlobalConfiguration
 {

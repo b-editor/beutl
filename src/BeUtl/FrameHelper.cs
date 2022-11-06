@@ -1,7 +1,7 @@
 ﻿using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 
-namespace BeUtl;
+namespace Beutl;
 
 public static class FrameHelper
 {

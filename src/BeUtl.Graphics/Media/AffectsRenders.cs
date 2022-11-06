@@ -1,9 +1,9 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 
-using BeUtl.Collections;
+using Beutl.Collections;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 public class AffectsRenders<T> : CoreList<T>, IAffectsRender
     where T : IAffectsRender

@@ -10,14 +10,14 @@ using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 
-using BeUtl.Models;
-using BeUtl.ProjectSystem;
-using BeUtl.Streaming;
-using BeUtl.ViewModels;
-using BeUtl.ViewModels.Dialogs;
-using BeUtl.Views.Dialogs;
+using Beutl.Models;
+using Beutl.ProjectSystem;
+using Beutl.Streaming;
+using Beutl.ViewModels;
+using Beutl.ViewModels.Dialogs;
+using Beutl.Views.Dialogs;
 
-namespace BeUtl.Views;
+namespace Beutl.Views;
 
 public sealed partial class Timeline : UserControl
 {

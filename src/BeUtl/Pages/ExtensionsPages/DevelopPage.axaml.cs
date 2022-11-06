@@ -7,16 +7,16 @@ using Avalonia.VisualTree;
 
 using Beutl.Api.Objects;
 
-using BeUtl.Pages.ExtensionsPages.DevelopPages;
-using BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
-using BeUtl.ViewModels.ExtensionsPages;
-using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
-using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
+using Beutl.Pages.ExtensionsPages.DevelopPages;
+using Beutl.Pages.ExtensionsPages.DevelopPages.Dialogs;
+using Beutl.ViewModels.ExtensionsPages;
+using Beutl.ViewModels.ExtensionsPages.DevelopPages;
+using Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 
-namespace BeUtl.Pages.ExtensionsPages;
+namespace Beutl.Pages.ExtensionsPages;
 
 public sealed partial class DevelopPage : UserControl
 {

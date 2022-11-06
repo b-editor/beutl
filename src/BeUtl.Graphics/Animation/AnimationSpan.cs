@@ -1,9 +1,9 @@
 ﻿using System.Text.Json.Nodes;
 
-using BeUtl.Animation.Easings;
-using BeUtl.Styling;
+using Beutl.Animation.Easings;
+using Beutl.Styling;
 
-namespace BeUtl.Animation;
+namespace Beutl.Animation;
 
 public abstract class AnimationSpan : CoreObject
 {

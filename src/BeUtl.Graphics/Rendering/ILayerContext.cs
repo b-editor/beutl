@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Rendering;
+﻿namespace Beutl.Rendering;
 
 // ProjectSystem側のLayerをRendering専用に抽象化
 public interface ILayerContext

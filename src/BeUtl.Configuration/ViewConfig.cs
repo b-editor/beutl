@@ -3,9 +3,9 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-using BeUtl.Collections;
+using Beutl.Collections;
 
-namespace BeUtl.Configuration;
+namespace Beutl.Configuration;
 
 public sealed class ViewConfig : ConfigurationBase
 {

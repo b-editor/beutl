@@ -4,9 +4,9 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 
-using BeUtl.ViewModels.Editors;
+using Beutl.ViewModels.Editors;
 
-namespace BeUtl.Views.Editors;
+namespace Beutl.Views.Editors;
 
 public partial class NumberEditor : UserControl
 {

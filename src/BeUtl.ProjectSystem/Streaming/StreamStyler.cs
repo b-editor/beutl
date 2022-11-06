@@ -1,15 +1,15 @@
 ﻿using System.Reactive.Linq;
 
-using BeUtl.Animation;
-using BeUtl.Animation.Easings;
-using BeUtl.Framework;
-using BeUtl.Reactive;
-using BeUtl.Rendering;
-using BeUtl.Styling;
+using Beutl.Animation;
+using Beutl.Animation.Easings;
+using Beutl.Framework;
+using Beutl.Reactive;
+using Beutl.Rendering;
+using Beutl.Styling;
 
 using Reactive.Bindings.Extensions;
 
-namespace BeUtl.Streaming;
+namespace Beutl.Streaming;
 
 public abstract class StreamStyler : StylingOperator, IStreamSelector
 {

@@ -1,10 +1,10 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 
-using BeUtl.Collections;
-using BeUtl.Media;
+using Beutl.Collections;
+using Beutl.Media;
 
-namespace BeUtl.Graphics.Effects;
+namespace Beutl.Graphics.Effects;
 
 public sealed class BitmapEffects : CoreList<IBitmapEffect>, IAffectsRender
 {

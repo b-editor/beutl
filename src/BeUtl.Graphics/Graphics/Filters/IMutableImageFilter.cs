@@ -1,7 +1,7 @@
-﻿using BeUtl.Animation;
-using BeUtl.Media;
+﻿using Beutl.Animation;
+using Beutl.Media;
 
-namespace BeUtl.Graphics.Filters;
+namespace Beutl.Graphics.Filters;
 
 public interface IMutableImageFilter : IImageFilter, ICoreObject, IAffectsRender, IAnimatable
 {

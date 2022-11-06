@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Graphics.Shapes;
+﻿namespace Beutl.Graphics.Shapes;
 
 public sealed class Rectangle : Drawable
 {

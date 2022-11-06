@@ -1,9 +1,9 @@
 ﻿using System.Text.Json.Nodes;
 
-using BeUtl.Graphics;
-using BeUtl.Styling;
+using Beutl.Graphics;
+using Beutl.Styling;
 
-namespace BeUtl.Media.TextFormatting.Compat;
+namespace Beutl.Media.TextFormatting.Compat;
 
 [Obsolete("Use TextBlock APIs.")]
 public sealed class TextLines : AffectsRenders<TextLine>

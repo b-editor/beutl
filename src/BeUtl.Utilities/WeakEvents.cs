@@ -2,7 +2,7 @@
 using System.ComponentModel;
 using System.Windows.Input;
 
-namespace BeUtl.Utilities;
+namespace Beutl.Utilities;
 
 public class WeakEvents
 {

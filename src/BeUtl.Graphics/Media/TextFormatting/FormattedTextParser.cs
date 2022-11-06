@@ -1,8 +1,8 @@
 ﻿using System.Globalization;
 
-using BeUtl.Graphics;
+using Beutl.Graphics;
 
-namespace BeUtl.Media.TextFormatting;
+namespace Beutl.Media.TextFormatting;
 
 public static class FormattedTextParser
 {

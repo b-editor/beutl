@@ -5,13 +5,13 @@ using Avalonia.LogicalTree;
 
 using Beutl.Api.Objects;
 
-using BeUtl.ViewModels.ExtensionsPages.DiscoverPages;
+using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 using FluentAvalonia.Styling;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 
-namespace BeUtl.Pages.ExtensionsPages.DiscoverPages;
+namespace Beutl.Pages.ExtensionsPages.DiscoverPages;
 
 public partial class UserProfilePage : UserControl
 {

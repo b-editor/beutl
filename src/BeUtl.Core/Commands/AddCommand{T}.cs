@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Commands;
+﻿namespace Beutl.Commands;
 
 internal sealed class AddCommand<T> : IRecordableCommand
 {

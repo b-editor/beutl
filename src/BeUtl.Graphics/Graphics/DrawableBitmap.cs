@@ -1,6 +1,6 @@
-﻿using BeUtl.Media;
+﻿using Beutl.Media;
 
-namespace BeUtl.Graphics;
+namespace Beutl.Graphics;
 
 public sealed class DrawableBitmap : Drawable
 {

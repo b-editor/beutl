@@ -1,10 +1,10 @@
-﻿using BeUtl.Graphics.Transformation;
-using BeUtl.Media;
-using BeUtl.Media.Pixel;
+﻿using Beutl.Graphics.Transformation;
+using Beutl.Media;
+using Beutl.Media.Pixel;
 
 using OpenCvSharp;
 
-namespace BeUtl.Graphics.Effects;
+namespace Beutl.Graphics.Effects;
 
 public class InnerShadow : BitmapEffect
 {

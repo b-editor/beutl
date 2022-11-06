@@ -1,12 +1,12 @@
 ﻿using System.Runtime.InteropServices;
 
-using BeUtl.Media;
-using BeUtl.Media.TextFormatting;
+using Beutl.Media;
+using Beutl.Media.TextFormatting;
 
-using static BeUtl.Media.TextFormatting.FormattedTextParser;
-using static BeUtl.Media.TextFormatting.FormattedTextTokenizer;
+using static Beutl.Media.TextFormatting.FormattedTextParser;
+using static Beutl.Media.TextFormatting.FormattedTextTokenizer;
 
-namespace BeUtl.Graphics.Shapes;
+namespace Beutl.Graphics.Shapes;
 
 public class TextElementsBuilder
 {

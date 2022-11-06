@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-namespace BeUtl;
+namespace Beutl;
 
 public interface ICoreProperty
 {

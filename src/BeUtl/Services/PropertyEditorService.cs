@@ -6,16 +6,16 @@ using Avalonia.Controls;
 
 using Beutl.Api.Services;
 
-using BeUtl.Framework;
-using BeUtl.Graphics;
-using BeUtl.Graphics.Transformation;
-using BeUtl.Media;
-using BeUtl.ViewModels.Editors;
-using BeUtl.Views.Editors;
+using Beutl.Framework;
+using Beutl.Graphics;
+using Beutl.Graphics.Transformation;
+using Beutl.Media;
+using Beutl.ViewModels.Editors;
+using Beutl.Views.Editors;
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace BeUtl.Services;
+namespace Beutl.Services;
 
 public static class PropertyEditorService
 {

@@ -1,6 +1,6 @@
-﻿using BeUtl.Media;
+﻿using Beutl.Media;
 
-namespace BeUtl.Animation.Animators;
+namespace Beutl.Animation.Animators;
 
 public sealed class ColorAnimator : Animator<Color>
 {

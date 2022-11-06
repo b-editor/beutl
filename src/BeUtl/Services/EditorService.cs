@@ -2,14 +2,14 @@
 
 using Beutl.Api.Services;
 
-using BeUtl.Configuration;
-using BeUtl.Framework;
+using Beutl.Configuration;
+using Beutl.Framework;
 
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
-namespace BeUtl.Services;
+namespace Beutl.Services;
 
 public enum TabOpenMode
 {

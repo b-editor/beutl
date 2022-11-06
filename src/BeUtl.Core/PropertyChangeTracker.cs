@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 
-namespace BeUtl;
+namespace Beutl;
 
 public sealed class PropertyChangeTracker : IDisposable
 {

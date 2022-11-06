@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
 
-namespace BeUtl;
+namespace Beutl;
 
 public enum CommandType
 {

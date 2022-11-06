@@ -2,9 +2,9 @@
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 
-using BeUtl.ViewModels.SettingsPages;
+using Beutl.ViewModels.SettingsPages;
 
-namespace BeUtl.Pages.SettingsPages;
+namespace Beutl.Pages.SettingsPages;
 
 public sealed partial class FontSettingsPage : UserControl
 {

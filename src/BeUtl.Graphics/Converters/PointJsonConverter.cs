@@ -1,9 +1,9 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
-using BeUtl.Graphics;
+using Beutl.Graphics;
 
-namespace BeUtl.Converters;
+namespace Beutl.Converters;
 
 internal sealed class PointJsonConverter : JsonConverter<Point>
 {

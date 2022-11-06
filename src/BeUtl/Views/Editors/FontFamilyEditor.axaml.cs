@@ -1,12 +1,12 @@
 ﻿using Avalonia.Controls;
 
-using BeUtl.ViewModels.Dialogs;
-using BeUtl.ViewModels.Editors;
-using BeUtl.Views.Dialogs;
+using Beutl.ViewModels.Dialogs;
+using Beutl.ViewModels.Editors;
+using Beutl.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
-namespace BeUtl.Views.Editors;
+namespace Beutl.Views.Editors;
 
 public sealed partial class FontFamilyEditor : UserControl
 {

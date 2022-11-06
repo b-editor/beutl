@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Utilities;
+﻿namespace Beutl.Utilities;
 
 public static class MathUtilities
 {

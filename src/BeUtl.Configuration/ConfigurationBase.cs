@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Configuration;
+﻿namespace Beutl.Configuration;
 
 public abstract class ConfigurationBase : CoreObject
 {

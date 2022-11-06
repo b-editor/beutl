@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace BeUtl.Animation.Animators;
+namespace Beutl.Animation.Animators;
 
 public sealed class Matrix3x2Animator : Animator<Matrix3x2>
 {

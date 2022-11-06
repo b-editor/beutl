@@ -1,9 +1,9 @@
 ﻿using System.Reflection;
 
-using BeUtl.Configuration;
-using BeUtl.Media;
+using Beutl.Configuration;
+using Beutl.Media;
 
-namespace BeUtl.Graphics.UnitTests;
+namespace Beutl.Graphics.UnitTests;
 
 public static class TypefaceProvider
 {

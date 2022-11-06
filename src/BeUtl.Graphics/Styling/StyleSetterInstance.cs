@@ -1,6 +1,6 @@
-﻿using BeUtl.Animation;
+﻿using Beutl.Animation;
 
-namespace BeUtl.Styling;
+namespace Beutl.Styling;
 #pragma warning disable CA1816
 
 public class StyleSetterInstance<T> : ISetterInstance

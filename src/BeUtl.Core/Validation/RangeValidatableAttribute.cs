@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Validation;
+﻿namespace Beutl.Validation;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false, AllowMultiple = false)]
 public sealed class RangeValidatableAttribute : Attribute

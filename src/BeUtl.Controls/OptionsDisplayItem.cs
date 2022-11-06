@@ -12,7 +12,7 @@ using Avalonia.Styling;
 
 using FluentAvalonia.UI.Controls;
 
-namespace BeUtl.Controls;
+namespace Beutl.Controls;
 
 // https://github.com/amwx/FluentAvalonia/blob/master/FluentAvaloniaSamples/Controls/OptionsDisplayItem.cs
 public class OptionsDisplayItem : TemplatedControl

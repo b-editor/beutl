@@ -1,8 +1,8 @@
 ﻿using System.Collections;
 
-using BeUtl.Commands;
+using Beutl.Commands;
 
-namespace BeUtl;
+namespace Beutl;
 
 public static class CollectionBatchExtension
 {

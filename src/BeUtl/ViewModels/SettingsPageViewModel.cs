@@ -1,8 +1,8 @@
 ﻿using Beutl.Api;
 
-using BeUtl.ViewModels.SettingsPages;
+using Beutl.ViewModels.SettingsPages;
 
-namespace BeUtl.ViewModels;
+namespace Beutl.ViewModels;
 
 public sealed class SettingsPageViewModel
 {

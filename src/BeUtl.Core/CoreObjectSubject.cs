@@ -1,8 +1,8 @@
 ﻿using System.ComponentModel;
 
-using BeUtl.Reactive;
+using Beutl.Reactive;
 
-namespace BeUtl;
+namespace Beutl;
 
 internal sealed class CoreObjectSubject<T> : LightweightObservableBase<T>
 {

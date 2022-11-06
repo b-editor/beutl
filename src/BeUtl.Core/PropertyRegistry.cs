@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 
-namespace BeUtl;
+namespace Beutl;
 
 public static class PropertyRegistry
 {

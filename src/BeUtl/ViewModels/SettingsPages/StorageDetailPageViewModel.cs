@@ -8,13 +8,13 @@ using Avalonia.Collections;
 
 using Beutl.Api.Objects;
 
-using BeUtl.Controls.Navigation;
-using BeUtl.Utilities;
-using BeUtl.ViewModels.Dialogs;
+using Beutl.Controls.Navigation;
+using Beutl.Utilities;
+using Beutl.ViewModels.Dialogs;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.SettingsPages;
+namespace Beutl.ViewModels.SettingsPages;
 
 public class StorageDetailPageViewModel : PageContext
 {

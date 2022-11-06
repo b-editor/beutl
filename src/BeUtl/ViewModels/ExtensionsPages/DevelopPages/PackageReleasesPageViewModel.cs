@@ -1,10 +1,10 @@
 ﻿using Beutl.Api.Objects;
 
-using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
+using Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
+namespace Beutl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class PackageReleasesPageViewModel : BasePageViewModel
 {

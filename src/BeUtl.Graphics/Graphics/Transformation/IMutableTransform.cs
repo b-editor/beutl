@@ -1,7 +1,7 @@
-﻿using BeUtl.Animation;
-using BeUtl.Media;
+﻿using Beutl.Animation;
+using Beutl.Media;
 
-namespace BeUtl.Graphics.Transformation;
+namespace Beutl.Graphics.Transformation;
 
 public interface IMutableTransform : ICoreObject, ITransform, IAffectsRender, IAnimatable
 {

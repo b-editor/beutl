@@ -1,9 +1,9 @@
-﻿using BeUtl.Animation;
-using BeUtl.Framework;
-using BeUtl.ProjectSystem;
-using BeUtl.Rendering;
+﻿using Beutl.Animation;
+using Beutl.Framework;
+using Beutl.ProjectSystem;
+using Beutl.Rendering;
 
-namespace BeUtl.Services.PrimitiveImpls;
+namespace Beutl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
 public sealed class DefaultPropertyNameExtension : LocalizedPropertyNameExtension

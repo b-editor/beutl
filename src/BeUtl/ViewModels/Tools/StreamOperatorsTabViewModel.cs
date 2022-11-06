@@ -1,17 +1,17 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 
-using BeUtl.Collections;
-using BeUtl.Framework;
-using BeUtl.Models;
-using BeUtl.ProjectSystem;
-using BeUtl.Services.PrimitiveImpls;
-using BeUtl.Streaming;
+using Beutl.Collections;
+using Beutl.Framework;
+using Beutl.Models;
+using Beutl.ProjectSystem;
+using Beutl.Services.PrimitiveImpls;
+using Beutl.Streaming;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace BeUtl.ViewModels.Tools;
+namespace Beutl.ViewModels.Tools;
 
 public sealed class StreamOperatorsTabViewModel : IToolContext
 {

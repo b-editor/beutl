@@ -2,11 +2,11 @@
 using Avalonia.Data;
 using Avalonia.Interactivity;
 
-using BeUtl.ViewModels.SettingsPages;
+using Beutl.ViewModels.SettingsPages;
 
 using FluentAvalonia.UI.Controls;
 
-namespace BeUtl.Pages.SettingsPages;
+namespace Beutl.Pages.SettingsPages;
 
 public sealed partial class ExtensionsSettingsPage : UserControl
 {

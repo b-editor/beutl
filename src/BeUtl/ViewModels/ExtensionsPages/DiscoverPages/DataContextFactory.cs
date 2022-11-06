@@ -8,7 +8,7 @@ using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 
-namespace BeUtl.ViewModels.ExtensionsPages.DiscoverPages;
+namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 public class DataContextFactory
 {
     private readonly DiscoverService _discoverService;

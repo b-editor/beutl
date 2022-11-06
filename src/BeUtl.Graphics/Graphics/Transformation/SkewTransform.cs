@@ -1,6 +1,6 @@
-﻿using BeUtl.Utilities;
+﻿using Beutl.Utilities;
 
-namespace BeUtl.Graphics.Transformation;
+namespace Beutl.Graphics.Transformation;
 
 public sealed class SkewTransform : Transform
 {

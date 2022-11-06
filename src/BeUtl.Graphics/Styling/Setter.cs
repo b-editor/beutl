@@ -1,11 +1,11 @@
 ﻿using System.Reactive;
 using System.Reactive.Linq;
 
-using BeUtl.Animation;
-using BeUtl.Media;
-using BeUtl.Reactive;
+using Beutl.Animation;
+using Beutl.Media;
+using Beutl.Reactive;
 
-namespace BeUtl.Styling;
+namespace Beutl.Styling;
 
 public class Setter<T> : LightweightObservableBase<T?>, ISetter
 {

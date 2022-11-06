@@ -2,7 +2,7 @@
 
 using Reactive.Bindings;
 
-namespace BeUtl;
+namespace Beutl;
 
 public static class ReactivePropertyExtensions
 {

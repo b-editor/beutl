@@ -11,7 +11,7 @@ using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 using Microsoft.Extensions.FileSystemGlobbing.Internal;
 using Microsoft.Extensions.FileSystemGlobbing.Internal.Patterns;
 
-namespace BeUtl.Controls;
+namespace Beutl.Controls;
 
 [TemplatePart("PART_Button", typeof(Button))]
 [TemplatePart("PART_SelectedFileDisplay", typeof(TextBlock))]

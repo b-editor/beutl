@@ -1,6 +1,6 @@
-﻿using BeUtl.Styling;
+﻿using Beutl.Styling;
 
-namespace BeUtl;
+namespace Beutl;
 
 internal struct LogicalElementImpl : ILogicalElement
 {

@@ -8,14 +8,14 @@ using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 
-using BeUtl.Configuration;
-using BeUtl.Framework;
-using BeUtl.Framework.Service;
-using BeUtl.Framework.Services;
-using BeUtl.ProjectSystem;
-using BeUtl.Services;
-using BeUtl.Services.PrimitiveImpls;
-using BeUtl.ViewModels.ExtensionsPages;
+using Beutl.Configuration;
+using Beutl.Framework;
+using Beutl.Framework.Service;
+using Beutl.Framework.Services;
+using Beutl.ProjectSystem;
+using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
+using Beutl.ViewModels.ExtensionsPages;
 
 using DynamicData;
 
@@ -25,7 +25,7 @@ using NuGet.Packaging.Core;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels;
+namespace Beutl.ViewModels;
 
 public sealed class MainViewModel : BasePageViewModel
 {

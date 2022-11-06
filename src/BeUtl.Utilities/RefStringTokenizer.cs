@@ -1,6 +1,6 @@
 ﻿using System.Globalization;
 
-namespace BeUtl.Utilities;
+namespace Beutl.Utilities;
 
 public ref struct RefStringTokenizer
 {

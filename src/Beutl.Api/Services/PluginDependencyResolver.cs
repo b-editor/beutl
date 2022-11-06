@@ -1,7 +1,7 @@
 ﻿using System.Reflection;
 using System.Runtime.Loader;
 
-using BeUtl;
+using Beutl;
 
 using NuGet.Common;
 using NuGet.Frameworks;

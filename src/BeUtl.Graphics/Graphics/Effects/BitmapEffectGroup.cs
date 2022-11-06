@@ -1,8 +1,8 @@
 ﻿using System.Text.Json.Nodes;
 
-using BeUtl.Animation;
+using Beutl.Animation;
 
-namespace BeUtl.Graphics.Effects;
+namespace Beutl.Graphics.Effects;
 
 public sealed class BitmapEffectGroup : BitmapEffect
 {

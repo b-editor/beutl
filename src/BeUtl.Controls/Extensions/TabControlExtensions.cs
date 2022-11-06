@@ -1,7 +1,7 @@
 ﻿using System.Collections;
 using Avalonia.Controls;
 
-namespace BeUtl.Controls.Extensions;
+namespace Beutl.Controls.Extensions;
 
 public static class TabControlExtensions
 {

@@ -1,8 +1,8 @@
 ﻿using System.Text.Json.Serialization;
 
-using BeUtl.Validation;
+using Beutl.Validation;
 
-namespace BeUtl;
+namespace Beutl;
 
 public class CorePropertyMetadata<T> : CorePropertyMetadata
 {

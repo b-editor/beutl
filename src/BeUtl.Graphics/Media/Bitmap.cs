@@ -1,13 +1,13 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-using BeUtl.Graphics;
-using BeUtl.Graphics.Operations;
-using BeUtl.Media.Pixel;
+using Beutl.Graphics;
+using Beutl.Graphics.Operations;
+using Beutl.Media.Pixel;
 
 using SkiaSharp;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 public readonly struct BitmapInfo
 {

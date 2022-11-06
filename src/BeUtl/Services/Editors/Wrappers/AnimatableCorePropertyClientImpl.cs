@@ -1,11 +1,11 @@
-﻿using BeUtl.Animation;
-using BeUtl.Animation.Easings;
-using BeUtl.Framework;
-using BeUtl.Reactive;
+﻿using Beutl.Animation;
+using Beutl.Animation.Easings;
+using Beutl.Framework;
+using Beutl.Reactive;
 
 using Reactive.Bindings.Extensions;
 
-namespace BeUtl.Services.Editors.Wrappers;
+namespace Beutl.Services.Editors.Wrappers;
 
 public sealed class AnimatableCorePropertyClientImpl<T> : CorePropertyClientImpl<T>, IAbstractAnimatableProperty<T>
 {

@@ -1,6 +1,6 @@
-﻿using BeUtl.Graphics;
+﻿using Beutl.Graphics;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 /// <summary>
 /// Base class for brushes which display repeating images.

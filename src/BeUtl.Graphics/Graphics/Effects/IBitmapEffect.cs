@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Graphics.Effects;
+﻿namespace Beutl.Graphics.Effects;
 
 public interface IBitmapEffect
 {

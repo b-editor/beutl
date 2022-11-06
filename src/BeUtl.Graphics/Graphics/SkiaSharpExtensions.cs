@@ -1,9 +1,9 @@
 ﻿
-using BeUtl.Media;
+using Beutl.Media;
 
 using SkiaSharp;
 
-namespace BeUtl.Graphics;
+namespace Beutl.Graphics;
 
 internal static class SkiaSharpExtensions
 {

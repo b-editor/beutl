@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Utilities;
+﻿namespace Beutl.Utilities;
 
 public interface IWeakEventSubscriber<in TEventArgs> where TEventArgs : EventArgs
 {

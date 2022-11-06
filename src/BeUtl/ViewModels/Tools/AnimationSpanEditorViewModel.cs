@@ -1,16 +1,16 @@
 ﻿using System.Collections;
 using System.Text.Json.Nodes;
 
-using BeUtl.Animation;
-using BeUtl.Animation.Easings;
-using BeUtl.Commands;
-using BeUtl.Framework;
-using BeUtl.Services.Editors.Wrappers;
-using BeUtl.ViewModels.Editors;
+using Beutl.Animation;
+using Beutl.Animation.Easings;
+using Beutl.Commands;
+using Beutl.Framework;
+using Beutl.Services.Editors.Wrappers;
+using Beutl.ViewModels.Editors;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Tools;
+namespace Beutl.ViewModels.Tools;
 
 public sealed class AnimationSpanEditorViewModel : IDisposable
 {

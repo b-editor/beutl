@@ -1,6 +1,6 @@
 ﻿using System.Globalization;
 
-namespace BeUtl.Language;
+namespace Beutl.Language;
 
 public sealed class LocalizeService
 {

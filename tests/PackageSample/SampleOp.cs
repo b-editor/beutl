@@ -1,5 +1,5 @@
-﻿using BeUtl.ProjectSystem;
-using BeUtl.Streaming;
+﻿using Beutl.ProjectSystem;
+using Beutl.Streaming;
 
 namespace PackageSample;
 

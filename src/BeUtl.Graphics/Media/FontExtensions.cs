@@ -1,8 +1,8 @@
-﻿using BeUtl.Graphics;
+﻿using Beutl.Graphics;
 
 using SkiaSharp;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 internal static class FontExtensions
 {

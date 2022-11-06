@@ -1,6 +1,6 @@
-﻿using BeUtl.Framework;
+﻿using Beutl.Framework;
 
-namespace BeUtl.Operators.Configure;
+namespace Beutl.Operators.Configure;
 
 public class CorePropertyImpl<T> : IAbstractProperty<T>
 {

@@ -1,6 +1,6 @@
-﻿using BeUtl.Graphics.Effects.OpenCv;
+﻿using Beutl.Graphics.Effects.OpenCv;
 
-namespace BeUtl.Operators.Configure.BitmapEffect;
+namespace Beutl.Operators.Configure.BitmapEffect;
 
 public sealed class BlurOperator : BitmapEffectOperator<Blur>
 {

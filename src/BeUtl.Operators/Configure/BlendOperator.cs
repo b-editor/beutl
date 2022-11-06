@@ -1,8 +1,8 @@
-﻿using BeUtl.Graphics;
-using BeUtl.Streaming;
-using BeUtl.Styling;
+﻿using Beutl.Graphics;
+using Beutl.Streaming;
+using Beutl.Styling;
 
-namespace BeUtl.Operators.Configure;
+namespace Beutl.Operators.Configure;
 
 public sealed class BlendOperator : StreamStyler
 {

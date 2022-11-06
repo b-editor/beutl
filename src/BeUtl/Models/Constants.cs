@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Models;
+﻿namespace Beutl.Models;
 
 public static class Constants
 {

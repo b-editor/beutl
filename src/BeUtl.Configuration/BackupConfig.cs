@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 
-namespace BeUtl.Configuration;
+namespace Beutl.Configuration;
 
 public sealed class BackupConfig : ConfigurationBase
 {

@@ -1,10 +1,10 @@
 ﻿using System.Diagnostics;
 
-using BeUtl.Graphics;
+using Beutl.Graphics;
 
 using SkiaSharp;
 
-namespace BeUtl.Media.TextFormatting;
+namespace Beutl.Media.TextFormatting;
 
 [DebuggerDisplay("{Text}")]
 public struct FormattedText : IEquatable<FormattedText>

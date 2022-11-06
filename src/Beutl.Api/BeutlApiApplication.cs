@@ -9,8 +9,8 @@ using System.Text.Json.Nodes;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 
-using BeUtl;
-using BeUtl.Configuration;
+using Beutl;
+using Beutl.Configuration;
 
 using Reactive.Bindings;
 

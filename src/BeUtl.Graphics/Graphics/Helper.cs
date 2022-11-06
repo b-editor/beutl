@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 
-namespace BeUtl.Graphics;
+namespace Beutl.Graphics;
 
 internal class Helper
 {

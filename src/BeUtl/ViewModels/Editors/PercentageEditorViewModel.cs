@@ -1,8 +1,8 @@
-﻿using BeUtl.Framework;
+﻿using Beutl.Framework;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Editors;
+namespace Beutl.ViewModels.Editors;
 
 public sealed class PercentageEditorViewModel : BaseEditorViewModel<float>
 {

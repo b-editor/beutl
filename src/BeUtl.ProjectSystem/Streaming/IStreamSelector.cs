@@ -1,7 +1,7 @@
-﻿using BeUtl.Animation;
-using BeUtl.Rendering;
+﻿using Beutl.Animation;
+using Beutl.Rendering;
 
-namespace BeUtl.Streaming;
+namespace Beutl.Streaming;
 
 // 流れてくる値を変換
 public interface IStreamSelector : IStreamOperator

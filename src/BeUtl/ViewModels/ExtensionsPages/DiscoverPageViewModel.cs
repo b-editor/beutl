@@ -2,11 +2,11 @@
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 
-using BeUtl.ViewModels.ExtensionsPages.DiscoverPages;
+using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.ExtensionsPages;
+namespace Beutl.ViewModels.ExtensionsPages;
 
 public sealed class DiscoverPageViewModel : BasePageViewModel
 {

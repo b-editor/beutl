@@ -3,10 +3,10 @@ using Avalonia.Interactivity;
 using Avalonia.Styling;
 
 using Beutl.Api.Objects;
-using BeUtl.ViewModels.Dialogs;
+using Beutl.ViewModels.Dialogs;
 using FluentAvalonia.UI.Controls;
 
-namespace BeUtl.Views.Dialogs;
+namespace Beutl.Views.Dialogs;
 
 public partial class SelectImageAsset : ContentDialog, IStyleable
 {

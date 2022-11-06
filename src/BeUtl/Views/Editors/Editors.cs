@@ -3,14 +3,14 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 
-using BeUtl.ViewModels.Editors;
+using Beutl.ViewModels.Editors;
 
 #pragma warning disable IDE0001, IDE0049
 
-namespace BeUtl.Views.Editors
+namespace Beutl.Views.Editors
 {
     // Vector2
-    public sealed class PixelPointEditor : BaseVector2Editor<BeUtl.Media.PixelPoint>
+    public sealed class PixelPointEditor : BaseVector2Editor<Beutl.Media.PixelPoint>
     {
         private static readonly IBinding s_xResource = S.Editors.PixelPoint.XObservable.ToBinding();
         private static readonly IBinding s_yResource = S.Editors.PixelPoint.YObservable.ToBinding();
@@ -26,25 +26,25 @@ namespace BeUtl.Views.Editors
             yTextBox[!TextBox.TextProperty] = s_y;
         }
 
-        protected override BeUtl.Media.PixelPoint IncrementX(BeUtl.Media.PixelPoint value, int increment)
+        protected override Beutl.Media.PixelPoint IncrementX(Beutl.Media.PixelPoint value, int increment)
         {
-            return new BeUtl.Media.PixelPoint(
+            return new Beutl.Media.PixelPoint(
                 value.X + increment,
                 value.Y);
         }
 
-        protected override BeUtl.Media.PixelPoint IncrementY(BeUtl.Media.PixelPoint value, int increment)
+        protected override Beutl.Media.PixelPoint IncrementY(Beutl.Media.PixelPoint value, int increment)
         {
-            return new BeUtl.Media.PixelPoint(
+            return new Beutl.Media.PixelPoint(
                 value.X,
                 value.Y + increment);
         }
 
-        protected override bool TryParse(string? x, string? y, out BeUtl.Media.PixelPoint value)
+        protected override bool TryParse(string? x, string? y, out Beutl.Media.PixelPoint value)
         {
             if (System.Int32.TryParse(x, out System.Int32 xi) && System.Int32.TryParse(y, out System.Int32 yi))
             {
-                value = new BeUtl.Media.PixelPoint(xi, yi);
+                value = new Beutl.Media.PixelPoint(xi, yi);
                 return true;
             }
             else
@@ -54,7 +54,7 @@ namespace BeUtl.Views.Editors
             }
         }
     }
-    public sealed class PixelSizeEditor : BaseVector2Editor<BeUtl.Media.PixelSize>
+    public sealed class PixelSizeEditor : BaseVector2Editor<Beutl.Media.PixelSize>
     {
         private static readonly IBinding s_xResource = S.Editors.PixelSize.XObservable.ToBinding();
         private static readonly IBinding s_yResource = S.Editors.PixelSize.YObservable.ToBinding();
@@ -70,25 +70,25 @@ namespace BeUtl.Views.Editors
             yTextBox[!TextBox.TextProperty] = s_y;
         }
 
-        protected override BeUtl.Media.PixelSize IncrementX(BeUtl.Media.PixelSize value, int increment)
+        protected override Beutl.Media.PixelSize IncrementX(Beutl.Media.PixelSize value, int increment)
         {
-            return new BeUtl.Media.PixelSize(
+            return new Beutl.Media.PixelSize(
                 value.Width + increment,
                 value.Height);
         }
 
-        protected override BeUtl.Media.PixelSize IncrementY(BeUtl.Media.PixelSize value, int increment)
+        protected override Beutl.Media.PixelSize IncrementY(Beutl.Media.PixelSize value, int increment)
         {
-            return new BeUtl.Media.PixelSize(
+            return new Beutl.Media.PixelSize(
                 value.Width,
                 value.Height + increment);
         }
 
-        protected override bool TryParse(string? x, string? y, out BeUtl.Media.PixelSize value)
+        protected override bool TryParse(string? x, string? y, out Beutl.Media.PixelSize value)
         {
             if (System.Int32.TryParse(x, out System.Int32 xi) && System.Int32.TryParse(y, out System.Int32 yi))
             {
-                value = new BeUtl.Media.PixelSize(xi, yi);
+                value = new Beutl.Media.PixelSize(xi, yi);
                 return true;
             }
             else
@@ -98,7 +98,7 @@ namespace BeUtl.Views.Editors
             }
         }
     }
-    public sealed class PointEditor : BaseVector2Editor<BeUtl.Graphics.Point>
+    public sealed class PointEditor : BaseVector2Editor<Beutl.Graphics.Point>
     {
         private static readonly IBinding s_xResource = S.Editors.Point.XObservable.ToBinding();
         private static readonly IBinding s_yResource = S.Editors.Point.YObservable.ToBinding();
@@ -114,25 +114,25 @@ namespace BeUtl.Views.Editors
             yTextBox[!TextBox.TextProperty] = s_y;
         }
 
-        protected override BeUtl.Graphics.Point IncrementX(BeUtl.Graphics.Point value, int increment)
+        protected override Beutl.Graphics.Point IncrementX(Beutl.Graphics.Point value, int increment)
         {
-            return new BeUtl.Graphics.Point(
+            return new Beutl.Graphics.Point(
                 value.X + increment,
                 value.Y);
         }
 
-        protected override BeUtl.Graphics.Point IncrementY(BeUtl.Graphics.Point value, int increment)
+        protected override Beutl.Graphics.Point IncrementY(Beutl.Graphics.Point value, int increment)
         {
-            return new BeUtl.Graphics.Point(
+            return new Beutl.Graphics.Point(
                 value.X,
                 value.Y + increment);
         }
 
-        protected override bool TryParse(string? x, string? y, out BeUtl.Graphics.Point value)
+        protected override bool TryParse(string? x, string? y, out Beutl.Graphics.Point value)
         {
             if (System.Single.TryParse(x, out System.Single xi) && System.Single.TryParse(y, out System.Single yi))
             {
-                value = new BeUtl.Graphics.Point(xi, yi);
+                value = new Beutl.Graphics.Point(xi, yi);
                 return true;
             }
             else
@@ -142,7 +142,7 @@ namespace BeUtl.Views.Editors
             }
         }
     }
-    public sealed class SizeEditor : BaseVector2Editor<BeUtl.Graphics.Size>
+    public sealed class SizeEditor : BaseVector2Editor<Beutl.Graphics.Size>
     {
         private static readonly IBinding s_xResource = S.Editors.Size.XObservable.ToBinding();
         private static readonly IBinding s_yResource = S.Editors.Size.YObservable.ToBinding();
@@ -158,25 +158,25 @@ namespace BeUtl.Views.Editors
             yTextBox[!TextBox.TextProperty] = s_y;
         }
 
-        protected override BeUtl.Graphics.Size IncrementX(BeUtl.Graphics.Size value, int increment)
+        protected override Beutl.Graphics.Size IncrementX(Beutl.Graphics.Size value, int increment)
         {
-            return new BeUtl.Graphics.Size(
+            return new Beutl.Graphics.Size(
                 value.Width + increment,
                 value.Height);
         }
 
-        protected override BeUtl.Graphics.Size IncrementY(BeUtl.Graphics.Size value, int increment)
+        protected override Beutl.Graphics.Size IncrementY(Beutl.Graphics.Size value, int increment)
         {
-            return new BeUtl.Graphics.Size(
+            return new Beutl.Graphics.Size(
                 value.Width,
                 value.Height + increment);
         }
 
-        protected override bool TryParse(string? x, string? y, out BeUtl.Graphics.Size value)
+        protected override bool TryParse(string? x, string? y, out Beutl.Graphics.Size value)
         {
             if (System.Single.TryParse(x, out System.Single xi) && System.Single.TryParse(y, out System.Single yi))
             {
-                value = new BeUtl.Graphics.Size(xi, yi);
+                value = new Beutl.Graphics.Size(xi, yi);
                 return true;
             }
             else
@@ -186,7 +186,7 @@ namespace BeUtl.Views.Editors
             }
         }
     }
-    public sealed class VectorEditor : BaseVector2Editor<BeUtl.Graphics.Vector>
+    public sealed class VectorEditor : BaseVector2Editor<Beutl.Graphics.Vector>
     {
         private static readonly IBinding s_xResource = S.Editors.Vector.XObservable.ToBinding();
         private static readonly IBinding s_yResource = S.Editors.Vector.YObservable.ToBinding();
@@ -202,25 +202,25 @@ namespace BeUtl.Views.Editors
             yTextBox[!TextBox.TextProperty] = s_y;
         }
 
-        protected override BeUtl.Graphics.Vector IncrementX(BeUtl.Graphics.Vector value, int increment)
+        protected override Beutl.Graphics.Vector IncrementX(Beutl.Graphics.Vector value, int increment)
         {
-            return new BeUtl.Graphics.Vector(
+            return new Beutl.Graphics.Vector(
                 value.X + increment,
                 value.Y);
         }
 
-        protected override BeUtl.Graphics.Vector IncrementY(BeUtl.Graphics.Vector value, int increment)
+        protected override Beutl.Graphics.Vector IncrementY(Beutl.Graphics.Vector value, int increment)
         {
-            return new BeUtl.Graphics.Vector(
+            return new Beutl.Graphics.Vector(
                 value.X,
                 value.Y + increment);
         }
 
-        protected override bool TryParse(string? x, string? y, out BeUtl.Graphics.Vector value)
+        protected override bool TryParse(string? x, string? y, out Beutl.Graphics.Vector value)
         {
             if (System.Single.TryParse(x, out System.Single xi) && System.Single.TryParse(y, out System.Single yi))
             {
-                value = new BeUtl.Graphics.Vector(xi, yi);
+                value = new Beutl.Graphics.Vector(xi, yi);
                 return true;
             }
             else
@@ -338,7 +338,7 @@ namespace BeUtl.Views.Editors
     }
 
     // Vector4
-    public sealed class PixelRectEditor : BaseVector4Editor<BeUtl.Media.PixelRect>
+    public sealed class PixelRectEditor : BaseVector4Editor<Beutl.Media.PixelRect>
     {
         private static readonly IBinding s_xResource = S.Editors.PixelRect.XObservable.ToBinding();
         private static readonly IBinding s_yResource = S.Editors.PixelRect.YObservable.ToBinding();
@@ -362,50 +362,50 @@ namespace BeUtl.Views.Editors
             wTextBox[!TextBox.TextProperty] = s_w;
         }
 
-        protected override BeUtl.Media.PixelRect IncrementX(BeUtl.Media.PixelRect value, int increment)
+        protected override Beutl.Media.PixelRect IncrementX(Beutl.Media.PixelRect value, int increment)
         {
-            return new BeUtl.Media.PixelRect(
+            return new Beutl.Media.PixelRect(
                 value.X + increment,
                 value.Y,
                 value.Width,
                 value.Height);
         }
 
-        protected override BeUtl.Media.PixelRect IncrementY(BeUtl.Media.PixelRect value, int increment)
+        protected override Beutl.Media.PixelRect IncrementY(Beutl.Media.PixelRect value, int increment)
         {
-            return new BeUtl.Media.PixelRect(
+            return new Beutl.Media.PixelRect(
                 value.X,
                 value.Y + increment,
                 value.Width,
                 value.Height);
         }
 
-        protected override BeUtl.Media.PixelRect IncrementZ(BeUtl.Media.PixelRect value, int increment)
+        protected override Beutl.Media.PixelRect IncrementZ(Beutl.Media.PixelRect value, int increment)
         {
-            return new BeUtl.Media.PixelRect(
+            return new Beutl.Media.PixelRect(
                 value.X,
                 value.Y,
                 value.Width + increment,
                 value.Height);
         }
 
-        protected override BeUtl.Media.PixelRect IncrementW(BeUtl.Media.PixelRect value, int increment)
+        protected override Beutl.Media.PixelRect IncrementW(Beutl.Media.PixelRect value, int increment)
         {
-            return new BeUtl.Media.PixelRect(
+            return new Beutl.Media.PixelRect(
                 value.X,
                 value.Y,
                 value.Width,
                 value.Height + increment);
         }
 
-        protected override bool TryParse(string? x, string? y, string? z, string? w, out BeUtl.Media.PixelRect value)
+        protected override bool TryParse(string? x, string? y, string? z, string? w, out Beutl.Media.PixelRect value)
         {
             if (System.Int32.TryParse(x, out System.Int32 xi)
                 && System.Int32.TryParse(y, out System.Int32 yi)
                 && System.Int32.TryParse(z, out System.Int32 zi)
                 && System.Int32.TryParse(w, out System.Int32 wi))
             {
-                value = new BeUtl.Media.PixelRect(xi, yi, zi, wi);
+                value = new Beutl.Media.PixelRect(xi, yi, zi, wi);
                 return true;
             }
             else
@@ -415,7 +415,7 @@ namespace BeUtl.Views.Editors
             }
         }
     }
-    public sealed class RectEditor : BaseVector4Editor<BeUtl.Graphics.Rect>
+    public sealed class RectEditor : BaseVector4Editor<Beutl.Graphics.Rect>
     {
         private static readonly IBinding s_xResource = S.Editors.Rect.XObservable.ToBinding();
         private static readonly IBinding s_yResource = S.Editors.Rect.YObservable.ToBinding();
@@ -439,50 +439,50 @@ namespace BeUtl.Views.Editors
             wTextBox[!TextBox.TextProperty] = s_w;
         }
 
-        protected override BeUtl.Graphics.Rect IncrementX(BeUtl.Graphics.Rect value, int increment)
+        protected override Beutl.Graphics.Rect IncrementX(Beutl.Graphics.Rect value, int increment)
         {
-            return new BeUtl.Graphics.Rect(
+            return new Beutl.Graphics.Rect(
                 value.X + increment,
                 value.Y,
                 value.Width,
                 value.Height);
         }
 
-        protected override BeUtl.Graphics.Rect IncrementY(BeUtl.Graphics.Rect value, int increment)
+        protected override Beutl.Graphics.Rect IncrementY(Beutl.Graphics.Rect value, int increment)
         {
-            return new BeUtl.Graphics.Rect(
+            return new Beutl.Graphics.Rect(
                 value.X,
                 value.Y + increment,
                 value.Width,
                 value.Height);
         }
 
-        protected override BeUtl.Graphics.Rect IncrementZ(BeUtl.Graphics.Rect value, int increment)
+        protected override Beutl.Graphics.Rect IncrementZ(Beutl.Graphics.Rect value, int increment)
         {
-            return new BeUtl.Graphics.Rect(
+            return new Beutl.Graphics.Rect(
                 value.X,
                 value.Y,
                 value.Width + increment,
                 value.Height);
         }
 
-        protected override BeUtl.Graphics.Rect IncrementW(BeUtl.Graphics.Rect value, int increment)
+        protected override Beutl.Graphics.Rect IncrementW(Beutl.Graphics.Rect value, int increment)
         {
-            return new BeUtl.Graphics.Rect(
+            return new Beutl.Graphics.Rect(
                 value.X,
                 value.Y,
                 value.Width,
                 value.Height + increment);
         }
 
-        protected override bool TryParse(string? x, string? y, string? z, string? w, out BeUtl.Graphics.Rect value)
+        protected override bool TryParse(string? x, string? y, string? z, string? w, out Beutl.Graphics.Rect value)
         {
             if (System.Single.TryParse(x, out System.Single xi)
                 && System.Single.TryParse(y, out System.Single yi)
                 && System.Single.TryParse(z, out System.Single zi)
                 && System.Single.TryParse(w, out System.Single wi))
             {
-                value = new BeUtl.Graphics.Rect(xi, yi, zi, wi);
+                value = new Beutl.Graphics.Rect(xi, yi, zi, wi);
                 return true;
             }
             else

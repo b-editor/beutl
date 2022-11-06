@@ -7,9 +7,9 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
-using BeUtl.Streaming;
+using Beutl.Streaming;
 
-namespace BeUtl.Views;
+namespace Beutl.Views;
 
 public sealed partial class Library : UserControl
 {

@@ -2,11 +2,11 @@
 
 using Avalonia.Media;
 
-using BeUtl.Framework.Services;
+using Beutl.Framework.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace BeUtl.Framework;
+namespace Beutl.Framework;
 
 public interface IEditorContext : IDisposable
 {

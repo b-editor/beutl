@@ -1,7 +1,7 @@
-﻿using BeUtl.Animation;
-using BeUtl.Styling;
+﻿using Beutl.Animation;
+using Beutl.Styling;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 /// <summary>
 /// Describes the location and color of a transition point in a gradient.

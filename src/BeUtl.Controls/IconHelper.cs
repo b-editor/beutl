@@ -2,7 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Media;
 
-namespace BeUtl.Controls;
+namespace Beutl.Controls;
 
 public static class IconHelper
 {

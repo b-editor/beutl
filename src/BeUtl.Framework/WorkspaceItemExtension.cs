@@ -2,7 +2,7 @@
 
 using Avalonia.Media;
 
-namespace BeUtl.Framework;
+namespace Beutl.Framework;
 
 // NOTE: EditorExtension内にIWorkspaceItemを作成するメソッドを追加すると、
 //       WorkspaceItemのエディターを固定してしまい拡張性が悪くなる（例えばSceneのエディターを変更できないなど）ので、

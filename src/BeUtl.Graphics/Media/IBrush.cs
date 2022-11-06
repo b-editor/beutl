@@ -1,11 +1,11 @@
 ﻿using System.Text.Json.Serialization;
 
-using BeUtl.Converters;
-using BeUtl.Graphics;
-using BeUtl.Graphics.Transformation;
-using BeUtl.Styling;
+using Beutl.Converters;
+using Beutl.Graphics;
+using Beutl.Graphics.Transformation;
+using Beutl.Styling;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 /// <summary>
 /// Describes how an area is painted.

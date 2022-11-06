@@ -1,4 +1,4 @@
-﻿namespace BeUtl;
+﻿namespace Beutl;
 
 [Flags]
 public enum PropertyFlags

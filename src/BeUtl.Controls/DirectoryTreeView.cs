@@ -12,9 +12,9 @@ using Avalonia.Threading;
 
 using FluentAvalonia.UI.Controls;
 
-using S = BeUtl.Language.Resources.S;
+using S = Beutl.Language.Resources.S;
 
-namespace BeUtl.Controls;
+namespace Beutl.Controls;
 
 public sealed class DirectoryTreeView : TreeView, IStyleable
 {

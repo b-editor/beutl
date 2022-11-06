@@ -1,6 +1,6 @@
 ﻿using Avalonia.Controls;
 
-namespace BeUtl.Views.Tools;
+namespace Beutl.Views.Tools;
 
 public sealed partial class ObjectPropertyEditor : UserControl
 {

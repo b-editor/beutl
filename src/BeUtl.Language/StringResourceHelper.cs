@@ -1,6 +1,6 @@
 ﻿using System.Reactive.Linq;
 
-namespace BeUtl.Language;
+namespace Beutl.Language;
 
 internal static class StringResourceHelper
 {
