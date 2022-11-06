@@ -1,9 +1,9 @@
 ﻿using System.Globalization;
 using System.Runtime.InteropServices;
 
-using BeUtl.Utilities;
+using Beutl.Utilities;
 
-namespace BeUtl.Graphics.Transformation;
+namespace Beutl.Graphics.Transformation;
 
 internal static class TransformParser
 {

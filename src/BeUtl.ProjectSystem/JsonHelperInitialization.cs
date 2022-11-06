@@ -1,9 +1,9 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 
-using BeUtl.JsonConverters;
+using Beutl.JsonConverters;
 
-namespace BeUtl;
+namespace Beutl;
 
 internal class JsonHelperInitialization
 {

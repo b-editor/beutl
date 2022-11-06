@@ -1,6 +1,6 @@
-﻿using BeUtl.Services.Editors;
+﻿using Beutl.Services.Editors;
 
-namespace BeUtl.ViewModels;
+namespace Beutl.ViewModels;
 
 // Todo: 廃止する
 public interface INumberEditorViewModel<T>

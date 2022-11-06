@@ -1,12 +1,12 @@
 ﻿using System.Globalization;
 using System.Text.Json.Serialization;
 
-using BeUtl.Converters;
-using BeUtl.Graphics;
-using BeUtl.Utilities;
-using BeUtl.Validation;
+using Beutl.Converters;
+using Beutl.Graphics;
+using Beutl.Utilities;
+using Beutl.Validation;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 /// <summary>
 /// Represents a rectangle in device pixels.

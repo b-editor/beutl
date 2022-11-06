@@ -1,4 +1,4 @@
-﻿namespace BeUtl.ViewModels;
+﻿namespace Beutl.ViewModels;
 
 public sealed class OutputPageViewModel
 {

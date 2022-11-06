@@ -1,10 +1,10 @@
-﻿using BeUtl.Animation;
-using BeUtl.Graphics;
-using BeUtl.Media;
-using BeUtl.Media.Pixel;
-using BeUtl.Threading;
+﻿using Beutl.Animation;
+using Beutl.Graphics;
+using Beutl.Media;
+using Beutl.Media.Pixel;
+using Beutl.Threading;
 
-namespace BeUtl.Rendering;
+namespace Beutl.Rendering;
 
 // RenderingのApiで時間を考慮する
 // Renderable内で持続時間と開始時間のプロパティを追加

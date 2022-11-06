@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Collections;
+﻿namespace Beutl.Collections;
 
 public enum ResetBehavior
 {

@@ -3,13 +3,13 @@ using Avalonia.Data;
 using Avalonia.Layout;
 using Avalonia.Media;
 
-using BeUtl.Controls;
-using BeUtl.Media;
+using Beutl.Controls;
+using Beutl.Media;
 
 using FluentIcons.Common;
 using FluentIcons.FluentAvalonia;
 
-namespace BeUtl.Views.Editors;
+namespace Beutl.Views.Editors;
 
 public sealed class CornerRadiusEditor : BaseVector4Editor<CornerRadius>
 {

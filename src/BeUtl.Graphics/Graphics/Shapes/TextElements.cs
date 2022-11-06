@@ -4,9 +4,9 @@ using System.Buffers;
 using System.Collections;
 using System.Text.Json.Nodes;
 
-using BeUtl.Media.TextFormatting;
+using Beutl.Media.TextFormatting;
 
-namespace BeUtl.Graphics.Shapes;
+namespace Beutl.Graphics.Shapes;
 
 public class TextElements : IReadOnlyList<TextElement>, ILogicalElement
 {

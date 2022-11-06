@@ -1,11 +1,11 @@
 ﻿using System.Diagnostics;
 using System.Text.Json.Serialization;
 
-using BeUtl.Converters;
+using Beutl.Converters;
 
 using SkiaSharp;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 [JsonConverter(typeof(FontFamilyJsonConverter))]
 public readonly struct FontFamily : IEquatable<FontFamily>

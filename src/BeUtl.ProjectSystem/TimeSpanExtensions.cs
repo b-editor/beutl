@@ -1,4 +1,4 @@
-﻿namespace BeUtl;
+﻿namespace Beutl;
 
 public static class TimeSpanExtensions
 {

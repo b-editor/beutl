@@ -1,6 +1,6 @@
 ﻿using Avalonia.Controls;
 
-namespace BeUtl.Framework;
+namespace Beutl.Framework;
 
 public interface IEditor : IControl
 {

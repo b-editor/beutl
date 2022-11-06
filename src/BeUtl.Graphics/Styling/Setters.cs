@@ -1,9 +1,9 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 
-using BeUtl.Collections;
+using Beutl.Collections;
 
-namespace BeUtl.Styling;
+namespace Beutl.Styling;
 
 public sealed class Setters : CoreList<ISetter>
 {

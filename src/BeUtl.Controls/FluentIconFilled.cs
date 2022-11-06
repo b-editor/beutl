@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Styling;
 
-namespace BeUtl.Controls;
+namespace Beutl.Controls;
 
 [Obsolete("Use 'FluentIcons.Avalonia.SymbolIcon' or 'FluentAvalonia.UI.Controls.SymbolIcon'.")]
 public sealed class FluentIconFilled : PathIcon, IStyleable

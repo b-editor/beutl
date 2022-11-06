@@ -5,7 +5,7 @@ using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Navigation;
 
-namespace BeUtl.Controls.Navigation;
+namespace Beutl.Controls.Navigation;
 
 #nullable enable
 

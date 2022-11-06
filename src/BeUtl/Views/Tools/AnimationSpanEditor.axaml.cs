@@ -4,11 +4,11 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Xaml.Interactivity;
 
-using BeUtl.Animation.Easings;
-using BeUtl.Controls.Behaviors;
-using BeUtl.ViewModels.Tools;
+using Beutl.Animation.Easings;
+using Beutl.Controls.Behaviors;
+using Beutl.ViewModels.Tools;
 
-namespace BeUtl.Views.Tools;
+namespace Beutl.Views.Tools;
 
 public partial class AnimationSpanEditor : UserControl
 {

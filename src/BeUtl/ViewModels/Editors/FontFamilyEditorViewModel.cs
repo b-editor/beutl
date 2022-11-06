@@ -1,9 +1,9 @@
-﻿using BeUtl.Framework;
-using BeUtl.Media;
+﻿using Beutl.Framework;
+using Beutl.Media;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Editors;
+namespace Beutl.ViewModels.Editors;
 
 public sealed class FontFamilyEditorViewModel : BaseEditorViewModel<FontFamily>
 {

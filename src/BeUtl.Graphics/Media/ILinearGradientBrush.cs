@@ -1,7 +1,7 @@
 ﻿
-using BeUtl.Graphics;
+using Beutl.Graphics;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 /// <summary>
 /// A brush that draws with a linear gradient.

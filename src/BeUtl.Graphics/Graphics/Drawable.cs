@@ -1,12 +1,12 @@
-﻿using BeUtl.Animation;
-using BeUtl.Graphics.Effects;
-using BeUtl.Graphics.Filters;
-using BeUtl.Graphics.Transformation;
-using BeUtl.Media;
-using BeUtl.Media.Pixel;
-using BeUtl.Rendering;
+﻿using Beutl.Animation;
+using Beutl.Graphics.Effects;
+using Beutl.Graphics.Filters;
+using Beutl.Graphics.Transformation;
+using Beutl.Media;
+using Beutl.Media.Pixel;
+using Beutl.Rendering;
 
-namespace BeUtl.Graphics;
+namespace Beutl.Graphics;
 
 public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 {

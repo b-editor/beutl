@@ -1,4 +1,4 @@
-﻿namespace BeUtl;
+﻿namespace Beutl;
 
 [Serializable]
 public class LogicalTreeException : Exception

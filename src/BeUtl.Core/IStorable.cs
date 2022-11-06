@@ -1,4 +1,4 @@
-﻿namespace BeUtl;
+﻿namespace Beutl;
 
 // ストレージに保存可能なオブジェクト
 public interface IStorable

@@ -1,9 +1,9 @@
 ﻿using System.Collections.Specialized;
 
-using BeUtl.Reactive;
-using BeUtl.Utilities;
+using Beutl.Reactive;
+using Beutl.Utilities;
 
-namespace BeUtl.Collections;
+namespace Beutl.Collections;
 
 public static class NotifyCollectionChangedExtensions
 {

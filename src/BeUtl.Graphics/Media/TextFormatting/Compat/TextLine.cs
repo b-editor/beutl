@@ -1,8 +1,8 @@
 ﻿using System.Text.Json.Nodes;
 
-using BeUtl.Graphics;
+using Beutl.Graphics;
 
-namespace BeUtl.Media.TextFormatting.Compat;
+namespace Beutl.Media.TextFormatting.Compat;
 
 [Obsolete("Use TextBlock APIs.")]
 public sealed class TextElements : AffectsRenders<TextElement>

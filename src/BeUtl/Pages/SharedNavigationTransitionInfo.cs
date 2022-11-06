@@ -1,6 +1,6 @@
 ﻿using FluentAvalonia.UI.Media.Animation;
 
-namespace BeUtl.Pages;
+namespace Beutl.Pages;
 
 public static class SharedNavigationTransitionInfo
 {

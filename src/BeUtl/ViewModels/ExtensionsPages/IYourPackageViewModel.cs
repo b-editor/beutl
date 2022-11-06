@@ -1,6 +1,6 @@
 ﻿using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.ExtensionsPages;
+namespace Beutl.ViewModels.ExtensionsPages;
 
 public interface IYourPackageViewModel : IDisposable
 {

@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Animation.Easings;
+﻿namespace Beutl.Animation.Easings;
 
 public sealed class BackEaseInOut : Easing
 {

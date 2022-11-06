@@ -4,7 +4,7 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 
-namespace BeUtl.Views;
+namespace Beutl.Views;
 
 public sealed class TimelineScale : Control
 {

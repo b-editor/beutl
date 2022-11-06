@@ -2,7 +2,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace BeUtl.JsonConverters;
+namespace Beutl.JsonConverters;
 
 internal class CultureInfoConverter : JsonConverter<CultureInfo>
 {

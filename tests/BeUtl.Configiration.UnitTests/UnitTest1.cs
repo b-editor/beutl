@@ -1,6 +1,6 @@
 using NUnit.Framework;
 
-namespace BeUtl.Configiration.UnitTests;
+namespace Beutl.Configiration.UnitTests;
 public class Tests
 {
     [SetUp]

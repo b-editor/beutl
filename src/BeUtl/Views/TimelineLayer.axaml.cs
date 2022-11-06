@@ -8,14 +8,14 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Threading;
 
-using BeUtl.ProjectSystem;
-using BeUtl.ViewModels;
+using Beutl.ProjectSystem;
+using Beutl.ViewModels;
 
-using static BeUtl.Views.Timeline;
+using static Beutl.Views.Timeline;
 
 using Setter = Avalonia.Styling.Setter;
 
-namespace BeUtl.Views;
+namespace Beutl.Views;
 
 public sealed partial class TimelineLayer : UserControl
 {

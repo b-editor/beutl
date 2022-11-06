@@ -2,9 +2,9 @@
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
-using BeUtl.Media;
+using Beutl.Media;
 
-namespace BeUtl.Converters;
+namespace Beutl.Converters;
 
 internal sealed class BrushJsonConverter : JsonConverter<IBrush>
 {

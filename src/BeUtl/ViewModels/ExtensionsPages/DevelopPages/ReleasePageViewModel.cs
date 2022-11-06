@@ -3,14 +3,14 @@
 using Beutl.Api;
 using Beutl.Api.Objects;
 
-using BeUtl.ViewModels.Dialogs;
+using Beutl.ViewModels.Dialogs;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-using static BeUtl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
+using static Beutl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
 
-namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
+namespace Beutl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class ReleasePageViewModel : BasePageViewModel
 {

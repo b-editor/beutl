@@ -1,11 +1,11 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Input;
 
-using BeUtl.ProjectSystem;
-using BeUtl.Streaming;
-using BeUtl.ViewModels.Tools;
+using Beutl.ProjectSystem;
+using Beutl.Streaming;
+using Beutl.ViewModels.Tools;
 
-namespace BeUtl.Views.Tools;
+namespace Beutl.Views.Tools;
 
 public sealed partial class StreamOperatorsTab : UserControl
 {

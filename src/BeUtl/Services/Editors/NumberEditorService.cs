@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Services.Editors;
+﻿namespace Beutl.Services.Editors;
 
 public sealed class NumberEditorService
 {

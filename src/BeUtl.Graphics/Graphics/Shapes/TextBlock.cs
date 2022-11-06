@@ -2,10 +2,10 @@
 using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 
-using BeUtl.Media;
-using BeUtl.Media.TextFormatting;
+using Beutl.Media;
+using Beutl.Media.TextFormatting;
 
-namespace BeUtl.Graphics.Shapes;
+namespace Beutl.Graphics.Shapes;
 
 public class TextBlock : Drawable
 {

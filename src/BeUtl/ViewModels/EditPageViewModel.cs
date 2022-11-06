@@ -1,16 +1,16 @@
 ﻿using System.Collections.Specialized;
 
-using BeUtl.Framework;
-using BeUtl.Framework.Services;
-using BeUtl.Services;
+using Beutl.Framework;
+using Beutl.Framework.Services;
+using Beutl.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
-using TabViewModel = BeUtl.Services.EditorTabItem;
+using TabViewModel = Beutl.Services.EditorTabItem;
 
-namespace BeUtl.ViewModels;
+namespace Beutl.ViewModels;
 
 public sealed class EditPageViewModel
 {

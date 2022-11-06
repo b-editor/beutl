@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 
-namespace BeUtl.Animation.Easings;
+namespace Beutl.Animation.Easings;
 
 internal static class Funcs
 {

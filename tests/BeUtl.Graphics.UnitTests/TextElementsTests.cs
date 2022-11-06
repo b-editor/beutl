@@ -2,13 +2,13 @@
 using System.Runtime.InteropServices;
 using System.Text;
 
-using BeUtl.Graphics.Shapes;
-using BeUtl.Media;
-using BeUtl.Media.TextFormatting;
+using Beutl.Graphics.Shapes;
+using Beutl.Media;
+using Beutl.Media.TextFormatting;
 
 using NUnit.Framework;
 
-namespace BeUtl.Graphics.UnitTests;
+namespace Beutl.Graphics.UnitTests;
 
 public class TextElementsTests
 {

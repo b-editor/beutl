@@ -38,7 +38,7 @@
 
 #pragma warning disable IDE0001, IDE0049
 
-namespace BeUtl.Validation
+namespace Beutl.Validation
 {
 <# foreach(var t in numberTypes) { #>
     internal sealed class <#= t.Name #>RangeValidator : RangeValidator<<#= t.FullName #>>

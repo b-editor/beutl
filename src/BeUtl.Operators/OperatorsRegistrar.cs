@@ -1,8 +1,8 @@
-﻿using BeUtl.Streaming;
+﻿using Beutl.Streaming;
 
-using static BeUtl.Language.Resources;
+using static Beutl.Language.Resources;
 
-namespace BeUtl.Operators;
+namespace Beutl.Operators;
 
 public class OperatorsRegistrar
 {

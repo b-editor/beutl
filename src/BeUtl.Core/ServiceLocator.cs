@@ -1,4 +1,4 @@
-﻿namespace BeUtl;
+﻿namespace Beutl;
 
 // https://github.com/AvaloniaUI/Avalonia/blob/c4bbe3ac5e0becdd7d7ff25eaebb2429b9bba0f3/src/Avalonia.Base/AvaloniaLocator.cs
 

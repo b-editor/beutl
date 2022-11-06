@@ -1,7 +1,7 @@
-﻿using BeUtl.Graphics;
-using BeUtl.Graphics.Transformation;
+﻿using Beutl.Graphics;
+using Beutl.Graphics.Transformation;
 
-namespace BeUtl.Operators.Configure.Transform;
+namespace Beutl.Operators.Configure.Transform;
 
 #pragma warning disable IDE0065
 using Transform = Graphics.Transformation.Transform;

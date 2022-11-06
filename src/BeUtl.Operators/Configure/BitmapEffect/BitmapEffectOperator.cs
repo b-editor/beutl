@@ -1,9 +1,9 @@
-﻿using BeUtl.Graphics;
-using BeUtl.Graphics.Effects;
-using BeUtl.Streaming;
-using BeUtl.Styling;
+﻿using Beutl.Graphics;
+using Beutl.Graphics.Effects;
+using Beutl.Streaming;
+using Beutl.Styling;
 
-namespace BeUtl.Operators.Configure.BitmapEffect;
+namespace Beutl.Operators.Configure.BitmapEffect;
 
 #pragma warning disable IDE0065
 using BitmapEffect = Graphics.Effects.BitmapEffect;

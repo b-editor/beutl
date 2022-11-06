@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Xaml.Interactivity;
 
-namespace BeUtl.Controls;
+namespace Beutl.Controls;
 
 public sealed class RoundedClippingBehavior : Behavior<Control>
 {

@@ -1,9 +1,9 @@
 ﻿using System.Collections.Specialized;
 
-using BeUtl.Collections;
-using BeUtl.ProjectSystem;
+using Beutl.Collections;
+using Beutl.ProjectSystem;
 
-namespace BeUtl.Streaming;
+namespace Beutl.Streaming;
 
 public sealed class StreamOperators : CoreList<StreamOperator>
 {

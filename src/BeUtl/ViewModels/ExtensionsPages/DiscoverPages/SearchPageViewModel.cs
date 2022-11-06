@@ -4,7 +4,7 @@ using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.ExtensionsPages.DiscoverPages;
+namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 public sealed class SearchPageViewModel : BasePageViewModel
 {

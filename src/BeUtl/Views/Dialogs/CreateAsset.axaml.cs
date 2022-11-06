@@ -3,10 +3,10 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
-using BeUtl.ViewModels.Dialogs;
+using Beutl.ViewModels.Dialogs;
 using FluentAvalonia.UI.Controls;
 
-namespace BeUtl.Views.Dialogs;
+namespace Beutl.Views.Dialogs;
 
 public partial class CreateAsset : ContentDialog, IStyleable
 {

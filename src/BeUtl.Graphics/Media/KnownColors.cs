@@ -1,8 +1,8 @@
 ﻿using System.Reflection;
 
-using BeUtl.Media.Immutable;
+using Beutl.Media.Immutable;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 #pragma warning disable CA1069
 

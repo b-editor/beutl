@@ -1,6 +1,6 @@
-﻿using BeUtl.Collections;
+﻿using Beutl.Collections;
 
-namespace BeUtl.Framework;
+namespace Beutl.Framework;
 
 public interface IWorkspace : ITopLevel, IDisposable, IStorable
 {

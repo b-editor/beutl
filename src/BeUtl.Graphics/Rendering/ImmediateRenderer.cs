@@ -1,8 +1,8 @@
-﻿using BeUtl.Animation;
-using BeUtl.Graphics;
-using BeUtl.Threading;
+﻿using Beutl.Animation;
+using Beutl.Graphics;
+using Beutl.Threading;
 
-namespace BeUtl.Rendering;
+namespace Beutl.Rendering;
 
 public class ImmediateRenderer : IRenderer
 {

@@ -1,17 +1,17 @@
 ﻿using System.Runtime.CompilerServices;
 
-using BeUtl.Graphics.Filters;
-using BeUtl.Media;
-using BeUtl.Media.Pixel;
-using BeUtl.Media.TextFormatting;
-using BeUtl.Threading;
+using Beutl.Graphics.Filters;
+using Beutl.Media;
+using Beutl.Media.Pixel;
+using Beutl.Media.TextFormatting;
+using Beutl.Threading;
 
 using SkiaSharp;
 
-[assembly: InternalsVisibleTo("BeUtl.ProjectSystem")]
-[assembly: InternalsVisibleTo("BeUtl")]
+[assembly: InternalsVisibleTo("Beutl.ProjectSystem")]
+[assembly: InternalsVisibleTo("Beutl")]
 
-namespace BeUtl.Graphics;
+namespace Beutl.Graphics;
 
 // https://github.com/AvaloniaUI/Avalonia/blob/master/src/Skia/Avalonia.Skia/DrawingContextImpl.cs
 public class Canvas : ICanvas

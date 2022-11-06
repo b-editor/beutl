@@ -1,11 +1,11 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Media;
 
-using BeUtl.ViewModels.Editors;
+using Beutl.ViewModels.Editors;
 
 using FluentAvalonia.UI.Controls;
 
-namespace BeUtl.Views.Editors;
+namespace Beutl.Views.Editors;
 
 public sealed partial class ColorEditor : UserControl
 {

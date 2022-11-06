@@ -1,8 +1,8 @@
-﻿using BeUtl.Collections;
-using BeUtl.Framework;
-using BeUtl.Media;
+﻿using Beutl.Collections;
+using Beutl.Framework;
+using Beutl.Media;
 
-namespace BeUtl.Streaming;
+namespace Beutl.Streaming;
 
 public interface IStreamOperator : IAffectsRender
 {

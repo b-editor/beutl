@@ -8,17 +8,17 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 
-using BeUtl.Framework;
-using BeUtl.Services;
-using BeUtl.ViewModels;
-using BeUtl.Views;
-using BeUtl.Views.Dialogs;
+using Beutl.Framework;
+using Beutl.Services;
+using Beutl.ViewModels;
+using Beutl.Views;
+using Beutl.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
 using Reactive.Bindings;
 
-namespace BeUtl.Pages;
+namespace Beutl.Pages;
 
 public sealed partial class EditPage : UserControl
 {

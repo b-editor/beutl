@@ -1,12 +1,12 @@
-<UserControl x:Class="BeUtl.Views.Editors.NavigateButton"
+<UserControl x:Class="Beutl.Views.Editors.NavigateButton"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
-             xmlns:local="using:BeUtl.Views.Editors"
+             xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:vm="using:BeUtl.ViewModels.Editors"
+             xmlns:vm="using:Beutl.ViewModels.Editors"
              d:DesignWidth="300"
              mc:Ignorable="d">
     <Grid ColumnDefinitions="2*,3*,24">

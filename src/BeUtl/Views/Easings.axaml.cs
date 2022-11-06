@@ -2,7 +2,7 @@
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
-namespace BeUtl.Views;
+namespace Beutl.Views;
 
 public sealed partial class Easings : UserControl
 {

@@ -1,6 +1,6 @@
-﻿using BeUtl.Graphics;
+﻿using Beutl.Graphics;
 
-namespace BeUtl.Media.Immutable;
+namespace Beutl.Media.Immutable;
 
 public class ImmutableRadialGradientBrush : ImmutableGradientBrush, IRadialGradientBrush
 {

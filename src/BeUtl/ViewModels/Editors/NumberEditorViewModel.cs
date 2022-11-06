@@ -1,9 +1,9 @@
-﻿using BeUtl.Framework;
-using BeUtl.Services.Editors;
+﻿using Beutl.Framework;
+using Beutl.Services.Editors;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Editors;
+namespace Beutl.ViewModels.Editors;
 
 public sealed class NumberEditorViewModel<T> : BaseEditorViewModel<T>, INumberEditorViewModel<T>
     where T : struct

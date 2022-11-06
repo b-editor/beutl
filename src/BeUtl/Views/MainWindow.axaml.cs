@@ -6,13 +6,13 @@ using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 
-using BeUtl.Configuration;
+using Beutl.Configuration;
 
 using FluentAvalonia.Styling;
 using FluentAvalonia.UI.Media;
 using FluentAvalonia.UI.Windowing;
 
-namespace BeUtl.Views;
+namespace Beutl.Views;
 
 public sealed partial class MainWindow : AppWindow
 {

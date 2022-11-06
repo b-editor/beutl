@@ -2,14 +2,14 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
-using BeUtl.Framework;
-using BeUtl.Media;
-using BeUtl.Rendering;
+using Beutl.Framework;
+using Beutl.Media;
+using Beutl.Rendering;
 
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 
-namespace BeUtl.ProjectSystem;
+namespace Beutl.ProjectSystem;
 
 public class Scene : Element, IStorable, IWorkspaceItem
 {

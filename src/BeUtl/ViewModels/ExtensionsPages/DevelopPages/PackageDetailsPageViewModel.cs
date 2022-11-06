@@ -4,7 +4,7 @@ using Beutl.Api.Objects;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
+namespace Beutl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class PackageDetailsPageViewModel : BasePageViewModel
 {

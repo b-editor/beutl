@@ -9,9 +9,9 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/src/BeUtl.NetCore/bin/Debug/net6.0/BeUtl.NetCore.dll",
+            "program": "${workspaceFolder}/src/Beutl/bin/Debug/net6.0/Beutl.dll",
             "args": [],
-            "cwd": "${workspaceFolder}/src/BeUtl.NetCore",
+            "cwd": "${workspaceFolder}/src/Beutl",
             "console": "internalConsole",
             "stopAtEntry": false
         },

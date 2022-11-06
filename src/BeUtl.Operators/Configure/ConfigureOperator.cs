@@ -1,12 +1,12 @@
 ﻿using System.Text.Json.Nodes;
 
-using BeUtl.Animation;
-using BeUtl.Framework;
-using BeUtl.Media;
-using BeUtl.Rendering;
-using BeUtl.Streaming;
+using Beutl.Animation;
+using Beutl.Framework;
+using Beutl.Media;
+using Beutl.Rendering;
+using Beutl.Streaming;
 
-namespace BeUtl.Operators.Configure;
+namespace Beutl.Operators.Configure;
 
 public abstract class ConfigureOperator<TTarget, TValue> : StreamOperator, IStreamSelector
     where TTarget : IRenderable

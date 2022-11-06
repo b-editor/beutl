@@ -2,7 +2,7 @@
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace BeUtl;
+namespace Beutl;
 
 public readonly struct ResourceReference<T> : IEquatable<ResourceReference<T>>
 {

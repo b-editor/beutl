@@ -2,7 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
-using BeUtl.Controls;
+using Beutl.Controls;
 
 using FluentAvalonia.UI.Controls;
 

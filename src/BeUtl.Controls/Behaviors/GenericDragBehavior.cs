@@ -13,7 +13,7 @@ using Avalonia.Media.Transformation;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
 
-namespace BeUtl.Controls.Behaviors;
+namespace Beutl.Controls.Behaviors;
 
 #nullable enable
 

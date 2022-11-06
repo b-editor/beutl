@@ -3,15 +3,15 @@
 using Beutl.Api;
 using Beutl.Api.Objects;
 
-using BeUtl.Configuration;
-using BeUtl.Controls.Navigation;
-using BeUtl.Utilities;
+using Beutl.Configuration;
+using Beutl.Controls.Navigation;
+using Beutl.Utilities;
 
 using FluentIcons.Common;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.SettingsPages;
+namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class StorageSettingsPageViewModel : PageContext
 {

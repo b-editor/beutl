@@ -1,9 +1,9 @@
 ﻿using System.Globalization;
 using System.Text.Json.Serialization;
 
-using BeUtl.Converters;
+using Beutl.Converters;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 /// <summary>
 /// An ARGB color.

@@ -2,9 +2,9 @@
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 
-using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
+using Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
-namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
+namespace Beutl.ViewModels.ExtensionsPages.DevelopPages;
 
 public class DataContextFactory
 {

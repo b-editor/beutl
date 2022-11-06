@@ -1,9 +1,9 @@
-<Application x:Class="BeUtl.App"
+<Application x:Class="Beutl.App"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:aconverters="using:Avalonia.Markup.Xaml.Converters"
-             xmlns:convert="using:BeUtl.Converters"
-             xmlns:local="using:BeUtl"
+             xmlns:convert="using:Beutl.Converters"
+             xmlns:local="using:Beutl"
              xmlns:sty="using:FluentAvalonia.Styling"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives">
@@ -26,8 +26,8 @@
         <sty:FluentAvaloniaTheme />
         <StyleInclude Source="avares://FluentAvalonia.UI.Windowing/Styles/FAWindowingStyles.axaml" />
 
-        <StyleInclude Source="avares://BeUtl.Controls/Styles.axaml" />
-        <StyleInclude Source="avares://BeUtl.Language/en-US/CommonResources.axaml" />
+        <StyleInclude Source="avares://Beutl.Controls/Styles.axaml" />
+        <StyleInclude Source="avares://Beutl.Language/en-US/CommonResources.axaml" />
 
         <Style Selector="TextBlock.ErrorTextBlockStyle">
             <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />

@@ -1,7 +1,7 @@
-﻿using BeUtl.Graphics;
-using BeUtl.Graphics.Shapes;
+﻿using Beutl.Graphics;
+using Beutl.Graphics.Shapes;
 
-namespace BeUtl.Rendering;
+namespace Beutl.Rendering;
 
 internal sealed class FpsText
 {

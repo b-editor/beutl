@@ -2,10 +2,10 @@
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 
-using BeUtl.Framework.Service;
-using BeUtl.Views;
+using Beutl.Framework.Service;
+using Beutl.Views;
 
-namespace BeUtl.Services;
+namespace Beutl.Services;
 
 public sealed class NotificationService : INotificationService
 {

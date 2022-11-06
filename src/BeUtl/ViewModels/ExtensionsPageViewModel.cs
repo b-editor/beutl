@@ -1,10 +1,10 @@
 ﻿using Beutl.Api;
 
-using BeUtl.ViewModels.ExtensionsPages;
+using Beutl.ViewModels.ExtensionsPages;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels;
+namespace Beutl.ViewModels;
 
 public sealed class ExtensionsPageViewModel : IDisposable
 {

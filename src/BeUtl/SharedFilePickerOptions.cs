@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using Avalonia.Platform.Storage;
 
-namespace BeUtl;
+namespace Beutl;
 public static class SharedFilePickerOptions
 {
     public static readonly FilePickerFileType NuGetPackageFileType = new FilePickerFileType("NuGet Package File")

@@ -1,12 +1,12 @@
 ﻿using System.Text.Json.Nodes;
 
-using BeUtl.Animation.Easings;
-using BeUtl.Framework;
-using BeUtl.Services.PrimitiveImpls;
+using Beutl.Animation.Easings;
+using Beutl.Framework;
+using Beutl.Services.PrimitiveImpls;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels;
+namespace Beutl.ViewModels;
 
 public sealed class EasingsViewModel : IToolContext
 {

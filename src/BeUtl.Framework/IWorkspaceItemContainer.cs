@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-namespace BeUtl.Framework;
+namespace Beutl.Framework;
 
 public interface IWorkspaceItemContainer
 {

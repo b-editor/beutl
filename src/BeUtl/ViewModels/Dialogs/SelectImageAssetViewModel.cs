@@ -5,9 +5,9 @@ using Beutl.Api.Objects;
 
 using Reactive.Bindings;
 
-using static BeUtl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
+using static Beutl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
 
-namespace BeUtl.ViewModels.Dialogs;
+namespace Beutl.ViewModels.Dialogs;
 
 public class SelectImageAssetViewModel
 {

@@ -2,13 +2,13 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
-using BeUtl.ViewModels.Dialogs;
-using BeUtl.ViewModels.SettingsPages;
-using BeUtl.Views.Dialogs;
+using Beutl.ViewModels.Dialogs;
+using Beutl.ViewModels.SettingsPages;
+using Beutl.Views.Dialogs;
 
 using FluentAvalonia.Styling;
 
-namespace BeUtl.Pages.SettingsPages;
+namespace Beutl.Pages.SettingsPages;
 
 public sealed partial class AccountSettingsPage : UserControl
 {

@@ -3,17 +3,17 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31912.275
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Graphics", "src\BeUtl.Graphics\BeUtl.Graphics.csproj", "{DEACE4B5-6813-4F18-90F5-1F6335FB6BFB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Graphics", "src\Beutl.Graphics\Beutl.Graphics.csproj", "{DEACE4B5-6813-4F18-90F5-1F6335FB6BFB}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Core", "src\BeUtl.Core\BeUtl.Core.csproj", "{9F23C275-4891-49F3-A9AE-54E05D0CCE8B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Core", "src\Beutl.Core\Beutl.Core.csproj", "{9F23C275-4891-49F3-A9AE-54E05D0CCE8B}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Language", "src\BeUtl.Language\BeUtl.Language.csproj", "{EEA78475-696F-4205-815E-213D1BC7659A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Language", "src\Beutl.Language\Beutl.Language.csproj", "{EEA78475-696F-4205-815E-213D1BC7659A}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Utilities", "src\BeUtl.Utilities\BeUtl.Utilities.csproj", "{807923E4-EF43-4D76-BE0F-1E4F0C0811F2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Utilities", "src\Beutl.Utilities\Beutl.Utilities.csproj", "{807923E4-EF43-4D76-BE0F-1E4F0C0811F2}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl", "src\BeUtl\BeUtl.csproj", "{454D5E6B-865F-4CDA-9474-2A2C964FACD9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl", "src\Beutl\Beutl.csproj", "{454D5E6B-865F-4CDA-9474-2A2C964FACD9}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Controls", "src\BeUtl.Controls\BeUtl.Controls.csproj", "{0982FB80-1991-4F8E-BD36-4F2179469FB7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Controls", "src\Beutl.Controls\Beutl.Controls.csproj", "{0982FB80-1991-4F8E-BD36-4F2179469FB7}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{791EB029-7801-45FA-9AB5-5E953FFA003A}"
 	ProjectSection(SolutionItems) = preProject
@@ -21,7 +21,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{791EB029
 		tests\Directory.Build.props = tests\Directory.Build.props
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Graphics.UnitTests", "tests\BeUtl.Graphics.UnitTests\BeUtl.Graphics.UnitTests.csproj", "{B459E4EB-3345-430C-9CAF-0D051D0F2898}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Graphics.UnitTests", "tests\Beutl.Graphics.UnitTests\Beutl.Graphics.UnitTests.csproj", "{B459E4EB-3345-430C-9CAF-0D051D0F2898}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{BBF37951-9757-4F4A-9FEE-130C4A218B94}"
 EndProject
@@ -52,13 +52,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Props", "Props", "{74C34E00
 		build\props\XamlNameReferenceGenerator.props = build\props\XamlNameReferenceGenerator.props
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Configuration", "src\BeUtl.Configuration\BeUtl.Configuration.csproj", "{985AFD44-4A83-43DE-A700-269F5175E8C5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Configuration", "src\Beutl.Configuration\Beutl.Configuration.csproj", "{985AFD44-4A83-43DE-A700-269F5175E8C5}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Configiration.UnitTests", "tests\BeUtl.Configiration.UnitTests\BeUtl.Configiration.UnitTests.csproj", "{61F942C7-0A2C-4071-9544-ADEA7BFBD3D7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Configiration.UnitTests", "tests\Beutl.Configiration.UnitTests\Beutl.Configiration.UnitTests.csproj", "{61F942C7-0A2C-4071-9544-ADEA7BFBD3D7}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EnumerateFontFamilies", "tests\EnumerateFontFamilies\EnumerateFontFamilies.csproj", "{C009364B-6190-47E9-A902-6A17EC6FE4D2}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Framework", "src\BeUtl.Framework\BeUtl.Framework.csproj", "{87A937E5-F122-43E0-8D7F-0A3D635432FA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Framework", "src\Beutl.Framework\Beutl.Framework.csproj", "{87A937E5-F122-43E0-8D7F-0A3D635432FA}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Root", "Root", "{80264A90-CB12-4C61-A5A2-983650511ACE}"
 	ProjectSection(SolutionItems) = preProject
@@ -70,17 +70,17 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Root", "Root", "{80264A90-C
 		README.md = README.md
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.ProjectSystem", "src\BeUtl.ProjectSystem\BeUtl.ProjectSystem.csproj", "{379DEB93-0602-4000-B776-E187B9EBCD06}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.ProjectSystem", "src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj", "{379DEB93-0602-4000-B776-E187B9EBCD06}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Core.UnitTests", "tests\BeUtl.Core.UnitTests\BeUtl.Core.UnitTests.csproj", "{64079E7D-6A02-49B9-AA5B-48C57DE96219}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Core.UnitTests", "tests\Beutl.Core.UnitTests\Beutl.Core.UnitTests.csproj", "{64079E7D-6A02-49B9-AA5B-48C57DE96219}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "KeySplineEditor", "tests\KeySplineEditor\KeySplineEditor.csproj", "{1E59BCAD-1501-4836-92EC-DCE5AA9121D2}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Threading", "src\BeUtl.Threading\BeUtl.Threading.csproj", "{792CD0BA-4F03-43F9-A13E-512037A3F270}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Threading", "src\Beutl.Threading\Beutl.Threading.csproj", "{792CD0BA-4F03-43F9-A13E-512037A3F270}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Threading.UnitTests", "tests\BeUtl.Threading.UnitTests\BeUtl.Threading.UnitTests.csproj", "{45B04C5C-51F2-40DB-A7C6-042E328048CC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Threading.UnitTests", "tests\Beutl.Threading.UnitTests\Beutl.Threading.UnitTests.csproj", "{45B04C5C-51F2-40DB-A7C6-042E328048CC}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Benchmarks", "tests\BeUtl.Benchmarks\BeUtl.Benchmarks.csproj", "{C3616A18-D5C4-405C-B871-39929AA78EE3}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Benchmarks", "tests\Beutl.Benchmarks\Beutl.Benchmarks.csproj", "{C3616A18-D5C4-405C-B871-39929AA78EE3}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TextFormattingPlayground", "tests\TextFormattingPlayground\TextFormattingPlayground.csproj", "{2A0FD83A-3430-47EE-9C0D-0502802E6CAA}"
 EndProject
@@ -101,13 +101,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Workflows", "Workflows", "{
 		.github\workflows\dotnet.yml = .github\workflows\dotnet.yml
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Operators", "src\BeUtl.Operators\BeUtl.Operators.csproj", "{5B97917E-A771-496A-80C9-4F3B87FB443D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Operators", "src\Beutl.Operators\Beutl.Operators.csproj", "{5B97917E-A771-496A-80C9-4F3B87FB443D}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ResourcesGenerator", "build\generators\ResourcesGenerator\ResourcesGenerator.csproj", "{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Packages", "Packages", "{D2E28768-5899-48B0-B35C-41BABE9D9536}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Sdk", "packages\BeUtl.Sdk\BeUtl.Sdk.csproj", "{456F3A49-7881-4793-966D-FF647190F5CB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Sdk", "packages\Beutl.Sdk\Beutl.Sdk.csproj", "{456F3A49-7881-4793-966D-FF647190F5CB}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Api", "src\Beutl.Api\Beutl.Api.csproj", "{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}"
 EndProject

@@ -1,7 +1,7 @@
-﻿using BeUtl.Graphics;
-using BeUtl.Graphics.Transformation;
+﻿using Beutl.Graphics;
+using Beutl.Graphics.Transformation;
 
-namespace BeUtl.Media.Immutable;
+namespace Beutl.Media.Immutable;
 
 public abstract class ImmutableGradientBrush : IGradientBrush
 {

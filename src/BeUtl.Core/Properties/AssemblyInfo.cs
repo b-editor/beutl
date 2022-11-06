@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("BeUtl")]
-[assembly: InternalsVisibleTo("BeUtl.Configuration")]
-[assembly: InternalsVisibleTo("BeUtl.Graphics")]
-[assembly: InternalsVisibleTo("BeUtl.ProjectSystem")]
+[assembly: InternalsVisibleTo("Beutl")]
+[assembly: InternalsVisibleTo("Beutl.Configuration")]
+[assembly: InternalsVisibleTo("Beutl.Graphics")]
+[assembly: InternalsVisibleTo("Beutl.ProjectSystem")]

@@ -2,18 +2,18 @@
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 
-using Canvas = BeUtl.Graphics.Canvas;
+using Canvas = Beutl.Graphics.Canvas;
 
 namespace TextFormattingPlayground;
 
 public partial class MainWindow : Window
 {
-    private readonly BeUtl.Graphics.Shapes.TextBlock _text;
+    private readonly Beutl.Graphics.Shapes.TextBlock _text;
 
     public MainWindow()
     {
         InitializeComponent();
-        _text = new BeUtl.Graphics.Shapes.TextBlock()
+        _text = new Beutl.Graphics.Shapes.TextBlock()
         {
             Size = 70
         };
@@ -40,7 +40,7 @@ public partial class MainWindow : Window
 
     private unsafe void Draw()
     {
-        _text.Measure(BeUtl.Graphics.Size.Infinity);
+        _text.Measure(Beutl.Graphics.Size.Infinity);
         var bounds = _text.Bounds;
         var width = (int)bounds.Width;
         var height = (int)bounds.Height;
@@ -49,7 +49,7 @@ public partial class MainWindow : Window
             return;
 
         using var canvas = new Canvas(width, height);
-        canvas.Clear(BeUtl.Media.Colors.Black);
+        canvas.Clear(Beutl.Media.Colors.Black);
         _text.Draw(canvas);
 
         using var bmp = canvas.GetBitmap();

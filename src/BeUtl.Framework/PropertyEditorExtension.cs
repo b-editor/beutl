@@ -5,7 +5,7 @@ using Avalonia.Controls;
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace BeUtl.Framework;
+namespace Beutl.Framework;
 
 internal interface IPropertyEditorExtensionImpl
 {

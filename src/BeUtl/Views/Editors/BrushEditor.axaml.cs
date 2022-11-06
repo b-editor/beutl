@@ -5,18 +5,18 @@ using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
-using BeUtl.Commands;
-using BeUtl.Media;
-using BeUtl.Services.Editors.Wrappers;
-using BeUtl.Styling;
-using BeUtl.ViewModels;
-using BeUtl.ViewModels.Editors;
-using BeUtl.ViewModels.Tools;
-using BeUtl.Views.Tools;
+using Beutl.Commands;
+using Beutl.Media;
+using Beutl.Services.Editors.Wrappers;
+using Beutl.Styling;
+using Beutl.ViewModels;
+using Beutl.ViewModels.Editors;
+using Beutl.ViewModels.Tools;
+using Beutl.Views.Tools;
 
 using FluentAvalonia.UI.Controls;
 
-namespace BeUtl.Views.Editors;
+namespace Beutl.Views.Editors;
 
 public sealed partial class BrushEditor : UserControl
 {

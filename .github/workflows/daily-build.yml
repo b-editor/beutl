@@ -22,10 +22,10 @@ jobs:
         dotnet-version: 6.0.x
 
     - name: Restore dependencies
-      run: dotnet restore BeUtl.sln
+      run: dotnet restore Beutl.sln
 
     - name: Build
-      run: dotnet publish ./src/BeUtl/BeUtl.csproj -c Release -r ${{matrix.rid}} --no-self-contained
+      run: dotnet publish ./src/Beutl/Beutl.csproj -c Release -r ${{matrix.rid}} --no-self-contained
       env:
         BEUTL_FIREBASE_KEY: ${{ secrets.BEUTL_FIREBASE_KEY }}
 
@@ -33,4 +33,4 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: beutl_${{matrix.rid}}
-        path: ./src/BeUtl/bin/Release/net6.0/${{matrix.rid}}/publish
+        path: ./src/Beutl/bin/Release/net6.0/${{matrix.rid}}/publish

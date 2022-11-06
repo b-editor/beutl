@@ -1,12 +1,12 @@
 ﻿using Avalonia;
 
-using BeUtl.Framework.Services;
+using Beutl.Framework.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Dialogs;
+namespace Beutl.ViewModels.Dialogs;
 
 public sealed class CreateNewProjectViewModel
 {

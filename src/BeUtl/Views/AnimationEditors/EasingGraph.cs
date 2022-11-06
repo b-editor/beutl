@@ -3,9 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 
-using BeUtl.Animation.Easings;
+using Beutl.Animation.Easings;
 
-namespace BeUtl.Views.AnimationEditors;
+namespace Beutl.Views.AnimationEditors;
 
 public sealed class EasingGraph : TemplatedControl
 {

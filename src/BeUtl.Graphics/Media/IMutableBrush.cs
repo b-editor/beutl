@@ -1,6 +1,6 @@
-﻿using BeUtl.Styling;
+﻿using Beutl.Styling;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 public interface IMutableBrush : IBrush, IAffectsRender
 {

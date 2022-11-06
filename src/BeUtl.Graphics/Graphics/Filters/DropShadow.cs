@@ -1,8 +1,8 @@
-﻿using BeUtl.Media;
+﻿using Beutl.Media;
 
 using SkiaSharp;
 
-namespace BeUtl.Graphics.Filters;
+namespace Beutl.Graphics.Filters;
 
 public sealed class DropShadow : ImageFilter
 {

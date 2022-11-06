@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Media.Immutable;
+﻿namespace Beutl.Media.Immutable;
 
 public class ImmutableGradientStop : IGradientStop
 {

@@ -22,9 +22,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BeUtl.Core\BeUtl.Core.csproj" />
-    <ProjectReference Include="..\BeUtl.Configuration\BeUtl.Configuration.csproj" />
-    <ProjectReference Include="..\BeUtl.Framework\BeUtl.Framework.csproj" />
+    <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
+    <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
+    <ProjectReference Include="..\Beutl.Framework\Beutl.Framework.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,10 +1,10 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 
-using BeUtl.Validation;
-using BeUtl.ViewModels.Editors;
+using Beutl.Validation;
+using Beutl.ViewModels.Editors;
 
-namespace BeUtl.Views.Editors;
+namespace Beutl.Views.Editors;
 
 public sealed partial class FileInfoEditor : UserControl
 {

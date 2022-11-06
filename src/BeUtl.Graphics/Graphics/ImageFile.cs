@@ -2,11 +2,11 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
-using BeUtl.Media;
-using BeUtl.Media.Pixel;
-using BeUtl.Validation;
+using Beutl.Media;
+using Beutl.Media.Pixel;
+using Beutl.Validation;
 
-namespace BeUtl.Graphics;
+namespace Beutl.Graphics;
 
 public class ImageFile : Drawable
 {

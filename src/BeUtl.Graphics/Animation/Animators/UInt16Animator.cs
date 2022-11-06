@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Animation.Animators;
+﻿namespace Beutl.Animation.Animators;
 
 public sealed class UInt16Animator : Animator<ushort>
 {

@@ -1,13 +1,13 @@
 ﻿using System.Reactive.Linq;
 
-using BeUtl.Animation;
-using BeUtl.Collections;
-using BeUtl.Framework;
-using BeUtl.Reactive;
+using Beutl.Animation;
+using Beutl.Collections;
+using Beutl.Framework;
+using Beutl.Reactive;
 
 using Reactive.Bindings.Extensions;
 
-namespace BeUtl.Operators.Configure;
+namespace Beutl.Operators.Configure;
 
 public sealed class AnimatableCorePropertyImpl<T> : CorePropertyImpl<T>, IAbstractAnimatableProperty<T>
 {

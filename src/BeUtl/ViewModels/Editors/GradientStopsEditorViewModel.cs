@@ -1,13 +1,13 @@
-﻿using BeUtl.Commands;
-using BeUtl.Framework;
-using BeUtl.Media;
-using BeUtl.Utilities;
+﻿using Beutl.Commands;
+using Beutl.Framework;
+using Beutl.Media;
+using Beutl.Utilities;
 
 using Reactive.Bindings;
 
 using AM = Avalonia.Media;
 
-namespace BeUtl.ViewModels.Editors;
+namespace Beutl.ViewModels.Editors;
 
 public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
 {

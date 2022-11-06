@@ -1,9 +1,9 @@
-﻿using BeUtl.Graphics;
-using BeUtl.Media;
-using BeUtl.Streaming;
-using BeUtl.Styling;
+﻿using Beutl.Graphics;
+using Beutl.Media;
+using Beutl.Streaming;
+using Beutl.Styling;
 
-namespace BeUtl.Operators.Configure;
+namespace Beutl.Operators.Configure;
 
 public sealed class ForegroundOperator : StreamStyler
 {

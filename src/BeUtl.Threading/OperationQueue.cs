@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-namespace BeUtl.Threading;
+namespace Beutl.Threading;
 
 internal sealed class OperationQueue
 {

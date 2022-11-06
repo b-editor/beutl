@@ -1,11 +1,11 @@
-﻿using BeUtl.Animation;
-using BeUtl.Framework;
-using BeUtl.Services;
-using BeUtl.Services.Editors.Wrappers;
+﻿using Beutl.Animation;
+using Beutl.Framework;
+using Beutl.Services;
+using Beutl.Services.Editors.Wrappers;
 
 using DynamicData;
 
-namespace BeUtl.ViewModels.Editors;
+namespace Beutl.ViewModels.Editors;
 
 public sealed class PropertiesEditorViewModel : IDisposable
 {

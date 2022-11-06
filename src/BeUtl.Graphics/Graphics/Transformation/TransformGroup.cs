@@ -1,8 +1,8 @@
 ﻿using System.Text.Json.Nodes;
 
-using BeUtl.Animation;
+using Beutl.Animation;
 
-namespace BeUtl.Graphics.Transformation;
+namespace Beutl.Graphics.Transformation;
 
 public sealed class TransformGroup : Transform
 {

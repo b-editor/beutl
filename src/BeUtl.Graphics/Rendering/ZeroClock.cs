@@ -1,6 +1,6 @@
-﻿using BeUtl.Animation;
+﻿using Beutl.Animation;
 
-namespace BeUtl.Rendering;
+namespace Beutl.Rendering;
 
 internal sealed class ZeroClock : IClock
 {

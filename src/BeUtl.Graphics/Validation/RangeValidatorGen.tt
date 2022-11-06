@@ -7,11 +7,11 @@
 <#
     var vec2Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY)[]
     {
-        ("BeUtl.Media", "PixelPoint", "System.Int32", "X", "Y"),
-        ("BeUtl.Media", "PixelSize", "System.Int32", "Width", "Height"),
-        ("BeUtl.Graphics", "Point", "System.Single", "X", "Y"),
-        ("BeUtl.Graphics", "Size", "System.Single", "Width", "Height"),
-        ("BeUtl.Graphics", "Vector", "System.Single", "X", "Y"),
+        ("Beutl.Media", "PixelPoint", "System.Int32", "X", "Y"),
+        ("Beutl.Media", "PixelSize", "System.Int32", "Width", "Height"),
+        ("Beutl.Graphics", "Point", "System.Single", "X", "Y"),
+        ("Beutl.Graphics", "Size", "System.Single", "Width", "Height"),
+        ("Beutl.Graphics", "Vector", "System.Single", "X", "Y"),
     };
 
     var vec3Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY, string FieldZ)[]
@@ -20,15 +20,15 @@
 
     var vec4Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY, string FieldZ, string FieldW)[]
     {
-        ("BeUtl.Media", "PixelRect", "System.Int32", "X", "Y", "Width", "Height"),
-        ("BeUtl.Media", "CornerRadius", "System.Single", "TopLeft", "TopRight", "BottomRight", "BottomLeft"),
-        ("BeUtl.Graphics", "Rect", "System.Single", "X", "Y", "Width", "Height"),
+        ("Beutl.Media", "PixelRect", "System.Int32", "X", "Y", "Width", "Height"),
+        ("Beutl.Media", "CornerRadius", "System.Single", "TopLeft", "TopRight", "BottomRight", "BottomLeft"),
+        ("Beutl.Graphics", "Rect", "System.Single", "X", "Y", "Width", "Height"),
     };
 #>
 
 #pragma warning disable IDE0001, IDE0049
 
-namespace BeUtl.Validation
+namespace Beutl.Validation
 {
     // Vector2
 <# foreach(var t in vec2Types) { #>

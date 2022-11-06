@@ -6,7 +6,7 @@ using Beutl.Api.Services;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
+namespace Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 public sealed class CreatePackageDialogViewModel
 {

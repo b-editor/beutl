@@ -4,17 +4,17 @@ using Avalonia.Input;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 
-using BeUtl.Controls;
-using BeUtl.Controls.Navigation;
-using BeUtl.Pages.SettingsPages;
-using BeUtl.ViewModels;
-using BeUtl.ViewModels.SettingsPages;
+using Beutl.Controls;
+using Beutl.Controls.Navigation;
+using Beutl.Pages.SettingsPages;
+using Beutl.ViewModels;
+using Beutl.ViewModels.SettingsPages;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Navigation;
 
-namespace BeUtl.Pages;
+namespace Beutl.Pages;
 
 public sealed partial class SettingsPage : UserControl
 {

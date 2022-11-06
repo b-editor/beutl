@@ -1,9 +1,9 @@
 ﻿using System.Reactive.Linq;
 
-using BeUtl.Animation;
-using BeUtl.Animation.Easings;
+using Beutl.Animation;
+using Beutl.Animation.Easings;
 
-namespace BeUtl.Framework;
+namespace Beutl.Framework;
 
 public interface IAbstractProperty
 {

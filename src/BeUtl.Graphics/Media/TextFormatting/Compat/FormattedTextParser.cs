@@ -1,11 +1,11 @@
 ﻿using System.Runtime.InteropServices;
 
-using BeUtl.Graphics;
+using Beutl.Graphics;
 
-using static BeUtl.Media.TextFormatting.FormattedTextTokenizer;
-using static BeUtl.Media.TextFormatting.FormattedTextParser;
+using static Beutl.Media.TextFormatting.FormattedTextTokenizer;
+using static Beutl.Media.TextFormatting.FormattedTextParser;
 
-namespace BeUtl.Media.TextFormatting.Compat;
+namespace Beutl.Media.TextFormatting.Compat;
 
 [Obsolete("Use TextBlock APIs.")]
 public struct FormattedTextParser

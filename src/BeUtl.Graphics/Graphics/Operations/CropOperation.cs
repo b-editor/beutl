@@ -1,7 +1,7 @@
-﻿using BeUtl.Media;
-using BeUtl.Media.Pixel;
+﻿using Beutl.Media;
+using Beutl.Media.Pixel;
 
-namespace BeUtl.Graphics.Operations;
+namespace Beutl.Graphics.Operations;
 
 public readonly unsafe struct CropOperation<TPixel>
     where TPixel : unmanaged, IPixel<TPixel>

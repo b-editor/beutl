@@ -2,10 +2,10 @@
 using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 
-using BeUtl.Collections;
-using BeUtl.Styling;
+using Beutl.Collections;
+using Beutl.Styling;
 
-namespace BeUtl.Animation;
+namespace Beutl.Animation;
 
 public class Animation<T> : BaseAnimation, IAnimation
 {

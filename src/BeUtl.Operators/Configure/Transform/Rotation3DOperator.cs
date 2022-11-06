@@ -1,6 +1,6 @@
-﻿using BeUtl.Graphics.Transformation;
+﻿using Beutl.Graphics.Transformation;
 
-namespace BeUtl.Operators.Configure.Transform;
+namespace Beutl.Operators.Configure.Transform;
 
 public sealed class Rotation3DOperator : TransformOperator<Rotation3DTransform>
 {

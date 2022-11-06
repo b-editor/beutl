@@ -5,7 +5,7 @@ using System.Text;
 
 using Beutl.Api.Objects;
 
-using BeUtl.Reactive;
+using Beutl.Reactive;
 
 using NuGet.Common;
 using NuGet.Configuration;
@@ -37,17 +37,17 @@ public partial class PackageInstaller : IBeutlApiResource
     private static readonly NuGetVersion s_beutlVersion = new("0.3.0");
     private static readonly PackageIdentity[] s_preferredVersions =
     {
-        new PackageIdentity("BeUtl.Sdk", s_beutlVersion),
-        new PackageIdentity("BeUtl.Configuration", s_beutlVersion),
-        new PackageIdentity("BeUtl.Controls", s_beutlVersion),
-        new PackageIdentity("BeUtl.Core", s_beutlVersion),
-        new PackageIdentity("BeUtl.Framework", s_beutlVersion),
-        new PackageIdentity("BeUtl.Graphics", s_beutlVersion),
-        new PackageIdentity("BeUtl.Language", s_beutlVersion),
-        new PackageIdentity("BeUtl.Operators", s_beutlVersion),
-        new PackageIdentity("BeUtl.ProjectSystem", s_beutlVersion),
-        new PackageIdentity("BeUtl.Threading", s_beutlVersion),
-        new PackageIdentity("BeUtl.Utilities", s_beutlVersion),
+        new PackageIdentity("Beutl.Sdk", s_beutlVersion),
+        new PackageIdentity("Beutl.Configuration", s_beutlVersion),
+        new PackageIdentity("Beutl.Controls", s_beutlVersion),
+        new PackageIdentity("Beutl.Core", s_beutlVersion),
+        new PackageIdentity("Beutl.Framework", s_beutlVersion),
+        new PackageIdentity("Beutl.Graphics", s_beutlVersion),
+        new PackageIdentity("Beutl.Language", s_beutlVersion),
+        new PackageIdentity("Beutl.Operators", s_beutlVersion),
+        new PackageIdentity("Beutl.ProjectSystem", s_beutlVersion),
+        new PackageIdentity("Beutl.Threading", s_beutlVersion),
+        new PackageIdentity("Beutl.Utilities", s_beutlVersion),
     };
 
     private const string DefaultNuGetConfigContentTemplate = @"<?xml version=""1.0"" encoding=""utf-8""?>
@@ -343,7 +343,7 @@ public partial class PackageInstaller : IBeutlApiResource
                 var installedPaths = new List<string>(packagesToInstall.Length);
                 foreach (SourcePackageDependencyInfo packageToInstall in packagesToInstall)
                 {
-                    // BeUtl.Sdkに含まれるライブラリの場合、飛ばす。
+                    // Beutl.Sdkに含まれるライブラリの場合、飛ばす。
                     if (Helper.IsCoreLibraries(packageToInstall.Id))
                     {
                         continue;

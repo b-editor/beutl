@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Commands;
+﻿namespace Beutl.Commands;
 
 internal sealed class ClearCommand<T> : IRecordableCommand
 {

@@ -4,12 +4,12 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-using BeUtl.Collections;
-using BeUtl.Framework;
+using Beutl.Collections;
+using Beutl.Framework;
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace BeUtl.ProjectSystem;
+namespace Beutl.ProjectSystem;
 
 public static class ProjectVariableKeys
 {

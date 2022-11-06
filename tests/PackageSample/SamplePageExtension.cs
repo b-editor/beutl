@@ -2,9 +2,9 @@
 
 using Avalonia.Media;
 
-using BeUtl;
-using BeUtl.Controls;
-using BeUtl.Framework;
+using Beutl;
+using Beutl.Controls;
+using Beutl.Framework;
 
 namespace PackageSample;
 

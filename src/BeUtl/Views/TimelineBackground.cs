@@ -2,7 +2,7 @@
 using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 
-namespace BeUtl.Views;
+namespace Beutl.Views;
 
 public sealed class TimelineBackground : TemplatedControl
 {

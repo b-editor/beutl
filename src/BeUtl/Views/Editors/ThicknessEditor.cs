@@ -2,12 +2,12 @@
 using Avalonia.Data;
 using Avalonia.Layout;
 
-using BeUtl.Controls;
+using Beutl.Controls;
 
 using FluentIcons.Common;
 using FluentIcons.FluentAvalonia;
 
-namespace BeUtl.Views.Editors;
+namespace Beutl.Views.Editors;
 
 public sealed class ThicknessEditor : BaseVector4Editor<Graphics.Thickness>
 {

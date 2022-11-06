@@ -1,13 +1,13 @@
-﻿using BeUtl.Media;
-using BeUtl.Models;
-using BeUtl.ProjectSystem;
-using BeUtl.Streaming;
+﻿using Beutl.Media;
+using Beutl.Models;
+using Beutl.ProjectSystem;
+using Beutl.Streaming;
 
 using Reactive.Bindings;
 
 using AColor = Avalonia.Media.Color;
 
-namespace BeUtl.ViewModels.Dialogs;
+namespace Beutl.ViewModels.Dialogs;
 
 public sealed class AddLayerViewModel
 {

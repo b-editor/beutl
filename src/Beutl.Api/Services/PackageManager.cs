@@ -4,8 +4,8 @@ using System.Reflection;
 
 using Beutl.Api.Objects;
 
-using BeUtl.Framework;
-using BeUtl.Reactive;
+using Beutl.Framework;
+using Beutl.Reactive;
 
 using NuGet.Packaging;
 using NuGet.Packaging.Core;

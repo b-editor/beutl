@@ -1,6 +1,6 @@
 #pragma warning disable IDE0001, IDE0049
 
-namespace BeUtl.Services.Editors
+namespace Beutl.Services.Editors
 {
     public sealed class ByteEditorService : INumberEditorService<System.Byte>
     {

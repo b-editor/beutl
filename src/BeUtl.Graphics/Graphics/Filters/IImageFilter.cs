@@ -1,6 +1,6 @@
 ﻿using SkiaSharp;
 
-namespace BeUtl.Graphics.Filters;
+namespace Beutl.Graphics.Filters;
 
 public interface IImageFilter
 {

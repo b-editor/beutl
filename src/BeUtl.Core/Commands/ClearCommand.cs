@@ -1,6 +1,6 @@
 ﻿using System.Collections;
 
-namespace BeUtl.Commands;
+namespace Beutl.Commands;
 
 internal sealed class ClearCommand : IRecordableCommand
 {

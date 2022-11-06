@@ -1,8 +1,8 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-using BeUtl.Animation;
+using Beutl.Animation;
 
-namespace BeUtl.Styling;
+namespace Beutl.Styling;
 
 #pragma warning disable CA1816
 

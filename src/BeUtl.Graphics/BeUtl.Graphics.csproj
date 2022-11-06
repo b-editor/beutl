@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <RootNameSpace>BeUtl</RootNameSpace>
+    <RootNameSpace>Beutl</RootNameSpace>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Graphics\ColorMatrix.cs" />
@@ -12,9 +12,9 @@
     <Compile Remove="Media\YCbCr.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\BeUtl.Core\BeUtl.Core.csproj" />
-    <ProjectReference Include="..\BeUtl.Configuration\BeUtl.Configuration.csproj" />
-    <ProjectReference Include="..\BeUtl.Threading\BeUtl.Threading.csproj" />
+    <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
+    <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
+    <ProjectReference Include="..\Beutl.Threading\Beutl.Threading.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="Validation\RangeValidatorGen.tt">

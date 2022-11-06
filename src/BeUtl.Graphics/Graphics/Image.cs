@@ -1,12 +1,12 @@
-﻿using BeUtl.Graphics.Operations;
-using BeUtl.Media;
-using BeUtl.Media.Pixel;
+﻿using Beutl.Graphics.Operations;
+using Beutl.Media;
+using Beutl.Media.Pixel;
 
 using OpenCvSharp;
 
 using SkiaSharp;
 
-namespace BeUtl.Graphics;
+namespace Beutl.Graphics;
 
 public static unsafe partial class Image
 {

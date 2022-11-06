@@ -1,8 +1,8 @@
 ﻿using System.Reactive.Linq;
 
-using BeUtl.Framework;
-using BeUtl.ProjectSystem;
-using BeUtl.Streaming;
+using Beutl.Framework;
+using Beutl.ProjectSystem;
+using Beutl.Streaming;
 
 namespace PackageSample;
 

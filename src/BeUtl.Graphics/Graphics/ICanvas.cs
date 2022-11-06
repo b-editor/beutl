@@ -1,11 +1,11 @@
-﻿using BeUtl.Graphics.Filters;
-using BeUtl.Media;
-using BeUtl.Media.Pixel;
-using BeUtl.Media.TextFormatting;
+﻿using Beutl.Graphics.Filters;
+using Beutl.Media;
+using Beutl.Media.Pixel;
+using Beutl.Media.TextFormatting;
 
 using SkiaSharp;
 
-namespace BeUtl.Graphics;
+namespace Beutl.Graphics;
 
 public interface ICanvas : IDisposable
 {

@@ -16,8 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\BeUtl.Graphics\BeUtl.Graphics.csproj" />
-    <ProjectReference Include="..\..\src\BeUtl.ProjectSystem\BeUtl.ProjectSystem.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Graphics\Beutl.Graphics.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
   </ItemGroup>
 
 </Project>

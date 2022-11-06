@@ -9,15 +9,15 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
 
-using BeUtl.Commands;
-using BeUtl.Controls.Behaviors;
-using BeUtl.ViewModels;
-using BeUtl.ViewModels.Editors;
-using BeUtl.ViewModels.Tools;
+using Beutl.Commands;
+using Beutl.Controls.Behaviors;
+using Beutl.ViewModels;
+using Beutl.ViewModels.Editors;
+using Beutl.ViewModels.Tools;
 
 using FluentAvalonia.UI.Controls;
 
-namespace BeUtl.Views.Editors;
+namespace Beutl.Views.Editors;
 
 public sealed class ListEditorDragBehavior : GenericDragBehavior
 {

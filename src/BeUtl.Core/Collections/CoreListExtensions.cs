@@ -4,7 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Reactive.Disposables;
 
-namespace BeUtl.Collections;
+namespace Beutl.Collections;
 
 public static class CoreListExtensions
 {

@@ -1,6 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace BeUtl.Rendering;
+namespace Beutl.Rendering;
 
 public class LayerContext : ILayerContext
 {

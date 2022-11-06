@@ -1,4 +1,4 @@
-﻿namespace BeUtl;
+﻿namespace Beutl;
 
 public abstract class Element : CoreObject, ILogicalElement
 {

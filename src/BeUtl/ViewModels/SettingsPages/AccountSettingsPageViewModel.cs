@@ -1,12 +1,12 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
 
-using BeUtl.Controls.Navigation;
-using BeUtl.ViewModels.Dialogs;
+using Beutl.Controls.Navigation;
+using Beutl.ViewModels.Dialogs;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.SettingsPages;
+namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class AccountSettingsPageViewModel : PageContext, IDisposable
 {

@@ -1,12 +1,12 @@
 ﻿using Avalonia.Media;
 
-using BeUtl.Commands;
-using BeUtl.ProjectSystem;
+using Beutl.Commands;
+using Beutl.ProjectSystem;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace BeUtl.ViewModels;
+namespace Beutl.ViewModels;
 
 public sealed class LayerHeaderViewModel : IDisposable
 {

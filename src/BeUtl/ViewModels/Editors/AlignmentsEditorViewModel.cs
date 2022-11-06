@@ -1,13 +1,13 @@
 ﻿using System.Text.Json.Nodes;
 
-using BeUtl.Framework;
-using BeUtl.Media;
-using BeUtl.Services.PrimitiveImpls;
+using Beutl.Framework;
+using Beutl.Media;
+using Beutl.Services.PrimitiveImpls;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace BeUtl.ViewModels.Editors;
+namespace Beutl.ViewModels.Editors;
 
 public sealed class AlignmentsEditorViewModel : IPropertyEditorContext
 {

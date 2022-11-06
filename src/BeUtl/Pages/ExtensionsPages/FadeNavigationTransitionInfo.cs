@@ -6,7 +6,7 @@ using Avalonia.VisualTree;
 
 using FluentAvalonia.UI.Media.Animation;
 
-namespace BeUtl.Pages.ExtensionsPages;
+namespace Beutl.Pages.ExtensionsPages;
 
 public sealed class FadeNavigationTransitionInfo : NavigationTransitionInfo
 {

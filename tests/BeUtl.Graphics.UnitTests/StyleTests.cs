@@ -1,11 +1,11 @@
-﻿using BeUtl.Animation;
-using BeUtl.Graphics.Shapes;
-using BeUtl.Media;
-using BeUtl.Styling;
+﻿using Beutl.Animation;
+using Beutl.Graphics.Shapes;
+using Beutl.Media;
+using Beutl.Styling;
 
 using NUnit.Framework;
 
-namespace BeUtl.Graphics.UnitTests;
+namespace Beutl.Graphics.UnitTests;
 
 #nullable disable
 

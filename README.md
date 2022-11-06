@@ -1,20 +1,20 @@
-# 🎬 BeUtl
+# 🎬 Beutl
 
-![](https://img.shields.io/github/issues/b-editor/BeUtl)
-![](https://img.shields.io/github/forks/b-editor/BeUtl)
-![](https://img.shields.io/github/stars/b-editor/BeUtl)
-![](https://img.shields.io/github/license/b-editor/BeUtl)
-![](https://img.shields.io/github/downloads/b-editor/BeUtl/total)
-![](https://img.shields.io/github/v/release/b-editor/BeUtl)
-![](https://img.shields.io/github/repo-size/b-editor/BeUtl)
-[![Daily build](https://github.com/b-editor/BeUtl/actions/workflows/daily-build.yml/badge.svg)](https://github.com/b-editor/BeUtl/actions/workflows/daily-build.yml)
+![](https://img.shields.io/github/issues/b-editor/beutl)
+![](https://img.shields.io/github/forks/b-editor/beutl)
+![](https://img.shields.io/github/stars/b-editor/beutl)
+![](https://img.shields.io/github/license/b-editor/beutl)
+![](https://img.shields.io/github/downloads/b-editor/beutl/total)
+![](https://img.shields.io/github/v/release/b-editor/beutl)
+![](https://img.shields.io/github/repo-size/b-editor/beutl)
+[![Daily build](https://github.com/b-editor/beutl/actions/workflows/daily-build.yml/badge.svg)](https://github.com/b-editor/beutl/actions/workflows/daily-build.yml)
 [![Discord](https://img.shields.io/discord/868076100511760385.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/Bm3pnVc928)
 
-BeUtlはクロスプラットフォームで動作する動画編集ソフトウェアです。  
+Beutlはクロスプラットフォームで動作する動画編集ソフトウェアです。  
 
-[古いバージョン(BEditor)のソースコード](https://github.com/b-editor/BeUtl/tree/old/main)
+[古いバージョン(BEditor)のソースコード](https://github.com/b-editor/beutl/tree/old/main)
 
-![](https://raw.github.com/b-editor/BeUtl/main/assets/screenshots/screenshot-light-dark.png)
+![](https://raw.github.com/b-editor/beutl/main/assets/screenshots/screenshot-light-dark.png)
 
 ## 📖 Feature
 
@@ -32,7 +32,7 @@ BeUtlはクロスプラットフォームで動作する動画編集ソフトウ
 
 ## License
 
-- [MIT License](https://github.com/b-editor/BeUtl/blob/main/LICENSE)
+- [MIT License](https://github.com/b-editor/beutl/blob/main/LICENSE)
 
 ## Patrons
 

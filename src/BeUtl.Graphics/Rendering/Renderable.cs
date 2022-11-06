@@ -1,7 +1,7 @@
-﻿using BeUtl.Media;
-using BeUtl.Styling;
+﻿using Beutl.Media;
+using Beutl.Styling;
 
-namespace BeUtl.Rendering;
+namespace Beutl.Rendering;
 
 public abstract class Renderable : Styleable, IRenderable, IAffectsRender
 {

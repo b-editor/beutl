@@ -2,11 +2,11 @@
 
 using Beutl.Api.Objects;
 
-using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
+using Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
-namespace BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
+namespace Beutl.Pages.ExtensionsPages.DevelopPages.Dialogs;
 
 public sealed partial class AddReleaseDialog : ContentDialog, IStyleable
 {

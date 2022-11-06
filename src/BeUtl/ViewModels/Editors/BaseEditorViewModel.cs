@@ -1,14 +1,14 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
-using BeUtl.Framework;
-using BeUtl.Services;
-using BeUtl.Services.Editors.Wrappers;
+using Beutl.Framework;
+using Beutl.Services;
+using Beutl.Services.Editors.Wrappers;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace BeUtl.ViewModels.Editors;
+namespace Beutl.ViewModels.Editors;
 
 public abstract class BaseEditorViewModel : IPropertyEditorContext
 {

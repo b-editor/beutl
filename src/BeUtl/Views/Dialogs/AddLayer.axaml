@@ -4,7 +4,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
-    xmlns:vm="using:BeUtl.ViewModels.Dialogs"
+    xmlns:vm="using:Beutl.ViewModels.Dialogs"
     Title="{DynamicResource S.Common.AddLayer}"
     CloseButtonText="{DynamicResource S.Common.Close}"
     PrimaryButtonText="{DynamicResource S.Common.Back}"
@@ -13,7 +13,7 @@
     DefaultButton="Secondary"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:DataType="vm:AddLayerViewModel"
-    x:Class="BeUtl.Views.Dialogs.AddLayer">
+    x:Class="Beutl.Views.Dialogs.AddLayer">
     <Carousel x:Name="carousel">
         <Carousel.Items>
             <StackPanel Spacing="8">

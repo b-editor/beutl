@@ -1,7 +1,7 @@
 ﻿using System.Reactive.Subjects;
 using System.Text.Json;
 
-using BeUtl.Reactive;
+using Beutl.Reactive;
 
 using NuGet.Packaging;
 using NuGet.Packaging.Core;

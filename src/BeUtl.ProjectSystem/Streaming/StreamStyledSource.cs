@@ -1,8 +1,8 @@
-﻿using BeUtl.Animation;
-using BeUtl.Rendering;
-using BeUtl.Styling;
+﻿using Beutl.Animation;
+using Beutl.Rendering;
+using Beutl.Styling;
 
-namespace BeUtl.Streaming;
+namespace Beutl.Streaming;
 
 public abstract class StreamStyledSource : StylingOperator, IStreamSource
 {

@@ -6,13 +6,13 @@ using Avalonia.Layout;
 using Avalonia.LogicalTree;
 using Avalonia.Xaml.Interactivity;
 
-using BeUtl.Animation.Easings;
-using BeUtl.Controls.Behaviors;
-using BeUtl.ViewModels;
-using BeUtl.ViewModels.AnimationEditors;
-using BeUtl.ViewModels.Tools;
+using Beutl.Animation.Easings;
+using Beutl.Controls.Behaviors;
+using Beutl.ViewModels;
+using Beutl.ViewModels.AnimationEditors;
+using Beutl.ViewModels.Tools;
 
-namespace BeUtl.Views.AnimationEditors;
+namespace Beutl.Views.AnimationEditors;
 
 public partial class AnimationEditor : UserControl
 {

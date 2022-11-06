@@ -1,6 +1,6 @@
-﻿using BeUtl.Collections;
+﻿using Beutl.Collections;
 
-namespace BeUtl.Styling;
+namespace Beutl.Styling;
 
 public interface IStyle
 {

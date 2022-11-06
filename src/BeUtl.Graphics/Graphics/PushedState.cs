@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Graphics;
+﻿namespace Beutl.Graphics;
 
 public readonly record struct PushedState : IDisposable
 {

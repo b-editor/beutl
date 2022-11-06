@@ -1,6 +1,6 @@
-﻿using BeUtl.Media;
+﻿using Beutl.Media;
 
-namespace BeUtl.Streaming;
+namespace Beutl.Streaming;
 
 public class OperatorRegistry
 {

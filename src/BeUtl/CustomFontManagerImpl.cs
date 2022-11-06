@@ -5,7 +5,7 @@ using Avalonia.Platform;
 
 using Avalonia.Skia;
 
-using BeUtl.Media;
+using Beutl.Media;
 
 using SkiaSharp;
 
@@ -14,7 +14,7 @@ using FontStyle = Avalonia.Media.FontStyle;
 using FontWeight = Avalonia.Media.FontWeight;
 using Typeface = Avalonia.Media.Typeface;
 
-namespace BeUtl;
+namespace Beutl;
 
 #nullable disable
 

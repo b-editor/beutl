@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Graphics.Transformation;
+﻿namespace Beutl.Graphics.Transformation;
 
 public interface ITransform
 {

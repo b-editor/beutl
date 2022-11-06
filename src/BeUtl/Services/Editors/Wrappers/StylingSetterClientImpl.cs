@@ -1,13 +1,13 @@
-﻿using BeUtl.Animation;
-using BeUtl.Animation.Easings;
-using BeUtl.Framework;
-using BeUtl.Reactive;
-using BeUtl.Streaming;
-using BeUtl.Styling;
+﻿using Beutl.Animation;
+using Beutl.Animation.Easings;
+using Beutl.Framework;
+using Beutl.Reactive;
+using Beutl.Streaming;
+using Beutl.Styling;
 
 using Reactive.Bindings.Extensions;
 
-namespace BeUtl.Services.Editors.Wrappers;
+namespace Beutl.Services.Editors.Wrappers;
 
 public interface IStylingSetterWrapper : IAbstractProperty
 {

@@ -1,8 +1,8 @@
-﻿using BeUtl.Animation;
+﻿using Beutl.Animation;
 
 using SkiaSharp;
 
-namespace BeUtl.Graphics.Filters;
+namespace Beutl.Graphics.Filters;
 
 public abstract class ImageFilter : Animatable, IMutableImageFilter
 {

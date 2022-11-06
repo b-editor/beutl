@@ -1,9 +1,9 @@
-﻿using BeUtl.Media;
-using BeUtl.Media.Pixel;
+﻿using Beutl.Media;
+using Beutl.Media.Pixel;
 
 using OpenCvSharp;
 
-namespace BeUtl.Graphics.Effects.OpenCv;
+namespace Beutl.Graphics.Effects.OpenCv;
 
 public class Blur : BitmapEffect
 {

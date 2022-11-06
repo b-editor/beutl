@@ -1,6 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 
-namespace BeUtl;
+namespace Beutl;
 
 internal static class RegexHelper
 {

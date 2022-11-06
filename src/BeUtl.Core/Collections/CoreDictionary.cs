@@ -3,7 +3,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 
-namespace BeUtl.Collections;
+namespace Beutl.Collections;
 
 public class CoreDictionary<TKey, TValue> : IDictionary<TKey, TValue>,
     IDictionary,

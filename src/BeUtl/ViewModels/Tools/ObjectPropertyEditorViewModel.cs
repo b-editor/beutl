@@ -1,12 +1,12 @@
 ﻿using System.Text.Json.Nodes;
 
-using BeUtl.Framework;
-using BeUtl.Services.PrimitiveImpls;
-using BeUtl.ViewModels.Editors;
+using Beutl.Framework;
+using Beutl.Services.PrimitiveImpls;
+using Beutl.ViewModels.Editors;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Tools;
+namespace Beutl.ViewModels.Tools;
 
 public sealed class ObjectPropertyEditorViewModel : IToolContext
 {

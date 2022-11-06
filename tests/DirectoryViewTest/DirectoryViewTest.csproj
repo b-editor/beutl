@@ -11,7 +11,7 @@
     <None Remove=".gitignore" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\BeUtl.Controls\BeUtl.Controls.csproj" />
-    <ProjectReference Include="..\..\src\BeUtl.Language\BeUtl.Language.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Controls\Beutl.Controls.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Language\Beutl.Language.csproj" />
   </ItemGroup>
 </Project>

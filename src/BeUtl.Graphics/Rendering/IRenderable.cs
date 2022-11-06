@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Rendering;
+﻿namespace Beutl.Rendering;
 
 public interface IRenderable
 {

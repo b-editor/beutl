@@ -6,8 +6,8 @@ using Avalonia.Data;
 using Avalonia.Media;
 using Avalonia.Styling;
 
-using BeUtl.Controls;
-using BeUtl.Framework;
+using Beutl.Controls;
+using Beutl.Framework;
 
 using Reactive.Bindings;
 

@@ -1,9 +1,9 @@
 ﻿using System.Diagnostics;
 
-using BeUtl.Media;
-using BeUtl.Media.TextFormatting;
+using Beutl.Media;
+using Beutl.Media.TextFormatting;
 
-namespace BeUtl.Graphics.Shapes;
+namespace Beutl.Graphics.Shapes;
 
 [DebuggerDisplay("{Text}")]
 public class TextElement : Drawable

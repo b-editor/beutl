@@ -1,7 +1,7 @@
 ﻿
-using BeUtl.Animation;
+using Beutl.Animation;
 
-namespace BeUtl.Styling;
+namespace Beutl.Styling;
 
 public interface IStyleInstance : IDisposable
 {

@@ -22,7 +22,7 @@
 #>
 #pragma warning disable IDE0001, IDE0049
 
-namespace BeUtl.Services.Editors
+namespace Beutl.Services.Editors
 {
 <# foreach(var t in numberTypes) { #>
     public sealed class <#= t.Name #>EditorService : INumberEditorService<<#= t.FullName #>>

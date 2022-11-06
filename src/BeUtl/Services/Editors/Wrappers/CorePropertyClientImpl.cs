@@ -1,6 +1,6 @@
-﻿using BeUtl.Framework;
+﻿using Beutl.Framework;
 
-namespace BeUtl.Services.Editors.Wrappers;
+namespace Beutl.Services.Editors.Wrappers;
 
 public class CorePropertyClientImpl<T> : IAbstractProperty<T>
 {

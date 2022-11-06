@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 
-namespace BeUtl.Threading;
+namespace Beutl.Threading;
 
 public readonly struct YieldTask
 {

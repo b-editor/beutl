@@ -1,6 +1,6 @@
-﻿using BeUtl.Framework;
+﻿using Beutl.Framework;
 
-namespace BeUtl.ViewModels.Editors;
+namespace Beutl.ViewModels.Editors;
 
 public sealed class FileInfoEditorViewModel : BaseEditorViewModel<FileInfo>
 {

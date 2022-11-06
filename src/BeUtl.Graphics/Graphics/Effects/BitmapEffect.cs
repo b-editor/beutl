@@ -1,6 +1,6 @@
-﻿using BeUtl.Animation;
+﻿using Beutl.Animation;
 
-namespace BeUtl.Graphics.Effects;
+namespace Beutl.Graphics.Effects;
 
 public abstract class BitmapEffect : Animatable, IMutableBitmapEffect
 {

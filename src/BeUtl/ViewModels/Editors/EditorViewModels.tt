@@ -7,12 +7,12 @@
 <#
     var vec2Types = new (string Namespace, string Name, string Element)[]
     {
-        ("BeUtl.Media", "PixelPoint", "System.Int32"),
-        ("BeUtl.Media", "PixelSize", "System.Int32"),
-        ("BeUtl.Graphics", "Point", "System.Single"),
-        ("BeUtl.Graphics", "Size", "System.Single"),
-        ("BeUtl.Graphics", "Vector", "System.Single"),
-        ("BeUtl.Graphics", "RelativePoint", "System.Single"),
+        ("Beutl.Media", "PixelPoint", "System.Int32"),
+        ("Beutl.Media", "PixelSize", "System.Int32"),
+        ("Beutl.Graphics", "Point", "System.Single"),
+        ("Beutl.Graphics", "Size", "System.Single"),
+        ("Beutl.Graphics", "Vector", "System.Single"),
+        ("Beutl.Graphics", "RelativePoint", "System.Single"),
         ("System.Numerics", "Vector2", "System.Single"),
     };
 
@@ -23,23 +23,23 @@
 
     var vec4Types = new (string Namespace, string Name, string Element)[]
     {
-        ("BeUtl.Media", "PixelRect", "System.Int32"),
-        ("BeUtl.Media", "CornerRadius", "System.Single"),
-        ("BeUtl.Graphics", "Thickness", "System.Single"),
-        ("BeUtl.Graphics", "Rect", "System.Single"),
+        ("Beutl.Media", "PixelRect", "System.Int32"),
+        ("Beutl.Media", "CornerRadius", "System.Single"),
+        ("Beutl.Graphics", "Thickness", "System.Single"),
+        ("Beutl.Graphics", "Rect", "System.Single"),
         ("System.Numerics", "Vector4", "System.Single"),
     };
 #>
-using BeUtl.Framework;
-using BeUtl.Services.Editors;
-using BeUtl.Services.Editors.Wrappers;
+using Beutl.Framework;
+using Beutl.Services.Editors;
+using Beutl.Services.Editors.Wrappers;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 #pragma warning disable IDE0001, IDE0049
 
-namespace BeUtl.ViewModels.Editors
+namespace Beutl.ViewModels.Editors
 {
     // Vector2
 <# foreach(var t in vec2Types) { #>

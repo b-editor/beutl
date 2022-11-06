@@ -1,16 +1,16 @@
 ﻿using Avalonia;
 
-using BeUtl.Framework;
-using BeUtl.Framework.Services;
-using BeUtl.Models;
-using BeUtl.ProjectSystem;
-using BeUtl.Services;
+using Beutl.Framework;
+using Beutl.Framework.Services;
+using Beutl.Models;
+using Beutl.ProjectSystem;
+using Beutl.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Dialogs;
+namespace Beutl.ViewModels.Dialogs;
 
 public sealed class CreateNewSceneViewModel
 {

@@ -2,12 +2,12 @@
 
 using Avalonia.Controls;
 
-using BeUtl.Framework;
-using BeUtl.Media;
-using BeUtl.ViewModels.Editors;
-using BeUtl.Views.Editors;
+using Beutl.Framework;
+using Beutl.Media;
+using Beutl.ViewModels.Editors;
+using Beutl.Views.Editors;
 
-namespace BeUtl.Services.PrimitiveImpls;
+namespace Beutl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
 public sealed class AlignmentsPropertyEditorExtension : PropertyEditorExtension

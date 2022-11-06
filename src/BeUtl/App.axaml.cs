@@ -9,16 +9,16 @@ using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 
-using BeUtl.Configuration;
-using BeUtl.Framework;
-using BeUtl.Framework.Service;
-using BeUtl.Framework.Services;
-using BeUtl.Operators;
-using BeUtl.ProjectSystem;
-using BeUtl.Rendering;
-using BeUtl.Services;
-using BeUtl.ViewModels;
-using BeUtl.Views;
+using Beutl.Configuration;
+using Beutl.Framework;
+using Beutl.Framework.Service;
+using Beutl.Framework.Services;
+using Beutl.Operators;
+using Beutl.ProjectSystem;
+using Beutl.Rendering;
+using Beutl.Services;
+using Beutl.ViewModels;
+using Beutl.Views;
 
 using FluentAvalonia.Styling;
 
@@ -26,11 +26,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
-namespace BeUtl;
+namespace Beutl;
 
 public sealed class App : Application
 {
-    private readonly Uri _baseUri = new("avares://BeUtl/App.axaml");
+    private readonly Uri _baseUri = new("avares://Beutl/App.axaml");
     private IStyle? _cultureStyle;
     private MainViewModel? _mainViewModel;
 

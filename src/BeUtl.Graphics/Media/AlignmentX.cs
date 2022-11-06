@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 public enum AlignmentX
 {

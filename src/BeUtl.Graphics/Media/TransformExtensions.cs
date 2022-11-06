@@ -1,7 +1,7 @@
-﻿using BeUtl.Graphics.Transformation;
-using BeUtl.Media.Immutable;
+﻿using Beutl.Graphics.Transformation;
+using Beutl.Media.Immutable;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 /// <summary>
 /// Extension methods for transform classes.

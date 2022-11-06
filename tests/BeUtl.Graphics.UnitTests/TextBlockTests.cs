@@ -1,11 +1,11 @@
 ﻿
-using BeUtl.Graphics.Shapes;
-using BeUtl.Media;
-using BeUtl.Media.Pixel;
+using Beutl.Graphics.Shapes;
+using Beutl.Media;
+using Beutl.Media.Pixel;
 
 using NUnit.Framework;
 
-namespace BeUtl.Graphics.UnitTests;
+namespace Beutl.Graphics.UnitTests;
 
 public class TextBlockTests
 {

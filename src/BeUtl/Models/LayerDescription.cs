@@ -1,6 +1,6 @@
-﻿using BeUtl.Streaming;
+﻿using Beutl.Streaming;
 
-namespace BeUtl.Models;
+namespace Beutl.Models;
 
 public record struct LayerDescription(
     TimeSpan Start,

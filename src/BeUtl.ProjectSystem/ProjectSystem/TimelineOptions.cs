@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace BeUtl.ProjectSystem;
+namespace Beutl.ProjectSystem;
 
 public record struct TimelineOptions
 {

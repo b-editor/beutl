@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace BeUtl.Animation.Animators;
+namespace Beutl.Animation.Animators;
 
 public sealed class Vector4Animator : Animator<Vector4>
 {

@@ -1,9 +1,9 @@
-﻿using BeUtl.Graphics.Transformation;
-using BeUtl.Utilities;
+﻿using Beutl.Graphics.Transformation;
+using Beutl.Utilities;
 
 using NUnit.Framework;
 
-namespace BeUtl.Graphics.UnitTests;
+namespace Beutl.Graphics.UnitTests;
 
 public class TransformParser
 {

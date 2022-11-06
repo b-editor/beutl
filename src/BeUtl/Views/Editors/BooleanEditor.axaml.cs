@@ -1,9 +1,9 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
-using BeUtl.ViewModels.Editors;
+using Beutl.ViewModels.Editors;
 
-namespace BeUtl.Views.Editors;
+namespace Beutl.Views.Editors;
 
 public sealed partial class BooleanEditor : UserControl
 {

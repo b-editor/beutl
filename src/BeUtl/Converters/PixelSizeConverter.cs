@@ -2,7 +2,7 @@
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 
-namespace BeUtl.Converters;
+namespace Beutl.Converters;
 
 public sealed class PixelSizeConverter : IValueConverter
 {

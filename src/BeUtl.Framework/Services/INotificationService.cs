@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Framework.Service;
+﻿namespace Beutl.Framework.Service;
 
 public interface INotificationService
 {

@@ -2,11 +2,11 @@
 
 using Beutl.Api.Services;
 
-using BeUtl.Framework;
+using Beutl.Framework;
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace BeUtl.Services;
+namespace Beutl.Services;
 
 public sealed class WorkspaceItemContainer : IWorkspaceItemContainer
 {

@@ -2,13 +2,13 @@
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
-using BeUtl.Pages.ExtensionsPages.DiscoverPages;
-using BeUtl.ViewModels.ExtensionsPages;
+using Beutl.Pages.ExtensionsPages.DiscoverPages;
+using Beutl.ViewModels.ExtensionsPages;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 
-namespace BeUtl.Pages.ExtensionsPages;
+namespace Beutl.Pages.ExtensionsPages;
 
 public sealed partial class LibraryPage : UserControl
 {

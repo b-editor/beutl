@@ -5,11 +5,11 @@ using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Avalonia.Styling;
 
-using BeUtl.Media;
+using Beutl.Media;
 
 using FluentAvalonia.UI.Controls;
 
-namespace BeUtl.Views.Dialogs;
+namespace Beutl.Views.Dialogs;
 
 public sealed partial class PickFontFamily : ContentDialog, IStyleable
 {

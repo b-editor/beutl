@@ -2,14 +2,14 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
-using BeUtl.ViewModels.SettingsPages;
-using BeUtl.Views.Dialogs;
+using Beutl.ViewModels.SettingsPages;
+using Beutl.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
-using static BeUtl.ViewModels.SettingsPages.StorageDetailPageViewModel;
+using static Beutl.ViewModels.SettingsPages.StorageDetailPageViewModel;
 
-namespace BeUtl.Pages.SettingsPages;
+namespace Beutl.Pages.SettingsPages;
 
 public partial class StorageDetailPage : UserControl
 {

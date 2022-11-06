@@ -4,10 +4,10 @@ global using System.Reactive;
 global using System.Reactive.Disposables;
 global using System.Reactive.Linq;
 
-global using BeUtl;
-global using BeUtl.Collections;
-global using BeUtl.Language;
+global using Beutl;
+global using Beutl.Collections;
+global using Beutl.Language;
 
-global using Notification = BeUtl.Framework.Service.Notification;
-global using S = BeUtl.Language.Resources.S;
+global using Notification = Beutl.Framework.Service.Notification;
+global using S = Beutl.Language.Resources.S;
 //global using FA = FluentAvalonia.UI.Controls;

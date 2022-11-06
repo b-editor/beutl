@@ -8,6 +8,6 @@
   <Import Project="$(RootDirectory)\build\props\FluentIcons.FluentAvalonia.props" />
   <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.FileSystemGlobbing.props" />
   <ItemGroup>
-    <ProjectReference Include="..\BeUtl.Language\BeUtl.Language.csproj" />
+    <ProjectReference Include="..\Beutl.Language\Beutl.Language.csproj" />
   </ItemGroup>
 </Project>

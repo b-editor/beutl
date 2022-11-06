@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-namespace BeUtl.Collections;
+namespace Beutl.Collections;
 
 internal class ListReflection<T>
 {

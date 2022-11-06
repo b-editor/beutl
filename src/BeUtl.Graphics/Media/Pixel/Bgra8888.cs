@@ -1,6 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace BeUtl.Media.Pixel;
+namespace Beutl.Media.Pixel;
 
 [StructLayout(LayoutKind.Sequential)]
 public struct Bgra8888 : IPixel<Bgra8888>

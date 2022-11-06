@@ -1,15 +1,15 @@
 ﻿using System.Runtime.InteropServices;
 
-using BeUtl.Animation;
-using BeUtl.Graphics;
-using BeUtl.Media.TextFormatting;
-using BeUtl.ProjectSystem;
-using BeUtl.Rendering;
-using BeUtl.Streaming;
-using BeUtl.Styling;
-using BeUtl.Threading;
+using Beutl.Animation;
+using Beutl.Graphics;
+using Beutl.Media.TextFormatting;
+using Beutl.ProjectSystem;
+using Beutl.Rendering;
+using Beutl.Streaming;
+using Beutl.Styling;
+using Beutl.Threading;
 
-namespace BeUtl;
+namespace Beutl;
 
 internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/
 {

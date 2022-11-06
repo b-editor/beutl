@@ -1,8 +1,8 @@
 ﻿using System.Globalization;
 
-using BeUtl.Utilities;
+using Beutl.Utilities;
 
-namespace BeUtl.Graphics;
+namespace Beutl.Graphics;
 
 /// <summary>
 /// Defines a rectangle that may be defined relative to a containing element.

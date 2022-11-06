@@ -1,12 +1,12 @@
-﻿using BeUtl.Framework;
-using BeUtl.Media;
+﻿using Beutl.Framework;
+using Beutl.Media;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 using AColor = Avalonia.Media.Color;
 
-namespace BeUtl.ViewModels.Editors;
+namespace Beutl.ViewModels.Editors;
 
 public sealed class ColorEditorViewModel : BaseEditorViewModel<Color>
 {

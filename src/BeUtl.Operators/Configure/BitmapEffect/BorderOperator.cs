@@ -1,6 +1,6 @@
-﻿using BeUtl.Graphics.Effects;
+﻿using Beutl.Graphics.Effects;
 
-namespace BeUtl.Operators.Configure.BitmapEffect;
+namespace Beutl.Operators.Configure.BitmapEffect;
 
 public sealed class BorderOperator : BitmapEffectOperator<Border>
 {

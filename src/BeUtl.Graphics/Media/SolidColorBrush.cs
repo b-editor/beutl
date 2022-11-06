@@ -1,8 +1,8 @@
-﻿using BeUtl.Graphics;
-using BeUtl.Graphics.Transformation;
-using BeUtl.Media.Immutable;
+﻿using Beutl.Graphics;
+using Beutl.Graphics.Transformation;
+using Beutl.Media.Immutable;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 /// <summary>
 /// Fills an area with a solid color.

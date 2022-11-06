@@ -4,7 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
 
-namespace BeUtl.Services;
+namespace Beutl.Services;
 
 public sealed class DefaultResourceProvider : IResourceProvider
 {

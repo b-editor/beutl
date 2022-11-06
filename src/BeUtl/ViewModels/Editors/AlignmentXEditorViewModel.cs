@@ -1,10 +1,10 @@
-﻿using BeUtl.Framework;
-using BeUtl.Media;
+﻿using Beutl.Framework;
+using Beutl.Media;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace BeUtl.ViewModels.Editors;
+namespace Beutl.ViewModels.Editors;
 
 public sealed class AlignmentXEditorViewModel : BaseEditorViewModel<AlignmentX>
 {

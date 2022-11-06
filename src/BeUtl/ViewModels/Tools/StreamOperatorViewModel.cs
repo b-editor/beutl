@@ -1,15 +1,15 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 
-using BeUtl.Framework;
-using BeUtl.Services;
-using BeUtl.Streaming;
+using Beutl.Framework;
+using Beutl.Services;
+using Beutl.Streaming;
 
 using DynamicData;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Tools;
+namespace Beutl.ViewModels.Tools;
 
 public sealed class StreamOperatorViewModel : IDisposable
 {

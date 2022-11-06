@@ -1,7 +1,7 @@
-﻿using BeUtl.Animation;
-using BeUtl.Media;
+﻿using Beutl.Animation;
+using Beutl.Media;
 
-namespace BeUtl.Graphics.Effects;
+namespace Beutl.Graphics.Effects;
 
 public interface IMutableBitmapEffect : IBitmapEffect, ICoreObject, IAffectsRender, IAnimatable
 {

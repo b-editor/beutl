@@ -5,15 +5,15 @@ using Avalonia.Interactivity;
 using Avalonia.Media.Immutable;
 using Avalonia.Media.Transformation;
 
-using BeUtl.Utilities;
-using BeUtl.ViewModels.Editors;
+using Beutl.Utilities;
+using Beutl.ViewModels.Editors;
 
 using FluentAvalonia.UI.Controls;
 
 using AM = Avalonia.Media;
 using FAM = FluentAvalonia.UI.Media;
 
-namespace BeUtl.Views.Editors;
+namespace Beutl.Views.Editors;
 
 public sealed partial class GradientStopsEditor : UserControl
 {

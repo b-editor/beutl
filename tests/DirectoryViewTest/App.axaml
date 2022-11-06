@@ -2,8 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="DirectoryViewTest.App">
     <Application.Styles>
-        <StyleInclude Source="avares://BeUtl.Controls/Styles.axaml" />
-        <StyleInclude Source="avares://BeUtl.Language/Strings.axaml" />
-        <StyleInclude Source="avares://BeUtl.Language/Strings_ja-JP.axaml" />
+        <StyleInclude Source="avares://Beutl.Controls/Styles.axaml" />
+        <StyleInclude Source="avares://Beutl.Language/Strings.axaml" />
+        <StyleInclude Source="avares://Beutl.Language/Strings_ja-JP.axaml" />
     </Application.Styles>
 </Application>

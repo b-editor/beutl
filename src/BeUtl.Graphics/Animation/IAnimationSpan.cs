@@ -1,7 +1,7 @@
 ﻿
-using BeUtl.Animation.Easings;
+using Beutl.Animation.Easings;
 
-namespace BeUtl.Animation;
+namespace Beutl.Animation;
 
 public interface IAnimationSpan : ICoreObject
 {

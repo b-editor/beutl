@@ -1,8 +1,8 @@
-﻿using BeUtl.ProjectSystem;
+﻿using Beutl.ProjectSystem;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels;
+namespace Beutl.ViewModels;
 
 public sealed class PlayerViewModel
 {

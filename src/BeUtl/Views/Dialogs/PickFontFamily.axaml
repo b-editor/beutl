@@ -3,14 +3,14 @@
                   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
-                  xmlns:vm="using:BeUtl.ViewModels.Dialogs"
+                  xmlns:vm="using:Beutl.ViewModels.Dialogs"
                   mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
                   Title="{DynamicResource S.Common.PickFont}"
                   CloseButtonText="{DynamicResource S.Common.Close}"
                   PrimaryButtonText="{DynamicResource S.Common.OK}"
                   DefaultButton="Primary"
                   x:DataType="vm:PickFontFamilyViewModel"
-                  x:Class="BeUtl.Views.Dialogs.PickFontFamily">
+                  x:Class="Beutl.Views.Dialogs.PickFontFamily">
     <Grid RowDefinitions="Auto,*">
         <TextBox x:Name="searchBox"
                  Margin="0,4"

@@ -1,6 +1,6 @@
-﻿using BeUtl.Media.Pixel;
+﻿using Beutl.Media.Pixel;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 public interface IBitmap : IDisposable, ICloneable
 {

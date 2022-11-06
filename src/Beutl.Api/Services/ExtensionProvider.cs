@@ -1,8 +1,8 @@
-﻿using BeUtl.Collections;
-using BeUtl.Configuration;
-using BeUtl.Framework;
+﻿using Beutl.Collections;
+using Beutl.Configuration;
+using Beutl.Framework;
 
-using static BeUtl.Configuration.ExtensionConfig;
+using static Beutl.Configuration.ExtensionConfig;
 
 namespace Beutl.Api.Services;
 

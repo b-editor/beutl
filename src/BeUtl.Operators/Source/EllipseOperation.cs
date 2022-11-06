@@ -1,10 +1,10 @@
-﻿using BeUtl.Graphics;
-using BeUtl.Graphics.Shapes;
-using BeUtl.Media;
-using BeUtl.Streaming;
-using BeUtl.Styling;
+﻿using Beutl.Graphics;
+using Beutl.Graphics.Shapes;
+using Beutl.Media;
+using Beutl.Streaming;
+using Beutl.Styling;
 
-namespace BeUtl.Operators.Source;
+namespace Beutl.Operators.Source;
 
 public sealed class EllipseOperator : StreamStyledSource
 {

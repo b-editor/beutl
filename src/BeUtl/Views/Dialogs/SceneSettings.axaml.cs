@@ -2,7 +2,7 @@
 
 using FluentAvalonia.UI.Controls;
 
-namespace BeUtl.Views.Dialogs;
+namespace Beutl.Views.Dialogs;
 
 public sealed partial class SceneSettings : ContentDialog, IStyleable
 {

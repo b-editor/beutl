@@ -5,13 +5,13 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
 
-using BeUtl.ViewModels;
+using Beutl.ViewModels;
 
-using static BeUtl.Views.Timeline;
+using static Beutl.Views.Timeline;
 
-using TLVM = BeUtl.ViewModels.TimelineLayerViewModel;
+using TLVM = Beutl.ViewModels.TimelineLayerViewModel;
 
-namespace BeUtl.Views;
+namespace Beutl.Views;
 
 public sealed partial class LayerHeader : UserControl
 {

@@ -1,9 +1,9 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 
-using BeUtl.Collections;
+using Beutl.Collections;
 
-namespace BeUtl.Animation;
+namespace Beutl.Animation;
 
 public sealed class Animations : CoreList<IAnimation>
 {

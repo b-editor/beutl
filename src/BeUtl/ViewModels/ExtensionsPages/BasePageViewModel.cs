@@ -6,12 +6,12 @@ using System.Threading.Tasks;
 
 using Beutl.Api;
 
-using BeUtl.Controls.Navigation;
-using BeUtl.Framework.Service;
+using Beutl.Controls.Navigation;
+using Beutl.Framework.Service;
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace BeUtl.ViewModels.ExtensionsPages;
+namespace Beutl.ViewModels.ExtensionsPages;
 
 public abstract class BasePageViewModel : PageContext, IDisposable
 {

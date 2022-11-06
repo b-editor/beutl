@@ -1,6 +1,6 @@
 ﻿using System.Reactive.Subjects;
 
-using BeUtl.Reactive;
+using Beutl.Reactive;
 
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
