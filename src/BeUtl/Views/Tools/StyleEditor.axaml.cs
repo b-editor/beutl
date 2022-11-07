@@ -55,7 +55,7 @@ public sealed partial class StyleEditor : UserControl
                         {
                             var dialog = new ContentDialog
                             {
-                                Title = S.Common.RemoveUnavailableSetters,
+                                Title = Strings.RemoveUnavailableSetters,
                                 Content = new ListBox
                                 {
                                     Items = mismatches,
@@ -67,8 +67,8 @@ public sealed partial class StyleEditor : UserControl
                                         };
                                     })
                                 },
-                                PrimaryButtonText = S.Common.Yes,
-                                CloseButtonText = S.Common.No
+                                PrimaryButtonText = Strings.Yes,
+                                CloseButtonText = Strings.No
                             };
 
                             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
@@ -115,10 +115,10 @@ public sealed partial class StyleEditor : UserControl
                 {
                     Source = selectedItem.Select(x => x != null).ToReadOnlyReactivePropertySlim()
                 },
-                Title = S.Common.AddSetter,
+                Title = Strings.AddSetter,
                 Content = listBox,
-                PrimaryButtonText = S.Common.Add,
-                CloseButtonText = S.Common.Cancel
+                PrimaryButtonText = Strings.Add,
+                CloseButtonText = Strings.Cancel
             };
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary

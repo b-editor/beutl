@@ -367,4 +367,7 @@ URLが不審な場合、開かないことをお勧めします。</value>
   <data name="Overall" xml:space="preserve">
     <value>総合</value>
   </data>
+  <data name="AuthorizationIsRequired" xml:space="preserve">
+    <value>認証が必要です。</value>
+  </data>
 </root>

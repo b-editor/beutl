@@ -20,7 +20,7 @@ public sealed class StreamOperatorsTabExtension : ToolTabExtension
 
     public override string DisplayName => "Stream operators editor";
 
-    public override IObservable<string>? Header => S.Common.StreamOperatorsObservable;
+    public override IObservable<string>? Header => Observable.Return(Strings.StreamOperators);
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
     {

@@ -88,7 +88,7 @@
                                        Text="{CompiledBinding ActualAsset.Value.Name}" />
                             <Button Classes="accent"
                                     Click="SelectAsset_Click"
-                                    Content="{DynamicResource S.Common.Open}" />
+                                    Content="{x:Static lang:Strings.Open}" />
                         </StackPanel>
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>

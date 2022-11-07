@@ -12,15 +12,13 @@ namespace Beutl.Views.Editors
     // Vector2
     public sealed class PixelPointEditor : BaseVector2Editor<Beutl.Media.PixelPoint>
     {
-        private static readonly IBinding s_xResource = S.Editors.PixelPoint.XObservable.ToBinding();
-        private static readonly IBinding s_yResource = S.Editors.PixelPoint.YObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
 
         public PixelPointEditor()
         {
-            xText[!TextBlock.TextProperty] = s_xResource;
-            yText[!TextBlock.TextProperty] = s_yResource;
+            xText.Text = "X";
+            yText.Text = "Y";
 
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;
@@ -56,15 +54,13 @@ namespace Beutl.Views.Editors
     }
     public sealed class PixelSizeEditor : BaseVector2Editor<Beutl.Media.PixelSize>
     {
-        private static readonly IBinding s_xResource = S.Editors.PixelSize.XObservable.ToBinding();
-        private static readonly IBinding s_yResource = S.Editors.PixelSize.YObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.Width", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Height", BindingMode.OneWay);
 
         public PixelSizeEditor()
         {
-            xText[!TextBlock.TextProperty] = s_xResource;
-            yText[!TextBlock.TextProperty] = s_yResource;
+            xText.Text = Strings.Width;
+            yText.Text = Strings.Height;
 
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;
@@ -100,15 +96,13 @@ namespace Beutl.Views.Editors
     }
     public sealed class PointEditor : BaseVector2Editor<Beutl.Graphics.Point>
     {
-        private static readonly IBinding s_xResource = S.Editors.Point.XObservable.ToBinding();
-        private static readonly IBinding s_yResource = S.Editors.Point.YObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
 
         public PointEditor()
         {
-            xText[!TextBlock.TextProperty] = s_xResource;
-            yText[!TextBlock.TextProperty] = s_yResource;
+            xText.Text = "X";
+            yText.Text = "Y";
 
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;
@@ -144,15 +138,13 @@ namespace Beutl.Views.Editors
     }
     public sealed class SizeEditor : BaseVector2Editor<Beutl.Graphics.Size>
     {
-        private static readonly IBinding s_xResource = S.Editors.Size.XObservable.ToBinding();
-        private static readonly IBinding s_yResource = S.Editors.Size.YObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.Width", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Height", BindingMode.OneWay);
 
         public SizeEditor()
         {
-            xText[!TextBlock.TextProperty] = s_xResource;
-            yText[!TextBlock.TextProperty] = s_yResource;
+            xText.Text = Strings.Width;
+            yText.Text = Strings.Height;
 
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;
@@ -188,15 +180,13 @@ namespace Beutl.Views.Editors
     }
     public sealed class VectorEditor : BaseVector2Editor<Beutl.Graphics.Vector>
     {
-        private static readonly IBinding s_xResource = S.Editors.Vector.XObservable.ToBinding();
-        private static readonly IBinding s_yResource = S.Editors.Vector.YObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
 
         public VectorEditor()
         {
-            xText[!TextBlock.TextProperty] = s_xResource;
-            yText[!TextBlock.TextProperty] = s_yResource;
+            xText.Text = "X";
+            yText.Text = "Y";
 
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;
@@ -232,15 +222,13 @@ namespace Beutl.Views.Editors
     }
     public sealed class Vector2Editor : BaseVector2Editor<System.Numerics.Vector2>
     {
-        private static readonly IBinding s_xResource = S.Editors.Vector2.XObservable.ToBinding();
-        private static readonly IBinding s_yResource = S.Editors.Vector2.YObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
 
         public Vector2Editor()
         {
-            xText[!TextBlock.TextProperty] = s_xResource;
-            yText[!TextBlock.TextProperty] = s_yResource;
+            xText.Text = "X";
+            yText.Text = "Y";
 
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;
@@ -278,18 +266,15 @@ namespace Beutl.Views.Editors
     // Vector3
     public sealed class Vector3Editor : BaseVector3Editor<System.Numerics.Vector3>
     {
-        private static readonly IBinding s_xResource = S.Editors.Vector3.XObservable.ToBinding();
-        private static readonly IBinding s_yResource = S.Editors.Vector3.YObservable.ToBinding();
-        private static readonly IBinding s_zResource = S.Editors.Vector3.ZObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
         private static readonly Binding s_z = new("Value.Value.Z", BindingMode.OneWay);
 
         public Vector3Editor()
         {
-            xText[!TextBlock.TextProperty] = s_xResource;
-            yText[!TextBlock.TextProperty] = s_yResource;
-            zText[!TextBlock.TextProperty] = s_zResource;
+            xText.Text = "X";
+            yText.Text = "Y";
+            zText.Text = "Z";
 
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;
@@ -340,10 +325,6 @@ namespace Beutl.Views.Editors
     // Vector4
     public sealed class PixelRectEditor : BaseVector4Editor<Beutl.Media.PixelRect>
     {
-        private static readonly IBinding s_xResource = S.Editors.PixelRect.XObservable.ToBinding();
-        private static readonly IBinding s_yResource = S.Editors.PixelRect.YObservable.ToBinding();
-        private static readonly IBinding s_zResource = S.Editors.PixelRect.ZObservable.ToBinding();
-        private static readonly IBinding s_wResource = S.Editors.PixelRect.WObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
         private static readonly Binding s_z = new("Value.Value.Width", BindingMode.OneWay);
@@ -351,10 +332,10 @@ namespace Beutl.Views.Editors
 
         public PixelRectEditor()
         {
-            xText[!TextBlock.TextProperty] = s_xResource;
-            yText[!TextBlock.TextProperty] = s_yResource;
-            zText[!TextBlock.TextProperty] = s_zResource;
-            wText[!TextBlock.TextProperty] = s_wResource;
+            xText.Text = "X";
+            yText.Text = "Y";
+            zText.Text = Strings.Width;
+            wText.Text = Strings.Height;
 
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;
@@ -417,10 +398,6 @@ namespace Beutl.Views.Editors
     }
     public sealed class RectEditor : BaseVector4Editor<Beutl.Graphics.Rect>
     {
-        private static readonly IBinding s_xResource = S.Editors.Rect.XObservable.ToBinding();
-        private static readonly IBinding s_yResource = S.Editors.Rect.YObservable.ToBinding();
-        private static readonly IBinding s_zResource = S.Editors.Rect.ZObservable.ToBinding();
-        private static readonly IBinding s_wResource = S.Editors.Rect.WObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
         private static readonly Binding s_z = new("Value.Value.Width", BindingMode.OneWay);
@@ -428,10 +405,10 @@ namespace Beutl.Views.Editors
 
         public RectEditor()
         {
-            xText[!TextBlock.TextProperty] = s_xResource;
-            yText[!TextBlock.TextProperty] = s_yResource;
-            zText[!TextBlock.TextProperty] = s_zResource;
-            wText[!TextBlock.TextProperty] = s_wResource;
+            xText.Text = "X";
+            yText.Text = "Y";
+            zText.Text = Strings.Width;
+            wText.Text = Strings.Height;
 
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;
@@ -494,10 +471,6 @@ namespace Beutl.Views.Editors
     }
     public sealed class Vector4Editor : BaseVector4Editor<System.Numerics.Vector4>
     {
-        private static readonly IBinding s_xResource = S.Editors.Vector4.XObservable.ToBinding();
-        private static readonly IBinding s_yResource = S.Editors.Vector4.YObservable.ToBinding();
-        private static readonly IBinding s_zResource = S.Editors.Vector4.ZObservable.ToBinding();
-        private static readonly IBinding s_wResource = S.Editors.Vector4.WObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
         private static readonly Binding s_z = new("Value.Value.Z", BindingMode.OneWay);
@@ -505,10 +478,10 @@ namespace Beutl.Views.Editors
 
         public Vector4Editor()
         {
-            xText[!TextBlock.TextProperty] = s_xResource;
-            yText[!TextBlock.TextProperty] = s_yResource;
-            zText[!TextBlock.TextProperty] = s_zResource;
-            wText[!TextBlock.TextProperty] = s_wResource;
+            xText.Text = "X";
+            yText.Text = "Y";
+            zText.Text = "Z";
+            wText.Text = "W";
 
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;

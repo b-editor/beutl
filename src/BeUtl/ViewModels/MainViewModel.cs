@@ -115,14 +115,14 @@ public sealed class MainViewModel : BasePageViewModel
                     {
                         Notification.Show(new Notification(
                             string.Empty,
-                            string.Format(S.Message.ItemSaved, item.FileName),
+                            string.Format(Message.ItemSaved, item.FileName),
                             NotificationType.Success));
                     }
                     else
                     {
                         Notification.Show(new Notification(
                             string.Empty,
-                            S.Message.OperationCouldNotBeExecuted,
+                            Message.OperationCouldNotBeExecuted,
                             NotificationType.Information));
                     }
                 }
@@ -130,7 +130,7 @@ public sealed class MainViewModel : BasePageViewModel
                 {
                     Notification.Show(new Notification(
                         string.Empty,
-                        S.Message.OperationCouldNotBeExecuted,
+                        Message.OperationCouldNotBeExecuted,
                         NotificationType.Error));
                 }
             }
@@ -157,14 +157,14 @@ public sealed class MainViewModel : BasePageViewModel
 
                 Notification.Show(new Notification(
                     string.Empty,
-                    string.Format(S.Message.ItemsSaved, itemsCount.ToString()),
+                    string.Format(Message.ItemsSaved, itemsCount.ToString()),
                     NotificationType.Success));
             }
             catch
             {
                 Notification.Show(new Notification(
                     string.Empty,
-                    S.Message.OperationCouldNotBeExecuted,
+                    Message.OperationCouldNotBeExecuted,
                     NotificationType.Error));
             }
         });
@@ -224,13 +224,13 @@ public sealed class MainViewModel : BasePageViewModel
             {
                 noticeService.Show(new Notification(
                     Title: "",
-                    Message: S.Warning.FileDoesNotExist));
+                    Message: Message.FileDoesNotExist));
             }
             else if (service.OpenProject(file) == null)
             {
                 noticeService.Show(new Notification(
                     Title: "",
-                    Message: S.Warning.CouldNotOpenProject));
+                    Message: Message.CouldNotOpenProject));
             }
         });
     }

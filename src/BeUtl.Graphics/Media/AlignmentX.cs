@@ -4,12 +4,12 @@ namespace Beutl.Media;
 
 public enum AlignmentX
 {
-    [Description("S.Common.Left")]
+    [Description("Left")]
     Left,
 
-    [Description("S.Common.Center")]
+    [Description("Center")]
     Center,
 
-    [Description("S.Common.Right")]
+    [Description("Right")]
     Right,
 }

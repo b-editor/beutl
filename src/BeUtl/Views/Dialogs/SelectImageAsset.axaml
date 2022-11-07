@@ -4,19 +4,20 @@
                   xmlns:asyncImage="using:AsyncImageLoader"
                   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                   xmlns:icons="using:FluentIcons.FluentAvalonia"
+                  xmlns:lang="using:Beutl.Language"
                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
                   xmlns:viewModel="using:Beutl.ViewModels.Dialogs"
-                  Title="{DynamicResource S.Common.SelectImage}"
+                  Title="{x:Static lang:Strings.SelectImageAsset}"
                   d:DesignHeight="450"
                   d:DesignWidth="800"
                   x:CompileBindings="True"
                   x:DataType="viewModel:SelectImageAssetViewModel"
-                  CloseButtonText="{DynamicResource S.Common.Close}"
+                  CloseButtonText="{x:Static lang:Strings.Close}"
                   DefaultButton="Primary"
                   Focusable="True"
                   IsPrimaryButtonEnabled="{Binding IsPrimaryButtonEnabled.Value}"
-                  PrimaryButtonText="{DynamicResource S.Common.OK}"
+                  PrimaryButtonText="{x:Static lang:Strings.OK}"
                   mc:Ignorable="d">
     <ui:ContentDialog.KeyBindings>
         <KeyBinding Command="{CompiledBinding Refresh}" Gesture="F5" />
@@ -27,7 +28,7 @@
             <ui:CommandBar.PrimaryCommands>
                 <ui:CommandBarButton Click="UploadImage_Click"
                                      Icon="Add"
-                                     Label="{DynamicResource S.Common.Add}" />
+                                     Label="{x:Static lang:Strings.Add}" />
             </ui:CommandBar.PrimaryCommands>
         </ui:CommandBar>
 

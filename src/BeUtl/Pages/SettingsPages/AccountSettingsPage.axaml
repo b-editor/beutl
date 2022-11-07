@@ -5,6 +5,7 @@
              xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.SettingsPages"
@@ -93,7 +94,7 @@
                                    VerticalAlignment="Center"
                                    DefaultLabelPosition="Right">
                         <ui:CommandBar.PrimaryCommands>
-                            <ui:CommandBarButton Command="{CompiledBinding SignOut}" Label="{DynamicResource S.AccountSettingsPage.SignOut}">
+                            <ui:CommandBarButton Command="{CompiledBinding SignOut}" Label="{x:Static lang:SettingsPage.SignOut}">
                                 <ui:CommandBarButton.Icon>
                                     <icons:SymbolIcon Symbol="SignOut" />
                                 </ui:CommandBarButton.Icon>
@@ -104,7 +105,7 @@
 
                 <ctrls:OptionsDisplayItem x:Name="optionsItem1"
                                           Margin="0,24,0,0"
-                                          Header="{DynamicResource S.AccountSettingsPage.ChangeAccountSettings}"
+                                          Header="{x:Static lang:SettingsPage.ChangeAccountSettings}"
                                           Navigates="True"
                                           NavigationCommand="{CompiledBinding OpenAccountSettings}">
 
@@ -125,10 +126,10 @@
                 IsVisible="{CompiledBinding !SignedIn.Value}">
             <StackPanel>
                 <TextBlock Margin="0,0,0,24"
-                           Text="{DynamicResource S.AccountSettingsPage.SignIn}"
+                           Text="{x:Static lang:SettingsPage.SignIn}"
                            Theme="{StaticResource SubtitleTextBlockStyle}" />
                 <TextBlock Margin="0,0,0,8"
-                           Text="{DynamicResource S.AccountSettingsPage.SignInWith}"
+                           Text="{x:Static lang:SettingsPage.SignInWith}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
                 <Grid ColumnDefinitions="*,16,*">
 
@@ -179,16 +180,16 @@
                         HorizontalAlignment="Stretch"
                         Classes="accent"
                         Command="{CompiledBinding SignIn}"
-                        Content="{DynamicResource S.AccountSettingsPage.SignInViaBrowser}" />
+                        Content="{x:Static lang:SettingsPage.SignInViaBrowser}" />
 
                 <Grid Margin="0,16,0,0" ColumnDefinitions="*,*">
                     <ui:HyperlinkButton Grid.Column="0"
                                         HorizontalAlignment="Center"
-                                        Content="{DynamicResource S.Common.PrivacyPolicy}"
+                                        Content="{x:Static lang:Strings.PrivacyPolicy}"
                                         NavigateUri="https://beutl.beditor.net/Privacy" />
                     <ui:HyperlinkButton Grid.Column="1"
                                         HorizontalAlignment="Center"
-                                        Content="{DynamicResource S.Common.TermsOfService}"
+                                        Content="{x:Static lang:Strings.TermsOfService}"
                                         NavigateUri="https://beutl.beditor.net/TermsOfService" />
                 </Grid>
 
@@ -197,7 +198,7 @@
                         HorizontalAlignment="Stretch"
                         Classes.transparent="{CompiledBinding !SigningIn.Value}"
                         Command="{CompiledBinding Cancel}"
-                        Content="{DynamicResource S.Common.Cancel}" />
+                        Content="{x:Static lang:Strings.Cancel}" />
             </StackPanel>
         </Border>
 

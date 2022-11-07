@@ -158,7 +158,7 @@ public sealed partial class EditView : UserControl, IEditor
                         {
                             Text = @$"
 Error:
-    {S.Message.CannotDisplayThisContext}"
+    {Message.CannotDisplayThisContext}"
                         };
                     }
 
@@ -213,7 +213,7 @@ Error:
                         {
                             Text = @$"
 Error:
-    {S.Message.CannotDisplayThisContext}"
+    {Message.CannotDisplayThisContext}"
                         };
                     }
 

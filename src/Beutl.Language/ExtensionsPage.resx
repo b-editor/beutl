@@ -347,4 +347,16 @@ To apply the package changes, exit Beutl.</value>
   <data name="Overall" xml:space="preserve">
     <value>Overall</value>
   </data>
+  <data name="AuthorizationIsRequired" xml:space="preserve">
+    <value>Authorization is required.</value>
+  </data>
+  <data name="AnAccountIsRequiredToGetExtension" xml:space="preserve">
+    <value>An account is required to get the extension.</value>
+  </data>
+  <data name="GotoSettings_Account" xml:space="preserve">
+    <value>Go to "Settings &gt; Accounts" and sign in.</value>
+  </data>
+  <data name="OpenSettings" xml:space="preserve">
+    <value>Open Settings</value>
+  </data>
 </root>

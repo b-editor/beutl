@@ -37,7 +37,7 @@ public sealed class ListEditorViewModel : BaseEditorViewModel
             .DisposeWith(Disposables);
 
         CountString = ObserveCount
-            .Select(x => string.Format(S.Message.CountItems, x))
+            .Select(x => string.Format(Message.CountItems, x))
             .ToReadOnlyReactivePropertySlim(string.Empty)
             .DisposeWith(Disposables);
     }

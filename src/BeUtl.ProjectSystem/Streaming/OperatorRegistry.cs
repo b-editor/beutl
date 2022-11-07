@@ -1,4 +1,6 @@
-﻿using Beutl.Media;
+﻿using System.Reactive.Linq;
+
+using Beutl.Media;
 
 namespace Beutl.Streaming;
 
@@ -16,6 +18,18 @@ public class OperatorRegistry
         where T : StreamOperator, new()
     {
         Register(new RegistryItem(displayName, accentColor, typeof(T)));
+    }
+    
+    public static void RegisterOperation<T>(string displayName)
+        where T : StreamOperator, new()
+    {
+        Register(new RegistryItem(Observable.Return(displayName), Colors.Teal, typeof(T)));
+    }
+
+    public static void RegisterOperation<T>(string displayName, Color accentColor)
+        where T : StreamOperator, new()
+    {
+        Register(new RegistryItem(Observable.Return(displayName), accentColor, typeof(T)));
     }
 
     public static void RegisterOperation<T>(
@@ -43,6 +57,16 @@ public class OperatorRegistry
     public static RegistrationHelper RegisterOperations(IObservable<string> displayName, Color accentColor)
     {
         return new RegistrationHelper(new GroupableRegistryItem(displayName, accentColor));
+    }
+    
+    public static RegistrationHelper RegisterOperations(string displayName)
+    {
+        return RegisterOperations(displayName, Colors.Teal);
+    }
+
+    public static RegistrationHelper RegisterOperations(string displayName, Color accentColor)
+    {
+        return new RegistrationHelper(new GroupableRegistryItem(Observable.Return(displayName), accentColor));
     }
 
     public static IList<BaseRegistryItem> GetRegistered()
@@ -203,6 +227,61 @@ public class OperatorRegistry
         public RegistrationHelper AddGroup(IObservable<string> displayName, Action<RegistrationHelper> action, Color accentColor)
         {
             var item = new GroupableRegistryItem(displayName, accentColor);
+            var helper = new RegistrationHelper(item, x => _item.Items.Add(x));
+
+            action(helper);
+
+            return this;
+        }
+        
+        public RegistrationHelper Add<T>(string displayName)
+            where T : StreamOperator, new()
+        {
+            _item.Items!.Add(new RegistryItem(Observable.Return(displayName), Colors.Teal, typeof(T)));
+
+            return this;
+        }
+
+        public RegistrationHelper Add<T>(string displayName, Color accentColor)
+            where T : StreamOperator, new()
+        {
+            _item.Items.Add(new RegistryItem(Observable.Return(displayName), accentColor, typeof(T)));
+
+            return this;
+        }
+
+        public RegistrationHelper Add<T>(
+            string displayName,
+            Color accentColor,
+            Func<string, bool> canOpen,
+            Func<string, StreamOperator> openFile)
+            where T : StreamOperator, new()
+        {
+            ArgumentNullException.ThrowIfNull(canOpen);
+            ArgumentNullException.ThrowIfNull(openFile);
+
+            _item.Items.Add(new RegistryItem(Observable.Return(displayName), accentColor, typeof(T))
+            {
+                CanOpen = canOpen,
+                OpenFile = openFile
+            });
+
+            return this;
+        }
+
+        public RegistrationHelper AddGroup(string displayName, Action<RegistrationHelper> action)
+        {
+            var item = new GroupableRegistryItem(Observable.Return(displayName), Colors.Teal);
+            var helper = new RegistrationHelper(item, x => _item.Items.Add(x));
+
+            action(helper);
+
+            return this;
+        }
+
+        public RegistrationHelper AddGroup(string displayName, Action<RegistrationHelper> action, Color accentColor)
+        {
+            var item = new GroupableRegistryItem(Observable.Return(displayName), accentColor);
             var helper = new RegistrationHelper(item, x => _item.Items.Add(x));
 
             action(helper);

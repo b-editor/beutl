@@ -97,96 +97,61 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="ItemsSaved" xml:space="preserve">
-    <value>{0} items saved.</value>
+  <data name="SignOut" xml:space="preserve">
+    <value>Sign out</value>
   </data>
-  <data name="ItemSaved" xml:space="preserve">
-    <value>{0} was saved.</value>
+  <data name="ChangeAccountSettings" xml:space="preserve">
+    <value>Change account settings</value>
   </data>
-  <data name="OperationCouldNotBeExecuted" xml:space="preserve">
-    <value>The operation could not be executed.</value>
+  <data name="SignIn" xml:space="preserve">
+    <value>Sign in</value>
   </data>
-  <data name="DoYouWantToDeleteThisDirectory" xml:space="preserve">
-    <value>Do you want to delete this directory?</value>
+  <data name="SignInWith" xml:space="preserve">
+    <value>Sign in with your social accounts</value>
   </data>
-  <data name="DoYouWantToDeleteThisFile" xml:space="preserve">
-    <value>Do you want to delete this file?</value>
+  <data name="SignInViaBrowser" xml:space="preserve">
+    <value>Sign in via browser</value>
   </data>
-  <data name="DoYouWantToExcludeThisSceneFromProject" xml:space="preserve">
-    <value>Do you want to exclude this scene from the project?</value>
+  <data name="Editor_Extension_Priority" xml:space="preserve">
+    <value>Editor Extension Priority</value>
   </data>
-  <data name="DoYouWantToExcludeThisItemFromProject" xml:space="preserve">
-    <value>Do you want to exclude this item from the project?</value>
+  <data name="Higher" xml:space="preserve">
+    <value>Higher</value>
   </data>
-  <data name="CouldNotOpenFollowingFileWithExtension" xml:space="preserve">
-    <value>Could not open the following file with '{0}'.
-'{1}'</value>
+  <data name="Lower" xml:space="preserve">
+    <value>Lower</value>
   </data>
-  <data name="CannotDisplayThisContext" xml:space="preserve">
-    <value>Cannot display this context.</value>
+  <data name="All_Editor_Extensions" xml:space="preserve">
+    <value>All Editor Extensions</value>
   </data>
-  <data name="CouldNotCreateInstanceOfView" xml:space="preserve">
-    <value>Could not create an instance of View.</value>
+  <data name="Add_file_extension" xml:space="preserve">
+    <value>Add file extension</value>
   </data>
-  <data name="ContextNotCreated" xml:space="preserve">
-    <value>Context not created.</value>
+  <data name="Storage" xml:space="preserve">
+    <value>Storage</value>
   </data>
-  <data name="EditorContextHasAlreadyBeenCreated" xml:space="preserve">
-    <value>The editor context has already been created.</value>
+  <data name="MakePrivate" xml:space="preserve">
+    <value>Make public</value>
   </data>
-  <data name="NullWasSpecifiedForEditorContext" xml:space="preserve">
-    <value>Null was specified for the editor context.</value>
+  <data name="MakePublic" xml:space="preserve">
+    <value>Make private</value>
   </data>
-  <data name="DoYouWantToAddThisItemToCurrentProject" xml:space="preserve">
-    <value>Do you want to add this item to current project?</value>
+  <data name="ChangeVisibility" xml:space="preserve">
+    <value>Change the visibility of this file to "{0}".</value>
   </data>
-  <data name="RememberThisChoice" xml:space="preserve">
-    <value>Remember this choice</value>
+  <data name="Storage_Used" xml:space="preserve">
+    <value>{0} Used</value>
   </data>
-  <data name="PleaseEnterString" xml:space="preserve">
-    <value>Please enter a string.</value>
+  <data name="Storage_Remaining" xml:space="preserve">
+    <value>{0} Remaining</value>
   </data>
-  <data name="InvalidString" xml:space="preserve">
-    <value>Invalid string.</value>
+  <data name="Storage_BackupSettings" xml:space="preserve">
+    <value>Back up settings</value>
   </data>
-  <data name="MultipleTypesAreAvailable" xml:space="preserve">
-    <value>Multiple types are available.</value>
+  <data name="Theme_Tip" xml:space="preserve">
+    <value>Select the theme of the app you want to display.</value>
   </data>
-  <data name="AnimationIsEnabled" xml:space="preserve">
-    <value>Animation is enabled</value>
-  </data>
-  <data name="CountItems" xml:space="preserve">
-    <value>{0} items</value>
-  </data>
-  <data name="ItAlreadyExists" xml:space="preserve">
-    <value>It already exists.</value>
-  </data>
-  <data name="ValueLessThanOrEqualToZero" xml:space="preserve">
-    <value>Cannot specify a value less than or equal to 0.</value>
-  </data>
-  <data name="ValueLessThanZero" xml:space="preserve">
-    <value>Cannot specify a value less than to 0.</value>
-  </data>
-  <data name="CannotRenameBecauseConflicts" xml:space="preserve">
-    <value>Cannot rename from "{0}" to "{1}"
-because the new name conflicts with an existing folder.</value>
-  </data>
-  <data name="FileDoesNotExist" xml:space="preserve">
-    <value>File does not exist.</value>
-  </data>
-  <data name="CouldNotOpenProject" xml:space="preserve">
-    <value>Could not open project.</value>
-  </data>
-  <data name="NameCannotBeLeftBlank" xml:space="preserve">
-    <value>Name cannot be left blank.</value>
-  </data>
-  <data name="ApiErrorOccurred" xml:space="preserve">
-    <value>API error occurred.</value>
-  </data>
-  <data name="AnUnexpectedErrorHasOccurred" xml:space="preserve">
-    <value>An unexpected error has occurred.</value>
-  </data>
-  <data name="InvalidUrl" xml:space="preserve">
-    <value>Invalid URL.</value>
+  <data name="MicaEffect" xml:space="preserve">
+    <value>Mica Effect</value>
   </data>
 </root>

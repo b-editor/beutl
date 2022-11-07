@@ -7,8 +7,6 @@ namespace Beutl.Views.Editors;
 
 public sealed class RelativePointEditor : BaseVector2Editor<Graphics.RelativePoint>
 {
-    private static readonly IBinding s_xResource = S.Editors.RelativePoint.XObservable.ToBinding();
-    private static readonly IBinding s_yResource = S.Editors.RelativePoint.YObservable.ToBinding();
     private static readonly Binding s_x = new("Value.Value", BindingMode.OneWay)
     {
         Converter = new FuncValueConverter<Graphics.RelativePoint, string>(p =>
@@ -36,8 +34,8 @@ public sealed class RelativePointEditor : BaseVector2Editor<Graphics.RelativePoi
 
     public RelativePointEditor()
     {
-        xText[!TextBlock.TextProperty] = s_xResource;
-        yText[!TextBlock.TextProperty] = s_yResource;
+        xText.Text = "X";
+        yText.Text = "Y";
         xTextBox[!TextBox.TextProperty] = s_x;
         yTextBox[!TextBox.TextProperty] = s_y;
     }

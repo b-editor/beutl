@@ -19,7 +19,7 @@ public sealed class CreateNewProjectViewModel
         {
             if (Directory.Exists(Path.Combine(Location.Value, n)))
             {
-                return S.Warning.ItAlreadyExists;
+                return Message.ItAlreadyExists;
             }
             else
             {
@@ -31,7 +31,7 @@ public sealed class CreateNewProjectViewModel
         {
             if (s.Width <= 0 || s.Height <= 0)
             {
-                return S.Warning.ValueLessThanOrEqualToZero;
+                return Message.ValueLessThanOrEqualToZero;
             }
             else
             {
@@ -42,7 +42,7 @@ public sealed class CreateNewProjectViewModel
         {
             if (n <= 0)
             {
-                return S.Warning.ValueLessThanOrEqualToZero;
+                return Message.ValueLessThanOrEqualToZero;
             }
             else
             {
@@ -53,7 +53,7 @@ public sealed class CreateNewProjectViewModel
         {
             if (n <= 0)
             {
-                return S.Warning.ValueLessThanOrEqualToZero;
+                return Message.ValueLessThanOrEqualToZero;
             }
             else
             {

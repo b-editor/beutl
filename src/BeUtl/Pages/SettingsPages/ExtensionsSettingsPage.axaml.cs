@@ -22,11 +22,11 @@ public sealed partial class ExtensionsSettingsPage : UserControl
             var dialog = new ContentDialog
             {
                 DataContext = viewModel,
-                Title = S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Title,
-                PrimaryButtonText = S.Common.Add,
+                Title = Language.SettingsPage.Add_file_extension,
+                PrimaryButtonText = Strings.Add,
                 [!ContentDialog.IsPrimaryButtonEnabledProperty] = new Binding("CanAddFileExtension.Value"),
                 PrimaryButtonCommand = viewModel.AddFileExtension,
-                CloseButtonText = S.Common.Cancel,
+                CloseButtonText = Strings.Cancel,
                 Content = new TextBox
                 {
                     [!TextBox.TextProperty] = new Binding("FileExtensionInput.Value", BindingMode.TwoWay)

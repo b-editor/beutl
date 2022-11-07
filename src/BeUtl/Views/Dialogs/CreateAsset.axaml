@@ -3,10 +3,11 @@
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                   xmlns:icons="using:FluentIcons.FluentAvalonia"
+                  xmlns:lang="using:Beutl.Language"
                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
                   xmlns:viewModel="using:Beutl.ViewModels.Dialogs"
-                  Title="{DynamicResource S.SettingsPage.CreateAsset.Title}"
+                  Title="{x:Static lang:Strings.CreateAsset_Title}"
                   d:DesignHeight="450"
                   d:DesignWidth="800"
                   x:CompileBindings="True"
@@ -24,13 +25,13 @@
 
                         <RichTextBlock Margin="0,8">
                             <Bold FontSize="14">
-                                <Run Text="{StaticResource S.Common.Internal}" />
+                                <Run Text="{x:Static lang:Strings.Internal}" />
                             </Bold>
                             <LineBreak />
-                            <Run Text="{StaticResource S.SettingsPage.CreateAsset.InternalDescription}" />
+                            <Run Text="{x:Static lang:Strings.CreateAsset_Internal_Tip}" />
                             <LineBreak />
                             <Italic>
-                                <Run Text="{StaticResource S.SettingsPage.CreateAsset.InternalExample}" />
+                                <Run Text="{x:Static lang:Strings.CreateAsset_Internal_Example}" />
                             </Italic>
                         </RichTextBlock>
                     </StackPanel>
@@ -41,13 +42,13 @@
 
                         <RichTextBlock Margin="0,8">
                             <Bold FontSize="14">
-                                <Run Text="{StaticResource S.Common.External}" />
+                                <Run Text="{x:Static lang:Strings.External}" />
                             </Bold>
                             <LineBreak />
-                            <Run Text="{StaticResource S.SettingsPage.CreateAsset.ExternalDescription}" />
+                            <Run Text="{x:Static lang:Strings.CreateAsset_External_Tip}" />
                             <LineBreak />
                             <Italic>
-                                <Run Text="{StaticResource S.SettingsPage.CreateAsset.ExternalExample}" />
+                                <Run Text="{x:Static lang:Strings.CreateAsset_External_Example}" />
                             </Italic>
                         </RichTextBlock>
                     </StackPanel>
@@ -55,20 +56,20 @@
             </ListBox>
 
             <StackPanel Spacing="4">
-                <TextBlock Text="{DynamicResource S.Common.Name}" Theme="{StaticResource LabelTextBlockStyle}" />
+                <TextBlock Text="{x:Static lang:Strings.Name}" Theme="{StaticResource LabelTextBlockStyle}" />
                 <TextBox Text="{Binding Name.Value}" />
 
                 <Separator Height="4" />
 
                 <TextBlock Margin="0,8,0,0"
-                           Text="{DynamicResource S.Common.ContentType}"
+                           Text="{x:Static lang:Strings.ContentType}"
                            Theme="{StaticResource LabelTextBlockStyle}" />
                 <TextBox Text="{Binding ContentType.Value}" />
 
                 <StackPanel Margin="0,8,0,0"
                             IsVisible="{Binding UseInternalServer.Value}"
                             Spacing="4">
-                    <TextBlock Text="{DynamicResource S.Common.File}" Theme="{StaticResource LabelTextBlockStyle}" />
+                    <TextBlock Text="{x:Static lang:Strings.File}" Theme="{StaticResource LabelTextBlockStyle}" />
                     <TextBox Text="{Binding File.Value, Mode=TwoWay}">
                         <TextBox.InnerRightContent>
                             <Button Click="OpenFile" Theme="{StaticResource TransparentButton}">
@@ -87,7 +88,7 @@
             </StackPanel>
 
             <StackPanel Spacing="4">
-                <TextBlock Text="{DynamicResource S.SettingsPage.CreateAsset.PleaseEnterAtLeastOneHashValue}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock Text="{x:Static lang:Strings.CreateAsset_PleaseEnterAtLeastOneHashValue}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
                 <TextBlock Text="SHA256" Theme="{StaticResource LabelTextBlockStyle}" />
                 <TextBox Text="{Binding Sha256.Value, Mode=TwoWay}" />

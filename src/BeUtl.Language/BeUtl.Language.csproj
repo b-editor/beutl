@@ -4,11 +4,6 @@
     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <AvaloniaXaml Update="ja-JP\Pages\ExtensionsPageResources.axaml">
-      <SubType>Designer</SubType>
-    </AvaloniaXaml>
-  </ItemGroup>
-  <ItemGroup>
     <Compile Update="ExtensionsPage.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
@@ -18,6 +13,11 @@
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
       <DependentUpon>Message.resx</DependentUpon>
+    </Compile>
+    <Compile Update="SettingsPage.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>SettingsPage.resx</DependentUpon>
     </Compile>
     <Compile Update="Strings.Designer.cs">
       <DesignTime>True</DesignTime>
@@ -33,6 +33,10 @@
     <EmbeddedResource Update="Message.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Message.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="SettingsPage.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>SettingsPage.Designer.cs</LastGenOutput>
     </EmbeddedResource>
     <EmbeddedResource Update="Strings.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>

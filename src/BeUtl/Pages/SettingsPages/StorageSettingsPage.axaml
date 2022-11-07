@@ -5,6 +5,7 @@
              xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.SettingsPages"
@@ -56,7 +57,7 @@
                                     <convert:StringFormatConverter />
                                 </MultiBinding.Converter>
                                 <MultiBinding.Bindings>
-                                    <DynamicResourceExtension ResourceKey="S.StorageSettingsPage.Used" />
+                                    <Binding Source="{x:Static lang:SettingsPage.Storage_Used}" />
                                     <Binding Path="UsedCapacity.Value" />
                                 </MultiBinding.Bindings>
                             </MultiBinding>
@@ -68,7 +69,7 @@
                                 <MultiBinding.Converter>
                                     <convert:StringFormatConverter />
                                 </MultiBinding.Converter>
-                                <DynamicResourceExtension ResourceKey="S.StorageSettingsPage.Remaining" />
+                                <Binding Source="{x:Static lang:SettingsPage.Storage_Remaining}" />
                                 <Binding Path="RemainingCapacity.Value" />
                             </MultiBinding>
                         </TextBlock.Text>
@@ -128,12 +129,12 @@
             </ItemsControl>
 
             <TextBlock Margin="0,16,0,0"
-                       Text="{DynamicResource S.Common.Settings}"
+                       Text="{x:Static lang:Strings.Settings}"
                        Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
 
-            <ctrls:OptionsDisplayItem Description="{DynamicResource S.Common.Unimplemented}"
-                                      Header="{DynamicResource S.StorageSettingsPage.BackupSettings}"
+            <ctrls:OptionsDisplayItem Description="{x:Static lang:Strings.Unimplemented}"
+                                      Header="{x:Static lang:SettingsPage.Storage_BackupSettings}"
                                       IsEnabled="{CompiledBinding !IsBusy.Value}">
                 <ctrls:OptionsDisplayItem.Icon>
                     <ui:SymbolIcon Symbol="CloudBackup" />

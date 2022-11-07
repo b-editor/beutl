@@ -27,7 +27,7 @@ public sealed class AddLayerViewModel
         {
             if (layer < 0)
             {
-                return S.Warning.ValueLessThanZero;
+                return Message.ValueLessThanZero;
             }
             else
             {
@@ -38,7 +38,7 @@ public sealed class AddLayerViewModel
         {
             if (start < TimeSpan.Zero)
             {
-                return S.Warning.ValueLessThanZero;
+                return Message.ValueLessThanZero;
             }
             else
             {
@@ -49,7 +49,7 @@ public sealed class AddLayerViewModel
         {
             if (length <= TimeSpan.Zero)
             {
-                return S.Warning.ValueLessThanOrEqualToZero;
+                return Message.ValueLessThanOrEqualToZero;
             }
             else
             {

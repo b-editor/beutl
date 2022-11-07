@@ -117,96 +117,61 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="ItemsSaved" xml:space="preserve">
-    <value>{0}個のアイテムが保存されました。</value>
+  <data name="SignOut" xml:space="preserve">
+    <value>サインアウト</value>
   </data>
-  <data name="ItemSaved" xml:space="preserve">
-    <value>{0}が保存されました。</value>
+  <data name="ChangeAccountSettings" xml:space="preserve">
+    <value>アカウントの設定を変更</value>
   </data>
-  <data name="OperationCouldNotBeExecuted" xml:space="preserve">
-    <value>操作を実行できませんでした。</value>
+  <data name="SignIn" xml:space="preserve">
+    <value>サインイン</value>
   </data>
-  <data name="DoYouWantToDeleteThisDirectory" xml:space="preserve">
-    <value>このディレクトリを削除しますか？</value>
+  <data name="SignInWith" xml:space="preserve">
+    <value>ソーシャルアカウントでサインイン</value>
   </data>
-  <data name="DoYouWantToDeleteThisFile" xml:space="preserve">
-    <value>このファイルを削除しますか？</value>
+  <data name="SignInViaBrowser" xml:space="preserve">
+    <value>ブラウザからサインイン</value>
   </data>
-  <data name="DoYouWantToExcludeThisSceneFromProject" xml:space="preserve">
-    <value>プロジェクトからこのシーンを除外しますか？</value>
+  <data name="Add_file_extension" xml:space="preserve">
+    <value>ファイル拡張子を追加</value>
   </data>
-  <data name="DoYouWantToExcludeThisItemFromProject" xml:space="preserve">
-    <value>プロジェクトからこのアイテムを除外しますか？</value>
+  <data name="All_Editor_Extensions" xml:space="preserve">
+    <value>全てのエディター拡張</value>
   </data>
-  <data name="CouldNotOpenFollowingFileWithExtension" xml:space="preserve">
-    <value>'{0}'で次のファイルを開くことができませんでした。
-'{1}'</value>
+  <data name="ChangeVisibility" xml:space="preserve">
+    <value>このファイルの可視性を"{0}"に変更します。</value>
   </data>
-  <data name="CannotDisplayThisContext" xml:space="preserve">
-    <value>このコンテキストを表示できません。</value>
+  <data name="Editor_Extension_Priority" xml:space="preserve">
+    <value>エディター拡張の優先順位</value>
   </data>
-  <data name="CouldNotCreateInstanceOfView" xml:space="preserve">
-    <value>Viewのインスタンスを作成できませんでした。</value>
+  <data name="Higher" xml:space="preserve">
+    <value>上</value>
   </data>
-  <data name="ContextNotCreated" xml:space="preserve">
-    <value>コンテキストが作成されませんでした。</value>
+  <data name="Lower" xml:space="preserve">
+    <value>下</value>
   </data>
-  <data name="EditorContextHasAlreadyBeenCreated" xml:space="preserve">
-    <value>エディターコンテキストは既に作成されています。</value>
+  <data name="MakePrivate" xml:space="preserve">
+    <value>公開する</value>
   </data>
-  <data name="NullWasSpecifiedForEditorContext" xml:space="preserve">
-    <value>エディターコンテキストにNullが指定されました。</value>
+  <data name="MakePublic" xml:space="preserve">
+    <value>非公開にする</value>
   </data>
-  <data name="DoYouWantToAddThisItemToCurrentProject" xml:space="preserve">
-    <value>このアイテムを現在のプロジェクトに追加しますか？</value>
+  <data name="MicaEffect" xml:space="preserve">
+    <value>Mica効果</value>
   </data>
-  <data name="RememberThisChoice" xml:space="preserve">
-    <value>この選択を記憶する</value>
+  <data name="Storage" xml:space="preserve">
+    <value>ストレージ</value>
   </data>
-  <data name="PleaseEnterString" xml:space="preserve">
-    <value>文字列を入力してください。</value>
+  <data name="Storage_BackupSettings" xml:space="preserve">
+    <value>設定をバックアップ</value>
   </data>
-  <data name="InvalidString" xml:space="preserve">
-    <value>無効な文字列です。</value>
+  <data name="Storage_Used" xml:space="preserve">
+    <value>{0} 使用済み</value>
   </data>
-  <data name="MultipleTypesAreAvailable" xml:space="preserve">
-    <value>複数の型が利用可能です。</value>
+  <data name="Storage_Remaining" xml:space="preserve">
+    <value>{0} 空き</value>
   </data>
-  <data name="AnimationIsEnabled" xml:space="preserve">
-    <value>アニメーションが有効です</value>
-  </data>
-  <data name="CountItems" xml:space="preserve">
-    <value>{0}個のアイテム</value>
-  </data>
-  <data name="InvalidUrl" xml:space="preserve">
-    <value>無効なURLです。</value>
-  </data>
-  <data name="AnUnexpectedErrorHasOccurred" xml:space="preserve">
-    <value>予期しないエラーが発生しました。</value>
-  </data>
-  <data name="ApiErrorOccurred" xml:space="preserve">
-    <value>APIエラーが発生しました。</value>
-  </data>
-  <data name="NameCannotBeLeftBlank" xml:space="preserve">
-    <value>名前は空白にできません。</value>
-  </data>
-  <data name="ItAlreadyExists" xml:space="preserve">
-    <value>既に存在しています。</value>
-  </data>
-  <data name="ValueLessThanOrEqualToZero" xml:space="preserve">
-    <value>0以下の値は指定できません。</value>
-  </data>
-  <data name="ValueLessThanZero" xml:space="preserve">
-    <value>0未満の値は指定できません。</value>
-  </data>
-  <data name="CannotRenameBecauseConflicts" xml:space="preserve">
-    <value>新しい名前が既存のフォルダーと競合するため、
-"{0}" から "{1}" に名前を変更できません。</value>
-  </data>
-  <data name="FileDoesNotExist" xml:space="preserve">
-    <value>ファイルが存在しません。</value>
-  </data>
-  <data name="CouldNotOpenProject" xml:space="preserve">
-    <value>プロジェクトを開けませんでした。</value>
+  <data name="Theme_Tip" xml:space="preserve">
+    <value>表示するアプリのテーマを選択します。</value>
   </data>
 </root>

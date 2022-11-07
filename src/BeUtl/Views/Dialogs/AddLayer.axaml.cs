@@ -30,7 +30,7 @@ public sealed partial class AddLayer : ContentDialog, IStyleable
             // IsSecondaryButtonEnabledのバインド解除
             _sBtnBinding?.Dispose();
             // '追加'を'次へ'に変更
-            SecondaryButtonText = S.Common.Next;
+            SecondaryButtonText = Strings.Next;
             // '次へ'を有効化
             IsSecondaryButtonEnabled = true;
             carousel.Previous();
@@ -56,7 +56,7 @@ public sealed partial class AddLayer : ContentDialog, IStyleable
             // IsSecondaryButtonEnabledとCanCreateをバインド
             _sBtnBinding = this.Bind(IsSecondaryButtonEnabledProperty, vm.CanAdd);
             // '次へ'を'追加'に変更
-            SecondaryButtonText = S.Common.Add;
+            SecondaryButtonText = Strings.Add;
             carousel.Next();
         }
     }

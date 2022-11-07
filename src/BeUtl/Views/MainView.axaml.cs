@@ -154,7 +154,7 @@ public sealed partial class MainView : UserControl
         if (DataContext is MainViewModel viewModel)
         {
             Task task = viewModel.RunSplachScreenTask();
-            _settingsView = new SettingsPage
+            _settingsView = new Pages.SettingsPage
             {
                 DataContext = viewModel.SettingsPage.Context
             };
@@ -184,14 +184,14 @@ public sealed partial class MainView : UserControl
                         HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
                         Text = exception != null ? @$"
 Error:
-    {S.Message.CouldNotCreateInstanceOfView}
+    {Message.CouldNotCreateInstanceOfView}
 Message:
     {exception.Message}
 StackTrace:
     {exception.StackTrace}
 " : @$"
 Error:
-    {S.Message.CannotDisplayThisContext}
+    {Message.CannotDisplayThisContext}
 "
                     };
 
@@ -329,7 +329,7 @@ Error:
                 {
                     FileTypeFilter = new FilePickerFileType[]
                     {
-                        new FilePickerFileType(S.Common.ProjectFile)
+                        new FilePickerFileType(Strings.ProjectFile)
                         {
                             Patterns = new[] { $"*.{Constants.ProjectFileExtension}" }
                         }
@@ -386,12 +386,12 @@ Error:
                                 var checkBox = new CheckBox
                                 {
                                     IsChecked = false,
-                                    Content = S.Message.RememberThisChoice
+                                    Content = Message.RememberThisChoice
                                 };
                                 var contentDialog = new ContentDialog
                                 {
-                                    PrimaryButtonText = S.Common.Yes,
-                                    CloseButtonText = S.Common.No,
+                                    PrimaryButtonText = Strings.Yes,
+                                    CloseButtonText = Strings.No,
                                     DefaultButton = ContentDialogButton.Primary,
                                     Content = new StackPanel
                                     {
@@ -399,7 +399,7 @@ Error:
                                         {
                                             new TextBlock
                                             {
-                                                Text = S.Message.DoYouWantToAddThisItemToCurrentProject + "\n" + Path.GetFileName(path)
+                                                Text = Message.DoYouWantToAddThisItemToCurrentProject + "\n" + Path.GetFileName(path)
                                             },
                                             checkBox
                                         }
@@ -464,10 +464,10 @@ Error:
 
                 var dialog = new ContentDialog
                 {
-                    CloseButtonText = S.Common.Cancel,
-                    PrimaryButtonText = S.Common.OK,
+                    CloseButtonText = Strings.Cancel,
+                    PrimaryButtonText = Strings.OK,
                     DefaultButton = ContentDialogButton.Primary,
-                    Content = S.Message.DoYouWantToExcludeThisItemFromProject + "\n" + filePath
+                    Content = Message.DoYouWantToExcludeThisItemFromProject + "\n" + filePath
                 };
 
                 if (await dialog.ShowAsync() == ContentDialogResult.Primary)
@@ -506,10 +506,10 @@ Error:
                 string name = Path.GetFileName(layer.FileName);
                 var dialog = new ContentDialog
                 {
-                    CloseButtonText = S.Common.Cancel,
-                    PrimaryButtonText = S.Common.OK,
+                    CloseButtonText = Strings.Cancel,
+                    PrimaryButtonText = Strings.OK,
                     DefaultButton = ContentDialogButton.Primary,
-                    Content = S.Message.DoYouWantToDeleteThisFile + "\n" + name
+                    Content = Message.DoYouWantToDeleteThisFile + "\n" + name
                 };
 
                 if (await dialog.ShowAsync() == ContentDialogResult.Primary)
@@ -693,9 +693,9 @@ Error:
                     else
                     {
                         _notificationService.Show(new Notification(
-                            Title: S.Message.ContextNotCreated,
+                            Title: Message.ContextNotCreated,
                             Message: string.Format(
-                                format: S.Message.CouldNotOpenFollowingFileWithExtension,
+                                format: Message.CouldNotOpenFollowingFileWithExtension,
                                 arg0: editorExtension.DisplayName,
                                 arg1: selectedTab.FileName.Value)));
                     }

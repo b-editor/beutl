@@ -70,6 +70,24 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   An account is required to get the extension. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AnAccountIsRequiredToGetExtension {
+            get {
+                return ResourceManager.GetString("AnAccountIsRequiredToGetExtension", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Authorization is required. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AuthorizationIsRequired {
+            get {
+                return ResourceManager.GetString("AuthorizationIsRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Check update に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string CheckUpdate {
@@ -167,6 +185,15 @@ namespace Beutl.Language {
         public static string Documents_Tip {
             get {
                 return ResourceManager.GetString("Documents_Tip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Go to &quot;Settings &gt; Accounts&quot; and sign in. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string GotoSettings_Account {
+            get {
+                return ResourceManager.GetString("GotoSettings_Account", resourceCulture);
             }
         }
         
@@ -290,6 +317,15 @@ namespace Beutl.Language {
         public static string NoLogoImageAvailable {
             get {
                 return ResourceManager.GetString("NoLogoImageAvailable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Open Settings に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string OpenSettings {
+            get {
+                return ResourceManager.GetString("OpenSettings", resourceCulture);
             }
         }
         

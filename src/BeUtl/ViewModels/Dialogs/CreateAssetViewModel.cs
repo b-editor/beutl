@@ -56,22 +56,22 @@ public class CreateAssetViewModel
             .ToReadOnlyReactivePropertySlim();
 
         PrimaryButtonText = PageIndex
-            .Select(x => x is >= 0 and <= 2 ? S.Common.Next : null)
+            .Select(x => x is >= 0 and <= 2 ? Strings.Next : null)
             .ToReadOnlyReactivePropertySlim()!;
 
         CloseButtonText = PageIndex.CombineLatest(Submitting)
-            .Select(x => x.First is >= 0 and <= 2 || x.Second ? S.Common.Cancel : S.Common.Close)
+            .Select(x => x.First is >= 0 and <= 2 || x.Second ? Strings.Cancel : Strings.Close)
             .ToReadOnlyReactivePropertySlim()!;
 
         UseInternalServer = SelectedMethod.Select(x => x == 0).ToReadOnlyReactivePropertySlim();
         UseExternalServer = SelectedMethod.Select(x => x == 1).ToReadOnlyReactivePropertySlim();
 
-        File.SetValidateNotifyError(file => !System.IO.File.Exists(file) ? S.Warning.FileDoesNotExist : null);
+        File.SetValidateNotifyError(file => !System.IO.File.Exists(file) ? Message.FileDoesNotExist : null);
         Url.SetValidateNotifyError(url => url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
             || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
             || url.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase)
                 ? null!
-                : S.Warning.InvalidURL);
+                : Message.InvalidUrl);
         _user = user;
         RequestContentType = requestContentType;
 
@@ -84,13 +84,13 @@ public class CreateAssetViewModel
         {
             if (string.IsNullOrWhiteSpace(x))
             {
-                return S.Warning.NameCannotBeLeftBlank;
+                return Message.NameCannotBeLeftBlank;
             }
 
             try
             {
                 _ = await _user.Profile.GetAssetAsync(x);
-                return S.Warning.ItAlreadyExists;
+                return Message.ItAlreadyExists;
             }
             catch
             {
@@ -150,14 +150,14 @@ public class CreateAssetViewModel
             await _user.RefreshAsync();
             if (SelectedMethod.Value == 0)
             {
-                ProgressStatus.Value = S.SettingsPage.CreateAsset.UploadingFiles;
+                ProgressStatus.Value = Strings.CreateAsset_UploadingFiles;
                 using FileStream stream = System.IO.File.OpenRead(File.Value);
                 _ = RunProgressReporter(stream, cancellationToken);
                 Result = await _user.Profile.AddAssetAsync(Name.Value, stream, ContentType.Value);
             }
             else
             {
-                ProgressStatus.Value = S.SettingsPage.CreateAsset.PerformingAnOperation;
+                ProgressStatus.Value = Strings.CreateAsset_PerformingAnOperation;
                 Result = await _user.Profile.AddAssetAsync(Name.Value, new CreateVirtualAssetRequest()
                 {
                     ContentType = ContentType.Value,
@@ -168,16 +168,16 @@ public class CreateAssetViewModel
                 });
             }
 
-            ProgressStatus.Value = S.SettingsPage.CreateAsset.Completed;
+            ProgressStatus.Value = Strings.CreateAsset_Completed;
         }
         catch (BeutlApiException<ApiErrorResponse> ex)
         {
-            ProgressStatus.Value = S.Warning.AnUnexpectedErrorHasOccurred;
+            ProgressStatus.Value = Message.AnUnexpectedErrorHasOccurred;
             Error.Value = ex.Result.Message;
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            ProgressStatus.Value = S.Warning.AnUnexpectedErrorHasOccurred;
+            ProgressStatus.Value = Message.AnUnexpectedErrorHasOccurred;
             // Todo: 例外
             Error.Value = "Error";
         }

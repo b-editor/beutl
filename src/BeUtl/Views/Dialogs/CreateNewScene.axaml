@@ -3,29 +3,28 @@
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                   xmlns:icons="using:FluentIcons.FluentAvalonia"
+                  xmlns:lang="using:Beutl.Language"
                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
                   xmlns:vm="using:Beutl.ViewModels.Dialogs"
-                  Title="{DynamicResource S.Common.CreateNewScene}"
+                  Title="{x:Static lang:Strings.CreateNewScene}"
                   d:DesignHeight="450"
                   d:DesignWidth="800"
                   x:DataType="vm:CreateNewSceneViewModel"
-                  CloseButtonText="{DynamicResource S.Common.Close}"
+                  CloseButtonText="{x:Static lang:Strings.Close}"
                   DefaultButton="Primary"
                   IsPrimaryButtonEnabled="{CompiledBinding CanCreate.Value}"
                   PrimaryButtonCommand="{CompiledBinding Create}"
-                  PrimaryButtonText="{DynamicResource S.Common.CreateNew}"
+                  PrimaryButtonText="{x:Static lang:Strings.CreateNew}"
                   mc:Ignorable="d">
     <ui:ContentDialog.DataContext>
         <vm:CreateNewSceneViewModel />
     </ui:ContentDialog.DataContext>
     <StackPanel Spacing="8">
-        <TextBlock Text="{DynamicResource S.Common.Name}" />
+        <TextBlock Text="{x:Static lang:Strings.Name}" />
         <TextBox InputMethod.IsInputMethodEnabled="True" Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
 
-        <Separator />
-
-        <TextBlock Text="{DynamicResource S.Common.Location}" />
+        <TextBlock Margin="0,8,0,0" Text="{x:Static lang:Strings.Location}" />
         <Panel>
             <TextBox Text="{CompiledBinding Location.Value, Mode=TwoWay}" />
 
@@ -37,14 +36,11 @@
             </Button>
         </Panel>
 
-        <Separator />
-
-        <TextBlock Text="{DynamicResource S.Common.Size}" />
+        <TextBlock Margin="0,8,0,0" Text="{x:Static lang:Strings.Size}" />
         <TextBox Text="{CompiledBinding Size.Value, Mode=TwoWay, Converter={StaticResource PixelSizeConverter}}" />
 
-        <Separator />
-
-        <CheckBox Content="{DynamicResource S.Common.AddToCurrentProject}"
+        <CheckBox Margin="0,8,0,0"
+                  Content="{x:Static lang:Strings.AddToCurrentProject}"
                   IsChecked="{CompiledBinding AddToCurrentProject.Value}"
                   IsEnabled="{CompiledBinding CanAddToCurrentProject.Value}" />
     </StackPanel>

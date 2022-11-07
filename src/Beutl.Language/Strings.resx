@@ -364,4 +364,266 @@
   <data name="ShowMore" xml:space="preserve">
     <value>Show more</value>
   </data>
+  <data name="TermsOfService" xml:space="preserve">
+    <value>Terms of service</value>
+  </data>
+  <data name="PrivacyPolicy" xml:space="preserve">
+    <value>Privacy Policy</value>
+  </data>
+  <data name="Internal" xml:space="preserve">
+    <value>Internal</value>
+  </data>
+  <data name="External" xml:space="preserve">
+    <value>External</value>
+  </data>
+  <data name="Public" xml:space="preserve">
+    <value>Public</value>
+  </data>
+  <data name="Private" xml:space="preserve">
+    <value>Private</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Unimplemented" xml:space="preserve">
+    <value>Unimplemented</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Account" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="Animation" xml:space="preserve">
+    <value>Animation</value>
+  </data>
+  <data name="Easing" xml:space="preserve">
+    <value>Easing</value>
+  </data>
+  <data name="KernelSize" xml:space="preserve">
+    <value>Kernel Size</value>
+  </data>
+  <data name="FixImageSize" xml:space="preserve">
+    <value>Fix Image Size</value>
+  </data>
+  <data name="Sigma" xml:space="preserve">
+    <value>Sigma</value>
+  </data>
+  <data name="Position" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="ShadowOnly" xml:space="preserve">
+    <value>Shadow Only</value>
+  </data>
+  <data name="Offset" xml:space="preserve">
+    <value>Offset</value>
+  </data>
+  <data name="Thickness" xml:space="preserve">
+    <value>Thickness</value>
+  </data>
+  <data name="MaskType" xml:space="preserve">
+    <value>Mask Type</value>
+  </data>
+  <data name="BorderStyle" xml:space="preserve">
+    <value>Border Style</value>
+  </data>
+  <data name="StrokeWidth" xml:space="preserve">
+    <value>Stroke Width</value>
+  </data>
+  <data name="CornerRadius" xml:space="preserve">
+    <value>Corner Radius</value>
+  </data>
+  <data name="Text" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="Transform" xml:space="preserve">
+    <value>Transform</value>
+  </data>
+  <data name="TransformOrigin" xml:space="preserve">
+    <value>Transform Origin</value>
+  </data>
+  <data name="ImageFilter" xml:space="preserve">
+    <value>Image Filter</value>
+  </data>
+  <data name="BitmapEffect" xml:space="preserve">
+    <value>Bitmap Effect</value>
+  </data>
+  <data name="AlignmentX" xml:space="preserve">
+    <value>Alignment X</value>
+  </data>
+  <data name="AlignmentY" xml:space="preserve">
+    <value>Alignment Y</value>
+  </data>
+  <data name="Foreground" xml:space="preserve">
+    <value>Foreground</value>
+  </data>
+  <data name="OpacityMask" xml:space="preserve">
+    <value>Opacity Mask</value>
+  </data>
+  <data name="BlendMode" xml:space="preserve">
+    <value>Blend Mode</value>
+  </data>
+  <data name="SourceFile" xml:space="preserve">
+    <value>Source File</value>
+  </data>
+  <data name="Opacity" xml:space="preserve">
+    <value>Opacity</value>
+  </data>
+  <data name="Angle" xml:space="preserve">
+    <value>Angle</value>
+  </data>
+  <data name="SpreadMethod" xml:space="preserve">
+    <value>Spread Method</value>
+  </data>
+  <data name="GradientStops" xml:space="preserve">
+    <value>Stops</value>
+  </data>
+  <data name="StartPoint" xml:space="preserve">
+    <value>Start Point</value>
+  </data>
+  <data name="EndPoint" xml:space="preserve">
+    <value>End Point</value>
+  </data>
+  <data name="GradientOrigin" xml:space="preserve">
+    <value>Gradient Origin</value>
+  </data>
+  <data name="Radius" xml:space="preserve">
+    <value>Radius</value>
+  </data>
+  <data name="DestinationRect" xml:space="preserve">
+    <value>Destination</value>
+  </data>
+  <data name="SourceRect" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Stretch" xml:space="preserve">
+    <value>Stretch</value>
+  </data>
+  <data name="TileMode" xml:space="preserve">
+    <value>Tile Mode</value>
+  </data>
+  <data name="BitmapInterpolationMode" xml:space="preserve">
+    <value>Bitmap Interpolation Mode</value>
+  </data>
+  <data name="StreamOperators" xml:space="preserve">
+    <value>Stream Operators</value>
+  </data>
+  <data name="Style" xml:space="preserve">
+    <value>Style</value>
+  </data>
+  <data name="CreateAsset_Title" xml:space="preserve">
+    <value>Upload file</value>
+  </data>
+  <data name="CreateAsset_Internal_Tip" xml:space="preserve">
+    <value>Upload the file to the b-editor server.</value>
+  </data>
+  <data name="CreateAsset_Internal_Example" xml:space="preserve">
+    <value>Example: Lightweight files such as images.</value>
+  </data>
+  <data name="CreateAsset_External_Tip" xml:space="preserve">
+    <value>The customer uploads the file to an external server
+and b-editor maintains the download URL.</value>
+  </data>
+  <data name="CreateAsset_External_Example" xml:space="preserve">
+    <value>Example: large files such as assets in a package release.</value>
+  </data>
+  <data name="CreateAsset_PleaseEnterAtLeastOneHashValue" xml:space="preserve">
+    <value>Please enter at least one hash value.</value>
+  </data>
+  <data name="CreateAsset_UploadingFiles" xml:space="preserve">
+    <value>Uploading files.</value>
+  </data>
+  <data name="CreateAsset_PerformingAnOperation" xml:space="preserve">
+    <value>Performing an operation.</value>
+  </data>
+  <data name="CreateAsset_Completed" xml:space="preserve">
+    <value>Completed.</value>
+  </data>
+  <data name="ContentType" xml:space="preserve">
+    <value>Content Type</value>
+  </data>
+  <data name="AddToCurrentProject" xml:space="preserve">
+    <value>Add to current project</value>
+  </data>
+  <data name="SelectAsset" xml:space="preserve">
+    <value>Select asset</value>
+  </data>
+  <data name="SelectImageAsset" xml:space="preserve">
+    <value>Select image asset</value>
+  </data>
+  <data name="Alignment" xml:space="preserve">
+    <value>Alignment</value>
+  </data>
+  <data name="RemoveUnavailableSetters" xml:space="preserve">
+    <value>Remove unavailable setters?</value>
+  </data>
+  <data name="AddSetter" xml:space="preserve">
+    <value>Add a setter</value>
+  </data>
+  <data name="ProjectFile" xml:space="preserve">
+    <value>Project File</value>
+  </data>
+  <data name="RecentFiles" xml:space="preserve">
+    <value>Recent Files</value>
+  </data>
+  <data name="RecentProjects" xml:space="preserve">
+    <value>Recent Projects</value>
+  </data>
+  <data name="Editors" xml:space="preserve">
+    <value>Editors</value>
+  </data>
+  <data name="Tools" xml:space="preserve">
+    <value>Tools</value>
+  </data>
+  <data name="Rename" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="Source" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Ellipse" xml:space="preserve">
+    <value>Ellipse</value>
+  </data>
+  <data name="Rectangle" xml:space="preserve">
+    <value>Rectangle</value>
+  </data>
+  <data name="RoundedRect" xml:space="preserve">
+    <value>Rounded rectangle</value>
+  </data>
+  <data name="ImageFile" xml:space="preserve">
+    <value>Image File</value>
+  </data>
+  <data name="Configure" xml:space="preserve">
+    <value>Configure</value>
+  </data>
+  <data name="Translate" xml:space="preserve">
+    <value>Translate</value>
+  </data>
+  <data name="Skew" xml:space="preserve">
+    <value>Skew</value>
+  </data>
+  <data name="Scale" xml:space="preserve">
+    <value>Scale</value>
+  </data>
+  <data name="Rotation" xml:space="preserve">
+    <value>Rotation</value>
+  </data>
+  <data name="Rotation3D" xml:space="preserve">
+    <value>Rotation 3D</value>
+  </data>
+  <data name="Blur" xml:space="preserve">
+    <value>Blur</value>
+  </data>
+  <data name="DropShadow" xml:space="preserve">
+    <value>Drop Shadow</value>
+  </data>
+  <data name="InnerShadow" xml:space="preserve">
+    <value>Inner Shadow</value>
+  </data>
+  <data name="Border" xml:space="preserve">
+    <value>Border</value>
+  </data>
+  <data name="TargetType" xml:space="preserve">
+    <value>Target Type</value>
+  </data>
 </root>

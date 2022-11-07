@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views.AnimationEditors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -22,12 +23,12 @@
             </Grid.Styles>
             <Grid.ContextMenu>
                 <ContextMenu>
-                    <MenuItem Command="{Binding RemoveCommand}" Header="{DynamicResource S.Common.Remove}">
+                    <MenuItem Command="{Binding RemoveCommand}" Header="{x:Static lang:Strings.Remove}">
                         <MenuItem.Icon>
                             <icons:SymbolIcon Symbol="Delete" />
                         </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Click="Edit_Click" Header="{DynamicResource S.Common.Edit}">
+                    <MenuItem Click="Edit_Click" Header="{x:Static lang:Strings.Edit}">
                         <MenuItem.Icon>
                             <icons:SymbolIcon Symbol="Open" />
                         </MenuItem.Icon>

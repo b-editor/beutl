@@ -89,9 +89,9 @@ public sealed partial class BrushEditor : UserControl
             var dialog = new ContentDialog
             {
                 Content = combobox,
-                Title = S.Message.MultipleTypesAreAvailable,
-                PrimaryButtonText = S.Common.OK,
-                CloseButtonText = S.Common.Cancel
+                Title = Message.MultipleTypesAreAvailable,
+                PrimaryButtonText = Strings.OK,
+                CloseButtonText = Strings.Cancel
             };
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary

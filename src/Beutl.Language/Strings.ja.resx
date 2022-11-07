@@ -384,4 +384,266 @@
   <data name="Yes" xml:space="preserve">
     <value>はい</value>
   </data>
+  <data name="TermsOfService" xml:space="preserve">
+    <value>利用規約</value>
+  </data>
+  <data name="PrivacyPolicy" xml:space="preserve">
+    <value>プライバシーポリシー</value>
+  </data>
+  <data name="Animation" xml:space="preserve">
+    <value>アニメーション</value>
+  </data>
+  <data name="Account" xml:space="preserve">
+    <value>アカウント</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>言語</value>
+  </data>
+  <data name="Unimplemented" xml:space="preserve">
+    <value>未実装</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Private" xml:space="preserve">
+    <value>非公開</value>
+  </data>
+  <data name="Public" xml:space="preserve">
+    <value>公開</value>
+  </data>
+  <data name="External" xml:space="preserve">
+    <value>外部</value>
+  </data>
+  <data name="Internal" xml:space="preserve">
+    <value>内部</value>
+  </data>
+  <data name="Easing" xml:space="preserve">
+    <value>イージング</value>
+  </data>
+  <data name="KernelSize" xml:space="preserve">
+    <value>カーネルサイズ</value>
+  </data>
+  <data name="FixImageSize" xml:space="preserve">
+    <value>画像サイズを固定</value>
+  </data>
+  <data name="Sigma" xml:space="preserve">
+    <value>シグマ</value>
+  </data>
+  <data name="Position" xml:space="preserve">
+    <value>位置</value>
+  </data>
+  <data name="ShadowOnly" xml:space="preserve">
+    <value>影のみ</value>
+  </data>
+  <data name="Offset" xml:space="preserve">
+    <value>オフセット</value>
+  </data>
+  <data name="Thickness" xml:space="preserve">
+    <value>厚み</value>
+  </data>
+  <data name="MaskType" xml:space="preserve">
+    <value>マスクの種類</value>
+  </data>
+  <data name="BorderStyle" xml:space="preserve">
+    <value>ボーダースタイル</value>
+  </data>
+  <data name="StrokeWidth" xml:space="preserve">
+    <value>ストローク幅</value>
+  </data>
+  <data name="CornerRadius" xml:space="preserve">
+    <value>角の半径</value>
+  </data>
+  <data name="Text" xml:space="preserve">
+    <value>テキスト</value>
+  </data>
+  <data name="Transform" xml:space="preserve">
+    <value>トランスフォーム</value>
+  </data>
+  <data name="TransformOrigin" xml:space="preserve">
+    <value>トランスフォームの起点</value>
+  </data>
+  <data name="GradientOrigin" xml:space="preserve">
+    <value>グラデーションの起点</value>
+  </data>
+  <data name="ImageFilter" xml:space="preserve">
+    <value>画像フィルター</value>
+  </data>
+  <data name="BitmapEffect" xml:space="preserve">
+    <value>ビットマップエフェクト</value>
+  </data>
+  <data name="AlignmentX" xml:space="preserve">
+    <value>アライメントX</value>
+  </data>
+  <data name="AlignmentY" xml:space="preserve">
+    <value>アライメントY</value>
+  </data>
+  <data name="Foreground" xml:space="preserve">
+    <value>フォアグラウンド</value>
+  </data>
+  <data name="OpacityMask" xml:space="preserve">
+    <value>不透明マスク</value>
+  </data>
+  <data name="BlendMode" xml:space="preserve">
+    <value>ブレンドモード</value>
+  </data>
+  <data name="SourceFile" xml:space="preserve">
+    <value>ソースファイル</value>
+  </data>
+  <data name="Opacity" xml:space="preserve">
+    <value>不透明度</value>
+  </data>
+  <data name="Angle" xml:space="preserve">
+    <value>角度</value>
+  </data>
+  <data name="SpreadMethod" xml:space="preserve">
+    <value>広がり方</value>
+  </data>
+  <data name="GradientStops" xml:space="preserve">
+    <value>分岐点</value>
+  </data>
+  <data name="StartPoint" xml:space="preserve">
+    <value>開始点</value>
+  </data>
+  <data name="EndPoint" xml:space="preserve">
+    <value>終了点</value>
+  </data>
+  <data name="Radius" xml:space="preserve">
+    <value>半径</value>
+  </data>
+  <data name="DestinationRect" xml:space="preserve">
+    <value>デスティネーション</value>
+  </data>
+  <data name="SourceRect" xml:space="preserve">
+    <value>ソース</value>
+  </data>
+  <data name="Stretch" xml:space="preserve">
+    <value>ストレッチ</value>
+  </data>
+  <data name="TileMode" xml:space="preserve">
+    <value>タイルモード</value>
+  </data>
+  <data name="BitmapInterpolationMode" xml:space="preserve">
+    <value>ビットマップ補間モード</value>
+  </data>
+  <data name="StreamOperators" xml:space="preserve">
+    <value>ストリーム操作</value>
+  </data>
+  <data name="Style" xml:space="preserve">
+    <value>スタイル</value>
+  </data>
+  <data name="CreateAsset_Title" xml:space="preserve">
+    <value>ファイルをアップロード</value>
+  </data>
+  <data name="CreateAsset_Internal_Tip" xml:space="preserve">
+    <value>b-editorのサーバーにファイルをアップロードします。</value>
+  </data>
+  <data name="CreateAsset_Internal_Example" xml:space="preserve">
+    <value>例: 画像などの軽量なファイル。</value>
+  </data>
+  <data name="CreateAsset_External_Tip" xml:space="preserve">
+    <value>お客様はファイルを外部サーバーにアップロードし、
+b-editorがダウンロードURLを管理します。</value>
+  </data>
+  <data name="CreateAsset_External_Example" xml:space="preserve">
+    <value>例：パッケージリリースに含まれるアセットなどの大きなファイル。</value>
+  </data>
+  <data name="CreateAsset_PleaseEnterAtLeastOneHashValue" xml:space="preserve">
+    <value>ハッシュ値を1つ以上入力してください。</value>
+  </data>
+  <data name="CreateAsset_UploadingFiles" xml:space="preserve">
+    <value>ファイルをアップロードしています。</value>
+  </data>
+  <data name="CreateAsset_PerformingAnOperation" xml:space="preserve">
+    <value>操作を行っています。</value>
+  </data>
+  <data name="CreateAsset_Completed" xml:space="preserve">
+    <value>完了しました。</value>
+  </data>
+  <data name="ContentType" xml:space="preserve">
+    <value>コンテンツタイプ</value>
+  </data>
+  <data name="AddToCurrentProject" xml:space="preserve">
+    <value>現在のプロジェクトに追加する</value>
+  </data>
+  <data name="SelectAsset" xml:space="preserve">
+    <value>アセットを選択</value>
+  </data>
+  <data name="SelectImageAsset" xml:space="preserve">
+    <value>画像アセットを選択</value>
+  </data>
+  <data name="Alignment" xml:space="preserve">
+    <value>アライメント</value>
+  </data>
+  <data name="RemoveUnavailableSetters" xml:space="preserve">
+    <value>利用できないセッターを削除しますか？</value>
+  </data>
+  <data name="AddSetter" xml:space="preserve">
+    <value>セッターを追加</value>
+  </data>
+  <data name="ProjectFile" xml:space="preserve">
+    <value>プロジェクトファイル</value>
+  </data>
+  <data name="RecentFiles" xml:space="preserve">
+    <value>最近使ったファイル</value>
+  </data>
+  <data name="RecentProjects" xml:space="preserve">
+    <value>最近使ったプロジェクト</value>
+  </data>
+  <data name="Editors" xml:space="preserve">
+    <value>エディター</value>
+  </data>
+  <data name="Tools" xml:space="preserve">
+    <value>ツール</value>
+  </data>
+  <data name="Rename" xml:space="preserve">
+    <value>名前を変更</value>
+  </data>
+  <data name="Source" xml:space="preserve">
+    <value>ソース</value>
+  </data>
+  <data name="Ellipse" xml:space="preserve">
+    <value>楕円</value>
+  </data>
+  <data name="Rectangle" xml:space="preserve">
+    <value>矩形</value>
+  </data>
+  <data name="RoundedRect" xml:space="preserve">
+    <value>角丸四角形</value>
+  </data>
+  <data name="ImageFile" xml:space="preserve">
+    <value>画像ファイル</value>
+  </data>
+  <data name="Configure" xml:space="preserve">
+    <value>構成</value>
+  </data>
+  <data name="Translate" xml:space="preserve">
+    <value>移動</value>
+  </data>
+  <data name="Skew" xml:space="preserve">
+    <value>歪み</value>
+  </data>
+  <data name="Scale" xml:space="preserve">
+    <value>スケール</value>
+  </data>
+  <data name="Rotation" xml:space="preserve">
+    <value>回転</value>
+  </data>
+  <data name="Rotation3D" xml:space="preserve">
+    <value>回転3D</value>
+  </data>
+  <data name="Blur" xml:space="preserve">
+    <value>ぼかし</value>
+  </data>
+  <data name="DropShadow" xml:space="preserve">
+    <value>ドロップシャドウ</value>
+  </data>
+  <data name="InnerShadow" xml:space="preserve">
+    <value>内側シャドウ</value>
+  </data>
+  <data name="Border" xml:space="preserve">
+    <value>縁取り</value>
+  </data>
+  <data name="TargetType" xml:space="preserve">
+    <value>対象型</value>
+  </data>
 </root>

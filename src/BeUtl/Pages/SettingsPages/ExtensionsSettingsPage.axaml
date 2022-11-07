@@ -4,6 +4,7 @@
              xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.SettingsPages"
@@ -21,7 +22,7 @@
                     VerticalAlignment="Stretch"
                     Orientation="Vertical"
                     Spacing="4">
-            <ctrls:OptionsDisplayItem Expands="True" Header="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority}">
+            <ctrls:OptionsDisplayItem Expands="True" Header="{x:Static lang:SettingsPage.Editor_Extension_Priority}">
                 <ctrls:OptionsDisplayItem.Icon>
                     <icons:SymbolIcon Symbol="TabDesktop" />
                 </ctrls:OptionsDisplayItem.Icon>
@@ -39,12 +40,12 @@
                                 </ui:CommandBarElementContainer>
                                 <ui:CommandBarButton Click="Add_FileExtension"
                                                      Icon="Add"
-                                                     Label="{DynamicResource S.Common.Add}" />
+                                                     Label="{x:Static lang:Strings.Add}" />
                             </ui:CommandBar.PrimaryCommands>
                             <ui:CommandBar.SecondaryCommands>
                                 <ui:CommandBarButton Command="{CompiledBinding RemoveFileExtension}"
                                                      Icon="Delete"
-                                                     Label="{DynamicResource S.Common.Remove}" />
+                                                     Label="{x:Static lang:Strings.Remove}" />
                             </ui:CommandBar.SecondaryCommands>
                         </ui:CommandBar>
 
@@ -69,28 +70,28 @@
                                                              CommandParameter="{Binding}"
                                                              Icon="ChevronUp"
                                                              IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
-                                                             Label="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.Higher}" />
+                                                             Label="{x:Static lang:SettingsPage.Higher}" />
 
                                         <ui:CommandBarButton Grid.Column="2"
                                                              Command="{Binding #root.DataContext.LowPriority}"
                                                              CommandParameter="{Binding}"
                                                              Icon="ChevronDown"
                                                              IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
-                                                             Label="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.Lower}" />
+                                                             Label="{x:Static lang:SettingsPage.Lower}" />
 
                                         <ui:CommandBarButton Grid.Column="3"
                                                              Command="{Binding #root.DataContext.RemoveExt}"
                                                              CommandParameter="{Binding}"
                                                              Icon="Clear"
                                                              IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
-                                                             Label="{DynamicResource S.Common.Remove}" />
+                                                             Label="{x:Static lang:Strings.Remove}" />
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
                         <TextBlock Grid.Row="2"
                                    Margin="4,8,4,4"
-                                   Text="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.All}" />
+                                   Text="{x:Static lang:SettingsPage.All_Editor_Extensions}" />
                         <ListBox Grid.Row="3" Items="{CompiledBinding EditorExtensions2}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
@@ -112,7 +113,7 @@
                                                              CommandParameter="{Binding}"
                                                              Icon="Add"
                                                              IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
-                                                             Label="{DynamicResource S.Common.Add}" />
+                                                             Label="{x:Static lang:Strings.Add}" />
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>

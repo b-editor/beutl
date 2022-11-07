@@ -38,6 +38,8 @@ public sealed class WorkspaceItemContainer : IWorkspaceItemContainer
 
         if (item != null)
         {
+            // ファイルの最後に書き込まれた時間が
+            // item.LastSavedTimeよりも新しい場合、復元する。
             if (item.LastSavedTime.ToUniversalTime() < File.GetLastWriteTimeUtc(file))
             {
                 item.Restore(file);
@@ -69,6 +71,8 @@ public sealed class WorkspaceItemContainer : IWorkspaceItemContainer
             : default;
         if (item != null)
         {
+            // ファイルの最後に書き込まれた時間が
+            // item.LastSavedTimeよりも新しい場合、復元する。
             if (item.LastSavedTime.ToUniversalTime() < File.GetLastWriteTimeUtc(file))
             {
                 item.Restore(file);

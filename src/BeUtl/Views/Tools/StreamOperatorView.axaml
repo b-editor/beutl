@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:editors="using:Beutl.Views.Editors"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              d:DesignHeight="450"
              d:DesignWidth="800"
@@ -14,7 +15,7 @@
             <StackPanel Orientation="Horizontal">
                 <StackPanel.ContextMenu>
                     <ContextMenu>
-                        <MenuItem Click="Remove_Click" Header="{DynamicResource S.Common.Remove}">
+                        <MenuItem Click="Remove_Click" Header="{x:Static lang:Strings.Remove}">
                             <MenuItem.Icon>
                                 <icons:SymbolIcon Symbol="Delete" />
                             </MenuItem.Icon>

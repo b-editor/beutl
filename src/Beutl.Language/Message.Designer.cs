@@ -70,11 +70,39 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   An unexpected error has occurred. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AnUnexpectedErrorHasOccurred {
+            get {
+                return ResourceManager.GetString("AnUnexpectedErrorHasOccurred", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   API error occurred. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ApiErrorOccurred {
+            get {
+                return ResourceManager.GetString("ApiErrorOccurred", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Cannot display this context. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string CannotDisplayThisContext {
             get {
                 return ResourceManager.GetString("CannotDisplayThisContext", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Cannot rename from &quot;{0}&quot; to &quot;{1}&quot;
+        ///because the new name conflicts with an existing folder. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CannotRenameBecauseConflicts {
+            get {
+                return ResourceManager.GetString("CannotRenameBecauseConflicts", resourceCulture);
             }
         }
         
@@ -103,6 +131,15 @@ namespace Beutl.Language {
         public static string CouldNotOpenFollowingFileWithExtension {
             get {
                 return ResourceManager.GetString("CouldNotOpenFollowingFileWithExtension", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Could not open project. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CouldNotOpenProject {
+            get {
+                return ResourceManager.GetString("CouldNotOpenProject", resourceCulture);
             }
         }
         
@@ -170,11 +207,38 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   File does not exist. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FileDoesNotExist {
+            get {
+                return ResourceManager.GetString("FileDoesNotExist", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Invalid string. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string InvalidString {
             get {
                 return ResourceManager.GetString("InvalidString", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Invalid URL. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string InvalidUrl {
+            get {
+                return ResourceManager.GetString("InvalidUrl", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   It already exists. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ItAlreadyExists {
+            get {
+                return ResourceManager.GetString("ItAlreadyExists", resourceCulture);
             }
         }
         
@@ -202,6 +266,15 @@ namespace Beutl.Language {
         public static string MultipleTypesAreAvailable {
             get {
                 return ResourceManager.GetString("MultipleTypesAreAvailable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Name cannot be left blank. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string NameCannotBeLeftBlank {
+            get {
+                return ResourceManager.GetString("NameCannotBeLeftBlank", resourceCulture);
             }
         }
         
@@ -238,6 +311,24 @@ namespace Beutl.Language {
         public static string RememberThisChoice {
             get {
                 return ResourceManager.GetString("RememberThisChoice", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Cannot specify a value less than or equal to 0. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ValueLessThanOrEqualToZero {
+            get {
+                return ResourceManager.GetString("ValueLessThanOrEqualToZero", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Cannot specify a value less than to 0. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ValueLessThanZero {
+            get {
+                return ResourceManager.GetString("ValueLessThanZero", resourceCulture);
             }
         }
     }

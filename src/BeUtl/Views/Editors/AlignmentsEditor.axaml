@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewModel="using:Beutl.ViewModels.Editors"
@@ -19,7 +20,7 @@
                    HorizontalAlignment="Left"
                    VerticalAlignment="Center"
                    ClipToBounds="False"
-                   Text="{DynamicResource S.Common.Alignment}" />
+                   Text="{x:Static lang:Strings.Alignment}" />
 
         <WrapPanel Grid.Row="1" Margin="0,2">
             <StackPanel Margin="4,0"

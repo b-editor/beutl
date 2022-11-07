@@ -1,6 +1,5 @@
-﻿using Beutl.Streaming;
-
-using static Beutl.Language.Resources;
+﻿using Beutl.Language;
+using Beutl.Streaming;
 
 namespace Beutl.Operators;
 
@@ -8,35 +7,35 @@ public class OperatorsRegistrar
 {
     public static void RegisterAll()
     {
-        OperatorRegistry.RegisterOperations(S.Operators.IndexSourceObservable)
-            .Add<Source.EllipseOperator>(S.Operators.Source.EllipseObservable)
-            .Add<Source.RectOperator>(S.Operators.Source.RectObservable)
-            .Add<Source.RoundedRectOperation>(S.Operators.Source.RoundedRectObservable)
-            .Add<Source.TextBlockOperator>(S.Operators.Source.TextObservable)
-            .Add<Source.ImageFileOperator>(S.Operators.Source.ImageFileObservable)
+        OperatorRegistry.RegisterOperations(Strings.Source)
+            .Add<Source.EllipseOperator>(Strings.Ellipse)
+            .Add<Source.RectOperator>(Strings.Rectangle)
+            .Add<Source.RoundedRectOperation>(Strings.RoundedRect)
+            .Add<Source.TextBlockOperator>(Strings.Text)
+            .Add<Source.ImageFileOperator>(Strings.ImageFile)
             .Register();
 
-        OperatorRegistry.RegisterOperations(S.Operators.IndexConfigureObservable)
-            .AddGroup(S.Operators.Configure.IndexTransformObservable, helper => helper
-                .Add<Configure.Transform.TranslateOperator>(S.Operators.Configure.Transform.TranslateObservable)
-                .Add<Configure.Transform.SkewOperator>(S.Operators.Configure.Transform.SkewObservable)
-                .Add<Configure.Transform.ScaleOperator>(S.Operators.Configure.Transform.ScaleObservable)
-                .Add<Configure.Transform.RotationOperator>(S.Operators.Configure.Transform.RotationObservable)
-                .Add<Configure.Transform.Rotation3DOperator>(S.Operators.Configure.Transform.Rotation3DObservable)
+        OperatorRegistry.RegisterOperations(Strings.Configure)
+            .AddGroup(Strings.Transform, helper => helper
+                .Add<Configure.Transform.TranslateOperator>(Strings.Translate)
+                .Add<Configure.Transform.SkewOperator>(Strings.Skew)
+                .Add<Configure.Transform.ScaleOperator>(Strings.Scale)
+                .Add<Configure.Transform.RotationOperator>(Strings.Rotation)
+                .Add<Configure.Transform.Rotation3DOperator>(Strings.Rotation3D)
                 .Register())
-            .AddGroup(S.Operators.Configure.IndexImageFilterObservable, helper => helper
-                .Add<Configure.ImageFilter.BlurOperator>(S.Operators.Configure.ImageFilter.BlurObservable)
-                .Add<Configure.ImageFilter.BlurOperator>(S.Operators.Configure.ImageFilter.DropShadowObservable)
+            .AddGroup(Strings.ImageFilter, helper => helper
+                .Add<Configure.ImageFilter.BlurOperator>(Strings.Blur)
+                .Add<Configure.ImageFilter.BlurOperator>(Strings.DropShadow)
                 .Register())
-            .AddGroup(S.Operators.Configure.IndexBitmapEffectObservable, helper => helper
-                .Add<Configure.BitmapEffect.BlurOperator>(S.Operators.Configure.BitmapEffect.BlurObservable)
-                .Add<Configure.BitmapEffect.InnerShadowOperator>(S.Operators.Configure.BitmapEffect.InnerShadowObservable)
-                .Add<Configure.BitmapEffect.BorderOperator>(S.Operators.Configure.BitmapEffect.BorderObservable)
+            .AddGroup(Strings.BitmapEffect, helper => helper
+                .Add<Configure.BitmapEffect.BlurOperator>(Strings.Blur)
+                .Add<Configure.BitmapEffect.InnerShadowOperator>(Strings.InnerShadow)
+                .Add<Configure.BitmapEffect.BorderOperator>(Strings.Border)
                 .Register())
-            .Add<Configure.AlignmentOperator>(S.Operators.Configure.AlignmentObservable)
-            .Add<Configure.BlendOperator>(S.Operators.Configure.BlendObservable)
-            .Add<Configure.ForegroundOperator>(S.Operators.Configure.ForegroundObservable)
-            .Add<Configure.OpacityMaskOperator>(S.Operators.Configure.OpacityMaskObservable)
+            .Add<Configure.AlignmentOperator>(Strings.Alignment)
+            .Add<Configure.BlendOperator>(Strings.BlendMode)
+            .Add<Configure.ForegroundOperator>(Strings.Foreground)
+            .Add<Configure.OpacityMaskOperator>(Strings.OpacityMask)
             .Register();
     }
 }

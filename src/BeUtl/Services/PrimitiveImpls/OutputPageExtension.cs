@@ -15,7 +15,7 @@ public sealed class OutputPageExtension : PageExtension
 
     public override Geometry RegularIcon => FluentIconsRegular.Arrow_Export_LTR.GetGeometry();
 
-    public override IObservable<string> Header => S.MainView.OutputObservable;
+    public override IObservable<string> Header => Observable.Return(Strings.Output);
 
     public override Type Control => null!;
 

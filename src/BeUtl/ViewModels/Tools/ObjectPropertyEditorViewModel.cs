@@ -20,9 +20,7 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
     public ObjectPropertyEditorViewModel(EditViewModel viewModel)
     {
         _viewModel = viewModel;
-        Header = S.Common.PropertiesObservable
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables)!;
+        Header = new ReactivePropertySlim<string>(Strings.Properties);
 
         _viewModel.SelectedObject
             .Subscribe(obj => NavigateCore(obj, false))

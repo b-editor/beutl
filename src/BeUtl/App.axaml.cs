@@ -3,9 +3,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
-using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 
@@ -14,7 +12,6 @@ using Beutl.Framework;
 using Beutl.Framework.Service;
 using Beutl.Framework.Services;
 using Beutl.Operators;
-using Beutl.ProjectSystem;
 using Beutl.Rendering;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -30,8 +27,6 @@ namespace Beutl;
 
 public sealed class App : Application
 {
-    private readonly Uri _baseUri = new("avares://Beutl/App.axaml");
-    private IStyle? _cultureStyle;
     private MainViewModel? _mainViewModel;
 
     public override void Initialize()
@@ -71,36 +66,7 @@ public sealed class App : Application
             });
         });
 
-        view.GetObservable(ViewConfig.UICultureProperty).Subscribe(v =>
-        {
-            Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (LocalizeService.Instance.IsSupportedCulture(v) || v.Name == "en-US")
-                {
-                    IStyle? tmp = _cultureStyle;
-                    _cultureStyle = new StyleInclude(_baseUri)
-                    {
-                        Source = LocalizeService.Instance.GetUri(v)
-                    };
-                    Styles.Add(_cultureStyle);
-                    if (tmp != null)
-                    {
-                        Styles.Remove(tmp);
-                    }
-                }
-                else
-                {
-                    if (_cultureStyle != null)
-                    {
-                        Styles.Remove(_cultureStyle);
-                    }
-
-                    _cultureStyle = null;
-                }
-
-                CultureInfo.CurrentUICulture = v;
-            });
-        });
+        CultureInfo.CurrentUICulture = view.UICulture;
 
 #if DEBUG
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
@@ -128,6 +94,9 @@ public sealed class App : Application
 
         OperatorsRegistrar.RegisterAll();
         UIDispatcherScheduler.Initialize();
+
+        // Todo: 確認
+        //ReactivePropertyScheduler.SetDefault(AvaloniaScheduler.Instance);
     }
 
     public override void OnFrameworkInitializationCompleted()

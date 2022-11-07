@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Beutl.ViewModels.Editors"
              VerticalAlignment="Center"
@@ -20,11 +21,11 @@
         <Button.ContextMenu>
             <ContextMenu>
                 <MenuItem Command="{Binding Reset}"
-                          Header="{DynamicResource S.Common.Reset}"
+                          Header="{x:Static lang:Strings.Reset}"
                           IsEnabled="{CompiledBinding CanReset}" />
-                <MenuItem Click="EditAnimation_Click" Header="{DynamicResource S.Common.EditAnimation}" />
+                <MenuItem Click="EditAnimation_Click" Header="{x:Static lang:Strings.EditAnimation}" />
                 <MenuItem Click="DeleteSetter_Click"
-                          Header="{DynamicResource S.Common.Delete}"
+                          Header="{x:Static lang:Strings.Delete}"
                           IsVisible="{CompiledBinding IsStylingSetter}" />
             </ContextMenu>
         </Button.ContextMenu>
@@ -37,7 +38,7 @@
                     <Setter Property="Symbol" Value="Flow" />
                     <Setter Property="IsFilled" Value="True" />
                     <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
-                    <Setter Property="ToolTip.Tip" Value="{DynamicResource S.Message.AnimationIsEnabled}" />
+                    <Setter Property="ToolTip.Tip" Value="{x:Static lang:Message.AnimationIsEnabled}" />
                 </Style>
             </icons:SymbolIcon.Styles>
         </icons:SymbolIcon>

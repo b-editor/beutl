@@ -1,25 +1,26 @@
-<ui:ContentDialog xmlns="https://github.com/avaloniaui"
+<ui:ContentDialog x:Class="Beutl.Views.Dialogs.SceneSettings"
+                  xmlns="https://github.com/avaloniaui"
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:lang="using:Beutl.Language"
                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
-                  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
                   xmlns:vm="using:Beutl.ViewModels.Dialogs"
-                  Title="{DynamicResource S.Common.SceneSettings}"
-                  PrimaryButtonText="{DynamicResource S.Common.Apply}"
-                  PrimaryButtonCommand="{CompiledBinding Apply}"
-                  IsPrimaryButtonEnabled="{CompiledBinding CanApply.Value}"
-                  CloseButtonText="{DynamicResource S.Common.Close}"
-                  DefaultButton="Primary"
+                  Title="{x:Static lang:Strings.SceneSettings}"
+                  d:DesignHeight="450"
+                  d:DesignWidth="800"
                   x:DataType="vm:SceneSettingsViewModel"
-                  x:Class="Beutl.Views.Dialogs.SceneSettings">
+                  CloseButtonText="{x:Static lang:Strings.Close}"
+                  DefaultButton="Primary"
+                  IsPrimaryButtonEnabled="{CompiledBinding CanApply.Value}"
+                  PrimaryButtonCommand="{CompiledBinding Apply}"
+                  PrimaryButtonText="{x:Static lang:Strings.Apply}"
+                  mc:Ignorable="d">
     <StackPanel Spacing="8">
-        <TextBlock Text="{DynamicResource S.Common.Size}" />
+        <TextBlock Text="{x:Static lang:Strings.Size}" />
         <TextBox Text="{CompiledBinding Size.Value, Mode=TwoWay, Converter={StaticResource PixelSizeConverter}}" />
 
-        <Separator />
-
-        <TextBlock Text="{DynamicResource S.Common.DurationTime}" />
+        <TextBlock Margin="0,8,0,0" Text="{x:Static lang:Strings.DurationTime}" />
         <TextBox Text="{CompiledBinding Duration.Value, Mode=TwoWay}" />
     </StackPanel>
 </ui:ContentDialog>
