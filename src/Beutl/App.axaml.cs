@@ -93,10 +93,7 @@ public sealed class App : Application
         GetMainViewModel().RegisterServices();
 
         OperatorsRegistrar.RegisterAll();
-        UIDispatcherScheduler.Initialize();
-
-        // Todo: 確認
-        //ReactivePropertyScheduler.SetDefault(AvaloniaScheduler.Instance);
+        ReactivePropertyScheduler.SetDefault(AvaloniaScheduler.Instance);
     }
 
     public override void OnFrameworkInitializationCompleted()
