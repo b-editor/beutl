@@ -27,21 +27,40 @@ public sealed partial class SettingsPage : UserControl
         _pageResolver = new PageResolver();
         _navigationProvider = new NavigationProvider(frame, _pageResolver);
 
-        nav.MenuItems = GetItems();
+        List<NavigationViewItem> items = GetItems();
+        nav.MenuItems = items;
+        NavigationViewItem selected = items[0];
 
         frame.Navigated += Frame_Navigated;
         nav.ItemInvoked += Nav_ItemInvoked;
         nav.BackRequested += Nav_BackRequested;
+
+        nav.SelectedItem = selected;
+
+        this.GetObservable(IsVisibleProperty).Subscribe(b =>
+        {
+            if (b)
+            {
+                if (nav.SelectedItem is NavigationViewItem selected)
+                {
+                    OnItemInvoked(selected);
+                }
+            }
+            else
+            {
+                frame.SetNavigationState("|\n0\n0");
+            }
+        });
     }
 
-    protected override async void OnDataContextChanged(EventArgs e)
-    {
-        base.OnDataContextChanged(e);
-        if (DataContext is SettingsPageViewModel settingsPage)
-        {
-            await _navigationProvider.NavigateAsync(_ => true, () => settingsPage.Account);
-        }
-    }
+    //protected override async void OnDataContextChanged(EventArgs e)
+    //{
+    //    base.OnDataContextChanged(e);
+    //    if (DataContext is SettingsPageViewModel settingsPage)
+    //    {
+    //        await _navigationProvider.NavigateAsync(_ => true, () => settingsPage.Account);
+    //    }
+    //}
 
     private static List<NavigationViewItem> GetItems()
     {
@@ -111,10 +130,18 @@ public sealed partial class SettingsPage : UserControl
 
     private void Nav_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)
     {
-        if (e.InvokedItemContainer is NavigationViewItem nvi
-            && nvi.Tag is Type typ
+        if (e.InvokedItemContainer is NavigationViewItem nvi)
+        {
+            OnItemInvoked(nvi);
+        }
+    }
+
+    private void OnItemInvoked(NavigationViewItem nvi)
+    {
+        if (nvi.Tag is Type typ
             && DataContext is SettingsPageViewModel settingsPage)
         {
+            NavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
             object? parameter = null;
             if (typ == typeof(AccountSettingsPage))
             {
@@ -125,7 +152,7 @@ public sealed partial class SettingsPage : UserControl
                 parameter = settingsPage.Storage;
             }
 
-            frame.Navigate(typ, parameter, e.RecommendedNavigationTransitionInfo);
+            frame.Navigate(typ, parameter, transitionInfo);
         }
     }
 

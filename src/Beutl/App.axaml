@@ -8,41 +8,46 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives">
     <Application.Resources>
-        <convert:PixelSizeConverter x:Key="PixelSizeConverter" />
-        <convert:TimeSpanToDoubleConverter x:Key="TimeSpanToDoubleConverter" />
-        <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!--<ResourceInclude Source="avares://Avalonia.Themes.Fluent/Controls/ContextMenu.xaml" />-->
+            </ResourceDictionary.MergedDictionaries>
 
-        <ControlTheme x:Key="LabelTextBlockStyle" TargetType="TextBlock">
-            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="FontWeight" Value="Normal" />
-            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-        </ControlTheme>
+            <convert:PixelSizeConverter x:Key="PixelSizeConverter" />
+            <convert:TimeSpanToDoubleConverter x:Key="TimeSpanToDoubleConverter" />
+            <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
 
-        <KeyGesture x:Key="CreateNewProjectKeyGesture">Ctrl+Shift+N</KeyGesture>
-        <KeyGesture x:Key="CreateNewKeyGesture">Ctrl+N</KeyGesture>
-        <KeyGesture x:Key="OpenProjectKeyGesture">Ctrl+Shift+O</KeyGesture>
-        <KeyGesture x:Key="OpenKeyGesture">Ctrl+O</KeyGesture>
-        <KeyGesture x:Key="SaveAllKeyGesture">Ctrl+Shift+S</KeyGesture>
-        <KeyGesture x:Key="SaveKeyGesture">Ctrl+S</KeyGesture>
-        <KeyGesture x:Key="ExitKeyGesture">Alt+F4</KeyGesture>
-        <KeyGesture x:Key="UndoKeyGesture">Ctrl+Z</KeyGesture>
-        <KeyGesture x:Key="RedoKeyGesture">Ctrl+Y</KeyGesture>
-        <KeyGesture x:Key="DeleteKeyGesture">Delete</KeyGesture>
-        <KeyGesture x:Key="CutKeyGesture">Ctrl+X</KeyGesture>
-        <KeyGesture x:Key="CopyKeyGesture">Ctrl+C</KeyGesture>
-        <KeyGesture x:Key="PasteKeyGesture">Ctrl+V</KeyGesture>
-        <KeyGesture x:Key="PlayPauseKeyGesture">Space</KeyGesture>
-        <KeyGesture x:Key="NextKeyGesture">Right</KeyGesture>
-        <KeyGesture x:Key="PreviousKeyGesture">Left</KeyGesture>
-        <KeyGesture x:Key="StartKeyGesture">Home</KeyGesture>
-        <KeyGesture x:Key="EndKeyGesture">End</KeyGesture>
-        <KeyGesture x:Key="LayerDeleteKeyGesture">Ctrl+Delete</KeyGesture>
+            <ControlTheme x:Key="LabelTextBlockStyle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontWeight" Value="Normal" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </ControlTheme>
+
+            <KeyGesture x:Key="CreateNewProjectKeyGesture">Ctrl+Shift+N</KeyGesture>
+            <KeyGesture x:Key="CreateNewKeyGesture">Ctrl+N</KeyGesture>
+            <KeyGesture x:Key="OpenProjectKeyGesture">Ctrl+Shift+O</KeyGesture>
+            <KeyGesture x:Key="OpenKeyGesture">Ctrl+O</KeyGesture>
+            <KeyGesture x:Key="SaveAllKeyGesture">Ctrl+Shift+S</KeyGesture>
+            <KeyGesture x:Key="SaveKeyGesture">Ctrl+S</KeyGesture>
+            <KeyGesture x:Key="ExitKeyGesture">Alt+F4</KeyGesture>
+            <KeyGesture x:Key="UndoKeyGesture">Ctrl+Z</KeyGesture>
+            <KeyGesture x:Key="RedoKeyGesture">Ctrl+Y</KeyGesture>
+            <KeyGesture x:Key="DeleteKeyGesture">Delete</KeyGesture>
+            <KeyGesture x:Key="CutKeyGesture">Ctrl+X</KeyGesture>
+            <KeyGesture x:Key="CopyKeyGesture">Ctrl+C</KeyGesture>
+            <KeyGesture x:Key="PasteKeyGesture">Ctrl+V</KeyGesture>
+            <KeyGesture x:Key="PlayPauseKeyGesture">Space</KeyGesture>
+            <KeyGesture x:Key="NextKeyGesture">Right</KeyGesture>
+            <KeyGesture x:Key="PreviousKeyGesture">Left</KeyGesture>
+            <KeyGesture x:Key="StartKeyGesture">Home</KeyGesture>
+            <KeyGesture x:Key="EndKeyGesture">End</KeyGesture>
+            <KeyGesture x:Key="LayerDeleteKeyGesture">Ctrl+Delete</KeyGesture>
+        </ResourceDictionary>
     </Application.Resources>
     <Application.Styles>
-        <FluentTheme />
         <sty:FluentAvaloniaTheme />
         <StyleInclude Source="avares://FluentAvalonia.UI.Windowing/Styles/FAWindowingStyles.axaml" />
 

@@ -9,22 +9,22 @@ namespace Beutl.Controls;
 
 public class NavItemHelper : Behavior<NavigationViewItem>
 {
-    public static readonly StyledProperty<Geometry> RegularIconProperty
-        = AvaloniaProperty.Register<NavItemHelper, Geometry>("RegularIcon");
+    public static readonly StyledProperty<IconSource> RegularIconProperty
+        = AvaloniaProperty.Register<NavItemHelper, IconSource>("RegularIcon");
 
-    public static readonly StyledProperty<Geometry> FilledIconProperty
-        = AvaloniaProperty.Register<NavItemHelper, Geometry>("FilledIcon");
+    public static readonly StyledProperty<IconSource> FilledIconProperty
+        = AvaloniaProperty.Register<NavItemHelper, IconSource>("FilledIcon");
     private IDisposable _disposable;
-    private FAPathIcon _regular;
-    private FAPathIcon _filled;
+    private IconSourceElement _regular;
+    private IconSourceElement _filled;
 
-    public Geometry RegularIcon
+    public IconSource RegularIcon
     {
         get => GetValue(RegularIconProperty);
         set => SetValue(RegularIconProperty, value);
     }
 
-    public Geometry FilledIcon
+    public IconSource FilledIcon
     {
         get => GetValue(FilledIconProperty);
         set => SetValue(FilledIconProperty, value);
@@ -33,14 +33,21 @@ public class NavItemHelper : Behavior<NavigationViewItem>
     protected override void OnAttached()
     {
         base.OnAttached();
-        _regular = new FAPathIcon()
+        _regular = new IconSourceElement()
         {
-            Data = RegularIcon
+            IconSource = RegularIcon,
+            Width = 40,
+            Height = 40
         };
-        _filled = new FAPathIcon()
+        _filled = new IconSourceElement()
         {
-            Data = FilledIcon
+            IconSource = FilledIcon,
+            Width = 40,
+            Height = 40
         };
+
+        SetFontSize(RegularIcon);
+        SetFontSize(FilledIcon);
         _disposable = AssociatedObject.GetPropertyChangedObservable(ListBoxItem.IsSelectedProperty)
             .Subscribe(e => SelectionChanged((NavigationViewItem)e.Sender));
 
@@ -62,13 +69,27 @@ public class NavItemHelper : Behavior<NavigationViewItem>
         {
             if (_regular != null)
             {
-                _regular.Data = RegularIcon;
+                SetFontSize(RegularIcon);
+                _regular.IconSource = RegularIcon;
             }
 
             if (_filled != null)
             {
-                _filled.Data = FilledIcon;
+                SetFontSize(FilledIcon);
+                _filled.IconSource = FilledIcon;
             }
+        }
+    }
+
+    private void SetFontSize(IconSource iconSource)
+    {
+        if (iconSource is FontIconSource fontIcon)
+        {
+            fontIcon.FontSize = 48;
+        }
+        else if (iconSource is SymbolIconSource symbolIcon)
+        {
+            symbolIcon.FontSize = 48;
         }
     }
 

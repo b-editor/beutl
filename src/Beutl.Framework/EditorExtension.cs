@@ -4,6 +4,8 @@ using Avalonia.Media;
 
 using Beutl.Framework.Services;
 
+using FluentAvalonia.UI.Controls;
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Framework;
@@ -30,12 +32,12 @@ public interface IEditorContext : IDisposable
 // ファイルのエディタを追加
 public abstract class EditorExtension : ViewExtension
 {
-    public abstract Geometry? Icon { get; }
-
     // Todo: Avalonia.Platform.Storageに対応する
     public abstract string[] FileExtensions { get; }
 
     public abstract string FileTypeName { get; }
+
+    public abstract IconSource? GetIcon();
 
     public abstract bool TryCreateEditor(
         string file,

@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
@@ -84,7 +85,7 @@ internal readonly struct Cache<T>
 
 public sealed partial class MainView : UserControl
 {
-    private static readonly Binding s_headerBinding = new("Header");
+    private static readonly Binding s_headerBinding = new("Context.Header");
     private readonly AvaloniaList<MenuItem> _rawRecentFileItems = new();
     private readonly AvaloniaList<MenuItem> _rawRecentProjItems = new();
     private readonly Cache<MenuItem> _menuItemCache = new(4);
@@ -153,110 +154,23 @@ public sealed partial class MainView : UserControl
         _disposables.Clear();
         if (DataContext is MainViewModel viewModel)
         {
-            Task task = viewModel.RunSplachScreenTask();
-            _settingsView = new Pages.SettingsPage
+            try
             {
-                DataContext = viewModel.SettingsPage.Context
-            };
-            NaviContent.Children.Clear();
-            NaviContent.Children.Add(_settingsView);
-            _navigationItems.Clear();
-            viewModel.Pages.ForEachItem(
-                (idx, item) =>
-                {
-                    IControl? view = null;
-                    Exception? exception = null;
-                    if (item.Extension.Control != null)
-                    {
-                        try
-                        {
-                            view = Activator.CreateInstance(item.Extension.Control) as IControl;
-                        }
-                        catch (Exception e)
-                        {
-                            exception = e;
-                        }
-                    }
+                NaviContent.IsVisible = false;
+                Task task = viewModel.RunSplachScreenTask();
+                InitPages(viewModel);
 
-                    view ??= new TextBlock()
-                    {
-                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                        Text = exception != null ? @$"
-Error:
-    {Message.CouldNotCreateInstanceOfView}
-Message:
-    {exception.Message}
-StackTrace:
-    {exception.StackTrace}
-" : @$"
-Error:
-    {Message.CannotDisplayThisContext}
-"
-                    };
+                InitCommands(viewModel);
 
-                    view.DataContext = item.Context;
-                    view.IsVisible = false;
+                await task;
+                InitExtMenuItems(viewModel);
 
-                    NaviContent.Children.Insert(idx, view);
-                    _navigationItems.Insert(idx, new NavigationViewItem()
-                    {
-                        Classes = { "SideNavigationViewItem" },
-                        DataContext = item,
-                        [!ContentProperty] = s_headerBinding,
-                        [Interaction.BehaviorsProperty] = new BehaviorCollection
-                        {
-                            new NavItemHelper()
-                            {
-                                FilledIcon = item.Extension.FilledIcon,
-                                RegularIcon = item.Extension.RegularIcon,
-                            }
-                        }
-                    });
-                },
-                (idx, item) =>
-                {
-                    (item.Context as IDisposable)?.Dispose();
-                    NaviContent.Children.RemoveAt(idx);
-                    _navigationItems.RemoveAt(idx);
-                },
-                () => throw new Exception("'MainViewModel.Pages' does not support the 'Clear' method."))
-                .AddTo(_disposables);
-
-            viewModel.SelectedPage.Subscribe(async obj =>
+                InitRecentItems(viewModel);
+            }
+            finally
             {
-                if (DataContext is MainViewModel viewModel)
-                {
-                    int idx = obj == null ? -1 : viewModel.Pages.IndexOf(obj);
-
-                    IControl? oldControl = null;
-                    for (int i = 0; i < NaviContent.Children.Count; i++)
-                    {
-                        if (NaviContent.Children[i] is IControl { IsVisible: true } control)
-                        {
-                            control.IsVisible = false;
-                            oldControl = control;
-                        }
-                    }
-
-                    Navi.SelectedItem = idx >= 0 ? _navigationItems[idx] : Navi.FooterMenuItems.Cast<object>().First();
-                    IControl newControl = idx >= 0 ? NaviContent.Children[idx] : _settingsView;
-
-                    newControl.IsVisible = true;
-                    newControl.Opacity = 0;
-                    await _animation.RunAsync((Animatable)newControl, null);
-                    newControl.Opacity = 1;
-
-                    newControl.Focus();
-                }
-            }).AddTo(_disposables);
-
-            InitCommands(viewModel);
-
-            await task;
-            InitExtMenuItems(viewModel);
-
-            InitRecentItems(viewModel);
+                NaviContent.IsVisible = true;
+            }
         }
     }
 
@@ -310,6 +224,170 @@ Error:
         {
             viewModel = null;
             return false;
+        }
+    }
+
+    private void InitPages(MainViewModel viewModel)
+    {
+        _settingsView = new Pages.SettingsPage
+        {
+            IsVisible = false,
+            DataContext = viewModel.SettingsPage.Context
+        };
+        NaviContent.Children.Clear();
+        NaviContent.Children.Add(_settingsView);
+        _navigationItems.Clear();
+
+        IControl[] pageViews = viewModel.Pages.Select(item => CreateView(item)).ToArray();
+        NaviContent.Children.InsertRange(0, pageViews);
+
+        NavigationViewItem[] navItems = viewModel.Pages.Select(item =>
+        {
+            return new NavigationViewItem()
+            {
+                Classes = { "SideNavigationViewItem" },
+                DataContext = item,
+                [!ContentProperty] = s_headerBinding,
+                [Interaction.BehaviorsProperty] = new BehaviorCollection
+                {
+                    new NavItemHelper()
+                    {
+                        FilledIcon = item.Extension.GetFilledIcon(),
+                        RegularIcon = item.Extension.GetRegularIcon(),
+                    }
+                }
+            };
+        }).ToArray();
+        _navigationItems.InsertRange(0, navItems);
+
+        viewModel.Pages.CollectionChanged += OnPagesCollectionChanged;
+        _disposables.Add(Disposable.Create(viewModel.Pages, obj => obj.CollectionChanged -= OnPagesCollectionChanged));
+        viewModel.SelectedPage.Subscribe(async obj =>
+        {
+            if (DataContext is MainViewModel viewModel)
+            {
+                int idx = obj == null ? -1 : viewModel.Pages.IndexOf(obj);
+
+                IControl? oldControl = null;
+                for (int i = 0; i < NaviContent.Children.Count; i++)
+                {
+                    if (NaviContent.Children[i] is IControl { IsVisible: true } control)
+                    {
+                        control.IsVisible = false;
+                        oldControl = control;
+                    }
+                }
+
+                Navi.SelectedItem = idx >= 0 ? _navigationItems[idx] : Navi.FooterMenuItems.Cast<object>().First();
+                IControl newControl = idx >= 0 ? NaviContent.Children[idx] : _settingsView;
+
+                newControl.IsVisible = true;
+                newControl.Opacity = 0;
+                await _animation.RunAsync((Animatable)newControl, null);
+                newControl.Opacity = 1;
+
+                newControl.Focus();
+            }
+        }).AddTo(_disposables);
+    }
+
+    private static IControl CreateView(MainViewModel.NavItemViewModel item)
+    {
+        IControl? view = null;
+        Exception? exception = null;
+        if (item.Extension.Control != null)
+        {
+            try
+            {
+                view = Activator.CreateInstance(item.Extension.Control) as IControl;
+            }
+            catch (Exception e)
+            {
+                exception = e;
+            }
+        }
+
+        view ??= new TextBlock()
+        {
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            Text = exception != null ? @$"
+Error:
+    {Message.CouldNotCreateInstanceOfView}
+Message:
+    {exception.Message}
+StackTrace:
+    {exception.StackTrace}
+" : @$"
+Error:
+    {Message.CannotDisplayThisContext}
+"
+        };
+
+        view.IsVisible = false;
+        view.DataContext = item.Context;
+
+        return view;
+    }
+
+    private void OnPagesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        void Add(int index, IList items)
+        {
+            foreach (MainViewModel.NavItemViewModel item in items)
+            {
+                int idx = index++;
+                IControl view = CreateView(item);
+
+                NaviContent.Children.Insert(idx, view);
+                _navigationItems.Insert(idx, new NavigationViewItem()
+                {
+                    Classes = { "SideNavigationViewItem" },
+                    DataContext = item,
+                    [!ContentProperty] = s_headerBinding,
+                    [Interaction.BehaviorsProperty] = new BehaviorCollection
+                    {
+                        new NavItemHelper()
+                        {
+                            FilledIcon = item.Extension.GetFilledIcon(),
+                            RegularIcon = item.Extension.GetRegularIcon(),
+                        }
+                    }
+                });
+            }
+        }
+
+        void Remove(int index, IList items)
+        {
+            for (int i = items.Count - 1; i >= 0; --i)
+            {
+                var item = (MainViewModel.NavItemViewModel)items[i]!;
+                int idx = index + i;
+
+                (item.Context as IDisposable)?.Dispose();
+                NaviContent.Children.RemoveAt(idx);
+                _navigationItems.RemoveAt(idx);
+            }
+        }
+
+        switch (e.Action)
+        {
+            case NotifyCollectionChangedAction.Add:
+                Add(e.NewStartingIndex, e.NewItems!);
+                break;
+
+            case NotifyCollectionChangedAction.Move:
+            case NotifyCollectionChangedAction.Replace:
+                Remove(e.OldStartingIndex, e.OldItems!);
+                Add(e.NewStartingIndex, e.NewItems!);
+                break;
+
+            case NotifyCollectionChangedAction.Remove:
+                Remove(e.OldStartingIndex, e.OldItems!);
+                break;
+
+            case NotifyCollectionChangedAction.Reset:
+                throw new Exception("'MainViewModel.Pages' does not support the 'Clear' method.");
         }
     }
 
@@ -661,15 +739,7 @@ Error:
                 IsVisible = false
             };
 
-            if (item.Icon != null)
-            {
-                menuItem.Icon = new PathIcon
-                {
-                    Data = item.Icon,
-                    Width = 18,
-                    Height = 18,
-                };
-            }
+            menuItem.Icon = item.GetIcon();
 
             menuItem.Click += async (s, e) =>
             {

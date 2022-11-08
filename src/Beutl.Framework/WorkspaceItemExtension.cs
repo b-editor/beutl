@@ -2,6 +2,8 @@
 
 using Avalonia.Media;
 
+using FluentAvalonia.UI.Controls;
+
 namespace Beutl.Framework;
 
 // NOTE: EditorExtension内にIWorkspaceItemを作成するメソッドを追加すると、
@@ -9,11 +11,11 @@ namespace Beutl.Framework;
 //       WorkspaceItemExtensisonとEditorExtensionを分けた
 public abstract class WorkspaceItemExtension : Extension
 {
-    public abstract Geometry? Icon { get; }
-
     public abstract string[] FileExtensions { get; }
 
     public abstract string FileTypeName { get; }
+
+    public abstract IconSource? GetIcon();
 
     public abstract bool TryCreateItem(
         string file,

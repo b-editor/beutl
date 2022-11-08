@@ -1,8 +1,10 @@
-﻿using Avalonia.Media;
-
-using Beutl.Controls;
-using Beutl.Framework;
+﻿using Beutl.Framework;
 using Beutl.ViewModels;
+
+using FluentAvalonia.UI.Controls;
+
+using Symbol = FluentIcons.Common.Symbol;
+using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -11,12 +13,6 @@ public sealed class OutputPageExtension : PageExtension
 {
     public static readonly OutputPageExtension Instance = new();
 
-    public override Geometry FilledIcon => FluentIconsFilled.Arrow_Export_LTR.GetGeometry();
-
-    public override Geometry RegularIcon => FluentIconsRegular.Arrow_Export_LTR.GetGeometry();
-
-    public override string Header => Strings.Output;
-
     public override Type Control => null!;
 
     public override Type Context => typeof(OutputPageViewModel);
@@ -24,4 +20,21 @@ public sealed class OutputPageExtension : PageExtension
     public override string Name => "OutputPage";
 
     public override string DisplayName => "OutputPage";
+
+    public override IconSource GetFilledIcon()
+    {
+        return new SymbolIconSource()
+        {
+            Symbol = Symbol.ArrowExportLtr,
+            IsFilled = true
+        };
+    }
+
+    public override IconSource GetRegularIcon()
+    {
+        return new SymbolIconSource()
+        {
+            Symbol = Symbol.ArrowExportLtr
+        };
+    }
 }

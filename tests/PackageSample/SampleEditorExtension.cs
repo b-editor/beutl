@@ -9,6 +9,8 @@ using Avalonia.Styling;
 using Beutl.Controls;
 using Beutl.Framework;
 
+using FluentAvalonia.UI.Controls;
+
 using Reactive.Bindings;
 
 namespace PackageSample;
@@ -92,8 +94,6 @@ public class TextEditor : TextBox, IEditor, IStyleable
 [Export]
 public sealed class SampleEditorExtension : EditorExtension
 {
-    public override Geometry? Icon => FluentIconsRegular.Add.GetGeometry();
-
     public override string[] FileExtensions { get; } =
     {
         "txt",
@@ -105,6 +105,14 @@ public sealed class SampleEditorExtension : EditorExtension
     public override string Name => "SampleEditorExtension";
 
     public override string DisplayName => "SampleEditorExtension";
+
+    public override IconSource? GetIcon()
+    {
+        return new SymbolIconSource
+        {
+            Symbol = Symbol.Add
+        };
+    }
 
     public override bool TryCreateContext(string file, [NotNullWhen(true)] out IEditorContext? context)
     {

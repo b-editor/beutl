@@ -1,15 +1,17 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-using Avalonia.Media;
-
-using Beutl.Controls;
 using Beutl.Framework;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.Views;
 
+using FluentAvalonia.UI.Controls;
+
 using Microsoft.Extensions.DependencyInjection;
+
+using Symbol = FluentIcons.Common.Symbol;
+using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -17,8 +19,6 @@ namespace Beutl.Services.PrimitiveImpls;
 public sealed class SceneEditorExtension : EditorExtension
 {
     public static readonly SceneEditorExtension Instance = new();
-
-    public override Geometry? Icon => FluentIconsRegular.Document.GetGeometry();
 
     public override string[] FileExtensions { get; } =
     {
@@ -58,5 +58,13 @@ public sealed class SceneEditorExtension : EditorExtension
             context = null;
             return false;
         }
+    }
+
+    public override IconSource? GetIcon()
+    {
+        return new SymbolIconSource
+        {
+            Symbol = Symbol.Document
+        };
     }
 }

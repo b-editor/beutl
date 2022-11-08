@@ -1,10 +1,11 @@
 ﻿using Beutl.Api;
-
+using Beutl.Framework;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.SettingsPages;
 
 namespace Beutl.ViewModels;
 
-public sealed class SettingsPageViewModel
+public sealed class SettingsPageViewModel : IPageContext
 {
     public SettingsPageViewModel(BeutlApiApplication clients)
     {
@@ -15,4 +16,12 @@ public sealed class SettingsPageViewModel
     public AccountSettingsPageViewModel Account { get; }
 
     public StorageSettingsPageViewModel Storage { get; }
+
+    public PageExtension Extension => SettingsPageExtension.Instance;
+
+    public string Header => Strings.Settings;
+
+    public void Dispose()
+    {
+    }
 }

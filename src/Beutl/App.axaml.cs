@@ -33,13 +33,14 @@ public sealed class App : Application
     {
         //PaletteColors
         Type colorsType = typeof(Colors);
-        PropertyInfo[] colors = colorsType.GetProperties(BindingFlags.Public | BindingFlags.GetProperty | BindingFlags.Static);
-        Resources["PaletteColors"] = colors.Select(p => p.GetValue(null)).OfType<Color>().ToArray();
+        PropertyInfo[] colorProperties = colorsType.GetProperties(BindingFlags.Public | BindingFlags.GetProperty | BindingFlags.Static);
+        Color[] colors = colorProperties.Select(p => p.GetValue(null)).OfType<Color>().ToArray();
 
         GlobalConfiguration config = GlobalConfiguration.Instance;
         config.Restore(GlobalConfiguration.DefaultFilePath);
 
         AvaloniaXamlLoader.Load(this);
+        Resources["PaletteColors"] = colors;
 
         ViewConfig view = config.ViewConfig;
         view.GetObservable(ViewConfig.ThemeProperty).Subscribe(v =>

@@ -1,26 +1,32 @@
-﻿using System.Reactive.Linq;
+﻿using System.Diagnostics.CodeAnalysis;
 
-using Avalonia.Media;
-
-using Beutl;
-using Beutl.Controls;
 using Beutl.Framework;
+
+using FluentAvalonia.UI.Controls;
 
 namespace PackageSample;
 
-public sealed class SamplePageViewModel
+public sealed class SamplePageViewModel : IPageContext
 {
+    public PageExtension Extension => SamplePageExtension.Instance;
 
+    public string Header => "Mail";
+
+    public void Dispose()
+    {
+    }
 }
 
 [Export]
 public sealed class SamplePageExtension : PageExtension
 {
-    public override Geometry FilledIcon => FluentIconsFilled.Mail.GetGeometry();
+    public SamplePageExtension()
+    {
+        Instance = this;
+    }
 
-    public override Geometry RegularIcon => FluentIconsRegular.Mail.GetGeometry();
-
-    public override string Header => "Mail";
+    [AllowNull]
+    public static SamplePageExtension Instance { get; private set; }
 
     // 本来はControlを返す。
     // nullを返すとErrorUIが表示される
@@ -31,4 +37,20 @@ public sealed class SamplePageExtension : PageExtension
     public override string Name => "Sample page";
 
     public override string DisplayName => "Sample page";
+
+    public override IconSource GetFilledIcon()
+    {
+        return new SymbolIconSource
+        {
+            Symbol = Symbol.MailFilled,
+        };
+    }
+
+    public override IconSource GetRegularIcon()
+    {
+        return new SymbolIconSource
+        {
+            Symbol = Symbol.Mail
+        };
+    }
 }

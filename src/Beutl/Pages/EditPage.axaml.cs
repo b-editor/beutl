@@ -23,12 +23,12 @@ namespace Beutl.Pages;
 public sealed partial class EditPage : UserControl
 {
     private static readonly Binding s_headerBinding = new("FileName.Value");
-    private static readonly Binding s_iconSourceBinding = new("Extension.Value.Icon")
+    private static readonly Binding s_iconSourceBinding = new("Extension.Value")
     {
-        Converter = new FuncValueConverter<Geometry?, PathIconSource?>(
-            geometry => geometry != null
-                            ? new PathIconSource { Data = geometry }
-                            : null)
+        Converter = new FuncValueConverter<EditorExtension?, IconSourceElement?>(
+            ext => ext?.GetIcon() is { } source
+                    ? new IconSourceElement { IconSource = source }
+                    : null)
     };
     private static readonly Binding s_isSelectedBinding = new("IsSelected.Value", BindingMode.TwoWay);
     private static readonly Binding s_contentBinding = new("Value", BindingMode.OneWay);

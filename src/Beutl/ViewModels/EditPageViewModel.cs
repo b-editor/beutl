@@ -3,6 +3,7 @@
 using Beutl.Framework;
 using Beutl.Framework.Services;
 using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,7 +13,7 @@ using TabViewModel = Beutl.Services.EditorTabItem;
 
 namespace Beutl.ViewModels;
 
-public sealed class EditPageViewModel
+public sealed class EditPageViewModel : IPageContext
 {
     private readonly IProjectService _projectService;
     private readonly EditorService _editorService;
@@ -31,6 +32,10 @@ public sealed class EditPageViewModel
     public ICoreList<TabViewModel> TabItems => _editorService.TabItems;
 
     public IReactiveProperty<TabViewModel?> SelectedTabItem => _editorService.SelectedTabItem;
+
+    public PageExtension Extension => EditPageExtension.Instance;
+
+    public string Header => Strings.Edit;
 
     private void ProjectChanged(IWorkspace? @new, IWorkspace? old)
     {
@@ -84,4 +89,6 @@ public sealed class EditPageViewModel
     {
         _editorService.CloseTabItem(file, tabOpenMode);
     }
+
+    public void Dispose() => throw new NotImplementedException();
 }

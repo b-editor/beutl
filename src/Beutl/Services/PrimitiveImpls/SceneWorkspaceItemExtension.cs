@@ -1,11 +1,13 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-using Avalonia.Media;
-
-using Beutl.Controls;
 using Beutl.Framework;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+
+using FluentAvalonia.UI.Controls;
+
+using Symbol = FluentIcons.Common.Symbol;
+using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -13,8 +15,6 @@ namespace Beutl.Services.PrimitiveImpls;
 public sealed class SceneWorkspaceItemExtension : WorkspaceItemExtension
 {
     public static readonly SceneWorkspaceItemExtension Instance = new();
-
-    public override Geometry? Icon => FluentIconsRegular.Document.GetGeometry();
 
     public override string[] FileExtensions { get; } =
     {
@@ -26,6 +26,14 @@ public sealed class SceneWorkspaceItemExtension : WorkspaceItemExtension
     public override string Name => "Make the scene a workspace item.";
 
     public override string DisplayName => "Make the scene a workspace item.";
+
+    public override IconSource? GetIcon()
+    {
+        return new SymbolIconSource
+        {
+            Symbol = Symbol.Document
+        };
+    }
 
     public override bool TryCreateItem(string file, [NotNullWhen(true)] out IWorkspaceItem? result)
     {

@@ -196,7 +196,14 @@
                                        DataContext="{CompiledBinding SettingsPage}">
                     <interactivity:Interaction.Behaviors>
                         <interactivity:BehaviorCollection>
-                            <ctrl:NavItemHelper FilledIcon="{StaticResource Settings_Filled}" RegularIcon="{StaticResource Settings_Regular}" />
+                            <ctrl:NavItemHelper>
+                                <ctrl:NavItemHelper.FilledIcon>
+                                    <icons:SymbolIconSource Symbol="Settings" />
+                                </ctrl:NavItemHelper.FilledIcon>
+                                <ctrl:NavItemHelper.RegularIcon>
+                                    <icons:SymbolIconSource Symbol="Settings" />
+                                </ctrl:NavItemHelper.RegularIcon>
+                            </ctrl:NavItemHelper>
                         </interactivity:BehaviorCollection>
                     </interactivity:Interaction.Behaviors>
                 </ui:NavigationViewItem>

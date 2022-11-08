@@ -1,12 +1,13 @@
 ﻿using Beutl.Api;
-
+using Beutl.Framework;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.ExtensionsPages;
 
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public sealed class ExtensionsPageViewModel : IDisposable
+public sealed class ExtensionsPageViewModel : IPageContext
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly CompositeDisposable _authDisposables = new();
@@ -49,12 +50,16 @@ public sealed class ExtensionsPageViewModel : IDisposable
 
     public DiscoverPageViewModel Discover
         => _discover ?? throw new Exception("Authorization is required.");
-    
+
     public LibraryPageViewModel Library
         => _library ?? throw new Exception("Authorization is required.");
 
     public DevelopPageViewModel Develop
         => _develop ?? throw new Exception("Authorization is required.");
+
+    public PageExtension Extension => ExtensionsPageExtension.Instance;
+
+    public string Header => Strings.Extensions;
 
     public void Dispose()
     {

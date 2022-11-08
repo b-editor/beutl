@@ -1,4 +1,6 @@
 ﻿
+using System.Runtime.CompilerServices;
+
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -21,6 +23,8 @@ using DynamicData;
 
 using Microsoft.Extensions.DependencyInjection;
 
+using Nito.AsyncEx;
+
 using NuGet.Packaging.Core;
 
 using Reactive.Bindings;
@@ -40,20 +44,19 @@ public sealed class MainViewModel : BasePageViewModel
         public NavItemViewModel(PageExtension extension)
         {
             Extension = extension;
-            Context = Activator.CreateInstance(extension.Context) ?? throw new Exception("コンテキストを作成できませんでした。");
+            Context = (Activator.CreateInstance(extension.Context) as IPageContext)
+                ?? throw new Exception("コンテキストを作成できませんでした。");
         }
 
-        public NavItemViewModel(PageExtension extension, object context)
+        public NavItemViewModel(PageExtension extension, IPageContext context)
         {
             Extension = extension;
             Context = context;
         }
 
-        public string Header => Extension.Header;
-
         public PageExtension Extension { get; }
 
-        public object Context { get; }
+        public IPageContext Context { get; }
     }
 
     public MainViewModel()
@@ -317,48 +320,55 @@ public sealed class MainViewModel : BasePageViewModel
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 
-    public async Task RunSplachScreenTask()
+    public Task RunSplachScreenTask()
     {
-        try
+        return Task.Run(async () =>
         {
-            await _beutlClients.RestoreUserAsync().ConfigureAwait(false);
-        }
-        catch (Exception e)
-        {
-            ErrorHandle(e);
-        }
+            Task authTask = _beutlClients.RestoreUserAsync();
 
-        PackageManager manager = _beutlClients.GetResource<PackageManager>();
-        ExtensionProvider provider = _beutlClients.GetResource<ExtensionProvider>();
+            PackageManager manager = _beutlClients.GetResource<PackageManager>();
+            ExtensionProvider provider = _beutlClients.GetResource<ExtensionProvider>();
 
-        provider._allExtensions.Add(LocalPackage.s_nextId++, _primitivePageExtensions);
+            provider._allExtensions.Add(LocalPackage.s_nextId++, _primitivePageExtensions);
 
-        // NOTE: ここでSceneEditorExtensionを登録しているので、
-        //       パッケージとして分離する場合ここを削除
-        provider._allExtensions.Add(LocalPackage.s_nextId++, new Extension[]
-        {
-            SceneEditorExtension.Instance,
-            SceneWorkspaceItemExtension.Instance,
-            TimelineTabExtension.Instance,
-            AnimationTimelineTabExtension.Instance,
-            ObjectPropertyTabExtension.Instance,
-            StyleEditorTabExtension.Instance,
-            StreamOperatorsTabExtension.Instance,
-            EasingsTabExtension.Instance,
-            AnimationTabExtension.Instance,
-            PropertyEditorExtension.Instance,
-            AlignmentsPropertyEditorExtension.Instance,
-            DefaultPropertyNameExtension.Instance,
+            // NOTE: ここでSceneEditorExtensionを登録しているので、
+            //       パッケージとして分離する場合ここを削除
+            provider._allExtensions.Add(LocalPackage.s_nextId++, new Extension[]
+            {
+                SceneEditorExtension.Instance,
+                SceneWorkspaceItemExtension.Instance,
+                TimelineTabExtension.Instance,
+                AnimationTimelineTabExtension.Instance,
+                ObjectPropertyTabExtension.Instance,
+                StyleEditorTabExtension.Instance,
+                StreamOperatorsTabExtension.Instance,
+                EasingsTabExtension.Instance,
+                AnimationTabExtension.Instance,
+                PropertyEditorExtension.Instance,
+                AlignmentsPropertyEditorExtension.Instance,
+                DefaultPropertyNameExtension.Instance,
+            });
+
+            foreach (LocalPackage item in await manager.GetPackages())
+            {
+                manager.Load(item);
+            }
+
+            IEnumerable<PageExtension> toAdd
+                = provider.AllExtensions.OfType<PageExtension>().Except(_primitivePageExtensions);
+
+            NavItemViewModel[] viewModels = toAdd.Select(item => new NavItemViewModel(item)).ToArray();
+            _ = Dispatcher.UIThread.InvokeAsync(() => Pages.AddRange(viewModels.AsSpan()), DispatcherPriority.Background);
+
+            try
+            {
+                await authTask;
+            }
+            catch (Exception e)
+            {
+                ErrorHandle(e);
+            }
         });
-
-        foreach (LocalPackage item in await manager.GetPackages().ConfigureAwait(false))
-        {
-            manager.Load(item);
-        }
-
-        IEnumerable<PageExtension> toAdd
-            = provider.AllExtensions.OfType<PageExtension>().Except(_primitivePageExtensions);
-        await Dispatcher.UIThread.InvokeAsync(() => Pages.AddRange(toAdd.Select(item => new NavItemViewModel(item))));
     }
 
     public ToolTabExtension[] GetToolTabExtensions()
