@@ -54,6 +54,14 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 
     public bool CanDelete { get; }
 
+    public override void Reset()
+    {
+        if (GetDefaultValue() is { } defaultValue)
+        {
+            SetValue(Value.Value, (IBrush?)defaultValue);
+        }
+    }
+
     public void SetValue(IBrush? oldValue, IBrush? newValue)
     {
         if (!EqualityComparer<IBrush>.Default.Equals(oldValue, newValue))

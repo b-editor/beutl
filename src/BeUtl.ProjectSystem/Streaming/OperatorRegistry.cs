@@ -8,32 +8,20 @@ public class OperatorRegistry
 {
     private static readonly List<BaseRegistryItem> s_operations = new();
 
-    public static void RegisterOperation<T>(IObservable<string> displayName)
+    public static void RegisterOperation<T>(string displayName)
         where T : StreamOperator, new()
     {
         Register(new RegistryItem(displayName, Colors.Teal, typeof(T)));
     }
 
-    public static void RegisterOperation<T>(IObservable<string> displayName, Color accentColor)
+    public static void RegisterOperation<T>(string displayName, Color accentColor)
         where T : StreamOperator, new()
     {
         Register(new RegistryItem(displayName, accentColor, typeof(T)));
     }
-    
-    public static void RegisterOperation<T>(string displayName)
-        where T : StreamOperator, new()
-    {
-        Register(new RegistryItem(Observable.Return(displayName), Colors.Teal, typeof(T)));
-    }
-
-    public static void RegisterOperation<T>(string displayName, Color accentColor)
-        where T : StreamOperator, new()
-    {
-        Register(new RegistryItem(Observable.Return(displayName), accentColor, typeof(T)));
-    }
 
     public static void RegisterOperation<T>(
-        IObservable<string> displayName,
+        string displayName,
         Color accentColor,
         Func<string, bool> canOpen,
         Func<string, StreamOperator> openFile)
@@ -49,16 +37,6 @@ public class OperatorRegistry
         });
     }
 
-    public static RegistrationHelper RegisterOperations(IObservable<string> displayName)
-    {
-        return RegisterOperations(displayName, Colors.Teal);
-    }
-
-    public static RegistrationHelper RegisterOperations(IObservable<string> displayName, Color accentColor)
-    {
-        return new RegistrationHelper(new GroupableRegistryItem(displayName, accentColor));
-    }
-    
     public static RegistrationHelper RegisterOperations(string displayName)
     {
         return RegisterOperations(displayName, Colors.Teal);
@@ -66,7 +44,7 @@ public class OperatorRegistry
 
     public static RegistrationHelper RegisterOperations(string displayName, Color accentColor)
     {
-        return new RegistrationHelper(new GroupableRegistryItem(Observable.Return(displayName), accentColor));
+        return new RegistrationHelper(new GroupableRegistryItem(displayName, accentColor));
     }
 
     public static IList<BaseRegistryItem> GetRegistered()
@@ -126,7 +104,7 @@ public class OperatorRegistry
     private static void Register(BaseRegistryItem item)
     {
         if (item is GroupableRegistryItem groupable
-            && s_operations.FirstOrDefault(x => ReferenceEquals(x.DisplayName, item.DisplayName)) is GroupableRegistryItem registered)
+            && s_operations.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupableRegistryItem registered)
         {
             registered.Merge(groupable.Items);
         }
@@ -136,9 +114,9 @@ public class OperatorRegistry
         }
     }
 
-    public record BaseRegistryItem(IObservable<string> DisplayName, Color AccentColor);
+    public record BaseRegistryItem(string DisplayName, Color AccentColor);
 
-    public record RegistryItem(IObservable<string> DisplayName, Color AccentColor, Type Type)
+    public record RegistryItem(string DisplayName, Color AccentColor, Type Type)
         : BaseRegistryItem(DisplayName, AccentColor)
     {
         public Func<string, StreamOperator>? OpenFile { get; init; }
@@ -146,7 +124,7 @@ public class OperatorRegistry
         public Func<string, bool>? CanOpen { get; init; }
     }
 
-    public record GroupableRegistryItem(IObservable<string> DisplayName, Color AccentColor)
+    public record GroupableRegistryItem(string DisplayName, Color AccentColor)
         : BaseRegistryItem(DisplayName, AccentColor)
     {
         public List<BaseRegistryItem> Items { get; } = new();
@@ -156,7 +134,7 @@ public class OperatorRegistry
             foreach (BaseRegistryItem item in items)
             {
                 if (item is GroupableRegistryItem groupable1
-                    && Items.FirstOrDefault(x => ReferenceEquals(x.DisplayName, item.DisplayName)) is GroupableRegistryItem groupable2)
+                    && Items.FirstOrDefault(x => x.DisplayName==item.DisplayName) is GroupableRegistryItem groupable2)
                 {
                     groupable2.Merge(groupable1.Items);
                 }
@@ -179,7 +157,7 @@ public class OperatorRegistry
             _register = register ?? (item => OperatorRegistry.Register(item));
         }
 
-        public RegistrationHelper Add<T>(IObservable<string> displayName)
+        public RegistrationHelper Add<T>(string displayName)
             where T : StreamOperator, new()
         {
             _item.Items!.Add(new RegistryItem(displayName, Colors.Teal, typeof(T)));
@@ -187,7 +165,7 @@ public class OperatorRegistry
             return this;
         }
 
-        public RegistrationHelper Add<T>(IObservable<string> displayName, Color accentColor)
+        public RegistrationHelper Add<T>(string displayName, Color accentColor)
             where T : StreamOperator, new()
         {
             _item.Items.Add(new RegistryItem(displayName, accentColor, typeof(T)));
@@ -196,7 +174,7 @@ public class OperatorRegistry
         }
 
         public RegistrationHelper Add<T>(
-            IObservable<string> displayName,
+            string displayName,
             Color accentColor,
             Func<string, bool> canOpen,
             Func<string, StreamOperator> openFile)
@@ -214,7 +192,7 @@ public class OperatorRegistry
             return this;
         }
 
-        public RegistrationHelper AddGroup(IObservable<string> displayName, Action<RegistrationHelper> action)
+        public RegistrationHelper AddGroup(string displayName, Action<RegistrationHelper> action)
         {
             var item = new GroupableRegistryItem(displayName, Colors.Teal);
             var helper = new RegistrationHelper(item, x => _item.Items.Add(x));
@@ -224,64 +202,9 @@ public class OperatorRegistry
             return this;
         }
 
-        public RegistrationHelper AddGroup(IObservable<string> displayName, Action<RegistrationHelper> action, Color accentColor)
-        {
-            var item = new GroupableRegistryItem(displayName, accentColor);
-            var helper = new RegistrationHelper(item, x => _item.Items.Add(x));
-
-            action(helper);
-
-            return this;
-        }
-        
-        public RegistrationHelper Add<T>(string displayName)
-            where T : StreamOperator, new()
-        {
-            _item.Items!.Add(new RegistryItem(Observable.Return(displayName), Colors.Teal, typeof(T)));
-
-            return this;
-        }
-
-        public RegistrationHelper Add<T>(string displayName, Color accentColor)
-            where T : StreamOperator, new()
-        {
-            _item.Items.Add(new RegistryItem(Observable.Return(displayName), accentColor, typeof(T)));
-
-            return this;
-        }
-
-        public RegistrationHelper Add<T>(
-            string displayName,
-            Color accentColor,
-            Func<string, bool> canOpen,
-            Func<string, StreamOperator> openFile)
-            where T : StreamOperator, new()
-        {
-            ArgumentNullException.ThrowIfNull(canOpen);
-            ArgumentNullException.ThrowIfNull(openFile);
-
-            _item.Items.Add(new RegistryItem(Observable.Return(displayName), accentColor, typeof(T))
-            {
-                CanOpen = canOpen,
-                OpenFile = openFile
-            });
-
-            return this;
-        }
-
-        public RegistrationHelper AddGroup(string displayName, Action<RegistrationHelper> action)
-        {
-            var item = new GroupableRegistryItem(Observable.Return(displayName), Colors.Teal);
-            var helper = new RegistrationHelper(item, x => _item.Items.Add(x));
-
-            action(helper);
-
-            return this;
-        }
-
         public RegistrationHelper AddGroup(string displayName, Action<RegistrationHelper> action, Color accentColor)
         {
-            var item = new GroupableRegistryItem(Observable.Return(displayName), accentColor);
+            var item = new GroupableRegistryItem(displayName, accentColor);
             var helper = new RegistrationHelper(item, x => _item.Items.Add(x));
 
             action(helper);

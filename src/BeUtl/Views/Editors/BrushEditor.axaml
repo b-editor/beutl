@@ -11,20 +11,21 @@
              xmlns:vm="using:Beutl.ViewModels.Editors"
              x:Name="root"
              d:DesignWidth="300"
+             x:CompileBindings="True"
              x:DataType="vm:BrushEditorViewModel"
              mc:Ignorable="d">
     <Grid ColumnDefinitions="*,24" RowDefinitions="Auto,Auto">
         <TextBlock Margin="10,0,0,0"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Center"
-                   Text="{CompiledBinding Header.Value}" />
+                   Text="{Binding Header}" />
 
         <local:PropertiesEditor Grid.Row="1"
                                 Grid.ColumnSpan="2"
                                 Margin="16,0,0,0"
                                 Padding="0"
-                                DataContext="{Binding #root.DataContext.ChildContext.Value}"
-                                IsEnabled="{Binding CanEdit.Value}" />
+                                DataContext="{Binding ChildContext.Value}"
+                                IsEnabled="{ReflectionBinding #root.DataContext.CanEdit.Value}" />
 
         <Grid Grid.Row="1" ColumnDefinitions="2*,3*">
             <Button Grid.Column="1"

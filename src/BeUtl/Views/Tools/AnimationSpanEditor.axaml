@@ -6,8 +6,11 @@
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.ViewModels.Tools"
              d:DesignHeight="450"
              d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="vm:AnimationSpanEditorViewModel"
              DragDrop.AllowDrop="True"
              mc:Ignorable="d">
     <Expander Padding="0" IsExpanded="{Binding IsExpanded.Value, Mode=TwoWay}">

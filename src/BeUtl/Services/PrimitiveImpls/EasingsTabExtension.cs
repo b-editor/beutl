@@ -19,7 +19,7 @@ public sealed class EasingsTabExtension : ToolTabExtension
 
     public override string DisplayName => "Easings";
 
-    public override IObservable<string>? Header => Observable.Return(Strings.Easings);
+    public override string? Header => Strings.Easings;
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
     {

@@ -20,7 +20,7 @@ public sealed class StyleEditorTabExtension : ToolTabExtension
 
     public override string DisplayName => "Style editor";
 
-    public override IObservable<string>? Header => Observable.Return(Strings.Style);
+    public override string? Header => Strings.Style;
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
     {

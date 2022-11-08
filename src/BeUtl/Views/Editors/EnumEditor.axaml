@@ -1,22 +1,21 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="Beutl.Views.Editors.EnumEditor"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:local="using:Beutl.Views.Editors"
-             mc:Ignorable="d" d:DesignWidth="300"
-             x:Class="Beutl.Views.Editors.EnumEditor">
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             d:DesignWidth="300"
+             mc:Ignorable="d">
     <Grid ColumnDefinitions="2*,3*,Auto">
-        <TextBlock
-            Margin="10,0,0,0"
-            Text="{Binding Header.Value}"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Center" />
+        <TextBlock Margin="10,0,0,0"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Center"
+                   Text="{Binding Header}" />
 
-        <ComboBox
-            x:Name="comboBox"
-            IsEnabled="{Binding CanEdit.Value}"
-            SelectedItem="{Binding Value.Value}"
-            Grid.Column="1">
+        <ComboBox x:Name="comboBox"
+                  Grid.Column="1"
+                  IsEnabled="{Binding CanEdit.Value}"
+                  SelectedItem="{Binding Value.Value}">
             <ComboBox.Styles>
                 <Style Selector="ComboBox">
                     <Setter Property="Margin" Value="4" />

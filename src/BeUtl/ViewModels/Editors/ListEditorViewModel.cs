@@ -47,4 +47,9 @@ public sealed class ListEditorViewModel : BaseEditorViewModel
     public ReactiveProperty<int> ObserveCount { get; }
 
     public ReadOnlyReactivePropertySlim<string> CountString { get; }
+
+    public override void Reset()
+    {
+        List.Value?.Clear();
+    }
 }

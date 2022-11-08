@@ -91,7 +91,7 @@ public sealed partial class StreamOperatorView : UserControl
 
             if (item != null)
             {
-                headerText[!TextBlock.TextProperty] = item.DisplayName.ToBinding();
+                headerText.Text = item.DisplayName;
             }
         }
     }

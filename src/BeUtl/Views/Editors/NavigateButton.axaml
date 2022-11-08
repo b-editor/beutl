@@ -9,12 +9,14 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.Editors"
              d:DesignWidth="300"
+             x:CompileBindings="True"
+             x:DataType="vm:INavigationButtonViewModel"
              mc:Ignorable="d">
     <Grid ColumnDefinitions="2*,3*,24">
         <TextBlock Margin="10,0,0,0"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Center"
-                   Text="{Binding Header.Value}" />
+                   Text="{Binding Header}" />
 
         <Button Grid.Column="1"
                 Margin="4"

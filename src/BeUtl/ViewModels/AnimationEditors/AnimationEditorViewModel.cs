@@ -48,9 +48,7 @@ public sealed class AnimationEditorViewModel : IDisposable
             })
             .AddTo(_disposables);
 
-        Header = PropertyEditorService.GetPropertyName(property.Property)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(_disposables);
+        Header = PropertyEditorService.GetPropertyName(property.Property);
     }
 
     ~AnimationEditorViewModel()
@@ -64,7 +62,7 @@ public sealed class AnimationEditorViewModel : IDisposable
 
     public IAbstractAnimatableProperty WrappedProperty { get; }
 
-    public ReadOnlyReactivePropertySlim<string?> Header { get; }
+    public string Header { get; }
 
     public ReactiveProperty<double> Width { get; }
 

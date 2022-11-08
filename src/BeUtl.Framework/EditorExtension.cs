@@ -35,7 +35,7 @@ public abstract class EditorExtension : ViewExtension
     // Todo: Avalonia.Platform.Storageに対応する
     public abstract string[] FileExtensions { get; }
 
-    public abstract IObservable<string> FileTypeName { get; }
+    public abstract string FileTypeName { get; }
 
     public abstract bool TryCreateEditor(
         string file,

@@ -25,7 +25,7 @@ public sealed class SceneEditorExtension : EditorExtension
         Constants.SceneFileExtension
     };
 
-    public override IObservable<string> FileTypeName => Observable.Return(Strings.SceneFile);
+    public override string FileTypeName => Strings.SceneFile;
 
     public override string Name => "Scene editor";
 

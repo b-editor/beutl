@@ -15,6 +15,6 @@ public sealed class SampleExtension : LayerExtension
 
     public override void Load()
     {
-        OperatorRegistry.RegisterOperation<SampleOp>(Observable.Return("Sample Operator"));
+        OperatorRegistry.RegisterOperation<SampleOp>("Sample Operator");
     }
 }

@@ -29,7 +29,7 @@ public sealed partial class Library : UserControl
         {
             var treeitem = new TreeViewItem
             {
-                [!HeaderedItemsControl.HeaderProperty] = item.DisplayName.ToBinding(),
+                Header = item.DisplayName,
                 DataContext = item,
             };
             treelist.Add(treeitem);
@@ -50,7 +50,7 @@ public sealed partial class Library : UserControl
         {
             var treeitem2 = new TreeViewItem
             {
-                [!HeaderedItemsControl.HeaderProperty] = item.DisplayName.ToBinding(),
+                Header = item.DisplayName,
                 DataContext = item,
             };
 
@@ -121,11 +121,11 @@ public sealed partial class Library : UserControl
             {
                 if (item.DataContext is OperatorRegistry.BaseRegistryItem itemContext)
                 {
-                    item.IsVisible = validate(await itemContext.DisplayName.FirstOrDefaultAsync() ?? string.Empty);
+                    item.IsVisible = validate(itemContext.DisplayName ?? string.Empty);
                 }
                 else if (item.DataContext is OperatorRegistry.BaseRegistryItem itemContext2)
                 {
-                    item.IsVisible = validate(await itemContext2.DisplayName.FirstOrDefaultAsync() ?? string.Empty);
+                    item.IsVisible = validate(itemContext2.DisplayName ?? string.Empty);
                 }
                 v |= item.IsVisible;
 
@@ -135,7 +135,7 @@ public sealed partial class Library : UserControl
 
         if (treeitem.DataContext is OperatorRegistry.BaseRegistryItem treeItemContext2)
         {
-            v |= validate(await treeItemContext2.DisplayName.FirstOrDefaultAsync() ?? string.Empty);
+            v |= validate(treeItemContext2.DisplayName ?? string.Empty);
         }
 
         treeitem.IsVisible = v;

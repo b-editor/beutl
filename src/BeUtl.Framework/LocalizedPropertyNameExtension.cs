@@ -2,5 +2,5 @@
 
 public abstract class LocalizedPropertyNameExtension : Extension
 {
-    public abstract IObservable<string>? GetLocalizedName(CoreProperty property);
+    public abstract string? GetLocalizedName(CoreProperty property);
 }

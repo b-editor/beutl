@@ -14,11 +14,9 @@ public sealed class DefaultPropertyNameExtension : LocalizedPropertyNameExtensio
 
     public override string DisplayName => "Default Property Name";
 
-    public override IObservable<string>? GetLocalizedName(CoreProperty property)
+    public override string? GetLocalizedName(CoreProperty property)
     {
-        string? str = GetLocalizedNameCore(property);
-
-        return str != null ? Observable.Return(str) : null;
+        return GetLocalizedNameCore(property);
     }
 
     private static string? GetLocalizedNameCore(CoreProperty property)

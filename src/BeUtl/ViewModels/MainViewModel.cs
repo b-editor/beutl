@@ -41,21 +41,15 @@ public sealed class MainViewModel : BasePageViewModel
         {
             Extension = extension;
             Context = Activator.CreateInstance(extension.Context) ?? throw new Exception("コンテキストを作成できませんでした。");
-            Header = extension.Header
-                .Select(o => o ?? string.Empty)
-                .ToReadOnlyReactivePropertySlim(string.Empty);
         }
 
         public NavItemViewModel(PageExtension extension, object context)
         {
             Extension = extension;
             Context = context;
-            Header = extension.Header
-                .Select(o => o ?? string.Empty)
-                .ToReadOnlyReactivePropertySlim(string.Empty);
         }
 
-        public ReadOnlyReactivePropertySlim<string> Header { get; }
+        public string Header => Extension.Header;
 
         public PageExtension Extension { get; }
 

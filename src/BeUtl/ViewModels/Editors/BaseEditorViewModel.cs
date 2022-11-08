@@ -19,9 +19,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext
     {
         WrappedProperty = property;
 
-        Header = PropertyEditorService.GetPropertyName(property.Property)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(Disposables);
+        Header = PropertyEditorService.GetPropertyName(property.Property);
 
         IObservable<bool> hasAnimation = property is IAbstractAnimatableProperty anm
             ? anm.HasAnimation
@@ -56,13 +54,13 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext
 
     public bool CanReset => GetDefaultValue() != null;
 
-    public ReadOnlyReactivePropertySlim<string?> Header { get; }
+    public string Header { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
 
     public ReadOnlyReactivePropertySlim<bool> HasAnimation { get; }
 
-    public bool IsAnimatable => WrappedProperty.Property.GetMetadata<CorePropertyMetadata>(WrappedProperty.ImplementedType).PropertyFlags.HasFlag(PropertyFlags.Animatable) == true;
+    public bool IsAnimatable => WrappedProperty.Property.GetMetadata<CorePropertyMetadata>(WrappedProperty.ImplementedType).PropertyFlags.HasFlag(PropertyFlags.Animatable);
 
     public bool IsStylingSetter => WrappedProperty is IStylingSetterWrapper;
 
@@ -78,6 +76,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext
             GC.SuppressFinalize(this);
         }
     }
+
+    public abstract void Reset();
 
     public void WriteToJson(ref JsonNode json)
     {
@@ -108,7 +108,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public new IAbstractProperty<T> WrappedProperty => (IAbstractProperty<T>)base.WrappedProperty;
 
-    public void Reset()
+    public sealed override void Reset()
     {
         if (GetDefaultValue() is { } defaultValue)
         {

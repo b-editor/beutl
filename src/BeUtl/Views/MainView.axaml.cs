@@ -84,7 +84,7 @@ internal readonly struct Cache<T>
 
 public sealed partial class MainView : UserControl
 {
-    private static readonly Binding s_headerBinding = new("Header.Value");
+    private static readonly Binding s_headerBinding = new("Header");
     private readonly AvaloniaList<MenuItem> _rawRecentFileItems = new();
     private readonly AvaloniaList<MenuItem> _rawRecentProjItems = new();
     private readonly Cache<MenuItem> _menuItemCache = new(4);
@@ -355,13 +355,12 @@ Error:
 
             var filters = new List<FilePickerFileType>();
 
-            filters.AddRange(await viewModel.GetEditorExtensions()
-                .ToAsyncEnumerable()
-                .SelectAwait(async e => new FilePickerFileType(await e.FileTypeName.FirstOrDefaultAsync())
+            filters.AddRange(viewModel.GetEditorExtensions()
+                .Select(e => new FilePickerFileType(e.FileTypeName)
                 {
                     Patterns = e.FileExtensions.Select(x => $"*.{x}").ToList(),
                 })
-                .ToArrayAsync());
+                .ToArray());
             var options = new FilePickerOpenOptions
             {
                 AllowMultiple = true,
@@ -611,7 +610,7 @@ Error:
 
             var menuItem = new MenuItem()
             {
-                [!HeaderedSelectingItemsControl.HeaderProperty] = item.Header.ToBinding(),
+                Header = item.Header,
                 DataContext = item
             };
 

@@ -100,7 +100,7 @@ public sealed class SampleEditorExtension : EditorExtension
         "scene",
     };
 
-    public override IObservable<string> FileTypeName => Observable.Return("Text File");
+    public override string FileTypeName => "Text File";
 
     public override string Name => "SampleEditorExtension";
 

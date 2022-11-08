@@ -16,7 +16,7 @@ public abstract class PageExtension : Extension
 
     public abstract Geometry RegularIcon { get; }
 
-    public abstract IObservable<string> Header { get; }
+    public abstract string Header { get; }
 
     public abstract Type Control { get; }
 

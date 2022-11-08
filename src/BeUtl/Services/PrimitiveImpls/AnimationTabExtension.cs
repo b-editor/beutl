@@ -20,7 +20,7 @@ public sealed class AnimationTabExtension : ToolTabExtension
 
     public override string DisplayName => "Animation";
 
-    public override IObservable<string>? Header => Observable.Return(Strings.Animation);
+    public override string? Header => Strings.Animation;
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
     {

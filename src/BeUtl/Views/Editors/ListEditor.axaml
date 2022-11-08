@@ -190,7 +190,7 @@
                 </Style>
             </ToggleButton.Styles>
             <Grid Margin="0,0,-60,0" ColumnDefinitions="2*,3*">
-                <TextBlock Margin="10,0" Text="{Binding Header.Value}" />
+                <TextBlock Margin="10,0" Text="{Binding Header}" />
 
                 <TextBlock Grid.Column="1"
                            Margin="4,0"
