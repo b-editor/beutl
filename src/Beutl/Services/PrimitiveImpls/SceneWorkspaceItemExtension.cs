@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
+using Avalonia.Platform.Storage;
+
 using Beutl.Framework;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -16,16 +18,20 @@ public sealed class SceneWorkspaceItemExtension : WorkspaceItemExtension
 {
     public static readonly SceneWorkspaceItemExtension Instance = new();
 
-    public override string[] FileExtensions { get; } =
-    {
-        Constants.SceneFileExtension
-    };
-
-    public override string FileTypeName => Strings.SceneFile;
-
     public override string Name => "Make the scene a workspace item.";
 
     public override string DisplayName => "Make the scene a workspace item.";
+
+    public override FilePickerFileType GetFilePickerFileType()
+    {
+        return new FilePickerFileType(Strings.SceneFile)
+        {
+            Patterns = new string[]
+            {
+                "*.scene"
+            }
+        };
+    }
 
     public override IconSource? GetIcon()
     {
@@ -33,6 +39,11 @@ public sealed class SceneWorkspaceItemExtension : WorkspaceItemExtension
         {
             Symbol = Symbol.Document
         };
+    }
+
+    public override bool IsSupported(string file)
+    {
+        return file.EndsWith($".{Constants.SceneFileExtension}");
     }
 
     public override bool TryCreateItem(string file, [NotNullWhen(true)] out IWorkspaceItem? result)

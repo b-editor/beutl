@@ -431,10 +431,7 @@ Error:
             var filters = new List<FilePickerFileType>();
 
             filters.AddRange(viewModel.GetEditorExtensions()
-                .Select(e => new FilePickerFileType(e.FileTypeName)
-                {
-                    Patterns = e.FileExtensions.Select(x => $"*.{x}").ToList(),
-                })
+                .Select(e => e.GetFilePickerFileType())
                 .ToArray());
             var options = new FilePickerOpenOptions
             {

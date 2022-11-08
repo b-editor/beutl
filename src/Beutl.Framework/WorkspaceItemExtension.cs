@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-using Avalonia.Media;
+using Avalonia.Platform.Storage;
 
 using FluentAvalonia.UI.Controls;
 
@@ -11,9 +11,7 @@ namespace Beutl.Framework;
 //       WorkspaceItemExtensisonとEditorExtensionを分けた
 public abstract class WorkspaceItemExtension : Extension
 {
-    public abstract string[] FileExtensions { get; }
-
-    public abstract string FileTypeName { get; }
+    public abstract FilePickerFileType GetFilePickerFileType();
 
     public abstract IconSource? GetIcon();
 
@@ -21,20 +19,5 @@ public abstract class WorkspaceItemExtension : Extension
         string file,
         [NotNullWhen(true)] out IWorkspaceItem? context);
 
-    public virtual bool IsSupported(string file)
-    {
-        string ext = Path.GetExtension(file);
-        for (int i = 0; i < FileExtensions.Length; i++)
-        {
-            string item = FileExtensions[i];
-            string includePeriod = item.StartsWith('.') ? item : $".{item}";
-
-            if (includePeriod == ext)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    public abstract bool IsSupported(string file);
 }

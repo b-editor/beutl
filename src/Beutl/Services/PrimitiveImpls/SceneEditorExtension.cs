@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
+using Avalonia.Platform.Storage;
+
 using Beutl.Framework;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -19,13 +21,6 @@ namespace Beutl.Services.PrimitiveImpls;
 public sealed class SceneEditorExtension : EditorExtension
 {
     public static readonly SceneEditorExtension Instance = new();
-
-    public override string[] FileExtensions { get; } =
-    {
-        Constants.SceneFileExtension
-    };
-
-    public override string FileTypeName => Strings.SceneFile;
 
     public override string Name => "Scene editor";
 
@@ -66,5 +61,21 @@ public sealed class SceneEditorExtension : EditorExtension
         {
             Symbol = Symbol.Document
         };
+    }
+
+    public override FilePickerFileType GetFilePickerFileType()
+    {
+        return new FilePickerFileType(Strings.SceneFile)
+        {
+            Patterns = new string[]
+            {
+                "*.scene"
+            }
+        };
+    }
+
+    public override bool MatchFileExtension(string ext)
+    {
+        return ext is ".scene";
     }
 }

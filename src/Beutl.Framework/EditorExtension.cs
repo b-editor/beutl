@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 
 using Beutl.Framework.Services;
 
@@ -32,10 +33,7 @@ public interface IEditorContext : IDisposable
 // ファイルのエディタを追加
 public abstract class EditorExtension : ViewExtension
 {
-    // Todo: Avalonia.Platform.Storageに対応する
-    public abstract string[] FileExtensions { get; }
-
-    public abstract string FileTypeName { get; }
+    public abstract FilePickerFileType GetFilePickerFileType();
 
     public abstract IconSource? GetIcon();
 
@@ -55,21 +53,7 @@ public abstract class EditorExtension : ViewExtension
     }
 
     // extはピリオドを含む
-    public bool MatchFileExtension(string ext)
-    {
-        for (int i = 0; i < FileExtensions.Length; i++)
-        {
-            string item = FileExtensions[i];
-            string includePeriod = item.StartsWith('.') ? item : $".{item}";
-
-            if (includePeriod == ext)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    public abstract bool MatchFileExtension(string ext);
 
     // 'ServiceLocator'から'IProjectService'を取得し、Projectのインスタンスを取得します。
     protected static IWorkspace? GetCurrentProject()
