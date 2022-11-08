@@ -41,21 +41,15 @@ public sealed class MainViewModel : BasePageViewModel
         {
             Extension = extension;
             Context = Activator.CreateInstance(extension.Context) ?? throw new Exception("コンテキストを作成できませんでした。");
-            Header = extension.Header
-                .Select(o => o ?? string.Empty)
-                .ToReadOnlyReactivePropertySlim(string.Empty);
         }
 
         public NavItemViewModel(PageExtension extension, object context)
         {
             Extension = extension;
             Context = context;
-            Header = extension.Header
-                .Select(o => o ?? string.Empty)
-                .ToReadOnlyReactivePropertySlim(string.Empty);
         }
 
-        public ReadOnlyReactivePropertySlim<string> Header { get; }
+        public string Header => Extension.Header;
 
         public PageExtension Extension { get; }
 
@@ -115,14 +109,14 @@ public sealed class MainViewModel : BasePageViewModel
                     {
                         Notification.Show(new Notification(
                             string.Empty,
-                            string.Format(S.Message.ItemSaved, item.FileName),
+                            string.Format(Message.ItemSaved, item.FileName),
                             NotificationType.Success));
                     }
                     else
                     {
                         Notification.Show(new Notification(
                             string.Empty,
-                            S.Message.OperationCouldNotBeExecuted,
+                            Message.OperationCouldNotBeExecuted,
                             NotificationType.Information));
                     }
                 }
@@ -130,7 +124,7 @@ public sealed class MainViewModel : BasePageViewModel
                 {
                     Notification.Show(new Notification(
                         string.Empty,
-                        S.Message.OperationCouldNotBeExecuted,
+                        Message.OperationCouldNotBeExecuted,
                         NotificationType.Error));
                 }
             }
@@ -157,14 +151,14 @@ public sealed class MainViewModel : BasePageViewModel
 
                 Notification.Show(new Notification(
                     string.Empty,
-                    string.Format(S.Message.ItemsSaved, itemsCount.ToString()),
+                    string.Format(Message.ItemsSaved, itemsCount.ToString()),
                     NotificationType.Success));
             }
             catch
             {
                 Notification.Show(new Notification(
                     string.Empty,
-                    S.Message.OperationCouldNotBeExecuted,
+                    Message.OperationCouldNotBeExecuted,
                     NotificationType.Error));
             }
         });
@@ -224,13 +218,13 @@ public sealed class MainViewModel : BasePageViewModel
             {
                 noticeService.Show(new Notification(
                     Title: "",
-                    Message: S.Warning.FileDoesNotExist));
+                    Message: Message.FileDoesNotExist));
             }
             else if (service.OpenProject(file) == null)
             {
                 noticeService.Show(new Notification(
                     Title: "",
-                    Message: S.Warning.CouldNotOpenProject));
+                    Message: Message.CouldNotOpenProject));
             }
         });
     }

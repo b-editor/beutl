@@ -2,25 +2,26 @@
                   xmlns="https://github.com/avaloniaui"
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:lang="using:Beutl.Language"
                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
                   xmlns:viewModels="using:Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs"
-                  Title="{DynamicResource S.DevelopPage.CreateNewPackage}"
+                  Title="{x:Static lang:ExtensionsPage.CreatePackage_Title}"
                   d:DesignHeight="450"
                   d:DesignWidth="800"
                   x:CompileBindings="True"
                   x:DataType="viewModels:CreatePackageDialogViewModel"
-                  CloseButtonText="{DynamicResource S.Common.Cancel}"
+                  CloseButtonText="{x:Static lang:Strings.Cancel}"
                   DefaultButton="Primary"
                   IsEnabled="{Binding !IsFileLoading.Value}"
                   IsPrimaryButtonEnabled="{Binding IsValid.Value}"
-                  PrimaryButtonText="{DynamicResource S.Common.Create}"
+                  PrimaryButtonText="{x:Static lang:Strings.Create}"
                   mc:Ignorable="d">
     <ui:ContentDialog.Resources>
         <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />
     </ui:ContentDialog.Resources>
     <StackPanel Spacing="4">
-        <TextBlock Text="{DynamicResource S.DevelopPage.Package.Fields.Name}" Theme="{StaticResource LabelTextBlockStyle}" />
+        <TextBlock Text="{x:Static lang:Strings.Name}" Theme="{StaticResource LabelTextBlockStyle}" />
         <TextBox Text="{Binding Name.Value}" />
 
         <FileInputArea x:Name="fileInput"

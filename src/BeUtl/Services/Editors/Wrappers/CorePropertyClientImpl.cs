@@ -11,13 +11,9 @@ public class CorePropertyClientImpl<T> : IAbstractProperty<T>
     {
         Property = property;
         Object = obj;
-
-        Header = Observable.Return(property.Name);
     }
 
     public ICoreObject Object { get; }
-
-    public IObservable<string> Header { get; }
 
     public CoreProperty<T> Property { get; }
 

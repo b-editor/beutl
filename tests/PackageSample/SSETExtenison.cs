@@ -21,7 +21,7 @@ public sealed class SSETExtenison : ToolTabExtension
 
     public override string DisplayName => "Sample tab";
 
-    public override IObservable<string>? Header => Observable.Return("Sample tab");
+    public override string Header => "Sample tab";
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
     {

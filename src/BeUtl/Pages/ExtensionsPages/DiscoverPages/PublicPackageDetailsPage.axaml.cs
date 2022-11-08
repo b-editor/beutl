@@ -53,19 +53,19 @@ public partial class PublicPackageDetailsPage : UserControl
 
     private async void OpenWebSite_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PublicPackageDetailsPageViewModel viewModel)
+        if (DataContext is PublicPackageDetailsPageViewModel viewModel
+            && viewModel.Package.WebSite.Value is string url)
         {
-            string url = viewModel.Package.WebSite.Value;
             var dialog = new ContentDialog()
             {
-                Title = "URLを開きますか？",
+                Title = Language.ExtensionsPage.OpenUrl_Title,
                 Content = new RichTextBlock()
                 {
                     IsTextSelectionEnabled = true,
-                    Text = $"'{url}'を開こうとしています。\n不審なURLの場合、開かないことをおすすめします。"
+                    Text = string.Format(Language.ExtensionsPage.OpenUrl_Content, url)
                 },
-                PrimaryButtonText = "開く",
-                CloseButtonText = "キャンセル"
+                PrimaryButtonText = Strings.Open,
+                CloseButtonText = Strings.Cancel
             };
 
             if (await dialog.ShowAsync() is ContentDialogResult.Primary)

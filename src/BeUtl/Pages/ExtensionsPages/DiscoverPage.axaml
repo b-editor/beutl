@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:asyncImageLoader="using:AsyncImageLoader"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels.ExtensionsPages"
@@ -21,12 +22,12 @@
         <StackPanel Margin="10,0">
             <Panel>
                 <TextBlock HorizontalAlignment="Left"
-                           Text="トップ10"
+                           Text="{x:Static lang:ExtensionsPage.Top10}"
                            Theme="{StaticResource SubtitleTextBlockStyle}" />
 
                 <ui:HyperlinkButton HorizontalAlignment="Right"
                                     Click="MoreRanking_Click"
-                                    Content="もっと表示"
+                                    Content="{x:Static lang:Strings.ShowMore}"
                                     Tag="Overall" />
             </Panel>
             <ScrollViewer Margin="0,8,0,0"
@@ -88,7 +89,7 @@
             <Panel Margin="0,32,0,0">
                 <StackPanel Orientation="Horizontal" Spacing="16">
                     <TextBlock HorizontalAlignment="Left"
-                               Text="ランキング"
+                               Text="{x:Static lang:ExtensionsPage.Ranking}"
                                Theme="{StaticResource SubtitleTextBlockStyle}" />
 
                     <ComboBox x:Name="RankingComboBox"
@@ -129,14 +130,14 @@
                                 </Style>
                             </Style>
                         </ComboBox.Styles>
-                        <ComboBoxItem Content="日次" Tag="{Binding DailyRanking}" />
-                        <ComboBoxItem Content="週別" Tag="{Binding WeeklyRanking}" />
+                        <ComboBoxItem Content="{x:Static lang:ExtensionsPage.Daily}" Tag="{Binding DailyRanking}" />
+                        <ComboBoxItem Content="{x:Static lang:ExtensionsPage.Weekly}" Tag="{Binding WeeklyRanking}" />
                     </ComboBox>
                 </StackPanel>
 
                 <ui:HyperlinkButton HorizontalAlignment="Right"
                                     Click="MoreRanking_Click"
-                                    Content="もっと表示"
+                                    Content="{x:Static lang:Strings.ShowMore}"
                                     Tag="" />
             </Panel>
             <ScrollViewer Margin="0,8,0,0"
@@ -194,12 +195,12 @@
 
             <Panel Margin="0,32,0,0">
                 <TextBlock HorizontalAlignment="Left"
-                           Text="最近"
+                           Text="{x:Static lang:ExtensionsPage.Recently}"
                            Theme="{StaticResource SubtitleTextBlockStyle}" />
 
                 <ui:HyperlinkButton HorizontalAlignment="Right"
                                     Click="MoreRanking_Click"
-                                    Content="もっと表示"
+                                    Content="{x:Static lang:Strings.ShowMore}"
                                     Tag="Recently" />
             </Panel>
             <ScrollViewer Margin="0,8,0,0"

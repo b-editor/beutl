@@ -1,12 +1,15 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="Beutl.Views.Editors.BaseVector2Editor"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Beutl.ViewModels.Editors"
-             xmlns:local="using:Beutl.Views.Editors"
-             mc:Ignorable="d" d:DesignWidth="300"
-             x:Class="Beutl.Views.Editors.BaseVector2Editor">
-    <Grid RowDefinitions="*,*" ColumnDefinitions="2*,3*,Auto">
+             d:DesignWidth="300"
+             x:CompileBindings="True"
+             x:DataType="vm:BaseEditorViewModel"
+             mc:Ignorable="d">
+    <Grid ColumnDefinitions="2*,3*,Auto" RowDefinitions="*,*">
         <Grid.Styles>
             <Style Selector="TextBox">
                 <Setter Property="Margin" Value="4" />
@@ -16,38 +19,34 @@
             </Style>
         </Grid.Styles>
 
-        <TextBlock
-            Margin="10,0,0,0"
-            Text="{Binding Header.Value}"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Center" />
+        <TextBlock Margin="10,0,0,0"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Center"
+                   Text="{Binding Header}" />
 
         <Grid Grid.Column="1" ColumnDefinitions="*,2*">
-            <TextBlock
-                Margin="8,0"
-                VerticalAlignment="Center"
-                x:Name="xText" />
+            <TextBlock x:Name="xText"
+                       Margin="8,0"
+                       VerticalAlignment="Center" />
 
-            <TextBox
-                Grid.Column="1"
-                IsEnabled="{Binding CanEdit.Value}"
-                x:Name="xTextBox" />
+            <TextBox x:Name="xTextBox"
+                     Grid.Column="1"
+                     IsEnabled="{Binding CanEdit.Value}" />
         </Grid>
-        <Grid Grid.Column="1" Grid.Row="1" ColumnDefinitions="*,2*">
-            <TextBlock
-                Margin="8,0"
-                VerticalAlignment="Center"
-                x:Name="yText" />
+        <Grid Grid.Row="1"
+              Grid.Column="1"
+              ColumnDefinitions="*,2*">
+            <TextBlock x:Name="yText"
+                       Margin="8,0"
+                       VerticalAlignment="Center" />
 
-            <TextBox
-                Grid.Column="1"
-                IsEnabled="{Binding CanEdit.Value}"
-                x:Name="yTextBox" />
+            <TextBox x:Name="yTextBox"
+                     Grid.Column="1"
+                     IsEnabled="{Binding CanEdit.Value}" />
         </Grid>
 
-        <local:EditorBadge
-            Grid.Column="2"
-            VerticalAlignment="Top"
-            Margin="0,8" />
+        <local:EditorBadge Grid.Column="2"
+                           Margin="0,8"
+                           VerticalAlignment="Top" />
     </Grid>
 </UserControl>

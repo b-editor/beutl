@@ -4,6 +4,7 @@
              xmlns:asyncImageLoader="using:AsyncImageLoader"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels.ExtensionsPages.DiscoverPages"
@@ -23,7 +24,7 @@
         <StackPanel Margin="10,0">
             <StackPanel Orientation="Horizontal" Spacing="16">
                 <TextBlock HorizontalAlignment="Left"
-                           Text="ランキング"
+                           Text="{x:Static lang:ExtensionsPage.Ranking}"
                            Theme="{StaticResource SubtitleTextBlockStyle}" />
 
                 <ComboBox x:Name="RankingComboBox"
@@ -132,7 +133,7 @@
 
                                     <TextBlock Grid.Row="2"
                                                VerticalAlignment="Center"
-                                               Text="もっと表示" />
+                                               Text="{x:Static lang:Strings.ShowMore}" />
                                 </Grid>
                             </Panel>
                         </Button>

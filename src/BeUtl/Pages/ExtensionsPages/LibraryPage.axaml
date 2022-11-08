@@ -4,6 +4,7 @@
              xmlns:asyncImageLoader="using:AsyncImageLoader"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels.ExtensionsPages"
@@ -70,7 +71,7 @@
                                 Classes.transparent="{Binding !IsInstallButtonVisible.Value}"
                                 Click="ActionButton_Click"
                                 Command="{Binding Install}"
-                                Content="インストール" />
+                                Content="{x:Static lang:ExtensionsPage.Install}" />
 
                         <Button Grid.Column="4"
                                 Padding="40,5,40,6"
@@ -78,7 +79,7 @@
                                 Classes.transparent="{Binding !IsUninstallButtonVisible.Value}"
                                 Click="ActionButton_Click"
                                 Command="{Binding Uninstall}"
-                                Content="アンインストール" />
+                                Content="{x:Static lang:ExtensionsPage.Uninstall}" />
 
                         <Button Grid.Column="4"
                                 Padding="40,5,40,6"
@@ -86,7 +87,7 @@
                                 Classes.transparent="{Binding !IsUpdateButtonVisible.Value}"
                                 Click="ActionButton_Click"
                                 Command="{Binding Update}"
-                                Content="更新" />
+                                Content="{x:Static lang:ExtensionsPage.Update}" />
 
                         <Button Grid.Column="4"
                                 Padding="40,5,40,6"
@@ -94,7 +95,7 @@
                                 Classes.transparent="{Binding !CanCancel.Value}"
                                 Click="ActionButton_Click"
                                 Command="{Binding Cancel}"
-                                Content="キャンセル" />
+                                Content="{x:Static lang:Strings.Cancel}" />
 
                         <Button Grid.Column="6"
                                 Click="Overflow_Click"
@@ -102,16 +103,16 @@
                             <Button.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Command="{Binding Install}"
-                                              Header="インストール"
+                                              Header="{x:Static lang:ExtensionsPage.Install}"
                                               IsEnabled="{Binding IsInstallButtonVisible.Value}" />
                                     <MenuItem Command="{Binding Uninstall}"
-                                              Header="アンインストール"
+                                              Header="{x:Static lang:ExtensionsPage.Uninstall}"
                                               IsEnabled="{Binding IsUninstallButtonVisible.Value}" />
                                     <MenuItem Command="{Binding Update}"
-                                              Header="更新"
+                                              Header="{x:Static lang:ExtensionsPage.Update}"
                                               IsEnabled="{Binding IsUpdateButtonVisible.Value}" />
                                     <MenuItem Command="{ReflectionBinding RemoveFromLibrary}"
-                                              Header="ライブラリから削除"
+                                              Header="{x:Static lang:ExtensionsPage.RemoveFromLibrary}"
                                               IsVisible="{Binding IsRemote}" />
                                 </ContextMenu>
                             </Button.ContextMenu>
@@ -127,7 +128,7 @@
 
                         <TextBlock Grid.Column="2"
                                    VerticalAlignment="Center"
-                                   Text="もっと表示" />
+                                   Text="{x:Static lang:Strings.ShowMore}" />
                     </Grid>
                 </Panel>
             </Button>
@@ -139,7 +140,7 @@
             <Button HorizontalAlignment="Right"
                     Classes="accent"
                     Command="{Binding CheckUpdate}"
-                    Content="更新を確認" />
+                    Content="{x:Static lang:ExtensionsPage.CheckUpdate}" />
 
             <TabControl Grid.Row="1" Padding="0">
                 <TabControl.Styles>
@@ -148,7 +149,7 @@
                         <Setter Property="FontSize" Value="16" />
                     </Style>
                 </TabControl.Styles>
-                <TabItem Header="パッケージ">
+                <TabItem Header="{x:Static lang:ExtensionsPage.Search_Packages}">
                     <ItemsRepeater Margin="0,16,0,0"
                                    ItemTemplate="{StaticResource YourPackageItemTemplate}"
                                    Items="{Binding Packages}">
@@ -157,7 +158,7 @@
                         </ItemsRepeater.Layout>
                     </ItemsRepeater>
                 </TabItem>
-                <TabItem Header="ローカル">
+                <TabItem Header="{x:Static lang:ExtensionsPage.LocalPackages}">
                     <ItemsRepeater Margin="0,16,0,0"
                                    ItemTemplate="{StaticResource YourPackageItemTemplate}"
                                    Items="{Binding LocalPackages}">

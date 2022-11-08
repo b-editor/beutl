@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.ComponentModel;
+using System.Reflection;
 
 using Beutl.Framework;
 
@@ -8,6 +9,17 @@ namespace Beutl.ViewModels.Editors;
 
 public interface INavigationButtonViewModel
 {
+    string Header { get; }
+
+    ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
+
+    ReadOnlyReactivePropertySlim<bool> IsSet { get; }
+
+    ReadOnlyReactivePropertySlim<bool> IsNotSetAndCanWrite { get; }
+
+    bool CanWrite { get; }
+
+    bool CanDelete { get; }
 }
 
 public sealed class NavigationButtonViewModel<T> : BaseEditorViewModel<T>, INavigationButtonViewModel

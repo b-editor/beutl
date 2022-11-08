@@ -1,12 +1,14 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="Beutl.Views.Editors.BaseVector4Editor"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Beutl.ViewModels.Editors"
-             xmlns:local="using:Beutl.Views.Editors"
-             mc:Ignorable="d" d:DesignWidth="300"
-             x:Class="Beutl.Views.Editors.BaseVector4Editor">
-    <Grid RowDefinitions="*,*,*,*" ColumnDefinitions="2*,3*,Auto">
+             d:DesignWidth="300"
+             x:DataType="vm:BaseEditorViewModel"
+             mc:Ignorable="d">
+    <Grid ColumnDefinitions="2*,3*,Auto" RowDefinitions="*,*,*,*">
         <Grid.Styles>
             <Style Selector="TextBox">
                 <Setter Property="Margin" Value="4" />
@@ -16,55 +18,59 @@
             </Style>
         </Grid.Styles>
 
-        <TextBlock
-            Margin="10,0,0,0"
-            Text="{Binding Header.Value}"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Center" />
+        <TextBlock Margin="10,0,0,0"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Center"
+                   Text="{Binding Header}" />
 
-        <Grid ColumnDefinitions="*,*" Grid.Column="1">
-            <TextBox
-                Grid.Column="0"
-                IsEnabled="{Binding CanEdit.Value}"
-                x:Name="xTextBox">
+        <Grid Grid.Column="1" ColumnDefinitions="*,*">
+            <TextBox x:Name="xTextBox"
+                     Grid.Column="0"
+                     IsEnabled="{Binding CanEdit.Value}">
                 <TextBox.InnerRightContent>
-                    <TextBlock x:Name="xText" VerticalAlignment="Center" Margin="4,0" />
+                    <TextBlock x:Name="xText"
+                               Margin="4,0"
+                               VerticalAlignment="Center" />
                 </TextBox.InnerRightContent>
             </TextBox>
 
-            <TextBox
-                Grid.Column="1"
-                IsEnabled="{Binding CanEdit.Value}"
-                x:Name="yTextBox">
+            <TextBox x:Name="yTextBox"
+                     Grid.Column="1"
+                     IsEnabled="{Binding CanEdit.Value}">
                 <TextBox.InnerRightContent>
-                    <TextBlock x:Name="yText" VerticalAlignment="Center" Margin="4,0" />
+                    <TextBlock x:Name="yText"
+                               Margin="4,0"
+                               VerticalAlignment="Center" />
+                </TextBox.InnerRightContent>
+            </TextBox>
+        </Grid>
+
+        <Grid Grid.Row="1"
+              Grid.Column="1"
+              ColumnDefinitions="*,*">
+            <TextBox x:Name="zTextBox"
+                     Grid.Column="0"
+                     IsEnabled="{Binding CanEdit.Value}">
+                <TextBox.InnerRightContent>
+                    <TextBlock x:Name="zText"
+                               Margin="4,0"
+                               VerticalAlignment="Center" />
+                </TextBox.InnerRightContent>
+            </TextBox>
+
+            <TextBox x:Name="wTextBox"
+                     Grid.Column="1"
+                     IsEnabled="{Binding CanEdit.Value}">
+                <TextBox.InnerRightContent>
+                    <TextBlock x:Name="wText"
+                               Margin="4,0"
+                               VerticalAlignment="Center" />
                 </TextBox.InnerRightContent>
             </TextBox>
         </Grid>
 
-        <Grid ColumnDefinitions="*,*" Grid.Column="1" Grid.Row="1">
-            <TextBox
-                Grid.Column="0"
-                IsEnabled="{Binding CanEdit.Value}"
-                x:Name="zTextBox">
-                <TextBox.InnerRightContent>
-                    <TextBlock x:Name="zText" VerticalAlignment="Center" Margin="4,0" />
-                </TextBox.InnerRightContent>
-            </TextBox>
-
-            <TextBox
-                Grid.Column="1"
-                IsEnabled="{Binding CanEdit.Value}"
-                x:Name="wTextBox">
-                <TextBox.InnerRightContent>
-                    <TextBlock x:Name="wText" VerticalAlignment="Center" Margin="4,0" />
-                </TextBox.InnerRightContent>
-            </TextBox>
-        </Grid>
-        
-        <local:EditorBadge
-            Grid.Column="2"
-            VerticalAlignment="Top"
-            Margin="0,8" />
+        <local:EditorBadge Grid.Column="2"
+                           Margin="0,8"
+                           VerticalAlignment="Top" />
     </Grid>
 </UserControl>

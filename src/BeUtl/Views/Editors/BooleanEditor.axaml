@@ -1,19 +1,21 @@
-<UserControl
-    xmlns="https://github.com/avaloniaui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    xmlns:vm="using:Beutl.ViewModels.Editors"
-    xmlns:local="using:Beutl.Views.Editors"
-    x:DataType="vm:BooleanEditorViewModel"
-    x:Class="Beutl.Views.Editors.BooleanEditor">
+<UserControl x:Class="Beutl.Views.Editors.BooleanEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="using:Beutl.Views.Editors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.ViewModels.Editors"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="vm:BooleanEditorViewModel"
+             mc:Ignorable="d">
     <Grid ColumnDefinitions="*,Auto">
         <CheckBox Margin="8,0"
                   Click="CheckBox_Click"
-                  IsEnabled="{CompiledBinding CanEdit.Value}"
-                  IsChecked="{CompiledBinding Value.Value, Mode=OneWay}"
-                  Content="{CompiledBinding Header.Value}"/>
+                  Content="{Binding Header}"
+                  IsChecked="{Binding Value.Value, Mode=OneWay}"
+                  IsEnabled="{Binding CanEdit.Value}" />
 
         <local:EditorBadge Grid.Column="1" />
     </Grid>

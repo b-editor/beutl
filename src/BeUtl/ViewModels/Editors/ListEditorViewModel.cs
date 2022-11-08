@@ -37,7 +37,7 @@ public sealed class ListEditorViewModel : BaseEditorViewModel
             .DisposeWith(Disposables);
 
         CountString = ObserveCount
-            .Select(x => string.Format(S.Message.CountItems, x))
+            .Select(x => string.Format(Message.CountItems, x))
             .ToReadOnlyReactivePropertySlim(string.Empty)
             .DisposeWith(Disposables);
     }
@@ -47,4 +47,9 @@ public sealed class ListEditorViewModel : BaseEditorViewModel
     public ReactiveProperty<int> ObserveCount { get; }
 
     public ReadOnlyReactivePropertySlim<string> CountString { get; }
+
+    public override void Reset()
+    {
+        List.Value?.Clear();
+    }
 }

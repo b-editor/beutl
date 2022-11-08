@@ -24,7 +24,7 @@ public sealed partial class EditView : UserControl, IEditor
 {
     private readonly SynchronizationContext _syncContext;
     private static readonly Binding s_isSelectedBinding = new("Context.IsSelected.Value", BindingMode.TwoWay);
-    private static readonly Binding s_headerBinding = new("Context.Header.Value");
+    private static readonly Binding s_headerBinding = new("Context.Header");
     private readonly AvaloniaList<TabViewItem> _bottomTabItems = new();
     private readonly AvaloniaList<TabViewItem> _rightTabItems = new();
     private Image? _image;
@@ -158,7 +158,7 @@ public sealed partial class EditView : UserControl, IEditor
                         {
                             Text = @$"
 Error:
-    {S.Message.CannotDisplayThisContext}"
+    {Message.CannotDisplayThisContext}"
                         };
                     }
 
@@ -213,7 +213,7 @@ Error:
                         {
                             Text = @$"
 Error:
-    {S.Message.CannotDisplayThisContext}"
+    {Message.CannotDisplayThisContext}"
                         };
                     }
 

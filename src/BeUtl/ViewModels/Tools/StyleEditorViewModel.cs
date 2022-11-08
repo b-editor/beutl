@@ -21,7 +21,7 @@ public sealed class StyleEditorViewModel : IToolContext
     public StyleEditorViewModel(EditViewModel editViewModel)
     {
         EditorContext = editViewModel;
-        Header = S.Common.StyleObservable.ToReadOnlyReactivePropertySlim(S.Common.Style);
+        Header = new ReactivePropertySlim<string>(Strings.Style);
 
         if (s_cache != null)
         {

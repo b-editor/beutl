@@ -4,6 +4,7 @@
              xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.SettingsPages"
@@ -19,21 +20,21 @@
                     VerticalAlignment="Stretch"
                     Orientation="Vertical"
                     Spacing="4">
-            <ctrls:OptionsDisplayItem Description="{DynamicResource S.ViewSettingsPage.ThemeDescription}"
-                                      Header="{DynamicResource S.ViewSettingsPage.Theme}"
+            <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.Theme_Tip}"
+                                      Header="{x:Static lang:Strings.Theme}"
                                       Icon="DarkTheme">
 
                 <ctrls:OptionsDisplayItem.ActionButton>
                     <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding SelectedTheme.Value}">
-                        <ComboBoxItem Content="{DynamicResource S.ViewSettingsPage.Theme.Light}" />
-                        <ComboBoxItem Content="{DynamicResource S.ViewSettingsPage.Theme.Dark}" />
-                        <ComboBoxItem Content="{DynamicResource S.ViewSettingsPage.Theme.HighContrast}" />
-                        <ComboBoxItem Content="{DynamicResource S.ViewSettingsPage.Theme.System}" />
+                        <ComboBoxItem Content="{x:Static lang:Strings.Light}" />
+                        <ComboBoxItem Content="{x:Static lang:Strings.Dark}" />
+                        <ComboBoxItem Content="{x:Static lang:Strings.HighContrast}" />
+                        <ComboBoxItem Content="{x:Static lang:Strings.FollowSystem}" />
                     </ComboBox>
                 </ctrls:OptionsDisplayItem.ActionButton>
             </ctrls:OptionsDisplayItem>
 
-            <ctrls:OptionsDisplayItem Header="{DynamicResource S.ViewSettingsPage.MicaEffect}">
+            <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.MicaEffect}">
                 <ctrls:OptionsDisplayItem.Icon>
                     <icons:SymbolIcon Symbol="Cloud" />
                 </ctrls:OptionsDisplayItem.Icon>
@@ -43,7 +44,7 @@
                 </ctrls:OptionsDisplayItem.ActionButton>
             </ctrls:OptionsDisplayItem>
 
-            <ctrls:OptionsDisplayItem Header="{DynamicResource S.ViewSettingsPage.Language}">
+            <ctrls:OptionsDisplayItem Header="{x:Static lang:Strings.Language}">
                 <ctrls:OptionsDisplayItem.Icon>
                     <icons:SymbolIcon Symbol="LocalLanguage" />
                 </ctrls:OptionsDisplayItem.Icon>

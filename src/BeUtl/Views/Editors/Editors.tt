@@ -5,14 +5,14 @@
 <#@ import namespace="System.Collections.Generic" #>
 <#@ output extension=".cs" #>
 <#
-    var vec2Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY)[]
+    var vec2Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY, bool IsSize)[]
     {
-        ("Beutl.Media", "PixelPoint", "System.Int32", "X", "Y"),
-        ("Beutl.Media", "PixelSize", "System.Int32", "Width", "Height"),
-        ("Beutl.Graphics", "Point", "System.Single", "X", "Y"),
-        ("Beutl.Graphics", "Size", "System.Single", "Width", "Height"),
-        ("Beutl.Graphics", "Vector", "System.Single", "X", "Y"),
-        ("System.Numerics", "Vector2", "System.Single", "X", "Y"),
+        ("Beutl.Media", "PixelPoint", "System.Int32", "X", "Y", false),
+        ("Beutl.Media", "PixelSize", "System.Int32", "Width", "Height", true),
+        ("Beutl.Graphics", "Point", "System.Single", "X", "Y", false),
+        ("Beutl.Graphics", "Size", "System.Single", "Width", "Height", true),
+        ("Beutl.Graphics", "Vector", "System.Single", "X", "Y", false),
+        ("System.Numerics", "Vector2", "System.Single", "X", "Y", false),
     };
 
     var vec3Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY, string FieldZ)[]
@@ -20,11 +20,11 @@
         ("System.Numerics", "Vector3", "System.Single", "X", "Y", "Z"),
     };
 
-    var vec4Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY, string FieldZ, string FieldW)[]
+    var vec4Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY, string FieldZ, string FieldW, bool IsRect)[]
     {
-        ("Beutl.Media", "PixelRect", "System.Int32", "X", "Y", "Width", "Height"),
-        ("Beutl.Graphics", "Rect", "System.Single", "X", "Y", "Width", "Height"),
-        ("System.Numerics", "Vector4", "System.Single", "X", "Y", "Z", "W"),
+        ("Beutl.Media", "PixelRect", "System.Int32", "X", "Y", "Width", "Height", true),
+        ("Beutl.Graphics", "Rect", "System.Single", "X", "Y", "Width", "Height", true),
+        ("System.Numerics", "Vector4", "System.Single", "X", "Y", "Z", "W", false),
     };
 #>
 using Avalonia;
@@ -43,15 +43,18 @@ namespace Beutl.Views.Editors
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
     public sealed class <#= t.Name #>Editor : BaseVector2Editor<<#= fullName #>>
     {
-        private static readonly IBinding s_xResource = S.Editors.<#= t.Name #>.XObservable.ToBinding();
-        private static readonly IBinding s_yResource = S.Editors.<#= t.Name #>.YObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.<#= t.FieldX #>", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.<#= t.FieldY #>", BindingMode.OneWay);
 
         public <#= t.Name #>Editor()
         {
-            xText[!TextBlock.TextProperty] = s_xResource;
-            yText[!TextBlock.TextProperty] = s_yResource;
+<# if (t.IsSize) { #>
+            xText.Text = Strings.Width;
+            yText.Text = Strings.Height;
+<# } else { #>
+            xText.Text = "X";
+            yText.Text = "Y";
+<# } #>
 
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;
@@ -92,18 +95,15 @@ namespace Beutl.Views.Editors
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
     public sealed class <#= t.Name #>Editor : BaseVector3Editor<<#= fullName #>>
     {
-        private static readonly IBinding s_xResource = S.Editors.<#= t.Name #>.XObservable.ToBinding();
-        private static readonly IBinding s_yResource = S.Editors.<#= t.Name #>.YObservable.ToBinding();
-        private static readonly IBinding s_zResource = S.Editors.<#= t.Name #>.ZObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.<#= t.FieldX #>", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.<#= t.FieldY #>", BindingMode.OneWay);
         private static readonly Binding s_z = new("Value.Value.<#= t.FieldZ #>", BindingMode.OneWay);
 
         public <#= t.Name #>Editor()
         {
-            xText[!TextBlock.TextProperty] = s_xResource;
-            yText[!TextBlock.TextProperty] = s_yResource;
-            zText[!TextBlock.TextProperty] = s_zResource;
+            xText.Text = "X";
+            yText.Text = "Y";
+            zText.Text = "Z";
 
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;
@@ -157,10 +157,6 @@ namespace Beutl.Views.Editors
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
     public sealed class <#= t.Name #>Editor : BaseVector4Editor<<#= fullName #>>
     {
-        private static readonly IBinding s_xResource = S.Editors.<#= t.Name #>.XObservable.ToBinding();
-        private static readonly IBinding s_yResource = S.Editors.<#= t.Name #>.YObservable.ToBinding();
-        private static readonly IBinding s_zResource = S.Editors.<#= t.Name #>.ZObservable.ToBinding();
-        private static readonly IBinding s_wResource = S.Editors.<#= t.Name #>.WObservable.ToBinding();
         private static readonly Binding s_x = new("Value.Value.<#= t.FieldX #>", BindingMode.OneWay);
         private static readonly Binding s_y = new("Value.Value.<#= t.FieldY #>", BindingMode.OneWay);
         private static readonly Binding s_z = new("Value.Value.<#= t.FieldZ #>", BindingMode.OneWay);
@@ -168,10 +164,15 @@ namespace Beutl.Views.Editors
 
         public <#= t.Name #>Editor()
         {
-            xText[!TextBlock.TextProperty] = s_xResource;
-            yText[!TextBlock.TextProperty] = s_yResource;
-            zText[!TextBlock.TextProperty] = s_zResource;
-            wText[!TextBlock.TextProperty] = s_wResource;
+            xText.Text = "X";
+            yText.Text = "Y";
+<# if (t.IsRect) { #>
+            zText.Text = Strings.Width;
+            wText.Text = Strings.Height;
+<# } else { #>
+            zText.Text = "Z";
+            wText.Text = "W";
+<# } #>
 
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;

@@ -1,0 +1,362 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+		Microsoft ResX Schema
+
+		Version 1.3
+
+		The primary goals of this format is to allow a simple XML format 
+		that is mostly human readable. The generation and parsing of the 
+		various data types are done through the TypeConverter classes 
+		associated with the data types.
+
+		Example:
+
+		... ado.net/XML headers & schema ...
+		<resheader name="resmimetype">text/microsoft-resx</resheader>
+		<resheader name="version">1.3</resheader>
+		<resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+		<resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+		<data name="Name1">this is my long string</data>
+		<data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+		<data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+			[base64 mime encoded serialized .NET Framework object]
+		</data>
+		<data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+			[base64 mime encoded string representing a byte array form of the .NET Framework object]
+		</data>
+
+		There are any number of "resheader" rows that contain simple 
+		name/value pairs.
+
+		Each data row contains a name, and value. The row also contains a 
+		type or mimetype. Type corresponds to a .NET class that support 
+		text/value conversion through the TypeConverter architecture. 
+		Classes that don't support this are serialized and stored with the 
+		mimetype set.
+
+		The mimetype is used for serialized objects, and tells the 
+		ResXResourceReader how to depersist the object. This is currently not 
+		extensible. For a given mimetype the value must be set accordingly:
+
+		Note - application/x-microsoft.net.object.binary.base64 is the format 
+		that the ResXResourceWriter will generate, however the reader can 
+		read any of the formats listed below.
+
+		mimetype: application/x-microsoft.net.object.binary.base64
+		value   : The object must be serialized with 
+			: System.Serialization.Formatters.Binary.BinaryFormatter
+			: and then encoded with base64 encoding.
+
+		mimetype: application/x-microsoft.net.object.soap.base64
+		value   : The object must be serialized with 
+			: System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+			: and then encoded with base64 encoding.
+
+		mimetype: application/x-microsoft.net.object.bytearray.base64
+		value   : The object must be serialized into a byte array 
+			: using a System.ComponentModel.TypeConverter
+			: and then encoded with base64 encoding.
+	-->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AddRelease_Title" xml:space="preserve">
+    <value>Add release</value>
+  </data>
+  <data name="Release_Title" xml:space="preserve">
+    <value>Title</value>
+  </data>
+  <data name="Release_Title_Tip" xml:space="preserve">
+    <value>Title of this release.</value>
+  </data>
+  <data name="Release_Body" xml:space="preserve">
+    <value>Release note</value>
+  </data>
+  <data name="Release_Body_Tip" xml:space="preserve">
+    <value>Description of this release.</value>
+  </data>
+  <data name="Release_Version" xml:space="preserve">
+    <value>Version</value>
+  </data>
+  <data name="Release_Version_Tip" xml:space="preserve">
+    <value>Version of this release.</value>
+  </data>
+  <data name="Release_Asset" xml:space="preserve">
+    <value>Release asset</value>
+  </data>
+  <data name="Release_Asset_Tip" xml:space="preserve">
+    <value>The file specified here will be downloaded by the user when published.</value>
+  </data>
+  <data name="CreatePackage_Title" xml:space="preserve">
+    <value>Create new package</value>
+  </data>
+  <data name="UpdatePackage_Title" xml:space="preserve">
+    <value>Update a package</value>
+  </data>
+  <data name="To_open_a_file_drop_the_file_here_or_click_here" xml:space="preserve">
+    <value>To open a file, drop the file here or click here.</value>
+  </data>
+  <data name="NoLogoImageAvailable" xml:space="preserve">
+    <value>No logo image available</value>
+  </data>
+  <data name="Package_Settings_Tip" xml:space="preserve">
+    <value>Settings of this package.</value>
+  </data>
+  <data name="Package_Releases_Tip" xml:space="preserve">
+    <value>Manage releases</value>
+  </data>
+  <data name="Package_Releases" xml:space="preserve">
+    <value>Releases</value>
+  </data>
+  <data name="DeleteRelease_Title" xml:space="preserve">
+    <value>Delete release</value>
+  </data>
+  <data name="DeleteRelease_Content" xml:space="preserve">
+    <value>Are you sure you want to delete the release?
+If you do this, you will never be able to access this release again.</value>
+  </data>
+  <data name="Package_Name_Tip" xml:space="preserve">
+    <value>String to identify this package.</value>
+  </data>
+  <data name="Package_DisplayName_Tip" xml:space="preserve">
+    <value>Display name of this package.</value>
+  </data>
+  <data name="Package_DisplayName" xml:space="preserve">
+    <value>Display name</value>
+  </data>
+  <data name="Package_Description_Tip" xml:space="preserve">
+    <value>Description of this package.</value>
+  </data>
+  <data name="Package_Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Package_ShortDescription_Tip" xml:space="preserve">
+    <value>Short description of this package.</value>
+  </data>
+  <data name="Package_ShortDescription" xml:space="preserve">
+    <value>Short description</value>
+  </data>
+  <data name="Package_LogoImage" xml:space="preserve">
+    <value>Logo image</value>
+  </data>
+  <data name="Package_LogoImage_Tip" xml:space="preserve">
+    <value>Logo image of this package.</value>
+  </data>
+  <data name="Package_Screenshots" xml:space="preserve">
+    <value>Screenshots</value>
+  </data>
+  <data name="Package_Screenshots_Tip" xml:space="preserve">
+    <value>Screenshots of this package.</value>
+  </data>
+  <data name="DeletePackage_Title" xml:space="preserve">
+    <value>Delete package</value>
+  </data>
+  <data name="MakePublicPackage_Title" xml:space="preserve">
+    <value>Publish package</value>
+  </data>
+  <data name="MakePublicPackage_Content" xml:space="preserve">
+    <value>Are you sure you want to publish this package?
+Doing so will allow others to download this package.</value>
+  </data>
+  <data name="MakePrivatePackage_Title" xml:space="preserve">
+    <value>Make the package private</value>
+  </data>
+  <data name="MakePrivatePackage_Content" xml:space="preserve">
+    <value>Are you sure you want to keep this package private?
+Doing so will prevent others from downloading this package.</value>
+  </data>
+  <data name="DeletePackage_Content" xml:space="preserve">
+    <value>Are you sure you want to delete the package?
+If you do this, you will never be able to access this package again.</value>
+  </data>
+  <data name="MakePublicRelease_Title" xml:space="preserve">
+    <value>Publish release</value>
+  </data>
+  <data name="MakePublicRelease_Content" xml:space="preserve">
+    <value>Are you sure you want to publish this release?
+This will change the visibility of the asset to 'public' 
+and allow others to download this release.</value>
+  </data>
+  <data name="MakePrivateRelease_Title" xml:space="preserve">
+    <value>Make the release private</value>
+  </data>
+  <data name="MakePrivateRelease_Content" xml:space="preserve">
+    <value>Are you sure you want to keep this release private?
+This will change the visibility of the asset to 'private' 
+and prevent others from downloading this release.</value>
+  </data>
+  <data name="Install" xml:space="preserve">
+    <value>Install</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>Update</value>
+  </data>
+  <data name="Uninstall" xml:space="preserve">
+    <value>Uninstall</value>
+  </data>
+  <data name="Package_LatestRelease" xml:space="preserve">
+    <value>Latest release</value>
+  </data>
+  <data name="Package_Tags" xml:space="preserve">
+    <value>Tags</value>
+  </data>
+  <data name="Package_LatestVersion" xml:space="preserve">
+    <value>Latest version</value>
+  </data>
+  <data name="Package_InstalledVersion" xml:space="preserve">
+    <value>Installed version</value>
+  </data>
+  <data name="OpenUrl_Title" xml:space="preserve">
+    <value>Open URL?</value>
+  </data>
+  <data name="OpenUrl_Content" xml:space="preserve">
+    <value>You are trying to open '{0}'.
+If the URL is ɑn suspicious, we recommend that you do not open it.</value>
+  </data>
+  <data name="Ranking" xml:space="preserve">
+    <value>Ranking</value>
+  </data>
+  <data name="Lucene_queries_are_available_for_search_queries" xml:space="preserve">
+    <value>Lucene queries are available for search queries.</value>
+  </data>
+  <data name="QueryExample" xml:space="preserve">
+    <value>Query Example</value>
+  </data>
+  <data name="QueryExample_1" xml:space="preserve">
+    <value>- display_name:'Very good package name'</value>
+  </data>
+  <data name="QueryExample_2" xml:space="preserve">
+    <value>  [Display name is</value>
+  </data>
+  <data name="QueryExample_3" xml:space="preserve">
+    <value>'Very good package name'</value>
+  </data>
+  <data name="QueryExample_4" xml:space="preserve">
+    <value>]</value>
+  </data>
+  <data name="Query_AvailableFields" xml:space="preserve">
+    <value>Available Fields</value>
+  </data>
+  <data name="Query_WildcardsAreAvailable" xml:space="preserve">
+    <value>Wildcards are available.</value>
+  </data>
+  <data name="Query_WildcardsAreAvailable_Body" xml:space="preserve">
+    <value>The default is an exact match search.
+Use wildcards if you want partial matches.</value>
+  </data>
+  <data name="Search_Packages" xml:space="preserve">
+    <value>Packages</value>
+  </data>
+  <data name="Search_Users" xml:space="preserve">
+    <value>Users</value>
+  </data>
+  <data name="Profile_PublishedPackages" xml:space="preserve">
+    <value>Published Packages</value>
+  </data>
+  <data name="Shortcuts" xml:space="preserve">
+    <value>Shortcuts</value>
+  </data>
+  <data name="CreatePackage_Tip" xml:space="preserve">
+    <value>Create a new package for distribution.</value>
+  </data>
+  <data name="Documents" xml:space="preserve">
+    <value>Documents</value>
+  </data>
+  <data name="Documents_Tip" xml:space="preserve">
+    <value>Documentation for developers.</value>
+  </data>
+  <data name="Top10" xml:space="preserve">
+    <value>Top10</value>
+  </data>
+  <data name="Daily" xml:space="preserve">
+    <value>Daily</value>
+  </data>
+  <data name="Weekly" xml:space="preserve">
+    <value>Weekly</value>
+  </data>
+  <data name="Recently" xml:space="preserve">
+    <value>Recently</value>
+  </data>
+  <data name="RemoveFromLibrary" xml:space="preserve">
+    <value>Remove from library</value>
+  </data>
+  <data name="CheckUpdate" xml:space="preserve">
+    <value>Check update</value>
+  </data>
+  <data name="LocalPackages" xml:space="preserve">
+    <value>Local Packages</value>
+  </data>
+  <data name="LocalPackage" xml:space="preserve">
+    <value>Local Package</value>
+  </data>
+  <data name="Could_not_find_a_package_from_remote" xml:space="preserve">
+    <value>Could not find '{0}' from remote.</value>
+  </data>
+  <data name="PackageInstaller" xml:space="preserve">
+    <value>Package Installer</value>
+  </data>
+  <data name="PackageInstaller_ScheduledInstallation" xml:space="preserve">
+    <value>'{0}' installation is scheduled.
+To apply the package changes, exit Beutl.</value>
+  </data>
+  <data name="PackageInstaller_ScheduledUpdate" xml:space="preserve">
+    <value>'{0}' update is scheduled.
+To apply the package changes, exit Beutl.</value>
+  </data>
+  <data name="PackageInstaller_ScheduledUninstallation" xml:space="preserve">
+    <value>'{0}' uninstallation is scheduled.
+To apply the package changes, exit Beutl.</value>
+  </data>
+  <data name="Overall" xml:space="preserve">
+    <value>Overall</value>
+  </data>
+  <data name="AuthorizationIsRequired" xml:space="preserve">
+    <value>Authorization is required.</value>
+  </data>
+  <data name="AnAccountIsRequiredToGetExtension" xml:space="preserve">
+    <value>An account is required to get the extension.</value>
+  </data>
+  <data name="GotoSettings_Account" xml:space="preserve">
+    <value>Go to "Settings &gt; Accounts" and sign in.</value>
+  </data>
+  <data name="OpenSettings" xml:space="preserve">
+    <value>Open Settings</value>
+  </data>
+</root>

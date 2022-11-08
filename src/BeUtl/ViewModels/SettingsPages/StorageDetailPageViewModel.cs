@@ -58,7 +58,7 @@ public class StorageDetailPageViewModel : PageContext
 
         Refresh.Execute();
 
-        NavigateParent.Subscribe(async x =>
+        NavigateParent.Subscribe(async() =>
         {
             INavigationProvider nav = await GetNavigation();
             await nav.NavigateAsync<StorageSettingsPageViewModel>();
@@ -88,9 +88,9 @@ public class StorageDetailPageViewModel : PageContext
 
     public record AssetViewModel(Asset Model, string UsedCapacity)
     {
-        public bool Physical => Model.AssetType == Beutl.Api.AssetType.Physical;
+        public bool Physical => Model.AssetType == Api.AssetType.Physical;
 
-        public bool Virtual => Model.AssetType == Beutl.Api.AssetType.Virtual;
+        public bool Virtual => Model.AssetType == Api.AssetType.Virtual;
 
         public string ShortUrl
         {

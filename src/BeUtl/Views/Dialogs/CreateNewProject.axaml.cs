@@ -33,7 +33,7 @@ public sealed partial class CreateNewProject : ContentDialog, IStyleable
             // IsSecondaryButtonEnabledのバインド解除
             _sBtnBinding?.Dispose();
             // '新規作成'を'次へ'に変更
-            SecondaryButtonText = S.Common.Next;
+            SecondaryButtonText = Strings.Next;
             // '次へ'を有効化
             IsSecondaryButtonEnabled = true;
             carousel.Previous();
@@ -59,7 +59,7 @@ public sealed partial class CreateNewProject : ContentDialog, IStyleable
             // IsSecondaryButtonEnabledとCanCreateをバインド
             _sBtnBinding = this.Bind(IsSecondaryButtonEnabledProperty, vm.CanCreate);
             // '次へ'を'新規作成に変更'
-            SecondaryButtonText = S.Common.CreateNew;
+            SecondaryButtonText = Strings.CreateNew;
             carousel.Next();
         }
     }

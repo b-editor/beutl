@@ -6,13 +6,16 @@
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.ViewModels.Editors"
              d:DesignWidth="300"
+             x:CompileBindings="True"
+             x:DataType="vm:FileInfoEditorViewModel"
              mc:Ignorable="d">
     <Grid ColumnDefinitions="2*,3*,Auto">
         <TextBlock Margin="10,0,0,0"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Center"
-                   Text="{Binding Header.Value}" />
+                   Text="{Binding Header}" />
 
         <Button x:Name="button"
                 Grid.Column="1"
@@ -21,9 +24,9 @@
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
                 IsEnabled="{Binding CanEdit.Value}"
-                ToolTip.Tip="{Binding Setter.Value.FullName, Mode=OneWay}">
+                ToolTip.Tip="{Binding Value.Value.FullName, Mode=OneWay}">
             <Grid ColumnDefinitions="*,Auto">
-                <TextBlock VerticalAlignment="Center" Text="{Binding Setter.Value.Name, Mode=OneWay}" />
+                <TextBlock VerticalAlignment="Center" Text="{Binding Value.Value.Name, Mode=OneWay}" />
 
                 <icons:SymbolIcon Grid.Column="1" Symbol="Open" />
             </Grid>

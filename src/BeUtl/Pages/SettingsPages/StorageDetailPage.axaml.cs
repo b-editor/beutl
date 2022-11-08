@@ -25,16 +25,16 @@ public partial class StorageDetailPage : UserControl
             bool current = itemViewModel.Model.IsPublic.Value;
             var dialog = new ContentDialog
             {
-                Title = current ? S.StorageDetailPage.MakePrivate : S.StorageDetailPage.MakePublic,
-                Content = string.Format(S.StorageDetailPage.ChangeVisibility, current ? S.Common.Private : S.Common.Public),
-                PrimaryButtonText = S.Common.OK,
-                CloseButtonText = S.Common.Cancel
+                Title = current ? Language.SettingsPage.MakePrivate : Language.SettingsPage.MakePublic,
+                Content = string.Format(Language.SettingsPage.ChangeVisibility, current ? Strings.Private : Strings.Public),
+                PrimaryButtonText = Strings.OK,
+                CloseButtonText = Strings.Cancel
             };
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
                 await itemViewModel.Model.UpdateAsync(
-                    new Beutl.Api.UpdateAssetRequest(!current));
+                    new Api.UpdateAssetRequest(!current));
             }
         }
     }
@@ -55,11 +55,11 @@ public partial class StorageDetailPage : UserControl
         {
             var dialog = new ContentDialog
             {
-                Title = S.Message.DoYouWantToDeleteThisFile,
-                Content = $"{S.Message.DoYouWantToDeleteThisFile}\n" +
+                Title = Message.DoYouWantToDeleteThisFile,
+                Content = $"{Message.DoYouWantToDeleteThisFile}\n" +
                 $"{itemViewModel.Model.Name} | {itemViewModel.ShortUrl} | {itemViewModel.Model.ContentType} | {itemViewModel.UsedCapacity}",
-                PrimaryButtonText = S.Common.Delete,
-                CloseButtonText = S.Common.Cancel
+                PrimaryButtonText = Strings.Delete,
+                CloseButtonText = Strings.Cancel
             };
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)

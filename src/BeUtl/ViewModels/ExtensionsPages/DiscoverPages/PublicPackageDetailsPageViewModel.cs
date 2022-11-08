@@ -119,8 +119,8 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
                     var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
                     _queue.InstallQueue(packageId);
                     Notification.Show(new Notification(
-                        Title: "パッケージインストーラー",
-                        Message: $"'{packageId}'のインストールを予約しました。\nパッケージの変更を適用するには、Beutlを終了してください。"));
+                        Title: ExtensionsPage.PackageInstaller,
+                        Message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation, package)));
                 }
                 catch (Exception e)
                 {
@@ -144,8 +144,8 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
                     var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
                     _queue.InstallQueue(packageId);
                     Notification.Show(new Notification(
-                        Title: "パッケージインストーラー",
-                        Message: $"'{packageId}'の更新を予約しました。\nパッケージの変更を適用するには、Beutlを終了してください。"));
+                        Title: ExtensionsPage.PackageInstaller,
+                        Message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId)));
                 }
                 catch (Exception e)
                 {
@@ -168,8 +168,8 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
                     {
                         _queue.UninstallQueue(item);
                         Notification.Show(new Notification(
-                            Title: "パッケージインストーラー",
-                            Message: $"'{item}'のアンインストールを予約しました。\nパッケージの変更を適用するには、Beutlを終了してください。"));
+                            Title: ExtensionsPage.PackageInstaller,
+                            Message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation, item)));
                     }
                 }
                 catch (Exception e)

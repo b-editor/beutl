@@ -2,6 +2,7 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              d:DesignHeight="450"
@@ -34,7 +35,7 @@
                          Margin="8,0"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Center"
-                         Watermark="{DynamicResource S.Common.Search}">
+                         Watermark="{x:Static lang:Strings.Search}">
                     <TextBox.InnerRightContent>
                         <Button Click="Search_Click" Theme="{StaticResource TransparentButton}">
                             <ui:SymbolIcon Symbol="Find" />
@@ -50,12 +51,12 @@
                     VerticalAlignment="Center"
                     IsVisible="{Binding !IsAuthorized.Value}"
                     Spacing="8">
-            <TextBlock Text="{DynamicResource S.ExtensionsPage.AuthorizationIsRequired}" Theme="{StaticResource SubtitleTextBlockStyle}" />
+            <TextBlock Text="{x:Static lang:ExtensionsPage.AuthorizationIsRequired}" Theme="{StaticResource SubtitleTextBlockStyle}" />
 
             <RichTextBlock>
-                <Run Text="{StaticResource S.ExtensionsPage.AnAccountIsRequiredToGetExtension}" />
+                <Run Text="{x:Static lang:ExtensionsPage.AnAccountIsRequiredToGetExtension}" />
                 <LineBreak />
-                <Run Text="{StaticResource S.ExtensionsPage.GotoSettings_Account}" />
+                <Run Text="{x:Static lang:ExtensionsPage.GotoSettings_Account}" />
             </RichTextBlock>
 
             <Button Height="40"
@@ -63,16 +64,16 @@
                     HorizontalAlignment="Stretch"
                     Classes="accent"
                     Click="OpenSettings_Click"
-                    Content="{DynamicResource S.ExtensionsPage.OpenSettings}" />
+                    Content="{x:Static lang:ExtensionsPage.OpenSettings}" />
 
             <Grid ColumnDefinitions="*,*">
                 <ui:HyperlinkButton Grid.Column="0"
                                     HorizontalAlignment="Center"
-                                    Content="{DynamicResource S.Common.PrivacyPolicy}"
+                                    Content="{x:Static lang:Strings.PrivacyPolicy}"
                                     NavigateUri="https://beutl.beditor.net/Privacy" />
                 <ui:HyperlinkButton Grid.Column="1"
                                     HorizontalAlignment="Center"
-                                    Content="{DynamicResource S.Common.TermsOfService}"
+                                    Content="{x:Static lang:Strings.TermsOfService}"
                                     NavigateUri="https://beutl.beditor.net/TermsOfService" />
             </Grid>
         </StackPanel>

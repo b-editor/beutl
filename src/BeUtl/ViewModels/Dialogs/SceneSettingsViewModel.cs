@@ -19,7 +19,7 @@ public sealed class SceneSettingsViewModel
         {
             if (s.Width <= 0 || s.Height <= 0)
             {
-                return S.Warning.ValueLessThanOrEqualToZero;
+                return Message.ValueLessThanOrEqualToZero;
             }
             else
             {
@@ -30,7 +30,7 @@ public sealed class SceneSettingsViewModel
         {
             if (time <= TimeSpan.Zero)
             {
-                return S.Warning.ValueLessThanOrEqualToZero;
+                return Message.ValueLessThanOrEqualToZero;
             }
             else
             {

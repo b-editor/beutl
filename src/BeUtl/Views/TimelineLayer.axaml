@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Beutl.ViewModels"
              x:Name="root"
@@ -37,34 +38,34 @@
             <ContextMenu>
                 <MenuItem Command="{CompiledBinding Split}"
                           CommandParameter="{Binding #root.GetClickedTime, Mode=OneTime}"
-                          Header="{DynamicResource S.Common.Split}">
+                          Header="{x:Static lang:Strings.Split}">
                     <MenuItem.Icon>
                         <icons:SymbolIcon Symbol="SplitVertical" />
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Command="{CompiledBinding Cut}"
-                          Header="{DynamicResource S.Common.Cut}"
+                          Header="{x:Static lang:Strings.Cut}"
                           InputGesture="{DynamicResource CutKeyGesture}">
                     <MenuItem.Icon>
                         <icons:SymbolIcon Symbol="Cut" />
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Command="{CompiledBinding Copy}"
-                          Header="{DynamicResource S.Common.Copy}"
+                          Header="{x:Static lang:Strings.Copy}"
                           InputGesture="{DynamicResource CopyKeyGesture}">
                     <MenuItem.Icon>
                         <icons:SymbolIcon Symbol="Copy" />
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Command="{CompiledBinding Delete}"
-                          Header="{DynamicResource S.Common.Delete}"
+                          Header="{x:Static lang:Strings.Delete}"
                           InputGesture="{DynamicResource LayerDeleteKeyGesture}">
                     <MenuItem.Icon>
                         <icons:SymbolIcon Symbol="DeleteDismiss" />
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Command="{CompiledBinding Exclude}"
-                          Header="{DynamicResource S.Common.Exclude}"
+                          Header="{x:Static lang:Strings.Exclude}"
                           InputGesture="{DynamicResource DeleteKeyGesture}">
                     <MenuItem.Icon>
                         <icons:SymbolIcon Symbol="Delete" />

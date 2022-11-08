@@ -1,24 +1,25 @@
-<UserControl
-    xmlns="https://github.com/avaloniaui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:vm="using:Beutl.ViewModels.Editors"
-    xmlns:local="using:Beutl.Views.Editors"
-    mc:Ignorable="d" d:DesignWidth="300"
-    x:Class="Beutl.Views.Editors.NumberEditor">
+<UserControl x:Class="Beutl.Views.Editors.NumberEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="using:Beutl.Views.Editors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.ViewModels.Editors"
+             d:DesignWidth="300"
+             x:CompileBindings="True"
+             x:DataType="vm:BaseEditorViewModel"
+             mc:Ignorable="d">
     <Grid ColumnDefinitions="2*,3*,Auto">
-        <TextBlock
-            Margin="10,0,0,0"
-            Text="{Binding Header.Value}"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Center" />
+        <TextBlock Margin="10,0,0,0"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Center"
+                   Text="{Binding Header}" />
 
-        <TextBox
-            x:Name="textBox"
-            Grid.Column="1"
-            IsEnabled="{Binding CanEdit.Value}"
-            Text="{Binding Text.Value, Mode=OneWay}">
+        <TextBox x:Name="textBox"
+                 Grid.Column="1"
+                 IsEnabled="{Binding CanEdit.Value}"
+                 Text="{ReflectionBinding Text.Value,
+                                          Mode=OneWay}">
             <TextBox.Styles>
                 <Style Selector="TextBox">
                     <Setter Property="Margin" Value="4" />

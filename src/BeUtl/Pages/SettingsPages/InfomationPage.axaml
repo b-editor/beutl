@@ -1,31 +1,32 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="Beutl.Pages.SettingsPages.InfomationPage"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              xmlns:ctrls="using:Beutl.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             x:Class="Beutl.Pages.SettingsPages.InfomationPage">
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             mc:Ignorable="d">
 
-    <ScrollViewer Padding="18">        
-        <StackPanel Orientation="Vertical"
+    <ScrollViewer Padding="18">
+        <StackPanel Margin="10,0"
                     VerticalAlignment="Stretch"
-                    Margin="10,0"
+                    Orientation="Vertical"
                     Spacing="4">
-            <ctrls:OptionsDisplayItem Header="{DynamicResource S.InfomationPage.Links}"
-                                      Icon="Link"
-                                      Expands="True">
+            <ctrls:OptionsDisplayItem Expands="True"
+                                      Header="{x:Static lang:Strings.Links}"
+                                      Icon="Link">
                 <ctrls:OptionsDisplayItem.Content>
-                    <Grid ColumnDefinitions="*,*" Margin="32,16">
+                    <Grid Margin="32,16" ColumnDefinitions="*,*">
                         <StackPanel>
-                            <ui:HyperlinkButton Content="{DynamicResource S.InfomationPage.SourceCode}"
-                                                NavigateUri="https://github.com/b-editor/Beutl" />
+                            <ui:HyperlinkButton Content="{x:Static lang:Strings.SourceCode}" NavigateUri="https://github.com/b-editor/Beutl" />
                         </StackPanel>
 
                         <StackPanel Grid.Column="1">
-                            <ui:HyperlinkButton Content="{DynamicResource S.InfomationPage.License}"
-                                                NavigateUri="https://github.com/b-editor/Beutl/blob/main/LICENSE" />
-                            <ui:HyperlinkButton Content="{DynamicResource S.InfomationPage.ThirdPartyLicenses}" />
+                            <ui:HyperlinkButton Content="{x:Static lang:Strings.License}" NavigateUri="https://github.com/b-editor/Beutl/blob/main/LICENSE" />
+                            <ui:HyperlinkButton Content="{x:Static lang:Strings.ThirdPartyLicenses}" />
                         </StackPanel>
                     </Grid>
                 </ctrls:OptionsDisplayItem.Content>

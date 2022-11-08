@@ -49,7 +49,7 @@ public sealed partial class SettingsPage : UserControl
         {
             new NavigationViewItem()
             {
-                [!ContentProperty] = S.SettingsPage.AccountObservable.ToBinding(),
+                Content = Strings.Account,
                 Tag = typeof(AccountSettingsPage),
                 Icon = new SymbolIcon
                 {
@@ -58,7 +58,7 @@ public sealed partial class SettingsPage : UserControl
             },
             new NavigationViewItem()
             {
-                [!ContentProperty] = S.SettingsPage.ViewObservable.ToBinding(),
+                Content = Strings.View,
                 Tag = typeof(ViewSettingsPage),
                 Icon = new SymbolIcon
                 {
@@ -67,7 +67,7 @@ public sealed partial class SettingsPage : UserControl
             },
             new NavigationViewItem()
             {
-                [!ContentProperty] = S.SettingsPage.FontObservable.ToBinding(),
+                Content = Strings.Font,
                 Tag = typeof(FontSettingsPage),
                 Icon = new SymbolIcon
                 {
@@ -76,7 +76,7 @@ public sealed partial class SettingsPage : UserControl
             },
             new NavigationViewItem()
             {
-                [!ContentProperty] = S.SettingsPage.ExtensionsObservable.ToBinding(),
+                Content = Strings.Extensions,
                 Tag = typeof(ExtensionsSettingsPage),
                 Icon = new FluentIcons.FluentAvalonia.SymbolIcon()
                 {
@@ -85,7 +85,7 @@ public sealed partial class SettingsPage : UserControl
             },
             new NavigationViewItem()
             {
-                [!ContentProperty] = S.SettingsPage.StorageObservable.ToBinding(),
+                Content = Language.SettingsPage.Storage,
                 Tag = typeof(StorageSettingsPage),
                 Icon = new FluentIcons.FluentAvalonia.SymbolIcon()
                 {
@@ -94,7 +94,7 @@ public sealed partial class SettingsPage : UserControl
             },
             new NavigationViewItem()
             {
-                [!ContentProperty] = S.SettingsPage.InfoObservable.ToBinding(),
+                Content = Strings.Info,
                 Tag = typeof(InfomationPage),
                 Icon = new FluentIcons.FluentAvalonia.SymbolIcon()
                 {

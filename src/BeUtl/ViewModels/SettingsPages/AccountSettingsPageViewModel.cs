@@ -148,14 +148,14 @@ public sealed class AccountSettingsPageViewModel : PageContext, IDisposable
         catch (BeutlApiException<ApiErrorResponse>)
         {
             // Todo: エラー説明
-            Error.Value = S.Warning.APIErrorOccurred;
+            Error.Value = Message.ApiErrorOccurred;
         }
         catch (OperationCanceledException)
         {
         }
         catch (Exception)
         {
-            Error.Value = S.Warning.AnUnexpectedErrorHasOccurred;
+            Error.Value = Message.AnUnexpectedErrorHasOccurred;
         }
         finally
         {

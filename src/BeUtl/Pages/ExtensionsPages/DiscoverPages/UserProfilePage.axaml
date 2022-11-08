@@ -4,6 +4,7 @@
              xmlns:asyncImageLoader="using:AsyncImageLoader"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:panelx="using:PanelExtension"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -137,7 +138,7 @@
         </ScrollViewer>
         <ScrollViewer Grid.Column="1" Margin="16,16,10,0">
             <Grid RowDefinitions="Auto,*">
-                <TextBlock Text="公開されたパッケージ" Theme="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock Text="{x:Static lang:ExtensionsPage.Profile_PublishedPackages}" Theme="{StaticResource SubtitleTextBlockStyle}" />
 
                 <ItemsRepeater Grid.Row="1"
                                Margin="0,16,0,0"
@@ -195,7 +196,7 @@
 
                                         <TextBlock Grid.Column="2"
                                                    VerticalAlignment="Center"
-                                                   Text="もっと表示" />
+                                                   Text="{x:Static lang:Strings.ShowMore}" />
                                     </Grid>
                                 </Panel>
                             </Button>

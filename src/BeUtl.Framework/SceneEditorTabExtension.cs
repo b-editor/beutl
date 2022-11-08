@@ -12,7 +12,7 @@ public interface IToolContext : IDisposable, IJsonSerializable
 
     IReactiveProperty<bool> IsSelected { get; }
 
-    IReadOnlyReactiveProperty<string> Header { get; }
+    string Header => Extension.Header ?? "";
 
     ToolTabExtension.TabPlacement Placement { get; }
 }
@@ -27,7 +27,7 @@ public abstract class ToolTabExtension : ViewExtension
 
     public abstract bool CanMultiple { get; }
 
-    public virtual IObservable<string>? Header => null;
+    public virtual string? Header => null;
 
     public abstract bool TryCreateContent(
         IEditorContext editorContext,

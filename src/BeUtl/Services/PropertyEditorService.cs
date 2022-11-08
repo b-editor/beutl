@@ -42,7 +42,7 @@ public static class PropertyEditorService
         return default;
     }
 
-    public static IObservable<string> GetPropertyName(CoreProperty property)
+    public static string GetPropertyName(CoreProperty property)
     {
         ExtensionProvider extp = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
 
@@ -57,7 +57,7 @@ public static class PropertyEditorService
             }
         }
 
-        return Observable.Return(property.Name);
+        return property.Name;
     }
 
     private static Control? CreateEnumEditor(IAbstractProperty s)

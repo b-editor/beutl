@@ -18,7 +18,7 @@ public sealed partial class FileInfoEditor : UserControl
     {
         if (DataContext is not FileInfoEditorViewModel vm || VisualRoot is not Window window) return;
 
-        string? filterName = vm.Header.Value;
+        string filterName = vm.Header;
         string[]? patterns = vm.WrappedProperty.Property
             .GetMetadata<CorePropertyMetadata<FileInfo?>>(vm.WrappedProperty.ImplementedType)?
             .FindValidator<FileInfoExtensionValidator>()?
@@ -37,9 +37,9 @@ public sealed partial class FileInfoEditor : UserControl
             }
         };
 
-        var result = await window.StorageProvider.OpenFilePickerAsync(options);
+        IReadOnlyList<IStorageFile> result = await window.StorageProvider.OpenFilePickerAsync(options);
         if (result.Count > 0
-            && result[0].TryGetUri(out var uri)
+            && result[0].TryGetUri(out Uri? uri)
             && uri.IsFile)
         {
             vm.SetValue(vm.WrappedProperty.GetValue(), new FileInfo(uri.LocalPath));

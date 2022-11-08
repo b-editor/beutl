@@ -20,6 +20,10 @@ public sealed class AlignmentsEditorViewModel : IPropertyEditorContext
         _xProperty = xProperty;
         _yProperty = yProperty;
 
+        CanXEdit = xProperty.Property is not IStaticProperty { CanWrite: false };
+
+        CanYEdit = yProperty.Property is not IStaticProperty { CanWrite: false };
+
         X = xProperty.GetObservable()
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
@@ -58,6 +62,10 @@ public sealed class AlignmentsEditorViewModel : IPropertyEditorContext
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
     }
+
+    public bool CanXEdit { get; }
+
+    public bool CanYEdit { get; }
 
     public ReadOnlyReactivePropertySlim<AlignmentX> X { get; }
 

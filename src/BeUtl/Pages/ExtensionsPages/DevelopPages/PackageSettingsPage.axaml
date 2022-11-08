@@ -5,6 +5,7 @@
              xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModels="using:Beutl.ViewModels.ExtensionsPages.DevelopPages"
@@ -42,18 +43,18 @@
 
             <Label Classes="breadcrumb" />
 
-            <TextBlock Classes="breadcrumb" Text="{DynamicResource S.Common.Settings}" />
+            <TextBlock Classes="breadcrumb" Text="{x:Static lang:Strings.Settings}" />
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" Margin="10,0">
             <StackPanel Spacing="4">
                 <TextBlock Margin="0,16,0,0"
-                           Text="{DynamicResource S.DevelopPage.Package.Resource}"
+                           Text="{x:Static lang:Strings.Settings}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.Fields.NameDescription}"
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:ExtensionsPage.Package_Name_Tip}"
                                           Expands="True"
-                                          Header="{DynamicResource S.DevelopPage.Package.Fields.Name}">
+                                          Header="{x:Static lang:Strings.Name}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBlock Classes="description" Text="{CompiledBinding Package.Name}" />
                     </ctrls:OptionsDisplayItem.ActionButton>
@@ -64,9 +65,9 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.Fields.DisplayNameDescription}"
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:ExtensionsPage.Package_DisplayName_Tip}"
                                           Expands="True"
-                                          Header="{DynamicResource S.DevelopPage.Package.Fields.DisplayName}">
+                                          Header="{x:Static lang:ExtensionsPage.Package_DisplayName}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBlock Classes="description" Text="{CompiledBinding Package.DisplayName.Value}" />
                     </ctrls:OptionsDisplayItem.ActionButton>
@@ -75,9 +76,9 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.Fields.DescriptionDescription}"
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:ExtensionsPage.Package_Description_Tip}"
                                           Expands="True"
-                                          Header="{DynamicResource S.DevelopPage.Package.Fields.Description}">
+                                          Header="{x:Static lang:ExtensionsPage.Package_Description}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBlock MaxWidth="150"
                                    Classes="description"
@@ -91,9 +92,9 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.Fields.ShortDescriptionDescription}"
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:ExtensionsPage.Package_ShortDescription_Tip}"
                                           Expands="True"
-                                          Header="{DynamicResource S.DevelopPage.Package.Fields.ShortDescription}">
+                                          Header="{x:Static lang:ExtensionsPage.Package_ShortDescription}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBlock MaxWidth="150"
                                    Classes="description"
@@ -105,9 +106,9 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.Fields.LogoImageDescription}"
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:ExtensionsPage.Package_LogoImage_Tip}"
                                           Expands="True"
-                                          Header="{DynamicResource S.DevelopPage.Package.Fields.LogoImage}">
+                                          Header="{x:Static lang:ExtensionsPage.Package_LogoImage}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBlock MaxWidth="150"
                                    Classes="description"
@@ -122,25 +123,25 @@
                                    asyncImageLoader:ImageLoader.Source="{CompiledBinding Logo.Value.DownloadUrl}" />
 
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button Click="OpenLogoFile_Click" Content="{DynamicResource S.Common.Open}" />
+                                <Button Click="OpenLogoFile_Click" Content="{x:Static lang:Strings.Open}" />
 
                                 <Button Click="RemoveLogo_Click"
-                                        Content="{DynamicResource S.Common.Remove}"
+                                        Content="{x:Static lang:Strings.Remove}"
                                         IsEnabled="{CompiledBinding Logo.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
                             </StackPanel>
                         </StackPanel>
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Description="{DynamicResource S.DevelopPage.Package.Fields.ScreenshotsDescription}"
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:ExtensionsPage.Package_Screenshots_Tip}"
                                           Expands="True"
-                                          Header="{DynamicResource S.DevelopPage.Package.Fields.Screenshots}">
+                                          Header="{x:Static lang:ExtensionsPage.Package_Screenshots}">
                     <ctrls:OptionsDisplayItem.Content>
                         <Grid RowDefinitions="Auto,*,Auto">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Classes="accent"
                                         Click="AddScreenshotFile_Click"
-                                        Content="{DynamicResource S.Common.Add}" />
+                                        Content="{x:Static lang:Strings.Open}" />
                             </StackPanel>
 
                             <ScrollViewer x:Name="ScreenshotsScrollViewer"
@@ -161,21 +162,21 @@
                                                     <ContextMenu>
                                                         <MenuItem Command="{Binding #root.DataContext.DeleteScreenshot}"
                                                                   CommandParameter="{Binding}"
-                                                                  Header="{DynamicResource S.Common.Delete}">
+                                                                  Header="{x:Static lang:Strings.Delete}">
                                                             <MenuItem.Icon>
                                                                 <icons:SymbolIcon Symbol="Delete" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Command="{Binding #root.DataContext.MoveScreenshotFront}"
                                                                   CommandParameter="{Binding}"
-                                                                  Header="{DynamicResource S.DevelopPage.Package.MoveOneFront}">
+                                                                  Header="{x:Static lang:Strings.MoveOneFront}">
                                                             <MenuItem.Icon>
                                                                 <icons:SymbolIcon Symbol="ArrowLeft" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Command="{Binding #root.DataContext.MoveScreenshotBack}"
                                                                   CommandParameter="{Binding}"
-                                                                  Header="{DynamicResource S.DevelopPage.Package.MoveOneBack}">
+                                                                  Header="{x:Static lang:Strings.MoveOneBack}">
                                                             <MenuItem.Icon>
                                                                 <icons:SymbolIcon Symbol="ArrowRight" />
                                                             </MenuItem.Icon>
@@ -192,15 +193,15 @@
                 </ctrls:OptionsDisplayItem>
 
                 <TextBlock Margin="0,16,0,0"
-                           Text="{DynamicResource S.Common.Settings}"
+                           Text="{x:Static lang:Strings.Settings}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.DeletePackage.Title}"
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:ExtensionsPage.DeletePackage_Title}"
                                           Icon="Delete"
                                           Navigates="True"
                                           NavigationRequested="DeletePackage_Click" />
 
-                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.MakePublicPackage.Title}"
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:ExtensionsPage.MakePublicPackage_Title}"
                                           IsVisible="{CompiledBinding !Package.IsPublic.Value}"
                                           Navigates="True"
                                           NavigationRequested="MakePublic_Click">
@@ -209,7 +210,7 @@
                     </ctrls:OptionsDisplayItem.Icon>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.MakePrivatePackage.Title}"
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:ExtensionsPage.MakePrivatePackage_Title}"
                                           IsVisible="{CompiledBinding Package.IsPublic.Value}"
                                           Navigates="True"
                                           NavigationRequested="MakePrivate_Click">
@@ -228,12 +229,12 @@
                         Orientation="Horizontal"
                         Spacing="8">
                 <Button Command="{CompiledBinding DiscardChanges}"
-                        Content="{DynamicResource S.DevelopPage.DiscardChanges}"
+                        Content="{x:Static lang:Strings.DiscardChanges}"
                         IsEnabled="{CompiledBinding IsChanging.Value}" />
 
                 <Button Classes="accent"
                         Command="{CompiledBinding Save}"
-                        Content="{DynamicResource S.Common.Save}"
+                        Content="{x:Static lang:Strings.Save}"
                         IsEnabled="{CompiledBinding IsChanging.Value}" />
             </StackPanel>
         </Border>

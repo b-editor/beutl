@@ -1,0 +1,629 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+		Microsoft ResX Schema
+
+		Version 1.3
+
+		The primary goals of this format is to allow a simple XML format 
+		that is mostly human readable. The generation and parsing of the 
+		various data types are done through the TypeConverter classes 
+		associated with the data types.
+
+		Example:
+
+		... ado.net/XML headers & schema ...
+		<resheader name="resmimetype">text/microsoft-resx</resheader>
+		<resheader name="version">1.3</resheader>
+		<resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+		<resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+		<data name="Name1">this is my long string</data>
+		<data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+		<data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+			[base64 mime encoded serialized .NET Framework object]
+		</data>
+		<data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+			[base64 mime encoded string representing a byte array form of the .NET Framework object]
+		</data>
+
+		There are any number of "resheader" rows that contain simple 
+		name/value pairs.
+
+		Each data row contains a name, and value. The row also contains a 
+		type or mimetype. Type corresponds to a .NET class that support 
+		text/value conversion through the TypeConverter architecture. 
+		Classes that don't support this are serialized and stored with the 
+		mimetype set.
+
+		The mimetype is used for serialized objects, and tells the 
+		ResXResourceReader how to depersist the object. This is currently not 
+		extensible. For a given mimetype the value must be set accordingly:
+
+		Note - application/x-microsoft.net.object.binary.base64 is the format 
+		that the ResXResourceWriter will generate, however the reader can 
+		read any of the formats listed below.
+
+		mimetype: application/x-microsoft.net.object.binary.base64
+		value   : The object must be serialized with 
+			: System.Serialization.Formatters.Binary.BinaryFormatter
+			: and then encoded with base64 encoding.
+
+		mimetype: application/x-microsoft.net.object.soap.base64
+		value   : The object must be serialized with 
+			: System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+			: and then encoded with base64 encoding.
+
+		mimetype: application/x-microsoft.net.object.bytearray.base64
+		value   : The object must be serialized into a byte array 
+			: using a System.ComponentModel.TypeConverter
+			: and then encoded with base64 encoding.
+	-->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="File" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="Create" xml:space="preserve">
+    <value>Create</value>
+  </data>
+  <data name="CreateNew" xml:space="preserve">
+    <value>Create New</value>
+  </data>
+  <data name="CreateNewProject" xml:space="preserve">
+    <value>Create new project</value>
+  </data>
+  <data name="CreateNewScene" xml:space="preserve">
+    <value>Create new scene</value>
+  </data>
+  <data name="Project" xml:space="preserve">
+    <value>Project</value>
+  </data>
+  <data name="Scene" xml:space="preserve">
+    <value>Scene</value>
+  </data>
+  <data name="Open" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="CloseProject" xml:space="preserve">
+    <value>Close Project</value>
+  </data>
+  <data name="SaveOverWrite" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="SaveAll" xml:space="preserve">
+    <value>Save All</value>
+  </data>
+  <data name="SaveAs" xml:space="preserve">
+    <value>Save As</value>
+  </data>
+  <data name="Exit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="Undo" xml:space="preserve">
+    <value>Undo</value>
+  </data>
+  <data name="Redo" xml:space="preserve">
+    <value>Redo</value>
+  </data>
+  <data name="View" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="Object" xml:space="preserve">
+    <value>Object</value>
+  </data>
+  <data name="Help" xml:space="preserve">
+    <value>Help</value>
+  </data>
+  <data name="Extensions" xml:space="preserve">
+    <value>Extensions</value>
+  </data>
+  <data name="Output" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Properties" xml:space="preserve">
+    <value>Properties</value>
+  </data>
+  <data name="Easings" xml:space="preserve">
+    <value>Easings</value>
+  </data>
+  <data name="Explorer" xml:space="preserve">
+    <value>Explorer</value>
+  </data>
+  <data name="Timeline" xml:space="preserve">
+    <value>Timeline</value>
+  </data>
+  <data name="SceneFile" xml:space="preserve">
+    <value>Scene File</value>
+  </data>
+  <data name="Font" xml:space="preserve">
+    <value>Font</value>
+  </data>
+  <data name="Info" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="Links" xml:space="preserve">
+    <value>Links</value>
+  </data>
+  <data name="SourceCode" xml:space="preserve">
+    <value>Source code</value>
+  </data>
+  <data name="License" xml:space="preserve">
+    <value>License</value>
+  </data>
+  <data name="ThirdPartyLicenses" xml:space="preserve">
+    <value>Third Party Licenses</value>
+  </data>
+  <data name="Theme" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="Light" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="Dark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="HighContrast" xml:space="preserve">
+    <value>High Contrast</value>
+  </data>
+  <data name="FollowSystem" xml:space="preserve">
+    <value>Follow System</value>
+  </data>
+  <data name="Search" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="StartTime" xml:space="preserve">
+    <value>Start Time</value>
+  </data>
+  <data name="DurationTime" xml:space="preserve">
+    <value>Duration Time</value>
+  </data>
+  <data name="Cut" xml:space="preserve">
+    <value>Cut</value>
+  </data>
+  <data name="Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Paste" xml:space="preserve">
+    <value>Paste</value>
+  </data>
+  <data name="Split" xml:space="preserve">
+    <value>Split</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Exclude" xml:space="preserve">
+    <value>Exclude</value>
+  </data>
+  <data name="Back" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="Next" xml:space="preserve">
+    <value>Next</value>
+  </data>
+  <data name="Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="Layer" xml:space="preserve">
+    <value>Layer</value>
+  </data>
+  <data name="AddLayer" xml:space="preserve">
+    <value>Add Layer</value>
+  </data>
+  <data name="Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="Size" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="FrameRate" xml:space="preserve">
+    <value>Frame rate</value>
+  </data>
+  <data name="SampleRate" xml:space="preserve">
+    <value>Sample rate</value>
+  </data>
+  <data name="PickFont" xml:space="preserve">
+    <value>Pick Font</value>
+  </data>
+  <data name="Done" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="SceneSettings" xml:space="preserve">
+    <value>Scene settings</value>
+  </data>
+  <data name="Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="Width" xml:space="preserve">
+    <value>Width</value>
+  </data>
+  <data name="Height" xml:space="preserve">
+    <value>Height</value>
+  </data>
+  <data name="Reset" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="EditAnimation" xml:space="preserve">
+    <value>Edit Animation</value>
+  </data>
+  <data name="NewFolder" xml:space="preserve">
+    <value>New Folder</value>
+  </data>
+  <data name="Left" xml:space="preserve">
+    <value>Left</value>
+  </data>
+  <data name="Right" xml:space="preserve">
+    <value>Right</value>
+  </data>
+  <data name="Top" xml:space="preserve">
+    <value>Top</value>
+  </data>
+  <data name="Bottom" xml:space="preserve">
+    <value>Bottom</value>
+  </data>
+  <data name="Center" xml:space="preserve">
+    <value>Center</value>
+  </data>
+  <data name="FontFamily" xml:space="preserve">
+    <value>Font Family</value>
+  </data>
+  <data name="FontStyle" xml:space="preserve">
+    <value>Font Style</value>
+  </data>
+  <data name="FontWeight" xml:space="preserve">
+    <value>Font Weight</value>
+  </data>
+  <data name="CharactorSpacing" xml:space="preserve">
+    <value>Charactor Spacing</value>
+  </data>
+  <data name="Margin" xml:space="preserve">
+    <value>Margin</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Yes" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="MoveOneFront" xml:space="preserve">
+    <value>Move one front</value>
+  </data>
+  <data name="MoveOneBack" xml:space="preserve">
+    <value>Move one back</value>
+  </data>
+  <data name="DiscardChanges" xml:space="preserve">
+    <value>Discard changes</value>
+  </data>
+  <data name="Others" xml:space="preserve">
+    <value>Others</value>
+  </data>
+  <data name="Link" xml:space="preserve">
+    <value>Link</value>
+  </data>
+  <data name="ShowMore" xml:space="preserve">
+    <value>Show more</value>
+  </data>
+  <data name="TermsOfService" xml:space="preserve">
+    <value>Terms of service</value>
+  </data>
+  <data name="PrivacyPolicy" xml:space="preserve">
+    <value>Privacy Policy</value>
+  </data>
+  <data name="Internal" xml:space="preserve">
+    <value>Internal</value>
+  </data>
+  <data name="External" xml:space="preserve">
+    <value>External</value>
+  </data>
+  <data name="Public" xml:space="preserve">
+    <value>Public</value>
+  </data>
+  <data name="Private" xml:space="preserve">
+    <value>Private</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Unimplemented" xml:space="preserve">
+    <value>Unimplemented</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Account" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="Animation" xml:space="preserve">
+    <value>Animation</value>
+  </data>
+  <data name="Easing" xml:space="preserve">
+    <value>Easing</value>
+  </data>
+  <data name="KernelSize" xml:space="preserve">
+    <value>Kernel Size</value>
+  </data>
+  <data name="FixImageSize" xml:space="preserve">
+    <value>Fix Image Size</value>
+  </data>
+  <data name="Sigma" xml:space="preserve">
+    <value>Sigma</value>
+  </data>
+  <data name="Position" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="ShadowOnly" xml:space="preserve">
+    <value>Shadow Only</value>
+  </data>
+  <data name="Offset" xml:space="preserve">
+    <value>Offset</value>
+  </data>
+  <data name="Thickness" xml:space="preserve">
+    <value>Thickness</value>
+  </data>
+  <data name="MaskType" xml:space="preserve">
+    <value>Mask Type</value>
+  </data>
+  <data name="BorderStyle" xml:space="preserve">
+    <value>Border Style</value>
+  </data>
+  <data name="StrokeWidth" xml:space="preserve">
+    <value>Stroke Width</value>
+  </data>
+  <data name="CornerRadius" xml:space="preserve">
+    <value>Corner Radius</value>
+  </data>
+  <data name="Text" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="Transform" xml:space="preserve">
+    <value>Transform</value>
+  </data>
+  <data name="TransformOrigin" xml:space="preserve">
+    <value>Transform Origin</value>
+  </data>
+  <data name="ImageFilter" xml:space="preserve">
+    <value>Image Filter</value>
+  </data>
+  <data name="BitmapEffect" xml:space="preserve">
+    <value>Bitmap Effect</value>
+  </data>
+  <data name="AlignmentX" xml:space="preserve">
+    <value>Alignment X</value>
+  </data>
+  <data name="AlignmentY" xml:space="preserve">
+    <value>Alignment Y</value>
+  </data>
+  <data name="Foreground" xml:space="preserve">
+    <value>Foreground</value>
+  </data>
+  <data name="OpacityMask" xml:space="preserve">
+    <value>Opacity Mask</value>
+  </data>
+  <data name="BlendMode" xml:space="preserve">
+    <value>Blend Mode</value>
+  </data>
+  <data name="SourceFile" xml:space="preserve">
+    <value>Source File</value>
+  </data>
+  <data name="Opacity" xml:space="preserve">
+    <value>Opacity</value>
+  </data>
+  <data name="Angle" xml:space="preserve">
+    <value>Angle</value>
+  </data>
+  <data name="SpreadMethod" xml:space="preserve">
+    <value>Spread Method</value>
+  </data>
+  <data name="GradientStops" xml:space="preserve">
+    <value>Stops</value>
+  </data>
+  <data name="StartPoint" xml:space="preserve">
+    <value>Start Point</value>
+  </data>
+  <data name="EndPoint" xml:space="preserve">
+    <value>End Point</value>
+  </data>
+  <data name="GradientOrigin" xml:space="preserve">
+    <value>Gradient Origin</value>
+  </data>
+  <data name="Radius" xml:space="preserve">
+    <value>Radius</value>
+  </data>
+  <data name="DestinationRect" xml:space="preserve">
+    <value>Destination</value>
+  </data>
+  <data name="SourceRect" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Stretch" xml:space="preserve">
+    <value>Stretch</value>
+  </data>
+  <data name="TileMode" xml:space="preserve">
+    <value>Tile Mode</value>
+  </data>
+  <data name="BitmapInterpolationMode" xml:space="preserve">
+    <value>Bitmap Interpolation Mode</value>
+  </data>
+  <data name="StreamOperators" xml:space="preserve">
+    <value>Stream Operators</value>
+  </data>
+  <data name="Style" xml:space="preserve">
+    <value>Style</value>
+  </data>
+  <data name="CreateAsset_Title" xml:space="preserve">
+    <value>Upload file</value>
+  </data>
+  <data name="CreateAsset_Internal_Tip" xml:space="preserve">
+    <value>Upload the file to the b-editor server.</value>
+  </data>
+  <data name="CreateAsset_Internal_Example" xml:space="preserve">
+    <value>Example: Lightweight files such as images.</value>
+  </data>
+  <data name="CreateAsset_External_Tip" xml:space="preserve">
+    <value>The customer uploads the file to an external server
+and b-editor maintains the download URL.</value>
+  </data>
+  <data name="CreateAsset_External_Example" xml:space="preserve">
+    <value>Example: large files such as assets in a package release.</value>
+  </data>
+  <data name="CreateAsset_PleaseEnterAtLeastOneHashValue" xml:space="preserve">
+    <value>Please enter at least one hash value.</value>
+  </data>
+  <data name="CreateAsset_UploadingFiles" xml:space="preserve">
+    <value>Uploading files.</value>
+  </data>
+  <data name="CreateAsset_PerformingAnOperation" xml:space="preserve">
+    <value>Performing an operation.</value>
+  </data>
+  <data name="CreateAsset_Completed" xml:space="preserve">
+    <value>Completed.</value>
+  </data>
+  <data name="ContentType" xml:space="preserve">
+    <value>Content Type</value>
+  </data>
+  <data name="AddToCurrentProject" xml:space="preserve">
+    <value>Add to current project</value>
+  </data>
+  <data name="SelectAsset" xml:space="preserve">
+    <value>Select asset</value>
+  </data>
+  <data name="SelectImageAsset" xml:space="preserve">
+    <value>Select image asset</value>
+  </data>
+  <data name="Alignment" xml:space="preserve">
+    <value>Alignment</value>
+  </data>
+  <data name="RemoveUnavailableSetters" xml:space="preserve">
+    <value>Remove unavailable setters?</value>
+  </data>
+  <data name="AddSetter" xml:space="preserve">
+    <value>Add a setter</value>
+  </data>
+  <data name="ProjectFile" xml:space="preserve">
+    <value>Project File</value>
+  </data>
+  <data name="RecentFiles" xml:space="preserve">
+    <value>Recent Files</value>
+  </data>
+  <data name="RecentProjects" xml:space="preserve">
+    <value>Recent Projects</value>
+  </data>
+  <data name="Editors" xml:space="preserve">
+    <value>Editors</value>
+  </data>
+  <data name="Tools" xml:space="preserve">
+    <value>Tools</value>
+  </data>
+  <data name="Rename" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="Source" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Ellipse" xml:space="preserve">
+    <value>Ellipse</value>
+  </data>
+  <data name="Rectangle" xml:space="preserve">
+    <value>Rectangle</value>
+  </data>
+  <data name="RoundedRect" xml:space="preserve">
+    <value>Rounded rectangle</value>
+  </data>
+  <data name="ImageFile" xml:space="preserve">
+    <value>Image File</value>
+  </data>
+  <data name="Configure" xml:space="preserve">
+    <value>Configure</value>
+  </data>
+  <data name="Translate" xml:space="preserve">
+    <value>Translate</value>
+  </data>
+  <data name="Skew" xml:space="preserve">
+    <value>Skew</value>
+  </data>
+  <data name="Scale" xml:space="preserve">
+    <value>Scale</value>
+  </data>
+  <data name="Rotation" xml:space="preserve">
+    <value>Rotation</value>
+  </data>
+  <data name="Rotation3D" xml:space="preserve">
+    <value>Rotation 3D</value>
+  </data>
+  <data name="Blur" xml:space="preserve">
+    <value>Blur</value>
+  </data>
+  <data name="DropShadow" xml:space="preserve">
+    <value>Drop Shadow</value>
+  </data>
+  <data name="InnerShadow" xml:space="preserve">
+    <value>Inner Shadow</value>
+  </data>
+  <data name="Border" xml:space="preserve">
+    <value>Border</value>
+  </data>
+  <data name="TargetType" xml:space="preserve">
+    <value>Target Type</value>
+  </data>
+</root>

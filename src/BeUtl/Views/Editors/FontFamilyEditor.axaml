@@ -1,24 +1,27 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="Beutl.Views.Editors.FontFamilyEditor"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:local="using:Beutl.Views.Editors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             mc:Ignorable="d" d:DesignWidth="300"
-             x:Class="Beutl.Views.Editors.FontFamilyEditor">
+             xmlns:vm="using:Beutl.ViewModels.Editors"
+             d:DesignWidth="300"
+             x:CompileBindings="True"
+             x:DataType="vm:FontFamilyEditorViewModel"
+             mc:Ignorable="d">
     <Grid ColumnDefinitions="2*,3*,Auto">
-        <TextBlock
-            Margin="10,0,0,0"
-            Text="{Binding Header.Value}"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Center" />
+        <TextBlock Margin="10,0,0,0"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Center"
+                   Text="{Binding Header}" />
 
-        <DropDownButton Grid.Column="1"
-                        x:Name="button"
-                        IsEnabled="{Binding CanEdit.Value}"
+        <DropDownButton x:Name="button"
+                        Grid.Column="1"
+                        Margin="4"
                         HorizontalAlignment="Stretch"
                         Content="{Binding Value.Value.Name, Mode=OneWay}"
-                        Margin="4" />
+                        IsEnabled="{Binding CanEdit.Value}" />
 
         <local:EditorBadge Grid.Column="2" />
     </Grid>

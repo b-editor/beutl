@@ -10,9 +10,9 @@ using Avalonia.LogicalTree;
 using Avalonia.Styling;
 using Avalonia.Threading;
 
-using FluentAvalonia.UI.Controls;
+using Beutl.Language;
 
-using S = Beutl.Language.Resources.S;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Controls;
 
@@ -47,7 +47,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
 
         _open = new MenuItem
         {
-            [!HeaderedSelectingItemsControl.HeaderProperty] = S.Common.OpenObservable.ToBinding(),
+            Header = Strings.Open,
             Icon = new SymbolIcon
             {
                 Symbol = Symbol.Open,
@@ -56,7 +56,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         };
         _copy = new MenuItem
         {
-            [!HeaderedSelectingItemsControl.HeaderProperty] = S.Common.CopyObservable.ToBinding(),
+            Header = Strings.Copy,
             Icon = new SymbolIcon
             {
                 Symbol = Symbol.Copy,
@@ -65,7 +65,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         };
         _remove = new MenuItem
         {
-            [!HeaderedSelectingItemsControl.HeaderProperty] = S.Common.RemoveObservable.ToBinding(),
+            Header = Strings.Remove,
             Icon = new SymbolIcon
             {
                 Symbol = Symbol.Delete,
@@ -74,7 +74,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         };
         _rename = new MenuItem
         {
-            [!HeaderedSelectingItemsControl.HeaderProperty] = S.Common.RenameObservable.ToBinding(),
+            Header = Strings.Rename,
             Icon = new SymbolIcon
             {
                 Symbol = Symbol.Rename,
@@ -83,7 +83,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         };
         _addfolder = new MenuItem
         {
-            [!HeaderedSelectingItemsControl.HeaderProperty] = S.Common.NewFolderObservable.ToBinding(),
+            Header = Strings.NewFolder,
             Icon = new SymbolIcon
             {
                 Symbol = Symbol.Folder,
@@ -102,7 +102,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
             _open,
             new MenuItem
             {
-                [!HeaderedSelectingItemsControl.HeaderProperty] = S.Common.CreateNewObservable.ToBinding(),
+                Header = Strings.CreateNew,
                 Items = new object[]
                 {
                     _addfolder,
@@ -223,9 +223,9 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         {
             var dialog = new ContentDialog
             {
-                Content = S.Message.DoYouWantToDeleteThisDirectory,
-                PrimaryButtonText = S.Common.OK,
-                CloseButtonText = S.Common.Cancel,
+                Content = Message.DoYouWantToDeleteThisDirectory,
+                PrimaryButtonText = Strings.OK,
+                CloseButtonText = Strings.Cancel,
                 DefaultButton = ContentDialogButton.Primary,
                 IsSecondaryButtonEnabled = false,
             };
@@ -239,9 +239,9 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         {
             var dialog = new ContentDialog
             {
-                Content = S.Message.DoYouWantToDeleteThisFile,
-                PrimaryButtonText = S.Common.OK,
-                CloseButtonText = S.Common.Cancel,
+                Content = Message.DoYouWantToDeleteThisFile,
+                PrimaryButtonText = Strings.OK,
+                CloseButtonText = Strings.Cancel,
                 DefaultButton = ContentDialogButton.Primary,
                 IsSecondaryButtonEnabled = false,
             };
@@ -278,7 +278,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         }
 
         int count = 0;
-        string str = S.Common.NewFolder;
+        string str = Strings.NewFolder;
         string defaultName = str;
 
         while (Directory.Exists(Path.Combine(baseDir, defaultName)))
@@ -545,11 +545,11 @@ public sealed class FileTreeItem : TreeViewItem, IStyleable
             string @new = Path.Combine(Info.DirectoryName, tb.Text);
             if (File.Exists(@new))
             {
-                string content = S.Warning.CannotRenameBecauseConflicts;
+                string content = Message.CannotRenameBecauseConflicts;
                 content = string.Format(content, Info.Name, tb.Text);
                 var dialog = new ContentDialog()
                 {
-                    CloseButtonText = S.Common.Close,
+                    CloseButtonText = Strings.Close,
                     Content = content,
                     DefaultButton = ContentDialogButton.None,
                     IsPrimaryButtonEnabled = false,
@@ -771,11 +771,11 @@ public sealed class DirectoryTreeItem : TreeViewItem, IStyleable
             string @new = Path.Combine(Info.Parent.FullName, tb.Text);
             if (Directory.Exists(@new))
             {
-                string content = S.Warning.CannotRenameBecauseConflicts;
+                string content = Message.CannotRenameBecauseConflicts;
                 content = string.Format(content, Info.Name, tb.Text);
                 var dialog = new ContentDialog()
                 {
-                    CloseButtonText = S.Common.Close,
+                    CloseButtonText = Strings.Close,
                     Content = content,
                     DefaultButton = ContentDialogButton.None,
                     IsPrimaryButtonEnabled = false,

@@ -1,32 +1,35 @@
-<ui:ContentDialog xmlns="https://github.com/avaloniaui"
+<ui:ContentDialog x:Class="Beutl.Views.Dialogs.PickFontFamily"
+                  xmlns="https://github.com/avaloniaui"
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:lang="using:Beutl.Language"
                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
                   xmlns:vm="using:Beutl.ViewModels.Dialogs"
-                  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-                  Title="{DynamicResource S.Common.PickFont}"
-                  CloseButtonText="{DynamicResource S.Common.Close}"
-                  PrimaryButtonText="{DynamicResource S.Common.OK}"
-                  DefaultButton="Primary"
+                  Title="{x:Static lang:Strings.PickFont}"
+                  d:DesignHeight="450"
+                  d:DesignWidth="800"
                   x:DataType="vm:PickFontFamilyViewModel"
-                  x:Class="Beutl.Views.Dialogs.PickFontFamily">
+                  CloseButtonText="{x:Static lang:Strings.Close}"
+                  DefaultButton="Primary"
+                  PrimaryButtonText="{x:Static lang:Strings.OK}"
+                  mc:Ignorable="d">
     <Grid RowDefinitions="Auto,*">
         <TextBox x:Name="searchBox"
                  Margin="0,4"
-                 Watermark="{DynamicResource S.Common.Search}"
-                 Classes="clearButton" />
+                 Classes="clearButton"
+                 Watermark="{x:Static lang:Strings.Search}" />
 
-        <ListBox SelectedItem="{CompiledBinding SelectedItem.Value}"
-                 MaxHeight="250"
+        <ListBox x:Name="list"
                  Grid.Row="1"
-                 x:Name="list"
+                 MaxHeight="250"
+                 SelectedItem="{CompiledBinding SelectedItem.Value}"
                  SelectionMode="Single">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <TextBlock FontFamily="{Binding Converter={StaticResource ToAvaloniaFontFamily}}"
-                               ToolTip.Tip="{Binding Name}"
-                               Text="{Binding Name}" />
+                               Text="{Binding Name}"
+                               ToolTip.Tip="{Binding Name}" />
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>

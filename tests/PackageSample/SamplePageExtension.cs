@@ -20,7 +20,7 @@ public sealed class SamplePageExtension : PageExtension
 
     public override Geometry RegularIcon => FluentIconsRegular.Mail.GetGeometry();
 
-    public override IObservable<string> Header => Observable.Return("Mail");
+    public override string Header => "Mail";
 
     // 本来はControlを返す。
     // nullを返すとErrorUIが表示される

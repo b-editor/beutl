@@ -15,7 +15,7 @@ public sealed class AddReleaseDialogViewModel
         _user = user;
         _package = package;
 
-        Version.SetValidateNotifyError(str => System.Version.TryParse(str, out _) ? null : S.Message.InvalidString);
+        Version.SetValidateNotifyError(str => System.Version.TryParse(str, out _) ? null : Message.InvalidString);
 
         IsValid = Version.ObserveHasErrors
             .Not()

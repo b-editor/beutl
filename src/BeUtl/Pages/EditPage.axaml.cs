@@ -77,13 +77,13 @@ public sealed partial class EditPage : UserControl
                                     {
                                         Text = obj != null ? @$"
 Error:
-    {string.Format(S.Message.CouldNotOpenFollowingFileWithExtension, obj.Extension.DisplayName, Path.GetFileName(obj.EdittingFile))}
+    {string.Format(Message.CouldNotOpenFollowingFileWithExtension, obj.Extension.DisplayName, Path.GetFileName(obj.EdittingFile))}
 
 Message:
-    {S.Message.EditorContextHasAlreadyBeenCreated}
+    {Message.EditorContextHasAlreadyBeenCreated}
                 " : @$"
 Error:
-    {S.Message.NullWasSpecifiedForEditorContext}
+    {Message.NullWasSpecifiedForEditorContext}
                 "
                                     };
                                 }

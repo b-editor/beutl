@@ -89,9 +89,7 @@ public sealed class TimelineViewModel : IToolContext
             })
             .AddTo(_disposables);
 
-        Header = S.Common.TimelineObservable
-            .ToReadOnlyReactivePropertySlim(S.Common.Timeline)
-            .AddTo(_disposables);
+        Header = new ReactivePropertySlim<string>(Strings.Timeline);
     }
 
     public Scene Scene { get; }

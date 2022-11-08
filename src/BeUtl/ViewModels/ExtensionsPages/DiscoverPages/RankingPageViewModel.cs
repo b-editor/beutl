@@ -25,10 +25,10 @@ public sealed class RankingPageViewModel : BasePageViewModel
     {
         Rankings = new RankingModel[]
         {
-            new RankingModel("総合", RankingType.Overall),
-            new RankingModel("日次", RankingType.Daily),
-            new RankingModel("週別", RankingType.Weekly),
-            new RankingModel("最近", RankingType.Recently),
+            new RankingModel(ExtensionsPage.Overall, RankingType.Overall),
+            new RankingModel(ExtensionsPage.Daily, RankingType.Daily),
+            new RankingModel(ExtensionsPage.Weekly, RankingType.Weekly),
+            new RankingModel(ExtensionsPage.Recently, RankingType.Recently),
         };
         SelectedRanking = new ReactivePropertySlim<RankingModel>(Rankings.First(x => x.Type == rankingType));
         _discover = discover;

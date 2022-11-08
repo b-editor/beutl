@@ -16,9 +16,9 @@ public sealed class ExtensionsPageExtension : PageExtension
 
     public override Geometry RegularIcon => FluentIconsRegular.Puzzle_piece.GetGeometry();
 
-    public override IObservable<string> Header => S.MainView.ExtensionsObservable;
+    public override string Header => Strings.Extensions;
 
-    public override Type Control => typeof(ExtensionsPage);
+    public override Type Control => typeof(Pages.ExtensionsPage);
 
     public override Type Context => typeof(ExtensionsPageViewModel);
 

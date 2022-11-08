@@ -1,8 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.ReactiveUI;
 
-using Beutl.Api.Services;
-
 using FluentAvalonia.UI.Windowing;
 
 namespace Beutl;

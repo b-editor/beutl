@@ -19,7 +19,7 @@ public sealed class AnimationTabViewModel : IToolContext
 
     public AnimationTabViewModel()
     {
-        Header = S.Common.AnimationObservable.ToReadOnlyReactivePropertySlim()!;
+        Header = new ReactivePropertySlim<string>(Strings.Animation);
 
         _disposable0 = Animation.Subscribe(animation =>
         {

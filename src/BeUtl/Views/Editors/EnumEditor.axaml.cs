@@ -44,12 +44,13 @@ public sealed class EnumEditor<T> : EnumEditor
         {
             if (value is Enum e)
             {
+                // Todo: Enumのローカライズ
                 DescriptionAttribute? name = GetAttrubute<DescriptionAttribute>(e);
                 if (name != null)
                 {
                     return new TextBlock
                     {
-                        [!TextBlock.TextProperty] = new DynamicResourceExtension(name.Description)
+                        Text = name.Description
                     };
                 }
                 else

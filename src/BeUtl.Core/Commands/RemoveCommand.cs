@@ -11,8 +11,6 @@ internal sealed class RemoveCommand : IRecordableCommand
         Index = list.IndexOf(Item);
     }
 
-    public ResourceReference<string> Name => "S.Common.Remove";
-
     public IList List { get; }
 
     public object? Item { get; }

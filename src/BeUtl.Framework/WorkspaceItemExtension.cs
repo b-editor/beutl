@@ -13,7 +13,7 @@ public abstract class WorkspaceItemExtension : Extension
 
     public abstract string[] FileExtensions { get; }
 
-    public abstract IObservable<string> FileTypeName { get; }
+    public abstract string FileTypeName { get; }
 
     public abstract bool TryCreateItem(
         string file,
