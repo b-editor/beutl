@@ -1,0 +1,145 @@
+<UserControl x:Class="Beutl.Pages.ExtensionsPages.DevelopPages.ReleasePage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrls="using:Beutl.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModels="using:Beutl.ViewModels.ExtensionsPages.DevelopPages"
+             d:DesignHeight="600"
+             d:DesignWidth="800"
+             x:DataType="viewModels:ReleasePageViewModel"
+             Focusable="True"
+             IsEnabled="{CompiledBinding !IsBusy.Value}"
+             mc:Ignorable="d">
+
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="Ctrl+R" />
+    </UserControl.KeyBindings>
+
+    <UserControl.Styles>
+        <Style Selector="TextBox.customStyle">
+            <Setter Property="MinWidth" Value="250" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style Selector="TextBlock.description">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <StackPanel Margin="10,8"
+                    Orientation="Horizontal"
+                    Spacing="16">
+            <Button Classes="breadcrumb"
+                    Click="NavigatePackageDetailsPage_Click"
+                    Content="{CompiledBinding Release.Package.Name}" />
+
+            <Label Classes="breadcrumb" />
+
+            <Button Classes="breadcrumb"
+                    Click="NavigatePackageReleasesPage_Click"
+                    Content="{x:Static lang:ExtensionsPage.Package_Releases_Tip}" />
+
+            <Label Classes="breadcrumb" />
+
+            <TextBlock Classes="breadcrumb" Text="{CompiledBinding Release.Version.Value}" />
+        </StackPanel>
+
+
+        <ScrollViewer Grid.Row="1" Margin="10,0">
+            <StackPanel Spacing="4">
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:ExtensionsPage.Release_Title_Tip}"
+                                          Expands="True"
+                                          Header="{x:Static lang:ExtensionsPage.Release_Title}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBlock Classes="description" Text="{CompiledBinding Release.Title.Value}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
+                        <TextBox Classes="customStyle" Text="{CompiledBinding Title.Value}" />
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:ExtensionsPage.Release_Body_Tip}"
+                                          Expands="True"
+                                          Header="{x:Static lang:ExtensionsPage.Release_Body}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBlock MaxWidth="150"
+                                   Classes="description"
+                                   Text="{CompiledBinding Release.Body.Value}"
+                                   TextTrimming="CharacterEllipsis" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
+                        <TextBox AcceptsReturn="True"
+                                 Classes="customStyle"
+                                 Text="{CompiledBinding Body.Value}" />
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:ExtensionsPage.Release_Asset_Tip}" Header="{x:Static lang:ExtensionsPage.Release_Asset}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock VerticalAlignment="Center"
+                                       Classes="description"
+                                       Text="{CompiledBinding ActualAsset.Value.Name}" />
+                            <Button Classes="accent"
+                                    Click="SelectAsset_Click"
+                                    Content="{x:Static lang:Strings.Open}" />
+                        </StackPanel>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <TextBlock Margin="0,16,0,0"
+                           Text="{x:Static lang:Strings.Settings}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:Strings.Delete}"
+                                          Icon="Delete"
+                                          Navigates="True"
+                                          NavigationRequested="DeleteRelease_Click" />
+
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:ExtensionsPage.MakePublicRelease_Title}"
+                                          IsEnabled="{CompiledBinding CanPublish.Value}"
+                                          IsVisible="{CompiledBinding !Release.IsPublic.Value}"
+                                          Navigates="True"
+                                          NavigationRequested="MakePublic_Click">
+                    <ctrls:OptionsDisplayItem.Icon>
+                        <icons:SymbolIcon Symbol="Eye" />
+                    </ctrls:OptionsDisplayItem.Icon>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:ExtensionsPage.MakePrivateRelease_Title}"
+                                          IsVisible="{CompiledBinding Release.IsPublic.Value}"
+                                          Navigates="True"
+                                          NavigationRequested="MakePrivate_Click">
+                    <ctrls:OptionsDisplayItem.Icon>
+                        <icons:SymbolIcon Symbol="EyeOff" />
+                    </ctrls:OptionsDisplayItem.Icon>
+                </ctrls:OptionsDisplayItem>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2"
+                Padding="32,24"
+                BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                BorderThickness="0,1,0,0">
+            <StackPanel HorizontalAlignment="Right"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                <Button Command="{CompiledBinding DiscardChanges}"
+                        Content="{x:Static lang:Strings.DiscardChanges}"
+                        IsEnabled="{CompiledBinding IsChanging.Value}" />
+
+                <Button Classes="accent"
+                        Command="{CompiledBinding Save}"
+                        Content="{x:Static lang:Strings.Save}"
+                        IsEnabled="{CompiledBinding IsChanging.Value}" />
+            </StackPanel>
+        </Border>
+
+    </Grid>
+</UserControl>

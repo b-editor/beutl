@@ -1,0 +1,19 @@
+<wnd:AppWindow x:Class="Beutl.Views.MainWindow"
+               xmlns="https://github.com/avaloniaui"
+               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+               xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+               xmlns:local="using:Beutl.Views"
+               xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+               xmlns:ui="using:FluentAvalonia.UI.Controls"
+               xmlns:wnd="using:FluentAvalonia.UI.Windowing"
+               Title=""
+               Width="1400"
+               Height="800"
+               d:DesignHeight="720"
+               d:DesignWidth="1280"
+               Icon="/Assets/logo.png"
+               WindowStartupLocation="CenterScreen"
+               mc:Ignorable="d">
+
+    <local:MainView x:Name="mainView" />
+</wnd:AppWindow>

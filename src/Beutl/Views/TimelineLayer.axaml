@@ -1,0 +1,78 @@
+<UserControl x:Class="Beutl.Views.TimelineLayer"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.ViewModels"
+             x:Name="root"
+             Height="{DynamicResource LayerHeight}"
+             Margin="{CompiledBinding Margin.Value}"
+             Padding="0,1"
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Top"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="vm:TimelineLayerViewModel"
+             ClipToBounds="True"
+             Focusable="True"
+             IsEnabled="{Binding Model.IsEnabled}"
+             mc:Ignorable="d">
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{CompiledBinding Cut}" Gesture="{DynamicResource CutKeyGesture}" />
+        <KeyBinding Command="{CompiledBinding Copy}" Gesture="{DynamicResource CopyKeyGesture}" />
+        <KeyBinding Command="{CompiledBinding Delete}" Gesture="{DynamicResource LayerDeleteKeyGesture}" />
+        <KeyBinding Command="{CompiledBinding Exclude}" Gesture="{DynamicResource DeleteKeyGesture}" />
+    </UserControl.KeyBindings>
+    <Border x:Name="border"
+            Width="{CompiledBinding Width.Value}"
+            Margin="{CompiledBinding BorderMargin.Value}"
+            HorizontalAlignment="Left"
+            Background="{CompiledBinding Color.Value, Converter={StaticResource ColorToBrushConverter}}"
+            BorderBrush="{DynamicResource TextControlForeground}"
+            PointerMoved="Border_PointerMoved"
+            PointerPressed="Border_PointerPressed"
+            PointerReleased="Border_PointerReleased">
+        <Border.ContextMenu>
+            <ContextMenu>
+                <MenuItem Command="{CompiledBinding Split}"
+                          CommandParameter="{Binding #root.GetClickedTime, Mode=OneTime}"
+                          Header="{x:Static lang:Strings.Split}">
+                    <MenuItem.Icon>
+                        <icons:SymbolIcon Symbol="SplitVertical" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Command="{CompiledBinding Cut}"
+                          Header="{x:Static lang:Strings.Cut}"
+                          InputGesture="{DynamicResource CutKeyGesture}">
+                    <MenuItem.Icon>
+                        <icons:SymbolIcon Symbol="Cut" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Command="{CompiledBinding Copy}"
+                          Header="{x:Static lang:Strings.Copy}"
+                          InputGesture="{DynamicResource CopyKeyGesture}">
+                    <MenuItem.Icon>
+                        <icons:SymbolIcon Symbol="Copy" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Command="{CompiledBinding Delete}"
+                          Header="{x:Static lang:Strings.Delete}"
+                          InputGesture="{DynamicResource LayerDeleteKeyGesture}">
+                    <MenuItem.Icon>
+                        <icons:SymbolIcon Symbol="DeleteDismiss" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Command="{CompiledBinding Exclude}"
+                          Header="{x:Static lang:Strings.Exclude}"
+                          InputGesture="{DynamicResource DeleteKeyGesture}">
+                    <MenuItem.Icon>
+                        <icons:SymbolIcon Symbol="Delete" />
+                    </MenuItem.Icon>
+                </MenuItem>
+            </ContextMenu>
+        </Border.ContextMenu>
+    </Border>
+
+</UserControl>

@@ -1,0 +1,104 @@
+<UserControl x:Class="Beutl.Pages.SettingsPages.StorageDetailPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.ViewModels.SettingsPages"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="vm:StorageDetailPageViewModel"
+             Focusable="True"
+             IsEnabled="{CompiledBinding !IsBusy.Value}"
+             mc:Ignorable="d">
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="Ctrl+R" />
+    </UserControl.KeyBindings>
+    <Grid Margin="18" RowDefinitions="Auto,Auto,Auto">
+        <StackPanel Margin="10,8"
+                    Orientation="Horizontal"
+                    Spacing="16">
+            <Button Classes="breadcrumb"
+                    Command="{CompiledBinding NavigateParent}"
+                    Content="{x:Static lang:SettingsPage.Storage}" />
+
+            <Label Classes="breadcrumb" />
+
+            <TextBlock Classes="breadcrumb" Text="{CompiledBinding Type}" />
+        </StackPanel>
+
+        <ui:CommandBar Grid.Row="1" DefaultLabelPosition="Right">
+            <ui:CommandBar.PrimaryCommands>
+                <ui:CommandBarButton Click="UploadClick"
+                                     Icon="Add"
+                                     Label="{x:Static lang:Strings.Add}" />
+            </ui:CommandBar.PrimaryCommands>
+        </ui:CommandBar>
+
+        <ListBox Grid.Row="2" Items="{CompiledBinding Items}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                        <StackPanel VerticalAlignment="Center" Spacing="2">
+                            <TextBlock Text="{CompiledBinding Model.Name}" />
+                            <WrapPanel Orientation="Horizontal">
+                                <WrapPanel.Styles>
+                                    <Style Selector="TextBlock">
+                                        <Setter Property="Theme" Value="{StaticResource LabelTextBlockStyle}" />
+                                        <Setter Property="FontSize" Value="12" />
+                                    </Style>
+                                </WrapPanel.Styles>
+                                <TextBlock IsVisible="{CompiledBinding Physical}" Text="{x:Static lang:Strings.Internal}" />
+                                <TextBlock IsVisible="{CompiledBinding Virtual}" Text="{x:Static lang:Strings.External}" />
+                                <TextBlock Text=" | " />
+                                <TextBlock Text="{CompiledBinding ShortUrl}" />
+                                <TextBlock Text=" | " />
+                                <TextBlock Text="{CompiledBinding Model.ContentType}" />
+                                <TextBlock Text=" | " />
+                                <TextBlock Text="{CompiledBinding UsedCapacity}" />
+                                <TextBlock Text=" | " />
+                                <TextBlock IsVisible="{CompiledBinding Model.IsPublic.Value}" Text="{x:Static lang:Strings.Public}" />
+                                <TextBlock IsVisible="{CompiledBinding !Model.IsPublic.Value}" Text="{x:Static lang:Strings.Private}" />
+
+                            </WrapPanel>
+                        </StackPanel>
+
+                        <ui:CommandBarButton Grid.Column="1"
+                                             Click="ChangeVisibility_Click"
+                                             IsVisible="{CompiledBinding Model.IsPublic.Value}"
+                                             Label="{x:Static lang:SettingsPage.MakePrivate}">
+                            <ui:CommandBarButton.Icon>
+                                <icons:SymbolIcon Symbol="EyeOff" />
+                            </ui:CommandBarButton.Icon>
+                        </ui:CommandBarButton>
+
+                        <ui:CommandBarButton Grid.Column="1"
+                                             Click="ChangeVisibility_Click"
+                                             IsVisible="{CompiledBinding !Model.IsPublic.Value}"
+                                             Label="{x:Static lang:SettingsPage.MakePublic}">
+                            <ui:CommandBarButton.Icon>
+                                <icons:SymbolIcon Symbol="Eye" />
+                            </ui:CommandBarButton.Icon>
+                        </ui:CommandBarButton>
+
+                        <ui:CommandBarButton Grid.Column="2"
+                                             Click="CopyDownloadUrl_Click"
+                                             Label="{x:Static lang:Strings.Copy}">
+                            <ui:CommandBarButton.Icon>
+                                <icons:SymbolIcon Symbol="ClipboardLink" />
+                            </ui:CommandBarButton.Icon>
+                        </ui:CommandBarButton>
+
+                        <ui:CommandBarButton Grid.Column="3"
+                                             Click="Delete_Click"
+                                             Icon="Delete"
+                                             Label="{x:Static lang:Strings.Delete}" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</UserControl>

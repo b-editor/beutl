@@ -1,0 +1,77 @@
+<UserControl x:Class="Beutl.Views.AnimationEditors.AnimationEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Views.AnimationEditors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             Width="{Binding Width.Value, Mode=TwoWay}"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             mc:Ignorable="d">
+    <Border HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+            BorderThickness="1">
+        <Grid RowDefinitions="32,*">
+            <Grid.Styles>
+                <Style Selector="Border.droparea">
+                    <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                </Style>
+            </Grid.Styles>
+            <Grid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Command="{Binding RemoveCommand}" Header="{x:Static lang:Strings.Remove}">
+                        <MenuItem.Icon>
+                            <icons:SymbolIcon Symbol="Delete" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Click="Edit_Click" Header="{x:Static lang:Strings.Edit}">
+                        <MenuItem.Icon>
+                            <icons:SymbolIcon Symbol="Open" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </ContextMenu>
+            </Grid.ContextMenu>
+            <Panel Background="{DynamicResource ControlFillColorDefaultBrush}">
+                <Border x:Name="dragBorder"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Cursor="SizeWestEast">
+                    <icons:SymbolIcon Symbol="ReOrderDotsHorizontal" />
+                </Border>
+
+                <Border x:Name="resizeBorder"
+                        Width="8"
+                        HorizontalAlignment="Right"
+                        Background="{DynamicResource ControlFillColorDefaultBrush}"
+                        BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                        BorderThickness="{DynamicResource ControlElevationBorderThickness}"
+                        CornerRadius="4,0,0,4"
+                        Cursor="SizeWestEast" />
+            </Panel>
+
+            <Border x:Name="backgroundBorder"
+                    Grid.Row="1"
+                    Grid.ColumnSpan="3"
+                    Background="Transparent"
+                    DragDrop.AllowDrop="True">
+                <Panel>
+                    <local:EasingGraph Easing="{Binding Model.Easing, Mode=OneWay}" />
+
+                    <Border x:Name="leftBorder"
+                            Width="32"
+                            HorizontalAlignment="Left"
+                            DragDrop.AllowDrop="True" />
+
+                    <Border x:Name="rightBorder"
+                            Width="32"
+                            HorizontalAlignment="Right"
+                            DragDrop.AllowDrop="True" />
+                </Panel>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

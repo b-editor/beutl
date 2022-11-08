@@ -1,0 +1,36 @@
+<ui:ContentDialog x:Class="Beutl.Pages.ExtensionsPages.DevelopPages.Dialogs.UpdatePackageDialog"
+                  xmlns="https://github.com/avaloniaui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:lang="using:Beutl.Language"
+                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:ui="using:FluentAvalonia.UI.Controls"
+                  xmlns:viewModels="using:Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs"
+                  Title="{x:Static lang:ExtensionsPage.UpdatePackage_Title}"
+                  d:DesignHeight="450"
+                  d:DesignWidth="800"
+                  x:CompileBindings="True"
+                  x:DataType="viewModels:UpdatePackageDialogViewModel"
+                  CloseButtonText="{x:Static lang:Strings.Cancel}"
+                  DefaultButton="Primary"
+                  IsEnabled="{Binding !IsFileLoading.Value}"
+                  IsPrimaryButtonEnabled="{Binding IsValid.Value}"
+                  PrimaryButtonText="{x:Static lang:Strings.Apply}"
+                  mc:Ignorable="d">
+    <ui:ContentDialog.Resources>
+        <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />
+    </ui:ContentDialog.Resources>
+    <StackPanel Spacing="4">
+        <FileInputArea x:Name="fileInput"
+                       Margin="0,8,0,0"
+                       SelectedFile="{Binding SelectedFile.Value}"
+                       Text="{x:Static lang:ExtensionsPage.To_open_a_file_drop_the_file_here_or_click_here}">
+            <ProgressBar IsIndeterminate="{Binding IsFileLoading.Value}" IsVisible="{Binding IsFileLoading.Value}" />
+        </FileInputArea>
+
+        <TextBlock Classes="error"
+                   IsVisible="{Binding Error.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                   Text="{Binding Error.Value}"
+                   TextWrapping="WrapWithOverflow" />
+    </StackPanel>
+</ui:ContentDialog>

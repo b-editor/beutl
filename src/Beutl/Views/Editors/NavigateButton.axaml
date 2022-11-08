@@ -1,0 +1,71 @@
+<UserControl x:Class="Beutl.Views.Editors.NavigateButton"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Views.Editors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.ViewModels.Editors"
+             d:DesignWidth="300"
+             x:CompileBindings="True"
+             x:DataType="vm:INavigationButtonViewModel"
+             mc:Ignorable="d">
+    <Grid ColumnDefinitions="2*,3*,24">
+        <TextBlock Margin="10,0,0,0"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Center"
+                   Text="{Binding Header}" />
+
+        <Button Grid.Column="1"
+                Margin="4"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Left"
+                Click="Navigate_Click"
+                IsEnabled="{Binding CanEdit.Value}"
+                IsVisible="{Binding IsSet.Value}">
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <icons:SymbolIcon Symbol="Open" />
+                <TextBlock Text="{x:Static lang:Strings.Edit}" />
+            </StackPanel>
+        </Button>
+
+        <Button Grid.Column="1"
+                Margin="4"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Left"
+                Click="New_Click"
+                IsEnabled="{Binding CanEdit.Value}"
+                IsVisible="{Binding IsNotSetAndCanWrite.Value}">
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <icons:SymbolIcon Symbol="New" />
+                <TextBlock Text="{x:Static lang:Strings.CreateNew}" />
+            </StackPanel>
+        </Button>
+
+        <Button Grid.Column="2"
+                Width="24"
+                Height="24"
+                Padding="0"
+                HorizontalAlignment="Center"
+                Background="Transparent"
+                BorderThickness="0"
+                Click="Menu_Click">
+            <Button.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Click="Navigate_Click"
+                              Header="{x:Static lang:Strings.Edit}"
+                              IsEnabled="{Binding IsSet.Value}" />
+                    <MenuItem Click="New_Click"
+                              Header="{x:Static lang:Strings.CreateNew}"
+                              IsEnabled="{Binding CanWrite}" />
+                    <MenuItem Click="Delete_Click"
+                              Header="{x:Static lang:Strings.Delete}"
+                              IsEnabled="{Binding CanDelete}" />
+                </ContextMenu>
+            </Button.ContextMenu>
+            <icons:SymbolIcon Symbol="MoreVertical" />
+        </Button>
+    </Grid>
+</UserControl>

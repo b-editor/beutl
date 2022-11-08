@@ -1,0 +1,209 @@
+<UserControl x:Class="Beutl.Pages.ExtensionsPages.DiscoverPages.UserProfilePage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:asyncImageLoader="using:AsyncImageLoader"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:panelx="using:PanelExtension"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.ViewModels.ExtensionsPages.DiscoverPages"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="viewModel:UserProfilePageViewModel"
+             Focusable="True"
+             IsEnabled="{Binding !IsBusy.Value}"
+             mc:Ignorable="d">
+
+    <UserControl.Styles>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{Binding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{Binding Refresh}" Gesture="Ctrl+R" />
+    </UserControl.KeyBindings>
+
+    <Grid ColumnDefinitions="380,*" RowDefinitions="*,Auto">
+        <ScrollViewer Margin="10,12,0,8">
+            <Border Padding="12" Classes="card">
+                <Grid ColumnDefinitions="Auto,16,*" RowDefinitions="Auto,Auto,*">
+                    <Image Width="80"
+                           Height="80"
+                           asyncImageLoader:ImageLoader.Source="{Binding Profile.AvatarUrl.Value}">
+                        <Image.Clip>
+                            <EllipseGeometry Center="40,40"
+                                             RadiusX="40"
+                                             RadiusY="40" />
+                        </Image.Clip>
+                    </Image>
+
+                    <StackPanel Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Spacing="8">
+                        <TextBlock Classes="name"
+                                   IsVisible="{Binding Profile.DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   Text="{Binding Profile.DisplayName.Value}" />
+                        <TextBlock Classes="name"
+                                   IsVisible="{Binding Profile.DisplayName.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}"
+                                   Text="{Binding Profile.Name}" />
+
+                        <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Profile.Name}" />
+                    </StackPanel>
+
+                    <!--
+                        Not working
+                        Button.Click="OpenSocial_Click"
+                        
+                        Avalonia 11.0.0-preview2
+                    -->
+                    <StackPanel Grid.Row="1"
+                                Grid.ColumnSpan="3"
+                                Margin="0,16,0,0"
+                                HorizontalAlignment="Center"
+                                Orientation="Horizontal"
+                                Spacing="8">
+                        <StackPanel.Styles>
+                            <Style Selector="Button">
+                                <Setter Property="Padding" Value="8" />
+                                <Setter Property="CornerRadius" Value="32" />
+                                <Setter Property="Width" Value="40" />
+                                <Setter Property="Height" Value="40" />
+                            </Style>
+                            <Style Selector="Image">
+                                <Setter Property="Stretch" Value="Uniform" />
+                            </Style>
+                        </StackPanel.Styles>
+                        <Button Click="OpenSocial_Click"
+                                IsVisible="{Binding GitHubUrl.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                Tag="GitHub"
+                                ToolTip.Tip="{Binding GitHubUrl.Value}">
+                            <Panel>
+                                <Image x:Name="githubLightLogo"
+                                       IsVisible="False"
+                                       Source="/Assets/social/GitHub-Mark-120px-plus.png" />
+                                <Image x:Name="githubDarkLogo"
+                                       IsVisible="False"
+                                       Source="/Assets/social/GitHub-Mark-Light-120px-plus.png" />
+                            </Panel>
+                        </Button>
+                        <Button Click="OpenSocial_Click"
+                                IsVisible="{Binding TwitterUrl.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                Tag="Twitter"
+                                ToolTip.Tip="{Binding TwitterUrl.Value}">
+                            <Image Source="/Assets/social/TwitterSocialIconsCircleBlue.png" />
+                        </Button>
+                        <Button Click="OpenSocial_Click"
+                                IsVisible="{Binding YouTubeUrl.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                Tag="YouTube"
+                                ToolTip.Tip="{Binding YouTubeUrl.Value}">
+                            <Image Source="/Assets/social/youtube_social_icon_red.png" />
+                        </Button>
+                        <Button Click="OpenSocial_Click"
+                                IsVisible="{Binding BlogUrl.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                Tag="Blog"
+                                ToolTip.Tip="{Binding BlogUrl.Value}">
+                            <icons:SymbolIcon Width="24"
+                                              Height="24"
+                                              FontSize="20"
+                                              Symbol="Link" />
+                        </Button>
+                        <Button Click="OpenSocial_Click"
+                                IsVisible="{Binding Email.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                Tag="Email"
+                                ToolTip.Tip="{Binding Email.Value}">
+                            <icons:SymbolIcon Width="24"
+                                              Height="24"
+                                              FontSize="20"
+                                              Symbol="Mail" />
+                        </Button>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="2"
+                               Grid.ColumnSpan="3"
+                               MaxWidth="240"
+                               Margin="0,16,0,0"
+                               HorizontalAlignment="Center"
+                               Text="{Binding Profile.Biography.Value}"
+                               TextWrapping="Wrap" />
+                </Grid>
+            </Border>
+        </ScrollViewer>
+        <ScrollViewer Grid.Column="1" Margin="16,16,10,0">
+            <Grid RowDefinitions="Auto,*">
+                <TextBlock Text="{x:Static lang:ExtensionsPage.Profile_PublishedPackages}" Theme="{StaticResource SubtitleTextBlockStyle}" />
+
+                <ItemsRepeater Grid.Row="1"
+                               Margin="0,16,0,0"
+                               Items="{Binding Packages}">
+                    <ItemsRepeater.Layout>
+                        <panelx:HorizontalGridLayout ColumnSpacing="16"
+                                                     MinItemWidth="345"
+                                                     RowSpacing="16" />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate>
+                            <Button Padding="0"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    VerticalContentAlignment="Stretch"
+                                    Click="Package_Click">
+                                <Panel>
+                                    <Grid Margin="16"
+                                          ColumnDefinitions="Auto,16,*"
+                                          IsVisible="{Binding Converter={x:Static ObjectConverters.IsNotNull}}">
+                                        <Image Width="80"
+                                               Height="80"
+                                               asyncImageLoader:ImageLoader.Source="{Binding LogoUrl.Value}"
+                                               ImageClipping.CornerRadius="8" />
+
+                                        <Grid Grid.Column="2"
+                                              Margin="0,2"
+                                              VerticalAlignment="Stretch"
+                                              ColumnDefinitions="*,Auto"
+                                              RowDefinitions="Auto,Auto,Auto">
+                                            <TextBlock Text="{Binding Name}" />
+
+                                            <TextBlock Grid.Row="1"
+                                                       Grid.ColumnSpan="2"
+                                                       Classes="name"
+                                                       IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                       Text="{Binding DisplayName.Value}" />
+
+                                            <TextBlock Grid.Row="2"
+                                                       Grid.ColumnSpan="2"
+                                                       Margin="0,8,0,0"
+                                                       Text="{Binding ShortDescription.Value}" />
+
+                                            <TextBlock Grid.Column="1"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                       Text="{Binding Owner.Name}" />
+                                        </Grid>
+                                    </Grid>
+                                    <Grid Margin="16"
+                                          ColumnDefinitions="Auto,16,*"
+                                          IsVisible="{Binding Converter={x:Static ObjectConverters.IsNull}}">
+                                        <Border Width="80" Height="80">
+                                            <icons:SymbolIcon FontSize="32" Symbol="MoreHorizontal" />
+                                        </Border>
+
+                                        <TextBlock Grid.Column="2"
+                                                   VerticalAlignment="Center"
+                                                   Text="{x:Static lang:Strings.ShowMore}" />
+                                    </Grid>
+                                </Panel>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

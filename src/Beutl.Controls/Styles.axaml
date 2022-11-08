@@ -1,0 +1,60 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:b="using:Beutl.Controls.Behaviors"
+        xmlns:i="using:Avalonia.Xaml.Interactivity"
+        xmlns:local="using:Beutl.Controls"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <Styles.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="/Styling/FileInputArea.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <x:Double x:Key="LayerHeight">25</x:Double>
+            <x:Double x:Key="SecondWidth">150</x:Double>
+        </ResourceDictionary>
+    </Styles.Resources>
+
+    <Style Selector="PopupRoot">
+        <Setter Property="TransparencyLevelHint" Value="AcrylicBlur" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="TransparencyBackgroundFallback" Value="Transparent" />
+    </Style>
+    <Style Selector="MenuFlyoutPresenter /template/ Border#LayoutRoot">
+        <Setter Property="Background">
+            <SolidColorBrush Opacity="0.725" Color="{DynamicResource SolidBackgroundFillColorBase}" />
+        </Setter>
+    </Style>
+
+    <Style Selector="Border.CardStyle">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+    </Style>
+
+    <Style Selector="TextBox">
+        <Setter Property="(i:Interaction.Behaviors)">
+            <b:SharedContentTemplate>
+                <b:SharedContent>
+                    <i:BehaviorCollection>
+                        <b:TextBoxBehaviour />
+                    </i:BehaviorCollection>
+                </b:SharedContent>
+            </b:SharedContentTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector=":is(Visual).transparent">
+        <Setter Property="Opacity" Value="0" />
+    </Style>
+
+    <StyleInclude Source="avares://Beutl.Controls/Styling/FluentIconsFilled.axaml" />
+    <StyleInclude Source="avares://Beutl.Controls/Styling/FluentIconsRegular.axaml" />
+    <StyleInclude Source="avares://Beutl.Controls/Styling/Player.axaml" />
+    <StyleInclude Source="avares://Beutl.Controls/Styling/NavigationView.axaml" />
+    <StyleInclude Source="avares://Beutl.Controls/Styling/OptionsDisplayItem.axaml" />
+    <StyleInclude Source="avares://Beutl.Controls/Styling/ListRadioButton.axaml" />
+    <StyleInclude Source="avares://Beutl.Controls/Styling/CommandBarStyles_WithoutCompiledBinding.axaml" />
+</Styles>

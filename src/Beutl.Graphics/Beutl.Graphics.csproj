@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNameSpace>Beutl</RootNameSpace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="Graphics\ColorMatrix.cs" />
+    <Compile Remove="Graphics\ColorVector.cs" />
+    <Compile Remove="Graphics\LookupTable.cs" />
+    <Compile Remove="Graphics\VertexMode.cs" />
+    <Compile Remove="Media\Cmyk.cs" />
+    <Compile Remove="Media\Hsv.cs" />
+    <Compile Remove="Media\YCbCr.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
+    <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
+    <ProjectReference Include="..\Beutl.Threading\Beutl.Threading.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="Validation\RangeValidatorGen.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>RangeValidatorGen.cs</LastGenOutput>
+    </None>
+    <Compile Update="Validation\RangeValidatorGen.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>RangeValidatorGen.tt</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+  </ItemGroup>
+  <Import Project="$(RootDirectory)\build\props\OpenCvSharp4.props" />
+  <Import Project="$(RootDirectory)\build\props\SkiaSharp.props" />
+</Project>

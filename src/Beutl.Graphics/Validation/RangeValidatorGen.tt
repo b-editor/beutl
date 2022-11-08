@@ -1,0 +1,116 @@
+<#@ template debug="false" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ output extension=".cs" #>
+<#
+    var vec2Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY)[]
+    {
+        ("Beutl.Media", "PixelPoint", "System.Int32", "X", "Y"),
+        ("Beutl.Media", "PixelSize", "System.Int32", "Width", "Height"),
+        ("Beutl.Graphics", "Point", "System.Single", "X", "Y"),
+        ("Beutl.Graphics", "Size", "System.Single", "Width", "Height"),
+        ("Beutl.Graphics", "Vector", "System.Single", "X", "Y"),
+    };
+
+    var vec3Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY, string FieldZ)[]
+    {
+    };
+
+    var vec4Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY, string FieldZ, string FieldW)[]
+    {
+        ("Beutl.Media", "PixelRect", "System.Int32", "X", "Y", "Width", "Height"),
+        ("Beutl.Media", "CornerRadius", "System.Single", "TopLeft", "TopRight", "BottomRight", "BottomLeft"),
+        ("Beutl.Graphics", "Rect", "System.Single", "X", "Y", "Width", "Height"),
+    };
+#>
+
+#pragma warning disable IDE0001, IDE0049
+
+namespace Beutl.Validation
+{
+    // Vector2
+<# foreach(var t in vec2Types) { #>
+<# var fullName = $"{t.Namespace}.{t.Name}"; #>
+    public sealed class <#= t.Name #>RangeValidator : RangeValidator<<#= fullName #>>
+    {
+        public <#= t.Name #>RangeValidator()
+        {
+            Maximum = new(<#= t.Element #>.MaxValue, <#= t.Element #>.MaxValue);
+            Minimum = new(<#= t.Element #>.MinValue, <#= t.Element #>.MinValue);
+        }
+
+        public override <#= fullName #> Coerce(ICoreObject? obj, <#= fullName #> value)
+        {
+            return new <#= fullName #>(
+                Math.Clamp(value.<#= t.FieldX #>, Minimum.<#= t.FieldX #>, Maximum.<#= t.FieldX #>),
+                Math.Clamp(value.<#= t.FieldY #>, Minimum.<#= t.FieldY #>, Maximum.<#= t.FieldY #>));
+        }
+        
+        public override bool Validate(ICoreObject? obj, <#= fullName #> value)
+        {
+            return value.<#= t.FieldX #> >= Minimum.<#= t.FieldX #> && value.<#= t.FieldX #> <= Maximum.<#= t.FieldX #>
+                && value.<#= t.FieldY #> >= Minimum.<#= t.FieldY #> && value.<#= t.FieldY #> <= Maximum.<#= t.FieldY #>;
+        }
+    }
+<# } #>
+
+    // Vector3
+<# foreach(var t in vec3Types) { #>
+<# var fullName = $"{t.Namespace}.{t.Name}"; #>
+    public sealed class <#= t.Name #>RangeValidator : RangeValidator<<#= fullName #>>
+    {
+        public <#= t.Name #>RangeValidator()
+        {
+            Maximum = new(<#= t.Element #>.MaxValue, <#= t.Element #>.MaxValue, <#= t.Element #>.MaxValue);
+            Minimum = new(<#= t.Element #>.MinValue, <#= t.Element #>.MinValue, <#= t.Element #>.MinValue);
+        }
+
+        public override <#= fullName #> Coerce(ICoreObject? obj, <#= fullName #> value)
+        {
+            return new <#= fullName #>(
+                Math.Clamp(value.<#= t.FieldX #>, Minimum.<#= t.FieldX #>, Maximum.<#= t.FieldX #>),
+                Math.Clamp(value.<#= t.FieldY #>, Minimum.<#= t.FieldY #>, Maximum.<#= t.FieldY #>),
+                Math.Clamp(value.<#= t.FieldZ #>, Minimum.<#= t.FieldZ #>, Maximum.<#= t.FieldZ #>));
+        }
+        
+        public override bool Validate(ICoreObject? obj, <#= fullName #> value)
+        {
+            return value.<#= t.FieldX #> >= Minimum.<#= t.FieldX #> && value.<#= t.FieldX #> <= Maximum.<#= t.FieldX #>
+                && value.<#= t.FieldY #> >= Minimum.<#= t.FieldY #> && value.<#= t.FieldY #> <= Maximum.<#= t.FieldY #>
+                && value.<#= t.FieldZ #> >= Minimum.<#= t.FieldZ #> && value.<#= t.FieldZ #> <= Maximum.<#= t.FieldZ #>;
+        }
+    }
+<# } #>
+
+    // Vector4
+<# foreach(var t in vec4Types) { #>
+<# var fullName = $"{t.Namespace}.{t.Name}"; #>
+    public sealed class <#= t.Name #>RangeValidator : RangeValidator<<#= fullName #>>
+    {
+        public <#= t.Name #>RangeValidator()
+        {
+            Maximum = new(<#= t.Element #>.MaxValue, <#= t.Element #>.MaxValue, <#= t.Element #>.MaxValue, <#= t.Element #>.MaxValue);
+            Minimum = new(<#= t.Element #>.MinValue, <#= t.Element #>.MinValue, <#= t.Element #>.MinValue, <#= t.Element #>.MinValue);
+        }
+
+        public override <#= fullName #> Coerce(ICoreObject? obj, <#= fullName #> value)
+        {
+            return new <#= fullName #>(
+                Math.Clamp(value.<#= t.FieldX #>, Minimum.<#= t.FieldX #>, Maximum.<#= t.FieldX #>),
+                Math.Clamp(value.<#= t.FieldY #>, Minimum.<#= t.FieldY #>, Maximum.<#= t.FieldY #>),
+                Math.Clamp(value.<#= t.FieldZ #>, Minimum.<#= t.FieldZ #>, Maximum.<#= t.FieldZ #>),
+                Math.Clamp(value.<#= t.FieldW #>, Minimum.<#= t.FieldW #>, Maximum.<#= t.FieldW #>));
+        }
+        
+        public override bool Validate(ICoreObject? obj, <#= fullName #> value)
+        {
+            return value.<#= t.FieldX #> >= Minimum.<#= t.FieldX #> && value.<#= t.FieldX #> <= Maximum.<#= t.FieldX #>
+                && value.<#= t.FieldY #> >= Minimum.<#= t.FieldY #> && value.<#= t.FieldY #> <= Maximum.<#= t.FieldY #>
+                && value.<#= t.FieldZ #> >= Minimum.<#= t.FieldZ #> && value.<#= t.FieldZ #> <= Maximum.<#= t.FieldZ #>
+                && value.<#= t.FieldW #> >= Minimum.<#= t.FieldW #> && value.<#= t.FieldW #> <= Maximum.<#= t.FieldW #>;
+        }
+    }
+<# } #>
+}

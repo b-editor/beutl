@@ -1,0 +1,51 @@
+<ui:ContentDialog x:Class="Beutl.Views.Dialogs.CreateNewProject"
+                  xmlns="https://github.com/avaloniaui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:icons="using:FluentIcons.FluentAvalonia"
+                  xmlns:lang="using:Beutl.Language"
+                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:ui="using:FluentAvalonia.UI.Controls"
+                  xmlns:vm="using:Beutl.ViewModels.Dialogs"
+                  Title="{x:Static lang:Strings.CreateNewProject}"
+                  d:DesignHeight="450"
+                  d:DesignWidth="800"
+                  x:DataType="vm:CreateNewProjectViewModel"
+                  CloseButtonText="{x:Static lang:Strings.Close}"
+                  DefaultButton="Secondary"
+                  IsPrimaryButtonEnabled="False"
+                  PrimaryButtonText="{x:Static lang:Strings.Back}"
+                  SecondaryButtonText="{x:Static lang:Strings.Next}"
+                  mc:Ignorable="d">
+    <ui:ContentDialog.DataContext>
+        <vm:CreateNewProjectViewModel />
+    </ui:ContentDialog.DataContext>
+    <Carousel x:Name="carousel">
+        <Carousel.Items>
+            <StackPanel Spacing="8">
+                <TextBlock Text="{x:Static lang:Strings.Name}" />
+                <TextBox Classes="enableIME" Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
+
+                <TextBlock Margin="0,8,0,0" Text="{x:Static lang:Strings.Location}" />
+
+                <TextBox Text="{CompiledBinding Location.Value, Mode=TwoWay}">
+                    <TextBox.InnerRightContent>
+                        <Button Click="PickLocation" Theme="{StaticResource TransparentButton}">
+                            <icons:SymbolIcon Symbol="OpenFolder" />
+                        </Button>
+                    </TextBox.InnerRightContent>
+                </TextBox>
+            </StackPanel>
+            <StackPanel Spacing="8">
+                <TextBlock Text="{x:Static lang:Strings.Size}" />
+                <TextBox Text="{CompiledBinding Size.Value, Mode=TwoWay, Converter={StaticResource PixelSizeConverter}}" />
+
+                <TextBlock Margin="0,8,0,0" Text="{x:Static lang:Strings.FrameRate}" />
+                <TextBox Text="{CompiledBinding FrameRate.Value, Mode=TwoWay}" />
+
+                <TextBlock Margin="0,8,0,0" Text="{x:Static lang:Strings.SampleRate}" />
+                <TextBox Text="{CompiledBinding SampleRate.Value, Mode=TwoWay}" />
+            </StackPanel>
+        </Carousel.Items>
+    </Carousel>
+</ui:ContentDialog>

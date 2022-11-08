@@ -1,0 +1,44 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:icons="using:FluentIcons.FluentAvalonia"
+                    xmlns:local="using:Beutl.Controls"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls">
+    <Design.PreviewWith>
+        <Border Width="420" Padding="16">
+            <local:FileInputArea />
+        </Border>
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="{x:Type local:FileInputArea}" TargetType="local:FileInputArea">
+        <Setter Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="DragDrop.AllowDrop" Value="True" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Button Name="PART_Button"
+                        Padding="{TemplateBinding Padding}"
+                        HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
+                        VerticalAlignment="{TemplateBinding VerticalAlignment}"
+                        Background="{TemplateBinding Background}">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <icons:SymbolIcon Grid.RowSpan="2"
+                                          Margin="0,0,24,0"
+                                          FontSize="20"
+                                          Symbol="Open" />
+                        <StackPanel Grid.Column="1" Spacing="8">
+                            <TextBlock Text="{TemplateBinding Text}" TextWrapping="Wrap" />
+                            <TextBlock Name="PART_SelectedFileDisplay" IsVisible="False" />
+
+                            <ContentPresenter HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}" />
+                        </StackPanel>
+
+                    </Grid>
+                </Button>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+</ResourceDictionary>

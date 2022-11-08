@@ -1,0 +1,69 @@
+<UserControl x:Class="Beutl.Views.Tools.StreamOperatorView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:editors="using:Beutl.Views.Editors"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             DragDrop.AllowDrop="True"
+             mc:Ignorable="d">
+    <Expander Padding="0" IsExpanded="{Binding IsExpanded.Value, Mode=TwoWay}">
+        <Expander.Header>
+            <StackPanel Orientation="Horizontal">
+                <StackPanel.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Click="Remove_Click" Header="{x:Static lang:Strings.Remove}">
+                            <MenuItem.Icon>
+                                <icons:SymbolIcon Symbol="Delete" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                    </ContextMenu>
+                </StackPanel.ContextMenu>
+                <Border x:Name="dragBorder"
+                        CornerRadius="{DynamicResource ControlCornerRadius}"
+                        Cursor="SizeNorthSouth">
+                    <Border.Styles>
+                        <Style Selector="Border:pointerover">
+                            <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                        </Style>
+                    </Border.Styles>
+                    <icons:SymbolIcon FontSize="16" Symbol="ReOrderDotsVertical" />
+                </Border>
+
+                <ToggleButton BorderThickness="0" IsChecked="{Binding Model.IsEnabled}">
+                    <ToggleButton.Resources>
+                        <SolidColorBrush x:Key="ToggleButtonBackground" Color="Transparent" />
+                        <SolidColorBrush x:Key="ToggleButtonBackgroundDisabled" Color="Transparent" />
+                        <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="Transparent" />
+                        <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="ControlFillColorTertiaryBrush" />
+                        <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedDisabled" Color="Transparent" />
+                        <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="ControlFillColorSecondaryBrush" />
+                    </ToggleButton.Resources>
+                    <ToggleButton.Styles>
+                        <Style Selector="ToggleButton">
+                            <Setter Property="Content">
+                                <Template>
+                                    <icons:SymbolIcon Symbol="EyeOff" />
+                                </Template>
+                            </Setter>
+                        </Style>
+                        <Style Selector="ToggleButton:checked">
+                            <Setter Property="Content">
+                                <Template>
+                                    <icons:SymbolIcon Foreground="{DynamicResource TextFillColorPrimaryBrush}" Symbol="Eye" />
+                                </Template>
+                            </Setter>
+                        </Style>
+                    </ToggleButton.Styles>
+                </ToggleButton>
+
+                <TextBlock x:Name="headerText" VerticalAlignment="Center" />
+            </StackPanel>
+        </Expander.Header>
+
+        <editors:PropertiesEditor />
+    </Expander>
+</UserControl>

@@ -1,0 +1,53 @@
+<UserControl x:Class="Beutl.Views.Tools.StyleEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:editors="using:Beutl.Views.Editors"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.ViewModels.Tools"
+             d:DesignHeight="450"
+             d:DesignWidth="300"
+             x:DataType="viewModel:StyleEditorViewModel"
+             mc:Ignorable="d">
+    <ScrollViewer>
+        <StackPanel>
+            <Grid ColumnDefinitions="2*,3*,24">
+                <TextBlock Margin="10,10,0,0"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Top"
+                           Text="{x:Static lang:Strings.TargetType}" />
+
+                <AutoCompleteBox x:Name="targetTypeBox"
+                                 Grid.Column="1"
+                                 InputMethod.IsInputMethodEnabled="True"
+                                 IsEnabled="{CompiledBinding IsStyleNotNull.Value}"
+                                 Items="{CompiledBinding StyleableTypes.Value}"
+                                 SelectedItem="{CompiledBinding TargetType.Value}">
+                    <AutoCompleteBox.Styles>
+                        <Style Selector="AutoCompleteBox">
+                            <Setter Property="Margin" Value="4" />
+                            <Setter Property="HorizontalAlignment" Value="Stretch" />
+                            <Setter Property="VerticalAlignment" Value="Stretch" />
+                        </Style>
+                    </AutoCompleteBox.Styles>
+                </AutoCompleteBox>
+            </Grid>
+
+            <editors:PropertiesEditor />
+
+            <Button Grid.Column="1"
+                    Margin="10,4,28,4"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Left"
+                    Click="Add_Click"
+                    IsEnabled="{CompiledBinding IsStyleNotNull.Value}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ui:SymbolIcon Symbol="Add" />
+                    <TextBlock Text="{x:Static lang:Strings.Add}" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

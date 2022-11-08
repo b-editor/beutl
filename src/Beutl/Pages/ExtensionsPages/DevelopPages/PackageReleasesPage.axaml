@@ -1,0 +1,92 @@
+<UserControl x:Class="Beutl.Pages.ExtensionsPages.DevelopPages.PackageReleasesPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrls="using:Beutl.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModels="using:Beutl.ViewModels.ExtensionsPages.DevelopPages"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="viewModels:PackageReleasesPageViewModel"
+             Focusable="True"
+             IsEnabled="{CompiledBinding !IsBusy.Value}"
+             mc:Ignorable="d">
+
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="Ctrl+R" />
+    </UserControl.KeyBindings>
+
+    <Grid RowDefinitions="Auto,Auto,*">
+        <StackPanel Margin="10,8"
+                    Orientation="Horizontal"
+                    Spacing="16">
+            <Button Classes="breadcrumb"
+                    Click="NavigatePackageDetailsPage_Click"
+                    Content="{CompiledBinding Package.Name}" />
+
+            <Label Classes="breadcrumb" />
+
+            <TextBlock Classes="breadcrumb" Text="{x:Static lang:ExtensionsPage.Package_Releases_Tip}" />
+        </StackPanel>
+
+        <ui:CommandBar Grid.Row="1"
+                       Margin="10,0"
+                       DefaultLabelPosition="Right">
+            <ui:CommandBar.PrimaryCommands>
+                <ui:CommandBarButton Click="Add_Click"
+                                     Icon="Add"
+                                     Label="{x:Static lang:Strings.Add}" />
+            </ui:CommandBar.PrimaryCommands>
+        </ui:CommandBar>
+
+        <ListBox x:Name="ReleasesList"
+                 Grid.Row="2"
+                 Margin="10,0"
+                 Items="{CompiledBinding Items}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid MaxHeight="64" ColumnDefinitions="Auto,*,2*,Auto,Auto">
+                        <icons:SymbolIcon Margin="0,0,16,0"
+                                          IsVisible="{CompiledBinding IsPublic.Value}"
+                                          Symbol="Eye" />
+                        <icons:SymbolIcon Margin="0,0,16,0"
+                                          IsVisible="{CompiledBinding !IsPublic.Value}"
+                                          Symbol="EyeOff" />
+
+                        <StackPanel Grid.Column="1"
+                                    Margin="0,0,16,0"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    Orientation="Vertical">
+                            <TextBlock Text="{CompiledBinding Title.Value}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                            <TextBlock Text="{CompiledBinding Version.Value}" />
+                        </StackPanel>
+
+                        <TextBlock Grid.Column="2"
+                                   Margin="0,0,16,0"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   Text="{CompiledBinding Body.Value}"
+                                   TextTrimming="CharacterEllipsis" />
+
+                        <ui:CommandBarButton Grid.Column="3"
+                                             Click="Edit_Click"
+                                             Icon="Edit"
+                                             Label="{x:Static lang:Strings.Edit}" />
+
+                        <ui:CommandBarButton Grid.Column="4"
+                                             Click="Delete_Click"
+                                             Icon="Delete"
+                                             Label="{x:Static lang:Strings.Delete}" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</UserControl>

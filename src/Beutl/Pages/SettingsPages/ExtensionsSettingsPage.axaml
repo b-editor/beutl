@@ -1,0 +1,126 @@
+<UserControl x:Class="Beutl.Pages.SettingsPages.ExtensionsSettingsPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrls="using:Beutl.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.ViewModels.SettingsPages"
+             x:Name="root"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="vm:ExtensionsSettingsPageViewModel"
+             mc:Ignorable="d">
+    <UserControl.DataContext>
+        <vm:ExtensionsSettingsPageViewModel />
+    </UserControl.DataContext>
+
+    <ScrollViewer Padding="18">
+        <StackPanel Margin="10,0"
+                    VerticalAlignment="Stretch"
+                    Orientation="Vertical"
+                    Spacing="4">
+            <ctrls:OptionsDisplayItem Expands="True" Header="{x:Static lang:SettingsPage.Editor_Extension_Priority}">
+                <ctrls:OptionsDisplayItem.Icon>
+                    <icons:SymbolIcon Symbol="TabDesktop" />
+                </ctrls:OptionsDisplayItem.Icon>
+                <ctrls:OptionsDisplayItem.Content>
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+                        <ui:CommandBar DefaultLabelPosition="Right">
+                            <ui:CommandBar.PrimaryCommands>
+                                <ui:CommandBarElementContainer VerticalContentAlignment="Center">
+                                    <ComboBox Height="36"
+                                              MinWidth="250"
+                                              Background="Transparent"
+                                              BorderThickness="0"
+                                              Items="{CompiledBinding FileExtensions}"
+                                              SelectedItem="{CompiledBinding SelectedFileExtension.Value}" />
+                                </ui:CommandBarElementContainer>
+                                <ui:CommandBarButton Click="Add_FileExtension"
+                                                     Icon="Add"
+                                                     Label="{x:Static lang:Strings.Add}" />
+                            </ui:CommandBar.PrimaryCommands>
+                            <ui:CommandBar.SecondaryCommands>
+                                <ui:CommandBarButton Command="{CompiledBinding RemoveFileExtension}"
+                                                     Icon="Delete"
+                                                     Label="{x:Static lang:Strings.Remove}" />
+                            </ui:CommandBar.SecondaryCommands>
+                        </ui:CommandBar>
+
+                        <ListBox Grid.Row="1" Items="{CompiledBinding EditorExtensions1}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Height="64" ColumnDefinitions="*,Auto,Auto,Auto">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <StackPanel Margin="0,0,0,4"
+                                                        Orientation="Horizontal"
+                                                        Spacing="4">
+                                                <TextBlock FontSize="14" Text="{Binding DisplayName}" />
+                                                <TextBlock VerticalAlignment="Bottom"
+                                                           Classes="CaptionTextBlockStyle"
+                                                           Text="{Binding Name}" />
+                                            </StackPanel>
+                                            <TextBlock Classes="CaptionTextBlockStyle" Text="{Binding TypeName}" />
+                                        </StackPanel>
+
+                                        <ui:CommandBarButton Grid.Column="1"
+                                                             Command="{Binding #root.DataContext.HighPriority}"
+                                                             CommandParameter="{Binding}"
+                                                             Icon="ChevronUp"
+                                                             IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
+                                                             Label="{x:Static lang:SettingsPage.Higher}" />
+
+                                        <ui:CommandBarButton Grid.Column="2"
+                                                             Command="{Binding #root.DataContext.LowPriority}"
+                                                             CommandParameter="{Binding}"
+                                                             Icon="ChevronDown"
+                                                             IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
+                                                             Label="{x:Static lang:SettingsPage.Lower}" />
+
+                                        <ui:CommandBarButton Grid.Column="3"
+                                                             Command="{Binding #root.DataContext.RemoveExt}"
+                                                             CommandParameter="{Binding}"
+                                                             Icon="Clear"
+                                                             IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
+                                                             Label="{x:Static lang:Strings.Remove}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <TextBlock Grid.Row="2"
+                                   Margin="4,8,4,4"
+                                   Text="{x:Static lang:SettingsPage.All_Editor_Extensions}" />
+                        <ListBox Grid.Row="3" Items="{CompiledBinding EditorExtensions2}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Height="64" ColumnDefinitions="*,Auto">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <StackPanel Margin="0,0,0,4"
+                                                        Orientation="Horizontal"
+                                                        Spacing="4">
+                                                <TextBlock FontSize="14" Text="{Binding DisplayName}" />
+                                                <TextBlock VerticalAlignment="Bottom"
+                                                           Classes="CaptionTextBlockStyle"
+                                                           Text="{Binding Name}" />
+                                            </StackPanel>
+                                            <TextBlock Classes="CaptionTextBlockStyle" Text="{Binding TypeName}" />
+                                        </StackPanel>
+
+                                        <ui:CommandBarButton Grid.Column="1"
+                                                             Command="{Binding #root.DataContext.AddExt}"
+                                                             CommandParameter="{Binding}"
+                                                             Icon="Add"
+                                                             IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
+                                                             Label="{x:Static lang:Strings.Add}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                </ctrls:OptionsDisplayItem.Content>
+            </ctrls:OptionsDisplayItem>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

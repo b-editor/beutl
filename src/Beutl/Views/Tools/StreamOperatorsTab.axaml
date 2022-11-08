@@ -1,0 +1,22 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModel="using:Beutl.ViewModels.Tools"
+    xmlns:local="using:Beutl.Views.Tools"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    DragDrop.AllowDrop="True"
+    x:DataType="viewModel:StreamOperatorsTabViewModel"
+    x:Class="Beutl.Views.Tools.StreamOperatorsTab">
+    <ScrollViewer x:Name="scrollViewer">
+        <ItemsControl Items="{CompiledBinding Items}" x:Name="itemsControl">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <local:StreamOperatorView />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </ScrollViewer>
+</UserControl>

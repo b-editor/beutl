@@ -1,0 +1,75 @@
+<UserControl x:Class="Beutl.Pages.ExtensionsPages.DevelopPages.PackageDetailsPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:asyncImageLoader="using:AsyncImageLoader"
+             xmlns:ctrls="using:Beutl.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModels="using:Beutl.ViewModels.ExtensionsPages.DevelopPages"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="viewModels:PackageDetailsPageViewModel"
+             Focusable="True"
+             mc:Ignorable="d">
+
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="Ctrl+R" />
+    </UserControl.KeyBindings>
+
+    <Grid ColumnDefinitions="380,*" RowDefinitions="*,Auto">
+        <ScrollViewer Margin="10,12,0,8">
+            <Border Padding="12"
+                    Background="{DynamicResource ControlFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource ControlCornerRadius}">
+                <StackPanel>
+                    <Image x:Name="logoImage"
+                           Width="125"
+                           Height="125"
+                           Margin="0,16,0,0"
+                           asyncImageLoader:ImageLoader.Source="{CompiledBinding Package.LogoUrl.Value}"
+                           ImageClipping.CornerRadius="8"
+                           IsVisible="{Binding $self.Source, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+                    <Label Width="125"
+                           Height="125"
+                           Margin="0,16,0,0"
+                           HorizontalContentAlignment="Center"
+                           VerticalContentAlignment="Center"
+                           Content="{x:Static lang:ExtensionsPage.NoLogoImageAvailable}"
+                           IsVisible="{Binding #logoImage.Source, Converter={x:Static ObjectConverters.IsNull}}" />
+
+
+                    <TextBlock Margin="0,32"
+                               HorizontalAlignment="Center"
+                               Text="{CompiledBinding DisplayName.Value}"
+                               Theme="{StaticResource SubtitleTextBlockStyle}" />
+
+                    <TextBlock HorizontalAlignment="Center" Text="{CompiledBinding Package.Description.Value}" />
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+
+        <ScrollViewer Grid.Column="1" Margin="4,0,10,0">
+            <StackPanel Spacing="4">
+                <ctrls:OptionsDisplayItem Margin="0,8,0,0"
+                                          Description="{x:Static lang:ExtensionsPage.Package_Settings_Tip}"
+                                          Header="{x:Static lang:Strings.Settings}"
+                                          Icon="Settings"
+                                          Navigates="True"
+                                          NavigationRequested="NavigatePackageSettingsPage_Click" />
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:ExtensionsPage.Package_Releases_Tip}"
+                                          Header="{x:Static lang:ExtensionsPage.Package_Releases_Tip}"
+                                          Icon="Document"
+                                          Navigates="True"
+                                          NavigationRequested="NavigatePackageReleasesPage_Click" />
+            </StackPanel>
+        </ScrollViewer>
+
+    </Grid>
+</UserControl>

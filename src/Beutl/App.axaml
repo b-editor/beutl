@@ -1,0 +1,471 @@
+<Application x:Class="Beutl.App"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:aconverters="using:Avalonia.Markup.Xaml.Converters"
+             xmlns:convert="using:Beutl.Converters"
+             xmlns:local="using:Beutl"
+             xmlns:sty="using:FluentAvalonia.Styling"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives">
+    <Application.Resources>
+        <convert:PixelSizeConverter x:Key="PixelSizeConverter" />
+        <convert:TimeSpanToDoubleConverter x:Key="TimeSpanToDoubleConverter" />
+        <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
+
+        <ControlTheme x:Key="LabelTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </ControlTheme>
+
+        <KeyGesture x:Key="CreateNewProjectKeyGesture">Ctrl+Shift+N</KeyGesture>
+        <KeyGesture x:Key="CreateNewKeyGesture">Ctrl+N</KeyGesture>
+        <KeyGesture x:Key="OpenProjectKeyGesture">Ctrl+Shift+O</KeyGesture>
+        <KeyGesture x:Key="OpenKeyGesture">Ctrl+O</KeyGesture>
+        <KeyGesture x:Key="SaveAllKeyGesture">Ctrl+Shift+S</KeyGesture>
+        <KeyGesture x:Key="SaveKeyGesture">Ctrl+S</KeyGesture>
+        <KeyGesture x:Key="ExitKeyGesture">Alt+F4</KeyGesture>
+        <KeyGesture x:Key="UndoKeyGesture">Ctrl+Z</KeyGesture>
+        <KeyGesture x:Key="RedoKeyGesture">Ctrl+Y</KeyGesture>
+        <KeyGesture x:Key="DeleteKeyGesture">Delete</KeyGesture>
+        <KeyGesture x:Key="CutKeyGesture">Ctrl+X</KeyGesture>
+        <KeyGesture x:Key="CopyKeyGesture">Ctrl+C</KeyGesture>
+        <KeyGesture x:Key="PasteKeyGesture">Ctrl+V</KeyGesture>
+        <KeyGesture x:Key="PlayPauseKeyGesture">Space</KeyGesture>
+        <KeyGesture x:Key="NextKeyGesture">Right</KeyGesture>
+        <KeyGesture x:Key="PreviousKeyGesture">Left</KeyGesture>
+        <KeyGesture x:Key="StartKeyGesture">Home</KeyGesture>
+        <KeyGesture x:Key="EndKeyGesture">End</KeyGesture>
+        <KeyGesture x:Key="LayerDeleteKeyGesture">Ctrl+Delete</KeyGesture>
+    </Application.Resources>
+    <Application.Styles>
+        <FluentTheme />
+        <sty:FluentAvaloniaTheme />
+        <StyleInclude Source="avares://FluentAvalonia.UI.Windowing/Styles/FAWindowingStyles.axaml" />
+
+        <StyleInclude Source="avares://Beutl.Controls/Styles.axaml" />
+
+        <Style Selector="TextBlock.ErrorTextBlockStyle">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+            <Setter Property="Opacity" Value="0.7" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <Style Selector="TextBlock.error">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="Button.breadcrumb">
+            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+            <Setter Property="FontSize" Value="24" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextBlock.TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="TextBlock.TextWrapping" Value="Wrap" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundPressed}" />
+
+            <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Transitions">
+                    <Transitions />
+                </Setter>
+            </Style>
+
+            <Style Selector="^:pointerover /template/ Border#BorderElement">
+                <Setter Property="BorderBrush" Value="Transparent" />
+            </Style>
+            <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForeground}" />
+            </Style>
+
+            <Style Selector="^:pointerover /template/ Border#BorderElement">
+                <Setter Property="BorderBrush" Value="Transparent" />
+            </Style>
+            <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForeground}" />
+                <Setter Property="Opacity" Value="0.5" />
+            </Style>
+        </Style>
+
+        <Style Selector="Button.simple">
+            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+            <Setter Property="TextBlock.TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="TextBlock.TextWrapping" Value="Wrap" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundPressed}" />
+
+            <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Transitions">
+                    <Transitions />
+                </Setter>
+            </Style>
+
+            <Style Selector="^:pointerover /template/ Border#BorderElement">
+                <Setter Property="BorderBrush" Value="Transparent" />
+            </Style>
+            <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForeground}" />
+            </Style>
+
+            <Style Selector="^:pointerover /template/ Border#BorderElement">
+                <Setter Property="BorderBrush" Value="Transparent" />
+            </Style>
+            <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForeground}" />
+                <Setter Property="Opacity" Value="0.5" />
+            </Style>
+        </Style>
+
+        <Style Selector="Label.breadcrumb">
+            <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextBlock.TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="TextBlock.TextWrapping" Value="Wrap" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Content" Value="&#xE974;" />
+        </Style>
+
+        <Style Selector="TextBlock.breadcrumb">
+            <Setter Property="FontFamily" Value="{DynamicResource XamlAutoFontFamily}" />
+            <Setter Property="FontSize" Value="24" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextBlock.TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="TextBlock.TextWrapping" Value="Wrap" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="ClipToBounds" Value="False" />
+        </Style>
+
+        <Style Selector="ui|TabView.bottom">
+            <Style.Resources>
+                <Thickness x:Key="TabViewHeaderPadding_Bottom">2,0,2,8</Thickness>
+                <Thickness x:Key="TabViewSelectedItemHeaderPadding_Bottom">9,4,5,3</Thickness>
+                <Thickness x:Key="TabViewItemLeftScrollButtonContainerPadding_Bottom">8,3,3,0</Thickness>
+                <Thickness x:Key="TabViewItemRightScrollButtonContainerPadding_Bottom">3,3,8,0</Thickness>
+                <Thickness x:Key="TabViewItemAddButtonContainerPadding_Bottom">3,3,0,0</Thickness>
+                <Thickness x:Key="TabViewSelectedItemBorderThickness_Bottom">1,0,1,1</Thickness>
+            </Style.Resources>
+            <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+            <Setter Property="Padding" Value="{DynamicResource TabViewHeaderPadding_Bottom}" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid RowDefinitions="*,Auto">
+
+                        <ContentPresenter Name="TabContentPresenter"
+                                          Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                          BorderBrush="{TemplateBinding BorderBrush}"
+                                          BorderThickness="{TemplateBinding BorderThickness}"
+                                          CornerRadius="{TemplateBinding CornerRadius}" />
+
+                        <Grid Name="TabContainerGrid"
+                              Grid.Row="1"
+                              Background="{TemplateBinding Background}">
+
+                            <Grid.ColumnDefinitions>
+                                <!--  x:Name="LeftContentColumn  -->
+                                <ColumnDefinition Width="Auto" MinWidth="2" />
+                                <!--  x:Name="TabColumn"  -->
+                                <ColumnDefinition Width="Auto" />
+                                <!--  x:Name="AddButtonColumn"  -->
+                                <ColumnDefinition Width="Auto" />
+                                <!--  x:Name="RightContentColumn"  -->
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border Name="LeftBottomBorderLine"
+                                    Height="1"
+                                    VerticalAlignment="Top"
+                                    BorderBrush="{DynamicResource TabViewBorderBrush}"
+                                    BorderThickness="1" />
+
+                            <Border Name="RightBottomBorderLine"
+                                    Grid.Column="2"
+                                    Grid.ColumnSpan="2"
+                                    Height="1"
+                                    VerticalAlignment="Top"
+                                    BorderBrush="{DynamicResource TabViewBorderBrush}"
+                                    BorderThickness="1" />
+
+                            <ContentPresenter Name="LeftContentPresenter"
+                                              Grid.Column="0"
+                                              Content="{TemplateBinding TabStripHeader}"
+                                              ContentTemplate="{TemplateBinding TabStripHeaderTemplate}" />
+
+                            <uip:TabViewListView Name="TabListView"
+                                                 Grid.Column="1"
+                                                 Padding="{TemplateBinding Padding}"
+                                                 CanDragItems="{TemplateBinding CanDragTabs}"
+                                                 CanReorderItems="{TemplateBinding CanReorderTabs}"
+                                                 Classes="bottom"
+                                                 DragDrop.AllowDrop="{TemplateBinding AllowDropTabs}"
+                                                 ItemTemplate="{TemplateBinding TabItemTemplate}"
+                                                 Items="{TemplateBinding TabItems}" />
+
+                            <Border Grid.Column="2"
+                                    Padding="{DynamicResource TabViewItemAddButtonContainerPadding_Bottom}"
+                                    VerticalAlignment="Bottom"
+                                    IsVisible="{Binding IsAddTabButtonVisible, RelativeSource={RelativeSource TemplatedParent}}">
+                                <Button Name="AddButton"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Command="{TemplateBinding AddTabButtonCommand}"
+                                        CommandParameter="{TemplateBinding AddTabButtonCommandParameter}"
+                                        Content="&#xE710;"
+                                        Theme="{StaticResource TabViewButtonStyle}" />
+                            </Border>
+
+                            <ContentPresenter Name="RightContentPresenter"
+                                              Grid.Column="3"
+                                              HorizontalAlignment="Stretch"
+                                              Content="{TemplateBinding TabStripFooter}"
+                                              ContentTemplate="{TemplateBinding TabStripFooterTemplate}" />
+                        </Grid>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="ScrollViewer.TabScrollViewerStyle_bottom">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Root"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" MinWidth="2" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border Name="LeftBottomBorderLine"
+                                    Height="1"
+                                    VerticalAlignment="Top"
+                                    BorderBrush="{DynamicResource TabViewBorderBrush}"
+                                    BorderThickness="1" />
+
+                            <Border Name="RightBottomBorderLine"
+                                    Grid.Column="2"
+                                    Height="1"
+                                    VerticalAlignment="Top"
+                                    BorderBrush="{DynamicResource TabViewBorderBrush}"
+                                    BorderThickness="1" />
+
+                            <Border Name="ScrollDecreaseButtonContainer"
+                                    Padding="{DynamicResource TabViewItemLeftScrollButtonContainerPadding_Bottom}"
+                                    VerticalAlignment="Top"
+                                    IsVisible="{Binding HorizontalScrollBarVisibility, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SVVTBC}}">
+                                <RepeatButton Name="ScrollDecreaseButton"
+                                              Classes="TabViewScrollButtonStyle"
+                                              Content="&#xEDD9;"
+                                              Delay="50"
+                                              Interval="100" />
+                            </Border>
+
+                            <ScrollContentPresenter Name="ScrollContentPresenter"
+                                                    Grid.Column="1"
+                                                    Padding="1,0,0,0"
+                                                    CanHorizontallyScroll="{TemplateBinding CanHorizontallyScroll}"
+                                                    CanVerticallyScroll="{TemplateBinding CanVerticallyScroll}"
+                                                    Content="{TemplateBinding Content}"
+                                                    Extent="{TemplateBinding Extent, Mode=TwoWay}"
+                                                    KeyboardNavigation.TabNavigation="Once"
+                                                    Viewport="{TemplateBinding Viewport, Mode=TwoWay}"
+                                                    Offset="{TemplateBinding Offset, Mode=TwoWay}" />
+
+                            <Border Name="ScrollIncreaseButtonContainer"
+                                    Grid.Column="2"
+                                    Padding="{DynamicResource TabViewItemRightScrollButtonContainerPadding_Bottom}"
+                                    VerticalAlignment="Top"
+                                    IsVisible="{Binding HorizontalScrollBarVisibility, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SVVTBC}}">
+                                <RepeatButton Name="ScrollIncreaseButton"
+                                              Classes="TabViewScrollButtonStyle"
+                                              Content="&#xEDDA;"
+                                              Delay="50"
+                                              Interval="100" />
+                            </Border>
+
+                        </Grid>
+
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="uip|TabViewListView.bottom">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+
+                        <ScrollViewer Name="ScrollViewer"
+                                      Classes="TabScrollViewerStyle_bottom"
+                                      HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
+                                      VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}">
+                            <!--
+                                We don't have Header and footer properties, will ignore for now
+                                Also ignore visual states since they are for these
+                            -->
+                            <ItemsPresenter Name="TabItemsPresenter"
+                                            Margin="{TemplateBinding Padding}"
+                                            ItemTemplate="{TemplateBinding ItemTemplate}"
+                                            Items="{TemplateBinding Items}"
+                                            ItemsPanel="{TemplateBinding ItemsPanel}" />
+                        </ScrollViewer>
+
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="uip|TabViewListView.bottom > ui|TabViewItem">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="LayoutRootBorder" Padding="{TemplateBinding Padding}">
+                        <Grid Name="LayoutRoot">
+
+                            <Grid.ColumnDefinitions>
+                                <!--  x:Name = "LeftColumn"  -->
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <!--  x:Name = "RightColumn"  -->
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border Name="BottomBorderLine"
+                                    Grid.ColumnSpan="3"
+                                    Height="1"
+                                    VerticalAlignment="Bottom"
+                                    Background="{DynamicResource TabViewBorderBrush}" />
+
+                            <Path Name="LeftRadiusRenderArc"
+                                  Width="4"
+                                  Height="4"
+                                  Margin="-4,0,0,0"
+                                  VerticalAlignment="Bottom"
+                                  Data="M4 0C4 1.19469 3.47624 2.26706 2.64582 3H0C1.65685 3 3 1.65685 3 0H4Z"
+                                  Fill="{DynamicResource TabViewBorderBrush}"
+                                  IsVisible="False" />
+
+                            <Path Name="RightRadiusRenderArc"
+                                  Grid.Column="2"
+                                  Width="4"
+                                  Height="4"
+                                  Margin="0,0,-4,0"
+                                  VerticalAlignment="Bottom"
+                                  Data="M0 0C0 1.19469 0.523755 2.26706 1.35418 3H4C2.34315 3 1 1.65685 1 0H0Z"
+                                  Fill="{DynamicResource TabViewBorderBrush}"
+                                  IsVisible="False" />
+
+                            <Path Name="SelectedBackgroundPath"
+                                  Grid.ColumnSpan="3"
+                                  Margin="-4,0"
+                                  VerticalAlignment="Bottom"
+                                  Data="{Binding TabViewTemplateSettings.TabGeometry, RelativeSource={RelativeSource TemplatedParent}}"
+                                  Fill="{DynamicResource TabViewItemHeaderBackgroundSelected}"
+                                  IsVisible="False" />
+
+                            <Border Name="TabSeparator"
+                                    Grid.Column="1"
+                                    Width="1"
+                                    Margin="{DynamicResource TabViewItemSeparatorMargin}"
+                                    HorizontalAlignment="Right"
+                                    Background="{DynamicResource TabViewItemSeparator}" />
+
+                            <Border Name="TabContainerBorder"
+                                    Grid.Column="1"
+                                    Padding="{DynamicResource TabViewItemHeaderPadding}"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="{Binding CornerRadius, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BottomCornerRadiusFilterConverter}}"
+                                    TemplatedControl.IsTemplateFocusTarget="True">
+
+                                <Grid Name="TabContainer">
+                                    <Grid.ColumnDefinitions>
+                                        <!--  x:Name = "IconColumn"  -->
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!--
+                                        Since we can't change the icon column in the styles, to avoid locking it in
+                                        code, we use this Rectangle as the sizer for the column
+                                    -->
+                                    <Rectangle Name="IconColumn"
+                                               HorizontalAlignment="Stretch"
+                                               VerticalAlignment="Stretch" />
+
+                                    <Viewbox Name="IconBox"
+                                             MaxWidth="{DynamicResource TabViewItemHeaderIconSize}"
+                                             MaxHeight="{DynamicResource TabViewItemHeaderIconSize}"
+                                             Margin="{DynamicResource TabViewItemHeaderIconMargin}"
+                                             IsVisible="False">
+                                        <ContentControl Name="IconControl"
+                                                        Content="{Binding TabViewTemplateSettings.IconElement, RelativeSource={RelativeSource TemplatedParent}}"
+                                                        Foreground="{DynamicResource TabViewItemIconForeground}"
+                                                        KeyboardNavigation.IsTabStop="False" />
+                                    </Viewbox>
+
+                                    <!--
+                                        If we template bind the ContentPresenter's Content property to the TabViewItem.Header property
+                                        we unfortunately run into the following issue if the header is [null] or empty:
+                                        The TabViewItem.Content property will be implictly bound to the Content property of the ContentPresenter.
+                                        To prevent this, we explicitly set a default empty content here and update the content in code behind.
+                                    -->
+
+                                    <ContentPresenter Name="ContentPresenter"
+                                                      Grid.Column="1"
+                                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                      Content=""
+                                                      ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                                      FontSize="{DynamicResource TabViewItemHeaderFontSize}"
+                                                      FontWeight="{TemplateBinding FontWeight}"
+                                                      Foreground="{DynamicResource TabViewItemHeaderForeground}" />
+
+                                    <Button Name="CloseButton"
+                                            Grid.Column="2"
+                                            Margin="{DynamicResource TabViewItemHeaderCloseMargin}"
+                                            Content="&#xE711;"
+                                            KeyboardNavigation.IsTabStop="False"
+                                            Theme="{StaticResource TabViewCloseButtonStyle}" />
+                                </Grid>
+                            </Border>
+
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="uip|TabViewListView.bottom > ui|TabViewItem:selected /template/ Border#TabContainerBorder">
+            <Setter Property="BorderThickness" Value="{DynamicResource TabViewSelectedItemBorderThickness_Bottom}" />
+            <Setter Property="Padding" Value="{DynamicResource TabViewSelectedItemHeaderPadding_Bottom}" />
+        </Style>
+
+        <!--  以下のコードでデフォルトのテーマが継承されていないのでここで設定する  -->
+        <!--  https://github.com/amwx/FluentAvalonia/blob/master/FluentAvalonia/Styling/ControlThemes/FAControls/TabView/TabViewStyles.axaml#L42  -->
+        <Style Selector="ui|TabView /template/ Button#AddButton">
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+    </Application.Styles>
+</Application>

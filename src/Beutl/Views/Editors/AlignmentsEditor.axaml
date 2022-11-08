@@ -1,0 +1,74 @@
+<UserControl x:Class="Beutl.Views.Editors.AlignmentsEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Views.Editors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModel="using:Beutl.ViewModels.Editors"
+             d:DesignWidth="300"
+             x:CompileBindings="True"
+             x:DataType="viewModel:AlignmentsEditorViewModel"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,Auto">
+        <Grid.Styles>
+            <Style Selector="RadioButton.list">
+                <Setter Property="Padding" Value="12,4" />
+            </Style>
+        </Grid.Styles>
+        <TextBlock Margin="10,8,0,8"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Center"
+                   ClipToBounds="False"
+                   Text="{x:Static lang:Strings.Alignment}" />
+
+        <WrapPanel Grid.Row="1" Margin="0,2">
+            <StackPanel Margin="4,0"
+                        IsEnabled="{Binding CanXEdit}"
+                        Orientation="Horizontal">
+                <RadioButton Checked="Left_Checked"
+                             Classes="list"
+                             CornerRadius="4,0,0,4"
+                             IsChecked="{Binding IsLeft.Value}">
+                    <icons:SymbolIcon Symbol="AlignLeft" />
+                </RadioButton>
+                <RadioButton Checked="HorizontalCenter_Checked"
+                             Classes="list"
+                             CornerRadius="0"
+                             IsChecked="{Binding IsHorizontalCenter.Value}">
+                    <icons:SymbolIcon Symbol="AlignCenterVertical" />
+                </RadioButton>
+                <RadioButton Checked="Right_Checked"
+                             Classes="list"
+                             CornerRadius="0,4,4,0"
+                             IsChecked="{Binding IsRight.Value}">
+                    <icons:SymbolIcon Symbol="AlignRight" />
+                </RadioButton>
+            </StackPanel>
+
+            <StackPanel Margin="4,0"
+                        IsEnabled="{Binding CanYEdit}"
+                        Orientation="Horizontal">
+                <RadioButton Checked="Top_Checked"
+                             Classes="list"
+                             CornerRadius="4,0,0,4"
+                             IsChecked="{Binding IsTop.Value}">
+                    <icons:SymbolIcon Symbol="AlignTop" />
+                </RadioButton>
+                <RadioButton Checked="VerticalCenter_Checked"
+                             Classes="list"
+                             CornerRadius="0"
+                             IsChecked="{Binding IsVerticalCenter.Value}">
+                    <icons:SymbolIcon Symbol="AlignCenterHorizontal" />
+                </RadioButton>
+                <RadioButton Checked="Bottom_Checked"
+                             Classes="list"
+                             CornerRadius="0,4,4,0"
+                             IsChecked="{Binding IsBottom.Value}">
+                    <icons:SymbolIcon Symbol="AlignBottom" />
+                </RadioButton>
+            </StackPanel>
+        </WrapPanel>
+    </Grid>
+</UserControl>
