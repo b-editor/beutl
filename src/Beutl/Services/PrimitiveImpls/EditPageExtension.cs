@@ -1,4 +1,6 @@
-﻿using Beutl.Framework;
+﻿using Avalonia.Controls;
+
+using Beutl.Framework;
 using Beutl.ViewModels;
 
 using FluentAvalonia.UI.Controls;
@@ -9,13 +11,23 @@ using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 namespace Beutl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
-public sealed class EditPageExtension : PageExtension<Pages.EditPage, EditPageViewModel>
+public sealed class EditPageExtension : PageExtension
 {
     public static readonly EditPageExtension Instance = new();
 
     public override string Name => "EditPage";
 
     public override string DisplayName => "EditPage";
+
+    public override IPageContext CreateContext()
+    {
+        return new EditPageViewModel();
+    }
+
+    public override IControl CreateControl()
+    {
+        return new Pages.EditPage();
+    }
 
     public override IconSource GetFilledIcon()
     {

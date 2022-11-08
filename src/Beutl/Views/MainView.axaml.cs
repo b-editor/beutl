@@ -295,16 +295,13 @@ public sealed partial class MainView : UserControl
     {
         IControl? view = null;
         Exception? exception = null;
-        if (item.Extension.Control != null)
+        try
         {
-            try
-            {
-                view = Activator.CreateInstance(item.Extension.Control) as IControl;
-            }
-            catch (Exception e)
-            {
-                exception = e;
-            }
+            view = item.Extension.CreateControl();
+        }
+        catch (Exception e)
+        {
+            exception = e;
         }
 
         view ??= new TextBlock()

@@ -44,8 +44,7 @@ public sealed class MainViewModel : BasePageViewModel
         public NavItemViewModel(PageExtension extension)
         {
             Extension = extension;
-            Context = (Activator.CreateInstance(extension.Context) as IPageContext)
-                ?? throw new Exception("コンテキストを作成できませんでした。");
+            Context = extension.CreateContext() ?? throw new Exception("コンテキストを作成できませんでした。");
         }
 
         public NavItemViewModel(PageExtension extension, IPageContext context)

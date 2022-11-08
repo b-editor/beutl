@@ -1,4 +1,6 @@
-﻿using Beutl.Framework;
+﻿using Avalonia.Controls;
+
+using Beutl.Framework;
 using Beutl.ViewModels;
 
 using FluentAvalonia.UI.Controls;
@@ -13,13 +15,19 @@ public sealed class OutputPageExtension : PageExtension
 {
     public static readonly OutputPageExtension Instance = new();
 
-    public override Type Control => null!;
-
-    public override Type Context => typeof(OutputPageViewModel);
-
     public override string Name => "OutputPage";
 
     public override string DisplayName => "OutputPage";
+
+    public override IPageContext CreateContext()
+    {
+        return new OutputPageViewModel();
+    }
+
+    public override IControl CreateControl()
+    {
+        return null!;
+    }
 
     public override IconSource GetFilledIcon()
     {

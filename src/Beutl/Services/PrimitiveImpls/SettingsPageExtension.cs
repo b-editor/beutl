@@ -1,5 +1,6 @@
-﻿using Beutl.Framework;
-using Beutl.ViewModels;
+﻿using Avalonia.Controls;
+
+using Beutl.Framework;
 
 using FluentAvalonia.UI.Controls;
 
@@ -9,13 +10,23 @@ using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 namespace Beutl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
-public sealed class SettingsPageExtension : PageExtension<Pages.SettingsPage, SettingsPageViewModel>
+public sealed class SettingsPageExtension : PageExtension
 {
     public static readonly SettingsPageExtension Instance = new();
 
     public override string Name => "SettingsPage";
 
     public override string DisplayName => "SettingsPage";
+
+    public override IPageContext CreateContext()
+    {
+        throw new InvalidOperationException();
+    }
+
+    public override IControl CreateControl()
+    {
+        return new Pages.SettingsPage();
+    }
 
     public override IconSource GetFilledIcon()
     {
