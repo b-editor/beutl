@@ -43,8 +43,8 @@ public sealed partial class Timeline : UserControl
 
         gridSplitter.DragDelta += GridSplitter_DragDelta;
 
+        Scale.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
         ContentScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
-        //ScaleScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
 
         TimelinePanel.AddHandler(DragDrop.DragOverEvent, TimelinePanel_DragOver);
         TimelinePanel.AddHandler(DragDrop.DropEvent, TimelinePanel_Drop);
@@ -142,7 +142,6 @@ public sealed partial class Timeline : UserControl
                 Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     Vector2 offset = options.Offset;
-                    //ScaleScroll.Offset = new(offset.X, 0);
                     ContentScroll.Offset = new(offset.X, offset.Y);
                     PaneScroll.Offset = new(0, offset.Y);
                 });
@@ -200,7 +199,11 @@ public sealed partial class Timeline : UserControl
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
         _pointerFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Options.Value.Scale)
             .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
-        _pointerLayer = pointerPt.Position.Y.ToLayerNumber();
+
+        if (ReferenceEquals(sender, TimelinePanel))
+        {
+            _pointerLayer = pointerPt.Position.Y.ToLayerNumber();
+        }
 
         if (_seekbarMouseFlag == MouseFlags.MouseDown)
         {
@@ -225,7 +228,12 @@ public sealed partial class Timeline : UserControl
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
         ViewModel.ClickedFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Options.Value.Scale)
             .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
-        ViewModel.ClickedLayer = pointerPt.Position.Y.ToLayerNumber();
+
+        if (ReferenceEquals(sender, TimelinePanel))
+        {
+            ViewModel.ClickedLayer = pointerPt.Position.Y.ToLayerNumber();
+        }
+
         TimelinePanel.Focus();
 
         if (pointerPt.Properties.IsLeftButtonPressed)

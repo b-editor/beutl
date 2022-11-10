@@ -29,6 +29,10 @@
                              HorizontalAlignment="Stretch"
                              VerticalAlignment="Top"
                              EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
+                             PointerExited="TimelinePanel_PointerExited"
+                             PointerMoved="TimelinePanel_PointerMoved"
+                             PointerPressed="TimelinePanel_PointerPressed"
+                             PointerReleased="TimelinePanel_PointerReleased"
                              Scale="{Binding Options.Value.Scale}"
                              SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
                              Offset="{Binding #ContentScroll.Offset, Mode=OneWay}" />

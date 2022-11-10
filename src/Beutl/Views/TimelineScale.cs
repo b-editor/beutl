@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
@@ -112,6 +113,7 @@ public sealed class TimelineScale : Control
         double originX = Math.Floor(viewport.X / inc) * inc;
         using (context.PushPreTransform(Matrix.CreateTranslation(-viewport.X, 0)))
         {
+            context.FillRectangle(Brushes.Transparent, viewport);
             for (double x = originX; x < l; x += inc)
             {
                 var time = x.ToTimeSpan(Scale);
