@@ -44,7 +44,7 @@ public sealed partial class Timeline : UserControl
         gridSplitter.DragDelta += GridSplitter_DragDelta;
 
         ContentScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
-        ScaleScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
+        //ScaleScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
 
         TimelinePanel.AddHandler(DragDrop.DragOverEvent, TimelinePanel_DragOver);
         TimelinePanel.AddHandler(DragDrop.DropEvent, TimelinePanel_Drop);
@@ -78,7 +78,7 @@ public sealed partial class Timeline : UserControl
         {
             if (_viewModel != null)
             {
-                TimelinePanel.Children.RemoveRange(3, TimelinePanel.Children.Count - 3);
+                TimelinePanel.Children.RemoveRange(2, TimelinePanel.Children.Count - 2);
 
                 _disposable0?.Dispose();
                 _disposable1?.Dispose();
@@ -142,7 +142,7 @@ public sealed partial class Timeline : UserControl
                 Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     Vector2 offset = options.Offset;
-                    ScaleScroll.Offset = new(offset.X, 0);
+                    //ScaleScroll.Offset = new(offset.X, 0);
                     ContentScroll.Offset = new(offset.X, offset.Y);
                     PaneScroll.Offset = new(0, offset.Y);
                 });
