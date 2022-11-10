@@ -1,3 +1,0 @@
-[submodule "external/firebase-authentication-dotnet"]
-	path = external/firebase-authentication-dotnet
-	url = https://github.com/b-editor/firebase-authentication-dotnet
