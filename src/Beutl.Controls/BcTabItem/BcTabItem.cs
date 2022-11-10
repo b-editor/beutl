@@ -3,7 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 
+using Beutl.Controls.Behaviors;
 using Beutl.Controls.Extensions;
 
 namespace Beutl.Controls;
@@ -11,15 +13,19 @@ namespace Beutl.Controls;
 [PseudoClasses(":dragging", ":lockdrag")]
 public partial class BcTabItem : TabItem
 {
+    private readonly ItemDragBehavior _dragBehavior;
     private Button _closeButton;
 
     public BcTabItem()
     {
         Closing += OnClosing;
+        _dragBehavior = new ItemDragBehavior();
+        _dragBehavior.Attach(this);
     }
 
     static BcTabItem()
     {
+        TabStripPlacementProperty.Changed.AddClassHandler<BcTabItem>((x, _) => x.OnTabStripPlacementChanged());
         CanBeDraggedProperty.Changed.AddClassHandler<BcTabItem>((x, e) => x.OnCanDraggablePropertyChanged(x, e));
         IsSelectedProperty.Changed.AddClassHandler<BcTabItem>((x, _) => UpdatePseudoClass(x));
         IsClosableProperty.Changed.Subscribe(e =>
@@ -29,6 +35,13 @@ public partial class BcTabItem : TabItem
                 a._closeButton.IsVisible = a.IsClosable;
             }
         });
+    }
+
+    private void OnTabStripPlacementChanged()
+    {
+        _dragBehavior.Orientation = TabStripPlacement is Dock.Top or Dock.Bottom
+            ? Orientation.Horizontal
+            : Orientation.Vertical;
     }
 
     private static void UpdatePseudoClass(BcTabItem item)

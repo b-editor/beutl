@@ -58,7 +58,7 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     //public ReactiveProperty<Thickness> Margin { get; }
 
-    public ReactivePropertySlim<double> PosY { get; } = new();
+    public ReactivePropertySlim<double> PosY { get; } = new(0);
 
     public ReactiveProperty<Color> Color { get; } = new();
 

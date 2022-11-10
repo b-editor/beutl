@@ -13,10 +13,8 @@
              d:DesignWidth="800"
              x:DataType="vm:LayerHeaderViewModel"
              ClipToBounds="True"
+             PositionY="{CompiledBinding PosY.Value}"
              mc:Ignorable="d">
-    <UserControl.RenderTransform>
-        <TranslateTransform Y="{CompiledBinding PosY.Value}" />
-    </UserControl.RenderTransform>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />

@@ -144,34 +144,61 @@ Error:
 
     private void TabItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        void OnAdded()
+        {
+            for (int i = e.NewStartingIndex; i < _tabItems.Count; i++)
+            {
+                BcTabItem? item = _tabItems[i];
+                if (item.DataContext is EditorTabItem itemViewModel)
+                {
+                    itemViewModel.Order = i;
+                }
+            }
+        }
+
+        void OnRemoved()
+        {
+            for (int i = e.OldStartingIndex; i < _tabItems.Count; i++)
+            {
+                BcTabItem? item = _tabItems[i];
+                if (item.DataContext is EditorTabItem itemViewModel)
+                {
+                    itemViewModel.Order = i;
+                }
+            }
+        }
+
         switch (e.Action)
         {
             case NotifyCollectionChangedAction.Add:
-                for (int i = e.NewStartingIndex; i < _tabItems.Count; i++)
-                {
-                    BcTabItem? item = _tabItems[i];
-                    if (item.DataContext is EditorTabItem itemViewModel)
-                    {
-                        itemViewModel.Order = i;
-                    }
-                }
+                OnAdded();
                 break;
 
             case NotifyCollectionChangedAction.Move:
+                OnRemoved();
+                OnAdded();
+                break;
+
             case NotifyCollectionChangedAction.Replace:
             case NotifyCollectionChangedAction.Reset:
                 throw new Exception("Not supported action (Move, Replace, Reset).");
+
             case NotifyCollectionChangedAction.Remove:
-                for (int i = e.OldStartingIndex; i < _tabItems.Count; i++)
-                {
-                    BcTabItem? item = _tabItems[i];
-                    if (item.DataContext is EditorTabItem itemViewModel)
-                    {
-                        itemViewModel.Order = i;
-                    }
-                }
+                OnRemoved();
                 break;
         }
+
+#if DEBUG
+        for (int i = 0; i < _tabItems.Count; i++)
+        {
+            BcTabItem? item = _tabItems[i];
+            if (item.DataContext is not EditorTabItem itemViewModel
+                || itemViewModel.Order != i)
+            {
+                Debug.Fail("Invalid 'EditorTabItem.Order'.");
+            }
+        }
+#endif
     }
 
     // '開く'がクリックされた

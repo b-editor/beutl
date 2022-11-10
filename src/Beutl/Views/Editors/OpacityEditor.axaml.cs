@@ -181,7 +181,7 @@ public partial class OpacityEditor : UserControl
             }
             else
             {
-                return 0;
+                return null;
             }
         }
     }

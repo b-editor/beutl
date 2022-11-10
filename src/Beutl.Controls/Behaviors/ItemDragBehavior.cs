@@ -2,6 +2,7 @@
 using System.Diagnostics;
 
 using Avalonia;
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -143,8 +144,15 @@ public class ItemDragBehavior : Behavior<IControl>
         }
 
         object draggedItem = items[draggedIndex];
-        items.RemoveAt(draggedIndex);
-        items.Insert(targetIndex, draggedItem);
+        if(items is AvaloniaList<BcTabItem> alist)
+        {
+            alist.Move(draggedIndex, targetIndex);
+        }
+        else
+        {
+            items.RemoveAt(draggedIndex);
+            items.Insert(targetIndex, draggedItem);
+        }
 
         if (itemsControl is SelectingItemsControl selectingItemsControl)
         {

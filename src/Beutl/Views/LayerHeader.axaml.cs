@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
+using Avalonia.Media;
 
 using Beutl.ViewModels;
 
@@ -15,16 +16,35 @@ namespace Beutl.Views;
 
 public sealed partial class LayerHeader : UserControl
 {
+    public static readonly DirectProperty<LayerHeader, double> PositionYProperty
+        = AvaloniaProperty.RegisterDirect<LayerHeader, double>(
+            nameof(PositionY),
+            o => o.PositionY,
+            (o, v) => o.PositionY = v);
+
     private MouseFlags _mouseFlag = MouseFlags.MouseUp;
     private Timeline? _timeline;
     private Point _startRel;
     private Point _start;
     private TLVM[] _layers = Array.Empty<TLVM>();
     private int _newLayer;
+    private double _positionY;
 
     public LayerHeader()
     {
         InitializeComponent();
+    }
+
+    public double PositionY
+    {
+        get => _positionY;
+        set
+        {
+            if (SetAndRaise(PositionYProperty, ref _positionY, value))
+            {
+                OnPositionYChanged();
+            }
+        }
     }
 
     private LayerHeaderViewModel ViewModel => (LayerHeaderViewModel)DataContext!;
@@ -32,30 +52,41 @@ public sealed partial class LayerHeader : UserControl
     protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
         base.OnAttachedToLogicalTree(e);
-        _timeline = this.FindLogicalAncestorOfType<Timeline>();
+        _timeline = null;
+    }
+
+    protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromLogicalTree(e);
+        _timeline = null;
+    }
+
+    private Timeline? GetOrFindTimeline()
+    {
+        return _timeline ??= this.FindLogicalAncestorOfType<Timeline>();
     }
 
     private void Border_PointerMoved(object? sender, PointerEventArgs e)
     {
-        if (_timeline == null || _mouseFlag == MouseFlags.MouseUp)
-            return;
-
-        Point position = e.GetPosition(_timeline.TimelinePanel);
-        LayerHeaderViewModel vm = ViewModel;
-        var newMargin = new Thickness(0, Math.Max(position.Y - _startRel.Y, 0), 0, 0);
-
-        _newLayer = newMargin.ToLayerNumber();
-
-        if (position.Y >= 0)
+        if (_mouseFlag == MouseFlags.MouseDown && GetOrFindTimeline() is { } timeline)
         {
-            vm.PosY.Value = position.Y - _start.Y;
-        }
-        foreach (TLVM item in _layers)
-        {
-            item.Margin.Value = newMargin;
-        }
+            Point position = e.GetPosition(timeline.TimelinePanel);
+            LayerHeaderViewModel vm = ViewModel;
+            var newMargin = new Thickness(0, Math.Max(position.Y - _startRel.Y, 0), 0, 0);
 
-        e.Handled = true;
+            _newLayer = newMargin.ToLayerNumber();
+
+            if (position.Y >= 0)
+            {
+                vm.PosY.Value = position.Y - _start.Y;
+            }
+            foreach (TLVM item in _layers)
+            {
+                item.Margin.Value = newMargin;
+            }
+
+            e.Handled = true;
+        }
     }
 
     private void Border_PointerReleased(object? sender, PointerReleasedEventArgs e)
@@ -71,15 +102,26 @@ public sealed partial class LayerHeader : UserControl
     private void Border_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         PointerPoint point = e.GetCurrentPoint(border);
-        if (point.Properties.IsLeftButtonPressed && _timeline != null)
+        if (point.Properties.IsLeftButtonPressed && GetOrFindTimeline() is { } timeline)
         {
             _mouseFlag = MouseFlags.MouseDown;
             _startRel = point.Position;
-            _start = e.GetCurrentPoint(_timeline.TimelinePanel).Position;
+            _start = e.GetCurrentPoint(timeline.TimelinePanel).Position;
             _layers = ViewModel.Timeline.Layers
                 .Where(i => i.Model.ZIndex == ViewModel.Number.Value)
                 .ToArray();
         }
+    }
+
+    private void OnPositionYChanged()
+    {
+        if (RenderTransform is not TranslateTransform translate)
+        {
+            translate = new TranslateTransform();
+            RenderTransform = translate;
+        }
+
+        translate.Y = PositionY;
     }
 
     private sealed class MoveLayerCommand : IRecordableCommand

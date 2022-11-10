@@ -52,36 +52,49 @@ public sealed partial class EditView : UserControl, IEditor
 
     private void TabItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        static void OnAdded(NotifyCollectionChangedEventArgs e, AvaloniaList<BcTabItem> tabItems)
+        {
+            for (int i = e.NewStartingIndex; i < tabItems.Count; i++)
+            {
+                BcTabItem? item = tabItems[i];
+                if (item.DataContext is ToolTabViewModel itemViewModel)
+                {
+                    itemViewModel.Order = i;
+                }
+            }
+        }
+
+        static void OnRemoved(NotifyCollectionChangedEventArgs e, AvaloniaList<BcTabItem> tabItems)
+        {
+            for (int i = e.OldStartingIndex; i < tabItems.Count; i++)
+            {
+                BcTabItem? item = tabItems[i];
+                if (item.DataContext is ToolTabViewModel itemViewModel)
+                {
+                    itemViewModel.Order = i;
+                }
+            }
+        }
+
         if (sender is BcTabView { Items: AvaloniaList<BcTabItem> tabItems })
         {
             switch (e.Action)
             {
                 case NotifyCollectionChangedAction.Add:
-                    for (int i = e.NewStartingIndex; i < tabItems.Count; i++)
-                    {
-                        BcTabItem? item = tabItems[i];
-                        if (item.DataContext is ToolTabViewModel itemViewModel)
-                        {
-                            itemViewModel.Order = i;
-                        }
-                    }
+                    OnAdded(e, tabItems);
                     break;
 
                 case NotifyCollectionChangedAction.Move:
+                    OnRemoved(e, tabItems);
+                    OnAdded(e, tabItems);
+                    break;
+
                 case NotifyCollectionChangedAction.Replace:
                 case NotifyCollectionChangedAction.Reset:
                     throw new Exception("Not supported action (Move, Replace, Reset).");
+
                 case NotifyCollectionChangedAction.Remove:
-                    for (int i = e.OldStartingIndex; i < tabItems.Count; i++)
-                    {
-                        BcTabItem? item = tabItems[i];
-                        if (item.DataContext is ToolTabViewModel itemViewModel)
-                        {
-                            itemViewModel.Order = i;
-                        }
-                    }
-                    break;
-                default:
+                    OnRemoved(e, tabItems);
                     break;
             }
         }
