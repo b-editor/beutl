@@ -4,6 +4,7 @@ using System.Reactive.Linq;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 
 using Beutl.Controls;
@@ -94,17 +95,17 @@ public class TextEditor : TextBox, IEditor, IStyleable
 [Export]
 public sealed class SampleEditorExtension : EditorExtension
 {
-    public override string[] FileExtensions { get; } =
-    {
-        "txt",
-        "scene",
-    };
-
-    public override string FileTypeName => "Text File";
-
     public override string Name => "SampleEditorExtension";
 
     public override string DisplayName => "SampleEditorExtension";
+
+    public override FilePickerFileType GetFilePickerFileType()
+    {
+        return new FilePickerFileType("Text File")
+        {
+            Patterns = new[] { "*.txt", "*.scene" }
+        };
+    }
 
     public override IconSource? GetIcon()
     {
@@ -113,6 +114,8 @@ public sealed class SampleEditorExtension : EditorExtension
             Symbol = Symbol.Add
         };
     }
+
+    public override bool MatchFileExtension(string ext) => throw new NotImplementedException();
 
     public override bool TryCreateContext(string file, [NotNullWhen(true)] out IEditorContext? context)
     {
