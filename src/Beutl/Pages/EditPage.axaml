@@ -45,7 +45,6 @@
             </Style>
         </ui:TabView.Styles>
     </ui:TabView>-->
-    <BcTabView x:Name="tabview"
-               Background="{DynamicResource TabViewItemHeaderBackgroundSelected}"
-               ClickOnAddingButton="AddButtonClick" />
+    <!--  Background="{DynamicResource TabViewItemHeaderBackgroundSelected}"  -->
+    <BcTabView x:Name="tabview" ClickOnAddingButton="AddButtonClick" />
 </UserControl>

@@ -145,6 +145,28 @@
                                 HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
                                 VerticalAlignment="{TemplateBinding VerticalAlignment}">
                             <Grid RowDefinitions="*,Auto">
+                                <!--  Content Host  -->
+                                <Border Grid.Row="0"
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        CornerRadius="{TemplateBinding CornerRadius}">
+                                    <Grid Name="PART_GridHost">
+                                        <!--
+                                            Width="{TemplateBinding Width}"
+                                            Height="{Binding #PART_GridHost.Height}"
+                                        -->
+                                        <ContentPresenter Name="PART_FallBackContent" Content="{TemplateBinding FallBackContent}" />
+                                        <ContentPresenter Name="PART_SelectedContentHost"
+                                                          Padding="{TemplateBinding Padding}"
+                                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                          Background="{Binding $parent[local:BcTabView].SelectedItem.Background}"
+                                                          Content="{TemplateBinding SelectedContent}"
+                                                          ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
+                                    </Grid>
+                                </Border>
+
                                 <!--  Item Presenter  -->
                                 <Grid Name="PART_DockContainer"
                                       Grid.Row="1"
@@ -195,26 +217,6 @@
                                         </Border>
                                     </Grid>
                                 </Grid>
-
-                                <!--  Content Host  -->
-                                <Border Grid.Row="0"
-                                        Background="{TemplateBinding Background}"
-                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                        BorderThickness="{TemplateBinding BorderThickness}"
-                                        CornerRadius="{TemplateBinding CornerRadius}">
-                                    <Grid Name="PART_GridHost">
-                                        <ContentPresenter Name="PART_FallBackContent" Content="{TemplateBinding FallBackContent}" />
-                                        <ContentPresenter Name="PART_SelectedContentHost"
-                                                          Width="{TemplateBinding Width}"
-                                                          Height="{Binding #PART_GridHost.Height}"
-                                                          Padding="{TemplateBinding Padding}"
-                                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                          Background="{Binding $parent[local:BcTabView].SelectedItem.Background}"
-                                                          Content="{TemplateBinding SelectedContent}"
-                                                          ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
-                                    </Grid>
-                                </Border>
                             </Grid>
                         </Border>
                     </ControlTemplate>
