@@ -2,12 +2,14 @@
 
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 
+using Beutl.Controls;
 using Beutl.Framework;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -32,14 +34,14 @@ public sealed partial class EditPage : UserControl
     };
     private static readonly Binding s_isSelectedBinding = new("IsSelected.Value", BindingMode.TwoWay);
     private static readonly Binding s_contentBinding = new("Value", BindingMode.OneWay);
-    private readonly AvaloniaList<TabViewItem> _tabItems = new();
+    private readonly AvaloniaList<BcTabItem> _tabItems = new();
     private IDisposable? _disposable0;
 
     public EditPage()
     {
         InitializeComponent();
 
-        tabview.TabItems = _tabItems;
+        tabview.Items = _tabItems;
         tabview.SelectionChanged += TabView_SelectionChanged;
         _tabItems.CollectionChanged += TabItems_CollectionChanged;
     }
@@ -55,12 +57,13 @@ public sealed partial class EditPage : UserControl
                 (item) =>
                 {
                     EditorExtension ext = item.Extension.Value;
-                    var tabItem = new TabViewItem
+                    var tabItem = new BcTabItem
                     {
-                        [!TabViewItem.HeaderProperty] = s_headerBinding,
-                        [!TabViewItem.IconSourceProperty] = s_iconSourceBinding,
-                        [!ListBoxItem.IsSelectedProperty] = s_isSelectedBinding,
+                        [!HeaderedContentControl.HeaderProperty] = s_headerBinding,
+                        [!TabItem.IsSelectedProperty] = s_isSelectedBinding,
+                        [!BcTabItem.IconProperty] = s_iconSourceBinding,
                         DataContext = item,
+                        MinWidth = 240,
                         Content = new ContentControl
                         {
                             [!ContentProperty] = s_contentBinding,
@@ -91,9 +94,9 @@ Error:
                         }
                     };
 
-                    tabItem.CloseRequested += (s, _) =>
+                    tabItem.CloseButtonClick += (s, _) =>
                     {
-                        if (s is TabViewItem { DataContext: EditorTabItem itemViewModel } && DataContext is EditPageViewModel viewModel)
+                        if (s is BcTabItem { DataContext: EditorTabItem itemViewModel } && DataContext is EditPageViewModel viewModel)
                         {
                             viewModel.CloseTabItem(itemViewModel.FilePath.Value, itemViewModel.TabOpenMode);
                         }
@@ -110,7 +113,7 @@ Error:
                 {
                     for (int i = 0; i < _tabItems.Count; i++)
                     {
-                        TabViewItem tabItem = _tabItems[i];
+                        BcTabItem tabItem = _tabItems[i];
                         if (tabItem.DataContext is EditorTabItem itemViewModel
                             && itemViewModel.FilePath.Value == item.FilePath.Value)
                         {
@@ -128,7 +131,7 @@ Error:
     {
         if (DataContext is EditPageViewModel viewModel)
         {
-            if (tabview.SelectedItem is TabViewItem { DataContext: EditorTabItem tabViewModel })
+            if (tabview.SelectedItem is BcTabItem { DataContext: EditorTabItem tabViewModel })
             {
                 viewModel.SelectedTabItem.Value = tabViewModel;
             }
@@ -146,7 +149,7 @@ Error:
             case NotifyCollectionChangedAction.Add:
                 for (int i = e.NewStartingIndex; i < _tabItems.Count; i++)
                 {
-                    TabViewItem? item = _tabItems[i];
+                    BcTabItem? item = _tabItems[i];
                     if (item.DataContext is EditorTabItem itemViewModel)
                     {
                         itemViewModel.Order = i;
@@ -161,7 +164,7 @@ Error:
             case NotifyCollectionChangedAction.Remove:
                 for (int i = e.OldStartingIndex; i < _tabItems.Count; i++)
                 {
-                    TabViewItem? item = _tabItems[i];
+                    BcTabItem? item = _tabItems[i];
                     if (item.DataContext is EditorTabItem itemViewModel)
                     {
                         itemViewModel.Order = i;
@@ -198,9 +201,7 @@ Error:
         }
     }
 
-#pragma warning disable RCS1163, IDE0060
-    public void AddButtonClick(TabView? sender, EventArgs e)
-#pragma warning restore RCS1163, IDE0060
+    public void AddButtonClick(object? sender, RoutedEventArgs e)
     {
         if (Resources["AddButtonFlyout"] is MenuFlyout flyout)
         {

@@ -30,7 +30,7 @@
             </MenuFlyout.Items>
         </MenuFlyout>
     </UserControl.Resources>
-    <ui:TabView x:Name="tabview"
+    <!--<ui:TabView x:Name="tabview"
                 VerticalAlignment="Stretch"
                 AddTabButtonClick="AddButtonClick"
                 BorderBrush="{DynamicResource ButtonBorderBrush}"
@@ -44,5 +44,8 @@
                 <Setter Property="Background" Value="{DynamicResource ButtonBackground}" />
             </Style>
         </ui:TabView.Styles>
-    </ui:TabView>
+    </ui:TabView>-->
+    <BcTabView x:Name="tabview"
+               Background="{DynamicResource TabViewItemHeaderBackgroundSelected}"
+               ClickOnAddingButton="AddButtonClick" />
 </UserControl>

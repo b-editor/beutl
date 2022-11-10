@@ -11,6 +11,12 @@
              DragDrop.AllowDrop="True"
              mc:Ignorable="d">
     <Expander Padding="0" IsExpanded="{Binding IsExpanded.Value, Mode=TwoWay}">
+        <Expander.Resources>
+            <SolidColorBrush x:Key="ExpanderContentBackground" Color="Transparent" />
+            <SolidColorBrush x:Key="ExpanderHeaderBackground" Color="Transparent" />
+            <Thickness x:Key="ExpanderContentDownBorderThickness">0</Thickness>
+            <Thickness x:Key="ExpanderHeaderBorderThickness">0</Thickness>
+        </Expander.Resources>
         <Expander.Header>
             <StackPanel Orientation="Horizontal">
                 <StackPanel.ContextMenu>

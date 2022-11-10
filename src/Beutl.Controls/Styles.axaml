@@ -88,9 +88,11 @@
         <Setter Property="Opacity" Value="0" />
     </Style>
 
-    <StyleInclude Source="avares://Beutl.Controls/Styling/Player.axaml" />
+    <StyleInclude Source="avares://Beutl.Controls/Styling/BcTabItem.axaml" />
+    <StyleInclude Source="avares://Beutl.Controls/Styling/BcTabView.axaml" />
     <StyleInclude Source="avares://Beutl.Controls/Styling/NavigationView.axaml" />
     <StyleInclude Source="avares://Beutl.Controls/Styling/OptionsDisplayItem.axaml" />
+    <StyleInclude Source="avares://Beutl.Controls/Styling/Player.axaml" />
     <StyleInclude Source="avares://Beutl.Controls/Styling/ListRadioButton.axaml" />
     <StyleInclude Source="avares://Beutl.Controls/Styling/CommandBarStyles_WithoutCompiledBinding.axaml" />
 </Styles>
