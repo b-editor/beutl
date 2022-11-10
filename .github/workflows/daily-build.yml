@@ -19,15 +19,13 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: 6.0.x
+        dotnet-version: 7.0.x
 
     - name: Restore dependencies
       run: dotnet restore Beutl.sln
 
     - name: Build
       run: dotnet publish ./src/Beutl/Beutl.csproj -c Release -r ${{matrix.rid}} --no-self-contained
-      env:
-        BEUTL_FIREBASE_KEY: ${{ secrets.BEUTL_FIREBASE_KEY }}
 
     - name: Save
       uses: actions/upload-artifact@v2
