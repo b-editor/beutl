@@ -277,10 +277,7 @@ public class CoreProperty<T> : CoreProperty
             && realType.IsAssignableTo(typeof(IJsonSerializable)))
         {
             var sobj = (IJsonSerializable?)Activator.CreateInstance(realType);
-            if (sobj != null)
-            {
-                sobj.ReadFromJson(node!);
-            }
+            sobj?.ReadFromJson(node!);
 
             return sobj;
         }

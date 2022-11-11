@@ -7,34 +7,28 @@
 <#
     var vec2Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY, bool IsSize)[]
     {
-        ("Beutl.Media", "PixelPoint", "System.Int32", "X", "Y", false),
-        ("Beutl.Media", "PixelSize", "System.Int32", "Width", "Height", true),
-        ("Beutl.Graphics", "Point", "System.Single", "X", "Y", false),
-        ("Beutl.Graphics", "Size", "System.Single", "Width", "Height", true),
-        ("Beutl.Graphics", "Vector", "System.Single", "X", "Y", false),
-        ("System.Numerics", "Vector2", "System.Single", "X", "Y", false),
+        ("Media", "PixelPoint", "int", "X", "Y", false),
+        ("Media", "PixelSize", "int", "Width", "Height", true),
+        ("Graphics", "Point", "float", "X", "Y", false),
+        ("Graphics", "Size", "float", "Width", "Height", true),
+        ("Graphics", "Vector", "float", "X", "Y", false),
+        ("System.Numerics", "Vector2", "float", "X", "Y", false),
     };
 
     var vec3Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY, string FieldZ)[]
     {
-        ("System.Numerics", "Vector3", "System.Single", "X", "Y", "Z"),
+        ("System.Numerics", "Vector3", "float", "X", "Y", "Z"),
     };
 
     var vec4Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY, string FieldZ, string FieldW, bool IsRect)[]
     {
-        ("Beutl.Media", "PixelRect", "System.Int32", "X", "Y", "Width", "Height", true),
-        ("Beutl.Graphics", "Rect", "System.Single", "X", "Y", "Width", "Height", true),
-        ("System.Numerics", "Vector4", "System.Single", "X", "Y", "Z", "W", false),
+        ("Media", "PixelRect", "int", "X", "Y", "Width", "Height", true),
+        ("Graphics", "Rect", "float", "X", "Y", "Width", "Height", true),
+        ("System.Numerics", "Vector4", "float", "X", "Y", "Z", "W", false),
     };
 #>
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
-using Avalonia.Markup.Xaml.MarkupExtensions;
-
-using Beutl.ViewModels.Editors;
-
-#pragma warning disable IDE0001, IDE0049
 
 namespace Beutl.Views.Editors
 {

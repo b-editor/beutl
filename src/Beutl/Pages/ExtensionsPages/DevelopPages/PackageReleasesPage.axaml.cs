@@ -110,8 +110,7 @@ public sealed partial class PackageReleasesPage : UserControl
 
     private void NavigateToReleasePage(Release release)
     {
-        if (DataContext is PackageReleasesPageViewModel viewModel
-            && this.FindAncestorOfType<Frame>() is { } frame)
+        if (this.FindAncestorOfType<Frame>() is { } frame)
         {
             frame.Navigate(typeof(ReleasePage), release, SharedNavigationTransitionInfo.Instance);
         }

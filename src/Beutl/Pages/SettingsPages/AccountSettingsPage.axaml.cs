@@ -13,7 +13,7 @@ namespace Beutl.Pages.SettingsPages;
 
 public sealed partial class AccountSettingsPage : UserControl
 {
-    private FluentAvaloniaTheme _theme;
+    private readonly FluentAvaloniaTheme _theme;
 
     public AccountSettingsPage()
     {

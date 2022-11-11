@@ -13,7 +13,7 @@ namespace Beutl.WaitingDialog;
 
 public partial class MainWindow : AppWindow
 {
-    private bool _closable;
+    private readonly bool _closable;
 
     public MainWindow()
     {
@@ -39,7 +39,7 @@ public partial class MainWindow : AppWindow
             closableOption
         };
 
-        var args = ((ClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!).Args!;
+        string[] args = ((ClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!).Args!;
         ParseResult result = command.Parse(args);
 
         string? title = result.GetValueForOption(titleOption);
@@ -57,7 +57,7 @@ public partial class MainWindow : AppWindow
         }
 
         string? icon = result.GetValueForOption(iconOption);
-        if (icon != null && Enum.TryParse<Symbol>(icon, out var iconSymbol))
+        if (icon != null && Enum.TryParse(icon, out Symbol iconSymbol))
         {
             subheaderRoot.IsVisible = true;
             iconHost.IsVisible = true;

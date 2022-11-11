@@ -63,7 +63,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
             : defaultValue;
     }
 
-    public static implicit operator Optional<T>(T value) => new Optional<T>(value);
+    public static implicit operator Optional<T>(T value) => new(value);
 
     public static bool operator !=(Optional<T> x, Optional<T> y) => !(x == y);
 

@@ -2,7 +2,7 @@
 
 namespace Beutl.ProjectSystem;
 
-public record struct TimelineOptions
+public readonly record struct TimelineOptions
 {
     private readonly float _scale;
     private readonly Vector2 _offset;

@@ -74,7 +74,7 @@ public sealed class AnimationSpanEditorViewModel : IDisposable
 
     public void Dispose()
     {
-        foreach (BaseEditorViewModel? item in Properties.GetMarshal().Value)
+        foreach (IPropertyEditorContext? item in Properties.GetMarshal().Value)
         {
             item?.Dispose();
         }

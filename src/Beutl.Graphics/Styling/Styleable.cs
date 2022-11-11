@@ -84,10 +84,7 @@ public abstract class Styleable : Animatable, IStyleable
 
     public virtual void ApplyStyling(IClock clock)
     {
-        if (_styleInstance == null)
-        {
-            _styleInstance = Styles.Instance(this);
-        }
+        _styleInstance ??= Styles.Instance(this);
 
         if (_styleInstance != null)
         {

@@ -182,7 +182,7 @@ public class GenericDragBehavior : Behavior<IControl>
         _draggedContainer = null;
     }
 
-    private void AddTransforms(ItemsControl? itemsControl)
+    private static void AddTransforms(ItemsControl? itemsControl)
     {
         if (itemsControl?.Items is null)
         {
@@ -203,7 +203,7 @@ public class GenericDragBehavior : Behavior<IControl>
         }
     }
 
-    private void RemoveTransforms(ItemsControl? itemsControl)
+    private static void RemoveTransforms(ItemsControl? itemsControl)
     {
         if (itemsControl?.Items is null)
         {
@@ -329,7 +329,7 @@ public class GenericDragBehavior : Behavior<IControl>
                     ? targetBounds.X + targetBounds.Width / 2
                     : targetBounds.Y + targetBounds.Height / 2;
 
-                var targetIndex = _itemsControl.ItemContainerGenerator.IndexFromContainer(targetContainer);
+                int targetIndex = _itemsControl.ItemContainerGenerator.IndexFromContainer(targetContainer);
 
                 if (targetStart > draggedStart && draggedDeltaEnd >= targetMid)
                 {
@@ -376,7 +376,7 @@ public class GenericDragBehavior : Behavior<IControl>
         }
     }
 
-    private void SetDraggingPseudoClasses(IControl control, bool isDragging)
+    private static void SetDraggingPseudoClasses(IControl control, bool isDragging)
     {
         if (isDragging)
         {
@@ -388,7 +388,7 @@ public class GenericDragBehavior : Behavior<IControl>
         }
     }
 
-    private void SetTranslateTransform(IControl control, double x, double y)
+    private static void SetTranslateTransform(IControl control, double x, double y)
     {
         var transformBuilder = new TransformOperations.Builder(1);
         transformBuilder.AppendTranslate(x, y);

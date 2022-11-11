@@ -49,11 +49,13 @@ internal static class Program
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
     {
+#if DEBUG
         GC.KeepAlive(typeof(Avalonia.Svg.Skia.SvgImageExtension).Assembly);
         GC.KeepAlive(typeof(Avalonia.Svg.Skia.Svg).Assembly);
         GC.KeepAlive(typeof(FluentIcons.FluentAvalonia.SymbolIcon).Assembly);
         GC.KeepAlive(typeof(FluentIcons.Common.Symbol).Assembly);
         GC.KeepAlive(typeof(AsyncImageLoader.ImageLoader).Assembly);
+#endif
 
         return AppBuilder.Configure<App>()
             .UsePlatformDetect()

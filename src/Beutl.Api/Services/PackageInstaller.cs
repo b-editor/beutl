@@ -130,8 +130,10 @@ public partial class PackageInstaller : IBeutlApiResource
         {
             Asset asset = await release.GetAssetAsync().ConfigureAwait(false);
 
-            context = new PackageInstallContext(name, version, asset.DownloadUrl);
-            context.Asset = asset;
+            context = new PackageInstallContext(name, version, asset.DownloadUrl)
+            {
+                Asset = asset
+            };
             _installingContexts.Add(packageId, context);
             return context;
         }

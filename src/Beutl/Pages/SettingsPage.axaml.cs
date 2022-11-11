@@ -19,13 +19,12 @@ namespace Beutl.Pages;
 public sealed partial class SettingsPage : UserControl
 {
     private readonly PageResolver _pageResolver;
-    private readonly NavigationProvider _navigationProvider;
 
     public SettingsPage()
     {
         InitializeComponent();
         _pageResolver = new PageResolver();
-        _navigationProvider = new NavigationProvider(frame, _pageResolver);
+        _ = new NavigationProvider(frame, _pageResolver);
 
         List<NavigationViewItem> items = GetItems();
         nav.MenuItems = items;

@@ -8,7 +8,7 @@ using static Beutl.Media.TextFormatting.FormattedTextParser;
 namespace Beutl.Media.TextFormatting.Compat;
 
 [Obsolete("Use TextBlock APIs.")]
-public struct FormattedTextParser
+public readonly struct FormattedTextParser
 {
     private readonly string _s;
 

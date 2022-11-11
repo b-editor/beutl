@@ -48,7 +48,7 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
     }
 
     public bool TryMatchCharacter(int codepoint, FontStyle fontStyle, FontWeight fontWeight,
-        Avalonia.Media.FontStretch fontStretch, FontFamily fontFamily, CultureInfo culture, out Typeface typeface)
+        FontStretch fontStretch, FontFamily fontFamily, CultureInfo culture, out Typeface typeface)
     {
         SKFontStyle skFontStyle = fontWeight switch
         {
@@ -58,15 +58,9 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
             FontWeight.Bold when fontStyle == FontStyle.Italic => SKFontStyle.BoldItalic,
             _ => new SKFontStyle((SKFontStyleWeight)fontWeight, SKFontStyleWidth.Normal, (SKFontStyleSlant)fontStyle),
         };
-        if (culture == null)
-        {
-            culture = CultureInfo.CurrentUICulture;
-        }
+        culture ??= CultureInfo.CurrentUICulture;
 
-        if (s_languageTagBuffer == null)
-        {
-            s_languageTagBuffer = new string[2];
-        }
+        s_languageTagBuffer ??= new string[2];
 
         s_languageTagBuffer[0] = culture.TwoLetterISOLanguageName;
         s_languageTagBuffer[1] = culture.ThreeLetterISOLanguageName;

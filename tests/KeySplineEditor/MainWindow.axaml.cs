@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -10,12 +10,12 @@ namespace KeySplineEditor;
 public partial class MainWindow : Window
 {
     private readonly KeySpline _keySpline = new();
+    private readonly KeySplineDrawing _keySplineDrawing;
     private bool _isPoint1MouseDown;
     private bool _isPoint2MouseDown;
     private Point _pointStartAbs;
     private Point _point1Start;
     private Point _point2Start;
-    private KeySplineDrawing _keySplineDrawing;
 
     public MainWindow()
     {

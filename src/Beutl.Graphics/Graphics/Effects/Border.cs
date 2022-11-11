@@ -54,7 +54,7 @@ public class Border : BitmapEffect
     {
         OffsetProperty = ConfigureProperty<Point, Border>(nameof(Offset))
             .Accessor(o => o.Offset, (o, v) => o.Offset = v)
-            .DefaultValue(default(Point))
+            .DefaultValue(default)
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("offset")
             .Register();

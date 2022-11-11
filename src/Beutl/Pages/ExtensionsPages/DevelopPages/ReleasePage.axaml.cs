@@ -90,11 +90,9 @@ public sealed partial class ReleasePage : UserControl
             {
                 long releaseId = viewModel.Release.Id;
                 frame.RemoveAllStack(item => item is ReleasePageViewModel p && p.Release.Id == releaseId);
-                var releases = frame.FindParameter<PackageReleasesPageViewModel>(x => x.Package.Id == viewModel.Release.Package.Id);
-                if (releases != null)
-                {
-                    releases.Items.Remove(viewModel.Release);
-                }
+                PackageReleasesPageViewModel? releases
+                    = frame.FindParameter<PackageReleasesPageViewModel>(x => x.Package.Id == viewModel.Release.Package.Id);
+                releases?.Items.Remove(viewModel.Release);
 
                 viewModel.Delete.Execute();
                 frame.GoBack();

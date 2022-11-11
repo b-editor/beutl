@@ -7,37 +7,33 @@
 <#
     var vec2Types = new (string Namespace, string Name, string Element)[]
     {
-        ("Beutl.Media", "PixelPoint", "System.Int32"),
-        ("Beutl.Media", "PixelSize", "System.Int32"),
-        ("Beutl.Graphics", "Point", "System.Single"),
-        ("Beutl.Graphics", "Size", "System.Single"),
-        ("Beutl.Graphics", "Vector", "System.Single"),
-        ("Beutl.Graphics", "RelativePoint", "System.Single"),
-        ("System.Numerics", "Vector2", "System.Single"),
+        ("Media", "PixelPoint", "int"),
+        ("Media", "PixelSize", "int"),
+        ("Graphics", "Point", "float"),
+        ("Graphics", "Size", "float"),
+        ("Graphics", "Vector", "float"),
+        ("Graphics", "RelativePoint", "float"),
+        ("System.Numerics", "Vector2", "float"),
     };
 
     var vec3Types = new (string Namespace, string Name, string Element)[]
     {
-        ("System.Numerics", "Vector3", "System.Single"),
+        ("System.Numerics", "Vector3", "float"),
     };
 
     var vec4Types = new (string Namespace, string Name, string Element)[]
     {
-        ("Beutl.Media", "PixelRect", "System.Int32"),
-        ("Beutl.Media", "CornerRadius", "System.Single"),
-        ("Beutl.Graphics", "Thickness", "System.Single"),
-        ("Beutl.Graphics", "Rect", "System.Single"),
-        ("System.Numerics", "Vector4", "System.Single"),
+        ("Beutl.Media", "PixelRect", "int"),
+        ("Beutl.Media", "CornerRadius", "float"),
+        ("Beutl.Graphics", "Thickness", "float"),
+        ("Beutl.Graphics", "Rect", "float"),
+        ("System.Numerics", "Vector4", "float"),
     };
 #>
 using Beutl.Framework;
-using Beutl.Services.Editors;
-using Beutl.Services.Editors.Wrappers;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-
-#pragma warning disable IDE0001, IDE0049
 
 namespace Beutl.ViewModels.Editors
 {

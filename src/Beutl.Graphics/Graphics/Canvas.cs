@@ -742,7 +742,7 @@ public class Canvas : ICanvas
 
     private readonly record struct MaskInfo(bool Invert, SKPaint Paint);
 
-    private struct TileBrushCalculator
+    private readonly struct TileBrushCalculator
     {
         private readonly Size _imageSize;
         private readonly Rect _drawRect;

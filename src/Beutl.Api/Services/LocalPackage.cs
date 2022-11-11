@@ -19,11 +19,11 @@ public class LocalPackage
         : this()
     {
         Name = package.Name;
-        DisplayName = package.DisplayName.Value;
-        Publisher = package.Owner.Name;
-        WebSite = package.WebSite.Value;
-        Description = package.Description.Value;
-        ShortDescription = package.ShortDescription.Value;
+        DisplayName = package.DisplayName.Value ?? "";
+        Publisher = package.Owner.Name ?? "";
+        WebSite = package.WebSite.Value ?? "";
+        Description = package.Description.Value ?? "";
+        ShortDescription = package.ShortDescription.Value ?? "";
         Tags = package.Tags.Value.ToList();
     }
 

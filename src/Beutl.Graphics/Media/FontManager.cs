@@ -90,9 +90,9 @@ public sealed class FontManager
         string familyName = typeface.FamilyName;
         var fontFamily = new FontFamily(familyName);
 
-        if (_fonts.ContainsKey(fontFamily))
+        if (_fonts.TryGetValue(fontFamily, out TypefaceCollection? value))
         {
-            TypefaceCollection collection = _fonts[fontFamily];
+            TypefaceCollection collection = value;
             var tf = typeface.ToTypeface();
 
             if (!collection.ContainsKey(tf))

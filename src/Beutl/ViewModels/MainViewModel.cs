@@ -383,7 +383,7 @@ public sealed class MainViewModel : BasePageViewModel
     public void RegisterServices()
     {
         ServiceLocator.Current
-            .Bind<ExtensionProvider>().ToConstant(_beutlClients.GetResource<ExtensionProvider>());
+            .Bind<ExtensionProvider>().ToLazy(_beutlClients.GetResource<ExtensionProvider>);
 
         if (Application.Current is { ApplicationLifetime: IControlledApplicationLifetime lifetime })
         {

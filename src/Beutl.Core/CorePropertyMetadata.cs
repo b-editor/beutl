@@ -40,15 +40,9 @@ public class CorePropertyMetadata<T> : CorePropertyMetadata
                 _defaultValue = baseT.DefaultValue;
             }
 
-            if (Validator == null)
-            {
-                Validator = baseT.Validator;
-            }
+            Validator ??= baseT.Validator;
 
-            if (JsonConverter == null)
-            {
-                JsonConverter = baseT.JsonConverter;
-            }
+            JsonConverter ??= baseT.JsonConverter;
         }
     }
 
@@ -72,7 +66,7 @@ public class CorePropertyMetadata<T> : CorePropertyMetadata
         }
         else if (Validator is MultipleValidator<T> validator5)
         {
-            foreach (var item in validator5.Items)
+            foreach (IValidator<T> item in validator5.Items)
             {
                 if (item is TValidator validator6)
                 {

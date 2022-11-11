@@ -2,7 +2,7 @@
 
 public abstract class PageContext
 {
-    private TaskCompletionSource<INavigationProvider> _tcs = new();
+    private readonly TaskCompletionSource<INavigationProvider> _tcs = new();
 
     protected Task<INavigationProvider> GetNavigation()
     {

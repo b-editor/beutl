@@ -154,23 +154,13 @@ public sealed partial class MainView : UserControl
         _disposables.Clear();
         if (DataContext is MainViewModel viewModel)
         {
-            try
-            {
-                NaviContent.IsVisible = false;
-                Task task = viewModel.RunSplachScreenTask();
-                InitPages(viewModel);
+            Task splachScreenTask = viewModel.RunSplachScreenTask();
+            InitPages(viewModel);
+            InitCommands(viewModel);
+            InitRecentItems(viewModel);
 
-                InitCommands(viewModel);
-
-                await task;
-                InitExtMenuItems(viewModel);
-
-                InitRecentItems(viewModel);
-            }
-            finally
-            {
-                NaviContent.IsVisible = true;
-            }
+            await splachScreenTask;
+            InitExtMenuItems(viewModel);
         }
     }
 
@@ -178,7 +168,7 @@ public sealed partial class MainView : UserControl
     {
         base.OnAttachedToVisualTree(e);
 
-        if (e.Root is Window b)
+        if (e.Root is TopLevel b)
         {
             b.Opened += OnParentWindowOpened;
         }
@@ -186,7 +176,7 @@ public sealed partial class MainView : UserControl
 
     private void OnParentWindowOpened(object? sender, EventArgs e)
     {
-        if (sender is Window window)
+        if (sender is TopLevel window)
         {
             window.Opened -= OnParentWindowOpened;
         }
@@ -238,7 +228,7 @@ public sealed partial class MainView : UserControl
         NaviContent.Children.Add(_settingsView);
         _navigationItems.Clear();
 
-        IControl[] pageViews = viewModel.Pages.Select(item => CreateView(item)).ToArray();
+        IControl[] pageViews = viewModel.Pages.Select(CreateView).ToArray();
         NaviContent.Children.InsertRange(0, pageViews);
 
         NavigationViewItem[] navItems = viewModel.Pages.Select(item =>
@@ -411,9 +401,9 @@ Error:
                     }
                 };
 
-                var result = await window.StorageProvider.OpenFilePickerAsync(options);
+                IReadOnlyList<IStorageFile> result = await window.StorageProvider.OpenFilePickerAsync(options);
                 if (result.Count > 0
-                    && result[0].TryGetUri(out var uri)
+                    && result[0].TryGetUri(out Uri? uri)
                     && uri.IsFile)
                 {
                     _projectService.OpenProject(uri.LocalPath);
@@ -439,7 +429,7 @@ Error:
                 FileTypeFilter = filters
             };
 
-            var files = await root.StorageProvider.OpenFilePickerAsync(options);
+            IReadOnlyList<IStorageFile> files = await root.StorageProvider.OpenFilePickerAsync(options);
             if (files.Count > 0)
             {
                 bool? addToProject = null;
@@ -447,9 +437,9 @@ Error:
 
                 foreach (IStorageFile file in files)
                 {
-                    if (file.TryGetUri(out var uri) && uri.IsFile)
+                    if (file.TryGetUri(out Uri? uri) && uri.IsFile)
                     {
-                        var path = uri.LocalPath;
+                        string path = uri.LocalPath;
                         if (project != null && _workspaceItemContainer.TryGetOrCreateItem(path, out IWorkspaceItem? item))
                         {
                             if (!addToProject.HasValue)
@@ -730,10 +720,9 @@ Error:
             {
                 Header = item.DisplayName,
                 DataContext = item,
-                IsVisible = false
+                IsVisible = false,
+                Icon = item.GetIcon()
             };
-
-            menuItem.Icon = item.GetIcon();
 
             menuItem.Click += async (s, e) =>
             {
@@ -796,13 +785,13 @@ Error:
         viewModel.RecentFileItems.ForEachItem(
             item => AddItem(_rawRecentFileItems, item, viewModel.OpenRecentFile),
             item => RemoveItem(_rawRecentFileItems, item),
-            () => _rawRecentFileItems.Clear())
+            _rawRecentFileItems.Clear)
             .AddTo(_disposables);
 
         viewModel.RecentProjectItems.ForEachItem(
             item => AddItem(_rawRecentProjItems, item, viewModel.OpenRecentProject),
             item => RemoveItem(_rawRecentProjItems, item),
-            () => _rawRecentProjItems.Clear())
+            _rawRecentProjItems.Clear)
             .AddTo(_disposables);
     }
 }

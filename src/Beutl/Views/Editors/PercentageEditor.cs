@@ -94,7 +94,7 @@ public sealed class PercentageEditor : NumberEditor
         if (s.EndsWith("%", StringComparison.Ordinal))
         {
             scale = 0.01f;
-            span = s[0..^1];
+            span = s.AsSpan()[0..^1];
         }
 
         if (float.TryParse(span, out float value))

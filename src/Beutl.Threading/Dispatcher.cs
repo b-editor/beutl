@@ -3,13 +3,11 @@
 public class Dispatcher
 {
     [ThreadStatic]
-#pragma warning disable CS8625
-    private static Dispatcher s_current = null;
-#pragma warning restore CS8625
+    private static Dispatcher? s_current;
 
     private readonly QueueSynchronizationContext _synchronizationContext = new();
 
-    public static Dispatcher Current => s_current;
+    public static Dispatcher Current => s_current!;
 
     public void Start()
     {

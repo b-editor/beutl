@@ -10,7 +10,6 @@ public class ImmediateRenderer : IRenderer
     private readonly Canvas _graphics;
     private readonly FpsText _fpsText = new();
     private readonly InstanceClock _instanceClock = new();
-    private TimeSpan _lastTimeSpan;
 
     public ImmediateRenderer(int width, int height)
     {
@@ -35,7 +34,7 @@ public class ImmediateRenderer : IRenderer
 
     public ILayerContext? this[int index]
     {
-        get => _objects.ContainsKey(index) ? _objects[index] : null;
+        get => _objects.TryGetValue(index, out ILayerContext? value) ? value : null;
         set
         {
             if (value != null)
@@ -86,7 +85,6 @@ public class ImmediateRenderer : IRenderer
             IsRendering = false;
         }
 
-        _lastTimeSpan = timeSpan;
         return new IRenderer.RenderResult(Graphics.GetBitmap());
     }
 

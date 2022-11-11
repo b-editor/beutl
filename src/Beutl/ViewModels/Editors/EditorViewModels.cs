@@ -1,18 +1,14 @@
 using Beutl.Framework;
-using Beutl.Services.Editors;
-using Beutl.Services.Editors.Wrappers;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-#pragma warning disable IDE0001, IDE0049
-
 namespace Beutl.ViewModels.Editors
 {
     // Vector2
-    public sealed class PixelPointEditorViewModel : BaseEditorViewModel<Beutl.Media.PixelPoint>
+    public sealed class PixelPointEditorViewModel : BaseEditorViewModel<Media.PixelPoint>
     {
-        public PixelPointEditorViewModel(IAbstractProperty<Beutl.Media.PixelPoint> property)
+        public PixelPointEditorViewModel(IAbstractProperty<Media.PixelPoint> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -20,11 +16,11 @@ namespace Beutl.ViewModels.Editors
                 .AddTo(Disposables);
         }
 
-        public ReadOnlyReactivePropertySlim<Beutl.Media.PixelPoint> Value { get; }
+        public ReadOnlyReactivePropertySlim<Media.PixelPoint> Value { get; }
     }
-    public sealed class PixelSizeEditorViewModel : BaseEditorViewModel<Beutl.Media.PixelSize>
+    public sealed class PixelSizeEditorViewModel : BaseEditorViewModel<Media.PixelSize>
     {
-        public PixelSizeEditorViewModel(IAbstractProperty<Beutl.Media.PixelSize> property)
+        public PixelSizeEditorViewModel(IAbstractProperty<Media.PixelSize> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -32,11 +28,11 @@ namespace Beutl.ViewModels.Editors
                 .AddTo(Disposables);
         }
 
-        public ReadOnlyReactivePropertySlim<Beutl.Media.PixelSize> Value { get; }
+        public ReadOnlyReactivePropertySlim<Media.PixelSize> Value { get; }
     }
-    public sealed class PointEditorViewModel : BaseEditorViewModel<Beutl.Graphics.Point>
+    public sealed class PointEditorViewModel : BaseEditorViewModel<Graphics.Point>
     {
-        public PointEditorViewModel(IAbstractProperty<Beutl.Graphics.Point> property)
+        public PointEditorViewModel(IAbstractProperty<Graphics.Point> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -44,11 +40,11 @@ namespace Beutl.ViewModels.Editors
                 .AddTo(Disposables);
         }
 
-        public ReadOnlyReactivePropertySlim<Beutl.Graphics.Point> Value { get; }
+        public ReadOnlyReactivePropertySlim<Graphics.Point> Value { get; }
     }
-    public sealed class SizeEditorViewModel : BaseEditorViewModel<Beutl.Graphics.Size>
+    public sealed class SizeEditorViewModel : BaseEditorViewModel<Graphics.Size>
     {
-        public SizeEditorViewModel(IAbstractProperty<Beutl.Graphics.Size> property)
+        public SizeEditorViewModel(IAbstractProperty<Graphics.Size> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -56,11 +52,11 @@ namespace Beutl.ViewModels.Editors
                 .AddTo(Disposables);
         }
 
-        public ReadOnlyReactivePropertySlim<Beutl.Graphics.Size> Value { get; }
+        public ReadOnlyReactivePropertySlim<Graphics.Size> Value { get; }
     }
-    public sealed class VectorEditorViewModel : BaseEditorViewModel<Beutl.Graphics.Vector>
+    public sealed class VectorEditorViewModel : BaseEditorViewModel<Graphics.Vector>
     {
-        public VectorEditorViewModel(IAbstractProperty<Beutl.Graphics.Vector> property)
+        public VectorEditorViewModel(IAbstractProperty<Graphics.Vector> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -68,11 +64,11 @@ namespace Beutl.ViewModels.Editors
                 .AddTo(Disposables);
         }
 
-        public ReadOnlyReactivePropertySlim<Beutl.Graphics.Vector> Value { get; }
+        public ReadOnlyReactivePropertySlim<Graphics.Vector> Value { get; }
     }
-    public sealed class RelativePointEditorViewModel : BaseEditorViewModel<Beutl.Graphics.RelativePoint>
+    public sealed class RelativePointEditorViewModel : BaseEditorViewModel<Graphics.RelativePoint>
     {
-        public RelativePointEditorViewModel(IAbstractProperty<Beutl.Graphics.RelativePoint> property)
+        public RelativePointEditorViewModel(IAbstractProperty<Graphics.RelativePoint> property)
             : base(property)
         {
             Value = property.GetObservable()
@@ -80,7 +76,7 @@ namespace Beutl.ViewModels.Editors
                 .AddTo(Disposables);
         }
 
-        public ReadOnlyReactivePropertySlim<Beutl.Graphics.RelativePoint> Value { get; }
+        public ReadOnlyReactivePropertySlim<Graphics.RelativePoint> Value { get; }
     }
     public sealed class Vector2EditorViewModel : BaseEditorViewModel<System.Numerics.Vector2>
     {

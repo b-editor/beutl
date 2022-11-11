@@ -8,7 +8,5 @@ public enum PropertyFlags
     Designable = 1 << 1,
     NotifyChanged = 1 << 2,
     Animatable = 1 << 3,
-    All = Styleable | Designable | NotifyChanged | Animatable,
-    [Obsolete]
-    KnownFlags_1 = Styleable | Designable | NotifyChanged | Animatable,
+    All = Styleable | Designable | NotifyChanged | Animatable
 }

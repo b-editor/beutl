@@ -46,7 +46,7 @@ public class DeferredRenderer : IRenderer
 
     public ILayerContext? this[int index]
     {
-        get => _objects.ContainsKey(index) ? _objects[index] : null;
+        get => _objects.TryGetValue(index, out ILayerContext? value) ? value : null;
         set
         {
             if (value != null)

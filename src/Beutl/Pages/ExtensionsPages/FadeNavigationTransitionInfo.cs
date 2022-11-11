@@ -10,7 +10,7 @@ namespace Beutl.Pages.ExtensionsPages;
 
 public sealed class FadeNavigationTransitionInfo : NavigationTransitionInfo
 {
-    public async override void RunAnimation(Animatable ctrl)
+    public override async void RunAnimation(Animatable ctrl)
     {
         var animation = new Avalonia.Animation.Animation
         {

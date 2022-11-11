@@ -39,10 +39,7 @@ public class StyleSetterInstance<T> : ISetterInstance
 
     public void Begin()
     {
-        if (_inner != null)
-        {
-            _inner.Begin();
-        }
+        _inner?.Begin();
     }
 
     public void Dispose()
@@ -58,10 +55,7 @@ public class StyleSetterInstance<T> : ISetterInstance
 
     public void End()
     {
-        if (_inner != null)
-        {
-            _inner.End();
-        }
+        _inner?.End();
     }
 
     private IStyleable CreateOrGetTargetValue(Type type)

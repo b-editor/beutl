@@ -518,7 +518,7 @@ internal static class TransformParser
         Matrix
     }
 
-    public struct Builder
+    public readonly struct Builder
     {
         private readonly List<DataLayout> _data;
 

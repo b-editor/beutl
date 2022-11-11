@@ -81,7 +81,7 @@ public class NavItemHelper : Behavior<NavigationViewItem>
         }
     }
 
-    private void SetFontSize(IconSource iconSource)
+    private static void SetFontSize(IconSource iconSource)
     {
         if (iconSource is FontIconSource fontIcon)
         {

@@ -6,18 +6,18 @@ namespace Beutl.PackageTools;
 
 public static class WaitForProcessExited
 {
-    private static readonly Process[] _beutlProcesses;
-    private static readonly Process[] _bptProcesses;
+    private static readonly Process[] s_beutlProcesses;
+    private static readonly Process[] s_bptProcesses;
 
     static WaitForProcessExited()
     {
-        _beutlProcesses = Process.GetProcessesByName("Beutl");
-        _bptProcesses = Process.GetProcessesByName("bpt");
+        s_beutlProcesses = Process.GetProcessesByName("Beutl");
+        s_bptProcesses = Process.GetProcessesByName("bpt");
     }
 
-    public static int Count => _beutlProcesses.Length;
+    public static int Count => s_beutlProcesses.Length;
 
-    public static int PackageToolsCount => _bptProcesses.Length - 1;
+    public static int PackageToolsCount => s_bptProcesses.Length - 1;
 
     public static async ValueTask WaitAsync(CancellationToken cancellationToken)
     {
@@ -26,7 +26,7 @@ public static class WaitForProcessExited
             return;
         }
 
-        foreach (Process item in _beutlProcesses)
+        foreach (Process item in s_beutlProcesses)
         {
             if (!item.HasExited)
             {

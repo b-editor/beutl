@@ -35,12 +35,9 @@ public class BeutlApiApplication
         Discover = new DiscoverClient(httpClient) { BaseUrl = BaseUrl };
         Library = new LibraryClient(httpClient) { BaseUrl = BaseUrl };
 
-        GlobalConfiguration.Instance.ViewConfig.GetObservable(ViewConfig.UICultureProperty)
-            .Subscribe(x =>
-            {
-                httpClient.DefaultRequestHeaders.AcceptLanguage.Clear();
-                httpClient.DefaultRequestHeaders.AcceptLanguage.Add(new StringWithQualityHeaderValue(x.Name));
-            });
+        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        httpClient.DefaultRequestHeaders.AcceptLanguage.Clear();
+        httpClient.DefaultRequestHeaders.AcceptLanguage.Add(new StringWithQualityHeaderValue(viewConfig.UICulture.Name));
 
         RegisterAll();
     }
@@ -182,7 +179,7 @@ public class BeutlApiApplication
         return _authorizedUser.Value;
     }
 
-    public void OpenAccountSettings()
+    public static void OpenAccountSettings()
     {
         Process.Start(new ProcessStartInfo($"{BaseUrl}/Identity/Account/Manage")
         {

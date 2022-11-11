@@ -57,10 +57,10 @@ public sealed class AccountSettingsPageViewModel : PageContext, IDisposable
             .DisposeWith(_disposables);
 
         SignOut = new ReactiveCommand(SignedIn);
-        SignOut.Subscribe(() => _clients.SignOut()).DisposeWith(_disposables);
+        SignOut.Subscribe(_clients.SignOut).DisposeWith(_disposables);
 
         OpenAccountSettings = new();
-        OpenAccountSettings.Subscribe(() => _clients.OpenAccountSettings());
+        OpenAccountSettings.Subscribe(BeutlApiApplication.OpenAccountSettings);
 
         Refresh = new AsyncReactiveCommand(IsLoading.Select(x => !x));
         Refresh.Subscribe(async () =>
