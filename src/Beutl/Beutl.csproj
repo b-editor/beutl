@@ -28,14 +28,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="Services\Editors\NumberEditorServiceGen.tt">
-      <Generator>TextTemplatingFileGenerator</Generator>
-      <LastGenOutput>NumberEditorServiceGen.cs</LastGenOutput>
-    </None>
-    <None Update="ViewModels\Editors\EditorViewModels.tt">
-      <Generator>TextTemplatingFileGenerator</Generator>
-      <LastGenOutput>EditorViewModels.cs</LastGenOutput>
-    </None>
     <None Update="Views\Editors\Editors.tt">
       <Generator>TextTemplatingFileGenerator</Generator>
       <LastGenOutput>Editors.cs</LastGenOutput>
@@ -56,16 +48,6 @@
     </Compile>
     <Compile Update="Pages\SettingsPages\StorageSettingsPage.axaml.cs">
       <DependentUpon>StorageSettingsPage.axaml</DependentUpon>
-    </Compile>
-    <Compile Update="Services\Editors\NumberEditorServiceGen.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>NumberEditorServiceGen.tt</DependentUpon>
-    </Compile>
-    <Compile Update="ViewModels\Editors\EditorViewModels.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>EditorViewModels.tt</DependentUpon>
     </Compile>
     <Compile Update="Views\Dialogs\SelectAsset.axaml.cs">
       <DependentUpon>SelectAsset.axaml</DependentUpon>

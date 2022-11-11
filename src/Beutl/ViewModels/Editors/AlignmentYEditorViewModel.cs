@@ -6,15 +6,11 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class AlignmentYEditorViewModel : BaseEditorViewModel<AlignmentY>
+public sealed class AlignmentYEditorViewModel : ValueEditorViewModel<AlignmentY>
 {
     public AlignmentYEditorViewModel(IAbstractProperty<AlignmentY> property)
         : base(property)
     {
-        Value = property.GetObservable()
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(Disposables);
-
         IsTop = property.GetObservable()
             .Select(x => x is AlignmentY.Top)
             .ToReadOnlyReactivePropertySlim()
@@ -30,8 +26,6 @@ public sealed class AlignmentYEditorViewModel : BaseEditorViewModel<AlignmentY>
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
     }
-
-    public ReadOnlyReactivePropertySlim<AlignmentY> Value { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsTop { get; }
 

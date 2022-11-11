@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using System.Numerics;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -17,7 +19,7 @@ public partial class NumberEditor : UserControl
 }
 
 public sealed class NumberEditor<T> : NumberEditor
-    where T : struct
+    where T : struct, INumber<T>
 {
     private T _oldValue;
 
@@ -39,8 +41,8 @@ public sealed class NumberEditor<T> : NumberEditor
 
     private void TextBox_LostFocus(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is NumberEditorViewModel<T> { EditorService: { } service, WrappedProperty: { } property } viewModel
-            && service.TryParse(textBox.Text, out T newValue))
+        if (DataContext is NumberEditorViewModel<T> { WrappedProperty: { } property } viewModel
+            && viewModel.TryParse(textBox.Text, out T newValue))
         {
             viewModel.SetValue(_oldValue, newValue);
         }
@@ -50,11 +52,11 @@ public sealed class NumberEditor<T> : NumberEditor
     {
         Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            if (DataContext is NumberEditorViewModel<T> { EditorService: { } service, WrappedProperty: { } property })
+            if (DataContext is NumberEditorViewModel<T> { WrappedProperty: { } property } viewModel)
             {
                 await Task.Delay(10);
 
-                if (service.TryParse(textBox.Text, out T value))
+                if (viewModel.TryParse(textBox.Text, out T value))
                 {
                     property.SetValue(value);
                 }
@@ -64,21 +66,21 @@ public sealed class NumberEditor<T> : NumberEditor
 
     private void TextBox_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
-        if (DataContext is NumberEditorViewModel<T> { EditorService: { } service, WrappedProperty: { } property }
+        if (DataContext is NumberEditorViewModel<T> { WrappedProperty: { } property } viewModel
             && textBox.IsKeyboardFocusWithin
-            && service.TryParse(textBox.Text, out T value))
+            && viewModel.TryParse(textBox.Text, out T value))
         {
             value = e.Delta.Y switch
             {
-                < 0 => service.Decrement(value, 10),
-                > 0 => service.Increment(value, 10),
+                < 0 => viewModel.Decrement(value, 10),
+                > 0 => viewModel.Increment(value, 10),
                 _ => value
             };
 
             value = e.Delta.X switch
             {
-                < 0 => service.Decrement(value, 1),
-                > 0 => service.Increment(value, 1),
+                < 0 => viewModel.Decrement(value, 1),
+                > 0 => viewModel.Increment(value, 1),
                 _ => value
             };
 

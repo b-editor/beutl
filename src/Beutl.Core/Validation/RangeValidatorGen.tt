@@ -5,21 +5,6 @@
 <#@ import namespace="System.Collections.Generic" #>
 <#@ output extension=".cs" #>
 <#
-    var numberTypes = new Type[]
-    {
-        typeof(byte),
-        typeof(decimal),
-        typeof(double),
-        typeof(float),
-        typeof(short),
-        typeof(int),
-        typeof(long),
-        typeof(sbyte),
-        typeof(ushort),
-        typeof(uint),
-        typeof(ulong),
-    };
-
     var vec2Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY)[]
     {
         ("System.Numerics", "Vector2", "System.Single", "X", "Y"),
@@ -40,27 +25,6 @@
 
 namespace Beutl.Validation
 {
-<# foreach(var t in numberTypes) { #>
-    internal sealed class <#= t.Name #>RangeValidator : RangeValidator<<#= t.FullName #>>
-    {
-        public <#= t.Name #>RangeValidator()
-        {
-            Maximum = <#= t.FullName #>.MaxValue;
-            Minimum = <#= t.FullName #>.MinValue;
-        }
-
-        public override <#= t.FullName #> Coerce(ICoreObject? obj, <#= t.FullName #> value)
-        {
-            return Math.Clamp(value, Minimum, Maximum);
-        }
-
-        public override bool Validate(ICoreObject? obj, <#= t.FullName #> value)
-        {
-            return value >= Minimum && value <= Maximum;
-        }
-    }
-<# } #>
-
     // Vector2
 <# foreach(var t in vec2Types) { #>
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>

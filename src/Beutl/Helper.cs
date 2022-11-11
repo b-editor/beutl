@@ -39,20 +39,6 @@ internal static class Helper
             : 44100;
     }
 
-    public static IObservable<T> ToObservable<T>(this ResourceReference<T> resourceReference, T defaultValue)
-        where T : class
-    {
-        if (resourceReference.Key != null)
-        {
-            return Application.Current!.GetResourceObservable(resourceReference.Key)
-                .Select(i => (i as T) ?? defaultValue);
-        }
-        else
-        {
-            return Observable.Return(defaultValue);
-        }
-    }
-
     public static Color ToAvalonia(this in Media.Color color)
     {
         return Color.FromArgb(color.A, color.R, color.G, color.B);

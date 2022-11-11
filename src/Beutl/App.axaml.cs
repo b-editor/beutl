@@ -88,8 +88,7 @@ public sealed class App : Application
             .Bind<IPropertyEditorExtensionImpl>().ToSingleton<PropertyEditorService.PropertyEditorExtensionImpl>()
             .BindToSelf<IWorkspaceItemContainer>(new WorkspaceItemContainer())
             .BindToSelf<IProjectService>(new ProjectService())
-            .BindToSelf<INotificationService>(new NotificationService())
-            .BindToSelf<IResourceProvider>(new DefaultResourceProvider());
+            .BindToSelf<INotificationService>(new NotificationService());
 
         GetMainViewModel().RegisterServices();
 

@@ -7,21 +7,31 @@ public sealed class RangeValidationService
     public static readonly RangeValidationService Instance = new();
     private readonly Dictionary<Type, Type> _services = new()
     {
-        { typeof(byte), typeof(ByteRangeValidator) },
-        { typeof(decimal), typeof(DecimalRangeValidator) },
-        { typeof(double), typeof(DoubleRangeValidator) },
-        { typeof(float), typeof(SingleRangeValidator) },
-        { typeof(short), typeof(Int16RangeValidator) },
-        { typeof(int), typeof(Int32RangeValidator) },
-        { typeof(long), typeof(Int64RangeValidator) },
-        { typeof(sbyte), typeof(SByteRangeValidator) },
-        { typeof(ushort), typeof(UInt16RangeValidator) },
-        { typeof(uint), typeof(UInt32RangeValidator) },
-        { typeof(ulong), typeof(UInt64RangeValidator) },
         { typeof(Vector2), typeof(Vector2RangeValidator) },
         { typeof(Vector3), typeof(Vector3RangeValidator) },
         { typeof(Vector4), typeof(Vector4RangeValidator) },
     };
+
+    public RangeValidationService()
+    {
+        RegisterNumber<byte>();
+        RegisterNumber<decimal>();
+        RegisterNumber<double>();
+        RegisterNumber<float>();
+        RegisterNumber<short>();
+        RegisterNumber<int>();
+        RegisterNumber<long>();
+        RegisterNumber<sbyte>();
+        RegisterNumber<ushort>();
+        RegisterNumber<uint>();
+        RegisterNumber<ulong>();
+    }
+
+    public void RegisterNumber<TNumber>()
+        where TNumber : struct, INumber<TNumber>, IMinMaxValue<TNumber>
+    {
+        _services.Add(typeof(TNumber), typeof(NumberRangeValidator<TNumber>));
+    }
 
     public void Register<T, TValidator>()
         where TValidator : RangeValidator<T>

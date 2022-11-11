@@ -6,15 +6,11 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class AlignmentXEditorViewModel : BaseEditorViewModel<AlignmentX>
+public sealed class AlignmentXEditorViewModel : ValueEditorViewModel<AlignmentX>
 {
     public AlignmentXEditorViewModel(IAbstractProperty<AlignmentX> property)
         : base(property)
     {
-        Value = property.GetObservable()
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(Disposables);
-
         IsLeft = property.GetObservable()
             .Select(x => x is AlignmentX.Left)
             .ToReadOnlyReactivePropertySlim()
@@ -30,8 +26,6 @@ public sealed class AlignmentXEditorViewModel : BaseEditorViewModel<AlignmentX>
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
     }
-
-    public ReadOnlyReactivePropertySlim<AlignmentX> Value { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsLeft { get; }
 

@@ -10,7 +10,7 @@ public sealed class PercentageEditorViewModel : BaseEditorViewModel<float>
         : base(property)
     {
         Text = property.GetObservable()
-            .Select(x => Format(x))
+            .Select(Format)
             .ToReadOnlyReactivePropertySlim(Format(property.GetValue()))
             .DisposeWith(Disposables);
     }
