@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Numerics;
 
 using Beutl.Utilities;
 
@@ -7,7 +9,11 @@ namespace Beutl.Graphics;
 /// <summary>
 /// Defines a rectangle that may be defined relative to a containing element.
 /// </summary>
-public readonly struct RelativeRect : IEquatable<RelativeRect>
+public readonly struct RelativeRect
+    : IEquatable<RelativeRect>,
+      IParsable<RelativeRect>,
+      ISpanParsable<RelativeRect>,
+      IEqualityOperators<RelativeRect, RelativeRect, bool>
 {
     private static readonly char[] s_percentChar = { '%' };
 
@@ -249,5 +255,26 @@ public readonly struct RelativeRect : IEquatable<RelativeRect>
         return Unit == RelativeUnit.Absolute ?
             Rect.ToString() :
             FormattableString.Invariant($"{Rect.X * 100}%, {Rect.Y * 100}%, {Rect.Width * 100}%, {Rect.Height * 100}%");
+    }
+
+    static RelativeRect IParsable<RelativeRect>.Parse(string s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool IParsable<RelativeRect>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out RelativeRect result)
+    {
+        result = default;
+        return s != null && TryParse(s, out result);
+    }
+
+    static RelativeRect ISpanParsable<RelativeRect>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool ISpanParsable<RelativeRect>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out RelativeRect result)
+    {
+        return TryParse(s, out result);
     }
 }

@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Numerics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
@@ -12,7 +14,19 @@ namespace Beutl.Graphics;
 /// </summary>
 [JsonConverter(typeof(PointJsonConverter))]
 [RangeValidatable(typeof(PointRangeValidator))]
-public readonly struct Point : IEquatable<Point>
+public readonly struct Point
+    : IEquatable<Point>,
+      IParsable<Point>,
+      ISpanParsable<Point>,
+      IEqualityOperators<Point, Point, bool>,
+      IUnaryNegationOperators<Point, Point>,
+      IAdditionOperators<Point, Point, Point>,
+      IAdditionOperators<Point, Vector, Point>,
+      ISubtractionOperators<Point, Point, Point>,
+      ISubtractionOperators<Point, Vector, Point>,
+      IMultiplyOperators<Point, float, Point>,
+      IDivisionOperators<Point, float, Point>,
+      IMultiplyOperators<Point, Matrix, Point>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="Point"/> structure.
@@ -206,7 +220,7 @@ public readonly struct Point : IEquatable<Point>
     {
         return Parse(s.AsSpan());
     }
-    
+
     /// <summary>
     /// Parses a <see cref="Point"/> string.
     /// </summary>
@@ -301,5 +315,26 @@ public readonly struct Point : IEquatable<Point>
     {
         x = X;
         y = Y;
+    }
+
+    static Point IParsable<Point>.Parse(string s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool IParsable<Point>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out Point result)
+    {
+        result = default;
+        return s != null && TryParse(s, out result);
+    }
+
+    static Point ISpanParsable<Point>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool ISpanParsable<Point>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Point result)
+    {
+        return TryParse(s, out result);
     }
 }

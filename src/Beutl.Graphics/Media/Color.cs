@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Numerics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
@@ -9,7 +11,10 @@ namespace Beutl.Media;
 /// An ARGB color.
 /// </summary>
 [JsonConverter(typeof(ColorJsonConverter))]
-public readonly struct Color : IEquatable<Color>
+public readonly struct Color
+    : IEquatable<Color>,
+      IParsable<Color>,
+      ISpanParsable<Color>
 {
     public Color(byte a, byte r, byte g, byte b)
     {
@@ -306,5 +311,26 @@ public readonly struct Color : IEquatable<Color>
     public static bool operator !=(Color left, Color right)
     {
         return !left.Equals(right);
+    }
+
+    static Color IParsable<Color>.Parse(string s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool IParsable<Color>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out Color result)
+    {
+        result = default;
+        return s != null && TryParse(s, out result);
+    }
+
+    static Color ISpanParsable<Color>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool ISpanParsable<Color>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Color result)
+    {
+        return TryParse(s, out result);
     }
 }

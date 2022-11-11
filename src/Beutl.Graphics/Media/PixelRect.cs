@@ -1,10 +1,14 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Numerics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
 using Beutl.Graphics;
 using Beutl.Utilities;
 using Beutl.Validation;
+
+using Vector = Beutl.Graphics.Vector;
 
 namespace Beutl.Media;
 
@@ -13,7 +17,11 @@ namespace Beutl.Media;
 /// </summary>
 [JsonConverter(typeof(PixelRectJsonConverter))]
 [RangeValidatable(typeof(PixelRectRangeValidator))]
-public readonly struct PixelRect : IEquatable<PixelRect>
+public readonly struct PixelRect
+    : IEquatable<PixelRect>,
+      IParsable<PixelRect>,
+      ISpanParsable<PixelRect>,
+      IEqualityOperators<PixelRect, PixelRect, bool>
 {
     /// <summary>
     /// An empty rectangle.
@@ -450,6 +458,27 @@ public readonly struct PixelRect : IEquatable<PixelRect>
             tokenizer.ReadInt32(),
             tokenizer.ReadInt32()
         );
+    }
+
+    static PixelRect IParsable<PixelRect>.Parse(string s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool IParsable<PixelRect>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out PixelRect result)
+    {
+        result = default;
+        return s != null && TryParse(s, out result);
+    }
+
+    static PixelRect ISpanParsable<PixelRect>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool ISpanParsable<PixelRect>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out PixelRect result)
+    {
+        return TryParse(s, out result);
     }
 
     private static PixelPoint FromPointCeiling(Point point, Vector scale)

@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Numerics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
@@ -12,7 +14,14 @@ namespace Beutl.Graphics;
 /// </summary>
 [JsonConverter(typeof(RectJsonConverter))]
 [RangeValidatable(typeof(RectRangeValidator))]
-public readonly struct Rect : IEquatable<Rect>
+public readonly struct Rect
+    : IEquatable<Rect>,
+      IParsable<Rect>,
+      ISpanParsable<Rect>,
+      IEqualityOperators<Rect, Rect, bool>,
+      IMultiplyOperators<Rect, Vector, Rect>,
+      IMultiplyOperators<Rect, float, Rect>,
+      IDivisionOperators<Rect, Vector, Rect>
 {
     /// <summary>
     /// An empty rectangle.
@@ -573,5 +582,26 @@ public readonly struct Rect : IEquatable<Rect>
             tokenizer.ReadSingle(),
             tokenizer.ReadSingle()
         );
+    }
+
+    static Rect IParsable<Rect>.Parse(string s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool IParsable<Rect>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out Rect result)
+    {
+        result = default;
+        return s != null && TryParse(s, out result);
+    }
+
+    static Rect ISpanParsable<Rect>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool ISpanParsable<Rect>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Rect result)
+    {
+        return TryParse(s, out result);
     }
 }

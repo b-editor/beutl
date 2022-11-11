@@ -1,4 +1,6 @@
-﻿using System.Numerics;
+﻿using System.ComponentModel.Design;
+using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
@@ -19,7 +21,12 @@ namespace Beutl.Graphics;
 /// Note: Skia.SkMatrix uses a transposed layout (where for example skewX/skewY and perspp0/tranX are swapped).
 /// </remakrs>
 [JsonConverter(typeof(MatrixJsonConverter))]
-public readonly struct Matrix : IEquatable<Matrix>
+public readonly struct Matrix
+    : IEquatable<Matrix>,
+      IParsable<Matrix>,
+      ISpanParsable<Matrix>,
+      IMultiplyOperators<Matrix, Matrix, Matrix>,
+      IUnaryNegationOperators<Matrix, Matrix>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="Matrix"/> struct (equivalent to a 2x3 Matrix without perspective).
@@ -457,29 +464,29 @@ public readonly struct Matrix : IEquatable<Matrix>
     /// Parses a <see cref="Matrix"/> string.
     /// </summary>
     /// <param name="s">The string.</param>
-    /// <param name="matrix">The <see cref="Matrix"/>.</param>
+    /// <param name="result">The <see cref="Matrix"/>.</param>
     /// <returns>The status of the operation.</returns>
-    public static bool TryParse(string s, out Matrix matrix)
+    public static bool TryParse(string s, out Matrix result)
     {
-        return TryParse(s.AsSpan(), out matrix);
+        return TryParse(s.AsSpan(), out result);
     }
 
     /// <summary>
     /// Parses a <see cref="Matrix"/> string.
     /// </summary>
     /// <param name="s">The string.</param>
-    /// <param name="matrix">The <see cref="Matrix"/>.</param>
+    /// <param name="result">The <see cref="Matrix"/>.</param>
     /// <returns>The status of the operation.</returns>
-    public static bool TryParse(ReadOnlySpan<char> s, out Matrix matrix)
+    public static bool TryParse(ReadOnlySpan<char> s, out Matrix result)
     {
         try
         {
-            matrix = Parse(s);
+            result = Parse(s);
             return true;
         }
         catch
         {
-            matrix = default;
+            result = default;
             return false;
         }
     }
@@ -502,6 +509,27 @@ public readonly struct Matrix : IEquatable<Matrix>
     public static Matrix Parse(ReadOnlySpan<char> s)
     {
         return TransformParser.ParseMatrix(s);
+    }
+
+    static Matrix IParsable<Matrix>.Parse(string s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool IParsable<Matrix>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out Matrix result)
+    {
+        result = default;
+        return s != null && TryParse(s, out result);
+    }
+
+    static Matrix ISpanParsable<Matrix>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool ISpanParsable<Matrix>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Matrix result)
+    {
+        return TryParse(s, out result);
     }
 
     /// <summary>

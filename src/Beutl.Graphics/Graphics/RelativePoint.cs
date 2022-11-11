@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Numerics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
@@ -11,7 +13,11 @@ namespace Beutl.Graphics;
 /// Defines a point that may be defined relative to a containing element.
 /// </summary>
 [JsonConverter(typeof(RelativePointJsonConverter))]
-public readonly struct RelativePoint : IEquatable<RelativePoint>
+public readonly struct RelativePoint
+    : IEquatable<RelativePoint>,
+      IParsable<RelativePoint>,
+      ISpanParsable<RelativePoint>,
+      IEqualityOperators<RelativePoint, RelativePoint, bool>
 {
     /// <summary>
     /// A point at the top left of the containing element.
@@ -208,5 +214,26 @@ public readonly struct RelativePoint : IEquatable<RelativePoint>
         return Unit == RelativeUnit.Absolute ?
             Point.ToString() :
             FormattableString.Invariant($"{Point.X * 100}%, {Point.Y * 100}%");
+    }
+
+    static RelativePoint IParsable<RelativePoint>.Parse(string s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool IParsable<RelativePoint>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out RelativePoint result)
+    {
+        result = default;
+        return s != null && TryParse(s, out result);
+    }
+
+    static RelativePoint ISpanParsable<RelativePoint>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool ISpanParsable<RelativePoint>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out RelativePoint result)
+    {
+        return TryParse(s, out result);
     }
 }

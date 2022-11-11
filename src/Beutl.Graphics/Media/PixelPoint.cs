@@ -1,10 +1,14 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Numerics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
 using Beutl.Graphics;
 using Beutl.Utilities;
 using Beutl.Validation;
+
+using Vector = Beutl.Graphics.Vector;
 
 namespace Beutl.Media;
 
@@ -13,7 +17,13 @@ namespace Beutl.Media;
 /// </summary>
 [JsonConverter(typeof(PixelPointJsonConverter))]
 [RangeValidatable(typeof(PixelPointRangeValidator))]
-public readonly struct PixelPoint : IEquatable<PixelPoint>
+public readonly struct PixelPoint
+    : IEquatable<PixelPoint>,
+      IParsable<PixelPoint>,
+      ISpanParsable<PixelPoint>,
+      IEqualityOperators<PixelPoint, PixelPoint, bool>,
+      IAdditionOperators<PixelPoint, PixelPoint, PixelPoint>,
+      ISubtractionOperators<PixelPoint, PixelPoint, PixelPoint>
 {
     /// <summary>
     /// A point representing 0,0.
@@ -245,5 +255,26 @@ public readonly struct PixelPoint : IEquatable<PixelPoint>
     public override string ToString()
     {
         return FormattableString.Invariant($"{X}, {Y}");
+    }
+
+    static PixelPoint IParsable<PixelPoint>.Parse(string s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool IParsable<PixelPoint>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out PixelPoint result)
+    {
+        result = default;
+        return s != null && TryParse(s, out result);
+    }
+
+    static PixelPoint ISpanParsable<PixelPoint>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool ISpanParsable<PixelPoint>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out PixelPoint result)
+    {
+        return TryParse(s, out result);
     }
 }

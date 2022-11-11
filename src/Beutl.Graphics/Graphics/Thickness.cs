@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Numerics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
@@ -10,7 +12,14 @@ namespace Beutl.Graphics;
 /// Describes the thickness of a frame around a rectangle.
 /// </summary>
 [JsonConverter(typeof(ThicknessJsonConverter))]
-public readonly struct Thickness : IEquatable<Thickness>
+public readonly struct Thickness
+    : IEquatable<Thickness>,
+      IParsable<Thickness>,
+      ISpanParsable<Thickness>,
+      IEqualityOperators<Thickness, Thickness, bool>,
+      IAdditionOperators<Thickness, Thickness, Thickness>,
+      ISubtractionOperators<Thickness, Thickness, Thickness>,
+      IMultiplyOperators<Thickness, float, Thickness>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="Thickness"/> structure.
@@ -147,32 +156,6 @@ public readonly struct Thickness : IEquatable<Thickness>
             a.Top * b,
             a.Right * b,
             a.Bottom * b);
-    }
-
-    /// <summary>
-    /// Adds a Thickness to a Size.
-    /// </summary>
-    /// <param name="size">The size.</param>
-    /// <param name="thickness">The thickness.</param>
-    /// <returns>The equality.</returns>
-    public static Size operator +(Size size, Thickness thickness)
-    {
-        return new Size(
-            size.Width + thickness.Left + thickness.Right,
-            size.Height + thickness.Top + thickness.Bottom);
-    }
-
-    /// <summary>
-    /// Subtracts a Thickness from a Size.
-    /// </summary>
-    /// <param name="size">The size.</param>
-    /// <param name="thickness">The thickness.</param>
-    /// <returns>The equality.</returns>
-    public static Size operator -(Size size, Thickness thickness)
-    {
-        return new Size(
-            size.Width - (thickness.Left + thickness.Right),
-            size.Height - (thickness.Top + thickness.Bottom));
     }
 
     /// <summary>
@@ -350,5 +333,26 @@ public readonly struct Thickness : IEquatable<Thickness>
         top = Top;
         right = Right;
         bottom = Bottom;
+    }
+
+    static Thickness IParsable<Thickness>.Parse(string s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool IParsable<Thickness>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out Thickness result)
+    {
+        result = default;
+        return s != null && TryParse(s, out result);
+    }
+
+    static Thickness ISpanParsable<Thickness>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool ISpanParsable<Thickness>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Thickness result)
+    {
+        return TryParse(s, out result);
     }
 }

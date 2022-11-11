@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Numerics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
@@ -12,7 +14,20 @@ namespace Beutl.Graphics;
 /// </summary>
 [JsonConverter(typeof(SizeJsonConverter))]
 [RangeValidatable(typeof(SizeRangeValidator))]
-public readonly struct Size : IEquatable<Size>
+public readonly struct Size
+    : IEquatable<Size>,
+      IParsable<Size>,
+      ISpanParsable<Size>,
+      IEqualityOperators<Size, Size, bool>,
+      IMultiplyOperators<Size, Vector, Size>,
+      IDivisionOperators<Size, Vector, Size>,
+      IDivisionOperators<Size, Size, Vector>,
+      IMultiplyOperators<Size, float, Size>,
+      IDivisionOperators<Size, float, Size>,
+      IAdditionOperators<Size, Size, Size>,
+      ISubtractionOperators<Size, Size, Size>,
+      IAdditionOperators<Size, Thickness, Size>,
+      ISubtractionOperators<Size, Thickness, Size>
 {
     /// <summary>
     /// A size representing infinity.
@@ -143,6 +158,32 @@ public readonly struct Size : IEquatable<Size>
     }
 
     /// <summary>
+    /// Adds a Thickness to a Size.
+    /// </summary>
+    /// <param name="size">The size.</param>
+    /// <param name="thickness">The thickness.</param>
+    /// <returns>The equality.</returns>
+    public static Size operator +(Size size, Thickness thickness)
+    {
+        return new Size(
+            size.Width + thickness.Left + thickness.Right,
+            size.Height + thickness.Top + thickness.Bottom);
+    }
+
+    /// <summary>
+    /// Subtracts a Thickness from a Size.
+    /// </summary>
+    /// <param name="size">The size.</param>
+    /// <param name="thickness">The thickness.</param>
+    /// <returns>The equality.</returns>
+    public static Size operator -(Size size, Thickness thickness)
+    {
+        return new Size(
+            size.Width - (thickness.Left + thickness.Right),
+            size.Height - (thickness.Top + thickness.Bottom));
+    }
+
+    /// <summary>
     /// Parses a <see cref="Size"/> string.
     /// </summary>
     /// <param name="s">The string.</param>
@@ -182,7 +223,7 @@ public readonly struct Size : IEquatable<Size>
     {
         return Parse(s.AsSpan());
     }
-    
+
     /// <summary>
     /// Parses a <see cref="Size"/> string.
     /// </summary>
@@ -314,5 +355,26 @@ public readonly struct Size : IEquatable<Size>
     {
         width = Width;
         height = Height;
+    }
+
+    static Size IParsable<Size>.Parse(string s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool IParsable<Size>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out Size result)
+    {
+        result = default;
+        return s != null && TryParse(s, out result);
+    }
+
+    static Size ISpanParsable<Size>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool ISpanParsable<Size>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Size result)
+    {
+        return TryParse(s, out result);
     }
 }

@@ -1,10 +1,14 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Numerics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
 using Beutl.Graphics;
 using Beutl.Utilities;
 using Beutl.Validation;
+
+using Vector = Beutl.Graphics.Vector;
 
 namespace Beutl.Media;
 
@@ -13,7 +17,11 @@ namespace Beutl.Media;
 /// </summary>
 [JsonConverter(typeof(PixelSizeJsonConverter))]
 [RangeValidatable(typeof(PixelSizeRangeValidator))]
-public readonly struct PixelSize : IEquatable<PixelSize>
+public readonly struct PixelSize
+    : IEquatable<PixelSize>,
+      IParsable<PixelSize>,
+      ISpanParsable<PixelSize>,
+      IEqualityOperators<PixelSize, PixelSize, bool>
 {
     /// <summary>
     /// A size representing zero
@@ -220,6 +228,27 @@ public readonly struct PixelSize : IEquatable<PixelSize>
         return new PixelSize(
             (int)Math.Ceiling(size.Width * scale.X),
             (int)Math.Ceiling(size.Height * scale.Y));
+    }
+
+    static PixelSize IParsable<PixelSize>.Parse(string s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool IParsable<PixelSize>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out PixelSize result)
+    {
+        result = default;
+        return s != null && TryParse(s, out result);
+    }
+
+    static PixelSize ISpanParsable<PixelSize>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    {
+        return Parse(s);
+    }
+
+    static bool ISpanParsable<PixelSize>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out PixelSize result)
+    {
+        return TryParse(s, out result);
     }
 
     /// <summary>
