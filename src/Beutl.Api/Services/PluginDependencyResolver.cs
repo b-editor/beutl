@@ -1,8 +1,6 @@
 ﻿using System.Reflection;
 using System.Runtime.Loader;
 
-using Beutl;
-
 using NuGet.Common;
 using NuGet.Frameworks;
 using NuGet.Packaging;
@@ -17,23 +15,54 @@ internal sealed class PluginDependencyResolver
     private const string ResourceAssemblyExtension = ".dll";
 
     private readonly Dictionary<string, string> _assemblyPaths = new(StringComparer.OrdinalIgnoreCase);
-    private readonly List<string> _nativeSearchPaths = new();
-    private readonly List<string> _resourceSearchPaths = new();
+    private readonly HashSet<string> _nativeSearchPaths = new();
+    private readonly HashSet<string> _resourceSearchPaths = new();
     private readonly string[] _assemblyDirectorySearchPaths;
 
-    public PluginDependencyResolver(string mainDirectory, PackageFolderReader reader)
+    public PluginDependencyResolver(string mainDirectory, PackageFolderReader? reader)
     {
         NuGetFramework framework = Helper.GetFrameworkName();
 
-        var availablePackages = new HashSet<PackageIdentity>();
+        if (reader != null)
+        {
+            var availablePackages = new HashSet<PackageIdentity>();
 
-        GetPackageDependencies(
-            mainDirectory,
-            reader,
-            reader.GetIdentity(),
-            framework,
-            NullLogger.Instance,
-            availablePackages);
+            GetPackageDependencies(
+                mainDirectory,
+                reader,
+                reader.GetIdentity(),
+                framework,
+                NullLogger.Instance,
+                availablePackages);
+        }
+        else
+        {
+            foreach (string item in Directory.GetFiles(mainDirectory, "*.*", SearchOption.AllDirectories))
+            {
+                string relative = Path.GetRelativePath(mainDirectory, item);
+                if (relative.StartsWith("runtimes")
+                    && Path.GetDirectoryName(item) is { } fullname)
+                {
+                    _nativeSearchPaths.Add(fullname);
+                }
+                else if (item.EndsWith(".resources.dll"))
+                {
+                    string? parent = Path.GetDirectoryName(item);
+                    string? culture = Path.GetFileName(parent);
+                    if (parent is { }
+                        && !_resourceSearchPaths.Contains(parent)
+                        && culture is { }
+                        && CultureNameValidation.IsValid(culture))
+                    {
+                        _resourceSearchPaths.Add(parent);
+                    }
+                }
+                else if (item.EndsWith(".dll"))
+                {
+                    _assemblyPaths.TryAdd(Path.GetFileNameWithoutExtension(item), item);
+                }
+            }
+        }
 
         _assemblyDirectorySearchPaths = new string[1] { mainDirectory };
     }
@@ -59,29 +88,32 @@ internal sealed class PluginDependencyResolver
             .ToArray();
         foreach (string item in libItems)
         {
-            _assemblyPaths.TryAdd(
-                Path.GetFileNameWithoutExtension(item),
-                Path.Combine(path, item));
-        }
-
-        foreach (string item in libItems)
-        {
-            string? parent = Path.GetDirectoryName(item);
-            string? culture = Path.GetFileName(parent);
-            if (parent is { }
-                && !_resourceSearchPaths.Contains(parent)
-                && item.EndsWith(".resources.dll")
-                && culture is { }
-                && CultureNameValidation.IsValid(culture))
+            if (item.EndsWith(".resources.dll"))
             {
-                _resourceSearchPaths.Add(parent);
+                string? parent = Path.GetDirectoryName(Path.Combine(path, item));
+                string? culture = Path.GetFileName(parent);
+                if (parent is { }
+                    && !_resourceSearchPaths.Contains(parent)
+                    && culture is { }
+                    && CultureNameValidation.IsValid(culture))
+                {
+                    _resourceSearchPaths.Add(parent);
+                    continue;
+                }
+            }
+
+            if (item.EndsWith(".dll"))
+            {
+                _assemblyPaths.TryAdd(
+                    Path.GetFileNameWithoutExtension(item),
+                    Path.Combine(path, item));
             }
         }
 
         foreach (string? item in reader.GetItems("runtimes")
             .SelectMany(x => x.Items))
         {
-            string add = Path.Combine(path, item, "native");
+            string add = Path.Combine(path, Path.GetDirectoryName(item));
             if (Directory.Exists(add))
             {
                 _nativeSearchPaths.Add(add);

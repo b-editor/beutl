@@ -11,7 +11,7 @@ public class PluginLoadContext : AssemblyLoadContext
     private readonly AssemblyDependencyResolver _resolver;
     private readonly PluginDependencyResolver _pluginResolver;
 
-    public PluginLoadContext(string mainDirectory, PackageFolderReader reader) : base(isCollectible: true)
+    public PluginLoadContext(string mainDirectory, PackageFolderReader? reader = null) : base(isCollectible: true)
     {
         _resolver = new AssemblyDependencyResolver(AppContext.BaseDirectory);
         _pluginResolver = new PluginDependencyResolver(mainDirectory, reader);
@@ -25,10 +25,13 @@ public class PluginLoadContext : AssemblyLoadContext
             return LoadFromAssemblyPath(assemblyPath);
         }
 
-        assemblyPath = _pluginResolver.ResolveAssemblyToPath(name);
-        if (assemblyPath != null)
+        if (!Helper.IsCoreLibraries(name.Name!))
         {
-            return LoadFromAssemblyPath(assemblyPath);
+            assemblyPath = _pluginResolver.ResolveAssemblyToPath(name);
+            if (assemblyPath != null)
+            {
+                return LoadFromAssemblyPath(assemblyPath);
+            }
         }
 
         var a = base.Load(name);

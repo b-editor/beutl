@@ -17,6 +17,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.Controls;
@@ -122,6 +123,7 @@ public sealed partial class MainView : UserControl
         Duration = TimeSpan.FromSeconds(0.67),
         FillMode = FillMode.Forward
     };
+    private readonly TaskCompletionSource _windowOpenedTask = new();
     private IControl? _settingsView;
 
     public MainView()
@@ -154,7 +156,26 @@ public sealed partial class MainView : UserControl
         _disposables.Clear();
         if (DataContext is MainViewModel viewModel)
         {
-            Task splachScreenTask = viewModel.RunSplachScreenTask();
+            Task splachScreenTask = viewModel.RunSplachScreenTask(async items =>
+            {
+                await _windowOpenedTask.Task;
+                return await Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    var dialog = new ContentDialog
+                    {
+                        Title = Message.DoYouWantToLoadSideloadExtensions,
+                        Content = new ListBox
+                        {
+                            Items = items.Select(x => x.Name).ToArray(),
+                            SelectedIndex = 0
+                        },
+                        PrimaryButtonText = Strings.Yes,
+                        CloseButtonText = Strings.No,
+                    };
+
+                    return await dialog.ShowAsync() == ContentDialogResult.Primary;
+                });
+            });
             InitPages(viewModel);
             InitCommands(viewModel);
             InitRecentItems(viewModel);
@@ -176,6 +197,7 @@ public sealed partial class MainView : UserControl
 
     private void OnParentWindowOpened(object? sender, EventArgs e)
     {
+        _windowOpenedTask.SetResult();
         if (sender is TopLevel window)
         {
             window.Opened -= OnParentWindowOpened;
@@ -323,24 +345,27 @@ Error:
         {
             foreach (MainViewModel.NavItemViewModel item in items)
             {
-                int idx = index++;
-                IControl view = CreateView(item);
-
-                NaviContent.Children.Insert(idx, view);
-                _navigationItems.Insert(idx, new NavigationViewItem()
+                if (item != null)
                 {
-                    Classes = { "SideNavigationViewItem" },
-                    DataContext = item,
-                    [!ContentProperty] = s_headerBinding,
-                    [Interaction.BehaviorsProperty] = new BehaviorCollection
+                    int idx = index++;
+                    IControl view = CreateView(item);
+
+                    NaviContent.Children.Insert(idx, view);
+                    _navigationItems.Insert(idx, new NavigationViewItem()
                     {
-                        new NavItemHelper()
+                        Classes = { "SideNavigationViewItem" },
+                        DataContext = item,
+                        [!ContentProperty] = s_headerBinding,
+                        [Interaction.BehaviorsProperty] = new BehaviorCollection
                         {
-                            FilledIcon = item.Extension.GetFilledIcon(),
-                            RegularIcon = item.Extension.GetRegularIcon(),
+                            new NavItemHelper()
+                            {
+                                FilledIcon = item.Extension.GetFilledIcon(),
+                                RegularIcon = item.Extension.GetRegularIcon(),
+                            }
                         }
-                    }
-                });
+                    });
+                }
             }
         }
 
@@ -349,11 +374,14 @@ Error:
             for (int i = items.Count - 1; i >= 0; --i)
             {
                 var item = (MainViewModel.NavItemViewModel)items[i]!;
-                int idx = index + i;
+                if (item != null)
+                {
+                    int idx = index + i;
 
-                (item.Context as IDisposable)?.Dispose();
-                NaviContent.Children.RemoveAt(idx);
-                _navigationItems.RemoveAt(idx);
+                    (item.Context as IDisposable)?.Dispose();
+                    NaviContent.Children.RemoveAt(idx);
+                    _navigationItems.RemoveAt(idx);
+                }
             }
         }
 

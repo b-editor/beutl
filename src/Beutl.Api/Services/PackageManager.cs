@@ -116,7 +116,7 @@ public sealed class PackageManager : PackageLoader
         for (int i = 0; i < _loadedPackage.Count; i++)
         {
             LocalPackage pkg = _loadedPackage[i];
-            if (StringComparer.OrdinalIgnoreCase.Equals(pkg.Name == name))
+            if (!pkg.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(pkg.Name == name))
             {
                 Package remotePackage = await discover.GetPackage(pkg.Name).ConfigureAwait(false);
 
@@ -187,12 +187,47 @@ public sealed class PackageManager : PackageLoader
         return list;
     }
 
+#pragma warning disable CA1822
+    public IReadOnlyList<LocalPackage> GetSideLoadPackages()
+#pragma warning restore CA1822
+    {
+        if (Directory.Exists(Helper.SideLoadsPath))
+        {
+            string[] items = Directory.GetDirectories(Helper.SideLoadsPath);
+            var list = new List<LocalPackage>(items.Length);
+            foreach (string item in items)
+            {
+                string name = Path.GetFileName(item);
+
+                if (File.Exists(Path.Combine(item, $"{name}.dll")))
+                {
+                    list.Add(new LocalPackage
+                    {
+                        Name = name,
+                        DisplayName = name,
+                        InstalledPath = item,
+                        SideLoad = true
+                    });
+                }
+            }
+
+            return list;
+        }
+
+        return Array.Empty<LocalPackage>();
+    }
+
     public Assembly[] Load(LocalPackage package)
     {
-        var packageId = new PackageIdentity(package.Name, NuGetVersion.Parse(package.Version));
-        package.InstalledPath ??= Helper.PackagePathResolver.GetInstallPath(packageId);
+        if (package.InstalledPath == null)
+        {
+            var packageId = new PackageIdentity(package.Name, NuGetVersion.Parse(package.Version));
+            package.InstalledPath = Helper.PackagePathResolver.GetInstallPath(packageId);
+        }
 
-        Assembly[] assemblies = Load(package.InstalledPath);
+        Assembly[] assemblies = !package.SideLoad
+            ? Load(package.InstalledPath)
+            : SideLoad(package.InstalledPath);
 
         _loadedPackage.Add(package);
 

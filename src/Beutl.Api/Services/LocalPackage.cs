@@ -69,5 +69,7 @@ public class LocalPackage
     [AllowNull]
     public string InstalledPath { get; internal set; }
 
+    public bool SideLoad { get; set; }
+
     public int LocalId { get; }
 }

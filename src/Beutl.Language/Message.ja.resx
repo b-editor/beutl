@@ -209,4 +209,7 @@
   <data name="CouldNotOpenProject" xml:space="preserve">
     <value>プロジェクトを開けませんでした。</value>
   </data>
+  <data name="DoYouWantToLoadSideloadExtensions" xml:space="preserve">
+    <value>サイドロード拡張機能を読み込みますか？</value>
+  </data>
 </root>

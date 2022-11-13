@@ -189,4 +189,7 @@ because the new name conflicts with an existing folder.</value>
   <data name="InvalidUrl" xml:space="preserve">
     <value>Invalid URL.</value>
   </data>
+  <data name="DoYouWantToLoadSideloadExtensions" xml:space="preserve">
+    <value>Do you want to load sideload extensions?</value>
+  </data>
 </root>

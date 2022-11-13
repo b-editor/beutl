@@ -15,6 +15,7 @@ internal static class Helper
     public static readonly string AppRoot;
     public static readonly string LocalSourcePath;
     public static readonly string InstallPath;
+    public static readonly string SideLoadsPath;
     public static readonly PackagePathResolver PackagePathResolver;
     public static readonly FrameworkReducer FrameworkReducer;
 
@@ -23,6 +24,7 @@ internal static class Helper
         AppRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl");
         LocalSourcePath = Path.Combine(AppRoot, "packageSource");
         InstallPath = Path.Combine(AppRoot, "packages");
+        SideLoadsPath = Path.Combine(AppRoot, "sideloads");
 
         PackagePathResolver = new PackagePathResolver(InstallPath);
 

@@ -1,13 +1,10 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Reactive.Linq;
 
 using Avalonia.Controls;
 using Avalonia.Data;
-using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 
-using Beutl.Controls;
 using Beutl.Framework;
 
 using FluentAvalonia.UI.Controls;

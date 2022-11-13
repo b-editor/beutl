@@ -1,20 +1,15 @@
-﻿
-using System.Runtime.CompilerServices;
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 
 using Beutl.Api;
-using Beutl.Api.Objects;
 using Beutl.Api.Services;
 
 using Beutl.Configuration;
 using Beutl.Framework;
 using Beutl.Framework.Service;
 using Beutl.Framework.Services;
-using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.ExtensionsPages;
@@ -22,8 +17,6 @@ using Beutl.ViewModels.ExtensionsPages;
 using DynamicData;
 
 using Microsoft.Extensions.DependencyInjection;
-
-using Nito.AsyncEx;
 
 using NuGet.Packaging.Core;
 
@@ -319,7 +312,7 @@ public sealed class MainViewModel : BasePageViewModel
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 
-    public Task RunSplachScreenTask()
+    public Task RunSplachScreenTask(Func<IReadOnlyList<LocalPackage>, Task<bool>> showDialog)
     {
         return Task.Run(async () =>
         {
@@ -351,6 +344,15 @@ public sealed class MainViewModel : BasePageViewModel
             foreach (LocalPackage item in await manager.GetPackages())
             {
                 manager.Load(item);
+            }
+
+            if (manager.GetSideLoadPackages() is { Count: > 0 } sideloads
+                && await showDialog(sideloads))
+            {
+                foreach (LocalPackage item in sideloads)
+                {
+                    manager.Load(item);
+                }
             }
 
             IEnumerable<PageExtension> toAdd

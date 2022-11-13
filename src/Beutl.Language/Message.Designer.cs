@@ -198,6 +198,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Do you want to load sideload extensions? に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DoYouWantToLoadSideloadExtensions {
+            get {
+                return ResourceManager.GetString("DoYouWantToLoadSideloadExtensions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   The editor context has already been created. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string EditorContextHasAlreadyBeenCreated {

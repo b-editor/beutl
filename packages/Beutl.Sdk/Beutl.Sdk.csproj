@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
-    <!-- おすすめはしませんが、アプリケーション側のクラスを使う場合はこのプロパティを'true'に変更します。 -->
-    <IncludeExeProject>false</IncludeExeProject>
+    <Version>0.3.0-preview1</Version>
+    <AssemblyVersion>0.3.0.0</AssemblyVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -11,14 +11,23 @@
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Core/Beutl.Core.csproj" PrivateAssets="All" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Framework/Beutl.Framework.csproj" PrivateAssets="All" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Graphics/Beutl.Graphics.csproj" PrivateAssets="All" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Language/Beutl.Language.csproj" PrivateAssets="All" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Operators/Beutl.Operators.csproj" PrivateAssets="All" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.ProjectSystem/Beutl.ProjectSystem.csproj" PrivateAssets="All" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Threading/Beutl.Threading.csproj" PrivateAssets="All" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Utilities/Beutl.Utilities.csproj" PrivateAssets="All" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(IncludeExeProject)' == 'true'">
-    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl/Beutl.csproj" PrivateAssets="All" />
-  </ItemGroup>
+  <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\Avalonia.Svg.Skia.props" />
+  <Import Project="$(RootDirectory)\build\props\Avalonia.Xaml.Interactivity.props" />
+  <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\FluentIcons.FluentAvalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\OpenCvSharp4.props" />
+  <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
+  <Import Project="$(RootDirectory)\build\props\SkiaSharp.props" />
+  <Import Project="$(RootDirectory)\build\props\System.Interactive.props" />
+  <Import Project="$(RootDirectory)\build\props\System.Reactive.props" />
 
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.props" />
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.targets" />

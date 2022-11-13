@@ -32,4 +32,20 @@ public abstract class PackageLoader : IBeutlApiResource
 
         return assemblies;
     }
+
+#pragma warning disable CA1822
+    protected Assembly[] SideLoad(string installedPath)
+#pragma warning restore CA1822
+    {
+        string mainDirectory = Path.Combine(installedPath);
+
+        var loadContext = new PluginLoadContext(mainDirectory);
+        string name = Path.GetFileName(mainDirectory);
+        string asmFile = Path.Combine(mainDirectory, $"{name}.dll");
+
+        return new Assembly[]
+        {
+            loadContext.LoadFromAssemblyPath(asmFile)
+        };
+    }
 }

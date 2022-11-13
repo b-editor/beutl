@@ -1,7 +1,4 @@
-﻿using System.Reactive.Linq;
-
-using Beutl.Framework;
-using Beutl.ProjectSystem;
+﻿using Beutl.Framework;
 using Beutl.Streaming;
 
 namespace PackageSample;
