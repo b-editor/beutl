@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <RepositoryUrl>https://github.com/b-editor/beutl</RepositoryUrl>
+    <PackageId>Beutl.Extensions.FFmpeg</PackageId>
+    <Title>Beutl.Extensions.FFmpeg</Title>
+    <Description>FFmpeg for beutl</Description>
+    <PackageTags>ffmpeg;decoder;decoding;encoder;encoding;video;audio</PackageTags>
+    <PackageLicenseExpression>GPL-2.0-only</PackageLicenseExpression>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <Authors>b-editor</Authors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FFmpeg.AutoGen" Version="5.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Beutl.Framework\Beutl.Framework.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -13,6 +13,7 @@ public class OperatorsRegistrar
             .Add<Source.RoundedRectOperation>(Strings.RoundedRect)
             .Add<Source.TextBlockOperator>(Strings.Text)
             .Add<Source.ImageFileOperator>(Strings.ImageFile)
+            .Add<Source.VideoFrameOperator>("Video")
             .Register();
 
         OperatorRegistry.RegisterOperations(Strings.Configure)

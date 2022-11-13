@@ -106,6 +106,7 @@
                         NextButtonCommand="{CompiledBinding Player.Next}"
                         PlayButtonCommand="{CompiledBinding Player.PlayPause}"
                         PreviousButtonCommand="{CompiledBinding Player.Previous}"
+                        Source="{CompiledBinding Player.PreviewImage.Value, Mode=OneWay}"
                         StartButtonCommand="{CompiledBinding Player.Start}"
                         Value="{Binding Scene.CurrentFrame, Converter={StaticResource TimeSpanToDoubleConverter}}"
                         Duration="{Binding Scene.Duration, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}" />

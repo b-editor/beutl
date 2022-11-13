@@ -19,7 +19,7 @@
                                 Background="Black"
                                 ClipToBounds="True" />
 
-                        <Image Name="PART_Image" />
+                        <Image Name="PART_Image" Source="{TemplateBinding Source}" />
                     </Panel>
 
                     <Grid Grid.Row="1" RowDefinitions="Auto,Auto">
