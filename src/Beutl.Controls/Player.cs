@@ -4,11 +4,13 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 
 namespace Beutl.Controls;
 
 public class Player : RangeBase
 {
+    public static readonly StyledProperty<IImage> SourceProperty = Image.SourceProperty.AddOwner<Player>();
     public static readonly StyledProperty<string> DurationProperty = AvaloniaProperty.Register<Player, string>(nameof(Duration));
     public static readonly DirectProperty<Player, string> CurrentTimeProperty =
         AvaloniaProperty.RegisterDirect<Player, string>(
@@ -64,6 +66,12 @@ public class Player : RangeBase
     private ICommand _previousButtonCommand;
     private ICommand _endButtonCommand;
     private ICommand _startButtonCommand;
+
+    public IImage Source
+    {
+        get => GetValue(SourceProperty);
+        set => SetValue(SourceProperty, value);
+    }
 
     public string Duration
     {

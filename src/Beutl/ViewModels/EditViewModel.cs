@@ -83,6 +83,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
     {
         SaveState();
         _disposables.Dispose();
+        Player.Dispose();
 
         foreach (ToolTabViewModel item in BottomTabItems.GetMarshal().Value)
         {
