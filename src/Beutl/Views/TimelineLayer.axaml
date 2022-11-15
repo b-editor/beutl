@@ -73,6 +73,7 @@
                 </MenuItem>
             </ContextMenu>
         </Border.ContextMenu>
+        <TextBlock Text="{Binding Model.ZIndex}" />
     </Border>
 
 </UserControl>

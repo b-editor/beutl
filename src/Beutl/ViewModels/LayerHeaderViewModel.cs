@@ -56,8 +56,6 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public TimelineViewModel Timeline { get; }
 
-    //public ReactiveProperty<Thickness> Margin { get; }
-
     public ReactivePropertySlim<double> PosY { get; } = new(0);
 
     public ReactiveProperty<Color> Color { get; } = new();
@@ -70,7 +68,7 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<bool> HasItems { get; }
 
-    //public Func<double, CancellationToken, Task> AnimationRequested { get; set; } = (_, _) => Task.CompletedTask;
+    public ReactiveProperty<double> Height { get; } = new(Helper.LayerHeight);
 
     public void AnimationRequest(int layerNum, bool affectModel = true)
     {

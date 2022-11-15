@@ -10,6 +10,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 
+using Beutl.Framework;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Streaming;
@@ -196,18 +197,19 @@ public sealed partial class Timeline : UserControl
     // ポインター移動
     private void TimelinePanel_PointerMoved(object? sender, PointerEventArgs e)
     {
+        TimelineViewModel viewModel = ViewModel;
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        _pointerFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Options.Value.Scale)
-            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
+        _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale)
+            .RoundToRate(viewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
 
         if (ReferenceEquals(sender, TimelinePanel))
         {
-            _pointerLayer = pointerPt.Position.Y.ToLayerNumber();
+            _pointerLayer = viewModel.ToLayerNumber(pointerPt.Position.Y);
         }
 
         if (_seekbarMouseFlag == MouseFlags.MouseDown)
         {
-            ViewModel.Scene.CurrentFrame = _pointerFrame;
+            viewModel.Scene.CurrentFrame = _pointerFrame;
         }
     }
 
@@ -225,13 +227,14 @@ public sealed partial class Timeline : UserControl
     // ポインターが押された
     private void TimelinePanel_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        TimelineViewModel viewModel = ViewModel;
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        ViewModel.ClickedFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Options.Value.Scale)
-            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
+        viewModel.ClickedFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale)
+            .RoundToRate(viewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
 
         if (ReferenceEquals(sender, TimelinePanel))
         {
-            ViewModel.ClickedLayer = pointerPt.Position.Y.ToLayerNumber();
+            viewModel.ClickedLayer = viewModel.ToLayerNumber(pointerPt.Position.Y);
         }
 
         TimelinePanel.Focus();
@@ -239,7 +242,7 @@ public sealed partial class Timeline : UserControl
         if (pointerPt.Properties.IsLeftButtonPressed)
         {
             _seekbarMouseFlag = MouseFlags.MouseDown;
-            ViewModel.Scene.CurrentFrame = ViewModel.ClickedFrame;
+            viewModel.Scene.CurrentFrame = viewModel.ClickedFrame;
         }
     }
 
@@ -253,12 +256,13 @@ public sealed partial class Timeline : UserControl
     private async void TimelinePanel_Drop(object? sender, DragEventArgs e)
     {
         TimelinePanel.Cursor = Cursors.Arrow;
+        TimelineViewModel viewModel = ViewModel;
         Scene scene = ViewModel.Scene;
         Point pt = e.GetPosition(TimelinePanel);
 
-        ViewModel.ClickedFrame = pt.X.ToTimeSpan(ViewModel.Options.Value.Scale)
-            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
-        ViewModel.ClickedLayer = pt.Y.ToLayerNumber();
+        viewModel.ClickedFrame = pt.X.ToTimeSpan(viewModel.Options.Value.Scale)
+            .RoundToRate(viewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
+        viewModel.ClickedLayer = viewModel.ToLayerNumber(pt.Y);
 
         if (e.Data.Get("StreamOperator") is OperatorRegistry.RegistryItem item2)
         {
@@ -266,14 +270,14 @@ public sealed partial class Timeline : UserControl
             {
                 var dialog = new AddLayer
                 {
-                    DataContext = new AddLayerViewModel(scene, new LayerDescription(ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.ClickedLayer, InitialOperator: item2))
+                    DataContext = new AddLayerViewModel(scene, new LayerDescription(viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.ClickedLayer, InitialOperator: item2))
                 };
                 await dialog.ShowAsync();
             }
             else
             {
-                ViewModel.AddLayer.Execute(new LayerDescription(
-                    ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.ClickedLayer, InitialOperator: item2));
+                viewModel.AddLayer.Execute(new LayerDescription(
+                    viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.ClickedLayer, InitialOperator: item2));
             }
         }
     }

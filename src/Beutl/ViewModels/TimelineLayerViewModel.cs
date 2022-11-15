@@ -23,8 +23,8 @@ public sealed class TimelineLayerViewModel : IDisposable
         Timeline = timeline;
 
         IObservable<int> zIndexSubject = sceneLayer.GetObservable(Layer.ZIndexProperty);
-        Margin = zIndexSubject
-            .Select(item => new Thickness(0, item.ToLayerPixel(), 0, 0))
+        Margin = Timeline.GetTrackedLayerTopObservable(zIndexSubject)
+            .Select(item => new Thickness(0, item, 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
@@ -142,7 +142,7 @@ public sealed class TimelineLayerViewModel : IDisposable
 
     public async void AnimationRequest(int layerNum, bool affectModel = true, CancellationToken cancellationToken = default)
     {
-        var newMargin = new Thickness(0, layerNum.ToLayerPixel(), 0, 0);
+        var newMargin = new Thickness(0, Timeline.CalculateLayerTop(layerNum), 0, 0);
         Thickness oldMargin = Margin.Value;
         if (affectModel)
             Model.ZIndex = layerNum;
@@ -160,14 +160,14 @@ public sealed class TimelineLayerViewModel : IDisposable
         Thickness oldBorderMargin = BorderMargin.Value;
         double oldWidth = Width.Value;
 
-        int layerNum = Margin.Value.ToLayerNumber();
+        int layerNum = Timeline.ToLayerNumber(Margin.Value);
         Scene.MoveChild(
             layerNum,
             BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate),
             Width.Value.ToTimeSpan(scale).RoundToRate(rate),
             Model).DoAndRecord(CommandRecorder.Default);
 
-        var margin = new Thickness(0, Model.ZIndex.ToLayerPixel(), 0, 0);
+        var margin = new Thickness(0, Timeline.CalculateLayerTop(Model.ZIndex), 0, 0);
         var borderMargin = new Thickness(Model.Start.ToPixel(Timeline.Options.Value.Scale), 0, 0, 0);
         double width = Model.Length.ToPixel(Timeline.Options.Value.Scale);
 

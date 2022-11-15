@@ -74,7 +74,7 @@ public sealed partial class LayerHeader : UserControl
             LayerHeaderViewModel vm = ViewModel;
             var newMargin = new Thickness(0, Math.Max(position.Y - _startRel.Y, 0), 0, 0);
 
-            _newLayer = newMargin.ToLayerNumber();
+            _newLayer = ViewModel.Timeline.ToLayerNumber(newMargin);
 
             if (position.Y >= 0)
             {
