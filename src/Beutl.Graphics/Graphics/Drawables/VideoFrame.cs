@@ -171,7 +171,7 @@ public class VideoFrame : Drawable
                 _requestedPosition = _playbackPosition;
             }
 
-            TimeSpan pos = _requestedPosition - _offsetPosition;
+            TimeSpan pos = _requestedPosition + _offsetPosition;
             Rational rate = _mediaReader.VideoInfo.FrameRate;
             double frameNum = pos.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
 
