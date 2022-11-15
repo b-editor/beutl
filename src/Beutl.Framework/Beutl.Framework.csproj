@@ -1,9 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
     <ProjectReference Include="..\Beutl.Graphics\Beutl.Graphics.csproj" />
   </ItemGroup>
+
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
   <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
   <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
+
+  <!-- CS8032 -->
+  <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.Analyzers.props" />
+
 </Project>

@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
@@ -7,9 +8,11 @@
     <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
     <NeutralLanguage>en</NeutralLanguage>
   </PropertyGroup>
+
   <ItemGroup>
     <None Remove=".gitignore" />
   </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="FluentTextTable" Version="1.0.0" />
     <PackageReference Include="Kokuban" Version="0.2.0" />
@@ -17,6 +20,9 @@
     <PackageReference Include="Sharprompt" Version="2.4.5" />
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
   </ItemGroup>
+
+  <!-- CS8032 -->
+  <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.CSharp.props" />
 
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />

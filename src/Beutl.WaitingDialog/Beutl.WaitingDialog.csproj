@@ -20,4 +20,7 @@
   <Import Project="$(RootDirectory)\build\props\FluentIcons.FluentAvalonia.props" />
   <Import Project="$(RootDirectory)\build\props\XamlNameReferenceGenerator.props" />
 
+  <!-- CS8032 -->
+  <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.Analyzers.props" />
+
 </Project>

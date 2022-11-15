@@ -11,6 +11,9 @@
   <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
   <Import Project="$(RootDirectory)\build\props\Nito.AsyncEx.props" />
 
+  <!-- CS8032 -->
+  <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.Analyzers.props" />
+
   <ItemGroup>
     <EmbeddedResource Include="Resources\index.html" />
   </ItemGroup>

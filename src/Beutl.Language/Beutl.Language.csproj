@@ -1,11 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <NeutralLanguage>en</NeutralLanguage>
   </PropertyGroup>
+
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
+
+  <!-- CS8032 -->
+  <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.Analyzers.props" />
+
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
   </ItemGroup>
+
   <ItemGroup>
     <Compile Update="ExtensionsPage.Designer.cs">
       <DesignTime>True</DesignTime>
@@ -46,4 +53,5 @@
       <LastGenOutput>Strings.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
+
 </Project>

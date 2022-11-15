@@ -37,6 +37,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Props", "Props", "{74C34E00
 		build\props\FluentAvalonia.props = build\props\FluentAvalonia.props
 		build\props\FluentIcons.FluentAvalonia.props = build\props\FluentIcons.FluentAvalonia.props
 		build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props = build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props
+		build\props\Microsoft.CodeAnalysis.Analyzers.props = build\props\Microsoft.CodeAnalysis.Analyzers.props
 		build\props\Microsoft.Extensions.DependencyInjection.props = build\props\Microsoft.Extensions.DependencyInjection.props
 		build\props\Microsoft.Extensions.FileSystemGlobbing.props = build\props\Microsoft.Extensions.FileSystemGlobbing.props
 		build\props\Microsoft.Extensions.Http.props = build\props\Microsoft.Extensions.Http.props
@@ -113,7 +114,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Api", "src\Beutl.Api\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.PackageTools", "src\Beutl.PackageTools\Beutl.PackageTools.csproj", "{A7F8F486-8D17-43E4-A175-82A991FB5F31}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beutl.WaitingDialog", "src\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj", "{D148B786-2361-4FCD-BD0E-5953CB4C2AF8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.WaitingDialog", "src\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj", "{D148B786-2361-4FCD-BD0E-5953CB4C2AF8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
