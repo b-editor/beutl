@@ -59,9 +59,8 @@ public partial class PublicPackageDetailsPage : UserControl
             var dialog = new ContentDialog()
             {
                 Title = Language.ExtensionsPage.OpenUrl_Title,
-                Content = new RichTextBlock()
+                Content = new SelectableTextBlock()
                 {
-                    IsTextSelectionEnabled = true,
                     Text = string.Format(Language.ExtensionsPage.OpenUrl_Content, url)
                 },
                 PrimaryButtonText = Strings.Open,

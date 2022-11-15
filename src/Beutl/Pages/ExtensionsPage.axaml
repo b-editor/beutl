@@ -53,11 +53,11 @@
                     Spacing="8">
             <TextBlock Text="{x:Static lang:ExtensionsPage.AuthorizationIsRequired}" Theme="{StaticResource SubtitleTextBlockStyle}" />
 
-            <RichTextBlock>
+            <SelectableTextBlock>
                 <Run Text="{x:Static lang:ExtensionsPage.AnAccountIsRequiredToGetExtension}" />
                 <LineBreak />
                 <Run Text="{x:Static lang:ExtensionsPage.GotoSettings_Account}" />
-            </RichTextBlock>
+            </SelectableTextBlock>
 
             <Button Height="40"
                     Margin="0,16,0,0"

@@ -45,7 +45,7 @@
             <ui:TeachingTip x:Name="QueryTip"
                             Title="{x:Static lang:ExtensionsPage.QueryExample}"
                             PreferredPlacement="Bottom">
-                <RichTextBlock>
+                <SelectableTextBlock>
                     <Run Text="{x:Static lang:ExtensionsPage.QueryExample_1}" />
                     <LineBreak />
                     <Run Text="{x:Static lang:ExtensionsPage.QueryExample_2}" />
@@ -62,7 +62,7 @@
                     <Run Text="{x:Static lang:ExtensionsPage.Query_WildcardsAreAvailable}" />
                     <LineBreak />
                     <Run Text="{x:Static lang:ExtensionsPage.Query_WildcardsAreAvailable_Body}" />
-                </RichTextBlock>
+                </SelectableTextBlock>
             </ui:TeachingTip>
 
             <TabControl Padding="0" SelectedIndex="{Binding SearchType.Value}">

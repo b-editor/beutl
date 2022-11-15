@@ -23,7 +23,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="16">
                         <icons:SymbolIcon FontSize="24" Symbol="CloudArrowUp" />
 
-                        <RichTextBlock Margin="0,8">
+                        <TextBlock Margin="0,8">
                             <Bold FontSize="14">
                                 <Run Text="{x:Static lang:Strings.Internal}" />
                             </Bold>
@@ -33,14 +33,14 @@
                             <Italic>
                                 <Run Text="{x:Static lang:Strings.CreateAsset_Internal_Example}" />
                             </Italic>
-                        </RichTextBlock>
+                        </TextBlock>
                     </StackPanel>
                 </ListBoxItem>
                 <ListBoxItem>
                     <StackPanel Orientation="Horizontal" Spacing="16">
                         <icons:SymbolIcon FontSize="24" Symbol="CloudLink" />
 
-                        <RichTextBlock Margin="0,8">
+                        <TextBlock Margin="0,8">
                             <Bold FontSize="14">
                                 <Run Text="{x:Static lang:Strings.External}" />
                             </Bold>
@@ -50,7 +50,7 @@
                             <Italic>
                                 <Run Text="{x:Static lang:Strings.CreateAsset_External_Example}" />
                             </Italic>
-                        </RichTextBlock>
+                        </TextBlock>
                     </StackPanel>
                 </ListBoxItem>
             </ListBox>

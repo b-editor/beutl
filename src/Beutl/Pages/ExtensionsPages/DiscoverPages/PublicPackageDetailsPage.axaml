@@ -132,9 +132,7 @@
                                    Theme="{StaticResource BodyStrongTextBlockStyle}" />
                         <Border Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
 
-                        <RichTextBlock Margin="16"
-                                       IsTextSelectionEnabled="True"
-                                       Text="{Binding Package.Description.Value}" />
+                        <SelectableTextBlock Margin="16" Text="{Binding Package.Description.Value}" />
                     </StackPanel>
                 </Border>
 
@@ -146,9 +144,7 @@
                         <Border Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
 
                         <TextBlock Margin="16,16,16,0" Text="{Binding LatestRelease.Value.Title.Value}" />
-                        <RichTextBlock Margin="16"
-                                       IsTextSelectionEnabled="True"
-                                       Text="{Binding LatestRelease.Value.Body.Value}" />
+                        <SelectableTextBlock Margin="16" Text="{Binding LatestRelease.Value.Body.Value}" />
                     </StackPanel>
                 </Border>
 
