@@ -36,6 +36,7 @@ public sealed partial class Timeline : UserControl
     private IDisposable? _disposable1;
     private IDisposable? _disposable2;
     private IDisposable? _disposable3;
+    private IDisposable? _disposable4;
     private TimelineLayer? _selectedLayer;
 
     public Timeline()
@@ -85,6 +86,7 @@ public sealed partial class Timeline : UserControl
                 _disposable1?.Dispose();
                 _disposable2?.Dispose();
                 _disposable3?.Dispose();
+                _disposable4?.Dispose();
             }
 
             _viewModel = vm;
@@ -100,6 +102,11 @@ public sealed partial class Timeline : UserControl
             _disposable0 = vm.Layers.ForEachItem(
                 AddLayer,
                 RemoveLayer,
+                () => { });
+            
+            _disposable4 = vm.Inlines.ForEachItem(
+                OnAddedInline,
+                OnRemovedInline,
                 () => { });
 
             _disposable1 = ViewModel.Paste.Subscribe(async () =>
@@ -336,6 +343,30 @@ public sealed partial class Timeline : UserControl
         {
             IControl item = TimelinePanel.Children[i];
             if (item.DataContext is TimelineLayerViewModel vm && vm.Model == layer)
+            {
+                TimelinePanel.Children.RemoveAt(i);
+                break;
+            }
+        }
+    }
+
+    private void OnAddedInline(InlineAnimationLayerViewModel viewModel)
+    {
+        var view = new InlineAnimationLayer
+        {
+            DataContext = viewModel
+        };
+
+        TimelinePanel.Children.Add(view);
+    }
+
+    private void OnRemovedInline(InlineAnimationLayerViewModel viewModel)
+    {
+        IAbstractAnimatableProperty prop = viewModel.Property;
+        for (int i = 0; i < TimelinePanel.Children.Count; i++)
+        {
+            IControl item = TimelinePanel.Children[i];
+            if (item.DataContext is InlineAnimationLayerViewModel vm && vm.Property == prop)
             {
                 TimelinePanel.Children.RemoveAt(i);
                 break;

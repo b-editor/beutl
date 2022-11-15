@@ -25,6 +25,7 @@
                           Header="{x:Static lang:Strings.Reset}"
                           IsEnabled="{Binding CanReset}" />
                 <MenuItem Click="EditAnimation_Click" Header="{x:Static lang:Strings.EditAnimation}" />
+                <MenuItem Click="EditInlineAnimation_Click" Header="アニメーションを編集(Inline)" />
                 <MenuItem Click="DeleteSetter_Click"
                           Header="{x:Static lang:Strings.Delete}"
                           IsVisible="{Binding IsStylingSetter}" />

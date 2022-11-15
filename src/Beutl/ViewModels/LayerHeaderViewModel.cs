@@ -1,4 +1,6 @@
-﻿using Avalonia.Media;
+﻿using System.Collections.Specialized;
+
+using Avalonia.Media;
 
 using Beutl.Commands;
 using Beutl.ProjectSystem;
@@ -16,10 +18,6 @@ public sealed class LayerHeaderViewModel : IDisposable
     {
         Number = new(num);
         Timeline = timeline;
-        //Margin = Number
-        //    .Select(item => new Thickness(0, item.ToLayerPixel(), 0, 0))
-        //    .ToReactiveProperty()
-        //    .AddTo(_disposables);
 
         HasItems = ItemsCount.Select(i => i > 0)
             .ToReadOnlyReactivePropertySlim()
@@ -47,9 +45,28 @@ public sealed class LayerHeaderViewModel : IDisposable
             command?.DoAndRecord(CommandRecorder.Default);
         }).AddTo(_disposables);
 
-        //PosY = Margin.CombineLatest(Number)
-        //    .Select(t => t.First.Top - t.Second.ToLayerPixel())
-        //    .ToReadOnlyReactivePropertySlim();
+        Height.Subscribe(_ => Timeline.RaiseLayerHeightChanged(this)).AddTo(_disposables);
+
+#if DEBUG
+        Name = Number.Select(x => x.ToString()).ToReactiveProperty()!;
+#endif
+        Inlines.ForEachItem(
+            x =>
+            {
+                x.HeightChanged += OnInlineItemHeightChanged;
+                Height.Value += x.Height;
+            },
+            x =>
+            {
+                x.HeightChanged -= OnInlineItemHeightChanged;
+                Height.Value -= x.Height;
+            },
+            () => { }).AddTo(_disposables);
+    }
+
+    private void OnInlineItemHeightChanged(object? sender, (double OldHeight, double NewHeight) e)
+    {
+        Height.Value += e.NewHeight - e.OldHeight;
     }
 
     public ReactiveProperty<int> Number { get; }
@@ -69,6 +86,8 @@ public sealed class LayerHeaderViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<bool> HasItems { get; }
 
     public ReactiveProperty<double> Height { get; } = new(Helper.LayerHeight);
+
+    public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = new() { ResetBehavior = ResetBehavior.Remove };
 
     public void AnimationRequest(int layerNum, bool affectModel = true)
     {

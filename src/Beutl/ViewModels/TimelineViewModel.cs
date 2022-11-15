@@ -112,6 +112,8 @@ public sealed class TimelineViewModel : IToolContext
 
     public CoreList<TimelineLayerViewModel> Layers { get; } = new();
 
+    public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = new();
+
     public CoreList<LayerHeaderViewModel> LayerHeaders { get; } = new();
 
     public ReactiveCommand Paste { get; } = new();
@@ -147,6 +149,18 @@ public sealed class TimelineViewModel : IToolContext
 
     public void WriteToJson(ref JsonNode json)
     {
+    }
+
+    public void AttachInline(IAbstractAnimatableProperty property, Layer layer)
+    {
+        if (Layers.FirstOrDefault(x => x.Model == layer) is { } viewModel)
+        {
+            // タイムラインのタブを開く
+            var anmTimelineViewModel
+                = new InlineAnimationLayerViewModel(property, this, viewModel);
+
+            Inlines.Add(anmTimelineViewModel);
+        }
     }
 
     public IObservable<double> GetLayerHeightObservable(int layerNum)
