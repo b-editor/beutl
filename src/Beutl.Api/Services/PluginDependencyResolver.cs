@@ -113,7 +113,7 @@ internal sealed class PluginDependencyResolver
         foreach (string? item in reader.GetItems("runtimes")
             .SelectMany(x => x.Items))
         {
-            string add = Path.Combine(path, Path.GetDirectoryName(item));
+            string add = Path.Combine(path, Path.GetDirectoryName(item)!);
             if (Directory.Exists(add))
             {
                 _nativeSearchPaths.Add(add);
