@@ -12,7 +12,7 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
     {
         Value = property.GetObservable()
             .ToReadOnlyReactivePropertySlim()
-            .AddTo(Disposables);
+            .AddTo(Disposables)!;
     }
 
     public ReadOnlyReactivePropertySlim<T> Value { get; }

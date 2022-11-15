@@ -85,6 +85,20 @@ public static class PropertyEditorService
         viewModelType = viewModelType.MakeGenericType(s.Property.PropertyType);
         return Activator.CreateInstance(viewModelType, s) as BaseEditorViewModel;
     }
+    
+    private static Control? CreateParsableEditor(IAbstractProperty s)
+    {
+        Type controlType = typeof(ParsableEditor<>);
+        controlType = controlType.MakeGenericType(s.Property.PropertyType);
+        return Activator.CreateInstance(controlType) as Control;
+    }
+
+    private static BaseEditorViewModel? CreateParsableEditorViewModel(IAbstractProperty s)
+    {
+        Type viewModelType = typeof(ParsableEditorViewModel<>);
+        viewModelType = viewModelType.MakeGenericType(s.Property.PropertyType);
+        return Activator.CreateInstance(viewModelType, s) as BaseEditorViewModel;
+    }
 
     internal sealed class PropertyEditorExtensionImpl : IPropertyEditorExtensionImpl
     {
@@ -133,10 +147,13 @@ public static class PropertyEditorService
             { typeof(Vector4), new(_ => new Vector4Editor(), s => new ValueEditorViewModel<Vector4>(s.ToTyped<Vector4>())) },
             { typeof(Graphics.Vector), new(_ => new VectorEditor(), s => new ValueEditorViewModel<Graphics.Vector>(s.ToTyped<Graphics.Vector>())) },
             { typeof(RelativePoint), new(_ => new RelativePointEditor(), s => new ValueEditorViewModel<RelativePoint>(s.ToTyped<RelativePoint>())) },
+            { typeof(TimeSpan), new(_ => new TimeSpanEditor(), s => new TimeSpanEditorViewModel(s.ToTyped<TimeSpan>())) },
+
             { typeof(IBrush), new(_ => new BrushEditor(), s => new BrushEditorViewModel(s)) },
             { typeof(GradientStops), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<GradientStops>())) },
             { typeof(IList), new(_ => new ListEditor(), s => new ListEditorViewModel(s)) },
             { typeof(ICoreObject), new(CreateNavigationButton, CreateNavigationButtonViewModel) },
+            { typeof(IParsable<>), new(CreateParsableEditor, CreateParsableEditorViewModel) },
         };
 
         public IEnumerable<CoreProperty> MatchProperty(IReadOnlyList<CoreProperty> properties)
