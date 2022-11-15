@@ -110,7 +110,7 @@ public sealed unsafe class FFmpegReader : MediaReader
                     new string((sbyte*)_videoCodec->long_name),
                     _videoStream->nb_frames,
                     new PixelSize(_videoCodecContext->width, _videoCodecContext->height),
-                    new Rational(_videoStream->r_frame_rate.num, _videoStream->r_frame_rate.den))
+                    new Rational(_videoStream->avg_frame_rate.num, _videoStream->avg_frame_rate.den))
                 {
                     Duration = new Rational(_formatContext->duration, ffmpeg.AV_TIME_BASE)
                 };
