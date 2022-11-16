@@ -163,6 +163,18 @@ public sealed class TimelineViewModel : IToolContext
         }
     }
 
+    public void DetachInline(InlineAnimationLayerViewModel item)
+    {
+        if (item.LayerHeader.Value is { } layerHeader)
+        {
+            layerHeader.Inlines.Remove(item);
+        }
+
+        Inlines.Remove(item);
+
+        item.Dispose();
+    }
+
     public IObservable<double> GetLayerHeightObservable(int layerNum)
     {
         // -----------

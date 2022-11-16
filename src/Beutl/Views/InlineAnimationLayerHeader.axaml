@@ -1,0 +1,52 @@
+<UserControl x:Class="Beutl.Views.InlineAnimationLayerHeader"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.ViewModels"
+             Height="{Binding ObserveHeight.Value}"
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Top"
+             VerticalContentAlignment="Top"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="vm:InlineAnimationLayerViewModel"
+             mc:Ignorable="d">
+    <Grid Height="{DynamicResource LayerHeight}" ColumnDefinitions="14,Auto,Auto,Auto,*">
+
+        <Border x:Name="border"
+                Grid.Column="1"
+                CornerRadius="{DynamicResource ControlCornerRadius}"
+                Cursor="SizeNorthSouth">
+            <Border.Styles>
+                <Style Selector="Border:pointerover">
+                    <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                </Style>
+            </Border.Styles>
+            <icons:SymbolIcon FontSize="14" Symbol="ReOrderDotsVertical" />
+        </Border>
+
+        <Button Grid.Column="2"
+                Width="24"
+                Padding="0"
+                VerticalAlignment="Stretch"
+                BorderThickness="0"
+                Command="{CompiledBinding Close}"
+                Theme="{StaticResource TransparentButton}">
+            <icons:SymbolIcon Symbol="Dismiss" />
+        </Button>
+
+        <Button Grid.Column="3"
+                Padding="5"
+                VerticalAlignment="Stretch"
+                BorderThickness="0"
+                Theme="{StaticResource TransparentButton}">
+            <icons:SymbolIcon Symbol="ChevronUpDown" />
+        </Button>
+
+        <SelectableTextBlock Grid.Column="4"
+                             VerticalAlignment="Center"
+                             Text="{CompiledBinding Header}" />
+    </Grid>
+</UserControl>

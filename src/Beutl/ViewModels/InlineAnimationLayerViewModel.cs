@@ -38,6 +38,12 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             .Select(x => x.First + x.Second)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
+
+        Header = $"{property.Property.OwnerType.Name}.{property.Property.Name}";
+
+        Close = new ReactiveCommand()
+            .WithSubscribe(() => Timeline.DetachInline(this))
+            .DisposeWith(_disposables);
     }
 
     public Func<Thickness, CancellationToken, Task> AnimationRequested { get; set; } = (_, _) => Task.CompletedTask;
@@ -51,6 +57,8 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
     public ReactiveProperty<Thickness> Margin { get; }
 
     public ReactivePropertySlim<int> Index { get; } = new();
+
+    public string Header { get; }
 
     public double Height
     {
@@ -66,6 +74,8 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             }
         }
     }
+
+    public ReactiveCommand Close { get; }
 
     public ReadOnlyReactivePropertySlim<double> ObserveHeight { get; }
 

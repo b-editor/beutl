@@ -142,12 +142,22 @@ public sealed class TimelineLayerViewModel : IDisposable
 
     public async void AnimationRequest(int layerNum, bool affectModel = true, CancellationToken cancellationToken = default)
     {
+        var inlines = Timeline.LayerHeaders
+            .First(x => x.Number.Value == layerNum)
+            .Inlines.Where(x => x.Layer == this)
+            .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
+            .ToArray();
+
         var newMargin = new Thickness(0, Timeline.CalculateLayerTop(layerNum), 0, 0);
         Thickness oldMargin = Margin.Value;
         if (affectModel)
             Model.ZIndex = layerNum;
 
         Margin.Value = oldMargin;
+
+        foreach (var (item, context) in inlines)
+            item.AnimationRequest(context, newMargin, cancellationToken);
+
         await AnimationRequested((newMargin, BorderMargin.Value, Width.Value), cancellationToken);
         Margin.Value = newMargin;
     }
