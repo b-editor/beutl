@@ -77,7 +77,7 @@ public sealed partial class EditorBadge : UserControl
             editViewModel.OpenToolTab(anmViewModel);
 
             // タイムラインのタブを開く
-            timeline.AttachInline(animatableProperty, layer.ZIndex);
+            timeline.AttachInline(animatableProperty, layer);
         }
     }
 

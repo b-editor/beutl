@@ -4,6 +4,7 @@ using Avalonia.Media;
 
 using Beutl.Commands;
 using Beutl.ProjectSystem;
+using Beutl.Reactive;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -51,17 +52,64 @@ public sealed class LayerHeaderViewModel : IDisposable
         Name = Number.Select(x => x.ToString()).ToReactiveProperty()!;
 #endif
         Inlines.ForEachItem(
-            x =>
+            (idx, x) =>
             {
                 x.HeightChanged += OnInlineItemHeightChanged;
                 Height.Value += x.Height;
+                x.Index.Value = idx;
             },
-            x =>
+            (_, x) =>
             {
                 x.HeightChanged -= OnInlineItemHeightChanged;
                 Height.Value -= x.Height;
+                x.Index.Value = -1;
             },
             () => { }).AddTo(_disposables);
+
+        Inlines.CollectionChangedAsObservable()
+            .Subscribe(OnInlinesCollectionChanged)
+            .AddTo(_disposables);
+    }
+
+    private void OnInlinesCollectionChanged(NotifyCollectionChangedEventArgs e)
+    {
+        void OnAdded()
+        {
+            for (int i = e.NewStartingIndex; i < Inlines.Count; i++)
+            {
+                InlineAnimationLayerViewModel item = Inlines[i];
+                item.Index.Value = i;
+            }
+        }
+
+        void OnRemoved()
+        {
+            for (int i = e.OldStartingIndex; i < Inlines.Count; i++)
+            {
+                InlineAnimationLayerViewModel item = Inlines[i];
+                item.Index.Value = i;
+            }
+        }
+
+        switch (e.Action)
+        {
+            case NotifyCollectionChangedAction.Add:
+                OnAdded();
+                break;
+
+            case NotifyCollectionChangedAction.Move:
+                OnRemoved();
+                OnAdded();
+                break;
+
+            case NotifyCollectionChangedAction.Replace:
+            case NotifyCollectionChangedAction.Reset:
+                throw new Exception("Not supported action (Move, Replace, Reset).");
+
+            case NotifyCollectionChangedAction.Remove:
+                OnRemoved();
+                break;
+        }
     }
 
     private void OnInlineItemHeightChanged(object? sender, (double OldHeight, double NewHeight) e)
@@ -101,5 +149,21 @@ public sealed class LayerHeaderViewModel : IDisposable
     public void Dispose()
     {
         _disposables.Dispose();
+    }
+
+    public double CalculateInlineTop(int index)
+    {
+        if (index >= Inlines.Count)
+        {
+
+        }
+
+        double sum = 0;
+        for (int i = 0; i < index; i++)
+        {
+            sum += Inlines[i].Height;
+        }
+
+        return sum;
     }
 }

@@ -159,6 +159,11 @@ public sealed class TimelineLayerViewModel : IDisposable
         Thickness oldMargin = Margin.Value;
         Thickness oldBorderMargin = BorderMargin.Value;
         double oldWidth = Width.Value;
+        var inlines = Timeline.LayerHeaders
+            .First(x => x.Number.Value == Model.ZIndex)
+            .Inlines.Where(x => x.Layer == this)
+            .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
+            .ToArray();
 
         int layerNum = Timeline.ToLayerNumber(Margin.Value);
         Scene.MoveChild(
@@ -174,6 +179,10 @@ public sealed class TimelineLayerViewModel : IDisposable
         BorderMargin.Value = oldBorderMargin;
         Margin.Value = oldMargin;
         Width.Value = oldWidth;
+
+        foreach (var (item, context) in inlines)
+            item.AnimationRequest(context, margin);
+
         await AnimationRequested((margin, borderMargin, width), default);
         BorderMargin.Value = borderMargin;
         Margin.Value = margin;
