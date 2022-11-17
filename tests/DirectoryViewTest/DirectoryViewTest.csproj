@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
@@ -16,5 +16,5 @@
   </ItemGroup>
 
   <!-- CS8032 -->
-  <Import Project="..\..\build\props\Microsoft.CodeAnalysis.CSharp.props" />
+  <Import Project="..\..\build\props\Microsoft.CodeAnalysis.Analyzers.props" />
 </Project>

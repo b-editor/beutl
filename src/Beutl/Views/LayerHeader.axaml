@@ -16,7 +16,7 @@
              x:DataType="vm:LayerHeaderViewModel"
              PositionY="{CompiledBinding PosY.Value}"
              mc:Ignorable="d">
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="25,*">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
@@ -51,15 +51,13 @@
 
         <ToggleButton Grid.Column="1"
                       BorderThickness="0"
-                      IsChecked="{CompiledBinding IsEnabled.Value}">
+                      IsChecked="{CompiledBinding IsEnabled.Value}"
+                      Theme="{StaticResource TransparentToggleButton}">
             <ToggleButton.Resources>
-                <SolidColorBrush x:Key="ToggleButtonBackground" Color="Transparent" />
-                <SolidColorBrush x:Key="ToggleButtonBackgroundDisabled" Color="Transparent" />
-
                 <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="Transparent" />
-                <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="ControlFillColorTertiaryBrush" />
-                <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedDisabled" Color="Transparent" />
-                <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="ControlFillColorSecondaryBrush" />
+                <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="SubtleFillColorTertiaryBrush" />
+                <StaticResource x:Key="ToggleButtonBackgroundCheckedDisabled" ResourceKey="SubtleFillColorDisabledBrush" />
+                <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="SubtleFillColorSecondaryBrush" />
             </ToggleButton.Resources>
             <ToggleButton.Styles>
                 <Style Selector="ToggleButton">

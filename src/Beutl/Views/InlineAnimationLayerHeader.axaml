@@ -13,7 +13,25 @@
              d:DesignWidth="800"
              x:DataType="vm:InlineAnimationLayerViewModel"
              mc:Ignorable="d">
-    <Grid Height="{DynamicResource LayerHeight}" ColumnDefinitions="14,Auto,Auto,Auto,*">
+    <UserControl.Styles>
+        <Style Selector="Button.SmallButton">
+            <Setter Property="Padding" Value="0,0,0,3.5" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="VerticalContentAlignment" Value="Bottom" />
+        </Style>
+        <Style Selector="TextBox.custom">
+            <Style.Resources>
+                <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+            </Style.Resources>
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="10,0,6,0" />
+            <Setter Property="MinHeight" Value="{DynamicResource LayerHeight}" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+    </UserControl.Styles>
+    <Grid Height="{DynamicResource LayerHeight}" ColumnDefinitions="14,Auto,Auto,Auto,Auto,*">
 
         <Border x:Name="border"
                 Grid.Column="1"
@@ -28,25 +46,56 @@
         </Border>
 
         <Button Grid.Column="2"
-                Width="24"
-                Padding="0"
-                VerticalAlignment="Stretch"
-                BorderThickness="0"
+                Width="22"
+                Classes="SmallButton"
                 Command="{CompiledBinding Close}"
                 Theme="{StaticResource TransparentButton}">
             <icons:SymbolIcon Symbol="Dismiss" />
         </Button>
 
-        <Button Grid.Column="3"
-                Padding="5"
-                VerticalAlignment="Stretch"
-                BorderThickness="0"
+        <ToggleButton x:Name="ExpandToggle"
+                      Grid.Column="3"
+                      Width="30"
+                      Padding="5"
+                      VerticalAlignment="Stretch"
+                      BorderThickness="0"
+                      IsChecked="{CompiledBinding IsExpanded.Value}"
+                      Theme="{StaticResource TransparentToggleButton}">
+            <ToggleButton.Resources>
+                <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="Transparent" />
+                <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="SubtleFillColorTertiaryBrush" />
+                <StaticResource x:Key="ToggleButtonBackgroundCheckedDisabled" ResourceKey="SubtleFillColorDisabledBrush" />
+                <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="SubtleFillColorSecondaryBrush" />
+            </ToggleButton.Resources>
+
+            <TextBlock x:Name="ExpandCollapseChevron"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       FontFamily="{DynamicResource SymbolThemeFontFamily}"
+                       FontSize="15"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       RenderTransform="none"
+                       Text="{StaticResource ExpanderChevronDownGlyph}">
+                <TextBlock.Transitions>
+                    <Transitions>
+                        <TransformOperationsTransition Property="RenderTransform" Duration="00:00:00.167" />
+                    </Transitions>
+                </TextBlock.Transitions>
+            </TextBlock>
+        </ToggleButton>
+
+        <Button Grid.Column="4"
+                Width="30"
+                Classes="SmallButton"
+                Click="OpenTab_Click"
                 Theme="{StaticResource TransparentButton}">
-            <icons:SymbolIcon Symbol="ChevronUpDown" />
+            <icons:SymbolIcon Symbol="Open" />
         </Button>
 
-        <SelectableTextBlock Grid.Column="4"
-                             VerticalAlignment="Center"
-                             Text="{CompiledBinding Header}" />
+
+        <TextBox Grid.Column="5"
+                 Classes="custom"
+                 IsReadOnly="True"
+                 Text="{CompiledBinding Header}" />
     </Grid>
 </UserControl>

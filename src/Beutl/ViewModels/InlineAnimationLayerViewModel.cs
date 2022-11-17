@@ -5,6 +5,7 @@ using Avalonia;
 
 using Beutl.Framework;
 using Beutl.Reactive;
+using Beutl.Services;
 
 using Reactive.Bindings;
 
@@ -39,7 +40,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        Header = $"{property.Property.OwnerType.Name}.{property.Property.Name}";
+        Header = PropertyEditorService.GetPropertyName(property.Property);
 
         Close = new ReactiveCommand()
             .WithSubscribe(() => Timeline.DetachInline(this))
@@ -57,6 +58,8 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
     public ReactiveProperty<Thickness> Margin { get; }
 
     public ReactivePropertySlim<int> Index { get; } = new();
+    
+    public ReactivePropertySlim<bool> IsExpanded { get; } = new();
 
     public string Header { get; }
 
