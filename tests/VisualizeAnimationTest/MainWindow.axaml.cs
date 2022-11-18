@@ -45,7 +45,7 @@ namespace VisualizeAnimationTest
                 {
                     Duration = TimeSpan.FromSeconds(3),
                     Easing = new Beutl.Animation.Easings.CubicEaseIn(),
-                    Previous = 0,
+                    Previous = 100,
                     Next = 100,
                 },
                 new AnimationSpan<int>()
@@ -91,11 +91,16 @@ namespace VisualizeAnimationTest
             Width = 500;
             Height = 100;
             InitializeComponent();
-            Content = new ColorAnimationVisualizer(_color_animation)
+            Content = new IntegerAnimationVisualizer<int>(_int_animation)
             {
                 Margin = new(8),
                 ClipToBounds = false
             };
+            //Content = new ColorAnimationVisualizer(_color_animation)
+            //{
+            //    Margin = new(8),
+            //    ClipToBounds = false
+            //};
             //Content = new EasingFunctionVisualizer<int>(_int_animation)
             //{
             //    Margin = new(8),

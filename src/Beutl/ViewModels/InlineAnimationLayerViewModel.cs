@@ -3,6 +3,7 @@ using System.Reactive.Subjects;
 
 using Avalonia;
 
+using Beutl.Animation;
 using Beutl.Framework;
 using Beutl.Reactive;
 using Beutl.Services;
@@ -40,6 +41,11 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
+        // Widthプロパティを構成
+        property.Animation.Invalidated += OnAnimationInvalidated;
+        Timeline.Options.Subscribe(_ => UpdateWidth()).DisposeWith(_disposables);
+        UpdateWidth();
+
         Header = PropertyEditorService.GetPropertyName(property.Property);
 
         Close = new ReactiveCommand()
@@ -47,7 +53,18 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             .DisposeWith(_disposables);
     }
 
-    public Func<Thickness, CancellationToken, Task> AnimationRequested { get; set; } = (_, _) => Task.CompletedTask;
+    private void UpdateWidth()
+    {
+        TimeSpan duration = Property.Animation.CalculateDuration();
+        Width.Value = duration.ToPixel(Timeline.Options.Value.Scale);
+    }
+
+    private void OnAnimationInvalidated(object? sender, EventArgs e)
+    {
+        UpdateWidth();
+    }
+
+    public Func<Thickness, CancellationToken, Task>? AnimationRequested { get; set; }
 
     public IAbstractAnimatableProperty Property { get; }
 
@@ -57,8 +74,10 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
 
     public ReactiveProperty<Thickness> Margin { get; }
 
+    public ReactivePropertySlim<double> Width { get; } = new();
+
     public ReactivePropertySlim<int> Index { get; } = new();
-    
+
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
 
     public string Header { get; }
@@ -123,7 +142,10 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             Thickness newMargin = new Thickness(0, top, 0, 0) + layerMargin;
 
             Margin.Value = context.Margin;
-            await AnimationRequested(newMargin, cancellationToken);
+            if (AnimationRequested != null)
+            {
+                await AnimationRequested(newMargin, cancellationToken);
+            }
             Margin.Value = newMargin;
         }
     }
@@ -131,6 +153,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
     public void Dispose()
     {
         _disposables.Dispose();
+        Property.Animation.Invalidated -= OnAnimationInvalidated;
     }
 
     public record struct PrepareAnimationContext(Thickness Margin);

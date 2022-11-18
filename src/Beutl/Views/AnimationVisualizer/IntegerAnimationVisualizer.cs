@@ -31,18 +31,21 @@ public class IntegerAnimationVisualizer<T> : NumberAnimationVisualizer<T>
             points.Capacity = newCapacity;
         }
 
-        T minAbs = T.Abs(min);
-        T maxAbs = T.Abs(max);
-        float sum = float.CreateTruncating(minAbs + maxAbs);
-        for (int i = 0; i <= div; i++)
+        if (Animation.Children.Count > 0)
         {
-            float progress = i / (float)div;
-            TimeSpan ts = duration * progress;
+            T minAbs = T.Abs(min);
+            T maxAbs = T.Abs(max);
+            float sum = float.CreateTruncating(minAbs + maxAbs);
+            for (int i = 0; i <= div; i++)
+            {
+                float progress = i / (float)div;
+                TimeSpan ts = duration * progress;
 
-            float value = float.CreateTruncating(Animation.Interpolate(ts) + minAbs) / sum;
-            value = Math.Abs(value - 1);
+                float value = float.CreateTruncating(Animation.Interpolate(ts) + minAbs) / sum;
+                value = Math.Abs(value - 1);
 
-            points.Add(new Vector2(progress, value));
+                points.Add(new Vector2(progress, value));
+            }
         }
     }
 }

@@ -16,12 +16,6 @@ public abstract class AnimationVisualizer<T> : Control
 
     protected TimeSpan CalculateDuration()
     {
-        TimeSpan ts = TimeSpan.Zero;
-        foreach (AnimationSpan<T> item in Animation.Children.GetMarshal().Value)
-        {
-            ts += item.Duration;
-        }
-
-        return ts;
+        return Animation.CalculateDuration();
     }
 }

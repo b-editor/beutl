@@ -38,6 +38,7 @@ public sealed class ColorAnimationVisualizer : AnimationVisualizer<Media.Color>
     private void OnAnimationInvalidated(object? sender, EventArgs e)
     {
         RenderBitmap();
+        InvalidateVisual();
     }
 
     private void RenderBitmap()

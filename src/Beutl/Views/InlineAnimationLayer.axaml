@@ -11,7 +11,10 @@
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="vm:InlineAnimationLayerViewModel"
-             Background="Black"
              mc:Ignorable="d">
-    <TextBlock Text="ここでアニメーションを編集" />
+    <TransitioningContentControl x:Name="transitioning">
+        <TransitioningContentControl.PageTransition>
+            <CrossFade Duration="00:00:00.25" />
+        </TransitioningContentControl.PageTransition>
+    </TransitioningContentControl>
 </UserControl>

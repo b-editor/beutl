@@ -2,6 +2,7 @@
 
 using Avalonia;
 using Avalonia.Collections.Pooled;
+using Avalonia.Controls;
 using Avalonia.Media;
 
 using Beutl.Animation;
@@ -18,8 +19,9 @@ public abstract class NumberAnimationVisualizer<T> : AnimationVisualizer<T>
         Brush = Brushes.DarkGray,
         LineJoin = PenLineJoin.Round,
         LineCap = PenLineCap.Round,
-        Thickness = 2.5,
+        Thickness = 1.5,
     };
+    private IDisposable? _disposable;
 
     protected NumberAnimationVisualizer(Animation<T> animation)
         : base(animation)
@@ -30,17 +32,28 @@ public abstract class NumberAnimationVisualizer<T> : AnimationVisualizer<T>
     {
         base.OnAttachedToVisualTree(e);
         Animation.Invalidated += OnAnimationInvalidated;
+        _disposable = Application.Current!.GetResourceObservable("TextControlForeground").Subscribe(b =>
+        {
+            if (b is IBrush brush)
+            {
+                _pen.Brush = brush;
+                InvalidateVisual();
+            }
+        });
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
         Animation.Invalidated -= OnAnimationInvalidated;
+        _disposable?.Dispose();
+        _disposable = null;
     }
 
     private void OnAnimationInvalidated(object? sender, EventArgs e)
     {
         InvalidatePoints(_points);
+        InvalidateVisual();
     }
 
     protected (T Min, T Max) CalculateRange(TimeSpan duration)
@@ -66,7 +79,7 @@ public abstract class NumberAnimationVisualizer<T> : AnimationVisualizer<T>
 
     public override void Render(DrawingContext context)
     {
-        if (_points.Count <= 0)
+        if (_points.Count == 0)
         {
             InvalidatePoints(_points);
         }
