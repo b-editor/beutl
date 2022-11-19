@@ -117,6 +117,7 @@ public class GenericDragBehavior : Behavior<IControl>
             AddTransforms(_itemsControl);
 
             e.Pointer.Capture(DragControl);
+            e.Handled = true;
         }
     }
 
@@ -130,12 +131,14 @@ public class GenericDragBehavior : Behavior<IControl>
             }
 
             e.Pointer.Capture(null);
+            e.Handled = true;
         }
     }
 
     private void CaptureLost(object? sender, PointerCaptureLostEventArgs e)
     {
         Released();
+        e.Handled = true;
     }
 
     private void Released()

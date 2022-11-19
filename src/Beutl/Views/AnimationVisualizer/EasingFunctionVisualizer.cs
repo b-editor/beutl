@@ -146,3 +146,118 @@ public class EasingFunctionVisualizer<T> : AnimationVisualizer<T>
         }
     }
 }
+
+public class EasingFunctionSpanVisualizer<T> : AnimationSpanVisualizer<T>
+{
+    private PooledList<Vector2>? _points;
+
+    private readonly Pen _pen = new()
+    {
+        Brush = Brushes.DarkGray,
+        LineJoin = PenLineJoin.Round,
+        LineCap = PenLineCap.Round,
+        Thickness = 2.5,
+    };
+
+    public EasingFunctionSpanVisualizer(Animation<T> animation, AnimationSpan<T> animationSpan)
+        : base(animation, animationSpan)
+    {
+    }
+
+    protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToLogicalTree(e);
+        Animation.Invalidated += OnAnimationInvalidated;
+        AnimationSpan.Invalidated += OnAnimationInvalidated;
+    }
+
+    protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromLogicalTree(e);
+        Animation.Invalidated -= OnAnimationInvalidated;
+        AnimationSpan.Invalidated -= OnAnimationInvalidated;
+        _points?.Dispose();
+        _points = null;
+    }
+
+    private void OnAnimationInvalidated(object? sender, EventArgs e)
+    {
+        InvalidatePoints();
+        InvalidateVisual();
+    }
+
+    private static void EnsureCapacity<TElement>(PooledList<TElement> list, int capacity)
+    {
+        if (list.Capacity < capacity)
+        {
+            int newCapacity = list.Capacity == 0 ? 4 : list.Capacity * 2;
+
+            if (newCapacity < capacity)
+                newCapacity = capacity;
+
+            list.Capacity = newCapacity;
+        }
+    }
+
+    private void InvalidatePoints()
+    {
+        TimeSpan duration = CalculateDuration();
+        int totaldiv = (int)duration.TotalMilliseconds / 100;
+        float p = (float)(AnimationSpan.Duration / duration);
+        int div = (int)(totaldiv * p);
+
+        if (_points == null)
+        {
+            _points = new PooledList<Vector2>(div);
+        }
+        else
+        {
+            _points.Clear();
+            EnsureCapacity(_points, div);
+        }
+
+        for (int i = 0; i <= div; i++)
+        {
+            float value = AnimationSpan.Easing.Ease(i / (float)div);
+
+            value = Math.Abs(value - 1);
+
+            _points.Add(new Vector2((i / (float)div * p), value));
+        }
+    }
+
+    public override void Render(DrawingContext context)
+    {
+        if (_points == null || _points.Count <= 0)
+        {
+            InvalidatePoints();
+        }
+
+        if (_points != null)
+        {
+            double width = Bounds.Width;
+            double height = Bounds.Height;
+            var m = new Vector2((float)width, (float)height);
+
+            bool first = true;
+            Vector2 prev = default;
+            foreach (Vector2 point in _points.Span)
+            {
+                if (first)
+                {
+                    prev = point * m;
+                    first = false;
+                }
+                else
+                {
+                    Vector2 actual = point * m;
+                    context.DrawLine(
+                        _pen,
+                        new Point(prev.X, prev.Y),
+                        new Point(actual.X, actual.Y));
+                    prev = actual;
+                }
+            }
+        }
+    }
+}

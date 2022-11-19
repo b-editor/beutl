@@ -1,12 +1,15 @@
-﻿using System.Collections.Specialized;
+﻿using System.Collections;
+using System.Collections.Specialized;
 using System.Reactive.Subjects;
 
 using Avalonia;
 
 using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Framework;
 using Beutl.Reactive;
 using Beutl.Services;
+using Beutl.ViewModels.AnimationEditors;
 
 using Reactive.Bindings;
 
@@ -43,13 +46,30 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         // Widthプロパティを構成
         property.Animation.Invalidated += OnAnimationInvalidated;
         Timeline.Options.Subscribe(_ => UpdateWidth()).DisposeWith(_disposables);
-        UpdateWidth();
 
         Header = PropertyEditorService.GetPropertyName(property.Property);
 
         Close = new ReactiveCommand()
             .WithSubscribe(() => Timeline.DetachInline(this))
             .DisposeWith(_disposables);
+
+        Property.Animation.Children.ForEachItem(
+            (idx, item) => Items.Insert(idx, new InlineAnimationEditorViewModel(item, Property, Timeline.EditorContext)),
+            (idx, _) =>
+            {
+                var item = Items[idx];
+                item.Dispose();
+                Items.RemoveAt(idx);
+            },
+            () =>
+            {
+                foreach (var item in Items.GetMarshal().Value)
+                {
+                    item.Dispose();
+                }
+
+                Items.Clear();
+            });
     }
 
     public Func<Thickness, CancellationToken, Task>? AnimationRequested { get; set; }
@@ -59,6 +79,8 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
     public TimelineViewModel Timeline { get; }
 
     public TimelineLayerViewModel Layer { get; }
+
+    public CoreList<InlineAnimationEditorViewModel> Items { get; } = new();
 
     public ReactiveProperty<Thickness> Margin { get; }
 
@@ -92,6 +114,31 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
     public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader => Layer.LayerHeader;
 
     public event EventHandler<(double OldHeight, double NewHeight)>? HeightChanged;
+
+    public void AddAnimation(Easing easing)
+    {
+        CoreProperty? property = Property.Property;
+        Type type = typeof(AnimationSpan<>).MakeGenericType(property.PropertyType);
+
+        if (Property.Animation.Children is IList list
+            && Activator.CreateInstance(type) is IAnimationSpan animation)
+        {
+            animation.Easing = easing;
+            animation.Duration = TimeSpan.FromSeconds(2);
+            object? value = Property.GetValue();
+
+            if (value != null)
+            {
+                animation.Previous = value;
+                animation.Next = value;
+            }
+
+            list.BeginRecord()
+                .Add(animation)
+                .ToCommand()
+                .DoAndRecord(CommandRecorder.Default);
+        }
+    }
 
     private void OnLayerHeaderChanged(LayerHeaderViewModel? obj)
     {

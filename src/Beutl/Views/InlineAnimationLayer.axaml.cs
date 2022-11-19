@@ -12,6 +12,9 @@ using Avalonia.Threading;
 
 using Beutl.ViewModels;
 using Beutl.Views.AnimationVisualizer;
+using Avalonia.Input;
+using Avalonia.Data.Converters;
+using Beutl.Animation;
 
 namespace Beutl.Views;
 
@@ -21,7 +24,6 @@ public partial class InlineAnimationLayer : UserControl
     private CancellationTokenSource? _lastTransitionCts;
     private IDisposable? _disposable1;
     private IDisposable? _disposable2;
-    private Control? _simpleView;
 
     public InlineAnimationLayer()
     {
@@ -29,6 +31,9 @@ public partial class InlineAnimationLayer : UserControl
         this.SubscribeDataContextChange<InlineAnimationLayerViewModel>(
             OnDataContextAttached,
             OnDataContextDetached);
+
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        AddHandler(DragDrop.DropEvent, OnDrop);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -45,7 +50,6 @@ public partial class InlineAnimationLayer : UserControl
         _disposable1 = null;
         _disposable2?.Dispose();
         _disposable2 = null;
-        _simpleView = null;
     }
 
     private void OnDataContextAttached(InlineAnimationLayerViewModel obj)
@@ -87,94 +91,50 @@ public partial class InlineAnimationLayer : UserControl
         };
     }
 
-    private void OnIsExpandedChanged(bool obj)
+    private void OnDrop(object? sender, DragEventArgs e)
+    {
+        if (DataContext is InlineAnimationLayerViewModel viewModel
+            && viewModel.IsExpanded.Value
+            && e.Data.Get("Easing") is Animation.Easings.Easing easing)
+        {
+            viewModel.AddAnimation(easing);
+            e.Handled = true;
+        }
+    }
+
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Contains("Easing"))
+        {
+            e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
+            e.Handled = true;
+        }
+        else
+        {
+            e.DragEffects = DragDropEffects.None;
+        }
+    }
+
+    private async void OnIsExpandedChanged(bool obj)
     {
         if (DataContext is InlineAnimationLayerViewModel viewModel)
         {
+            _lastTransitionCts?.Cancel();
+            _lastTransitionCts = new CancellationTokenSource();
+            CancellationToken localToken = _lastTransitionCts.Token;
+
             if (obj)
             {
-                _simpleView ??= CreateSimpleView(viewModel);
-
-                UpdateContentWithTransition(viewModel, _simpleView, Helper.LayerHeight * 2);
+                items.IsHitTestVisible = true;
+                viewModel.Height = Helper.LayerHeight * 2;
             }
             else
             {
-                _simpleView ??= CreateSimpleView(viewModel);
-
-                UpdateContentWithTransition(viewModel, _simpleView, Helper.LayerHeight);
+                items.IsHitTestVisible = false;
+                viewModel.Height = Helper.LayerHeight;
             }
+
+            await _transition.Start(null, this, localToken);
         }
-    }
-
-    private async void UpdateContentWithTransition(InlineAnimationLayerViewModel viewModel, object? content, double height)
-    {
-        _lastTransitionCts?.Cancel();
-        _lastTransitionCts = new CancellationTokenSource();
-        CancellationToken localToken = _lastTransitionCts.Token;
-
-        presenter.Content = content;
-
-        viewModel.Height = height;
-        await _transition.Start(null, this, localToken);
-    }
-
-    private Control CreateSimpleView(InlineAnimationLayerViewModel viewModel)
-    {
-        Control control = CreateSimpleViewCore(viewModel);
-        _disposable2?.Dispose();
-        _disposable2 = control.Bind(WidthProperty, viewModel.Width);
-
-        control.Margin = new Thickness(0, 1);
-        control.HorizontalAlignment = HorizontalAlignment.Left;
-        return control;
-    }
-
-    private static Control CreateSimpleViewCore(InlineAnimationLayerViewModel viewModel)
-    {
-        Animation.IAnimation animation = viewModel.Property.Animation;
-
-        if (animation is Animation.Animation<Media.Color> colorAnm)
-        {
-            return new ColorAnimationVisualizer(colorAnm);
-        }
-
-        Type type = animation.GetType().GetGenericArguments()[0];
-        Type numberType = typeof(INumber<>);
-        Type minMaxValueType = typeof(IMinMaxValue<>);
-        Type binaryIntegerType = typeof(IBinaryInteger<>);
-        Type floatingPointType = typeof(IFloatingPoint<>);
-
-        if (IsAssignableToGenericType(type, numberType)
-            && IsAssignableToGenericType(type, minMaxValueType))
-        {
-            if (IsAssignableToGenericType(type, binaryIntegerType))
-            {
-                return (Control)Activator.CreateInstance(typeof(IntegerAnimationVisualizer<>).MakeGenericType(type), animation)!;
-            }
-            else if (IsAssignableToGenericType(type, floatingPointType))
-            {
-                return (Control)Activator.CreateInstance(typeof(FloatingPointAnimationVisualizer<>).MakeGenericType(type), animation)!;
-            }
-        }
-
-        return (Control)Activator.CreateInstance(typeof(EasingFunctionVisualizer<>).MakeGenericType(type), animation)!;
-    }
-
-    private static bool IsAssignableToGenericType(Type givenType, Type genericType)
-    {
-        foreach (Type it in givenType.GetInterfaces())
-        {
-            if (it.IsGenericType && it.GetGenericTypeDefinition() == genericType)
-                return true;
-        }
-
-        if (givenType.IsGenericType && givenType.GetGenericTypeDefinition() == genericType)
-            return true;
-
-        Type? baseType = givenType.BaseType;
-        if (baseType == null)
-            return false;
-
-        return IsAssignableToGenericType(baseType, genericType);
     }
 }
