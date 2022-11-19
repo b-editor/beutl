@@ -17,6 +17,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
     private readonly CompositeDisposable _disposables = new();
     private readonly Subject<double> _heightSubject = new();
     private double _height;
+    private LayerHeaderViewModel? _lastLayerHeader;
 
     public InlineAnimationLayerViewModel(
         IAbstractAnimatableProperty property,
@@ -30,9 +31,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
 
         ObserveHeight = _heightSubject.ToReadOnlyReactivePropertySlim(_height).DisposeWith(_disposables);
 
-        layer.Model.GetObservable(ProjectSystem.Layer.ZIndexProperty)
-            .Subscribe(OnZIndexChanged)
-            .DisposeWith(_disposables);
+        Layer.LayerHeader.Subscribe(OnLayerHeaderChanged).DisposeWith(_disposables);
 
         Margin = new TrackedInlineLayerTopObservable(this)
             .Select(x => new Thickness(0, x, 0, 0))
@@ -51,17 +50,6 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         Close = new ReactiveCommand()
             .WithSubscribe(() => Timeline.DetachInline(this))
             .DisposeWith(_disposables);
-    }
-
-    private void UpdateWidth()
-    {
-        TimeSpan duration = Property.Animation.CalculateDuration();
-        Width.Value = duration.ToPixel(Timeline.Options.Value.Scale);
-    }
-
-    private void OnAnimationInvalidated(object? sender, EventArgs e)
-    {
-        UpdateWidth();
     }
 
     public Func<Thickness, CancellationToken, Task>? AnimationRequested { get; set; }
@@ -101,31 +89,26 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<double> ObserveHeight { get; }
 
-    public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader { get; set; } = new();
+    public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader => Layer.LayerHeader;
 
     public event EventHandler<(double OldHeight, double NewHeight)>? HeightChanged;
 
-    private void OnZIndexChanged(int zIndex)
+    private void OnLayerHeaderChanged(LayerHeaderViewModel? obj)
     {
-        LayerHeaderViewModel? newLH = Timeline.LayerHeaders.FirstOrDefault(i => i.Number.Value == zIndex);
-
-        LayerHeader.Value?.Inlines.Remove(this);
-        newLH?.Inlines.Add(this);
-
-        LayerHeader.Value = newLH;
+        _lastLayerHeader?.Inlines.Remove(this);
+        _lastLayerHeader = obj;
+        _lastLayerHeader?.Inlines.Add(this);
     }
 
-    public void NotifyDetached()
+    private void UpdateWidth()
     {
-        LayerHeader.Value?.Inlines.Remove(this);
-        LayerHeader.Value = null;
+        TimeSpan duration = Property.Animation.CalculateDuration();
+        Width.Value = duration.ToPixel(Timeline.Options.Value.Scale);
     }
 
-    public void NotifyAttached(int zIndex)
+    private void OnAnimationInvalidated(object? sender, EventArgs e)
     {
-        LayerHeaderViewModel? newLH = Timeline.LayerHeaders.FirstOrDefault(i => i.Number.Value == zIndex);
-        newLH?.Inlines.Add(this);
-        LayerHeader.Value = newLH;
+        UpdateWidth();
     }
 
     public PrepareAnimationContext PrepareAnimation()

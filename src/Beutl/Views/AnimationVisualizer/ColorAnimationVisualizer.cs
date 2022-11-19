@@ -19,17 +19,17 @@ public sealed class ColorAnimationVisualizer : AnimationVisualizer<Media.Color>
     {
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
-        base.OnAttachedToVisualTree(e);
+        base.OnAttachedToLogicalTree(e);
         Animation.Invalidated += OnAnimationInvalidated;
         _tempBitmap = new WriteableBitmap(new PixelSize(BitmapWidth, BitmapHeight), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
         RenderBitmap();
     }
 
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
-        base.OnDetachedFromVisualTree(e);
+        base.OnDetachedFromLogicalTree(e);
         Animation.Invalidated -= OnAnimationInvalidated;
         _tempBitmap?.Dispose();
         _tempBitmap = null;

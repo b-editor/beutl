@@ -103,7 +103,7 @@ public sealed partial class Timeline : UserControl
                 AddLayer,
                 RemoveLayer,
                 () => { });
-            
+
             _disposable4 = vm.Inlines.ForEachItem(
                 OnAddedInline,
                 OnRemovedInline,

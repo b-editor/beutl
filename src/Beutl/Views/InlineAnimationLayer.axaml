@@ -12,9 +12,18 @@
              d:DesignWidth="800"
              x:DataType="vm:InlineAnimationLayerViewModel"
              mc:Ignorable="d">
-    <TransitioningContentControl x:Name="transitioning">
-        <TransitioningContentControl.PageTransition>
-            <CrossFade Duration="00:00:00.25" />
-        </TransitioningContentControl.PageTransition>
-    </TransitioningContentControl>
+    <Panel>
+        <ContentPresenter x:Name="presenter"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch"
+                          VerticalContentAlignment="Stretch" />
+        <Border x:Name="border"
+                Width="{CompiledBinding Layer.Width.Value, Mode=OneWay}"
+                Margin="{CompiledBinding Layer.BorderMargin.Value, Mode=OneWay}"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Stretch"
+                BorderBrush="{CompiledBinding Layer.Color.Value, Converter={StaticResource ColorToBrushConverter}}"
+                BorderThickness="1,0" />
+    </Panel>
 </UserControl>

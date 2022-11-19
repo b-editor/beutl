@@ -58,14 +58,6 @@ public sealed partial class TimelineLayer : UserControl
         AddHandler(PointerPressedEvent, Layer_PointerPressed, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, Layer_PointerReleased, RoutingStrategies.Tunnel);
         AddHandler(PointerMovedEvent, Layer_PointerMoved, RoutingStrategies.Tunnel);
-
-        this.GetObservable(MarginProperty).Subscribe(x =>
-        {
-            if (ViewModel is { Model.ZIndex: 3 })
-            {
-
-            }
-        });
     }
 
     public Func<TimeSpan> GetClickedTime => () => _pointerPosition;

@@ -80,7 +80,13 @@ public sealed class TimelineViewModel : IToolContext
             (idx, item) => Layers.Insert(idx, new TimelineLayerViewModel(item, this)),
             (idx, _) =>
             {
-                Layers[idx].Dispose();
+                TimelineLayerViewModel layer = Layers[idx];
+                foreach (InlineAnimationLayerViewModel item in Inlines.Where(x => x.Layer == layer).ToArray())
+                {
+                    DetachInline(item);
+                }
+
+                layer.Dispose();
                 Layers.RemoveAt(idx);
             },
             () =>
@@ -153,7 +159,8 @@ public sealed class TimelineViewModel : IToolContext
 
     public void AttachInline(IAbstractAnimatableProperty property, Layer layer)
     {
-        if (Layers.FirstOrDefault(x => x.Model == layer) is { } viewModel)
+        if (!Inlines.Any(x => x.Layer.Model == layer && x.Property == property)
+            && Layers.FirstOrDefault(x => x.Model == layer) is { } viewModel)
         {
             // タイムラインのタブを開く
             var anmTimelineViewModel

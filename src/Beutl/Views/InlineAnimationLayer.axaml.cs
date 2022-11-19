@@ -17,6 +17,8 @@ namespace Beutl.Views;
 
 public partial class InlineAnimationLayer : UserControl
 {
+    private readonly CrossFade _transition = new(TimeSpan.FromMilliseconds(250));
+    private CancellationTokenSource? _lastTransitionCts;
     private IDisposable? _disposable1;
     private IDisposable? _disposable2;
     private Control? _simpleView;
@@ -27,6 +29,13 @@ public partial class InlineAnimationLayer : UserControl
         this.SubscribeDataContextChange<InlineAnimationLayerViewModel>(
             OnDataContextAttached,
             OnDataContextDetached);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+
+        _lastTransitionCts?.Cancel();
     }
 
     private void OnDataContextDetached(InlineAnimationLayerViewModel obj)
@@ -80,43 +89,60 @@ public partial class InlineAnimationLayer : UserControl
 
     private void OnIsExpandedChanged(bool obj)
     {
-        if (obj)
+        if (DataContext is InlineAnimationLayerViewModel viewModel)
         {
-            transitioning.Content = null;
-        }
-        else if (DataContext is InlineAnimationLayerViewModel viewModel)
-        {
-            _simpleView ??= CreateSimpleView(viewModel);
+            if (obj)
+            {
+                _simpleView ??= CreateSimpleView(viewModel);
 
-            transitioning.Content = _simpleView;
+                UpdateContentWithTransition(viewModel, _simpleView, Helper.LayerHeight * 2);
+            }
+            else
+            {
+                _simpleView ??= CreateSimpleView(viewModel);
+
+                UpdateContentWithTransition(viewModel, _simpleView, Helper.LayerHeight);
+            }
         }
+    }
+
+    private async void UpdateContentWithTransition(InlineAnimationLayerViewModel viewModel, object? content, double height)
+    {
+        _lastTransitionCts?.Cancel();
+        _lastTransitionCts = new CancellationTokenSource();
+        CancellationToken localToken = _lastTransitionCts.Token;
+
+        presenter.Content = content;
+
+        viewModel.Height = height;
+        await _transition.Start(null, this, localToken);
     }
 
     private Control CreateSimpleView(InlineAnimationLayerViewModel viewModel)
     {
-        var control = CreateSimpleViewCore(viewModel);
+        Control control = CreateSimpleViewCore(viewModel);
         _disposable2?.Dispose();
         _disposable2 = control.Bind(WidthProperty, viewModel.Width);
 
-        control.Margin = new Thickness(0, 2);
+        control.Margin = new Thickness(0, 1);
         control.HorizontalAlignment = HorizontalAlignment.Left;
         return control;
     }
 
-    private Control CreateSimpleViewCore(InlineAnimationLayerViewModel viewModel)
+    private static Control CreateSimpleViewCore(InlineAnimationLayerViewModel viewModel)
     {
-        var animation = viewModel.Property.Animation;
+        Animation.IAnimation animation = viewModel.Property.Animation;
 
         if (animation is Animation.Animation<Media.Color> colorAnm)
         {
             return new ColorAnimationVisualizer(colorAnm);
         }
 
-        var type = animation.GetType().GetGenericArguments()[0];
-        var numberType = typeof(INumber<>);
-        var minMaxValueType = typeof(IMinMaxValue<>);
-        var binaryIntegerType = typeof(IBinaryInteger<>);
-        var floatingPointType = typeof(IFloatingPoint<>);
+        Type type = animation.GetType().GetGenericArguments()[0];
+        Type numberType = typeof(INumber<>);
+        Type minMaxValueType = typeof(IMinMaxValue<>);
+        Type binaryIntegerType = typeof(IBinaryInteger<>);
+        Type floatingPointType = typeof(IFloatingPoint<>);
 
         if (IsAssignableToGenericType(type, numberType)
             && IsAssignableToGenericType(type, minMaxValueType))
@@ -136,9 +162,7 @@ public partial class InlineAnimationLayer : UserControl
 
     private static bool IsAssignableToGenericType(Type givenType, Type genericType)
     {
-        var interfaceTypes = givenType.GetInterfaces();
-
-        foreach (var it in interfaceTypes)
+        foreach (Type it in givenType.GetInterfaces())
         {
             if (it.IsGenericType && it.GetGenericTypeDefinition() == genericType)
                 return true;

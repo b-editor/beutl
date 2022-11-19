@@ -15,7 +15,6 @@ namespace Beutl.ViewModels;
 public sealed class TimelineLayerViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
-    private LayerHeaderViewModel? _layerHeader;
 
     public TimelineLayerViewModel(Layer sceneLayer, TimelineViewModel timeline)
     {
@@ -90,16 +89,43 @@ public sealed class TimelineLayerViewModel : IDisposable
         Color.Subscribe(c => Model.AccentColor = Media.Color.FromArgb(c.A, c.R, c.G, c.B))
             .AddTo(_disposables);
 
+        FinishEditingAnimation.Subscribe(() =>
+        {
+            foreach (InlineAnimationLayerViewModel item in Timeline.Inlines.Where(x => x.Layer == this).ToArray())
+            {
+                Timeline.DetachInline(item);
+            }
+        });
+
+        BringAnimationToTop.Subscribe(() =>
+        {
+            if (LayerHeader.Value is { } layerHeader)
+            {
+                var inlines = Timeline.Inlines.Where(x => x.Layer == this).ToArray();
+                Array.Sort(inlines, (x, y) => x.Index.Value - y.Index.Value);
+
+                for (int i = 0; i < inlines.Length; i++)
+                {
+                    InlineAnimationLayerViewModel? item = inlines[i];
+                    int oldIndex = layerHeader.Inlines.IndexOf(item);
+                    if (oldIndex >= 0)
+                    {
+                        layerHeader.Inlines.Move(oldIndex, i);
+                    }
+                }
+            }
+        });
+
         zIndexSubject.Subscribe(number =>
         {
             LayerHeaderViewModel? newLH = Timeline.LayerHeaders.FirstOrDefault(i => i.Number.Value == number);
 
-            if (_layerHeader != null)
-                _layerHeader.ItemsCount.Value--;
+            if (LayerHeader.Value != null)
+                LayerHeader.Value.ItemsCount.Value--;
 
             if (newLH != null)
                 newLH.ItemsCount.Value++;
-            _layerHeader = newLH;
+            LayerHeader.Value = newLH;
         }).AddTo(_disposables);
     }
 
@@ -122,6 +148,8 @@ public sealed class TimelineLayerViewModel : IDisposable
 
     public ReactiveProperty<double> Width { get; }
 
+    public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader { get; set; } = new();
+
     public ReactiveProperty<Avalonia.Media.Color> Color { get; }
 
     public ReactiveCommand<Func<TimeSpan>?> Split { get; } = new();
@@ -134,6 +162,10 @@ public sealed class TimelineLayerViewModel : IDisposable
 
     public ReactiveCommand Delete { get; } = new();
 
+    public ReactiveCommand FinishEditingAnimation { get; } = new();
+
+    public ReactiveCommand BringAnimationToTop { get; } = new();
+
     public void Dispose()
     {
         _disposables.Dispose();
@@ -142,9 +174,8 @@ public sealed class TimelineLayerViewModel : IDisposable
 
     public async void AnimationRequest(int layerNum, bool affectModel = true, CancellationToken cancellationToken = default)
     {
-        var inlines = Timeline.LayerHeaders
-            .First(x => x.Number.Value == layerNum)
-            .Inlines.Where(x => x.Layer == this)
+        var inlines = Timeline.Inlines
+            .Where(x => x.Layer == this)
             .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
             .ToArray();
 
@@ -169,9 +200,8 @@ public sealed class TimelineLayerViewModel : IDisposable
         Thickness oldMargin = Margin.Value;
         Thickness oldBorderMargin = BorderMargin.Value;
         double oldWidth = Width.Value;
-        var inlines = Timeline.LayerHeaders
-            .First(x => x.Number.Value == Model.ZIndex)
-            .Inlines.Where(x => x.Layer == this)
+        var inlines = Timeline.Inlines
+            .Where(x => x.Layer == this)
             .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
             .ToArray();
 

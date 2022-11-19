@@ -5,6 +5,7 @@
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels"
              x:Name="root"
              Height="{DynamicResource LayerHeight}"
@@ -34,45 +35,48 @@
             PointerMoved="Border_PointerMoved"
             PointerPressed="Border_PointerPressed"
             PointerReleased="Border_PointerReleased">
-        <Border.ContextMenu>
-            <ContextMenu>
-                <MenuItem Command="{CompiledBinding Split}"
-                          CommandParameter="{Binding #root.GetClickedTime, Mode=OneTime}"
-                          Header="{x:Static lang:Strings.Split}">
-                    <MenuItem.Icon>
+        <Border.ContextFlyout>
+            <ui:FAMenuFlyout>
+                <ui:MenuFlyoutItem Command="{CompiledBinding Split}"
+                                   CommandParameter="{Binding #root.GetClickedTime, Mode=OneTime}"
+                                   Text="{x:Static lang:Strings.Split}">
+                    <ui:MenuFlyoutItem.Icon>
                         <icons:SymbolIcon Symbol="SplitVertical" />
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Command="{CompiledBinding Cut}"
-                          Header="{x:Static lang:Strings.Cut}"
-                          InputGesture="{DynamicResource CutKeyGesture}">
-                    <MenuItem.Icon>
+                    </ui:MenuFlyoutItem.Icon>
+                </ui:MenuFlyoutItem>
+                <ui:MenuFlyoutItem Command="{CompiledBinding Cut}"
+                                   InputGesture="{DynamicResource CutKeyGesture}"
+                                   Text="{x:Static lang:Strings.Cut}">
+                    <ui:MenuFlyoutItem.Icon>
                         <icons:SymbolIcon Symbol="Cut" />
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Command="{CompiledBinding Copy}"
-                          Header="{x:Static lang:Strings.Copy}"
-                          InputGesture="{DynamicResource CopyKeyGesture}">
-                    <MenuItem.Icon>
+                    </ui:MenuFlyoutItem.Icon>
+                </ui:MenuFlyoutItem>
+                <ui:MenuFlyoutItem Command="{CompiledBinding Copy}"
+                                   InputGesture="{DynamicResource CopyKeyGesture}"
+                                   Text="{x:Static lang:Strings.Copy}">
+                    <ui:MenuFlyoutItem.Icon>
                         <icons:SymbolIcon Symbol="Copy" />
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Command="{CompiledBinding Delete}"
-                          Header="{x:Static lang:Strings.Delete}"
-                          InputGesture="{DynamicResource LayerDeleteKeyGesture}">
-                    <MenuItem.Icon>
+                    </ui:MenuFlyoutItem.Icon>
+                </ui:MenuFlyoutItem>
+                <ui:MenuFlyoutItem Command="{CompiledBinding Delete}"
+                                   InputGesture="{DynamicResource LayerDeleteKeyGesture}"
+                                   Text="{x:Static lang:Strings.Delete}">
+                    <ui:MenuFlyoutItem.Icon>
                         <icons:SymbolIcon Symbol="DeleteDismiss" />
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Command="{CompiledBinding Exclude}"
-                          Header="{x:Static lang:Strings.Exclude}"
-                          InputGesture="{DynamicResource DeleteKeyGesture}">
-                    <MenuItem.Icon>
+                    </ui:MenuFlyoutItem.Icon>
+                </ui:MenuFlyoutItem>
+                <ui:MenuFlyoutItem Command="{CompiledBinding Exclude}"
+                                   InputGesture="{DynamicResource DeleteKeyGesture}"
+                                   Text="{x:Static lang:Strings.Exclude}">
+                    <ui:MenuFlyoutItem.Icon>
                         <icons:SymbolIcon Symbol="Delete" />
-                    </MenuItem.Icon>
-                </MenuItem>
-            </ContextMenu>
-        </Border.ContextMenu>
+                    </ui:MenuFlyoutItem.Icon>
+                </ui:MenuFlyoutItem>
+                <ui:MenuFlyoutSeparator />
+                <ui:MenuFlyoutItem Command="{CompiledBinding FinishEditingAnimation}" Text="Finish editing the animation" />
+                <ui:MenuFlyoutItem Command="{CompiledBinding BringAnimationToTop}" Text="Bring the animation to the top." />
+            </ui:FAMenuFlyout>
+        </Border.ContextFlyout>
         <TextBlock Text="{Binding Model.ZIndex}" />
     </Border>
 

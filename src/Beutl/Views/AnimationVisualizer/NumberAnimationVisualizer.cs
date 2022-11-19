@@ -28,9 +28,9 @@ public abstract class NumberAnimationVisualizer<T> : AnimationVisualizer<T>
     {
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
-        base.OnAttachedToVisualTree(e);
+        base.OnAttachedToLogicalTree(e);
         Animation.Invalidated += OnAnimationInvalidated;
         _disposable = Application.Current!.GetResourceObservable("TextControlForeground").Subscribe(b =>
         {
@@ -42,9 +42,9 @@ public abstract class NumberAnimationVisualizer<T> : AnimationVisualizer<T>
         });
     }
 
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
-        base.OnDetachedFromVisualTree(e);
+        base.OnDetachedFromLogicalTree(e);
         Animation.Invalidated -= OnAnimationInvalidated;
         _disposable?.Dispose();
         _disposable = null;

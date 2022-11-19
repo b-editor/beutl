@@ -34,15 +34,13 @@ public class FloatingPointAnimationVisualizer<T> : NumberAnimationVisualizer<T>
 
         if (Animation.Children.Count > 0)
         {
-            T minAbs = T.Abs(min);
-            T maxAbs = T.Abs(max);
-            T sum = minAbs + maxAbs;
+            T sub = max - min;
             for (int i = 0; i <= div; i++)
             {
                 float progress = i / (float)div;
                 TimeSpan ts = duration * progress;
 
-                T value = (Animation.Interpolate(ts) + minAbs) / sum;
+                T value = (Animation.Interpolate(ts) - min) / sub;
                 value = T.Abs(value - T.One);
 
                 points.Add(new Vector2(progress, float.CreateTruncating(value)));

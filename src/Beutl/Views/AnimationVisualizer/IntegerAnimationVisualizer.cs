@@ -33,15 +33,13 @@ public class IntegerAnimationVisualizer<T> : NumberAnimationVisualizer<T>
 
         if (Animation.Children.Count > 0)
         {
-            T minAbs = T.Abs(min);
-            T maxAbs = T.Abs(max);
-            float sum = float.CreateTruncating(minAbs + maxAbs);
+            float sub = float.CreateTruncating(max - min);
             for (int i = 0; i <= div; i++)
             {
                 float progress = i / (float)div;
                 TimeSpan ts = duration * progress;
 
-                float value = float.CreateTruncating(Animation.Interpolate(ts) + minAbs) / sum;
+                float value = float.CreateTruncating(Animation.Interpolate(ts) - min) / sub;
                 value = Math.Abs(value - 1);
 
                 points.Add(new Vector2(progress, value));

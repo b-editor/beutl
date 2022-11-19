@@ -25,15 +25,15 @@ public class EasingFunctionVisualizer<T> : AnimationVisualizer<T>
     {
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
-        base.OnAttachedToVisualTree(e);
+        base.OnAttachedToLogicalTree(e);
         Animation.Invalidated += OnAnimationInvalidated;
     }
 
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
-        base.OnDetachedFromVisualTree(e);
+        base.OnDetachedFromLogicalTree(e);
         Animation.Invalidated -= OnAnimationInvalidated;
         _points?.Dispose();
         _points = null;
@@ -42,6 +42,7 @@ public class EasingFunctionVisualizer<T> : AnimationVisualizer<T>
     private void OnAnimationInvalidated(object? sender, EventArgs e)
     {
         InvalidatePoints();
+        InvalidateVisual();
     }
 
     private static void EnsureCapacity<TElement>(PooledList<TElement> list, int capacity)
