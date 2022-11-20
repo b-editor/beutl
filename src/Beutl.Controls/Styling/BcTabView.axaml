@@ -31,10 +31,10 @@
             <Setter Property="BorderBrush" Value="{DynamicResource TabViewItemHeaderBackgroundSelected}" />
 
             <Style Selector="^ /template/ ContentPresenter#PART_FallBackContent">
-                <Setter Property="IsVisible" Value="False" />
-            </Style>
-            <Style Selector="^:empty /template/ ContentPresenter#PART_FallBackContent">
                 <Setter Property="IsVisible" Value="True" />
+            </Style>
+            <Style Selector="^:selected /template/ ContentPresenter#PART_FallBackContent">
+                <Setter Property="IsVisible" Value="False" />
             </Style>
             <Style Selector="^ /template/ Border#PART_InternalBorder">
                 <Setter Property="Background" Value="Transparent" />

@@ -638,4 +638,28 @@ and b-editor maintains the download URL.</value>
   <data name="BringToTop" xml:space="preserve">
     <value>Bring to the top</value>
   </data>
+  <data name="StartEditing" xml:space="preserve">
+    <value>Start editing</value>
+  </data>
+  <data name="CreateNewProjectOrScene" xml:space="preserve">
+    <value>Create new project or scene</value>
+  </data>
+  <data name="OpenAFileYouHaveAlreadyCreated" xml:space="preserve">
+    <value>Open a file you have already created</value>
+  </data>
+  <data name="Recently" xml:space="preserve">
+    <value>Recently</value>
+  </data>
+  <data name="Projects" xml:space="preserve">
+    <value>Projects</value>
+  </data>
+  <data name="Files" xml:space="preserve">
+    <value>Files</value>
+  </data>
+  <data name="All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="NoFilesUsedRecently" xml:space="preserve">
+    <value>No files used recently.</value>
+  </data>
 </root>

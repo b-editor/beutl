@@ -1,0 +1,181 @@
+<UserControl x:Class="Beutl.Pages.EditPageFallback"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:sys="using:System"
+             xmlns:sysIO="using:System.IO"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.ViewModels"
+             d:DesignHeight="720"
+             d:DesignWidth="1280"
+             x:DataType="viewModel:EditPageViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="32">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.ColumnSpan="2"
+                    Margin="32"
+                    Spacing="8">
+            <TextBlock Text="{x:Static lang:Strings.StartEditing}" Theme="{StaticResource SubtitleTextBlockStyle}" />
+
+            <WrapPanel Margin="-4" Orientation="Horizontal">
+                <OptionsDisplayItem x:Name="createNewButton"
+                                    Margin="4"
+                                    Description="{x:Static lang:Strings.CreateNewProjectOrScene}"
+                                    Header="{x:Static lang:Strings.CreateNew}"
+                                    Navigates="True"
+                                    NavigationRequested="OpenContext">
+                    <OptionsDisplayItem.Icon>
+                        <icons:SymbolIcon Symbol="New" />
+                    </OptionsDisplayItem.Icon>
+                    <OptionsDisplayItem.ContextMenu>
+                        <ContextMenu PlacementAnchor="BottomRight"
+                                     PlacementGravity="BottomLeft"
+                                     PlacementMode="AnchorAndGravity">
+                            <MenuItem Click="CreateNewProject_Click" Header="{x:Static lang:Strings.CreateNewProject}" />
+                            <MenuItem Click="CreateNewScene_Click" Header="{x:Static lang:Strings.CreateNewScene}" />
+                        </ContextMenu>
+                    </OptionsDisplayItem.ContextMenu>
+                </OptionsDisplayItem>
+
+                <OptionsDisplayItem Margin="4"
+                                    Description="{x:Static lang:Strings.OpenAFileYouHaveAlreadyCreated}"
+                                    Header="{x:Static lang:Strings.Open}"
+                                    Navigates="True"
+                                    NavigationRequested="OpenContext">
+                    <OptionsDisplayItem.Icon>
+                        <icons:SymbolIcon Symbol="Open" />
+                    </OptionsDisplayItem.Icon>
+                    <OptionsDisplayItem.ContextMenu>
+                        <ContextMenu PlacementAnchor="BottomRight"
+                                     PlacementGravity="BottomLeft"
+                                     PlacementMode="AnchorAndGravity">
+                            <MenuItem Click="OpenProject_Click" Header="{x:Static lang:Strings.Project}" />
+                            <MenuItem Click="OpenFile_Click" Header="{x:Static lang:Strings.File}" />
+                        </ContextMenu>
+                    </OptionsDisplayItem.ContextMenu>
+                </OptionsDisplayItem>
+            </WrapPanel>
+        </StackPanel>
+
+        <Grid Grid.Row="1"
+              Width="600"
+              Margin="32,0,32,32"
+              HorizontalAlignment="Left"
+              ColumnDefinitions="*,Auto"
+              RowDefinitions="Auto,8,*">
+            <TextBlock Text="{x:Static lang:Strings.Recently}" Theme="{StaticResource SubtitleTextBlockStyle}" />
+
+            <ComboBox x:Name="FilterComboBox"
+                      Grid.Column="1"
+                      VerticalAlignment="Center"
+                      Background="Transparent"
+                      BorderBrush="Transparent"
+                      SelectedIndex="0">
+                <ComboBoxItem Content="{x:Static lang:Strings.All}" />
+                <ComboBoxItem Content="{x:Static lang:Strings.Projects}" />
+                <ComboBoxItem Content="{x:Static lang:Strings.Files}" />
+            </ComboBox>
+
+            <ListBox x:Name="recentList"
+                     Grid.Row="2"
+                     Grid.ColumnSpan="2">
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                        <Setter Property="ContextMenu">
+                            <Template>
+                                <ContextMenu>
+                                    <MenuItem Click="DeleteRecentItem_Click" Header="{x:Static lang:Strings.Remove}" />
+                                    <MenuItem Click="OpenRecentItem_Click" Header="{x:Static lang:Strings.Open}" />
+                                </ContextMenu>
+                            </Template>
+                        </Setter>
+                    </Style>
+                </ListBox.Styles>
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="sysIO:FileInfo">
+                        <StackPanel Margin="0,4">
+                            <TextBlock Text="{CompiledBinding Name}" />
+                            <TextBlock FontSize="12"
+                                       Text="{CompiledBinding DirectoryName}"
+                                       Theme="{StaticResource LabelTextBlockStyle}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <TextBlock Grid.Row="2"
+                       IsVisible="{Binding !#recentList.ItemCount}"
+                       Text="{x:Static lang:Strings.NoFilesUsedRecently}" />
+        </Grid>
+
+        <StackPanel Grid.Row="2"
+                    Margin="32,0,0,0"
+                    HorizontalAlignment="Left"
+                    Orientation="Horizontal"
+                    Spacing="8">
+            <StackPanel.Styles>
+                <Style Selector="Button">
+                    <Setter Property="Padding" Value="8" />
+                    <Setter Property="CornerRadius" Value="32" />
+                    <Setter Property="Width" Value="40" />
+                    <Setter Property="Height" Value="40" />
+                </Style>
+                <Style Selector="Image">
+                    <Setter Property="Stretch" Value="Uniform" />
+                </Style>
+            </StackPanel.Styles>
+            <Button Click="SocialClick"
+                    Tag="GitHub"
+                    ToolTip.Tip="GitHub">
+                <Panel>
+                    <Image x:Name="githubLightLogo"
+                           IsVisible="False"
+                           Source="/Assets/social/GitHub-Mark-120px-plus.png" />
+                    <Image x:Name="githubDarkLogo"
+                           IsVisible="False"
+                           Source="/Assets/social/GitHub-Mark-Light-120px-plus.png" />
+                </Panel>
+            </Button>
+            <Button Click="SocialClick"
+                    Tag="Twitter"
+                    ToolTip.Tip="Twitter">
+                <Image Source="/Assets/social/TwitterSocialIconsCircleBlue.png" />
+            </Button>
+            <Button Click="SocialClick"
+                    Tag="Url"
+                    ToolTip.Tip="Project">
+                <icons:SymbolIcon Width="24"
+                                  Height="24"
+                                  FontSize="20"
+                                  Symbol="Link" />
+            </Button>
+        </StackPanel>
+
+        <Grid Grid.Row="3"
+              Grid.ColumnSpan="2"
+              HorizontalAlignment="Right"
+              VerticalAlignment="Bottom"
+              ColumnDefinitions="*,*">
+            <ui:HyperlinkButton Grid.Column="0"
+                                HorizontalAlignment="Center"
+                                Content="{x:Static lang:Strings.PrivacyPolicy}"
+                                NavigateUri="https://beutl.beditor.net/Privacy" />
+            <ui:HyperlinkButton Grid.Column="1"
+                                HorizontalAlignment="Center"
+                                Content="{x:Static lang:Strings.TermsOfService}"
+                                NavigateUri="https://beutl.beditor.net/TermsOfService" />
+        </Grid>
+    </Grid>
+</UserControl>

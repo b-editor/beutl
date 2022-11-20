@@ -658,4 +658,28 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="BringToTop" xml:space="preserve">
     <value>一番上に持ってくる</value>
   </data>
+  <data name="StartEditing" xml:space="preserve">
+    <value>編集を開始</value>
+  </data>
+  <data name="CreateNewProjectOrScene" xml:space="preserve">
+    <value>新しくプロジェクト、シーンを作成します</value>
+  </data>
+  <data name="OpenAFileYouHaveAlreadyCreated" xml:space="preserve">
+    <value>既に作成したファイルを開く</value>
+  </data>
+  <data name="Recently" xml:space="preserve">
+    <value>最近</value>
+  </data>
+  <data name="Projects" xml:space="preserve">
+    <value>プロジェクト</value>
+  </data>
+  <data name="Files" xml:space="preserve">
+    <value>ファイル</value>
+  </data>
+  <data name="All" xml:space="preserve">
+    <value>すべて</value>
+  </data>
+  <data name="NoFilesUsedRecently" xml:space="preserve">
+    <value>最近使用したファイルはありません。</value>
+  </data>
 </root>

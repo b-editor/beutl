@@ -5,16 +5,21 @@ using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Generators;
+using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 
 using Beutl.Controls.Extensions;
 using Beutl.Controls.Generators;
 
 namespace Beutl.Controls;
 
+// AuraTabViewをカスタマイズしました。
+[PseudoClasses(":selected")]
 public partial class BcTabView : TabControl
 {
     internal double _lastselectindex = 0;
@@ -54,10 +59,15 @@ public partial class BcTabView : TabControl
         SelectionModeProperty.OverrideDefaultValue<BcTabView>(SelectionMode.Single);
         SelectedItemProperty.Changed.Subscribe(async x =>
         {
-            if (x.Sender is BcTabView sender && sender.TransitionIsEnabled && sender._gridHost != null)
+            if (x.Sender is BcTabView sender)
             {
-                await sender._animation.RunAsync(sender._gridHost, null);
-                sender._gridHost.Opacity = 1;
+                sender.PseudoClasses.Set(":selected", x.NewValue.GetValueOrDefault() != null);
+
+                if (sender.TransitionIsEnabled && sender._gridHost != null)
+                {
+                    await sender._animation.RunAsync(sender._gridHost, null);
+                    sender._gridHost.Opacity = 1;
+                }
             }
         });
     }
@@ -76,16 +86,19 @@ public partial class BcTabView : TabControl
     {
         base.OnPropertyChanged(change);
 
-        if (SelectedItem == null)
+        if (change.Property.Name is nameof(SelectedItem) or nameof(SelectionMode))
         {
-            double d = ((double)ItemCount / 2);
-            if (_lastselectindex < d & ItemCount != 0)
+            if (SelectedItem == null && SelectionMode == SelectionMode.AlwaysSelected)
             {
-                SelectedItem = (Items as IList).OfType<object>().FirstOrDefault();
-            }
-            else if (_lastselectindex >= d & ItemCount != 0)
-            {
-                SelectedItem = (Items as IList).OfType<object>().LastOrDefault();
+                double d = ((double)ItemCount / 2);
+                if (_lastselectindex < d & ItemCount != 0)
+                {
+                    SelectedItem = (Items as IList).OfType<object>().FirstOrDefault();
+                }
+                else if (_lastselectindex >= d & ItemCount != 0)
+                {
+                    SelectedItem = (Items as IList).OfType<object>().LastOrDefault();
+                }
             }
         }
     }
@@ -103,6 +116,28 @@ public partial class BcTabView : TabControl
         _gridHost = e.NameScope.Find<Grid>("PART_GridHost");
 
         PropertyChanged += AuraTabView_PropertyChanged;
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && e.Pointer.Type == PointerType.Mouse)
+        {
+            e.Handled = UpdateSelectionFromEventSource(e.Source, !e.KeyModifiers.HasFlag(KeyModifiers.Control));
+        }
+    }
+
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        if (e.InitialPressMouseButton == MouseButton.Left && e.Pointer.Type != PointerType.Mouse)
+        {
+            var container = GetContainerFromEventSource(e.Source);
+            if (container != null
+                && container.GetVisualsAt(e.GetPosition(container))
+                    .Any(c => container == c || container.IsVisualAncestorOf(c)))
+            {
+                e.Handled = UpdateSelectionFromEventSource(e.Source, !e.KeyModifiers.HasFlag(KeyModifiers.Control));
+            }
+        }
     }
 
     private void AuraTabView_PropertyChanged(object sender, AvaloniaPropertyChangedEventArgs e)

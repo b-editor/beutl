@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 
@@ -43,6 +44,9 @@ public partial class BcTabView
 
     public static readonly StyledProperty<bool> ImmediateDragProperty =
         AvaloniaProperty.Register<BcTabView, bool>(nameof(ImmediateDrag), true);
+
+    public static readonly new StyledProperty<SelectionMode> SelectionModeProperty =
+        SelectingItemsControl.SelectionModeProperty;
 
     private object _fallbackcontent = new TextBlock
     {
@@ -115,4 +119,11 @@ public partial class BcTabView
         get => GetValue(ImmediateDragProperty);
         set => SetValue(ImmediateDragProperty, value);
     }
+
+    public new SelectionMode SelectionMode
+    {
+        get => base.SelectionMode;
+        set => base.SelectionMode = value;
+    }
+
 }

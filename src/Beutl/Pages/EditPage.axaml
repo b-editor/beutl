@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Pages"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:views="using:Beutl.Views"
@@ -46,5 +47,9 @@
         </ui:TabView.Styles>
     </ui:TabView>-->
     <!--  Background="{DynamicResource TabViewItemHeaderBackgroundSelected}"  -->
-    <BcTabView x:Name="tabview" ClickOnAddingButton="AddButtonClick" />
+    <BcTabView x:Name="tabview" ClickOnAddingButton="AddButtonClick">
+        <BcTabView.FallBackContent>
+            <local:EditPageFallback />
+        </BcTabView.FallBackContent>
+    </BcTabView>
 </UserControl>

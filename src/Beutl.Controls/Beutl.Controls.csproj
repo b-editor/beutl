@@ -12,6 +12,9 @@
 
   <!-- CS8032 -->
   <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.Analyzers.props" />
+  <ItemGroup>
+    <None Remove="BcTabView\BcTabView.cs~RF21e1abb7.TMP" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Language\Beutl.Language.csproj" />

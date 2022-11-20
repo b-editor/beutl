@@ -56,6 +56,7 @@
                    CornerRadius="8,0,0,8"
                    ItemsMargin="0,0,4,4"
                    SelectedIndex="0"
+                   SelectionMode="AlwaysSelected"
                    TabStripPlacement="Right" />
 
         <!--  LeftPanel  -->
@@ -77,6 +78,7 @@
                            Classes="EditTabView"
                            CornerRadius="8,8,0,0"
                            ItemsMargin="0,0,4,4"
+                           SelectionMode="AlwaysSelected"
                            TabStripPlacement="Bottom" />
             </ContentControl>
 

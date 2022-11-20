@@ -106,5 +106,6 @@ public sealed class ProjectService : IProjectService
     {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         viewConfig.UpdateRecentProject(file);
+        viewConfig.UpdateRecentFile(file);
     }
 }
