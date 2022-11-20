@@ -73,8 +73,10 @@
                     </ui:MenuFlyoutItem.Icon>
                 </ui:MenuFlyoutItem>
                 <ui:MenuFlyoutSeparator />
-                <ui:MenuFlyoutItem Command="{CompiledBinding FinishEditingAnimation}" Text="Finish editing the animation" />
-                <ui:MenuFlyoutItem Command="{CompiledBinding BringAnimationToTop}" Text="Bring the animation to the top." />
+                <ui:MenuFlyoutSubItem Text="{x:Static lang:Strings.Animation}">
+                    <ui:MenuFlyoutItem Command="{CompiledBinding FinishEditingAnimation}" Text="{x:Static lang:Strings.FinishEditing}" />
+                    <ui:MenuFlyoutItem Command="{CompiledBinding BringAnimationToTop}" Text="{x:Static lang:Strings.BringToTop}" />
+                </ui:MenuFlyoutSubItem>
             </ui:FAMenuFlyout>
         </Border.ContextFlyout>
         <TextBlock Text="{Binding Model.ZIndex}" />

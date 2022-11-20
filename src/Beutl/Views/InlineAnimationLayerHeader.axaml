@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels"
@@ -45,9 +46,9 @@
             </Border.Styles>
             <Border.ContextFlyout>
                 <ui:FAMenuFlyout>
-                    <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding ShowAnimationVisual.Value}" Text="プレビュー表示" />
+                    <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding ShowAnimationVisual.Value}" Text="{x:Static lang:Strings.ShowPreview}" />
 
-                    <ui:MenuFlyoutItem Click="OpenAnimationTimelineClick" Text="タイムラインを開く">
+                    <ui:MenuFlyoutItem Click="OpenAnimationTimelineClick" Text="{x:Static lang:Strings.OpenTimeline}">
                         <ui:MenuFlyoutItem.Icon>
                             <icons:SymbolIcon Symbol="Open" />
                         </ui:MenuFlyoutItem.Icon>

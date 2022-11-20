@@ -646,4 +646,16 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="TargetType" xml:space="preserve">
     <value>対象型</value>
   </data>
+  <data name="ShowPreview" xml:space="preserve">
+    <value>プレビューを表示</value>
+  </data>
+  <data name="OpenTimeline" xml:space="preserve">
+    <value>タイムラインを開く</value>
+  </data>
+  <data name="FinishEditing" xml:space="preserve">
+    <value>編集を終了する</value>
+  </data>
+  <data name="BringToTop" xml:space="preserve">
+    <value>一番上に持ってくる</value>
+  </data>
 </root>
