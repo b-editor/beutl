@@ -182,46 +182,6 @@ public sealed class TimelineViewModel : IToolContext
         item.Dispose();
     }
 
-    public IObservable<double> GetLayerHeightObservable(int layerNum)
-    {
-        // -----------
-        // | Layer 1 |
-        // -----------
-        // | Layer 2 |
-        // -----------
-        // ここでは"Layer 1"の高さを取得
-        // var height = GetLayerHeightObservable(0);
-        // 
-        // -----------
-        // | Layer 2 |
-        // -----------
-        // | Layer 1 |
-        // -----------
-        // 順番が変わっても、継続して"Layer 1"の高さを取得する。
-
-        LayerHeaderViewModel layer = LayerHeaders[Math.Min(layerNum, LayerHeaders.Count - 1)];
-        return layer.Height;
-    }
-
-    public IObservable<double> GetTrackedLayerHeightObservable(int layer)
-    {
-        // -----------
-        // | Layer 1 |
-        // -----------
-        // | Layer 2 |
-        // -----------
-        // ここでは"Layer 1"の高さを取得
-        // var height = GetLayerHeightObservable(0);
-        // 
-        // -----------
-        // | Layer 2 |
-        // -----------
-        // | Layer 1 |
-        // -----------
-        // 順番が変わると、"Layer 2"の高さを取得する。
-        return new TrackedLayerHeightObservable(Math.Min(layer, LayerHeaders.Count - 1), this).SelectMany(x => x);
-    }
-
     public IObservable<double> GetTrackedLayerTopObservable(IObservable<int> layer)
     {
         return new TrackedLayerTopObservable(layer, this);
@@ -271,64 +231,9 @@ public sealed class TimelineViewModel : IToolContext
         return -1;
     }
 
-    public double ToLayerPixel(int layer)
-    {
-        double sum = 0;
-        int count = Math.Min(layer, LayerHeaders.Count);
-
-        for (int i = 0; i < count; i++)
-        {
-            sum += LayerHeaders[i].Height.Value;
-        }
-
-        return sum;
-    }
-
     internal void RaiseLayerHeightChanged(LayerHeaderViewModel value)
     {
         _layerHeightChanged.OnNext(value);
-    }
-
-    private sealed class TrackedLayerHeightObservable : LightweightObservableBase<IObservable<double>>
-    {
-        private readonly int _layerNum;
-        private readonly TimelineViewModel _timeline;
-        private IDisposable? _disposable;
-
-        public TrackedLayerHeightObservable(int layerNum, TimelineViewModel timeline)
-        {
-            _layerNum = layerNum;
-            _timeline = timeline;
-        }
-
-        protected override void Deinitialize()
-        {
-            _disposable?.Dispose();
-        }
-
-        protected override void Initialize()
-        {
-            _disposable = _timeline.LayerHeaders.CollectionChangedAsObservable()
-                .Subscribe(OnCollectionChanged);
-        }
-
-        protected override void Subscribed(IObserver<IObservable<double>> observer, bool first)
-        {
-            observer.OnNext(_timeline.LayerHeaders[_layerNum].Height);
-        }
-
-        private void OnCollectionChanged(NotifyCollectionChangedEventArgs obj)
-        {
-            if (obj.Action == NotifyCollectionChangedAction.Move)
-            {
-                if (_layerNum != obj.OldStartingIndex
-                    && ((_layerNum > obj.OldStartingIndex && _layerNum <= obj.NewStartingIndex)
-                    || (_layerNum < obj.OldStartingIndex && _layerNum >= obj.NewStartingIndex)))
-                {
-                    PublishNext(_timeline.LayerHeaders[_layerNum].Height);
-                }
-            }
-        }
     }
 
     private sealed class TrackedLayerTopObservable : LightweightObservableBase<double>
