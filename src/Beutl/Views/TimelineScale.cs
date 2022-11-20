@@ -78,7 +78,7 @@ public sealed class TimelineScale : Control
     protected override void OnLoaded()
     {
         base.OnLoaded();
-        _disposable = Application.Current!.GetResourceObservable("TextControlForeground").Subscribe(b =>
+        _disposable = this.GetResourceObservable("TextControlForeground").Subscribe(b =>
         {
             if (b is IBrush brush)
             {

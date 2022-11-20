@@ -32,7 +32,7 @@ public abstract class NumberAnimationVisualizer<T> : AnimationVisualizer<T>
     {
         base.OnAttachedToLogicalTree(e);
         Animation.Invalidated += OnAnimationInvalidated;
-        _disposable = Application.Current!.GetResourceObservable("TextControlForeground").Subscribe(b =>
+        _disposable = this.GetResourceObservable("TextControlForeground").Subscribe(b =>
         {
             if (b is IBrush brush)
             {
@@ -134,7 +134,7 @@ public abstract class NumberAnimationSpanVisualizer<T> : AnimationSpanVisualizer
         base.OnAttachedToLogicalTree(e);
         Animation.Invalidated += OnAnimationInvalidated;
         AnimationSpan.Invalidated += OnAnimationInvalidated;
-        _disposable = Application.Current!.GetResourceObservable("TextControlForeground").Subscribe(b =>
+        _disposable = this.GetResourceObservable("TextControlForeground").Subscribe(b =>
         {
             if (b is IBrush brush)
             {
