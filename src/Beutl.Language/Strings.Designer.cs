@@ -232,6 +232,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Bring to the top に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string BringToTop {
+            get {
+                return ResourceManager.GetString("BringToTop", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Cancel に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Cancel {
@@ -629,6 +638,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Finish editing に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FinishEditing {
+            get {
+                return ResourceManager.GetString("FinishEditing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Fix Image Size に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string FixImageSize {
@@ -998,6 +1016,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Open Timeline に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string OpenTimeline {
+            get {
+                return ResourceManager.GetString("OpenTimeline", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Others に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Others {
@@ -1345,6 +1372,15 @@ namespace Beutl.Language {
         public static string ShowMore {
             get {
                 return ResourceManager.GetString("ShowMore", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Show Preview に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ShowPreview {
+            get {
+                return ResourceManager.GetString("ShowPreview", resourceCulture);
             }
         }
         

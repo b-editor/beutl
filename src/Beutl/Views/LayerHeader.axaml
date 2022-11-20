@@ -3,19 +3,20 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:local="using:Beutl.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels"
-             Height="{DynamicResource LayerHeight}"
+             Height="{CompiledBinding Height.Value}"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Top"
+             VerticalContentAlignment="Top"
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="vm:LayerHeaderViewModel"
-             ClipToBounds="True"
              PositionY="{CompiledBinding PosY.Value}"
              mc:Ignorable="d">
-    <Grid>
+    <Grid RowDefinitions="25,*">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
@@ -50,15 +51,13 @@
 
         <ToggleButton Grid.Column="1"
                       BorderThickness="0"
-                      IsChecked="{CompiledBinding IsEnabled.Value}">
+                      IsChecked="{CompiledBinding IsEnabled.Value}"
+                      Theme="{StaticResource TransparentToggleButton}">
             <ToggleButton.Resources>
-                <SolidColorBrush x:Key="ToggleButtonBackground" Color="Transparent" />
-                <SolidColorBrush x:Key="ToggleButtonBackgroundDisabled" Color="Transparent" />
-
                 <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="Transparent" />
-                <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="ControlFillColorTertiaryBrush" />
-                <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedDisabled" Color="Transparent" />
-                <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="ControlFillColorSecondaryBrush" />
+                <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="SubtleFillColorTertiaryBrush" />
+                <StaticResource x:Key="ToggleButtonBackgroundCheckedDisabled" ResourceKey="SubtleFillColorDisabledBrush" />
+                <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="SubtleFillColorSecondaryBrush" />
             </ToggleButton.Resources>
             <ToggleButton.Styles>
                 <Style Selector="ToggleButton">
@@ -132,5 +131,15 @@
                  Classes="custom"
                  InputMethod.IsInputMethodEnabled="True"
                  Text="{Binding Name.Value}" />
+
+        <ItemsControl Grid.Row="1"
+                      Grid.ColumnSpan="4"
+                      Items="{CompiledBinding Inlines}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <local:InlineAnimationLayerHeader />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
     </Grid>
 </UserControl>

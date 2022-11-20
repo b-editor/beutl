@@ -1,4 +1,6 @@
-﻿using System.Numerics;
+﻿using System.Collections.Specialized;
+using System.Numerics;
+using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 
 using Avalonia;
@@ -6,6 +8,7 @@ using Avalonia;
 using Beutl.Framework;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Reactive;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Streaming;
 
@@ -28,6 +31,7 @@ public interface ITimelineOptionsProvider
 public sealed class TimelineViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposables = new();
+    private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
 
     public TimelineViewModel(EditViewModel editViewModel)
     {
@@ -76,7 +80,13 @@ public sealed class TimelineViewModel : IToolContext
             (idx, item) => Layers.Insert(idx, new TimelineLayerViewModel(item, this)),
             (idx, _) =>
             {
-                Layers[idx].Dispose();
+                TimelineLayerViewModel layer = Layers[idx];
+                foreach (InlineAnimationLayerViewModel item in Inlines.Where(x => x.Layer == layer).ToArray())
+                {
+                    DetachInline(item);
+                }
+
+                layer.Dispose();
                 Layers.RemoveAt(idx);
             },
             () =>
@@ -108,6 +118,8 @@ public sealed class TimelineViewModel : IToolContext
 
     public CoreList<TimelineLayerViewModel> Layers { get; } = new();
 
+    public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = new();
+
     public CoreList<LayerHeaderViewModel> LayerHeaders { get; } = new();
 
     public ReactiveCommand Paste { get; } = new();
@@ -126,6 +138,8 @@ public sealed class TimelineViewModel : IToolContext
 
     public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Bottom;
 
+    public IObservable<LayerHeaderViewModel> LayerHeightChanged => _layerHeightChanged;
+
     public void Dispose()
     {
         _disposables.Dispose();
@@ -141,5 +155,149 @@ public sealed class TimelineViewModel : IToolContext
 
     public void WriteToJson(ref JsonNode json)
     {
+    }
+
+    public void AttachInline(IAbstractAnimatableProperty property, Layer layer)
+    {
+        if (!Inlines.Any(x => x.Layer.Model == layer && x.Property == property)
+            && Layers.FirstOrDefault(x => x.Model == layer) is { } viewModel)
+        {
+            // タイムラインのタブを開く
+            var anmTimelineViewModel
+                = new InlineAnimationLayerViewModel(property, this, viewModel);
+
+            Inlines.Add(anmTimelineViewModel);
+        }
+    }
+
+    public void DetachInline(InlineAnimationLayerViewModel item)
+    {
+        if (item.LayerHeader.Value is { } layerHeader)
+        {
+            layerHeader.Inlines.Remove(item);
+        }
+
+        Inlines.Remove(item);
+
+        item.Dispose();
+    }
+
+    public IObservable<double> GetTrackedLayerTopObservable(IObservable<int> layer)
+    {
+        return new TrackedLayerTopObservable(layer, this);
+    }
+
+    public double CalculateLayerTop(int layer)
+    {
+        double sum = 0;
+        for (int i = 0; i < layer; i++)
+        {
+            sum += LayerHeaders[i].Height.Value;
+        }
+
+        return sum;
+    }
+
+    public int ToLayerNumber(double pixel)
+    {
+        double sum = 0;
+
+        for (int i = 0; i < LayerHeaders.Count; i++)
+        {
+            LayerHeaderViewModel cur = LayerHeaders[i];
+            if (sum <= pixel && pixel <= (sum += cur.Height.Value))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    public int ToLayerNumber(Thickness thickness)
+    {
+        double sum = 0;
+
+        for (int i = 0; i < LayerHeaders.Count; i++)
+        {
+            LayerHeaderViewModel cur = LayerHeaders[i];
+            double top = thickness.Top + (Helper.LayerHeight / 2);
+            if (sum <= top && top <= (sum += cur.Height.Value))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    internal void RaiseLayerHeightChanged(LayerHeaderViewModel value)
+    {
+        _layerHeightChanged.OnNext(value);
+    }
+
+    private sealed class TrackedLayerTopObservable : LightweightObservableBase<double>
+    {
+        private readonly TimelineViewModel _timeline;
+        private readonly IObservable<int> _layerNum;
+        private IDisposable? _disposable1;
+        private IDisposable? _disposable2;
+        private IDisposable? _disposable3;
+        private int _prevLayerNum = -1;
+
+        public TrackedLayerTopObservable(IObservable<int> layerNum, TimelineViewModel timeline)
+        {
+            _layerNum = layerNum;
+            _timeline = timeline;
+        }
+
+        protected override void Deinitialize()
+        {
+            _disposable1?.Dispose();
+            _disposable2?.Dispose();
+            _disposable3?.Dispose();
+        }
+
+        protected override void Initialize()
+        {
+            _disposable1 = _timeline.LayerHeaders.CollectionChangedAsObservable()
+                .Subscribe(OnCollectionChanged);
+
+            _disposable2 = _timeline.LayerHeightChanged.Subscribe(OnLayerHeightChanged);
+
+            _disposable3 = _layerNum.Subscribe(OnLayerNumChanged);
+        }
+
+        private void OnLayerNumChanged(int obj)
+        {
+            _prevLayerNum = obj;
+            PublishNext(_timeline.CalculateLayerTop(_prevLayerNum));
+        }
+
+        private void OnLayerHeightChanged(LayerHeaderViewModel obj)
+        {
+            if (obj.Number.Value < _prevLayerNum)
+            {
+                PublishNext(_timeline.CalculateLayerTop(_prevLayerNum));
+            }
+        }
+
+        protected override void Subscribed(IObserver<double> observer, bool first)
+        {
+            observer.OnNext(_timeline.CalculateLayerTop(_prevLayerNum));
+        }
+
+        private void OnCollectionChanged(NotifyCollectionChangedEventArgs obj)
+        {
+            if (obj.Action == NotifyCollectionChangedAction.Move)
+            {
+                if (_prevLayerNum != obj.OldStartingIndex
+                    && ((_prevLayerNum > obj.OldStartingIndex && _prevLayerNum <= obj.NewStartingIndex)
+                    || (_prevLayerNum < obj.OldStartingIndex && _prevLayerNum >= obj.NewStartingIndex)))
+                {
+                    PublishNext(_timeline.CalculateLayerTop(_prevLayerNum));
+                }
+            }
+        }
     }
 }

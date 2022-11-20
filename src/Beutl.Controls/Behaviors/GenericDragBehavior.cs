@@ -95,6 +95,14 @@ public class GenericDragBehavior : Behavior<IControl>
         return AssociatedObject?.FindAncestorOfType<ContentPresenter>();
     }
 
+    protected virtual void OnStartedDragging()
+    {
+    }
+    
+    protected virtual void OnFinishedDragging()
+    {
+    }
+
     private void Pressed(object? sender, PointerPressedEventArgs e)
     {
         PointerPointProperties properties = e.GetCurrentPoint(AssociatedObject).Properties;
@@ -117,6 +125,7 @@ public class GenericDragBehavior : Behavior<IControl>
             AddTransforms(_itemsControl);
 
             e.Pointer.Capture(DragControl);
+            e.Handled = true;
         }
     }
 
@@ -130,12 +139,14 @@ public class GenericDragBehavior : Behavior<IControl>
             }
 
             e.Pointer.Capture(null);
+            e.Handled = true;
         }
     }
 
     private void CaptureLost(object? sender, PointerCaptureLostEventArgs e)
     {
         Released();
+        e.Handled = true;
     }
 
     private void Released()
@@ -158,6 +169,7 @@ public class GenericDragBehavior : Behavior<IControl>
         if (_dragStarted && _draggedIndex >= 0 && _targetIndex >= 0 && _draggedIndex != _targetIndex)
         {
             OnMoveDraggedItem(_itemsControl, _draggedIndex, _targetIndex);
+            OnFinishedDragging();
         }
 
         if (_itemsControl is { })
@@ -258,6 +270,8 @@ public class GenericDragBehavior : Behavior<IControl>
 
             if (!_dragStarted)
             {
+                OnStartedDragging();
+
                 Point diff = _start - position;
                 double horizontalDragThreshold = HorizontalDragThreshold;
                 double verticalDragThreshold = VerticalDragThreshold;

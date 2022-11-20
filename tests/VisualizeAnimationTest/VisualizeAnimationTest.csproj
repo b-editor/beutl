@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net7.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove=".gitignore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\src\Beutl\Views\AnimationVisualizer\*.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)\..\ArtifactProvider.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Beutl.Graphics\Beutl.Graphics.csproj" />
+  </ItemGroup>
+  
+  <Import Project="..\..\build\props\Avalonia.props" />
+  <Import Project="..\..\build\props\XamlNameReferenceGenerator.props" />
+
+  <!-- CS8032 -->
+  <Import Project="..\..\build\props\Microsoft.CodeAnalysis.Analyzers.props" />
+  
+</Project>

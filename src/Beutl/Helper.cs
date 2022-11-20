@@ -84,21 +84,6 @@ internal static class Helper
         return TimeSpan.FromSeconds(pixel / (SecondWidth * scale));
     }
 
-    public static int ToLayerNumber(this double pixel)
-    {
-        return (int)Math.Floor(pixel / LayerHeight);
-    }
-
-    public static int ToLayerNumber(this Thickness thickness)
-    {
-        return (int)Math.Floor((thickness.Top + (LayerHeight / 2)) / LayerHeight);
-    }
-
-    public static double ToLayerPixel(this int layer)
-    {
-        return layer * LayerHeight;
-    }
-
     public static string RandomLayerFileName(string baseDir, string ext)
     {
         string filename = Path.Combine(baseDir, $"{RandomString()}.{ext}");

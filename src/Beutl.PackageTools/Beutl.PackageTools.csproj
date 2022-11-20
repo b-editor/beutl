@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <!-- CS8032 -->
-  <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.CSharp.props" />
+  <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.Analyzers.props" />
 
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />

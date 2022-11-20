@@ -15,7 +15,6 @@ namespace Beutl.ViewModels;
 public sealed class TimelineLayerViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
-    private LayerHeaderViewModel? _layerHeader;
 
     public TimelineLayerViewModel(Layer sceneLayer, TimelineViewModel timeline)
     {
@@ -23,8 +22,8 @@ public sealed class TimelineLayerViewModel : IDisposable
         Timeline = timeline;
 
         IObservable<int> zIndexSubject = sceneLayer.GetObservable(Layer.ZIndexProperty);
-        Margin = zIndexSubject
-            .Select(item => new Thickness(0, item.ToLayerPixel(), 0, 0))
+        Margin = Timeline.GetTrackedLayerTopObservable(zIndexSubject)
+            .Select(item => new Thickness(0, item, 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
@@ -90,16 +89,43 @@ public sealed class TimelineLayerViewModel : IDisposable
         Color.Subscribe(c => Model.AccentColor = Media.Color.FromArgb(c.A, c.R, c.G, c.B))
             .AddTo(_disposables);
 
+        FinishEditingAnimation.Subscribe(() =>
+        {
+            foreach (InlineAnimationLayerViewModel item in Timeline.Inlines.Where(x => x.Layer == this).ToArray())
+            {
+                Timeline.DetachInline(item);
+            }
+        });
+
+        BringAnimationToTop.Subscribe(() =>
+        {
+            if (LayerHeader.Value is { } layerHeader)
+            {
+                var inlines = Timeline.Inlines.Where(x => x.Layer == this).ToArray();
+                Array.Sort(inlines, (x, y) => x.Index.Value - y.Index.Value);
+
+                for (int i = 0; i < inlines.Length; i++)
+                {
+                    InlineAnimationLayerViewModel? item = inlines[i];
+                    int oldIndex = layerHeader.Inlines.IndexOf(item);
+                    if (oldIndex >= 0)
+                    {
+                        layerHeader.Inlines.Move(oldIndex, i);
+                    }
+                }
+            }
+        });
+
         zIndexSubject.Subscribe(number =>
         {
             LayerHeaderViewModel? newLH = Timeline.LayerHeaders.FirstOrDefault(i => i.Number.Value == number);
 
-            if (_layerHeader != null)
-                _layerHeader.ItemsCount.Value--;
+            if (LayerHeader.Value != null)
+                LayerHeader.Value.ItemsCount.Value--;
 
             if (newLH != null)
                 newLH.ItemsCount.Value++;
-            _layerHeader = newLH;
+            LayerHeader.Value = newLH;
         }).AddTo(_disposables);
     }
 
@@ -122,6 +148,8 @@ public sealed class TimelineLayerViewModel : IDisposable
 
     public ReactiveProperty<double> Width { get; }
 
+    public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader { get; set; } = new();
+
     public ReactiveProperty<Avalonia.Media.Color> Color { get; }
 
     public ReactiveCommand<Func<TimeSpan>?> Split { get; } = new();
@@ -134,6 +162,10 @@ public sealed class TimelineLayerViewModel : IDisposable
 
     public ReactiveCommand Delete { get; } = new();
 
+    public ReactiveCommand FinishEditingAnimation { get; } = new();
+
+    public ReactiveCommand BringAnimationToTop { get; } = new();
+
     public void Dispose()
     {
         _disposables.Dispose();
@@ -142,12 +174,21 @@ public sealed class TimelineLayerViewModel : IDisposable
 
     public async void AnimationRequest(int layerNum, bool affectModel = true, CancellationToken cancellationToken = default)
     {
-        var newMargin = new Thickness(0, layerNum.ToLayerPixel(), 0, 0);
+        var inlines = Timeline.Inlines
+            .Where(x => x.Layer == this)
+            .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
+            .ToArray();
+
+        var newMargin = new Thickness(0, Timeline.CalculateLayerTop(layerNum), 0, 0);
         Thickness oldMargin = Margin.Value;
         if (affectModel)
             Model.ZIndex = layerNum;
 
         Margin.Value = oldMargin;
+
+        foreach (var (item, context) in inlines)
+            item.AnimationRequest(context, newMargin, cancellationToken);
+
         await AnimationRequested((newMargin, BorderMargin.Value, Width.Value), cancellationToken);
         Margin.Value = newMargin;
     }
@@ -159,21 +200,29 @@ public sealed class TimelineLayerViewModel : IDisposable
         Thickness oldMargin = Margin.Value;
         Thickness oldBorderMargin = BorderMargin.Value;
         double oldWidth = Width.Value;
+        var inlines = Timeline.Inlines
+            .Where(x => x.Layer == this)
+            .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
+            .ToArray();
 
-        int layerNum = Margin.Value.ToLayerNumber();
+        int layerNum = Timeline.ToLayerNumber(Margin.Value);
         Scene.MoveChild(
             layerNum,
             BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate),
             Width.Value.ToTimeSpan(scale).RoundToRate(rate),
             Model).DoAndRecord(CommandRecorder.Default);
 
-        var margin = new Thickness(0, Model.ZIndex.ToLayerPixel(), 0, 0);
+        var margin = new Thickness(0, Timeline.CalculateLayerTop(Model.ZIndex), 0, 0);
         var borderMargin = new Thickness(Model.Start.ToPixel(Timeline.Options.Value.Scale), 0, 0, 0);
         double width = Model.Length.ToPixel(Timeline.Options.Value.Scale);
 
         BorderMargin.Value = oldBorderMargin;
         Margin.Value = oldMargin;
         Width.Value = oldWidth;
+
+        foreach (var (item, context) in inlines)
+            item.AnimationRequest(context, margin);
+
         await AnimationRequested((margin, borderMargin, width), default);
         BorderMargin.Value = borderMargin;
         Margin.Value = margin;

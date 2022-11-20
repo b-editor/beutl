@@ -36,8 +36,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Props", "Props", "{74C34E00
 		build\props\CoreLibraries.props = build\props\CoreLibraries.props
 		build\props\FluentAvalonia.props = build\props\FluentAvalonia.props
 		build\props\FluentIcons.FluentAvalonia.props = build\props\FluentIcons.FluentAvalonia.props
-		build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props = build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props
 		build\props\Microsoft.CodeAnalysis.Analyzers.props = build\props\Microsoft.CodeAnalysis.Analyzers.props
+		build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props = build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props
 		build\props\Microsoft.Extensions.DependencyInjection.props = build\props\Microsoft.Extensions.DependencyInjection.props
 		build\props\Microsoft.Extensions.FileSystemGlobbing.props = build\props\Microsoft.Extensions.FileSystemGlobbing.props
 		build\props\Microsoft.Extensions.Http.props = build\props\Microsoft.Extensions.Http.props
@@ -115,6 +115,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.PackageTools", "src\Beutl.PackageTools\Beutl.PackageTools.csproj", "{A7F8F486-8D17-43E4-A175-82A991FB5F31}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.WaitingDialog", "src\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj", "{D148B786-2361-4FCD-BD0E-5953CB4C2AF8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VisualizeAnimationTest", "tests\VisualizeAnimationTest\VisualizeAnimationTest.csproj", "{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -332,6 +334,14 @@ Global
 		{D148B786-2361-4FCD-BD0E-5953CB4C2AF8}.Release|Any CPU.Build.0 = Release|Any CPU
 		{D148B786-2361-4FCD-BD0E-5953CB4C2AF8}.Release|x64.ActiveCfg = Release|Any CPU
 		{D148B786-2361-4FCD-BD0E-5953CB4C2AF8}.Release|x64.Build.0 = Release|Any CPU
+		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Debug|x64.Build.0 = Debug|Any CPU
+		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Release|x64.ActiveCfg = Release|Any CPU
+		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -352,6 +362,7 @@ Global
 		{ED8EECC3-4BDC-4B29-A17B-1044C7534BB2} = {464CEA08-D77A-4CB8-9B03-BEF0C852B907}
 		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0} = {D6C0F32B-62A6-48BA-867E-BCDD88B71748}
 		{456F3A49-7881-4793-966D-FF647190F5CB} = {D2E28768-5899-48B0-B35C-41BABE9D9536}
+		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {CC3F8F37-EB22-4418-978D-C844095F8C4D}

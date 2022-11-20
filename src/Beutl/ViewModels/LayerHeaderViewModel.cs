@@ -1,7 +1,10 @@
-﻿using Avalonia.Media;
+﻿using System.Collections.Specialized;
+
+using Avalonia.Media;
 
 using Beutl.Commands;
 using Beutl.ProjectSystem;
+using Beutl.Reactive;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -16,10 +19,6 @@ public sealed class LayerHeaderViewModel : IDisposable
     {
         Number = new(num);
         Timeline = timeline;
-        //Margin = Number
-        //    .Select(item => new Thickness(0, item.ToLayerPixel(), 0, 0))
-        //    .ToReactiveProperty()
-        //    .AddTo(_disposables);
 
         HasItems = ItemsCount.Select(i => i > 0)
             .ToReadOnlyReactivePropertySlim()
@@ -47,16 +46,80 @@ public sealed class LayerHeaderViewModel : IDisposable
             command?.DoAndRecord(CommandRecorder.Default);
         }).AddTo(_disposables);
 
-        //PosY = Margin.CombineLatest(Number)
-        //    .Select(t => t.First.Top - t.Second.ToLayerPixel())
-        //    .ToReadOnlyReactivePropertySlim();
+        Height.Subscribe(_ => Timeline.RaiseLayerHeightChanged(this)).AddTo(_disposables);
+
+#if DEBUG
+        Name = Number.Select(x => x.ToString()).ToReactiveProperty()!;
+#endif
+        Inlines.ForEachItem(
+            (idx, x) =>
+            {
+                x.HeightChanged += OnInlineItemHeightChanged;
+                Height.Value += x.Height;
+                x.Index.Value = idx;
+            },
+            (_, x) =>
+            {
+                x.HeightChanged -= OnInlineItemHeightChanged;
+                Height.Value -= x.Height;
+                x.Index.Value = -1;
+            },
+            () => { }).AddTo(_disposables);
+
+        Inlines.CollectionChangedAsObservable()
+            .Subscribe(OnInlinesCollectionChanged)
+            .AddTo(_disposables);
+    }
+
+    private void OnInlinesCollectionChanged(NotifyCollectionChangedEventArgs e)
+    {
+        void OnAdded()
+        {
+            for (int i = e.NewStartingIndex; i < Inlines.Count; i++)
+            {
+                InlineAnimationLayerViewModel item = Inlines[i];
+                item.Index.Value = i;
+            }
+        }
+
+        void OnRemoved()
+        {
+            for (int i = e.OldStartingIndex; i < Inlines.Count; i++)
+            {
+                InlineAnimationLayerViewModel item = Inlines[i];
+                item.Index.Value = i;
+            }
+        }
+
+        switch (e.Action)
+        {
+            case NotifyCollectionChangedAction.Add:
+                OnAdded();
+                break;
+
+            case NotifyCollectionChangedAction.Move:
+                OnRemoved();
+                OnAdded();
+                break;
+
+            case NotifyCollectionChangedAction.Replace:
+            case NotifyCollectionChangedAction.Reset:
+                throw new Exception("Not supported action (Move, Replace, Reset).");
+
+            case NotifyCollectionChangedAction.Remove:
+                OnRemoved();
+                break;
+        }
+    }
+
+    private void OnInlineItemHeightChanged(object? sender, (double OldHeight, double NewHeight) e)
+    {
+        Height.Value += e.NewHeight - e.OldHeight;
     }
 
     public ReactiveProperty<int> Number { get; }
 
     public TimelineViewModel Timeline { get; }
-
-    //public ReactiveProperty<Thickness> Margin { get; }
 
     public ReactivePropertySlim<double> PosY { get; } = new(0);
 
@@ -70,7 +133,9 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<bool> HasItems { get; }
 
-    //public Func<double, CancellationToken, Task> AnimationRequested { get; set; } = (_, _) => Task.CompletedTask;
+    public ReactiveProperty<double> Height { get; } = new(Helper.LayerHeight);
+
+    public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = new() { ResetBehavior = ResetBehavior.Remove };
 
     public void AnimationRequest(int layerNum, bool affectModel = true)
     {
@@ -84,5 +149,21 @@ public sealed class LayerHeaderViewModel : IDisposable
     public void Dispose()
     {
         _disposables.Dispose();
+    }
+
+    public double CalculateInlineTop(int index)
+    {
+        if (index >= Inlines.Count)
+        {
+
+        }
+
+        double sum = 0;
+        for (int i = 0; i < index; i++)
+        {
+            sum += Inlines[i].Height;
+        }
+
+        return sum;
     }
 }

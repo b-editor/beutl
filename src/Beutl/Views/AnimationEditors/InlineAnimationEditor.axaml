@@ -1,0 +1,53 @@
+<UserControl x:Class="Beutl.Views.AnimationEditors.InlineAnimationEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Views.AnimationEditors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             Width="{Binding Width.Value, Mode=TwoWay}"
+             d:DesignHeight="50"
+             d:DesignWidth="800"
+             Background="Transparent"
+             DragDrop.AllowDrop="True"
+             mc:Ignorable="d">
+    <UserControl.Styles>
+        <Style Selector="Border.droparea">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+    </UserControl.Styles>
+    <UserControl.ContextFlyout>
+        <ui:FAMenuFlyout>
+            <ui:MenuFlyoutItem Command="{Binding RemoveCommand}" Text="{x:Static lang:Strings.Remove}">
+                <ui:MenuFlyoutItem.Icon>
+                    <icons:SymbolIcon Symbol="Delete" />
+                </ui:MenuFlyoutItem.Icon>
+            </ui:MenuFlyoutItem>
+            <ui:MenuFlyoutItem Click="Edit_Click" Text="{x:Static lang:Strings.Edit}">
+                <ui:MenuFlyoutItem.Icon>
+                    <icons:SymbolIcon Symbol="Open" />
+                </ui:MenuFlyoutItem.Icon>
+            </ui:MenuFlyoutItem>
+        </ui:FAMenuFlyout>
+    </UserControl.ContextFlyout>
+    <Panel>
+        <ContentPresenter x:Name="presenter"
+                          Padding="0,1"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch"
+                          VerticalContentAlignment="Stretch" />
+
+        <Border x:Name="leftBorder"
+                Width="32"
+                HorizontalAlignment="Left"
+                IsHitTestVisible="False" />
+
+        <Border x:Name="rightBorder"
+                Width="32"
+                HorizontalAlignment="Right"
+                IsHitTestVisible="False" />
+    </Panel>
+</UserControl>

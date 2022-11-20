@@ -626,4 +626,16 @@ and b-editor maintains the download URL.</value>
   <data name="TargetType" xml:space="preserve">
     <value>Target Type</value>
   </data>
+  <data name="ShowPreview" xml:space="preserve">
+    <value>Show Preview</value>
+  </data>
+  <data name="OpenTimeline" xml:space="preserve">
+    <value>Open Timeline</value>
+  </data>
+  <data name="FinishEditing" xml:space="preserve">
+    <value>Finish editing</value>
+  </data>
+  <data name="BringToTop" xml:space="preserve">
+    <value>Bring to the top</value>
+  </data>
 </root>

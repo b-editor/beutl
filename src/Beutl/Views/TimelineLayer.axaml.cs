@@ -117,7 +117,7 @@ public sealed partial class TimelineLayer : UserControl
                                 Cue = new Cue(0),
                                 Setters =
                                 {
-                                    new Setter(MarginProperty, Margin)
+                                    new Setter(MarginProperty, viewModel.Margin.Value)
                                 }
                             },
                             new KeyFrame()

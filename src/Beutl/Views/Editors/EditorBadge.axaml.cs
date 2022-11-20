@@ -59,6 +59,28 @@ public sealed partial class EditorBadge : UserControl
         }
     }
 
+    private void EditInlineAnimation_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is BaseEditorViewModel viewModel
+            && viewModel.WrappedProperty is IAbstractAnimatableProperty animatableProperty
+            && this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
+            && this.FindLogicalAncestorOfType<StreamOperatorsTab>()?.DataContext is StreamOperatorsTabViewModel { Layer.Value: { } layer }
+            && editViewModel.FindToolTab<TimelineViewModel>() is { } timeline)
+        {
+            // 右側のタブを開く
+            AnimationTabViewModel anmViewModel
+                = editViewModel.FindToolTab<AnimationTabViewModel>()
+                    ?? new AnimationTabViewModel();
+
+            anmViewModel.Animation.Value = animatableProperty;
+
+            editViewModel.OpenToolTab(anmViewModel);
+
+            // タイムラインのタブを開く
+            timeline.AttachInline(animatableProperty, layer);
+        }
+    }
+
     private void DeleteSetter_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is BaseEditorViewModel viewModel

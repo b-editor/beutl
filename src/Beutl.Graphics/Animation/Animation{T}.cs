@@ -9,6 +9,7 @@ namespace Beutl.Animation;
 
 public class Animation<T> : BaseAnimation, IAnimation
 {
+    private static Animator<T>? s_animator;
     private readonly AnimationChildren _children;
 
     public Animation(CoreProperty<T> property)
@@ -61,6 +62,11 @@ public class Animation<T> : BaseAnimation, IAnimation
     {
         TimeSpan cur = TimeSpan.Zero;
         Span<AnimationSpan<T>> span = _children.GetMarshal().Value;
+        if (span.Length == 0)
+        {
+            return GetAnimator().DefaultValue();
+        }
+
         foreach (AnimationSpan<T> item in span)
         {
             TimeSpan next = cur + item.Duration;
@@ -85,6 +91,11 @@ public class Animation<T> : BaseAnimation, IAnimation
         {
             obj.SetValue(Property, Interpolate(ts));
         }
+    }
+
+    private static Animator<T> GetAnimator()
+    {
+        return s_animator ??= (Animator<T>)Activator.CreateInstance(AnimatorRegistry.GetAnimatorType(typeof(T)))!;
     }
 
     private sealed class AnimationChildren : CoreList<AnimationSpan<T>>
