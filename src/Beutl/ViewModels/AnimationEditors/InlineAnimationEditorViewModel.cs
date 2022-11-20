@@ -15,23 +15,24 @@ namespace Beutl.ViewModels.AnimationEditors;
 public sealed class InlineAnimationEditorViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
+    private readonly InlineAnimationLayerViewModel _parent;
 
     public InlineAnimationEditorViewModel(
         IAnimationSpan animationSpan,
-        IAbstractAnimatableProperty property,
-        ITimelineOptionsProvider optionsProvider)
+        InlineAnimationLayerViewModel parent)
     {
         Model = animationSpan;
-        OptionsProvider = optionsProvider;
-        Property = property;
+        _parent = parent;
+        Timeline = _parent.Timeline;
+        Property = _parent.Property;
 
         Width = animationSpan.GetObservable(AnimationSpan.DurationProperty)
-            .CombineLatest(optionsProvider.Scale)
-            .Select(item => item.First.ToPixel(item.Second))
+            .CombineLatest(Timeline.Options)
+            .Select(item => item.First.ToPixel(item.Second.Scale))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        Width.Subscribe(w => animationSpan.Duration = w.ToTimeSpan(optionsProvider.Options.Value.Scale))
+        Width.Subscribe(w => animationSpan.Duration = w.ToTimeSpan(Timeline.Options.Value.Scale))
             .AddTo(_disposables);
 
         RemoveCommand.Subscribe(() =>
@@ -46,7 +47,7 @@ public sealed class InlineAnimationEditorViewModel : IDisposable
             })
             .AddTo(_disposables);
 
-        Header = PropertyEditorService.GetPropertyName(property.Property);
+        Header = PropertyEditorService.GetPropertyName(Property.Property);
     }
 
     ~InlineAnimationEditorViewModel()
@@ -66,11 +67,13 @@ public sealed class InlineAnimationEditorViewModel : IDisposable
 
     public ReactiveCommand RemoveCommand { get; } = new();
 
-    public ITimelineOptionsProvider OptionsProvider { get; }
+    public TimelineViewModel Timeline { get; }
+
+    public ReactivePropertySlim<bool> ShowAnimationVisual => _parent.ShowAnimationVisual;
 
     public void SetDuration(TimeSpan old, TimeSpan @new)
     {
-        if (OptionsProvider.Scene.Parent is Project proj)
+        if (Timeline.Scene.Parent is Project proj)
         {
             @new = @new.RoundToRate(proj.GetFrameRate());
         }

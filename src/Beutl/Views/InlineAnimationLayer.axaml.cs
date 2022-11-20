@@ -1,20 +1,12 @@
-﻿using System.Numerics;
-using System.Reflection;
-
-using Avalonia;
-using Avalonia.Layout;
+﻿using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
-using Avalonia.ReactiveUI;
+using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.Threading;
 
 using Beutl.ViewModels;
-using Beutl.Views.AnimationVisualizer;
-using Avalonia.Input;
-using Avalonia.Data.Converters;
-using Beutl.Animation;
 
 namespace Beutl.Views;
 
@@ -125,12 +117,10 @@ public partial class InlineAnimationLayer : UserControl
 
             if (obj)
             {
-                items.IsHitTestVisible = true;
                 viewModel.Height = Helper.LayerHeight * 2;
             }
             else
             {
-                items.IsHitTestVisible = false;
                 viewModel.Height = Helper.LayerHeight;
             }
 

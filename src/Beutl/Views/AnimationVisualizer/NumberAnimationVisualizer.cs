@@ -3,7 +3,6 @@
 using Avalonia;
 using Avalonia.Collections.Pooled;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 
 using Beutl.Animation;

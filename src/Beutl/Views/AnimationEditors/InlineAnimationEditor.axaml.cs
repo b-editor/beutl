@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -9,19 +10,23 @@ using Avalonia.Xaml.Interactivity;
 
 using Beutl.Animation.Easings;
 using Beutl.Controls.Behaviors;
-using Beutl.ViewModels.AnimationEditors;
 using Beutl.ViewModels;
-using Beutl.Views.AnimationVisualizer;
+using Beutl.ViewModels.AnimationEditors;
 using Beutl.ViewModels.Tools;
+using Beutl.Views.AnimationVisualizer;
 
 namespace Beutl.Views.AnimationEditors;
 
 public partial class InlineAnimationEditor : UserControl
 {
+    private readonly CrossFade _transition = new(TimeSpan.FromMilliseconds(250));
+    private IDisposable? _disposable1;
+    private CancellationTokenSource? _lastTransitionCts;
+
     public InlineAnimationEditor()
     {
         InitializeComponent();
-        var collection = Interaction.GetBehaviors(this);
+        BehaviorCollection collection = Interaction.GetBehaviors(this);
         collection.Add(new _DragBehavior()
         {
             Orientation = Orientation.Horizontal,
@@ -53,12 +58,40 @@ public partial class InlineAnimationEditor : UserControl
 
     private void OnDataContextAttached(InlineAnimationEditorViewModel obj)
     {
-        presenter.Content = AnimationVisualizerExtensions.CreateAnimationSpanVisualizer(obj.Animation, obj.Model);
+        OnShowAnimationVisualChanged(obj.ShowAnimationVisual.Value, false);
+        _disposable1 = obj.ShowAnimationVisual.Skip(1).Subscribe(v => OnShowAnimationVisualChanged(v, true));
     }
 
     private void OnDataContextDetached(InlineAnimationEditorViewModel obj)
     {
         presenter.Content = null;
+        _disposable1?.Dispose();
+        _disposable1 = null;
+    }
+
+    private async void OnShowAnimationVisualChanged(bool obj, bool animate)
+    {
+        if (DataContext is InlineAnimationEditorViewModel viewModel)
+        {
+            _lastTransitionCts?.Cancel();
+            _lastTransitionCts = null;
+
+            if (obj)
+            {
+                presenter.Content = AnimationVisualizerExtensions.CreateAnimationSpanVisualizer(viewModel.Animation, viewModel.Model);
+            }
+            else
+            {
+                presenter.Content = AnimationVisualizerExtensions.CreateEasingSpanVisualizer(viewModel.Animation, viewModel.Model);
+            }
+
+            if (animate)
+            {
+                _lastTransitionCts = new CancellationTokenSource();
+                CancellationToken localToken = _lastTransitionCts.Token;
+                await _transition.Start(null, this, localToken);
+            }
+        }
     }
 
     protected override void OnPointerEntered(PointerEventArgs e)
@@ -80,6 +113,14 @@ public partial class InlineAnimationEditor : UserControl
             if (AssociatedObject?.DataContext is InlineAnimationEditorViewModel viewModel)
             {
                 viewModel.Move(newIndex, oldIndex);
+            }
+        }
+
+        protected override void OnStartedDragging()
+        {
+            if (AssociatedObject is InlineAnimationEditor view)
+            {
+                view.Background = view.FindResource("SubtleFillColorTertiaryBrush") as IBrush;
             }
         }
     }
@@ -234,7 +275,7 @@ public partial class InlineAnimationEditor : UserControl
             }
             else if (AssociatedObject.DataContext is InlineAnimationEditorViewModel viewModel)
             {
-                float scale = viewModel.OptionsProvider.Options.Value.Scale;
+                float scale = viewModel.Timeline.Options.Value.Scale;
                 TimeSpan pointerFrame = position.X.ToTimeSpan(scale);
                 position = position.WithX(pointerFrame.ToPixel(scale));
 
@@ -262,7 +303,7 @@ public partial class InlineAnimationEditor : UserControl
                 _enableDrag = false;
                 if (AssociatedObject?.DataContext is InlineAnimationEditorViewModel vm)
                 {
-                    vm.SetDuration(_oldDuration, AssociatedObject.Bounds.Width.ToTimeSpan(vm.OptionsProvider.Options.Value.Scale));
+                    vm.SetDuration(_oldDuration, AssociatedObject.Bounds.Width.ToTimeSpan(vm.Timeline.Options.Value.Scale));
                     e.Handled = true;
                 }
             }

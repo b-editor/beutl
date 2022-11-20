@@ -54,7 +54,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             .DisposeWith(_disposables);
 
         Property.Animation.Children.ForEachItem(
-            (idx, item) => Items.Insert(idx, new InlineAnimationEditorViewModel(item, Property, Timeline.EditorContext)),
+            (idx, item) => Items.Insert(idx, new InlineAnimationEditorViewModel(item, this)),
             (idx, _) =>
             {
                 var item = Items[idx];
@@ -89,6 +89,8 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
     public ReactivePropertySlim<int> Index { get; } = new();
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
+
+    public ReactivePropertySlim<bool> ShowAnimationVisual { get; } = new(true);
 
     public string Header { get; }
 

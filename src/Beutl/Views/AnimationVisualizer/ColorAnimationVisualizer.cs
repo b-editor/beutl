@@ -1,8 +1,6 @@
 ﻿using Avalonia;
-using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Avalonia.Media.Immutable;
 using Avalonia.Platform;
 
 using Beutl.Animation;

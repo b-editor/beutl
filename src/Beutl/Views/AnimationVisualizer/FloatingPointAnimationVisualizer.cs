@@ -1,6 +1,5 @@
 ﻿using System.Numerics;
 
-using Avalonia;
 using Avalonia.Collections.Pooled;
 
 using Beutl.Animation;

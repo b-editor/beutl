@@ -16,14 +16,14 @@ namespace Beutl.Views;
 
 public partial class InlineAnimationLayerHeader : UserControl
 {
-    private static readonly ITransform _rotate_180deg_transform;
+    private static readonly ITransform s_rotate_180deg_transform;
 
     static InlineAnimationLayerHeader()
     {
         TransformOperations.Builder builder = TransformOperations.CreateBuilder(1);
         builder.AppendRotate(Math.PI);
 
-        _rotate_180deg_transform = builder.Build();
+        s_rotate_180deg_transform = builder.Build();
     }
 
     public InlineAnimationLayerHeader()
@@ -36,13 +36,12 @@ public partial class InlineAnimationLayerHeader : UserControl
         });
 
         ExpandToggle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(v =>
-            {
-                ExpandCollapseChevron.RenderTransform = v == true ? _rotate_180deg_transform : TransformOperations.Identity;
-            });
+            .Subscribe(v => ExpandCollapseChevron.RenderTransform = v == true
+                                ? s_rotate_180deg_transform
+                                : TransformOperations.Identity);
     }
 
-    private void OpenTab_Click(object?sender, RoutedEventArgs e)
+    private void OpenTab_Click(object? sender, RoutedEventArgs e)
     {
         if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
             && DataContext is InlineAnimationLayerViewModel viewModel)
@@ -55,7 +54,14 @@ public partial class InlineAnimationLayerHeader : UserControl
             anmViewModel.Animation.Value = viewModel.Property;
 
             editViewModel.OpenToolTab(anmViewModel);
+        }
+    }
 
+    private void OpenAnimationTimelineClick(object? sender, RoutedEventArgs e)
+    {
+        if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
+            && DataContext is InlineAnimationLayerViewModel viewModel)
+        {
             // タイムラインのタブを開く
             AnimationTimelineViewModel? anmTimelineViewModel =
                 editViewModel.FindToolTab<AnimationTimelineViewModel>(x => ReferenceEquals(x.WrappedProperty, viewModel.Property));
@@ -69,8 +75,6 @@ public partial class InlineAnimationLayerHeader : UserControl
             };
 
             editViewModel.OpenToolTab(anmTimelineViewModel);
-
-            viewModel.Timeline.DetachInline(viewModel);
         }
     }
 

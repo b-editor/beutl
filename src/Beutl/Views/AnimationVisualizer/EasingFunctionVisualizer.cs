@@ -218,11 +218,12 @@ public class EasingFunctionSpanVisualizer<T> : AnimationSpanVisualizer<T>
 
         for (int i = 0; i <= div; i++)
         {
-            float value = AnimationSpan.Easing.Ease(i / (float)div);
+            float progress = i / (float)div;
+            float value = AnimationSpan.Easing.Ease(progress);
 
             value = Math.Abs(value - 1);
 
-            _points.Add(new Vector2((i / (float)div * p), value));
+            _points.Add(new Vector2(progress, value));
         }
     }
 

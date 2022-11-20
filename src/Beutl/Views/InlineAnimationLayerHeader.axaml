@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels"
              Height="{Binding ObserveHeight.Value}"
              HorizontalAlignment="Stretch"
@@ -35,13 +36,24 @@
 
         <Border x:Name="border"
                 Grid.Column="1"
-                CornerRadius="{DynamicResource ControlCornerRadius}"
-                Cursor="SizeNorthSouth">
+                CornerRadius="{DynamicResource ControlCornerRadius}">
             <Border.Styles>
-                <Style Selector="Border:pointerover">
+                <Style Selector="Border#border:pointerover">
                     <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                    <Setter Property="Cursor" Value="SizeNorthSouth" />
                 </Style>
             </Border.Styles>
+            <Border.ContextFlyout>
+                <ui:FAMenuFlyout>
+                    <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding ShowAnimationVisual.Value}" Text="プレビュー表示" />
+
+                    <ui:MenuFlyoutItem Click="OpenAnimationTimelineClick" Text="タイムラインを開く">
+                        <ui:MenuFlyoutItem.Icon>
+                            <icons:SymbolIcon Symbol="Open" />
+                        </ui:MenuFlyoutItem.Icon>
+                    </ui:MenuFlyoutItem>
+                </ui:FAMenuFlyout>
+            </Border.ContextFlyout>
             <icons:SymbolIcon FontSize="14" Symbol="ReOrderDotsVertical" />
         </Border>
 

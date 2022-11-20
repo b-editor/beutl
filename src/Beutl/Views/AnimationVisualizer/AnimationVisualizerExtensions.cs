@@ -2,8 +2,6 @@
 
 using Avalonia.Controls;
 
-using Beutl.ViewModels;
-
 namespace Beutl.Views.AnimationVisualizer;
 
 public static class AnimationVisualizerExtensions
@@ -37,7 +35,14 @@ public static class AnimationVisualizerExtensions
 
         return (Control)Activator.CreateInstance(typeof(EasingFunctionSpanVisualizer<>).MakeGenericType(type), animation, animationSpan)!;
     }
-    
+
+    public static Control CreateEasingSpanVisualizer(Animation.IAnimation animation, Animation.IAnimationSpan animationSpan)
+    {
+        Type type = animationSpan.GetType().GetGenericArguments()[0];
+
+        return (Control)Activator.CreateInstance(typeof(EasingFunctionSpanVisualizer<>).MakeGenericType(type), animation, animationSpan)!;
+    }
+
     public static Control CreateAnimationVisualizer(Animation.IAnimation animation)
     {
         if (animation is Animation.Animation<Media.Color> colorAnm)
