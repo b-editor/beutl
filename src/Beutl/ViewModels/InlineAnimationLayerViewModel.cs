@@ -57,13 +57,13 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             (idx, item) => Items.Insert(idx, new InlineAnimationEditorViewModel(item, this)),
             (idx, _) =>
             {
-                var item = Items[idx];
+                InlineAnimationEditorViewModel item = Items[idx];
                 item.Dispose();
                 Items.RemoveAt(idx);
             },
             () =>
             {
-                foreach (var item in Items.GetMarshal().Value)
+                foreach (InlineAnimationEditorViewModel item in Items.GetMarshal().Value)
                 {
                     item.Dispose();
                 }
@@ -195,6 +195,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         private readonly InlineAnimationLayerViewModel _inline;
         private IDisposable? _disposable1;
         private IDisposable? _disposable2;
+        private IDisposable? _disposable3;
         private int _prevIndex = -1;
         private LayerHeaderViewModel? _prevLayerHeader;
 
@@ -207,6 +208,10 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         {
             _disposable1?.Dispose();
             _disposable2?.Dispose();
+            _disposable3?.Dispose();
+            _disposable1 = null;
+            _disposable2 = null;
+            _disposable3 = null;
         }
 
         protected override void Initialize()
@@ -221,48 +226,21 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         {
             if (_prevLayerHeader != null)
             {
-                _prevLayerHeader.Inlines.CollectionChanged -= OnInlinesCollectionChanged;
+                _disposable3?.Dispose();
+                _disposable3 = null;
             }
 
             _prevLayerHeader = obj;
 
             if (obj != null)
             {
-                obj.Inlines.CollectionChanged += OnInlinesCollectionChanged;
+                _disposable3 = obj.Height.Subscribe(OnLayerHeaderHeightChanged);
             }
-
-            PublishValue();
         }
 
-        private void OnInlinesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        private void OnLayerHeaderHeightChanged(double obj)
         {
-            switch (e.Action)
-            {
-                case NotifyCollectionChangedAction.Add:
-                    if (_prevIndex >= e.NewStartingIndex)
-                    {
-                        PublishValue();
-                    }
-                    break;
-                case NotifyCollectionChangedAction.Remove:
-                    if (_prevIndex >= e.OldStartingIndex)
-                    {
-                        PublishValue();
-                    }
-                    break;
-                case NotifyCollectionChangedAction.Replace:
-                    throw new InvalidOperationException("Not supported action.");
-                case NotifyCollectionChangedAction.Move:
-                    if (_prevIndex != e.OldStartingIndex
-                        && ((_prevIndex > e.OldStartingIndex && _prevIndex <= e.NewStartingIndex)
-                        || (_prevIndex < e.OldStartingIndex && _prevIndex >= e.NewStartingIndex)))
-                    {
-                        PublishValue();
-                    }
-                    break;
-                case NotifyCollectionChangedAction.Reset:
-                    break;
-            }
+            PublishValue();
         }
 
         private void OnIndexChanged(int obj)
@@ -274,18 +252,27 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             }
         }
 
-        private void PublishValue()
+        private void PublishValue(IObserver<double>? observer = null)
         {
             if (_prevLayerHeader != null)
             {
                 _prevIndex = _prevLayerHeader.Inlines.IndexOf(_inline);
-                PublishNext(_prevLayerHeader.CalculateInlineTop(_prevIndex) + Helper.LayerHeight);
+
+                double value = _prevLayerHeader.CalculateInlineTop(_prevIndex) + Helper.LayerHeight;
+                if (observer == null)
+                {
+                    PublishNext(value);
+                }
+                else
+                {
+                    observer.OnNext(value);
+                }
             }
         }
 
         protected override void Subscribed(IObserver<double> observer, bool first)
         {
-            PublishValue();
+            PublishValue(observer);
         }
     }
 }
