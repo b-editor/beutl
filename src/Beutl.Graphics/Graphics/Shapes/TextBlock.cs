@@ -248,7 +248,7 @@ public class TextBlock : Drawable
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args.PropertyName is nameof(Text))
+        if (args.PropertyName is nameof(Text) or nameof(Size) or nameof(FontFamily) or nameof(FontStyle) or nameof(FontWeight) or nameof(Foreground) or nameof(Spacing) or nameof(Margin))
         {
             OnUpdateText();
         }
