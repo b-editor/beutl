@@ -133,7 +133,7 @@ public partial class EditPageFallback : UserControl
 
     private void OnRecentListPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (_flag && e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        if (_flag)
         {
             if (recentList.SelectedItem is FileInfo selectedItem)
             {
