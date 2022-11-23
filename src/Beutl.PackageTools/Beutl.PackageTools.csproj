@@ -5,7 +5,6 @@
     <TargetFramework>net7.0</TargetFramework>
     <Nullable>enable</Nullable>
     <AssemblyName>bpt</AssemblyName>
-    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
     <NeutralLanguage>en</NeutralLanguage>
   </PropertyGroup>
 
