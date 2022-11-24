@@ -1,0 +1,61 @@
+<UserControl x:Class="Beutl.Pages.OutputPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.ViewModels"
+             Padding="8"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="viewModel:OutputPageViewModel"
+             mc:Ignorable="d">
+    <Grid ColumnDefinitions="400,*" RowDefinitions="Auto,*">
+        <TextBlock Margin="8"
+                   Text="キュー"
+                   Theme="{StaticResource SubtitleTextBlockStyle}" />
+        <ui:CommandBar Grid.Column="1"
+                       Margin="2,0,0,0"
+                       HorizontalAlignment="Stretch"
+                       VerticalContentAlignment="Center"
+                       DefaultLabelPosition="Right">
+            <ui:CommandBar.PrimaryCommands>
+                <ui:CommandBarButton Click="OnAddClick"
+                                     Icon="Add"
+                                     Label="追加" />
+                <ui:CommandBarSeparator />
+                <ui:CommandBarButton Icon="Dismiss"
+                                     IsEnabled="{Binding !!SelectedItem.Value}"
+                                     Label="閉じる" />
+            </ui:CommandBar.PrimaryCommands>
+        </ui:CommandBar>
+
+        <ListBox Grid.Row="1"
+                 Items="{Binding Items}"
+                 SelectedItem="{Binding SelectedItem.Value}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Margin="0,8">
+                        <TextBlock Text="{Binding Name}" />
+                        <TextBlock FontSize="12"
+                                   Text="{Binding Context.TargetFile}"
+                                   TextTrimming="CharacterEllipsis"
+                                   TextWrapping="NoWrap"
+                                   Theme="{StaticResource LabelTextBlockStyle}" />
+
+                        <ProgressBar Margin="0,8,0,0"
+                                     Maximum="1"
+                                     Value="{Binding Context.Progress.Value}" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <ContentControl x:Name="contentControl"
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Margin="8,0,0,0"
+                        Content="{Binding SelectedItem.Value}" />
+    </Grid>
+</UserControl>

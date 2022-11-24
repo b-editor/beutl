@@ -1,0 +1,75 @@
+<ui:ContentDialog x:Class="Beutl.Pages.AddOutputQueueDialog"
+                  xmlns="https://github.com/avaloniaui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:converters="using:Beutl.Converters"
+                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:icons="using:FluentIcons.FluentAvalonia"
+                  xmlns:lang="using:Beutl.Language"
+                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:ui="using:FluentAvalonia.UI.Controls"
+                  xmlns:vm="using:Beutl.ViewModels.Dialogs"
+                  Title="{x:Static lang:Strings.AddOutputQueue}"
+                  d:DesignHeight="450"
+                  d:DesignWidth="800"
+                  CloseButtonText="{x:Static lang:Strings.Close}"
+                  DefaultButton="Secondary"
+                  IsPrimaryButtonEnabled="False"
+                  PrimaryButtonText="{x:Static lang:Strings.Back}"
+                  SecondaryButtonText="{x:Static lang:Strings.Next}"
+                  mc:Ignorable="d">
+    <ui:ContentDialog.Resources>
+        <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />
+    </ui:ContentDialog.Resources>
+
+    <Carousel x:Name="carousel">
+        <Carousel.Items>
+            <StackPanel Spacing="8">
+                <TextBlock Text="{x:Static lang:Strings.File}" />
+
+                <TextBox Text="{Binding SelectedFile.Value}">
+                    <TextBox.InnerRightContent>
+                        <Button Click="OpenFileClick" Theme="{StaticResource TransparentButton}">
+                            <icons:SymbolIcon Symbol="OpenFolder" />
+                        </Button>
+                    </TextBox.InnerRightContent>
+                </TextBox>
+
+                <TextBlock Margin="0,8,0,0"
+                           IsVisible="{Binding !!Suggestion.Count}"
+                           Text="{x:Static lang:Strings.Suggestion}" />
+                <ListBox MaxHeight="160"
+                         Items="{Binding Suggestion}"
+                         SelectedItem="{Binding SelectedFile.Value}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,4">
+                                <TextBlock Text="{Binding Converter={x:Static converters:FileNameConverter.Instance}}" />
+                                <TextBlock FontSize="12"
+                                           Text="{Binding}"
+                                           Theme="{StaticResource LabelTextBlockStyle}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
+            <StackPanel Spacing="8">
+                <TextBlock Text="{x:Static lang:Strings.Extensions}" />
+                <ListBox MaxHeight="235"
+                         Items="{Binding AvailableExtensions}"
+                         SelectedItem="{Binding SelectedExtension.Value}"
+                         SelectionMode="AlwaysSelected">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,4">
+                                <TextBlock Text="{Binding Name}" />
+                                <TextBlock FontSize="12"
+                                           Text="{Binding}"
+                                           Theme="{StaticResource LabelTextBlockStyle}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
+        </Carousel.Items>
+    </Carousel>
+</ui:ContentDialog>

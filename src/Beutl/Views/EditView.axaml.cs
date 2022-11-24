@@ -141,6 +141,15 @@ public sealed partial class EditView : UserControl, IEditor
         //_watcher = null;
     }
 
+    protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        if (DataContext is EditViewModel viewModel && viewModel.Player.IsPlaying.Value)
+        {
+            viewModel.Player.Pause();
+        }
+    }
+
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);

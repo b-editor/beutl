@@ -682,4 +682,73 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="NoFilesUsedRecently" xml:space="preserve">
     <value>最近使用したファイルはありません。</value>
   </data>
+  <data name="AddOutputQueue" xml:space="preserve">
+    <value>キューを追加</value>
+  </data>
+  <data name="Suggestion" xml:space="preserve">
+    <value>提案</value>
+  </data>
+  <data name="OutputVideo" xml:space="preserve">
+    <value>動画を出力</value>
+  </data>
+  <data name="Encode" xml:space="preserve">
+    <value>エンコード</value>
+  </data>
+  <data name="DestinationToSaveTo_Tip" xml:space="preserve">
+    <value>保存先を設定</value>
+  </data>
+  <data name="DestinationToSaveTo" xml:space="preserve">
+    <value>保存先</value>
+  </data>
+  <data name="Encoder_Tip" xml:space="preserve">
+    <value>エンコーダーを選択</value>
+  </data>
+  <data name="Encoder" xml:space="preserve">
+    <value>エンコーダー</value>
+  </data>
+  <data name="FrameSize" xml:space="preserve">
+    <value>フレームサイズ</value>
+  </data>
+  <data name="FrameSize_Tip" xml:space="preserve">
+    <value>フレームサイズを設定</value>
+  </data>
+  <data name="FixAspectRatio" xml:space="preserve">
+    <value>アスペクト比を固定</value>
+  </data>
+  <data name="FrameRate_Tip" xml:space="preserve">
+    <value>フレームレートを設定</value>
+  </data>
+  <data name="Bitrate" xml:space="preserve">
+    <value>ビットレート</value>
+  </data>
+  <data name="Bitrate_Tip" xml:space="preserve">
+    <value>ビットレートを設定</value>
+  </data>
+  <data name="KeyframeRate" xml:space="preserve">
+    <value>キーフレームレート</value>
+  </data>
+  <data name="KeyframeRate_Tip" xml:space="preserve">
+    <value>キーフレームレートを設定</value>
+  </data>
+  <data name="SampleRate_Tip" xml:space="preserve">
+    <value>サンプルレートを設定</value>
+  </data>
+  <data name="Channels" xml:space="preserve">
+    <value>チャンネル数</value>
+  </data>
+  <data name="Channels_Tip" xml:space="preserve">
+    <value>チャンネル数を設定</value>
+  </data>
+  <data name="Monaural" xml:space="preserve">
+    <value>モノラル</value>
+  </data>
+  <data name="Stereo" xml:space="preserve">
+    <value>ステレオ</value>
+  </data>
+  <data name="Video" xml:space="preserve">
+    <value>動画</value>
+  </data>
+  <data name="Audio" xml:space="preserve">
+    <value>音声</value>
+  </data>
 </root>
