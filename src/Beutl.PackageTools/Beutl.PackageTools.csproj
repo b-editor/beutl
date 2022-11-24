@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>bpt</AssemblyName>
     <NeutralLanguage>en</NeutralLanguage>
+    <SelfContained>false</SelfContained>
   </PropertyGroup>
 
   <ItemGroup>

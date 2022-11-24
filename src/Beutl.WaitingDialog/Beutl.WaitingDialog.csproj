@@ -4,6 +4,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
     <Nullable>enable</Nullable>
+    <SelfContained>false</SelfContained>
   </PropertyGroup>
 
   <ItemGroup>
