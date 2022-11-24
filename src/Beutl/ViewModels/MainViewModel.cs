@@ -328,6 +328,7 @@ public sealed class MainViewModel : BasePageViewModel
             provider._allExtensions.Add(LocalPackage.s_nextId++, new Extension[]
             {
                 SceneEditorExtension.Instance,
+                SceneOutputExtension.Instance,
                 SceneWorkspaceItemExtension.Instance,
                 TimelineTabExtension.Instance,
                 AnimationTimelineTabExtension.Instance,

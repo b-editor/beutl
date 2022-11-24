@@ -12,6 +12,7 @@
              d:DesignHeight="720"
              d:DesignWidth="1280"
              x:DataType="vm:EditViewModel"
+             IsEnabled="{CompiledBinding IsEnabled.Value}"
              mc:Ignorable="d">
     <UserControl.Styles>
         <Style Selector="GridSplitter.EditViewSplitter">

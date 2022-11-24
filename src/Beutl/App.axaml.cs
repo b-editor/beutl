@@ -84,6 +84,7 @@ public sealed class App : Application
 
         ServiceLocator.Current
             .BindToSelfSingleton<EditorService>()
+            .BindToSelfSingleton<OutputService>()
             .BindToSelfSingleton<HttpClient>()
             .Bind<IPropertyEditorExtensionImpl>().ToSingleton<PropertyEditorService.PropertyEditorExtensionImpl>()
             .BindToSelf<IWorkspaceItemContainer>(new WorkspaceItemContainer())

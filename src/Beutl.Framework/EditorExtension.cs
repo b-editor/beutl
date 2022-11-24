@@ -9,6 +9,8 @@ using FluentAvalonia.UI.Controls;
 
 using Microsoft.Extensions.DependencyInjection;
 
+using Reactive.Bindings;
+
 namespace Beutl.Framework;
 
 public interface IEditorContext : IDisposable
@@ -16,6 +18,8 @@ public interface IEditorContext : IDisposable
     EditorExtension Extension { get; }
 
     string EdittingFile { get; }
+
+    IReactiveProperty<bool> IsEnabled { get; }
 
     IKnownEditorCommands? Commands { get; }
 

@@ -14,47 +14,55 @@ namespace Beutl.ViewModels;
 public sealed class PlayerViewModel : IDisposable
 {
     private readonly IDisposable _disposable0;
+    private readonly IDisposable _disposable1;
+    private readonly ReactivePropertySlim<bool> _isEnabled;
 
-    public PlayerViewModel(Scene scene)
+    public PlayerViewModel(Scene scene, ReactivePropertySlim<bool> isEnabled)
     {
         Scene = scene;
-        PlayPause.Subscribe(() =>
-        {
-            if (IsPlaying.Value)
+        _isEnabled = isEnabled;
+        PlayPause = new ReactiveCommand(_isEnabled)
+            .WithSubscribe(() =>
             {
-                Pause();
-            }
-            else
+                if (IsPlaying.Value)
+                {
+                    Pause();
+                }
+                else
+                {
+                    Play();
+                }
+            });
+
+        Next = new ReactiveCommand(_isEnabled)
+            .WithSubscribe(() =>
             {
-                Play();
-            }
-        });
+                int rate = Project.GetFrameRate();
+                if (rate <= 0)
+                {
+                    rate = 30;
+                }
 
-        Next.Subscribe(() =>
-        {
-            int rate = Project.GetFrameRate();
-            if (rate <= 0)
+                Scene.CurrentFrame += TimeSpan.FromSeconds(1d / rate);
+            });
+
+        Previous = new ReactiveCommand(_isEnabled)
+            .WithSubscribe(() =>
             {
-                rate = 30;
-            }
+                int rate = Project.GetFrameRate();
+                if (rate <= 0)
+                {
+                    rate = 30;
+                }
 
-            Scene.CurrentFrame += TimeSpan.FromSeconds(1d / rate);
-        });
+                Scene.CurrentFrame -= TimeSpan.FromSeconds(1d / rate);
+            });
 
-        Previous.Subscribe(() =>
-        {
-            int rate = Project.GetFrameRate();
-            if (rate <= 0)
-            {
-                rate = 30;
-            }
+        Start = new ReactiveCommand(_isEnabled)
+            .WithSubscribe(() => Scene.CurrentFrame = TimeSpan.Zero);
 
-            Scene.CurrentFrame -= TimeSpan.FromSeconds(1d / rate);
-        });
-
-        Start.Subscribe(() => Scene.CurrentFrame = TimeSpan.Zero);
-
-        End.Subscribe(() => Scene.CurrentFrame = Scene.Duration);
+        End = new ReactiveCommand(_isEnabled)
+            .WithSubscribe(() => Scene.CurrentFrame = Scene.Duration);
 
         Scene.Renderer.RenderInvalidated += Renderer_RenderInvalidated;
         _disposable0 = Scene.GetPropertyChangedObservable(Scene.RendererProperty)
@@ -70,6 +78,14 @@ public sealed class PlayerViewModel : IDisposable
                     a.NewValue.RenderInvalidated += Renderer_RenderInvalidated;
                 }
             });
+
+        _disposable1 = _isEnabled.Subscribe(v =>
+        {
+            if (!v && IsPlaying.Value)
+            {
+                Pause();
+            }
+        });
     }
 
     public Scene Scene { get; }
@@ -80,15 +96,15 @@ public sealed class PlayerViewModel : IDisposable
 
     public ReactivePropertySlim<bool> IsPlaying { get; } = new();
 
-    public ReactiveCommand PlayPause { get; } = new();
+    public ReactiveCommand PlayPause { get; }
 
-    public ReactiveCommand Next { get; } = new();
+    public ReactiveCommand Next { get; }
 
-    public ReactiveCommand Previous { get; } = new();
+    public ReactiveCommand Previous { get; }
 
-    public ReactiveCommand Start { get; } = new();
+    public ReactiveCommand Start { get; }
 
-    public ReactiveCommand End { get; } = new();
+    public ReactiveCommand End { get; }
 
     public event EventHandler? PreviewInvalidated;
 
@@ -130,7 +146,7 @@ public sealed class PlayerViewModel : IDisposable
 
     private void Render(IRenderer renderer, TimeSpan timeSpan)
     {
-        if (renderer.IsRendering)
+        if (renderer.IsRendering && !_isEnabled.Value)
             return;
 
         renderer.Dispatcher.Invoke(() =>
@@ -179,5 +195,6 @@ public sealed class PlayerViewModel : IDisposable
     public void Dispose()
     {
         _disposable0.Dispose();
+        _disposable1.Dispose();
     }
 }
