@@ -199,7 +199,7 @@ public partial class EditPageFallback : UserControl
                         || (f == 2 && !x.EndsWith($".{Constants.ProjectFileExtension}"))))
             .AddKey(x => x)
             .Cast(x => new FileInfo(x))
-            .SortBy(x => x.LastAccessTimeUtc)
+            .SortBy(x => x.LastAccessTimeUtc, sortOrder: SortDirection.Descending)
             .Bind(out ReadOnlyObservableCollection<FileInfo>? list)
             .Subscribe();
 

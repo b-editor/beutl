@@ -31,4 +31,4 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: beutl_${{matrix.rid}}
-        path: ./src/Beutl/bin/Release/net6.0/${{matrix.rid}}/publish
+        path: ./src/Beutl/bin/Release/net7.0/${{matrix.rid}}/publish
