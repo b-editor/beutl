@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Text.Json.Nodes;
 
 using Beutl.Framework;
 using Beutl.Media;
@@ -34,22 +35,23 @@ public sealed class FFmpegEncoderInfo : IEncoderInfo
     {
         return new()
         {
-            CodecOptions =
+            CodecOptions = new JsonObject()
             {
-                { "Format", AVSampleFormat.AV_SAMPLE_FMT_FLTP },
-                { "Codec", AVCodecID.AV_CODEC_ID_NONE },
+                ["Format"] = AVSampleFormat.AV_SAMPLE_FMT_FLTP.ToString(),
+                ["SamplesPerFrame"] = 2205,
+                ["Codec"] = AVCodecID.AV_CODEC_ID_NONE.ToString(),
             }
         };
     }
 
     public VideoEncoderSettings DefaultVideoConfig()
     {
-        return new(new PixelSize(1920, 1080), new(30))
+        return new(new PixelSize(1920, 1080), new PixelSize(1920, 1080), new(30))
         {
-            CodecOptions =
+            CodecOptions = new JsonObject()
             {
-                { "Format", AVPixelFormat.AV_PIX_FMT_YUV420P },
-                { "Codec", AVCodecID.AV_CODEC_ID_NONE },
+                ["Format"] = AVPixelFormat.AV_PIX_FMT_YUV420P.ToString(),
+                ["Codec"] = AVCodecID.AV_CODEC_ID_NONE.ToString(),
             }
         };
     }

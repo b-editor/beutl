@@ -157,7 +157,7 @@ public sealed unsafe class FFmpegReader : MediaReader
         var sound = new Sound<Stereo32BitFloat>(AudioInfo.SampleRate, length);
         int decoded = 0;
         bool need_grab = false;
-        fixed (Stereo32BitFloat* buf = sound.Data)
+        fixed (Stereo32BitFloat* buf = sound.DataSpan)
         fixed (AVChannelLayout* outChLayout = &AV_CHANNEL_LAYOUT_STEREO)
         fixed (SwrContext** swrCtx = &_swrContext)
         {
