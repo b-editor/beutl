@@ -423,7 +423,7 @@ public class Scene : Element, IStorable, IWorkspaceItem
             {
                 string rel = Path.GetRelativePath(dirPath, item.FileName).Replace('\\', '/');
 
-                if (!_excludeLayers.Contains(rel))
+                if (!_excludeLayers.Contains(rel) && File.Exists(item.FileName))
                 {
                     _excludeLayers.Add(rel);
                 }
