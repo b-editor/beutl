@@ -21,9 +21,9 @@ public interface IOutputContext : IDisposable, IJsonSerializable
 
     IReadOnlyReactiveProperty<double> Progress { get; }
 
-    event EventHandler Started;
+    event EventHandler? Started;
 
-    event EventHandler Finished;
+    event EventHandler? Finished;
 }
 
 public abstract class OutputExtension : Extension

@@ -27,7 +27,7 @@
                 <ui:CommandBarSeparator />
                 <ui:CommandBarButton Click="OnRemoveClick"
                                      Icon="Dismiss"
-                                     IsEnabled="{Binding !!SelectedItem.Value}"
+                                     IsEnabled="{Binding CanRemove.Value}"
                                      Label="閉じる" />
             </ui:CommandBar.PrimaryCommands>
         </ui:CommandBar>
@@ -47,6 +47,7 @@
                                    Theme="{StaticResource LabelTextBlockStyle}" />
 
                         <ProgressBar Margin="0,8,0,0"
+                                     IsIndeterminate="{Binding Context.IsIndeterminate.Value}"
                                      Maximum="1"
                                      Value="{Binding Context.Progress.Value}" />
                     </StackPanel>

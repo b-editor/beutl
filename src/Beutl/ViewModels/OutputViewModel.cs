@@ -423,6 +423,7 @@ public sealed class OutputViewModel : IOutputContext
         {
             _lastCts = new CancellationTokenSource();
             _isEncoding.Value = true;
+            Started?.Invoke(this, EventArgs.Empty);
 
             await DeferredRenderer.s_dispatcher.InvokeAsync(() =>
             {
@@ -480,6 +481,7 @@ public sealed class OutputViewModel : IOutputContext
             _isIndeterminate.Value = false;
             _isEncoding.Value = false;
             _lastCts = null;
+            Finished?.Invoke(this, EventArgs.Empty);
         }
     }
 
