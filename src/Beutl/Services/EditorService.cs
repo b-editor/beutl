@@ -107,7 +107,7 @@ public sealed class EditorService
 
                 if (ext?.TryCreateContext(file, out IEditorContext? context) == true)
                 {
-                    context.IsEnabled.Value = !output.Items.Any(x => x.Context.TargetFile == file);
+                    context.IsEnabled.Value = !output.Items.Any(x => x.Context.TargetFile == file && x.Context.IsEncoding.Value);
                     TabItems.Add(new EditorTabItem(context, tabOpenMode)
                     {
                         IsSelected =
