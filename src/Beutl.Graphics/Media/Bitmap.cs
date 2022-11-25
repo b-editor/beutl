@@ -86,6 +86,8 @@ public unsafe class Bitmap<T> : IBitmap
 
     public bool IsDisposed { get; private set; }
 
+    public Type PixelType => typeof(T);
+
     public ref T this[int x, int y]
     {
         get
