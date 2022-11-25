@@ -751,4 +751,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Audio" xml:space="preserve">
     <value>音声</value>
   </data>
+  <data name="AdditionalOptions" xml:space="preserve">
+    <value>追加のオプション</value>
+  </data>
 </root>

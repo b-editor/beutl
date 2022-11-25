@@ -50,10 +50,9 @@ public sealed class SceneOutputExtension : OutputExtension
 
     public override bool TryCreateContext(string file, [NotNullWhen(true)] out IOutputContext? context)
     {
-        if (file.EndsWith(".scene")
-            && ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>().TryGetOrCreateItem(file, out Scene? model))
+        if (file.EndsWith(".scene") && File.Exists(file))
         {
-            context = new OutputViewModel(model);
+            context = new OutputViewModel(new SceneFile(file));
             return true;
         }
         else

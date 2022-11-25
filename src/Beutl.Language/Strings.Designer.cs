@@ -79,6 +79,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Additional Options に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AdditionalOptions {
+            get {
+                return ResourceManager.GetString("AdditionalOptions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Add Layer に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string AddLayer {
