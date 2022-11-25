@@ -38,7 +38,7 @@ public sealed class AddOutputQueueViewModel : IDisposable
 
         _disposable1 = _editorService.TabItems
             .ToObservableChangeSet<ICoreList<EditorTabItem>, EditorTabItem>()
-            .Filter(x => _outputService.Items.Any(y => y.Context.TargetFile != x.FilePath.Value))
+            .Filter(x => !_outputService.Items.Any(y => y.Context.TargetFile == x.FilePath.Value))
             .Transform(x => x.FilePath.Value)
             .Bind(out _suggestion)
             .Subscribe();
