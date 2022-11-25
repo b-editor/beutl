@@ -16,5 +16,7 @@ public interface IBitmap : IDisposable, ICloneable
 
     bool IsDisposed { get; }
 
+    Type PixelType { get; }
+
     Bitmap<T> Convert<T>() where T : unmanaged, IPixel<T>;
 }

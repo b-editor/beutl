@@ -10,5 +10,9 @@ public interface ISound : IDisposable, ICloneable
 
     Rational DurationRational { get; }
 
+    IntPtr Data { get; }
+
     bool IsDisposed { get; }
+
+    Type SampleType { get; }
 }

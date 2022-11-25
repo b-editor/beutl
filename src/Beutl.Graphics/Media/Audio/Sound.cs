@@ -10,24 +10,13 @@ public sealed unsafe class Sound<T> : ISound
 {
     private readonly bool _requireDispose = true;
     private T* _pointer;
-    private T[]? _array;
 
     public Sound(int rate, int samples)
     {
         SampleRate = rate;
         NumSamples = samples;
 
-        _pointer = (T*)NativeMemory.Alloc((nuint)(samples * sizeof(T)));
-        Data.Fill(default);
-    }
-
-    public Sound(int rate, T[] data)
-    {
-        _requireDispose = false;
-        SampleRate = rate;
-        NumSamples = data.Length;
-
-        _array = data;
+        _pointer = (T*)NativeMemory.AllocZeroed((nuint)(samples * sizeof(T)));
     }
 
     public Sound(int rate, int samples, T* data)
@@ -53,13 +42,13 @@ public sealed unsafe class Sound<T> : ISound
         Dispose();
     }
 
-    public Span<T> Data
+    public Span<T> DataSpan
     {
         get
         {
             ThrowIfDisposed();
 
-            return _array is null ? new Span<T>(_pointer, NumSamples) : new Span<T>(_array);
+            return new Span<T>(_pointer, NumSamples);
         }
     }
 
@@ -73,6 +62,10 @@ public sealed unsafe class Sound<T> : ISound
 
     public bool IsDisposed { get; private set; }
 
+    public Type SampleType => typeof(T);
+
+    public IntPtr Data => (IntPtr)_pointer;
+
     public Sound<TConvert> Convert<TConvert>()
         where TConvert : unmanaged, IPcm<TConvert>
     {
@@ -80,8 +73,8 @@ public sealed unsafe class Sound<T> : ISound
 
         Parallel.For(0, NumSamples, i =>
         {
-            ref TConvert dst = ref result.Data[i];
-            ref T src = ref Data[i];
+            ref TConvert dst = ref result.DataSpan[i];
+            ref T src = ref DataSpan[i];
 
             dst = dst.ConvertFrom(src.ConvertTo());
         });
@@ -99,10 +92,10 @@ public sealed unsafe class Sound<T> : ISound
     {
         if (!IsDisposed && _requireDispose)
         {
-            if (_pointer != null) NativeMemory.Free(_pointer);
+            if (_pointer != null)
+                NativeMemory.Free(_pointer);
 
             _pointer = null;
-            _array = null;
         }
 
         IsDisposed = true;
@@ -114,7 +107,7 @@ public sealed unsafe class Sound<T> : ISound
         ThrowIfDisposed();
 
         var img = new Sound<T>(SampleRate, NumSamples);
-        Data.CopyTo(img.Data);
+        DataSpan.CopyTo(img.DataSpan);
 
         return img;
     }
@@ -123,7 +116,7 @@ public sealed unsafe class Sound<T> : ISound
     {
         if (sound.SampleRate != SampleRate) throw new Exception("Sounds with different SampleRates cannot be synthesized.");
 
-        Parallel.For(0, Math.Min(sound.NumSamples, NumSamples), i => Data[i] = Data[i].Compose(sound.Data[i]));
+        Parallel.For(0, Math.Min(sound.NumSamples, NumSamples), i => DataSpan[i] = DataSpan[i].Compose(sound.DataSpan[i]));
     }
 
     public Sound<T> Resamples(int frequency)
@@ -141,11 +134,11 @@ public sealed unsafe class Sound<T> : ISound
         for (int i = 0; i < size; i++)
         {
             index += ratio;
-            tmp[i] = Data[(int)Math.Floor(index)];
+            tmp[i] = DataSpan[(int)Math.Floor(index)];
         }
 
         var result = new Sound<T>(frequency, size);
-        new Span<T>(tmp, size).CopyTo(result.Data);
+        new Span<T>(tmp, size).CopyTo(result.DataSpan);
 
         NativeMemory.Free(tmp);
 
