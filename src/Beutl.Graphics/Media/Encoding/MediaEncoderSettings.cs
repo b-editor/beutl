@@ -1,6 +1,8 @@
-﻿namespace Beutl.Media.Encoding;
+﻿using System.Text.Json.Nodes;
+
+namespace Beutl.Media.Encoding;
 
 public abstract record MediaEncoderSettings
 {
-    public Dictionary<string, object> CodecOptions { get; init; } = new();
+    public JsonNode? CodecOptions { get; init; }
 }
