@@ -9,7 +9,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Framework;
 
-public interface IOutputContext : IDisposable
+public interface IOutputContext : IDisposable, IJsonSerializable
 {
     OutputExtension Extension { get; }
 

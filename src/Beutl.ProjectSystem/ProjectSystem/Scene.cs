@@ -316,6 +316,11 @@ public class Scene : Element, IStorable, IWorkspaceItem
         }
 
         base.WriteToJson(ref json);
+        if (_renderer != null)
+        {
+            json["width"] = _renderer.Graphics.Size.Width;
+            json["height"] = _renderer.Graphics.Size.Height;
+        }
 
         var layersNode = new JsonObject();
 

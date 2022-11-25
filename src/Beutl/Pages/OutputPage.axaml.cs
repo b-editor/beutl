@@ -1,9 +1,11 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 
 using Beutl.Framework;
 using Beutl.Services;
+using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 
 namespace Beutl.Pages;
@@ -16,18 +18,53 @@ public partial class OutputPage : UserControl
     {
         InitializeComponent();
         contentControl.ContentTemplate = s_sharedDataTemplate;
+
+        this.GetObservable(IsVisibleProperty)
+            .Where(b => b)
+            .SkipUntil(this.GetObservable(DataContextProperty).Where(x => x is OutputPageViewModel))
+            .Take(1)
+            .Subscribe(_ =>
+            {
+                if (DataContext is OutputPageViewModel viewModel)
+                {
+                    viewModel.Restore();
+                }
+            });
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        if (DataContext is OutputPageViewModel viewModel)
+        {
+            viewModel.Save();
+        }
     }
 
     private async void OnAddClick(object? sender, RoutedEventArgs e)
     {
-        var dialogViewModel = new AddOutputQueueViewModel();
-        var dialog = new AddOutputQueueDialog
+        if (DataContext is OutputPageViewModel viewModel)
         {
-            DataContext = dialogViewModel
-        };
+            var dialogViewModel = new AddOutputQueueViewModel();
+            var dialog = new AddOutputQueueDialog
+            {
+                DataContext = dialogViewModel
+            };
 
-        await dialog.ShowAsync();
-        dialogViewModel.Dispose();
+            await dialog.ShowAsync();
+            dialogViewModel.Dispose();
+
+            viewModel.Save();
+        }
+    }
+
+    private void OnRemoveClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is OutputPageViewModel viewModel)
+        {
+            viewModel.RemoveSelected();
+            viewModel.Save();
+        }
     }
 
     private sealed class _DataTemplate : IDataTemplate

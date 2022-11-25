@@ -731,4 +731,7 @@ and b-editor maintains the download URL.</value>
   <data name="Audio" xml:space="preserve">
     <value>Audio</value>
   </data>
+  <data name="AdditionalOptions" xml:space="preserve">
+    <value>Additional Options</value>
+  </data>
 </root>

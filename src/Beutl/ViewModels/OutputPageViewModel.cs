@@ -41,9 +41,27 @@ public sealed class OutputPageViewModel : BasePageViewModel, IPageContext
         }
     }
 
+    public void RemoveSelected()
+    {
+        if (SelectedItem.Value != null)
+        {
+            Items.Remove(SelectedItem.Value);
+        }
+    }
+
     public OutputExtension[] GetExtensions(string file)
     {
         return _outputService.GetExtensions(file);
+    }
+
+    public void Save()
+    {
+        _outputService.SaveItems();
+    }
+
+    public void Restore()
+    {
+        _outputService.RestoreItems();
     }
 
     public override void Dispose()
