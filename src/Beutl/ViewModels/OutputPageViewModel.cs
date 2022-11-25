@@ -19,6 +19,9 @@ public sealed class OutputPageViewModel : BasePageViewModel, IPageContext
     public OutputPageViewModel()
     {
         _outputService = ServiceLocator.Current.GetRequiredService<OutputService>();
+        CanRemove = SelectedItem
+            .SelectMany(x => x?.Context?.IsEncoding?.Not() ?? Observable.Return(false))
+            .ToReadOnlyReactivePropertySlim();
     }
 
     public PageExtension Extension => OutputPageExtension.Instance;
@@ -28,6 +31,8 @@ public sealed class OutputPageViewModel : BasePageViewModel, IPageContext
     public ICoreList<OutputQueueItem> Items => _outputService.Items;
 
     public IReactiveProperty<OutputQueueItem?> SelectedItem => _outputService.SelectedItem;
+
+    public ReadOnlyReactivePropertySlim<bool> CanRemove { get; }
 
     public void AddItem(string file, OutputExtension extension)
     {

@@ -2,9 +2,7 @@
 using System.Text.Json.Nodes;
 
 using Beutl.Api.Services;
-using Beutl.Configuration;
 using Beutl.Framework;
-using Beutl.Services.PrimitiveImpls;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,8 +12,6 @@ namespace Beutl.Services;
 
 public sealed class OutputQueueItem : IDisposable
 {
-    private readonly ReactivePropertySlim<bool> _isFinished = new();
-
     public OutputQueueItem(IOutputContext context)
     {
         Context = context;
@@ -29,16 +25,22 @@ public sealed class OutputQueueItem : IDisposable
 
     public string Name { get; }
 
-    public IReactiveProperty<bool> IsFinished => _isFinished;
-
     private void OnStarted(object? sender, EventArgs e)
     {
-        IsFinished.Value = false;
+        EditorService editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
+        if (editorService.TryGetTabItem(Context.TargetFile, out EditorTabItem? tabItem))
+        {
+            tabItem.Context.Value.IsEnabled.Value = false;
+        }
     }
 
     private void OnFinished(object? sender, EventArgs e)
     {
-        IsFinished.Value = true;
+        EditorService editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
+        if (editorService.TryGetTabItem(Context.TargetFile, out EditorTabItem? tabItem))
+        {
+            tabItem.Context.Value.IsEnabled.Value = true;
+        }
     }
 
     public void Dispose()
@@ -103,28 +105,8 @@ public sealed class OutputService
     public OutputService()
     {
         _items = new CoreList<OutputQueueItem>();
-        _items.Attached += OnItemsAttached;
-        _items.Detached += OnItemsDetached;
 
         _filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "outputlist.json");
-    }
-
-    private void OnItemsDetached(OutputQueueItem obj)
-    {
-        EditorService editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
-        if (editorService.TryGetTabItem(obj.Context.TargetFile, out EditorTabItem? tabItem))
-        {
-            tabItem.Context.Value.IsEnabled.Value = true;
-        }
-    }
-
-    private void OnItemsAttached(OutputQueueItem obj)
-    {
-        EditorService editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
-        if (editorService.TryGetTabItem(obj.Context.TargetFile, out EditorTabItem? tabItem))
-        {
-            tabItem.Context.Value.IsEnabled.Value = false;
-        }
     }
 
     public ICoreList<OutputQueueItem> Items => _items;
@@ -157,13 +139,13 @@ public sealed class OutputService
     public void SaveItems()
     {
         var array = new JsonArray();
-        foreach (var item in _items.GetMarshal().Value)
+        foreach (OutputQueueItem item in _items.GetMarshal().Value)
         {
             JsonNode json = OutputQueueItem.ToJson(item);
             array.Add(json);
         }
 
-        using var stream = File.Create(_filePath);
+        using FileStream stream = File.Create(_filePath);
         using var writer = new Utf8JsonWriter(stream);
         array.WriteTo(writer);
     }
@@ -181,10 +163,13 @@ public sealed class OutputService
 
                 foreach (JsonNode? jsonItem in jsonArray)
                 {
-                    var item = OutputQueueItem.FromJson(jsonItem);
-                    if (item != null)
+                    if (jsonItem != null)
                     {
-                        _items.Add(item);
+                        var item = OutputQueueItem.FromJson(jsonItem);
+                        if (item != null)
+                        {
+                            _items.Add(item);
+                        }
                     }
                 }
             }
