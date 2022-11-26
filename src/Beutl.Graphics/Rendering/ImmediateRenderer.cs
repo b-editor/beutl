@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Graphics;
 using Beutl.Threading;
 
@@ -31,6 +32,8 @@ public class ImmediateRenderer : IRenderer
     }
 
     public IClock Clock => _instanceClock;
+
+    public IAudio Audio => throw new NotImplementedException();
 
     public ILayerContext? this[int index]
     {
