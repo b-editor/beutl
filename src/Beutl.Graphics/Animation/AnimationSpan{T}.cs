@@ -51,7 +51,7 @@ public sealed class AnimationSpan<T> : AnimationSpan, IAnimationSpan<T>
 
     public Animator<T> Animator => s_animator;
 
-    public event EventHandler? Invalidated;
+    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
     public T Interpolate(float progress)
     {
@@ -62,12 +62,12 @@ public sealed class AnimationSpan<T> : AnimationSpan, IAnimationSpan<T>
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args.PropertyName is nameof(Previous) or nameof(Next) or nameof(Easing) or nameof(Duration))
+        if (args is CorePropertyChangedEventArgs<T> args1
+            && args.PropertyName is nameof(Previous) or nameof(Next) or nameof(Easing) or nameof(Duration))
         {
-            Invalidated?.Invoke(this, EventArgs.Empty);
+            Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(this, args1.Property.Name));
 
-            if (args.PropertyName is nameof(Previous) or nameof(Next)
-                && args is CorePropertyChangedEventArgs<T> args1)
+            if (args.PropertyName is nameof(Previous) or nameof(Next))
             {
                 // IAffectsRenderのイベント登録
                 if (args1.OldValue is IAffectsRender affectsRender1)
@@ -80,12 +80,11 @@ public sealed class AnimationSpan<T> : AnimationSpan, IAnimationSpan<T>
                     affectsRender2.Invalidated += AffectsRender_Invalidated;
                 }
             }
-
         }
     }
 
-    private void AffectsRender_Invalidated(object? sender, EventArgs e)
+    private void AffectsRender_Invalidated(object? sender, RenderInvalidatedEventArgs e)
     {
-        Invalidated?.Invoke(this, EventArgs.Empty);
+        Invalidated?.Invoke(this, e);
     }
 }

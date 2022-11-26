@@ -33,7 +33,7 @@ public sealed class GradientStop : Animatable, IGradientStop, IAffectsRender
         {
             if (obj.Sender is GradientStop s)
             {
-                s.Invalidated?.Invoke(s, EventArgs.Empty);
+                s.Invalidated?.Invoke(s, new RenderInvalidatedEventArgs(s, obj.Property.Name));
             }
         }
 
@@ -58,7 +58,7 @@ public sealed class GradientStop : Animatable, IGradientStop, IAffectsRender
     }
 
     /// <inheritdoc/>
-    public event EventHandler? Invalidated;
+    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
     /// <inheritdoc/>
     public float Offset

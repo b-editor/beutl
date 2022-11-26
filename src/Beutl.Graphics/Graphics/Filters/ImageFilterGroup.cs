@@ -22,7 +22,7 @@ public sealed class ImageFilterGroup : ImageFilter
     public ImageFilterGroup()
     {
         _children = new ImageFilters();
-        _children.Invalidated += (_, _) => RaiseInvalidated();
+        _children.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 
     public ImageFilters Children

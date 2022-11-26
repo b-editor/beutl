@@ -50,18 +50,18 @@ public sealed class Transforms : CoreList<ITransform>, IAffectsRender
                 break;
         }
 
-        RaiseInvalidated();
+        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
     }
 
-    public event EventHandler? Invalidated;
+    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
-    private void Item_Invalidated(object? sender, EventArgs e)
+    private void Item_Invalidated(object? sender, RenderInvalidatedEventArgs e)
     {
-        RaiseInvalidated();
+        RaiseInvalidated(e);
     }
 
-    private void RaiseInvalidated()
+    private void RaiseInvalidated(RenderInvalidatedEventArgs args)
     {
-        Invalidated?.Invoke(this, EventArgs.Empty);
+        Invalidated?.Invoke(this, args);
     }
 }
