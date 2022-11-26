@@ -401,7 +401,7 @@ public class Layer : Element, IStorable, ILogicalElement
     {
         return Node.GetObservable(LayerNode.ValueProperty)
             .SelectMany(value => value != null
-                ? Observable.FromEventPattern(h => value.Invalidated += h, h => value.Invalidated -= h)
+                ? Observable.FromEventPattern<RenderInvalidatedEventArgs>(h => value.Invalidated += h, h => value.Invalidated -= h)
                     .Select(_ => Unit.Default)
                     .Publish(Unit.Default)
                     .RefCount()

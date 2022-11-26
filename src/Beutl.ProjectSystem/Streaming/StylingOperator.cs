@@ -8,6 +8,7 @@ using Avalonia.Collections.Pooled;
 
 using Beutl.Animation;
 using Beutl.Framework;
+using Beutl.Media;
 using Beutl.Reactive;
 using Beutl.Styling;
 
@@ -184,7 +185,7 @@ public abstract class StylingOperator : StreamOperator
 
     private void OnInvalidated(object? s, EventArgs e)
     {
-        RaiseInvalidated();
+        RaiseInvalidated(new RenderInvalidatedEventArgs(this, nameof(Style)));
     }
 
     public override void ReadFromJson(JsonNode json)
@@ -199,7 +200,7 @@ public abstract class StylingOperator : StreamOperator
             {
                 Style = style;
 
-                RaiseInvalidated();
+                RaiseInvalidated(new RenderInvalidatedEventArgs(this));
             }
         }
     }
@@ -276,7 +277,10 @@ public abstract class StylingOperator : StreamOperator
                     break;
             }
 
-            RaiseInvalidated();
+            if (sender is ICollection collection)
+            {
+                RaiseInvalidated(new RenderInvalidatedEventArgs(collection));
+            }
         }
         finally
         {

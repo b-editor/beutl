@@ -17,11 +17,11 @@ public abstract class ConfigureOperator<TTarget, TValue> : StreamOperator, IStre
     public ConfigureOperator()
     {
         Value = new TValue();
-        Value.Invalidated += (_, _) =>
+        Value.Invalidated += (_, e) =>
         {
             if (!_selecting)
             {
-                RaiseInvalidated();
+                RaiseInvalidated(e);
             }
         };
 

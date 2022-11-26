@@ -1,5 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
+using Beutl.Media;
+
 namespace Beutl.Animation;
 
 public abstract class Animatable : CoreObject, IAnimatable
@@ -11,7 +13,7 @@ public abstract class Animatable : CoreObject, IAnimatable
 
     public Animations Animations { get; }
 
-    public event EventHandler AnimationInvalidated
+    public event EventHandler<RenderInvalidatedEventArgs> AnimationInvalidated
     {
         add => Animations.Invalidated += value;
         remove => Animations.Invalidated -= value;

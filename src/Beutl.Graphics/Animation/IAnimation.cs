@@ -1,5 +1,6 @@
 ﻿using Beutl.Animation.Easings;
 using Beutl.Collections;
+using Beutl.Media;
 using Beutl.Styling;
 
 namespace Beutl.Animation;
@@ -10,7 +11,7 @@ public interface IAnimation : IJsonSerializable
 
     ICoreReadOnlyList<IAnimationSpan> Children { get; }
 
-    event EventHandler? Invalidated;
+    event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
     void ApplyTo(ICoreObject obj, TimeSpan ts);
 }

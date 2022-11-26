@@ -34,17 +34,17 @@ public class StreamOperator : Element, IStreamOperator
         {
             if (SetAndRaise(IsEnabledProperty, ref _isEnabled, value))
             {
-                RaiseInvalidated();
+                Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(this, nameof(IsEnabled)));
             }
         }
     }
 
     public ICoreList<IAbstractProperty> Properties { get; } = new CoreList<IAbstractProperty>();
 
-    public event EventHandler? Invalidated;
+    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
-    protected void RaiseInvalidated()
+    protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
     {
-        Invalidated?.Invoke(this, EventArgs.Empty);
+        Invalidated?.Invoke(this, args);
     }
 }
