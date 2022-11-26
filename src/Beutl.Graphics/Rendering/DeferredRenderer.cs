@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Graphics;
 using Beutl.Threading;
 
@@ -29,6 +30,8 @@ public class DeferredRenderer : IRenderer
     }
 
     public ICanvas Graphics => _graphics;
+
+    public IAudio Audio => throw new NotImplementedException();
 
     public Dispatcher Dispatcher => s_dispatcher;
 

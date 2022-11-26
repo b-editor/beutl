@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Pixel;
@@ -13,10 +14,10 @@ public interface IRenderer : IDisposable
     ILayerContext? this[int index] { get; set; }
 
     ICanvas Graphics { get; }
+    
+    IAudio Audio { get; }
 
     IClock Clock { get; }
-
-    //public IAudio Audio { get; }
 
     Dispatcher Dispatcher { get; }
 
