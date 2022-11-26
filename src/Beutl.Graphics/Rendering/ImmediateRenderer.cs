@@ -64,13 +64,13 @@ public class ImmediateRenderer : IRenderer
     {
         if (RenderInvalidated != null && !IsRendering)
         {
-            IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => Render(timeSpan));
+            IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => RenderGraphics(timeSpan));
             RenderInvalidated?.Invoke(this, result);
             result.Bitmap.Dispose();
         }
     }
 
-    public IRenderer.RenderResult Render(TimeSpan timeSpan)
+    public IRenderer.RenderResult RenderGraphics(TimeSpan timeSpan)
     {
         Dispatcher.VerifyAccess();
         if (!IsRendering)
@@ -103,5 +103,15 @@ public class ImmediateRenderer : IRenderer
 
     void IRenderer.AddDirtyRect(Rect rect)
     {
+    }
+
+    public IRenderer.RenderResult RenderAudio(TimeSpan timeSpan)
+    {
+        throw new NotImplementedException();
+    }
+
+    public IRenderer.RenderResult Render(TimeSpan timeSpan)
+    {
+        throw new NotImplementedException();
     }
 }

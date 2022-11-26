@@ -72,7 +72,7 @@ public class DeferredRenderer : IRenderer
         IsDisposed = true;
     }
 
-    public IRenderer.RenderResult Render(TimeSpan timeSpan)
+    public IRenderer.RenderResult RenderGraphics(TimeSpan timeSpan)
     {
         Dispatcher.VerifyAccess();
         if (!IsRendering)
@@ -223,7 +223,7 @@ public class DeferredRenderer : IRenderer
     {
         if (RenderInvalidated != null)
         {
-            IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => Render(timeSpan));
+            IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => RenderGraphics(timeSpan));
             RenderInvalidated.Invoke(this, result);
             result.Bitmap.Dispose();
         }
@@ -244,5 +244,15 @@ public class DeferredRenderer : IRenderer
     void IRenderer.AddDirtyRect(Rect rect)
     {
         AddDirtyRect(rect);
+    }
+
+    public IRenderer.RenderResult RenderAudio(TimeSpan timeSpan)
+    {
+        throw new NotImplementedException();
+    }
+
+    public IRenderer.RenderResult Render(TimeSpan timeSpan)
+    {
+        throw new NotImplementedException();
     }
 }
