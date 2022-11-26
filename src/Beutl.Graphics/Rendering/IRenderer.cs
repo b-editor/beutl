@@ -28,6 +28,10 @@ public interface IRenderer : IDisposable
 
     event EventHandler<RenderResult> RenderInvalidated;
 
+    RenderResult RenderGraphics(TimeSpan timeSpan);
+
+    RenderResult RenderAudio(TimeSpan timeSpan);
+
     RenderResult Render(TimeSpan timeSpan);
 
     void Invalidate(TimeSpan timeSpan);

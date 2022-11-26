@@ -458,7 +458,7 @@ public sealed class OutputViewModel : IOutputContext
                             break;
 
                         var ts = TimeSpan.FromSeconds(i / frameRateD);
-                        IRenderer.RenderResult result = renderer.Render(ts);
+                        IRenderer.RenderResult result = renderer.RenderGraphics(ts);
 
                         writer.AddVideo(result.Bitmap);
                         result.Bitmap.Dispose();

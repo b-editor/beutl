@@ -151,7 +151,7 @@ public sealed class PlayerViewModel : IDisposable
 
         renderer.Dispatcher.Invoke(() =>
         {
-            IRenderer.RenderResult result = renderer.Render(timeSpan);
+            IRenderer.RenderResult result = renderer.RenderGraphics(timeSpan);
             UpdateImage(result.Bitmap);
             result.Bitmap.Dispose();
 
