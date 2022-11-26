@@ -2,8 +2,8 @@
 using System.Text.Json.Nodes;
 
 using Beutl.Media;
-using Beutl.Media.Audio;
-using Beutl.Media.Audio.Pcm;
+using Beutl.Media.Music;
+using Beutl.Media.Music.Samples;
 using Beutl.Media.Encoding;
 using Beutl.Media.Pixel;
 
@@ -83,7 +83,7 @@ public sealed unsafe class FFmpegWriter : MediaWriter
 
     public override long NumberOfSamples { get; }
 
-    public override bool AddAudio(ISound sound)
+    public override bool AddAudio(IPcm sound)
     {
         if (sound.SampleType != typeof(Stereo32BitFloat))
             throw new InvalidOperationException("Unsupported sample type.");

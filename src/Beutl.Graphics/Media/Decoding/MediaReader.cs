@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
-using Beutl.Media.Audio;
+using Beutl.Media.Music;
 
 namespace Beutl.Media.Decoding;
 
@@ -40,7 +39,7 @@ public abstract class MediaReader : IDisposable
 
     public abstract bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image);
 
-    public abstract bool ReadAudio(int start, int length, [NotNullWhen(true)] out ISound? sound);
+    public abstract bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound);
 
     public void Dispose()
     {

@@ -4,8 +4,8 @@ using System.Runtime.InteropServices;
 using System.Text;
 
 using Beutl.Media;
-using Beutl.Media.Audio;
-using Beutl.Media.Audio.Pcm;
+using Beutl.Media.Music;
+using Beutl.Media.Music.Samples;
 using Beutl.Media.Decoding;
 using Beutl.Media.Pixel;
 
@@ -142,7 +142,7 @@ public sealed unsafe class FFmpegReader : MediaReader
 
     public override bool HasAudio => _hasAudio;
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out ISound? result)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? result)
     {
         if (!(start >= _audioNowTimestamp && start < _audioNextTimestamp))
         {
@@ -154,7 +154,7 @@ public sealed unsafe class FFmpegReader : MediaReader
             }
         }
 
-        var sound = new Sound<Stereo32BitFloat>(AudioInfo.SampleRate, length);
+        var sound = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
         int decoded = 0;
         bool need_grab = false;
         fixed (Stereo32BitFloat* buf = sound.DataSpan)
