@@ -1,17 +1,17 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-using Beutl.Media.Audio.Pcm;
+using Beutl.Media.Music.Samples;
 
-namespace Beutl.Media.Audio;
+namespace Beutl.Media.Music;
 
-public sealed unsafe class Sound<T> : ISound
-    where T : unmanaged, IPcm<T>
+public sealed unsafe class Pcm<T> : IPcm
+    where T : unmanaged, ISample<T>
 {
     private readonly bool _requireDispose = true;
     private T* _pointer;
 
-    public Sound(int rate, int samples)
+    public Pcm(int rate, int samples)
     {
         SampleRate = rate;
         NumSamples = samples;
@@ -19,7 +19,7 @@ public sealed unsafe class Sound<T> : ISound
         _pointer = (T*)NativeMemory.AllocZeroed((nuint)(samples * sizeof(T)));
     }
 
-    public Sound(int rate, int samples, T* data)
+    public Pcm(int rate, int samples, T* data)
     {
         _requireDispose = false;
         SampleRate = rate;
@@ -28,7 +28,7 @@ public sealed unsafe class Sound<T> : ISound
         _pointer = data;
     }
 
-    public Sound(int rate, int length, IntPtr data)
+    public Pcm(int rate, int length, IntPtr data)
     {
         _requireDispose = false;
         SampleRate = rate;
@@ -37,7 +37,7 @@ public sealed unsafe class Sound<T> : ISound
         _pointer = (T*)data;
     }
 
-    ~Sound()
+    ~Pcm()
     {
         Dispose();
     }
@@ -66,17 +66,14 @@ public sealed unsafe class Sound<T> : ISound
 
     public IntPtr Data => (IntPtr)_pointer;
 
-    public Sound<TConvert> Convert<TConvert>()
-        where TConvert : unmanaged, IPcm<TConvert>
+    public Pcm<TConvert> Convert<TConvert>()
+        where TConvert : unmanaged, ISample<TConvert>
     {
-        var result = new Sound<TConvert>(SampleRate, NumSamples);
+        var result = new Pcm<TConvert>(SampleRate, NumSamples);
 
         Parallel.For(0, NumSamples, i =>
         {
-            ref TConvert dst = ref result.DataSpan[i];
-            ref T src = ref DataSpan[i];
-
-            dst = dst.ConvertFrom(src.ConvertTo());
+            result.DataSpan[i] = TConvert.ConvertFrom(T.ConvertTo(DataSpan[i]));
         });
 
         return result;
@@ -85,7 +82,7 @@ public sealed unsafe class Sound<T> : ISound
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void ThrowIfDisposed()
     {
-        if (IsDisposed) throw new ObjectDisposedException(nameof(Sound<T>));
+        if (IsDisposed) throw new ObjectDisposedException(nameof(Pcm<T>));
     }
 
     public void Dispose()
@@ -102,24 +99,24 @@ public sealed unsafe class Sound<T> : ISound
         GC.SuppressFinalize(this);
     }
 
-    public Sound<T> Clone()
+    public Pcm<T> Clone()
     {
         ThrowIfDisposed();
 
-        var img = new Sound<T>(SampleRate, NumSamples);
+        var img = new Pcm<T>(SampleRate, NumSamples);
         DataSpan.CopyTo(img.DataSpan);
 
         return img;
     }
 
-    public void Compose(Sound<T> sound)
+    public void Compound(Pcm<T> sound)
     {
         if (sound.SampleRate != SampleRate) throw new Exception("Sounds with different SampleRates cannot be synthesized.");
 
-        Parallel.For(0, Math.Min(sound.NumSamples, NumSamples), i => DataSpan[i] = DataSpan[i].Compose(sound.DataSpan[i]));
+        Parallel.For(0, Math.Min(sound.NumSamples, NumSamples), i => DataSpan[i] = DataSpan[i].Compound(sound.DataSpan[i]));
     }
 
-    public Sound<T> Resamples(int frequency)
+    public Pcm<T> Resamples(int frequency)
     {
         if (SampleRate == frequency) return Clone();
 
@@ -137,12 +134,17 @@ public sealed unsafe class Sound<T> : ISound
             tmp[i] = DataSpan[(int)Math.Floor(index)];
         }
 
-        var result = new Sound<T>(frequency, size);
+        var result = new Pcm<T>(frequency, size);
         new Span<T>(tmp, size).CopyTo(result.DataSpan);
 
         NativeMemory.Free(tmp);
 
         return result;
+    }
+
+    public void Amplifier(Sample level)
+    {
+        Parallel.For(0, NumSamples, i => DataSpan[i] = DataSpan[i].Amplifier(level));
     }
 
     object ICloneable.Clone()

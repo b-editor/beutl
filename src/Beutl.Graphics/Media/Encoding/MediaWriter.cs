@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
-using Beutl.Media.Audio;
+using Beutl.Media.Music;
 
 namespace Beutl.Media.Encoding;
 
@@ -50,7 +49,7 @@ public abstract class MediaWriter : IDisposable
 
     public abstract bool AddVideo(IBitmap image);
 
-    public abstract bool AddAudio(ISound sound);
+    public abstract bool AddAudio(IPcm sound);
 
     public void Dispose()
     {
