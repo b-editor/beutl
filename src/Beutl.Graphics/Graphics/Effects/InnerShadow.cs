@@ -1,6 +1,7 @@
 ﻿using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Media.Pixel;
+using Beutl.Media.Source;
 
 using OpenCvSharp;
 
@@ -81,7 +82,8 @@ public class InnerShadow : BitmapEffect
             PixelSize ksize = _shadow.KernelSize;
 
             using var canvas = new Canvas(src.Width, src.Height);
-            var maskBrush = new ImageBrush(src)
+            var maskSource = new ImageSource(Ref<IBitmap>.Create(src), "Temp");
+            var maskBrush = new ImageBrush(maskSource)
             {
                 Transform = new TranslateTransform(_shadow._position),
                 AlignmentX = AlignmentX.Center,
