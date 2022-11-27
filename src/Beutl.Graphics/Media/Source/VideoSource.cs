@@ -6,10 +6,10 @@ namespace Beutl.Media.Source;
 
 public sealed class VideoSource : IVideoSource, IImageSource
 {
-    private readonly MediaSourceManager.Ref<MediaReader> _mediaReader;
+    private readonly Ref<MediaReader> _mediaReader;
     private readonly double _frameRate;
 
-    public VideoSource(MediaSourceManager.Ref<MediaReader> mediaReader, string fileName)
+    public VideoSource(Ref<MediaReader> mediaReader, string fileName)
     {
         _mediaReader = mediaReader;
         Name = fileName;
@@ -44,6 +44,14 @@ public sealed class VideoSource : IVideoSource, IImageSource
         }
     }
 
+    public VideoSource Clone()
+    {
+        if (IsDisposed)
+            throw new ObjectDisposedException(nameof(VideoSource));
+
+        return new VideoSource(_mediaReader.Clone(), Name);
+    }
+
     public bool Read(TimeSpan frame, [NotNullWhen(true)] out IBitmap? bitmap)
     {
         if (IsDisposed)
@@ -71,4 +79,10 @@ public sealed class VideoSource : IVideoSource, IImageSource
     {
         return Read(0, out bitmap);
     }
+
+    IImageSource IImageSource.Clone() => Clone();
+
+    IVideoSource IVideoSource.Clone() => Clone();
+
+    IMediaSource IMediaSource.Clone() => Clone();
 }
