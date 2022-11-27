@@ -256,7 +256,7 @@ public unsafe class Bitmap<T> : IBitmap
         return dst;
     }
 
-    public object Clone()
+    public Bitmap<T> Clone()
     {
         ThrowIfDisposed();
 
@@ -373,4 +373,6 @@ public unsafe class Bitmap<T> : IBitmap
         if (roi.Bottom > Height) throw new ArgumentOutOfRangeException(nameof(roi));
         else if (roi.Right > Width) throw new ArgumentOutOfRangeException(nameof(roi));
     }
+
+    IBitmap IBitmap.Clone() => Clone();
 }
