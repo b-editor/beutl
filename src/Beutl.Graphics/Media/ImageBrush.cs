@@ -1,4 +1,5 @@
 ﻿using Beutl.Media.Immutable;
+using Beutl.Media.Source;
 
 namespace Beutl.Media;
 
@@ -7,12 +8,12 @@ namespace Beutl.Media;
 /// </summary>
 public class ImageBrush : TileBrush, IImageBrush
 {
-    public static readonly CoreProperty<IBitmap?> SourceProperty;
-    private IBitmap? _source;
+    public static readonly CoreProperty<IImageSource?> SourceProperty;
+    private IImageSource? _source;
 
     static ImageBrush()
     {
-        SourceProperty = ConfigureProperty<IBitmap?, ImageBrush>(nameof(Source))
+        SourceProperty = ConfigureProperty<IImageSource?, ImageBrush>(nameof(Source))
             .Accessor(o => o.Source, (o, v) => o.Source = v)
             .PropertyFlags(PropertyFlags.All)
             .Register();
@@ -31,7 +32,7 @@ public class ImageBrush : TileBrush, IImageBrush
     /// Initializes a new instance of the <see cref="ImageBrush"/> class.
     /// </summary>
     /// <param name="source">The image to draw.</param>
-    public ImageBrush(IBitmap source)
+    public ImageBrush(IImageSource source)
     {
         Source = source;
     }
@@ -39,7 +40,7 @@ public class ImageBrush : TileBrush, IImageBrush
     /// <summary>
     /// Gets or sets the image to draw.
     /// </summary>
-    public IBitmap? Source
+    public IImageSource? Source
     {
         get => _source;
         set => SetAndRaise(SourceProperty, ref _source, value);

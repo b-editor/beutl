@@ -1,4 +1,6 @@
-﻿namespace Beutl.Media;
+﻿using Beutl.Media.Source;
+
+namespace Beutl.Media;
 
 /// <summary>
 /// Paints an area with an <see cref="IBitmap"/>.
@@ -8,5 +10,5 @@ public interface IImageBrush : ITileBrush
     /// <summary>
     /// Gets the image to draw.
     /// </summary>
-    IBitmap? Source { get; }
+    IImageSource? Source { get; }
 }
