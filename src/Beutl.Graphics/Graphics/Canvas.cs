@@ -491,6 +491,9 @@ public class Canvas : ICanvas
 
     private void VerifyAccess()
     {
+        if (IsDisposed)
+            throw new ObjectDisposedException(nameof(Canvas));
+
         _dispatcher?.VerifyAccess();
     }
 

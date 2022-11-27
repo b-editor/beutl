@@ -4,6 +4,19 @@ using Beutl.Rendering;
 
 namespace Beutl.Audio;
 
+public sealed class SourcedSound : Sound
+{
+    protected override void OnRecord(IAudio audio)
+    {
+
+    }
+
+    protected override void Seek(TimeSpan timeSpan)
+    {
+
+    }
+}
+
 public abstract class Sound : Renderable
 {
     public static readonly CoreProperty<float> GainProperty;
@@ -16,7 +29,7 @@ public abstract class Sound : Renderable
             .Accessor(o => o.Gain, (o, v) => o.Gain = v)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(1)
-            .SerializeName("amplification-factor")
+            .SerializeName("gain")
             .Register();
 
         AffectsRender<Sound>(GainProperty);
