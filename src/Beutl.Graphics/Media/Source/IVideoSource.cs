@@ -11,4 +11,8 @@ public interface IVideoSource : IMediaSource
     bool Read(TimeSpan frame, [NotNullWhen(true)] out IBitmap? bitmap);
 
     bool Read(int frame, [NotNullWhen(true)] out IBitmap? bitmap);
+
+    new IVideoSource Clone();
+
+    IMediaSource IMediaSource.Clone() => Clone();
 }

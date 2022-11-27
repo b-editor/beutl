@@ -7,9 +7,9 @@ namespace Beutl.Media.Source;
 
 public class SoundSource : ISoundSource
 {
-    private readonly MediaSourceManager.Ref<MediaReader> _mediaReader;
+    private readonly Ref<MediaReader> _mediaReader;
 
-    public SoundSource(MediaSourceManager.Ref<MediaReader> mediaReader, string fileName)
+    public SoundSource(Ref<MediaReader> mediaReader, string fileName)
     {
         _mediaReader = mediaReader;
         Name = fileName;
@@ -41,6 +41,14 @@ public class SoundSource : ISoundSource
             GC.SuppressFinalize(this);
             IsDisposed = true;
         }
+    }
+
+    public SoundSource Clone()
+    {
+        if (IsDisposed)
+            throw new ObjectDisposedException(nameof(VideoSource));
+
+        return new SoundSource(_mediaReader.Clone(), Name);
     }
 
     public bool Read(int start, int length, [NotNullWhen(true)] out IPcm? sound)
@@ -86,6 +94,8 @@ public class SoundSource : ISoundSource
 
         return _mediaReader.Value.ReadAudio(start, ToSamples(length), out sound);
     }
+
+    ISoundSource ISoundSource.Clone() => Clone();
 
     private int ToSamples(TimeSpan timeSpan)
     {

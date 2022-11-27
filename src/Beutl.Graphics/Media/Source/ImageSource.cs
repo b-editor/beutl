@@ -6,12 +6,12 @@ namespace Beutl.Media.Source;
 
 public sealed class ImageSource : IImageSource
 {
-    private readonly MediaSourceManager.Ref<Bitmap<Bgra8888>> _bitmap;
+    private readonly Ref<IBitmap> _bitmap;
 
-    public ImageSource(MediaSourceManager.Ref<Bitmap<Bgra8888>> bitmap, string fileName)
+    public ImageSource(Ref<IBitmap> bitmap, string name)
     {
         _bitmap = bitmap;
-        Name = fileName;
+        Name = name;
         FrameSize = new PixelSize(_bitmap.Value.Width, _bitmap.Value.Height);
     }
 
@@ -31,6 +31,14 @@ public sealed class ImageSource : IImageSource
         }
     }
 
+    public ImageSource Clone()
+    {
+        if (IsDisposed)
+            throw new ObjectDisposedException(nameof(VideoSource));
+
+        return new ImageSource(_bitmap.Clone(), Name);
+    }
+
     public bool Read([NotNullWhen(true)] out IBitmap? bitmap)
     {
         if (IsDisposed)
@@ -39,7 +47,9 @@ public sealed class ImageSource : IImageSource
             return false;
         }
 
-        bitmap = _bitmap.Value;
+        bitmap = _bitmap.Value.Clone();
         return true;
     }
+
+    IImageSource IImageSource.Clone() => Clone();
 }

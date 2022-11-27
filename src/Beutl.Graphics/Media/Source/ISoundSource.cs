@@ -19,4 +19,8 @@ public interface ISoundSource : IMediaSource
     bool Read(TimeSpan start, int length, [NotNullWhen(true)] out IPcm? sound);
 
     bool Read(int start, TimeSpan length, [NotNullWhen(true)] out IPcm? sound);
+
+    new ISoundSource Clone();
+
+    IMediaSource IMediaSource.Clone() => Clone();
 }
