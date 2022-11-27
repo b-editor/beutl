@@ -19,4 +19,8 @@ public interface IBitmap : IDisposable, ICloneable
     Type PixelType { get; }
 
     Bitmap<T> Convert<T>() where T : unmanaged, IPixel<T>;
+
+    new IBitmap Clone();
+
+    object ICloneable.Clone() => Clone();
 }
