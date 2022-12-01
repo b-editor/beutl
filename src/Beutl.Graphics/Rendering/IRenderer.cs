@@ -2,6 +2,8 @@
 using Beutl.Audio;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Music;
+using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.Threading;
 
@@ -14,7 +16,7 @@ public interface IRenderer : IDisposable
     ILayerContext? this[int index] { get; set; }
 
     ICanvas Graphics { get; }
-    
+
     IAudio Audio { get; }
 
     IClock Clock { get; }
@@ -39,5 +41,7 @@ public interface IRenderer : IDisposable
 
     void AddDirtyRect(Rect rect);
 
-    public record struct RenderResult(Bitmap<Bgra8888> Bitmap/*, IAudio Audio*/);
+    void AddDirtyRange(TimeRange timeRange);
+
+    public record struct RenderResult(Bitmap<Bgra8888>? Bitmap = null, Pcm<Stereo32BitFloat>? Audio = null);
 }

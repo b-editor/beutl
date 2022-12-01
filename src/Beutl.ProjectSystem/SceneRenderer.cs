@@ -29,7 +29,7 @@ internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/
 
     public TimeSpan CurrentTime { get; private set; }
 
-    protected override void RenderCore(TimeSpan timeSpan)
+    protected override void RenderGraphicsCore(TimeSpan timeSpan)
     {
         CurrentTime = timeSpan;
         SortLayers(timeSpan);
@@ -58,7 +58,7 @@ internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/
             }
         }
 
-        base.RenderCore(timeSpan);
+        base.RenderGraphicsCore(timeSpan);
         _recentTime = timeSpan;
     }
 
