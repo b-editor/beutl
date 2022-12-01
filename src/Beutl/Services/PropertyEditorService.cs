@@ -10,6 +10,7 @@ using Beutl.Framework;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.ViewModels.Editors;
 using Beutl.Views.Editors;
 
@@ -85,7 +86,7 @@ public static class PropertyEditorService
         viewModelType = viewModelType.MakeGenericType(s.Property.PropertyType);
         return Activator.CreateInstance(viewModelType, s) as BaseEditorViewModel;
     }
-    
+
     private static Control? CreateParsableEditor(IAbstractProperty s)
     {
         Type controlType = typeof(ParsableEditor<>);
@@ -148,6 +149,8 @@ public static class PropertyEditorService
             { typeof(Graphics.Vector), new(_ => new VectorEditor(), s => new ValueEditorViewModel<Graphics.Vector>(s.ToTyped<Graphics.Vector>())) },
             { typeof(RelativePoint), new(_ => new RelativePointEditor(), s => new ValueEditorViewModel<RelativePoint>(s.ToTyped<RelativePoint>())) },
             { typeof(TimeSpan), new(_ => new TimeSpanEditor(), s => new TimeSpanEditorViewModel(s.ToTyped<TimeSpan>())) },
+
+            { typeof(IImageSource), new(_=>new ImageSourceEditor(), s=>new ImageSourceEditorViewModel(s.ToTyped<IImageSource?>())) },
 
             { typeof(IBrush), new(_ => new BrushEditor(), s => new BrushEditorViewModel(s)) },
             { typeof(GradientStops), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<GradientStops>())) },
