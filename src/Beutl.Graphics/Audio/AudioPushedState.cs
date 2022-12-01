@@ -23,6 +23,7 @@ public readonly record struct AudioPushedState : IDisposable
     {
         None,
         Gain,
+        Offset,
         Effect,
         Filter,
     }
@@ -44,6 +45,9 @@ public readonly record struct AudioPushedState : IDisposable
                 break;
             case PushedStateType.Gain:
                 Audio.PopGain(Level);
+                break;
+            case PushedStateType.Offset:
+                Audio.PopOffset(Level);
                 break;
             default:
                 break;

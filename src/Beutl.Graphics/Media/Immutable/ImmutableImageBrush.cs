@@ -36,7 +36,7 @@ public class ImmutableImageBrush : ImmutableTileBrush, IImageBrush
     public ImmutableImageBrush(IImageBrush source)
         : base(source)
     {
-        Source = source.Source?.Clone();
+        Source = source.Source;
     }
 
     public IImageSource? Source { get; }
