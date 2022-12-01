@@ -5,12 +5,13 @@ internal sealed class Counter<T>
 {
     private T? _value;
     private Action? _onRelease;
-    private int _refs;
+    private volatile int _refs;
 
     public Counter(T value, Action? onRelease)
     {
         _value = value;
         _onRelease = onRelease;
+        _refs = 1;
     }
 
     public void AddRef()

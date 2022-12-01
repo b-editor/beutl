@@ -1,58 +1,8 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-using Beutl.Animation;
-using Beutl.Graphics;
+﻿using Beutl.Animation;
 using Beutl.Media;
-using Beutl.Media.Music;
-using Beutl.Media.Source;
 using Beutl.Rendering;
 
 namespace Beutl.Audio;
-
-public sealed class SourcedSound : Sound
-{
-    public static readonly CoreProperty<ISoundSource?> SourceProperty;
-    private ISoundSource? _source;
-
-    static SourcedSound()
-    {
-        SourceProperty = ConfigureProperty<ISoundSource?, SourcedSound>(nameof(Source))
-            .Accessor(o => o.Source, (o, v) => o.Source = v)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
-            .DefaultValue(null)
-            .SerializeName("source")
-            .Register();
-
-        AffectsRender<SourcedSound>(SourceProperty);
-    }
-
-    public ISoundSource? Source
-    {
-        get => _source;
-        set => SetAndRaise(SourceProperty, ref _source, value);
-    }
-
-    protected override void OnRecord(IAudio audio, TimeRange range)
-    {
-        if (Source?.IsDisposed == false
-            && Source.Read(range.Start, range.Duration, out IPcm? pcm))
-        {
-            audio.RecordPcm(pcm);
-        }
-    }
-
-    protected override TimeSpan TimeCore(TimeSpan available)
-    {
-        if (Source != null)
-        {
-            return Source.Duration;
-        }
-        else
-        {
-            return available;
-        }
-    }
-}
 
 public abstract class Sound : Renderable
 {

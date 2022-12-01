@@ -42,6 +42,9 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Editors.tt</DependentUpon>
     </Compile>
+    <Compile Update="Views\Editors\SoundSourceEditor.axaml.cs">
+      <DependentUpon>SoundSourceEditor.axaml</DependentUpon>
+    </Compile>
   </ItemGroup>
 
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.props" />
