@@ -468,6 +468,22 @@ public sealed class OutputViewModel : IOutputContext
                         ProgressText.Value = $"動画を出力: {ts:hh\\:mm\\:ss\\.ff}";
                     }
 
+                    for (double i = 0; i < samples; i++)
+                    {
+                        if (_lastCts.IsCancellationRequested)
+                            break;
+
+                        var ts = TimeSpan.FromSeconds(i);
+                        IRenderer.RenderResult result = renderer.RenderAudio(ts);
+
+                        writer.AddAudio(result.Audio!);
+                        result.Audio!.Dispose();
+
+                        ProgressValue.Value++;
+                        _progress.Value = ProgressValue.Value / ProgressMax.Value;
+                        ProgressText.Value = $"音声を出力: {ts:hh\\:mm\\:ss\\.ff}";
+                    }
+
                     writer.Dispose();
                 }
             });
