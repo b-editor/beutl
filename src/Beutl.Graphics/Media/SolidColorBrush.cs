@@ -24,7 +24,7 @@ public class SolidColorBrush : Brush, ISolidColorBrush
             new CorePropertyMetadata<RelativePoint>(propertyFlags: PropertyFlags.Styleable | PropertyFlags.NotifyChanged));
 
         TransformProperty.OverrideMetadata<SolidColorBrush>(
-            new CorePropertyMetadata<RelativePoint>(propertyFlags: PropertyFlags.Styleable | PropertyFlags.NotifyChanged));
+            new CorePropertyMetadata<ITransform>(propertyFlags: PropertyFlags.Styleable | PropertyFlags.NotifyChanged));
 
         AffectsRender<SolidColorBrush>(ColorProperty);
     }
