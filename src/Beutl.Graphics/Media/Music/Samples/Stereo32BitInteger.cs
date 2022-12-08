@@ -27,15 +27,31 @@ public struct Stereo32BitInteger : ISample<Stereo32BitInteger>
         return new Sample((float)src.Left / int.MaxValue, (float)src.Right / int.MaxValue);
     }
 
-    public Stereo32BitInteger Amplifier(Sample level)
+    public static Stereo32BitInteger Amplifier(Stereo32BitInteger s, Sample level)
     {
         return new Stereo32BitInteger(
-            left: (int)MathF.Round(Left * level.Left, MidpointRounding.AwayFromZero),
-            right: (int)MathF.Round(Right * level.Right, MidpointRounding.AwayFromZero));
+            left: (int)MathF.Round(s.Left * level.Left, MidpointRounding.AwayFromZero),
+            right: (int)MathF.Round(s.Right * level.Right, MidpointRounding.AwayFromZero));
     }
 
-    public Stereo32BitInteger Compound(Stereo32BitInteger s)
+    public static Stereo32BitInteger Compound(Stereo32BitInteger s1, Stereo32BitInteger s2)
     {
-        return new Stereo32BitInteger(Left + s.Left, Right + s.Right);
+        return new Stereo32BitInteger(s1.Left + s2.Left, s1.Right + s2.Right);
+    }
+
+    public static unsafe void GetChannelData(Stereo32BitInteger s, int channel, Span<byte> destination, out int bytesWritten)
+    {
+        bytesWritten = 0;
+        if (channel is 0 or 1)
+        {
+            var span = new Span<byte>(channel == 0 ? &s.Left : &s.Right, sizeof(int));
+            span.CopyTo(destination);
+            bytesWritten = span.Length;
+        }
+    }
+
+    public static int GetNumChannels()
+    {
+        return 2;
     }
 }
