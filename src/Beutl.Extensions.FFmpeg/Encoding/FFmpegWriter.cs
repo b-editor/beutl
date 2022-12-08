@@ -8,6 +8,7 @@ using Beutl.Media.Encoding;
 using Beutl.Media.Pixel;
 
 using FFmpeg.AutoGen;
+using System.Buffers;
 
 namespace Beutl.Extensions.FFmpeg.Encoding;
 
@@ -29,6 +30,8 @@ public sealed unsafe class FFmpegWriter : MediaWriter
     private long _videoNowFrame;
     private long _audioNowFrame;
     private AVDictionary* _dictionary;
+    private int _samplesWritten;
+    private Pcm<Stereo32BitFloat>? _audio_buf;
 
     private static bool TryGetEnum<TEnum>(JsonObject? jobj, string key, out TEnum result)
         where TEnum : struct
@@ -85,27 +88,48 @@ public sealed unsafe class FFmpegWriter : MediaWriter
 
     public override bool AddAudio(IPcm sound)
     {
-        if (sound.SampleType != typeof(Stereo32BitFloat))
-            throw new InvalidOperationException("Unsupported sample type.");
+        UpdateSwrContext(ToSampleFormat(sound), sound.NumChannels, sound.SampleRate);
+        _audio_buf ??= new Pcm<Stereo32BitFloat>(sound.SampleRate, _audioFrame->nb_samples);
 
-        UpdateSwrContext(AVSampleFormat.AV_SAMPLE_FMT_FLTP, 2, sound.SampleRate);
-        byte* src_data = (byte*)sound.Data;
+        int numSamples = sound.NumSamples;
+        int frameSamples = _audioFrame->nb_samples;
+        int samples = 0;
 
-        fixed (byte** audioframedata = (byte*[])_audioFrame->data)
+        while (samples < numSamples)
         {
-            var _samplesReturn = ffmpeg.swr_convert(
-                s: _swrContext,
-                @out: audioframedata,
-                out_count: _audioFrame->nb_samples,
-                @in: &src_data,
-                in_count: sound.NumSamples);
+            int len = frameSamples - _samplesWritten;
+            int end = samples + len;
+            if (end <= sound.NumSamples)
+            {
+                using IPcm sliced = sound.Slice(samples, len);
+                sliced.ConvertTo(_audio_buf.Slice(_samplesWritten));
+                _samplesWritten = 0;
 
-            Debug.Assert((IntPtr)src_data == sound.Data);
+                AVFrame* srcFrame = CreateAudioFrame(_audio_buf, 0, 0);
+                if (ffmpeg.swr_convert_frame(
+                    _swrContext,
+                    _audioFrame,
+                    srcFrame) < 0)
+                {
+                    throw new Exception("swr_convert_frame failed");
+                }
+
+                _audioFrame->pts = _audioNowFrame++;
+                _audioFrame->key_frame = 0;
+
+                PushFrame(_audioCodecContext, _audioStream, _audioFrame, _audioPacket);
+                FreeFrame(ref srcFrame);
+            }
+            else
+            {
+                using IPcm sliced = sound.Slice(samples);
+                sliced.ConvertTo(_audio_buf.Slice(_samplesWritten));
+                _samplesWritten += sliced.NumSamples;
+
+            }
+
+            samples += len;
         }
-
-        _audioFrame->pts = _audioNowFrame++;
-
-        PushFrame(_audioCodecContext, _audioStream, _audioFrame, _audioPacket);
 
         return true;
     }
@@ -151,7 +175,7 @@ public sealed unsafe class FFmpegWriter : MediaWriter
 
             ffmpeg.av_interleaved_write_frame(_formatContext, packet)
                 .ThrowIfError("av_interleaved_write_frame failed");
-            }
+        }
 
         ffmpeg.av_packet_unref(packet);
     }
@@ -210,6 +234,8 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         {
             ffmpeg.av_dict_free(dictionary);
         }
+
+        _audio_buf?.Dispose();
     }
 
     private void FlushEncoder(AVCodecContext* codecContext, AVStream* stream, AVPacket* packet)
@@ -324,7 +350,7 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             ? sampleFmt1
             : AVSampleFormat.AV_SAMPLE_FMT_FLTP;
 
-        int frameSize = TryGetInt(codecOptions, "SamplesPerFrame", out int frameSize1)
+        var frameSize = TryGetInt(codecOptions, "SamplesPerFrame", out int frameSize1)
             ? frameSize1
             : 2205;
 
@@ -366,6 +392,63 @@ public sealed unsafe class FFmpegWriter : MediaWriter
 
         _videoPacket = ffmpeg.av_packet_alloc();
         _videoPacket->stream_index = -1;
+    }
+
+    private AVSampleFormat ToSampleFormat(IPcm pcm, bool planar = true)
+    {
+        if (planar)
+        {
+            return pcm.SampleType.Name switch
+            {
+                nameof(Stereo32BitFloat)
+                    or nameof(Monaural32BitFloat) => AVSampleFormat.AV_SAMPLE_FMT_FLTP,
+                nameof(Stereo16BitInteger)
+                    or nameof(Monaural16BitInteger) => AVSampleFormat.AV_SAMPLE_FMT_S16P,
+                nameof(Stereo32BitInteger)
+                    or nameof(Monaural32BitInteger) => AVSampleFormat.AV_SAMPLE_FMT_S32P,
+                _ => throw new NotImplementedException()
+            };
+        }
+        else
+        {
+            return pcm.SampleType.Name switch
+            {
+                nameof(Stereo32BitFloat)
+                    or nameof(Monaural32BitFloat) => AVSampleFormat.AV_SAMPLE_FMT_FLT,
+                nameof(Stereo16BitInteger)
+                    or nameof(Monaural16BitInteger) => AVSampleFormat.AV_SAMPLE_FMT_S16,
+                nameof(Stereo32BitInteger)
+                    or nameof(Monaural32BitInteger) => AVSampleFormat.AV_SAMPLE_FMT_S32,
+                _ => throw new NotImplementedException()
+            };
+        }
+    }
+
+    private AVFrame* CreateAudioFrame(IPcm pcm, long presentationTimestamp, long decodingTimestamp)
+    {
+        AVFrame* frame = ffmpeg.av_frame_alloc();
+
+        frame->sample_rate = pcm.SampleRate;
+        ffmpeg.av_channel_layout_default(&frame->ch_layout, pcm.NumChannels);
+
+        frame->nb_samples = pcm.NumSamples;
+
+        frame->format = (int)ToSampleFormat(pcm);
+
+        frame->pts = presentationTimestamp;
+        frame->pkt_dts = decodingTimestamp;
+
+        ffmpeg.av_frame_get_buffer(frame, 32)
+            .ThrowIfError("av_frame_get_buffer failed");
+
+        int len = (int)(pcm.NumSamples * pcm.SampleSize);
+        for (int i = 0; i < pcm.NumChannels; i++)
+        {
+            byte* dst = frame->data[(uint)i];
+            pcm.GetChannelData(i, new Span<byte>(dst, len), out _);
+        }
+
+        return frame;
     }
 
     private void CreateAudioFrame(AVSampleFormat sampleFmt)
