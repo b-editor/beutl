@@ -9,4 +9,6 @@ namespace Beutl.Animation;
 public interface IClock
 {
     TimeSpan CurrentTime { get; }
+
+    TimeSpan AudioStartTime { get; }
 }

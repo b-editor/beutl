@@ -460,8 +460,8 @@ public sealed class OutputViewModel : IOutputContext
                         var ts = TimeSpan.FromSeconds(i / frameRateD);
                         IRenderer.RenderResult result = renderer.RenderGraphics(ts);
 
-                        writer.AddVideo(result.Bitmap);
-                        result.Bitmap.Dispose();
+                        writer.AddVideo(result.Bitmap!);
+                        result.Bitmap!.Dispose();
 
                         ProgressValue.Value++;
                         _progress.Value = ProgressValue.Value / ProgressMax.Value;

@@ -127,9 +127,9 @@ public sealed class PlayerViewModel : IDisposable
         using (var timer = new PeriodicTimer(tick))
         {
             DateTime dateTime = DateTime.UtcNow;
-            while (await timer.WaitForNextTickAsync() &&
-                curFrame <= duration &&
-                IsPlaying.Value)
+            while (await timer.WaitForNextTickAsync()
+                && curFrame <= duration
+                && IsPlaying.Value)
             {
                 curFrame += tick;
                 Render(renderer, curFrame);
@@ -146,16 +146,18 @@ public sealed class PlayerViewModel : IDisposable
 
     private void Render(IRenderer renderer, TimeSpan timeSpan)
     {
-        if (renderer.IsRendering && !_isEnabled.Value)
+        if (renderer.IsGraphicsRendering && !_isEnabled.Value)
             return;
 
         renderer.Dispatcher.Invoke(() =>
         {
-            IRenderer.RenderResult result = renderer.RenderGraphics(timeSpan);
-            UpdateImage(result.Bitmap);
-            result.Bitmap.Dispose();
+            if (renderer.RenderGraphics(timeSpan).Bitmap is { } bitmap)
+            {
+                UpdateImage(bitmap);
+                bitmap.Dispose();
 
             Scene.CurrentFrame = timeSpan;
+            }
         });
     }
 
@@ -189,7 +191,10 @@ public sealed class PlayerViewModel : IDisposable
 
     private unsafe void Renderer_RenderInvalidated(object? sender, IRenderer.RenderResult e)
     {
-        UpdateImage(e.Bitmap);
+        if (e.Bitmap is { } bitmap)
+        {
+            UpdateImage(bitmap);
+        }
     }
 
     public void Dispose()

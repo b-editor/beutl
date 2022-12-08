@@ -393,7 +393,7 @@ public class Layer : Element, IStorable, ILogicalElement
             && scene != null
             && Start <= scene.CurrentFrame
             && scene.CurrentFrame < Start + Length
-            && scene.Renderer is { IsDisposed: false, IsRendering: false })
+            && scene.Renderer is { IsDisposed: false, IsGraphicsRendering: false })
         {
             scene.Renderer.Invalidate(scene.CurrentFrame);
         }
