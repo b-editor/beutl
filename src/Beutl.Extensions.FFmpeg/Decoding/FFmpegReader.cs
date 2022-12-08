@@ -15,7 +15,7 @@ namespace Beutl.Extensions.FFmpeg.Decoding;
 
 public sealed unsafe class FFmpegReader : MediaReader
 {
-    private static readonly byte* s_swr_buf = (byte*)Marshal.AllocCoTaskMem(2048 * 4);
+    private static readonly byte* s_swr_buf = (byte*)NativeMemory.AllocZeroed((nuint)(2048 * sizeof(Stereo32BitFloat)));
     private static readonly AVRational s_time_base = new() { num = 1, den = ffmpeg.AV_TIME_BASE };
     private static readonly AVChannelLayout AV_CHANNEL_LAYOUT_STEREO = new()
     {
@@ -106,6 +106,7 @@ public sealed unsafe class FFmpegReader : MediaReader
             if (HasVideo)
             {
                 GrabVideo();
+
                 _videoInfo = new VideoStreamInfo(
                     new string((sbyte*)_videoCodec->long_name),
                     _videoStream->nb_frames,
@@ -169,7 +170,7 @@ public sealed unsafe class FFmpegReader : MediaReader
                     if (ffmpeg.swr_alloc_set_opts2(
                         swrCtx,
                         outChLayout,
-                        AVSampleFormat.AV_SAMPLE_FMT_FLTP,
+                        AVSampleFormat.AV_SAMPLE_FMT_FLT,
                         _options.SampleRate,
                         &_audioCodecContext->ch_layout,
                         (AVSampleFormat)_audioFrame->format,
@@ -221,7 +222,8 @@ public sealed unsafe class FFmpegReader : MediaReader
 
                 if (len > 0)
                 {
-                    Buffer.MemoryCopy(s_swr_buf + (skip * 4), ((byte*)buf) + (decoded * 4), len * 4, len * 4);
+                    var size = sizeof(Stereo32BitFloat);
+                    Buffer.MemoryCopy(s_swr_buf + (skip * size), ((byte*)buf) + (decoded * size), len * size, len * size);
                     decoded += len;
                 }
 
