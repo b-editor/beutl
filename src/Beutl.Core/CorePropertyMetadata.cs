@@ -29,6 +29,8 @@ public class CorePropertyMetadata<T> : CorePropertyMetadata
 
     public JsonConverter<T>? JsonConverter { get; private set; }
 
+    public override Type PropertyType => typeof(T);
+
     public override void Merge(ICorePropertyMetadata baseMetadata, CoreProperty? property)
     {
         base.Merge(baseMetadata, property);
@@ -91,6 +93,8 @@ public class CorePropertyMetadata<T> : CorePropertyMetadata
 
 public interface ICorePropertyMetadata
 {
+    Type PropertyType { get; }
+
     void Merge(ICorePropertyMetadata baseMetadata, CoreProperty? property);
 
     object? GetDefaultValue();
@@ -111,6 +115,8 @@ public abstract class CorePropertyMetadata : ICorePropertyMetadata
     public string? SerializeName { get; private set; }
 
     public PropertyFlags PropertyFlags => _propertyFlags.GetValueOrDefault();
+
+    public abstract Type PropertyType { get; }
 
     public virtual void Merge(ICorePropertyMetadata baseMetadata, CoreProperty? property)
     {

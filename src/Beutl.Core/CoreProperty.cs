@@ -111,6 +111,9 @@ public abstract class CoreProperty : ICoreProperty
         _ = type ?? throw new ArgumentNullException(nameof(type));
         _ = metadata ?? throw new ArgumentNullException(nameof(metadata));
 
+        if (metadata.PropertyType != PropertyType)
+            throw new InvalidOperationException("Property type mismatch.");
+
         if (_metadata.ContainsKey(type))
         {
             throw new InvalidOperationException(
