@@ -150,7 +150,8 @@ public static class PropertyEditorService
             { typeof(RelativePoint), new(_ => new RelativePointEditor(), s => new ValueEditorViewModel<RelativePoint>(s.ToTyped<RelativePoint>())) },
             { typeof(TimeSpan), new(_ => new TimeSpanEditor(), s => new TimeSpanEditorViewModel(s.ToTyped<TimeSpan>())) },
 
-            { typeof(IImageSource), new(_=>new ImageSourceEditor(), s=>new ImageSourceEditorViewModel(s.ToTyped<IImageSource?>())) },
+            { typeof(IImageSource), new(_ => new ImageSourceEditor(), s=>new ImageSourceEditorViewModel(s.ToTyped<IImageSource?>())) },
+            { typeof(ISoundSource), new(_ => new SoundSourceEditor(), s=>new SoundSourceEditorViewModel(s.ToTyped<ISoundSource?>())) },
 
             { typeof(IBrush), new(_ => new BrushEditor(), s => new BrushEditorViewModel(s)) },
             { typeof(GradientStops), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<GradientStops>())) },
