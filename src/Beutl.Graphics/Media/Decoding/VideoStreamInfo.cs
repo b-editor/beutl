@@ -12,6 +12,12 @@ public sealed record VideoStreamInfo : StreamInfo
         FrameSize = frameSize;
         FrameRate = frameRate;
 
+        if (Rational.IsInfinity(frameRate) || Rational.IsNaN(frameRate))
+            throw new ArgumentException($"{nameof(frameRate)} cannot be specified as Infinity or NaN.", nameof(frameRate));
+        
+        if (Rational.IsInfinity(duration) || Rational.IsNaN(duration))
+            throw new ArgumentException($"{nameof(duration)} cannot be specified as Infinity or NaN.", nameof(duration));
+
         NumFrames = (long)(duration * frameRate).ToDouble();
     }
 
@@ -20,7 +26,12 @@ public sealed record VideoStreamInfo : StreamInfo
         long numFrames,
         PixelSize frameSize,
         Rational frameRate)
-        : base(codecName, MediaType.Video, new Rational(numFrames) / frameRate)
+        : base(
+            codecName,
+            MediaType.Video,
+            Rational.IsNormal(frameRate)
+                ? new Rational(numFrames) / frameRate
+                : Rational.Zero)
     {
         FrameSize = frameSize;
         FrameRate = frameRate;
