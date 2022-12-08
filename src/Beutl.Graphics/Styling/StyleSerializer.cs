@@ -2,6 +2,7 @@
 using System.Text.Json.Nodes;
 
 using Beutl.Animation;
+using Beutl.Media.Source;
 
 namespace Beutl.Styling;
 
@@ -27,24 +28,20 @@ public static class StyleSerializer
 
     public static (string, JsonNode) ToJson(this ISetter setter, Type targetType)
     {
-        string? name;
         string? owner = null;
         JsonNode? value = null;
         JsonArray? animations = null;
+        CorePropertyMetadata? metadata = setter.Property.GetMetadata<CorePropertyMetadata>(targetType);
+        string? name = metadata.SerializeName ?? setter.Property.Name;
 
-        if (targetType.IsAssignableTo(setter.Property.OwnerType))
+        if (!targetType.IsAssignableTo(setter.Property.OwnerType))
         {
-            name = setter.Property.GetMetadata<CorePropertyMetadata>(targetType).SerializeName ?? setter.Property.Name;
-        }
-        else
-        {
-            name = setter.Property.GetMetadata<CorePropertyMetadata>(targetType).SerializeName ?? setter.Property.Name;
             owner = TypeFormat.ToString(setter.Property.OwnerType);
         }
 
         if (setter.Value != null)
         {
-            value = SerializeValue(setter.Property.PropertyType, setter.Value);
+            value = SerializeValue(setter.Property, setter.Value, metadata);
         }
 
         if (setter.Animation is { } animation
@@ -85,25 +82,9 @@ public static class StyleSerializer
         }
     }
 
-    public static JsonNode? SerializeValue(Type type, object value)
+    public static JsonNode? SerializeValue(CoreProperty property, object value, CorePropertyMetadata metadata)
     {
-        if (value is IJsonSerializable serializable)
-        {
-            JsonNode jsonNode = new JsonObject();
-            serializable.WriteToJson(ref jsonNode);
-
-            Type? objType = value.GetType();
-            if (objType != type && jsonNode is JsonObject)
-            {
-                jsonNode["@type"] = TypeFormat.ToString(objType);
-            }
-
-            return jsonNode;
-        }
-        else
-        {
-            return JsonSerializer.SerializeToNode(value, type, JsonHelper.SerializerOptions);
-        }
+        return property.RouteWriteToJson(metadata, value);
     }
 
     public static Style? ToStyle(this JsonObject json)
@@ -183,7 +164,7 @@ public static class StyleSerializer
         object? value = null;
         if (valueNode != null)
         {
-            value = DeserializeValue(property.PropertyType, valueNode!);
+            value = DeserializeValue(property, valueNode!, property.GetMetadata<CorePropertyMetadata>(ownerType));
         }
 
         var animations = new List<AnimationSpan>();
@@ -203,38 +184,9 @@ public static class StyleSerializer
         return helper.InitializeSetter(property, value, animations);
     }
 
-    public static object? DeserializeValue(Type type, JsonNode jsonNode)
+    public static object? DeserializeValue(CoreProperty property, JsonNode jsonNode, CorePropertyMetadata metadata)
     {
-        if (jsonNode is JsonObject jsonObject
-            && jsonObject.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-            && atTypeNode is JsonValue atTypeValue
-            && atTypeValue.TryGetValue(out string? atTypeStr)
-            && TypeFormat.ToType(atTypeStr) is Type realType
-            && realType.IsAssignableTo(type)
-            && realType.IsAssignableTo(typeof(IJsonSerializable)))
-        {
-            var sobj = (IJsonSerializable?)Activator.CreateInstance(realType);
-            if (sobj != null)
-            {
-                sobj.ReadFromJson(jsonNode!);
-                return sobj;
-            }
-        }
-        else if (type.IsAssignableTo(typeof(IJsonSerializable)))
-        {
-            var sobj = (IJsonSerializable?)Activator.CreateInstance(type);
-            if (sobj != null)
-            {
-                sobj.ReadFromJson(jsonNode!);
-                return sobj;
-            }
-        }
-        else
-        {
-            return JsonSerializer.Deserialize(jsonNode, type, JsonHelper.SerializerOptions);
-        }
-
-        return type.IsValueType ? Activator.CreateInstance(type) : null;
+        return property.RouteReadFromJson(metadata, jsonNode);
     }
 
     private interface IGenericHelper
