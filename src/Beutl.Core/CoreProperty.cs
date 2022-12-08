@@ -54,9 +54,9 @@ public abstract class CoreProperty : ICoreProperty
 
     internal abstract void NotifyChanged(CorePropertyChangedEventArgs e);
 
-    internal abstract JsonNode? RouteWriteToJson(ICoreObject o, object? value);
+    internal abstract JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value);
 
-    internal abstract object? RouteReadFromJson(ICoreObject o, JsonNode node);
+    internal abstract object? RouteReadFromJson(CorePropertyMetadata metadata, JsonNode node);
 
     protected abstract IObservable<CorePropertyChangedEventArgs> GetChanged();
 
@@ -210,25 +210,19 @@ public class CoreProperty<T> : CoreProperty
         return o.GetValue<T>(this);
     }
 
-    internal override JsonNode? RouteWriteToJson(ICoreObject o, object? value)
+    internal override JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value)
     {
-        CorePropertyMetadata<T> metadata = GetMetadata<CorePropertyMetadata<T>>(o.GetType());
-        object? def = metadata.GetDefaultValue();
+        var typedMetadata = (CorePropertyMetadata<T>)metadata;
+        object? def = typedMetadata.GetDefaultValue();
         // デフォルトの値と取得した値が同じ場合、保存しない
         if (!RuntimeHelpers.Equals(def, value))
         {
-            if (metadata.JsonConverter is { } jsonConverter)
+            if (typedMetadata.JsonConverter is { } jsonConverter)
             {
-                JsonSerializerOptions options = JsonHelper.SerializerOptions;
-                try
-                {
-                    options.Converters.Add(jsonConverter);
-                    return JsonSerializer.SerializeToNode(value, PropertyType, options);
-                }
-                finally
-                {
-                    options.Converters.Remove(jsonConverter);
-                }
+                var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
+
+                options.Converters.Add(jsonConverter);
+                return JsonSerializer.SerializeToNode(value, PropertyType, options);
             }
             else if (value is IJsonSerializable child)
             {
@@ -245,7 +239,8 @@ public class CoreProperty<T> : CoreProperty
             }
             else
             {
-                return JsonSerializer.SerializeToNode(value, PropertyType, JsonHelper.SerializerOptions);
+                var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
+                return JsonSerializer.SerializeToNode(value, PropertyType, options);
             }
         }
         else
@@ -254,23 +249,17 @@ public class CoreProperty<T> : CoreProperty
         }
     }
 
-    internal override object? RouteReadFromJson(ICoreObject o, JsonNode node)
+    internal override object? RouteReadFromJson(CorePropertyMetadata metadata, JsonNode node)
     {
-        CorePropertyMetadata<T> metadata = GetMetadata<CorePropertyMetadata<T>>(o.GetType());
+        var typedMetadata = (CorePropertyMetadata<T>)metadata;
         Type type = PropertyType;
 
-        if (metadata.JsonConverter is { } jsonConverter)
+        if (typedMetadata.JsonConverter is { } jsonConverter)
         {
-            JsonSerializerOptions options = JsonHelper.SerializerOptions;
-            try
-            {
-                options.Converters.Add(jsonConverter);
-                return JsonSerializer.Deserialize(node, type, options);
-            }
-            finally
-            {
-                options.Converters.Remove(jsonConverter);
-            }
+            var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
+
+            options.Converters.Add(jsonConverter);
+            return JsonSerializer.Deserialize(node, type, options);
         }
         else if (node is JsonObject jsonObject
             && jsonObject.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
@@ -296,7 +285,8 @@ public class CoreProperty<T> : CoreProperty
         }
         else
         {
-            return JsonSerializer.Deserialize(node, type, JsonHelper.SerializerOptions);
+            var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
+            return JsonSerializer.Deserialize(node, type, options);
         }
     }
 
