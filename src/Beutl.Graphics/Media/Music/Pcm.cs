@@ -56,6 +56,10 @@ public sealed unsafe class Pcm<T> : IPcm
 
     public int NumSamples { get; }
 
+    public int NumChannels => T.GetNumChannels();
+
+    public nint SampleSize => sizeof(T);
+
     public TimeSpan Duration => TimeSpan.FromSeconds(NumSamples / (double)SampleRate);
 
     public Rational DurationRational => new(NumSamples, SampleRate);
@@ -77,6 +81,20 @@ public sealed unsafe class Pcm<T> : IPcm
         });
 
         return result;
+    }
+
+    public void ConvertTo<TConvert>(Pcm<TConvert> dst)
+        where TConvert : unmanaged, ISample<TConvert>
+    {
+        if (SampleRate != dst.SampleRate)
+        {
+            throw new Exception("Sounds with different SampleRates cannot be synthesized.");
+        }
+
+        Parallel.For(0, Math.Min(NumSamples, dst.NumSamples), i =>
+        {
+            dst.DataSpan[i] = TConvert.ConvertFrom(T.ConvertTo(DataSpan[i]));
+        });
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -113,7 +131,7 @@ public sealed unsafe class Pcm<T> : IPcm
     {
         if (sound.SampleRate != SampleRate) throw new Exception("Sounds with different SampleRates cannot be synthesized.");
 
-        Parallel.For(0, Math.Min(sound.NumSamples, NumSamples), i => DataSpan[i] = DataSpan[i].Compound(sound.DataSpan[i]));
+        Parallel.For(0, Math.Min(sound.NumSamples, NumSamples), i => DataSpan[i] = T.Compound(DataSpan[i], sound.DataSpan[i]));
     }
 
     public void Compound(int start, Pcm<T> sound)
@@ -123,7 +141,7 @@ public sealed unsafe class Pcm<T> : IPcm
         Parallel.For(
             start,
             Math.Min(sound.NumSamples, NumSamples),
-            i => DataSpan[i] = DataSpan[i].Compound(sound.DataSpan[i - start]));
+            i => DataSpan[i] = T.Compound(DataSpan[i], sound.DataSpan[i - start]));
     }
 
     public Pcm<T> Resamples(int frequency)
@@ -154,11 +172,42 @@ public sealed unsafe class Pcm<T> : IPcm
 
     public void Amplifier(Sample level)
     {
-        Parallel.For(0, NumSamples, i => DataSpan[i] = DataSpan[i].Amplifier(level));
+        Parallel.For(0, NumSamples, i => DataSpan[i] = T.Amplifier(DataSpan[i], level));
     }
 
     object ICloneable.Clone()
     {
         return Clone();
+    }
+
+    public void GetChannelData(int channel, Span<byte> destination, out int bytesWritten)
+    {
+        bytesWritten = 0;
+        foreach (T item in DataSpan)
+        {
+            T.GetChannelData(item, channel, destination, out int written);
+            bytesWritten += written;
+            destination = destination.Slice(written);
+        }
+    }
+
+    IPcm IPcm.Slice(int start)
+    {
+        return Slice(start);
+    }
+
+    IPcm IPcm.Slice(int start, int length)
+    {
+        return Slice(start, length);
+    }
+
+    public Pcm<T> Slice(int start)
+    {
+        return new Pcm<T>(SampleRate, NumSamples - start, Data + start);
+    }
+
+    public Pcm<T> Slice(int start, int length)
+    {
+        return new Pcm<T>(SampleRate, length, Data + start);
     }
 }

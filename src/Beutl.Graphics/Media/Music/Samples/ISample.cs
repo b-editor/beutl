@@ -3,9 +3,13 @@
 public interface ISample<T>
     where T : unmanaged, ISample<T>
 {
-    T Compound(T s);
+    static abstract T Compound(T s1, T s2);
+    
+    static abstract T Amplifier(T s, Sample level);
 
-    T Amplifier(Sample level);
+    static abstract int GetNumChannels();
+    
+    static abstract void GetChannelData(T s, int channel, Span<byte> destination, out int bytesWritten);
 
     static abstract T ConvertFrom(Sample src);
 

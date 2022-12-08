@@ -27,15 +27,31 @@ public struct Stereo16BitInteger : ISample<Stereo16BitInteger>
         return new Sample((float)src.Left / short.MaxValue, (float)src.Right / short.MaxValue);
     }
 
-    public Stereo16BitInteger Amplifier(Sample level)
+    public static Stereo16BitInteger Amplifier(Stereo16BitInteger s, Sample level)
     {
         return new Stereo16BitInteger(
-            left: (short)MathF.Round(Left * level.Left, MidpointRounding.AwayFromZero),
-            right: (short)MathF.Round(Right * level.Right, MidpointRounding.AwayFromZero));
+            left: (short)MathF.Round(s.Left * level.Left, MidpointRounding.AwayFromZero),
+            right: (short)MathF.Round(s.Right * level.Right, MidpointRounding.AwayFromZero));
     }
 
-    public Stereo16BitInteger Compound(Stereo16BitInteger s)
+    public static Stereo16BitInteger Compound(Stereo16BitInteger s1, Stereo16BitInteger s2)
     {
-        return new Stereo16BitInteger((short)(Left + s.Left), (short)(Right + s.Right));
+        return new Stereo16BitInteger((short)(s1.Left + s2.Left), (short)(s1.Right + s2.Right));
+    }
+
+    public static unsafe void GetChannelData(Stereo16BitInteger s, int channel, Span<byte> destination, out int bytesWritten)
+    {
+        bytesWritten = 0;
+        if (channel is 0 or 1)
+        {
+            var span = new Span<byte>(channel == 0 ? &s.Left : &s.Right, sizeof(short));
+            span.CopyTo(destination);
+            bytesWritten = span.Length;
+        }
+    }
+
+    public static int GetNumChannels()
+    {
+        return 2;
     }
 }
