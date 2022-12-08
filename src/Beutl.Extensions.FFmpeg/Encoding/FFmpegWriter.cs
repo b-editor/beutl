@@ -67,11 +67,11 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             CreateAudioStream(format, out var sampleFmt);
             CreateAudioFrame(sampleFmt);
 
-            if (ffmpeg.avio_open(&_formatContext->pb, file, ffmpeg.AVIO_FLAG_WRITE) < 0)
-                throw new Exception("avio_open failed");
+            ffmpeg.avio_open(&_formatContext->pb, file, ffmpeg.AVIO_FLAG_WRITE)
+                .ThrowIfError("avio_open failed");
 
-            if (ffmpeg.avformat_write_header(_formatContext, null) < 0)
-                throw new Exception("avformat_write_header faild");
+            ffmpeg.avformat_write_header(_formatContext, null)
+                .ThrowIfError("avformat_write_header faild");
         }
         catch
         {
@@ -140,8 +140,8 @@ public sealed unsafe class FFmpegWriter : MediaWriter
 
     private void PushFrame(AVCodecContext* codecContext, AVStream* stream, AVFrame* frame, AVPacket* packet)
     {
-        if (ffmpeg.avcodec_send_frame(codecContext, frame) != 0)
-            throw new Exception("avcodec_send_frame failed");
+        ffmpeg.avcodec_send_frame(codecContext, frame)
+            .ThrowIfError("avcodec_send_frame failed");
 
         while (ffmpeg.avcodec_receive_packet(codecContext, packet) == 0)
         {
@@ -149,11 +149,9 @@ public sealed unsafe class FFmpegWriter : MediaWriter
 
             packet->stream_index = stream->index;
 
-            if (ffmpeg.av_interleaved_write_frame(_formatContext, packet) != 0)
-            {
-                throw new Exception("av_interleaved_write_frame failed");
+            ffmpeg.av_interleaved_write_frame(_formatContext, packet)
+                .ThrowIfError("av_interleaved_write_frame failed");
             }
-        }
 
         ffmpeg.av_packet_unref(packet);
     }
@@ -275,8 +273,8 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         _videoStream->codecpar->format = (int)videoPixFmt;
         _videoStream->codecpar->bit_rate = VideoConfig.Bitrate;
 
-        if (ffmpeg.avcodec_parameters_to_context(_videoCodecContext, _videoStream->codecpar) < 0)
-            throw new Exception("avcodec_parameters_to_context failed");
+        ffmpeg.avcodec_parameters_to_context(_videoCodecContext, _videoStream->codecpar)
+            .ThrowIfError("avcodec_parameters_to_context failed");
 
         _videoCodecContext->time_base = _videoStream->time_base;
         _videoCodecContext->framerate = _videoStream->r_frame_rate;
@@ -288,11 +286,11 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         ffmpeg.av_dict_set(&dictionary, "profile", "high", 0);
         ffmpeg.av_dict_set(&dictionary, "level", "4.0", 0);
 
-        if (ffmpeg.avcodec_open2(_videoCodecContext, _videoCodec, &dictionary) < 0)
-            throw new Exception("avcodec_open2 failed");
+        ffmpeg.avcodec_open2(_videoCodecContext, _videoCodec, &dictionary)
+            .ThrowIfError("avcodec_open2 failed");
 
-        if (ffmpeg.avcodec_parameters_from_context(_videoStream->codecpar, _videoCodecContext) < 0)
-            throw new Exception("avcodec_parameters_from_context failed");
+        ffmpeg.avcodec_parameters_from_context(_videoStream->codecpar, _videoCodecContext)
+            .ThrowIfError("avcodec_parameters_from_context failed");
 
         if ((_formatContext->oformat->flags & ffmpeg.AVFMT_GLOBALHEADER) != 0)
         {
@@ -338,17 +336,17 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         _audioStream->codecpar->bit_rate = AudioConfig.Bitrate;
         ffmpeg.av_channel_layout_default(&_audioStream->codecpar->ch_layout, AudioConfig.Channels);
 
-        if (ffmpeg.avcodec_parameters_to_context(_audioCodecContext, _audioStream->codecpar) < 0)
-            throw new Exception("avcodec_parameters_to_context failed");
+        ffmpeg.avcodec_parameters_to_context(_audioCodecContext, _audioStream->codecpar)
+            .ThrowIfError("avcodec_parameters_to_context failed");
 
         _audioCodecContext->time_base.num = frameSize;
         _audioCodecContext->time_base.den = AudioConfig.SampleRate;
 
-        if (ffmpeg.avcodec_open2(_audioCodecContext, _audioCodec, null) < 0)
-            throw new Exception("avcodec_open2 failed");
+        ffmpeg.avcodec_open2(_audioCodecContext, _audioCodec, null)
+            .ThrowIfError("avcodec_open2 failed");
 
-        if (ffmpeg.avcodec_parameters_from_context(_audioStream->codecpar, _audioCodecContext) < 0)
-            throw new Exception("avcodec_parameters_from_context failed");
+        ffmpeg.avcodec_parameters_from_context(_audioStream->codecpar, _audioCodecContext)
+            .ThrowIfError("avcodec_parameters_from_context failed");
 
         if ((_formatContext->oformat->flags & ffmpeg.AVFMT_GLOBALHEADER) != 0)
         {
@@ -363,8 +361,8 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         _videoFrame->height = _videoCodecContext->height;
         _videoFrame->format = (int)_videoCodecContext->pix_fmt;
 
-        if (ffmpeg.av_frame_get_buffer(_videoFrame, 32) < 0)
-            throw new Exception("av_frame_get_buffer failed");
+        ffmpeg.av_frame_get_buffer(_videoFrame, 32)
+            .ThrowIfError("av_frame_get_buffer failed");
 
         _videoPacket = ffmpeg.av_packet_alloc();
         _videoPacket->stream_index = -1;
@@ -382,8 +380,8 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         _audioFrame->pts = 0;
         _audioFrame->pkt_dts = 0;
 
-        if (ffmpeg.av_frame_get_buffer(_audioFrame, 32) < 0)
-            throw new Exception("av_frame_get_buffer failed");
+        ffmpeg.av_frame_get_buffer(_audioFrame, 32)
+            .ThrowIfError("av_frame_get_buffer failed");
 
         _audioPacket = ffmpeg.av_packet_alloc();
         _audioPacket->stream_index = -1;
@@ -416,7 +414,7 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             AVChannelLayout layout = default;
             ffmpeg.av_channel_layout_default(&layout, channels);
 
-            if (ffmpeg.swr_alloc_set_opts2(
+            ffmpeg.swr_alloc_set_opts2(
                 swrContext,
                 &_audioCodecContext->ch_layout,
                 _audioCodecContext->sample_fmt,
@@ -425,10 +423,8 @@ public sealed unsafe class FFmpegWriter : MediaWriter
                 sampleFmt,
                 sampleRate,
                 0,
-                null) < 0)
-            {
-                throw new Exception("swr_alloc_set_opts2 failed");
-            }
+                null)
+                .ThrowIfError("swr_alloc_set_opts2 failed");
 
             if (ffmpeg.swr_init(_swrContext) < 0)
             {
