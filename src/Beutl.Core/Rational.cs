@@ -140,17 +140,17 @@ public readonly partial struct Rational
     {
         if (double.IsNaN(value))
         {
-            return new Rational(0, 0);
+            return NaN;
         }
 
         if (double.IsPositiveInfinity(value))
         {
-            return new Rational(1, 0);
+            return PositiveInfinity;
         }
 
         if (double.IsNegativeInfinity(value))
         {
-            return new Rational(-1, 0);
+            return NegativeInfinity;
         }
 
         long numerator = 1;
@@ -187,17 +187,17 @@ public readonly partial struct Rational
     {
         if (float.IsNaN(value))
         {
-            return new Rational(0, 0);
+            return NaN;
         }
 
         if (float.IsPositiveInfinity(value))
         {
-            return new Rational(1, 0);
+            return PositiveInfinity;
         }
 
         if (float.IsNegativeInfinity(value))
         {
-            return new Rational(-1, 0);
+            return NegativeInfinity;
         }
 
         long numerator = 1;
@@ -266,7 +266,7 @@ public readonly partial struct Rational
 
         if (Numerator == 0)
         {
-            return new Rational(0, 0);
+            return NaN;
         }
 
         if (Numerator == Denominator)

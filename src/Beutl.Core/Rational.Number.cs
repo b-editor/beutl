@@ -7,6 +7,10 @@ namespace Beutl;
 public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Rational>
 {
     public static Rational NaN => new(0, 0);
+    
+    public static Rational PositiveInfinity => new(1, 0);
+    
+    public static Rational NegativeInfinity => new(-1, 0);
 
     public static Rational MaxValue => new(long.MaxValue);
 
