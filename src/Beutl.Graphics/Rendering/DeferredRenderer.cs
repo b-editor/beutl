@@ -19,7 +19,7 @@ public class DeferredRenderer : IRenderer
     private readonly FpsText _fpsText = new();
     private readonly InstanceClock _instanceClock = new();
     private TimeSpan _lastTimeSpan;
-    private int _lastAudioTime = -1;
+    //private int _lastAudioTime = -1;
 
     public DeferredRenderer(int width, int height)
     {
@@ -41,7 +41,9 @@ public class DeferredRenderer : IRenderer
 
     public bool IsDisposed { get; private set; }
 
-    public bool IsRendering { get; private set; }
+    public bool IsGraphicsRendering { get; private set; }
+
+    public bool IsAudioRendering { get; private set; }
 
     public bool DrawFps
     {
@@ -82,20 +84,25 @@ public class DeferredRenderer : IRenderer
     public IRenderer.RenderResult RenderGraphics(TimeSpan timeSpan)
     {
         Dispatcher.VerifyAccess();
-        if (!IsRendering)
+        if (!IsGraphicsRendering)
         {
-            IsRendering = true;
+            IsGraphicsRendering = true;
             _instanceClock.CurrentTime = timeSpan;
             using (_fpsText.StartRender(this))
             {
                 RenderGraphicsCore(timeSpan);
             }
 
-            IsRendering = false;
-        }
+            IsGraphicsRendering = false;
 
-        _lastTimeSpan = timeSpan;
-        return new IRenderer.RenderResult(Graphics.GetBitmap());
+            _lastTimeSpan = timeSpan;
+
+            return new IRenderer.RenderResult(Graphics.GetBitmap());
+        }
+        else
+        {
+            return default;
+        }
     }
 
     protected virtual void RenderGraphicsCore(TimeSpan timeSpan)
@@ -261,52 +268,63 @@ public class DeferredRenderer : IRenderer
 
     protected virtual void RenderAudioCore(TimeSpan timeSpan)
     {
-        int start = (int)Math.Floor(timeSpan.TotalSeconds);
-        if (_lastAudioTime == start)
+        //var range = new TimeRange(timeSpan, TimeSpan.FromSeconds(1));
+        //var lastRange = new TimeRange(_lastTimeSpan, TimeSpan.FromSeconds(1));
+        //if (range.Intersects(lastRange))
+        //{
+        //    // 交差している場合その場所を再利用する
+        //}
+
+        _audio.Clear();
+
+        foreach (KeyValuePair<int, ILayerContext> item in _objects)
         {
-            _audio.Clear();
-
-            foreach (KeyValuePair<int, ILayerContext> item in _objects)
-            {
-                item.Value.RenderAudio(this, timeSpan);
-            }
-
-            _lastAudioTime = start;
+            item.Value.RenderAudio(this, timeSpan);
         }
+
+        //_lastAudioTime = timeSpan;
     }
 
     public IRenderer.RenderResult RenderAudio(TimeSpan timeSpan)
     {
-        Dispatcher.VerifyAccess();
-        if (!IsRendering)
+        if (!IsAudioRendering)
         {
-            IsRendering = true;
-            _instanceClock.CurrentTime = timeSpan;
+            IsAudioRendering = true;
+            _instanceClock.AudioStartTime = timeSpan;
             RenderAudioCore(timeSpan);
 
-            IsRendering = false;
+            IsAudioRendering = false;
+            return new IRenderer.RenderResult(Audio: Audio.GetPcm());
         }
-
-        return new IRenderer.RenderResult(Audio: Audio.GetPcm());
+        else
+        {
+            return default;
+        }
     }
 
     public IRenderer.RenderResult Render(TimeSpan timeSpan)
     {
         Dispatcher.VerifyAccess();
-        if (!IsRendering)
+        if (!IsGraphicsRendering && !IsAudioRendering)
         {
-            IsRendering = true;
+            IsGraphicsRendering = true;
+            IsAudioRendering = true;
             _instanceClock.CurrentTime = timeSpan;
+            _instanceClock.AudioStartTime = timeSpan;
             using (_fpsText.StartRender(this))
             {
                 RenderGraphicsCore(timeSpan);
                 RenderAudioCore(timeSpan);
             }
 
-            IsRendering = false;
+            IsGraphicsRendering = false;
+            IsAudioRendering = false;
+            _lastTimeSpan = timeSpan;
+            return new IRenderer.RenderResult(Graphics.GetBitmap(), Audio.GetPcm());
         }
-
-        _lastTimeSpan = timeSpan;
-        return new IRenderer.RenderResult(Graphics.GetBitmap(), Audio.GetPcm());
+        else
+        {
+            return default;
+        }
     }
 }

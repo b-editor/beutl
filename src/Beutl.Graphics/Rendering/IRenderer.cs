@@ -27,7 +27,9 @@ public interface IRenderer : IDisposable
 
     bool IsDisposed { get; }
 
-    bool IsRendering { get; }
+    bool IsGraphicsRendering { get; }
+    
+    bool IsAudioRendering { get; }
 
     event EventHandler<RenderResult> RenderInvalidated;
 
