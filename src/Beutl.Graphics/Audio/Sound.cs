@@ -77,8 +77,7 @@ public abstract class Sound : Renderable
     {
         if (_layerNode != null)
         {
-            double current = Math.Floor(clock.CurrentTime.TotalSeconds);
-            var currentTime = TimeSpan.FromSeconds(current);
+            TimeSpan currentTime = clock.AudioStartTime;
 
             TimeSpan start = currentTime - _layerNode.Start;
             TimeSpan length;
