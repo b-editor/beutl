@@ -18,6 +18,8 @@ public sealed class SourceSound : Sound
             .Accessor(o => o.Source, (o, v) => o.Source = v)
             .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .DefaultValue(null)
+            .SerializeName("source")
+            .JsonConverter(new SoundSourceJsonConverter())
             .Register();
 
         AffectsRender<SourceSound>(SourceProperty);
@@ -27,41 +29,6 @@ public sealed class SourceSound : Sound
     {
         get => _source;
         set => SetAndRaise(SourceProperty, ref _source, value);
-    }
-
-    public override void ReadFromJson(JsonNode json)
-    {
-        base.ReadFromJson(json);
-        if (json is JsonObject jobj
-            && jobj.TryGetPropertyValue("source", out JsonNode? fileNode)
-            && fileNode is JsonValue fileValue
-            && fileValue.TryGetValue(out string? fileStr))
-        {
-            if (Parent != null && _sourceName != fileStr)
-            {
-                Close();
-                _sourceName = fileStr;
-                Open();
-            }
-            else
-            {
-                _sourceName = fileStr;
-            }
-        }
-        else
-        {
-            _sourceName = null;
-        }
-    }
-
-    public override void WriteToJson(ref JsonNode json)
-    {
-        base.WriteToJson(ref json);
-        if (json is JsonObject jobj
-            && _source != null)
-        {
-            jobj["source"] = _source.Name;
-        }
     }
 
     protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
@@ -82,6 +49,7 @@ public sealed class SourceSound : Sound
             && MediaSourceManager.Shared.OpenSoundSource(_sourceName, out ISoundSource? soundSource))
         {
             Source = soundSource;
+            _sourceName = null;
         }
     }
 
@@ -101,6 +69,7 @@ public sealed class SourceSound : Sound
             && Source.Read(range.Start, range.Duration, out IPcm? pcm))
         {
             audio.RecordPcm(pcm);
+            pcm.Dispose();
         }
     }
 
