@@ -279,7 +279,11 @@ public abstract class CoreObject : ICoreObject
                 string? jsonName = metadata.SerializeName;
                 if (jsonName != null)
                 {
-                    jsonObject[jsonName] = item.RouteWriteToJson(metadata, GetValue(item));
+                    JsonNode? valueNode = item.RouteWriteToJson(metadata, GetValue(item), out var isDefault);
+                    if (!isDefault)
+                    {
+                        jsonObject[jsonName] = valueNode;
+                    }
                 }
             }
         }

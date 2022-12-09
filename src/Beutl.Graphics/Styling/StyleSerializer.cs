@@ -1,8 +1,6 @@
-﻿using System.Text.Json;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 
 using Beutl.Animation;
-using Beutl.Media.Source;
 
 namespace Beutl.Styling;
 
@@ -18,7 +16,7 @@ public static class StyleSerializer
         var setters = new JsonObject();
         foreach (ISetter? item in style.Setters)
         {
-            (string name, JsonNode node) = item.ToJson(style.TargetType);
+            (string name, JsonNode? node) = item.ToJson(style.TargetType);
             setters[name] = node;
         }
         styleJson["setters"] = setters;
@@ -26,10 +24,9 @@ public static class StyleSerializer
         return styleJson;
     }
 
-    public static (string, JsonNode) ToJson(this ISetter setter, Type targetType)
+    public static (string, JsonNode?) ToJson(this ISetter setter, Type targetType)
     {
         string? owner = null;
-        JsonNode? value = null;
         JsonArray? animations = null;
         CorePropertyMetadata? metadata = setter.Property.GetMetadata<CorePropertyMetadata>(targetType);
         string? name = metadata.SerializeName ?? setter.Property.Name;
@@ -39,10 +36,7 @@ public static class StyleSerializer
             owner = TypeFormat.ToString(setter.Property.OwnerType);
         }
 
-        if (setter.Value != null)
-        {
-            value = SerializeValue(setter.Property, setter.Value, metadata);
-        }
+        JsonNode? value = setter.Property.RouteWriteToJson(metadata, setter.Value, out bool isDefault);
 
         if (setter.Animation is { } animation
             && animation.Children.Count > 0)
@@ -68,6 +62,10 @@ public static class StyleSerializer
         {
             return (name, jsonValue);
         }
+        else if (value == null && owner == null && animations == null)
+        {
+            return (name, null);
+        }
         else
         {
             var json = new JsonObject();
@@ -80,11 +78,6 @@ public static class StyleSerializer
 
             return (name, json);
         }
-    }
-
-    public static JsonNode? SerializeValue(CoreProperty property, object value, CorePropertyMetadata metadata)
-    {
-        return property.RouteWriteToJson(metadata, value);
     }
 
     public static Style? ToStyle(this JsonObject json)
@@ -202,7 +195,11 @@ public static class StyleSerializer
 
         public ISetter InitializeSetter(CoreProperty property, object? value, IEnumerable<AnimationSpan> animations)
         {
-            var setter = new Setter<T>((CoreProperty<T>)property, value is T t ? t : default);
+            var setter = new Setter<T>((CoreProperty<T>)property);
+            if (value is T t)
+            {
+                setter.Value = t;
+            }
 
             var animation = new Animation<T>(setter.Property);
             animation.Children.AddRange(animations.OfType<AnimationSpan<T>>());

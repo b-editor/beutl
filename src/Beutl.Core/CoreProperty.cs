@@ -54,7 +54,7 @@ public abstract class CoreProperty : ICoreProperty
 
     internal abstract void NotifyChanged(CorePropertyChangedEventArgs e);
 
-    internal abstract JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value);
+    internal abstract JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value, out bool isDefault);
 
     internal abstract object? RouteReadFromJson(CorePropertyMetadata metadata, JsonNode node);
 
@@ -210,42 +210,36 @@ public class CoreProperty<T> : CoreProperty
         return o.GetValue<T>(this);
     }
 
-    internal override JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value)
+    internal override JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value, out bool isDefault)
     {
         var typedMetadata = (CorePropertyMetadata<T>)metadata;
         object? def = typedMetadata.GetDefaultValue();
         // デフォルトの値と取得した値が同じ場合、保存しない
-        if (!RuntimeHelpers.Equals(def, value))
+        isDefault = RuntimeHelpers.Equals(def, value);
+        if (typedMetadata.JsonConverter is { } jsonConverter)
         {
-            if (typedMetadata.JsonConverter is { } jsonConverter)
-            {
-                var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
+            var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
 
-                options.Converters.Add(jsonConverter);
-                return JsonSerializer.SerializeToNode(value, PropertyType, options);
-            }
-            else if (value is IJsonSerializable child)
-            {
-                JsonNode jsonNode = new JsonObject();
-                child.WriteToJson(ref jsonNode!);
+            options.Converters.Add(jsonConverter);
+            return JsonSerializer.SerializeToNode(value, PropertyType, options);
+        }
+        else if (value is IJsonSerializable child)
+        {
+            JsonNode jsonNode = new JsonObject();
+            child.WriteToJson(ref jsonNode!);
 
-                Type objType = value.GetType();
-                if (objType != PropertyType && jsonNode is JsonObject)
-                {
-                    jsonNode["@type"] = TypeFormat.ToString(objType);
-                }
-
-                return jsonNode;
-            }
-            else
+            Type objType = value.GetType();
+            if (objType != PropertyType && jsonNode is JsonObject)
             {
-                var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
-                return JsonSerializer.SerializeToNode(value, PropertyType, options);
+                jsonNode["@type"] = TypeFormat.ToString(objType);
             }
+
+            return jsonNode;
         }
         else
         {
-            return null;
+            var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
+            return JsonSerializer.SerializeToNode(value, PropertyType, options);
         }
     }
 
