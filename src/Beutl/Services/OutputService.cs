@@ -101,6 +101,7 @@ public sealed class OutputService
     private readonly CoreList<OutputQueueItem> _items;
     private readonly ReactivePropertySlim<OutputQueueItem?> _selectedItem = new();
     private readonly string _filePath;
+    private bool _isRestored;
 
     public OutputService()
     {
@@ -138,16 +139,19 @@ public sealed class OutputService
 
     public void SaveItems()
     {
-        var array = new JsonArray();
-        foreach (OutputQueueItem item in _items.GetMarshal().Value)
+        if (_isRestored)
         {
-            JsonNode json = OutputQueueItem.ToJson(item);
-            array.Add(json);
-        }
+            var array = new JsonArray();
+            foreach (OutputQueueItem item in _items.GetMarshal().Value)
+            {
+                JsonNode json = OutputQueueItem.ToJson(item);
+                array.Add(json);
+            }
 
-        using FileStream stream = File.Create(_filePath);
-        using var writer = new Utf8JsonWriter(stream);
-        array.WriteTo(writer);
+            using FileStream stream = File.Create(_filePath);
+            using var writer = new Utf8JsonWriter(stream);
+            array.WriteTo(writer);
+        }
     }
 
     public void RestoreItems()
@@ -158,6 +162,7 @@ public sealed class OutputService
             var jsonNode = JsonNode.Parse(stream);
             if (jsonNode is JsonArray jsonArray)
             {
+                _isRestored = true;
                 _items.Clear();
                 _items.EnsureCapacity(jsonArray.Count);
 
