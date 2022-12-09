@@ -122,37 +122,37 @@ public class MediaSourceManager
 
     // 移譲する側は今後、valueを直接参照しない。
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TryTransferMediaReader(string name, MediaReader mediaReader)
+    public Ref<MediaReader>? TryTransferMediaReader(string name, MediaReader mediaReader)
     {
         if (mediaReader.IsDisposed
             || _mediaReaders.ContainsKey(name)
             || _mediaReaders.Values.Any(x => ReferenceEquals(x.Value, mediaReader)))
         {
-            return false;
+            return null;
         }
         else
         {
             var @ref = Ref<MediaReader>.Create(mediaReader, () => _mediaReaders.Remove(name));
             _mediaReaders.Add(name, @ref);
-            return true;
+            return @ref;
         }
     }
 
     // 移譲する側は今後、valueを直接参照しない。
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TryTransferBitmap(string name, IBitmap bitmap)
+    public Ref<IBitmap>? TryTransferBitmap(string name, IBitmap bitmap)
     {
         if (bitmap.IsDisposed
             || _bitmaps.ContainsKey(name)
             || _bitmaps.Values.Any(x => ReferenceEquals(x.Value, bitmap)))
         {
-            return false;
+            return null;
         }
         else
         {
             var @ref = Ref<IBitmap>.Create(bitmap, () => _bitmaps.Remove(name));
             _bitmaps.Add(name, @ref);
-            return true;
+            return @ref;
         }
     }
 
