@@ -202,7 +202,7 @@ public static class StyleSerializer
 
         public ISetter InitializeSetter(CoreProperty property, object? value, IEnumerable<AnimationSpan> animations)
         {
-            var setter = new Setter<T>((CoreProperty<T>)property, (T?)value);
+            var setter = new Setter<T>((CoreProperty<T>)property, value is T t ? t : default);
 
             var animation = new Animation<T>(setter.Property);
             animation.Children.AddRange(animations.OfType<AnimationSpan<T>>());
