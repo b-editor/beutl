@@ -12,21 +12,46 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
     private CoreProperty<T>? _property;
     private T? _value;
     private Animation<T>? _animation;
+    private bool _isDefault;
 
     public Setter()
     {
+        _isDefault = true;
+    }
+
+    public Setter(CoreProperty<T> property)
+    {
+        _property = property;
+        if (property.GetMetadata<CorePropertyMetadata<T>>(property.OwnerType) is { HasDefaultValue: true } metadata)
+        {
+            Value = metadata.DefaultValue;
+        }
+        _isDefault = true;
     }
 
     public Setter(CoreProperty<T> property, T? value)
     {
         _property = property;
         Value = value;
+        _isDefault = false;
     }
 
     public CoreProperty<T> Property
     {
         get => _property ?? throw new InvalidOperationException();
-        set => _property = value;
+        set
+        {
+            _property = value;
+            if (_isDefault)
+            {
+                if (_property.GetMetadata<CorePropertyMetadata<T>>(_property.OwnerType) is { HasDefaultValue: true } metadata)
+                {
+                    Value = metadata.DefaultValue;
+                }
+
+                _isDefault = true;
+            }
+        }
     }
 
     public T? Value
@@ -36,6 +61,7 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
         {
             if (!EqualityComparer<T>.Default.Equals(_value, value))
             {
+                _isDefault = false;
                 if (_value is IAffectsRender oldValue)
                 {
                     oldValue.Invalidated -= Value_Invalidated;
