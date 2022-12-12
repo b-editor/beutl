@@ -20,6 +20,12 @@ public sealed class FFmpegEncodingExtension : EncodingExtension
     {
         return new FFmpegEncoderInfo();
     }
+
+    public override void Load()
+    {
+        base.Load();
+        FFmpegLoader.Initialize();
+    }
 }
 
 public sealed class FFmpegEncoderInfo : IEncoderInfo
@@ -37,9 +43,8 @@ public sealed class FFmpegEncoderInfo : IEncoderInfo
         {
             CodecOptions = new JsonObject()
             {
-                ["Format"] = AVSampleFormat.AV_SAMPLE_FMT_FLTP.ToString(),
-                ["SamplesPerFrame"] = 2205,
-                ["Codec"] = AVCodecID.AV_CODEC_ID_NONE.ToString(),
+                ["Format"] = ffmpeg.av_get_sample_fmt_name(AVSampleFormat.AV_SAMPLE_FMT_FLTP),
+                ["Codec"] = ffmpeg.avcodec_get_name(AVCodecID.AV_CODEC_ID_NONE),
             }
         };
     }
@@ -50,8 +55,12 @@ public sealed class FFmpegEncoderInfo : IEncoderInfo
         {
             CodecOptions = new JsonObject()
             {
-                ["Format"] = AVPixelFormat.AV_PIX_FMT_YUV420P.ToString(),
-                ["Codec"] = AVCodecID.AV_CODEC_ID_NONE.ToString(),
+                ["Format"] = ffmpeg.av_get_pix_fmt_name(AVPixelFormat.AV_PIX_FMT_YUV420P),
+                ["Codec"] = ffmpeg.avcodec_get_name(AVCodecID.AV_CODEC_ID_NONE),
+                ["Preset"] = "medium",
+                ["Crf"] = "22",
+                ["Profile"] = "high",
+                ["Level"] = "4.0",
             }
         };
     }

@@ -1,14 +1,15 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 
 using Beutl.Media;
+using Beutl.Media.Encoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
-using Beutl.Media.Encoding;
 using Beutl.Media.Pixel;
 
 using FFmpeg.AutoGen;
-using System.Buffers;
 
 namespace Beutl.Extensions.FFmpeg.Encoding;
 
@@ -16,22 +17,21 @@ public sealed unsafe class FFmpegWriter : MediaWriter
 {
     private readonly AVFormatContext* _formatContext;
     private AVCodec* _videoCodec;
-    private AVCodec* _audioCodec;
+    private AVCodecID _audioCodecId;
     private AVStream* _videoStream;
-    private AVStream* _audioStream;
     private AVCodecContext* _videoCodecContext;
-    private AVCodecContext* _audioCodecContext;
     private AVFrame* _videoFrame;
-    private AVFrame* _audioFrame;
     private AVPacket* _videoPacket;
-    private AVPacket* _audioPacket;
     private SwsContext* _swsContext;
-    private SwrContext* _swrContext;
     private long _videoNowFrame;
-    private long _audioNowFrame;
     private AVDictionary* _dictionary;
-    private int _samplesWritten;
-    private Pcm<Stereo32BitFloat>? _audio_buf;
+    private AVSampleFormat _sampleFmt;
+    private int _sampleCount;
+    private readonly FileStream _pcmStream;
+    private readonly string _outputFile;
+    private readonly string _pcmfile;
+    private int _inputSampleRate;
+    private readonly string _formatName;
 
     private static bool TryGetEnum<TEnum>(JsonObject? jobj, string key, out TEnum result)
         where TEnum : struct
@@ -51,11 +51,20 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             && value.TryGetValue(out result);
     }
 
+    private static bool TryGetString(JsonObject? jobj, string key, [NotNullWhen(true)] out string? result)
+    {
+        result = default;
+        return jobj?.TryGetPropertyValue(key, out JsonNode? node) == true
+            && node is JsonValue value
+            && value.TryGetValue(out result);
+    }
+
     public FFmpegWriter(string file, VideoEncoderSettings videoConfig, AudioEncoderSettings audioConfig)
         : base(videoConfig, audioConfig)
     {
         try
         {
+            _outputFile = file;
             AVOutputFormat* format = ffmpeg.av_guess_format(null, Path.GetFileName(file), null);
             if (format == null)
                 throw new Exception("av_guess_format failed");
@@ -63,18 +72,31 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             _formatContext = ffmpeg.avformat_alloc_context();
             _formatContext->oformat = format;
 
+            int bufferSize = 1024;
+            Span<byte> buffer = new byte[bufferSize];
+            int length = 0;
+            while (format->name[length] != 0 && length < bufferSize)
+            {
+                buffer[length] = format->name[length];
+                length++;
+            }
+
+            _formatName = System.Text.Encoding.UTF8.GetString(buffer.Slice(0, length));
+
             CreateVideoStream(format);
             InitSwsContext();
             CreateVideoFrame();
 
-            CreateAudioStream(format, out var sampleFmt);
-            CreateAudioFrame(sampleFmt);
+            ReadAudioConfig(format);
 
             ffmpeg.avio_open(&_formatContext->pb, file, ffmpeg.AVIO_FLAG_WRITE)
                 .ThrowIfError("avio_open failed");
 
             ffmpeg.avformat_write_header(_formatContext, null)
                 .ThrowIfError("avformat_write_header faild");
+
+            _pcmfile = Path.GetTempFileName();
+            _pcmStream = new FileStream(_pcmfile, FileMode.Create);
         }
         catch
         {
@@ -88,48 +110,23 @@ public sealed unsafe class FFmpegWriter : MediaWriter
 
     public override bool AddAudio(IPcm sound)
     {
-        UpdateSwrContext(ToSampleFormat(sound), sound.NumChannels, sound.SampleRate);
-        _audio_buf ??= new Pcm<Stereo32BitFloat>(sound.SampleRate, _audioFrame->nb_samples);
-
-        int numSamples = sound.NumSamples;
-        int frameSamples = _audioFrame->nb_samples;
-        int samples = 0;
-
-        while (samples < numSamples)
+        if (_inputSampleRate == 0)
         {
-            int len = frameSamples - _samplesWritten;
-            int end = samples + len;
-            if (end <= sound.NumSamples)
-            {
-                using IPcm sliced = sound.Slice(samples, len);
-                sliced.ConvertTo(_audio_buf.Slice(_samplesWritten));
-                _samplesWritten = 0;
-
-                AVFrame* srcFrame = CreateAudioFrame(_audio_buf, 0, 0);
-                if (ffmpeg.swr_convert_frame(
-                    _swrContext,
-                    _audioFrame,
-                    srcFrame) < 0)
-                {
-                    throw new Exception("swr_convert_frame failed");
-                }
-
-                _audioFrame->pts = _audioNowFrame++;
-                _audioFrame->key_frame = 0;
-
-                PushFrame(_audioCodecContext, _audioStream, _audioFrame, _audioPacket);
-                FreeFrame(ref srcFrame);
-            }
-            else
-            {
-                using IPcm sliced = sound.Slice(samples);
-                sliced.ConvertTo(_audio_buf.Slice(_samplesWritten));
-                _samplesWritten += sliced.NumSamples;
-
-            }
-
-            samples += len;
+            _inputSampleRate = sound.SampleRate;
         }
+
+        if (_inputSampleRate != sound.SampleRate)
+        {
+            throw new InvalidOperationException("Invalid SampleRate");
+        }
+
+        using Pcm<Stereo32BitFloat> buffer = sound.Convert<Stereo32BitFloat>();
+
+        Span<byte> bytes = MemoryMarshal.AsBytes(buffer.DataSpan);
+        byte[] bytesArray = bytes.ToArray();
+        _pcmStream.Write(bytesArray);
+
+        _sampleCount += sound.NumSamples;
 
         return true;
     }
@@ -206,27 +203,22 @@ public sealed unsafe class FFmpegWriter : MediaWriter
     {
         base.Dispose(disposing);
 
+        CloseVideo();
+        CloseAudio();
+    }
+
+    private void CloseVideo()
+    {
         // Close video
         FlushEncoder(_videoCodecContext, _videoStream, _videoPacket);
         FreePacket(ref _videoPacket);
         CloseCodec(ref _videoCodecContext);
         FreeFrame(ref _videoFrame);
 
-        // Close audio
-        FlushEncoder(_audioCodecContext, _audioStream, _audioPacket);
-        FreePacket(ref _audioPacket);
-        CloseCodec(ref _audioCodecContext);
-        FreeFrame(ref _audioFrame);
-
         ffmpeg.sws_freeContext(_swsContext);
 
-        fixed (SwrContext** ptr = &_swrContext)
-        {
-            ffmpeg.swr_free(ptr);
-        }
-
-        ffmpeg.av_write_trailer(_formatContext);
-        ffmpeg.avio_close(_formatContext->pb);
+        ffmpeg.av_write_trailer(_formatContext).ThrowIfError("av_write_trailer failed");
+        ffmpeg.avio_close(_formatContext->pb).ThrowIfError("avio_close failed");
 
         ffmpeg.avformat_free_context(_formatContext);
 
@@ -234,8 +226,59 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         {
             ffmpeg.av_dict_free(dictionary);
         }
+    }
 
-        _audio_buf?.Dispose();
+    private void CloseAudio()
+    {
+        _pcmStream.Dispose();
+        string ffmpegPath = FFmpegLoader.GetExecutable();
+
+        string audiofile = Path.GetTempFileName();
+        string sampleFormat = ffmpeg.av_get_sample_fmt_name(_sampleFmt);
+
+        string codec = ffmpeg.avcodec_get_name(_audioCodecId);
+        int sampleRate = AudioConfig.SampleRate;
+        int channels = AudioConfig.Channels;
+        int bitrate = AudioConfig.Bitrate;
+        Process process = Process.Start(new ProcessStartInfo(
+            ffmpegPath,
+            $"-nostdin -f f32le -ar {_inputSampleRate} -ac 2 -i \"{_pcmfile}\" " +
+            $"-sample_fmt {sampleFormat} -ar {sampleRate} -ac {channels} -ab {bitrate} -f {_formatName} -c {codec} -y \"{audiofile}\"")
+        {
+            CreateNoWindow = true,
+            RedirectStandardError = true
+        })!;
+
+        process.WaitForExit();
+        CheckProcessError(process);
+
+        string tmpvideo = Path.ChangeExtension(Path.GetTempFileName(), Path.GetExtension(_outputFile));
+
+        File.Copy(_outputFile, tmpvideo);
+        File.Delete(_outputFile);
+
+        process = Process.Start(new ProcessStartInfo(
+            ffmpegPath,
+            $"-nostdin -i \"{tmpvideo}\" -i \"{audiofile}\" -c:v copy -c:a copy -map 0:v:0 -map 1:a:0 \"{_outputFile}\"")
+        {
+            CreateNoWindow = true,
+            RedirectStandardError = true
+        })!;
+
+        process.WaitForExit();
+        CheckProcessError(process);
+
+        File.Delete(audiofile);
+        File.Delete(tmpvideo);
+        File.Delete(_pcmfile);
+    }
+
+    private static void CheckProcessError(Process process)
+    {
+        if (process.ExitCode != 0)
+        {
+            throw new Exception($"FFmpeg exited with exit code {process.ExitCode}.\n\n{process.StandardError.ReadToEnd()}");
+        }
     }
 
     private void FlushEncoder(AVCodecContext* codecContext, AVStream* stream, AVPacket* packet)
@@ -262,9 +305,18 @@ public sealed unsafe class FFmpegWriter : MediaWriter
     private void CreateVideoStream(AVOutputFormat* format)
     {
         var codecOptions = VideoConfig.CodecOptions as JsonObject;
-        AVCodecID codecId = TryGetEnum(codecOptions, "Codec", out AVCodecID codecId1) && codecId1 != AVCodecID.AV_CODEC_ID_NONE
-            ? codecId1
-            : format->video_codec;
+        AVCodecID codecId = format->video_codec;
+
+        if (TryGetString(codecOptions, "Codec", out string? codecStr))
+        {
+            AVCodecDescriptor* desc = ffmpeg.avcodec_descriptor_get_by_name(codecStr);
+            if (desc != null
+                && desc->type == AVMediaType.AVMEDIA_TYPE_VIDEO
+                && desc->id != AVCodecID.AV_CODEC_ID_NONE)
+            {
+                codecId = desc->id;
+            }
+        }
 
         _videoCodec = ffmpeg.avcodec_find_encoder(codecId);
         if (_videoCodec == null)
@@ -288,9 +340,15 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         if (_videoCodecContext == null)
             throw new Exception("avcodec_alloc_context3 failed");
 
-        AVPixelFormat videoPixFmt = TryGetEnum(codecOptions, "Format", out AVPixelFormat videoPixFmt1)
-            ? videoPixFmt1
-            : AVPixelFormat.AV_PIX_FMT_YUV420P;
+        AVPixelFormat videoPixFmt = AVPixelFormat.AV_PIX_FMT_YUV420P;
+        if (TryGetString(codecOptions, "Format", out string? fmtStr))
+        {
+            AVPixelFormat pixFmt = ffmpeg.av_get_pix_fmt(fmtStr);
+            if (pixFmt != AVPixelFormat.AV_PIX_FMT_NONE)
+            {
+                videoPixFmt = pixFmt;
+            }
+        }
 
         _videoStream->codecpar->codec_id = codecId;
         _videoStream->codecpar->codec_type = AVMediaType.AVMEDIA_TYPE_VIDEO;
@@ -307,10 +365,14 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         _videoCodecContext->gop_size = VideoConfig.KeyframeRate;
 
         AVDictionary* dictionary = null;
-        ffmpeg.av_dict_set(&dictionary, "preset", "medium", 0);
-        ffmpeg.av_dict_set(&dictionary, "crf", "22", 0);
-        ffmpeg.av_dict_set(&dictionary, "profile", "high", 0);
-        ffmpeg.av_dict_set(&dictionary, "level", "4.0", 0);
+        string preset = TryGetString(codecOptions, "Preset", out string? presetStr) ? presetStr : "medium";
+        string crf = TryGetString(codecOptions, "Crf", out string? crfStr) ? crfStr : "22";
+        string profile = TryGetString(codecOptions, "Profile", out string? profileStr) ? profileStr : "high";
+        string level = TryGetString(codecOptions, "Level", out string? levelStr) ? levelStr : "4.0";
+        ffmpeg.av_dict_set(&dictionary, "preset", preset, 0);
+        ffmpeg.av_dict_set(&dictionary, "crf", crf, 0);
+        ffmpeg.av_dict_set(&dictionary, "profile", profile, 0);
+        ffmpeg.av_dict_set(&dictionary, "level", level, 0);
 
         ffmpeg.avcodec_open2(_videoCodecContext, _videoCodec, &dictionary)
             .ThrowIfError("avcodec_open2 failed");
@@ -324,59 +386,29 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         }
     }
 
-    private void CreateAudioStream(AVOutputFormat* format, out AVSampleFormat sampleFmt)
+    private void ReadAudioConfig(AVOutputFormat* format)
     {
         var codecOptions = AudioConfig.CodecOptions as JsonObject;
-        AVCodecID codecId = TryGetEnum(codecOptions, "Codec", out AVCodecID codecId1) && codecId1 != AVCodecID.AV_CODEC_ID_NONE
-            ? codecId1
-            : format->audio_codec;
 
-        _audioCodec = ffmpeg.avcodec_find_encoder(codecId);
-        if (_audioCodec == null)
-            throw new Exception("avcodec_find_encoder failed");
-
-        if (_audioCodec->type != AVMediaType.AVMEDIA_TYPE_AUDIO)
-            throw new Exception($"{codecId}は音声用ではありません。");
-
-        _audioStream = ffmpeg.avformat_new_stream(_formatContext, _audioCodec);
-        if (_audioStream == null)
-            throw new Exception("avformat_new_stream failed");
-
-        _audioCodecContext = ffmpeg.avcodec_alloc_context3(_audioCodec);
-        if (_audioCodecContext == null)
-            throw new Exception("avcodec_alloc_context3 failed");
-
-        sampleFmt = TryGetEnum(codecOptions, "Format", out AVSampleFormat sampleFmt1)
-            ? sampleFmt1
-            : AVSampleFormat.AV_SAMPLE_FMT_FLTP;
-
-        var frameSize = TryGetInt(codecOptions, "SamplesPerFrame", out int frameSize1)
-            ? frameSize1
-            : 2205;
-
-        _audioStream->codecpar->codec_id = codecId;
-        _audioStream->codecpar->codec_type = AVMediaType.AVMEDIA_TYPE_AUDIO;
-        _audioStream->codecpar->sample_rate = AudioConfig.SampleRate;
-        _audioStream->codecpar->frame_size = frameSize;
-        _audioStream->codecpar->format = (int)sampleFmt;
-        _audioStream->codecpar->bit_rate = AudioConfig.Bitrate;
-        ffmpeg.av_channel_layout_default(&_audioStream->codecpar->ch_layout, AudioConfig.Channels);
-
-        ffmpeg.avcodec_parameters_to_context(_audioCodecContext, _audioStream->codecpar)
-            .ThrowIfError("avcodec_parameters_to_context failed");
-
-        _audioCodecContext->time_base.num = frameSize;
-        _audioCodecContext->time_base.den = AudioConfig.SampleRate;
-
-        ffmpeg.avcodec_open2(_audioCodecContext, _audioCodec, null)
-            .ThrowIfError("avcodec_open2 failed");
-
-        ffmpeg.avcodec_parameters_from_context(_audioStream->codecpar, _audioCodecContext)
-            .ThrowIfError("avcodec_parameters_from_context failed");
-
-        if ((_formatContext->oformat->flags & ffmpeg.AVFMT_GLOBALHEADER) != 0)
+        _audioCodecId = format->audio_codec;
+        if (TryGetString(codecOptions, "Codec", out string? codecStr))
         {
-            _audioCodecContext->flags |= ffmpeg.AV_CODEC_FLAG_GLOBAL_HEADER;
+            AVCodecDescriptor* desc = ffmpeg.avcodec_descriptor_get_by_name(codecStr);
+            if (desc != null
+                && desc->type == AVMediaType.AVMEDIA_TYPE_AUDIO
+                && desc->id == AVCodecID.AV_CODEC_ID_NONE)
+            {
+                _audioCodecId = desc->id;
+            }
+        }
+
+        if (TryGetString(codecOptions, "Format", out string? formatStr))
+        {
+            AVSampleFormat sformat = ffmpeg.av_get_sample_fmt(formatStr);
+            if (sformat != AVSampleFormat.AV_SAMPLE_FMT_NONE)
+            {
+                _sampleFmt = sformat;
+            }
         }
     }
 
@@ -394,7 +426,7 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         _videoPacket->stream_index = -1;
     }
 
-    private AVSampleFormat ToSampleFormat(IPcm pcm, bool planar = true)
+    private static AVSampleFormat ToSampleFormat(IPcm pcm, bool planar = true)
     {
         if (planar)
         {
@@ -424,7 +456,7 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         }
     }
 
-    private AVFrame* CreateAudioFrame(IPcm pcm, long presentationTimestamp, long decodingTimestamp)
+    private static AVFrame* CreateAudioFrame(IPcm pcm, long presentationTimestamp, long decodingTimestamp)
     {
         AVFrame* frame = ffmpeg.av_frame_alloc();
 
@@ -433,41 +465,35 @@ public sealed unsafe class FFmpegWriter : MediaWriter
 
         frame->nb_samples = pcm.NumSamples;
 
-        frame->format = (int)ToSampleFormat(pcm);
+        AVSampleFormat sampleFormat = ToSampleFormat(pcm, false);
+        frame->format = (int)sampleFormat;
 
         frame->pts = presentationTimestamp;
         frame->pkt_dts = decodingTimestamp;
 
-        ffmpeg.av_frame_get_buffer(frame, 32)
-            .ThrowIfError("av_frame_get_buffer failed");
-
-        int len = (int)(pcm.NumSamples * pcm.SampleSize);
-        for (int i = 0; i < pcm.NumChannels; i++)
-        {
-            byte* dst = frame->data[(uint)i];
-            pcm.GetChannelData(i, new Span<byte>(dst, len), out _);
-        }
+        int len = (int)(pcm.NumSamples * pcm.SampleSize * pcm.NumChannels);
+        ffmpeg.avcodec_fill_audio_frame(frame, pcm.NumChannels, sampleFormat, (byte*)pcm.Data, len, 0);
 
         return frame;
     }
 
-    private void CreateAudioFrame(AVSampleFormat sampleFmt)
+    private AVFrame* CreateAudioFrame(int numSamples, long presentationTimestamp, long decodingTimestamp)
     {
-        _audioFrame = ffmpeg.av_frame_alloc();
+        AVFrame* frame = ffmpeg.av_frame_alloc();
 
-        _audioFrame->sample_rate = AudioConfig.SampleRate;
-        _audioFrame->ch_layout = _audioCodecContext->ch_layout;
-        _audioFrame->format = (int)_audioCodecContext->sample_fmt;
-        _audioFrame->nb_samples = _audioCodecContext->frame_size;
+        frame->sample_rate = AudioConfig.SampleRate;
+        ffmpeg.av_channel_layout_default(&frame->ch_layout, AudioConfig.Channels);
 
-        _audioFrame->pts = 0;
-        _audioFrame->pkt_dts = 0;
+        frame->format = (int)_sampleFmt;
+        frame->nb_samples = numSamples;
 
-        ffmpeg.av_frame_get_buffer(_audioFrame, 32)
+        frame->pts = presentationTimestamp;
+        frame->pkt_dts = decodingTimestamp;
+
+        ffmpeg.av_frame_get_buffer(frame, 0)
             .ThrowIfError("av_frame_get_buffer failed");
 
-        _audioPacket = ffmpeg.av_packet_alloc();
-        _audioPacket->stream_index = -1;
+        return frame;
     }
 
     private void InitSwsContext()
@@ -488,32 +514,6 @@ public sealed unsafe class FFmpegWriter : MediaWriter
 
         if (_swsContext == null)
             throw new Exception("sws_getContext failed");
-    }
-
-    private void UpdateSwrContext(AVSampleFormat sampleFmt, int channels, int sampleRate)
-    {
-        fixed (SwrContext** swrContext = &_swrContext)
-        {
-            AVChannelLayout layout = default;
-            ffmpeg.av_channel_layout_default(&layout, channels);
-
-            ffmpeg.swr_alloc_set_opts2(
-                swrContext,
-                &_audioCodecContext->ch_layout,
-                _audioCodecContext->sample_fmt,
-                _audioCodecContext->sample_rate,
-                &layout,
-                sampleFmt,
-                sampleRate,
-                0,
-                null)
-                .ThrowIfError("swr_alloc_set_opts2 failed");
-
-            if (ffmpeg.swr_init(_swrContext) < 0)
-            {
-                throw new Exception("swr_init error.");
-            }
-        }
     }
 
     private void UpdateSwsContext(PixelSize sourceSize)
