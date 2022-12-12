@@ -17,6 +17,7 @@ using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.Views;
 
+using FluentAvalonia.Core;
 using FluentAvalonia.Styling;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +32,8 @@ public sealed class App : Application
 
     public override void Initialize()
     {
+        FAUISettings.SetAnimationsEnabledAtAppLevel(true);
+
         //PaletteColors
         Type colorsType = typeof(Colors);
         PropertyInfo[] colorProperties = colorsType.GetProperties(BindingFlags.Public | BindingFlags.GetProperty | BindingFlags.Static);
