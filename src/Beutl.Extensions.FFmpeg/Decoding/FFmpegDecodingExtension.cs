@@ -1,9 +1,5 @@
-﻿using System.Reflection;
-
-using Beutl.Framework;
+﻿using Beutl.Framework;
 using Beutl.Media.Decoding;
-
-using FFmpeg.AutoGen;
 
 namespace Beutl.Extensions.FFmpeg.Decoding;
 
@@ -22,17 +18,7 @@ public class FFmpegDecodingExtension : DecodingExtension
     public override void Load()
     {
         base.Load();
-
-        if (OperatingSystem.IsWindows())
-        {
-            string dir = Path.Combine(
-                Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName,
-                "runtimes",
-                Environment.Is64BitProcess ? "win-x64" : "win-x86",
-                "native");
-
-            ffmpeg.RootPath = dir;
-        }
+        FFmpegLoader.Initialize();
     }
 }
 
