@@ -484,7 +484,9 @@ public sealed class OutputViewModel : IOutputContext
                         ProgressText.Value = $"音声を出力: {ts:hh\\:mm\\:ss\\.ff}";
                     }
 
+                    _isIndeterminate.Value = true;
                     writer.Dispose();
+                    _isIndeterminate.Value = false;
                 }
             });
         }
