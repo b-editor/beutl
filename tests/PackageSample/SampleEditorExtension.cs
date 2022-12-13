@@ -31,6 +31,8 @@ public sealed class TextEditorContext : IEditorContext
 
     public ReactiveProperty<string> Text { get; } = new();
 
+    public IReactiveProperty<bool> IsEnabled { get; } = new ReactiveProperty<bool>(true);
+
     public void CloseToolTab(IToolContext item)
     {
     }
