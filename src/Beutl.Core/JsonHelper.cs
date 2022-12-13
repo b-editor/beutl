@@ -3,6 +3,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Unicode;
 
+using Beutl.JsonConverters;
+
 namespace Beutl;
 
 public static class JsonHelper
@@ -15,7 +17,13 @@ public static class JsonHelper
     public static JsonSerializerOptions SerializerOptions { get; } = new()
     {
         WriteIndented = true,
-        Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
+        Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+        Converters =
+        {
+            new CultureInfoConverter(),
+            new DirectoryInfoConverter(),
+            new FileInfoConverter()
+        }
     };
 
     public static void JsonSave(this IJsonSerializable serializable, string filename)
