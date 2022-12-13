@@ -5,6 +5,7 @@ namespace Beutl.Configuration;
 public sealed class GlobalConfiguration
 {
     public static readonly GlobalConfiguration Instance = new();
+    private string? _filePath;
     private JsonObject _json = new();
 
     public static string DefaultFilePath
@@ -29,13 +30,14 @@ public sealed class GlobalConfiguration
     public ViewConfig ViewConfig { get; } = new();
 
     public ExtensionConfig ExtensionConfig { get; } = new();
-    
+
     public BackupConfig BackupConfig { get; } = new();
 
     public void Save(string file)
     {
         try
         {
+            _filePath = file;
             RemoveHandlers();
             string dir = Path.GetDirectoryName(file)!;
             if (!Directory.Exists(dir))
@@ -54,7 +56,7 @@ public sealed class GlobalConfiguration
             JsonNode extensionNode = new JsonObject();
             ExtensionConfig.WriteToJson(ref extensionNode);
             _json["extension"] = extensionNode;
-            
+
             JsonNode backupNode = new JsonObject();
             BackupConfig.WriteToJson(ref backupNode);
             _json["backup"] = backupNode;
@@ -95,7 +97,7 @@ public sealed class GlobalConfiguration
         ViewConfig.ConfigurationChanged += OnConfigurationChanged;
         ExtensionConfig.ConfigurationChanged += OnConfigurationChanged;
     }
-    
+
     private void RemoveHandlers()
     {
         GraphicsConfig.ConfigurationChanged -= OnConfigurationChanged;
@@ -111,6 +113,6 @@ public sealed class GlobalConfiguration
             ConfigurationChanged?.Invoke(this, config);
         }
 
-        Save(DefaultFilePath);
+        Save(_filePath ?? DefaultFilePath);
     }
 }

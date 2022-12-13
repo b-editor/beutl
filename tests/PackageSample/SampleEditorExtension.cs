@@ -31,6 +31,8 @@ public sealed class TextEditorContext : IEditorContext
 
     public ReactiveProperty<string> Text { get; } = new();
 
+    public IReactiveProperty<bool> IsEnabled { get; } = new ReactiveProperty<bool>(true);
+
     public void CloseToolTab(IToolContext item)
     {
     }
@@ -112,7 +114,10 @@ public sealed class SampleEditorExtension : EditorExtension
         };
     }
 
-    public override bool MatchFileExtension(string ext) => throw new NotImplementedException();
+    public override bool MatchFileExtension(string ext)
+    {
+        return ext is ".txt" or ".scene";
+    }
 
     public override bool TryCreateContext(string file, [NotNullWhen(true)] out IEditorContext? context)
     {

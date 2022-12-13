@@ -9,6 +9,7 @@ public static class TypefaceProvider
 {
     static TypefaceProvider()
     {
+        GlobalConfiguration.Instance.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "settings.json"));
         GlobalConfiguration.Instance.FontConfig.FontDirectories.Clear();
         Assembly asm = typeof(TypefaceProvider).Assembly;
         string[] array = new string[]

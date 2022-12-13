@@ -19,7 +19,7 @@ public sealed class RoundedRectOperation : StreamStyledSource
     {
         initializing.Add(new Setter<float>(Drawable.WidthProperty, 100));
         initializing.Add(new Setter<float>(Drawable.HeightProperty, 100));
-        initializing.Add(new Setter<float>(Ellipse.StrokeWidthProperty, 4000));
+        initializing.Add(new Setter<float>(RoundedRect.StrokeWidthProperty, 4000));
         initializing.Add(new Setter<IBrush?>(Drawable.ForegroundProperty, new SolidColorBrush(Colors.White)));
         initializing.Add(new Setter<CornerRadius>(RoundedRect.CornerRadiusProperty, new CornerRadius(25)));
     }

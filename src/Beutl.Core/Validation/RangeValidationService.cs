@@ -10,6 +10,7 @@ public sealed class RangeValidationService
         { typeof(Vector2), typeof(Vector2RangeValidator) },
         { typeof(Vector3), typeof(Vector3RangeValidator) },
         { typeof(Vector4), typeof(Vector4RangeValidator) },
+        { typeof(TimeSpan), typeof(TimeSpanRangeValidator) },
     };
 
     public RangeValidationService()
@@ -25,6 +26,7 @@ public sealed class RangeValidationService
         RegisterNumber<ushort>();
         RegisterNumber<uint>();
         RegisterNumber<ulong>();
+        RegisterNumber<Rational>();
     }
 
     public void RegisterNumber<TNumber>()

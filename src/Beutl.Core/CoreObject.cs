@@ -279,7 +279,11 @@ public abstract class CoreObject : ICoreObject
                 string? jsonName = metadata.SerializeName;
                 if (jsonName != null)
                 {
-                    jsonObject[jsonName] = item.RouteWriteToJson(this, GetValue(item));
+                    JsonNode? valueNode = item.RouteWriteToJson(metadata, GetValue(item), out var isDefault);
+                    if (!isDefault)
+                    {
+                        jsonObject[jsonName] = valueNode;
+                    }
                 }
             }
         }
@@ -302,7 +306,7 @@ public abstract class CoreObject : ICoreObject
                     && obj.TryGetPropertyValue(jsonName, out JsonNode? jsonNode)
                     && jsonNode != null)
                 {
-                    if (item.RouteReadFromJson(this, jsonNode) is { } value)
+                    if (item.RouteReadFromJson(metadata, jsonNode) is { } value)
                     {
                         SetValue(item, value);
                     }

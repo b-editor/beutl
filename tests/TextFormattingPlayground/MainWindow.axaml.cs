@@ -24,7 +24,7 @@ public partial class MainWindow : Window
 #endif
     }
 
-    private async void TextChanged(string obj)
+    private async void TextChanged(string? obj)
     {
         try
         {

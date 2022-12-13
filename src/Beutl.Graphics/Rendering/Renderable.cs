@@ -8,7 +8,7 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
     public static readonly CoreProperty<bool> IsVisibleProperty;
     private bool _isVisible = true;
 
-    public event EventHandler? Invalidated;
+    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
     static Renderable()
     {
@@ -29,9 +29,10 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
         set => SetAndRaise(IsVisibleProperty, ref _isVisible, value);
     }
 
-    private void AffectsRender_Invalidated(object? sender, EventArgs e)
+    private void AffectsRender_Invalidated(object? sender, RenderInvalidatedEventArgs e)
     {
-        Invalidate();
+        IsDirty = true;
+        Invalidated?.Invoke(this, e);
     }
 
     protected static void AffectsRender<T>(params CoreProperty[] properties)
@@ -43,7 +44,8 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
             {
                 if (e.Sender is T s)
                 {
-                    s.Invalidate();
+                    s.IsDirty = true;
+                    s.Invalidated?.Invoke(s, new RenderInvalidatedEventArgs(s, e.Property.Name));
 
                     if (e.OldValue is IAffectsRender oldAffectsRender)
                     {
@@ -62,7 +64,7 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
     public void Invalidate()
     {
         IsDirty = true;
-        Invalidated?.Invoke(this, EventArgs.Empty);
+        Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(this));
     }
 
     public abstract void Render(IRenderer renderer);

@@ -118,6 +118,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.WaitingDialog", "src\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VisualizeAnimationTest", "tests\VisualizeAnimationTest\VisualizeAnimationTest.csproj", "{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beutl.Extensions.FFmpeg", "src\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj", "{B969093E-3FCB-4B36-A91F-6C0AA6C8315A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -334,6 +336,14 @@ Global
 		{D148B786-2361-4FCD-BD0E-5953CB4C2AF8}.Release|Any CPU.Build.0 = Release|Any CPU
 		{D148B786-2361-4FCD-BD0E-5953CB4C2AF8}.Release|x64.ActiveCfg = Release|Any CPU
 		{D148B786-2361-4FCD-BD0E-5953CB4C2AF8}.Release|x64.Build.0 = Release|Any CPU
+		{B969093E-3FCB-4B36-A91F-6C0AA6C8315A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B969093E-3FCB-4B36-A91F-6C0AA6C8315A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B969093E-3FCB-4B36-A91F-6C0AA6C8315A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B969093E-3FCB-4B36-A91F-6C0AA6C8315A}.Debug|x64.Build.0 = Debug|Any CPU
+		{B969093E-3FCB-4B36-A91F-6C0AA6C8315A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B969093E-3FCB-4B36-A91F-6C0AA6C8315A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B969093E-3FCB-4B36-A91F-6C0AA6C8315A}.Release|x64.ActiveCfg = Release|Any CPU
+		{B969093E-3FCB-4B36-A91F-6C0AA6C8315A}.Release|x64.Build.0 = Release|Any CPU
 		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Debug|x64.ActiveCfg = Debug|Any CPU

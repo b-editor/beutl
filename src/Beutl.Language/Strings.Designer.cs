@@ -79,11 +79,29 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Additional Options に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AdditionalOptions {
+            get {
+                return ResourceManager.GetString("AdditionalOptions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Add Layer に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string AddLayer {
             get {
                 return ResourceManager.GetString("AddLayer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Add Queue に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AddOutputQueue {
+            get {
+                return ResourceManager.GetString("AddOutputQueue", resourceCulture);
             }
         }
         
@@ -169,6 +187,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Audio に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Audio {
+            get {
+                return ResourceManager.GetString("Audio", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Back に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Back {
@@ -192,6 +219,24 @@ namespace Beutl.Language {
         public static string BitmapInterpolationMode {
             get {
                 return ResourceManager.GetString("BitmapInterpolationMode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Bitrate に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Bitrate {
+            get {
+                return ResourceManager.GetString("Bitrate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Set the bitrate に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Bitrate_Tip {
+            get {
+                return ResourceManager.GetString("Bitrate_Tip", resourceCulture);
             }
         }
         
@@ -264,6 +309,24 @@ namespace Beutl.Language {
         public static string Center {
             get {
                 return ResourceManager.GetString("Center", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Channels に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Channels {
+            get {
+                return ResourceManager.GetString("Channels", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Set the number of channels に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Channels_Tip {
+            get {
+                return ResourceManager.GetString("Channels_Tip", resourceCulture);
             }
         }
         
@@ -503,6 +566,24 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Destination to save to に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DestinationToSaveTo {
+            get {
+                return ResourceManager.GetString("DestinationToSaveTo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Set the destination に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DestinationToSaveTo_Tip {
+            get {
+                return ResourceManager.GetString("DestinationToSaveTo_Tip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Discard changes に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string DiscardChanges {
@@ -593,6 +674,33 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Encode に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Encode {
+            get {
+                return ResourceManager.GetString("Encode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Encoder に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Encoder {
+            get {
+                return ResourceManager.GetString("Encoder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Select an encoder に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Encoder_Tip {
+            get {
+                return ResourceManager.GetString("Encoder_Tip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   End Point に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string EndPoint {
@@ -674,6 +782,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Fix aspect ratio に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FixAspectRatio {
+            get {
+                return ResourceManager.GetString("FixAspectRatio", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Fix Image Size に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string FixImageSize {
@@ -742,6 +859,33 @@ namespace Beutl.Language {
         public static string FrameRate {
             get {
                 return ResourceManager.GetString("FrameRate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Set the framerate に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FrameRate_Tip {
+            get {
+                return ResourceManager.GetString("FrameRate_Tip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Frame size に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FrameSize {
+            get {
+                return ResourceManager.GetString("FrameSize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Set the frame size に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FrameSize_Tip {
+            get {
+                return ResourceManager.GetString("FrameSize_Tip", resourceCulture);
             }
         }
         
@@ -845,6 +989,24 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Keyframe rate に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string KeyframeRate {
+            get {
+                return ResourceManager.GetString("KeyframeRate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Set the keyframe rate に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string KeyframeRate_Tip {
+            get {
+                return ResourceManager.GetString("KeyframeRate_Tip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Language に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Language {
@@ -931,6 +1093,15 @@ namespace Beutl.Language {
         public static string MaskType {
             get {
                 return ResourceManager.GetString("MaskType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Monaural に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Monaural {
+            get {
+                return ResourceManager.GetString("Monaural", resourceCulture);
             }
         }
         
@@ -1084,6 +1255,15 @@ namespace Beutl.Language {
         public static string Output {
             get {
                 return ResourceManager.GetString("Output", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Output Video に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string OutputVideo {
+            get {
+                return ResourceManager.GetString("OutputVideo", resourceCulture);
             }
         }
         
@@ -1309,6 +1489,15 @@ namespace Beutl.Language {
         public static string SampleRate {
             get {
                 return ResourceManager.GetString("SampleRate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Set the sample rate に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SampleRate_Tip {
+            get {
+                return ResourceManager.GetString("SampleRate_Tip", resourceCulture);
             }
         }
         
@@ -1556,6 +1745,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Stereo に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Stereo {
+            get {
+                return ResourceManager.GetString("Stereo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Stream Operators に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string StreamOperators {
@@ -1588,6 +1786,15 @@ namespace Beutl.Language {
         public static string Style {
             get {
                 return ResourceManager.GetString("Style", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Suggestion に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Suggestion {
+            get {
+                return ResourceManager.GetString("Suggestion", resourceCulture);
             }
         }
         
@@ -1723,6 +1930,15 @@ namespace Beutl.Language {
         public static string Unimplemented {
             get {
                 return ResourceManager.GetString("Unimplemented", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Video に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Video {
+            get {
+                return ResourceManager.GetString("Video", resourceCulture);
             }
         }
         

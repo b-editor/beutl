@@ -3,6 +3,7 @@ using System.Reactive.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+using Beutl.Audio;
 using Beutl.Collections;
 using Beutl.Commands;
 using Beutl.Media;
@@ -387,11 +388,12 @@ public class Layer : Element, IStorable, ILogicalElement
     private void ForceRender()
     {
         Scene? scene = this.FindLogicalParent<Scene>();
-        if (IsEnabled
-            && scene != null &&
-            Start <= scene.CurrentFrame &&
-            scene.CurrentFrame < Start + Length &&
-            scene.Renderer is { IsDisposed: false, IsRendering: false })
+        if (Node.Value is not Sound
+            && IsEnabled
+            && scene != null
+            && Start <= scene.CurrentFrame
+            && scene.CurrentFrame < Start + Length
+            && scene.Renderer is { IsDisposed: false, IsGraphicsRendering: false })
         {
             scene.Renderer.Invalidate(scene.CurrentFrame);
         }
@@ -401,7 +403,7 @@ public class Layer : Element, IStorable, ILogicalElement
     {
         return Node.GetObservable(LayerNode.ValueProperty)
             .SelectMany(value => value != null
-                ? Observable.FromEventPattern(h => value.Invalidated += h, h => value.Invalidated -= h)
+                ? Observable.FromEventPattern<RenderInvalidatedEventArgs>(h => value.Invalidated += h, h => value.Invalidated -= h)
                     .Select(_ => Unit.Default)
                     .Publish(Unit.Default)
                     .RefCount()

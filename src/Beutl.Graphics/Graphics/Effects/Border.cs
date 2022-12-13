@@ -1,6 +1,7 @@
 ﻿using Beutl.Media;
 using Beutl.Media.Immutable;
 using Beutl.Media.Pixel;
+using Beutl.Media.Source;
 
 using OpenCvSharp;
 
@@ -162,7 +163,7 @@ public class Border : BitmapEffect
             var borderRect = new Rect(0, 0, border.Width, border.Height);
 
             ImmutableImageBrush? maskBrush = maskType != MaskTypes.None
-                ? new ImmutableImageBrush(src, stretch: Stretch.None)
+                ? new ImmutableImageBrush(new ImageSource(Ref<IBitmap>.Create(src), "Temp"), stretch: Stretch.None)
                 : null;
 
             using (var canvas = new Canvas((int)canvasRect.Width, (int)canvasRect.Height))

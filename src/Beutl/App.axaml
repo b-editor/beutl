@@ -154,5 +154,9 @@
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="ClipToBounds" Value="False" />
         </Style>
+
+        <Style Selector="ui|CommandBar /template/ ItemsControl#PrimaryItemsControl">
+            <Setter Property="HorizontalAlignment" Value="{Binding ItemsAlignment, RelativeSource={RelativeSource TemplatedParent}}" />
+        </Style>
     </Application.Styles>
 </Application>

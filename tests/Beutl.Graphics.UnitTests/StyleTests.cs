@@ -147,6 +147,8 @@ public class StyleTests
     public class Clock : IClock
     {
         public TimeSpan CurrentTime { get; }
+
+        public TimeSpan AudioStartTime { get; }
     }
 
     public class InheritStyleableObject : StyleableObject

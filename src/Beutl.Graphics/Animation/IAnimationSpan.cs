@@ -1,5 +1,6 @@
 ﻿
 using Beutl.Animation.Easings;
+using Beutl.Media;
 
 namespace Beutl.Animation;
 
@@ -15,7 +16,7 @@ public interface IAnimationSpan : ICoreObject
 
     Animator Animator { get; }
 
-    event EventHandler? Invalidated;
+    event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
     object Interpolate(float progress);
 }

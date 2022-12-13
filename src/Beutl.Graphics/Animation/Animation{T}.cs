@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 
 using Beutl.Collections;
+using Beutl.Media;
 using Beutl.Styling;
 
 namespace Beutl.Animation;
@@ -16,7 +17,7 @@ public class Animation<T> : BaseAnimation, IAnimation
         : base(property)
     {
         _children = new AnimationChildren(this);
-        _children.Invalidated += (_, _) => Invalidated?.Invoke(this, EventArgs.Empty);
+        _children.Invalidated += (_, e) => Invalidated?.Invoke(this, e);
     }
 
     public new CoreProperty<T> Property => (CoreProperty<T>)base.Property;
@@ -25,7 +26,7 @@ public class Animation<T> : BaseAnimation, IAnimation
 
     ICoreReadOnlyList<IAnimationSpan> IAnimation.Children => _children;
 
-    public event EventHandler? Invalidated;
+    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
     public void ReadFromJson(JsonNode json)
     {
@@ -145,19 +146,19 @@ public class Animation<T> : BaseAnimation, IAnimation
                     break;
             }
 
-            RaiseInvalidated();
+            RaiseInvalidated(new RenderInvalidatedEventArgs(this));
         }
 
-        public event EventHandler? Invalidated;
+        public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
-        private void Item_Invalidated(object? sender, EventArgs e)
+        private void Item_Invalidated(object? sender, RenderInvalidatedEventArgs e)
         {
-            RaiseInvalidated();
+            RaiseInvalidated(e);
         }
 
-        private void RaiseInvalidated()
+        private void RaiseInvalidated(RenderInvalidatedEventArgs args)
         {
-            Invalidated?.Invoke(this, EventArgs.Empty);
+            Invalidated?.Invoke(this, args);
         }
     }
 }

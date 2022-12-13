@@ -662,4 +662,76 @@ and b-editor maintains the download URL.</value>
   <data name="NoFilesUsedRecently" xml:space="preserve">
     <value>No files used recently.</value>
   </data>
+  <data name="AddOutputQueue" xml:space="preserve">
+    <value>Add Queue</value>
+  </data>
+  <data name="Suggestion" xml:space="preserve">
+    <value>Suggestion</value>
+  </data>
+  <data name="OutputVideo" xml:space="preserve">
+    <value>Output Video</value>
+  </data>
+  <data name="Encode" xml:space="preserve">
+    <value>Encode</value>
+  </data>
+  <data name="DestinationToSaveTo_Tip" xml:space="preserve">
+    <value>Set the destination</value>
+  </data>
+  <data name="DestinationToSaveTo" xml:space="preserve">
+    <value>Destination to save to</value>
+  </data>
+  <data name="Encoder_Tip" xml:space="preserve">
+    <value>Select an encoder</value>
+  </data>
+  <data name="Encoder" xml:space="preserve">
+    <value>Encoder</value>
+  </data>
+  <data name="FrameSize" xml:space="preserve">
+    <value>Frame size</value>
+  </data>
+  <data name="FrameSize_Tip" xml:space="preserve">
+    <value>Set the frame size</value>
+  </data>
+  <data name="FixAspectRatio" xml:space="preserve">
+    <value>Fix aspect ratio</value>
+  </data>
+  <data name="FrameRate_Tip" xml:space="preserve">
+    <value>Set the framerate</value>
+  </data>
+  <data name="Bitrate" xml:space="preserve">
+    <value>Bitrate</value>
+  </data>
+  <data name="Bitrate_Tip" xml:space="preserve">
+    <value>Set the bitrate</value>
+  </data>
+  <data name="KeyframeRate" xml:space="preserve">
+    <value>Keyframe rate</value>
+  </data>
+  <data name="KeyframeRate_Tip" xml:space="preserve">
+    <value>Set the keyframe rate</value>
+  </data>
+  <data name="SampleRate_Tip" xml:space="preserve">
+    <value>Set the sample rate</value>
+  </data>
+  <data name="Channels" xml:space="preserve">
+    <value>Channels</value>
+  </data>
+  <data name="Channels_Tip" xml:space="preserve">
+    <value>Set the number of channels</value>
+  </data>
+  <data name="Monaural" xml:space="preserve">
+    <value>Monaural</value>
+  </data>
+  <data name="Stereo" xml:space="preserve">
+    <value>Stereo</value>
+  </data>
+  <data name="Video" xml:space="preserve">
+    <value>Video</value>
+  </data>
+  <data name="Audio" xml:space="preserve">
+    <value>Audio</value>
+  </data>
+  <data name="AdditionalOptions" xml:space="preserve">
+    <value>Additional Options</value>
+  </data>
 </root>

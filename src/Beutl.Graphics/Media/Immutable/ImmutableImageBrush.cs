@@ -1,12 +1,13 @@
 ﻿
 using Beutl.Graphics;
+using Beutl.Media.Source;
 
 namespace Beutl.Media.Immutable;
 
 public class ImmutableImageBrush : ImmutableTileBrush, IImageBrush
 {
     public ImmutableImageBrush(
-        IBitmap source,
+        IImageSource source,
         AlignmentX alignmentX = AlignmentX.Center,
         AlignmentY alignmentY = AlignmentY.Center,
         RelativeRect? destinationRect = null,
@@ -38,5 +39,5 @@ public class ImmutableImageBrush : ImmutableTileBrush, IImageBrush
         Source = source.Source;
     }
 
-    public IBitmap? Source { get; }
+    public IImageSource? Source { get; }
 }

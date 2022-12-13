@@ -1,5 +1,7 @@
 ﻿using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Graphics;
+using Beutl.Media;
 using Beutl.Threading;
 
 using SkiaSharp;
@@ -12,15 +14,18 @@ public class DeferredRenderer : IRenderer
     private readonly SortedDictionary<int, ILayerContext> _objects = new();
     private readonly List<Rect> _clips = new();
     private readonly Canvas _graphics;
+    private readonly Audio.Audio _audio;
     private readonly Rect _canvasBounds;
     private readonly FpsText _fpsText = new();
     private readonly InstanceClock _instanceClock = new();
     private TimeSpan _lastTimeSpan;
+    //private int _lastAudioTime = -1;
 
     public DeferredRenderer(int width, int height)
     {
         _graphics = s_dispatcher.Invoke(() => new Canvas(width, height));
         _canvasBounds = new Rect(_graphics.Size.ToSize(1));
+        _audio = new Audio.Audio(44100);
     }
 
     ~DeferredRenderer()
@@ -30,11 +35,15 @@ public class DeferredRenderer : IRenderer
 
     public ICanvas Graphics => _graphics;
 
+    public IAudio Audio => _audio;
+
     public Dispatcher Dispatcher => s_dispatcher;
 
     public bool IsDisposed { get; private set; }
 
-    public bool IsRendering { get; private set; }
+    public bool IsGraphicsRendering { get; private set; }
+
+    public bool IsAudioRendering { get; private set; }
 
     public bool DrawFps
     {
@@ -72,26 +81,31 @@ public class DeferredRenderer : IRenderer
         IsDisposed = true;
     }
 
-    public IRenderer.RenderResult Render(TimeSpan timeSpan)
+    public IRenderer.RenderResult RenderGraphics(TimeSpan timeSpan)
     {
         Dispatcher.VerifyAccess();
-        if (!IsRendering)
+        if (!IsGraphicsRendering)
         {
-            IsRendering = true;
+            IsGraphicsRendering = true;
             _instanceClock.CurrentTime = timeSpan;
             using (_fpsText.StartRender(this))
             {
-                RenderCore(timeSpan);
+                RenderGraphicsCore(timeSpan);
             }
 
-            IsRendering = false;
-        }
+            IsGraphicsRendering = false;
 
-        _lastTimeSpan = timeSpan;
-        return new IRenderer.RenderResult(Graphics.GetBitmap());
+            _lastTimeSpan = timeSpan;
+
+            return new IRenderer.RenderResult(Graphics.GetBitmap());
+        }
+        else
+        {
+            return default;
+        }
     }
 
-    protected virtual void RenderCore(TimeSpan timeSpan)
+    protected virtual void RenderGraphicsCore(TimeSpan timeSpan)
     {
         var objects = new KeyValuePair<int, ILayerContext>[_objects.Count];
         _objects.CopyTo(objects, 0);
@@ -223,9 +237,10 @@ public class DeferredRenderer : IRenderer
     {
         if (RenderInvalidated != null)
         {
-            IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => Render(timeSpan));
+            IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => RenderGraphics(timeSpan));
             RenderInvalidated.Invoke(this, result);
-            result.Bitmap.Dispose();
+            result.Bitmap?.Dispose();
+            result.Audio?.Dispose();
         }
     }
 
@@ -244,5 +259,72 @@ public class DeferredRenderer : IRenderer
     void IRenderer.AddDirtyRect(Rect rect)
     {
         AddDirtyRect(rect);
+    }
+
+    void IRenderer.AddDirtyRange(TimeRange timeRange)
+    {
+
+    }
+
+    protected virtual void RenderAudioCore(TimeSpan timeSpan)
+    {
+        //var range = new TimeRange(timeSpan, TimeSpan.FromSeconds(1));
+        //var lastRange = new TimeRange(_lastTimeSpan, TimeSpan.FromSeconds(1));
+        //if (range.Intersects(lastRange))
+        //{
+        //    // 交差している場合その場所を再利用する
+        //}
+
+        _audio.Clear();
+
+        foreach (KeyValuePair<int, ILayerContext> item in _objects)
+        {
+            item.Value.RenderAudio(this, timeSpan);
+        }
+
+        //_lastAudioTime = timeSpan;
+    }
+
+    public IRenderer.RenderResult RenderAudio(TimeSpan timeSpan)
+    {
+        if (!IsAudioRendering)
+        {
+            IsAudioRendering = true;
+            _instanceClock.AudioStartTime = timeSpan;
+            RenderAudioCore(timeSpan);
+
+            IsAudioRendering = false;
+            return new IRenderer.RenderResult(Audio: Audio.GetPcm());
+        }
+        else
+        {
+            return default;
+        }
+    }
+
+    public IRenderer.RenderResult Render(TimeSpan timeSpan)
+    {
+        Dispatcher.VerifyAccess();
+        if (!IsGraphicsRendering && !IsAudioRendering)
+        {
+            IsGraphicsRendering = true;
+            IsAudioRendering = true;
+            _instanceClock.CurrentTime = timeSpan;
+            _instanceClock.AudioStartTime = timeSpan;
+            using (_fpsText.StartRender(this))
+            {
+                RenderGraphicsCore(timeSpan);
+                RenderAudioCore(timeSpan);
+            }
+
+            IsGraphicsRendering = false;
+            IsAudioRendering = false;
+            _lastTimeSpan = timeSpan;
+            return new IRenderer.RenderResult(Graphics.GetBitmap(), Audio.GetPcm());
+        }
+        else
+        {
+            return default;
+        }
     }
 }

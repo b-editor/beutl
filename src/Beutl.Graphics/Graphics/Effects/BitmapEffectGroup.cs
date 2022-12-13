@@ -22,7 +22,7 @@ public sealed class BitmapEffectGroup : BitmapEffect
     public BitmapEffectGroup()
     {
         _children = new BitmapEffects();
-        _children.Invalidated += (_, _) =>
+        _children.Invalidated += (_, e) =>
         {
             IBitmapProcessor[] array = new IBitmapProcessor[ValidEffectCount()];
             int index = 0;
@@ -35,7 +35,7 @@ public sealed class BitmapEffectGroup : BitmapEffect
                 }
             }
             _processor.Processors = array;
-            RaiseInvalidated();
+            RaiseInvalidated(e);
         };
     }
 

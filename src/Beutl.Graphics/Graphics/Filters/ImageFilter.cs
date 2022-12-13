@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Media;
 
 using SkiaSharp;
 
@@ -22,10 +23,10 @@ public abstract class ImageFilter : Animatable, IMutableImageFilter
 
     protected ImageFilter()
     {
-        AnimationInvalidated += (_, _) => RaiseInvalidated();
+        AnimationInvalidated += (_, e) => RaiseInvalidated(e);
     }
 
-    public event EventHandler? Invalidated;
+    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
     public bool IsEnabled
     {
@@ -49,15 +50,15 @@ public abstract class ImageFilter : Animatable, IMutableImageFilter
             {
                 if (e.Sender is T s)
                 {
-                    s.RaiseInvalidated();
+                    s.RaiseInvalidated(new RenderInvalidatedEventArgs(s, e.Property.Name));
                 }
             });
         }
     }
 
-    protected void RaiseInvalidated()
+    protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
     {
-        Invalidated?.Invoke(this, EventArgs.Empty);
+        Invalidated?.Invoke(this, args);
     }
 
     SKImageFilter IImageFilter.ToSKImageFilter()

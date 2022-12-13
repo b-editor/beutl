@@ -86,6 +86,8 @@ public unsafe class Bitmap<T> : IBitmap
 
     public bool IsDisposed { get; private set; }
 
+    public Type PixelType => typeof(T);
+
     public ref T this[int x, int y]
     {
         get
@@ -254,7 +256,7 @@ public unsafe class Bitmap<T> : IBitmap
         return dst;
     }
 
-    public object Clone()
+    public Bitmap<T> Clone()
     {
         ThrowIfDisposed();
 
@@ -371,4 +373,6 @@ public unsafe class Bitmap<T> : IBitmap
         if (roi.Bottom > Height) throw new ArgumentOutOfRangeException(nameof(roi));
         else if (roi.Right > Width) throw new ArgumentOutOfRangeException(nameof(roi));
     }
+
+    IBitmap IBitmap.Clone() => Clone();
 }

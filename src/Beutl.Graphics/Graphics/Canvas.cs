@@ -491,6 +491,9 @@ public class Canvas : ICanvas
 
     private void VerifyAccess()
     {
+        if (IsDisposed)
+            throw new ObjectDisposedException(nameof(Canvas));
+
         _dispatcher?.VerifyAccess();
     }
 
@@ -641,9 +644,8 @@ public class Canvas : ICanvas
         {
             bitmap = drawableBrush.Drawable.ToBitmap();
         }
-        else if (tileBrush is IImageBrush { Source.IsDisposed: false } imageBrush)
+        else if ((tileBrush as IImageBrush)?.Source?.Read(out bitmap) == true)
         {
-            bitmap = (IBitmap)imageBrush.Source.Clone();
         }
         else
         {

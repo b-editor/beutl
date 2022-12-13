@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 
 using Beutl.Animation;
 
@@ -17,7 +16,7 @@ public static class StyleSerializer
         var setters = new JsonObject();
         foreach (ISetter? item in style.Setters)
         {
-            (string name, JsonNode node) = item.ToJson(style.TargetType);
+            (string name, JsonNode? node) = item.ToJson(style.TargetType);
             setters[name] = node;
         }
         styleJson["setters"] = setters;
@@ -25,27 +24,19 @@ public static class StyleSerializer
         return styleJson;
     }
 
-    public static (string, JsonNode) ToJson(this ISetter setter, Type targetType)
+    public static (string, JsonNode?) ToJson(this ISetter setter, Type targetType)
     {
-        string? name;
         string? owner = null;
-        JsonNode? value = null;
         JsonArray? animations = null;
+        CorePropertyMetadata? metadata = setter.Property.GetMetadata<CorePropertyMetadata>(targetType);
+        string? name = metadata.SerializeName ?? setter.Property.Name;
 
-        if (targetType.IsAssignableTo(setter.Property.OwnerType))
+        if (!targetType.IsAssignableTo(setter.Property.OwnerType))
         {
-            name = setter.Property.GetMetadata<CorePropertyMetadata>(targetType).SerializeName ?? setter.Property.Name;
-        }
-        else
-        {
-            name = setter.Property.GetMetadata<CorePropertyMetadata>(targetType).SerializeName ?? setter.Property.Name;
             owner = TypeFormat.ToString(setter.Property.OwnerType);
         }
 
-        if (setter.Value != null)
-        {
-            value = SerializeValue(setter.Property.PropertyType, setter.Value);
-        }
+        JsonNode? value = setter.Property.RouteWriteToJson(metadata, setter.Value, out bool isDefault);
 
         if (setter.Animation is { } animation
             && animation.Children.Count > 0)
@@ -71,6 +62,10 @@ public static class StyleSerializer
         {
             return (name, jsonValue);
         }
+        else if (value == null && owner == null && animations == null)
+        {
+            return (name, null);
+        }
         else
         {
             var json = new JsonObject();
@@ -82,27 +77,6 @@ public static class StyleSerializer
                 json["animations"] = animations;
 
             return (name, json);
-        }
-    }
-
-    public static JsonNode? SerializeValue(Type type, object value)
-    {
-        if (value is IJsonSerializable serializable)
-        {
-            JsonNode jsonNode = new JsonObject();
-            serializable.WriteToJson(ref jsonNode);
-
-            Type? objType = value.GetType();
-            if (objType != type && jsonNode is JsonObject)
-            {
-                jsonNode["@type"] = TypeFormat.ToString(objType);
-            }
-
-            return jsonNode;
-        }
-        else
-        {
-            return JsonSerializer.SerializeToNode(value, type, JsonHelper.SerializerOptions);
         }
     }
 
@@ -183,7 +157,7 @@ public static class StyleSerializer
         object? value = null;
         if (valueNode != null)
         {
-            value = DeserializeValue(property.PropertyType, valueNode!);
+            value = DeserializeValue(property, valueNode!, property.GetMetadata<CorePropertyMetadata>(ownerType));
         }
 
         var animations = new List<AnimationSpan>();
@@ -203,38 +177,9 @@ public static class StyleSerializer
         return helper.InitializeSetter(property, value, animations);
     }
 
-    public static object? DeserializeValue(Type type, JsonNode jsonNode)
+    public static object? DeserializeValue(CoreProperty property, JsonNode jsonNode, CorePropertyMetadata metadata)
     {
-        if (jsonNode is JsonObject jsonObject
-            && jsonObject.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-            && atTypeNode is JsonValue atTypeValue
-            && atTypeValue.TryGetValue(out string? atTypeStr)
-            && TypeFormat.ToType(atTypeStr) is Type realType
-            && realType.IsAssignableTo(type)
-            && realType.IsAssignableTo(typeof(IJsonSerializable)))
-        {
-            var sobj = (IJsonSerializable?)Activator.CreateInstance(realType);
-            if (sobj != null)
-            {
-                sobj.ReadFromJson(jsonNode!);
-                return sobj;
-            }
-        }
-        else if (type.IsAssignableTo(typeof(IJsonSerializable)))
-        {
-            var sobj = (IJsonSerializable?)Activator.CreateInstance(type);
-            if (sobj != null)
-            {
-                sobj.ReadFromJson(jsonNode!);
-                return sobj;
-            }
-        }
-        else
-        {
-            return JsonSerializer.Deserialize(jsonNode, type, JsonHelper.SerializerOptions);
-        }
-
-        return type.IsValueType ? Activator.CreateInstance(type) : null;
+        return property.RouteReadFromJson(metadata, jsonNode);
     }
 
     private interface IGenericHelper
@@ -250,7 +195,11 @@ public static class StyleSerializer
 
         public ISetter InitializeSetter(CoreProperty property, object? value, IEnumerable<AnimationSpan> animations)
         {
-            var setter = new Setter<T>((CoreProperty<T>)property, (T?)value);
+            var setter = new Setter<T>((CoreProperty<T>)property);
+            if (value is T t)
+            {
+                setter.Value = t;
+            }
 
             var animation = new Animation<T>(setter.Property);
             animation.Children.AddRange(animations.OfType<AnimationSpan<T>>());

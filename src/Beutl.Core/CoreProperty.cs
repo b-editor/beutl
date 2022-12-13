@@ -54,9 +54,9 @@ public abstract class CoreProperty : ICoreProperty
 
     internal abstract void NotifyChanged(CorePropertyChangedEventArgs e);
 
-    internal abstract JsonNode? RouteWriteToJson(ICoreObject o, object? value);
+    internal abstract JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value, out bool isDefault);
 
-    internal abstract object? RouteReadFromJson(ICoreObject o, JsonNode node);
+    internal abstract object? RouteReadFromJson(CorePropertyMetadata metadata, JsonNode node);
 
     protected abstract IObservable<CorePropertyChangedEventArgs> GetChanged();
 
@@ -110,6 +110,9 @@ public abstract class CoreProperty : ICoreProperty
     {
         _ = type ?? throw new ArgumentNullException(nameof(type));
         _ = metadata ?? throw new ArgumentNullException(nameof(metadata));
+
+        if (metadata.PropertyType != PropertyType)
+            throw new InvalidOperationException("Property type mismatch.");
 
         if (_metadata.ContainsKey(type))
         {
@@ -207,67 +210,50 @@ public class CoreProperty<T> : CoreProperty
         return o.GetValue<T>(this);
     }
 
-    internal override JsonNode? RouteWriteToJson(ICoreObject o, object? value)
+    internal override JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value, out bool isDefault)
     {
-        CorePropertyMetadata<T> metadata = GetMetadata<CorePropertyMetadata<T>>(o.GetType());
-        object? def = metadata.GetDefaultValue();
+        var typedMetadata = (CorePropertyMetadata<T>)metadata;
+        object? def = typedMetadata.GetDefaultValue();
         // デフォルトの値と取得した値が同じ場合、保存しない
-        if (!RuntimeHelpers.Equals(def, value))
+        isDefault = RuntimeHelpers.Equals(def, value);
+        if (typedMetadata.JsonConverter is { } jsonConverter)
         {
-            if (metadata.JsonConverter is { } jsonConverter)
-            {
-                JsonSerializerOptions options = JsonHelper.SerializerOptions;
-                try
-                {
-                    options.Converters.Add(jsonConverter);
-                    return JsonSerializer.SerializeToNode(value, PropertyType, options);
-                }
-                finally
-                {
-                    options.Converters.Remove(jsonConverter);
-                }
-            }
-            else if (value is IJsonSerializable child)
-            {
-                JsonNode jsonNode = new JsonObject();
-                child.WriteToJson(ref jsonNode!);
+            var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
 
-                Type objType = value.GetType();
-                if (objType != PropertyType && jsonNode is JsonObject)
-                {
-                    jsonNode["@type"] = TypeFormat.ToString(objType);
-                }
+            options.Converters.Add(jsonConverter);
+            return JsonSerializer.SerializeToNode(value, PropertyType, options);
+        }
+        else if (value is IJsonSerializable child)
+        {
+            JsonNode jsonNode = new JsonObject();
+            child.WriteToJson(ref jsonNode!);
 
-                return jsonNode;
-            }
-            else
+            Type objType = value.GetType();
+            if (objType != PropertyType && jsonNode is JsonObject)
             {
-                return JsonSerializer.SerializeToNode(value, PropertyType, JsonHelper.SerializerOptions);
+                jsonNode["@type"] = TypeFormat.ToString(objType);
             }
+
+            return jsonNode;
         }
         else
         {
-            return null;
+            var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
+            return JsonSerializer.SerializeToNode(value, PropertyType, options);
         }
     }
 
-    internal override object? RouteReadFromJson(ICoreObject o, JsonNode node)
+    internal override object? RouteReadFromJson(CorePropertyMetadata metadata, JsonNode node)
     {
-        CorePropertyMetadata<T> metadata = GetMetadata<CorePropertyMetadata<T>>(o.GetType());
+        var typedMetadata = (CorePropertyMetadata<T>)metadata;
         Type type = PropertyType;
 
-        if (metadata.JsonConverter is { } jsonConverter)
+        if (typedMetadata.JsonConverter is { } jsonConverter)
         {
-            JsonSerializerOptions options = JsonHelper.SerializerOptions;
-            try
-            {
-                options.Converters.Add(jsonConverter);
-                return JsonSerializer.Deserialize(node, type, options);
-            }
-            finally
-            {
-                options.Converters.Remove(jsonConverter);
-            }
+            var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
+
+            options.Converters.Add(jsonConverter);
+            return JsonSerializer.Deserialize(node, type, options);
         }
         else if (node is JsonObject jsonObject
             && jsonObject.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
@@ -293,7 +279,8 @@ public class CoreProperty<T> : CoreProperty
         }
         else
         {
-            return JsonSerializer.Deserialize(node, type, JsonHelper.SerializerOptions);
+            var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
+            return JsonSerializer.Deserialize(node, type, options);
         }
     }
 

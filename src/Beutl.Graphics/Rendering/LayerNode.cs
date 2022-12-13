@@ -1,4 +1,6 @@
-﻿namespace Beutl.Rendering;
+﻿using Beutl.Media;
+
+namespace Beutl.Rendering;
 
 public sealed class LayerNode : Element
 {
@@ -40,6 +42,8 @@ public sealed class LayerNode : Element
         get => _duration;
         set => SetAndRaise(DurationProperty, ref _duration, value);
     }
+
+    public TimeRange Range => new(Start, Duration);
 
     public Renderable? Value
     {

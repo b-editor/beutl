@@ -43,10 +43,10 @@ public abstract class Brush : Animatable, IMutableBrush
 
     protected Brush()
     {
-        AnimationInvalidated += (_, _) => RaiseInvalidated();
+        AnimationInvalidated += (_, e) => RaiseInvalidated(e);
     }
 
-    public event EventHandler? Invalidated;
+    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
     /// <summary>
     /// Gets or sets the opacity of the brush.
@@ -88,7 +88,7 @@ public abstract class Brush : Animatable, IMutableBrush
         {
             if (e.Sender is T s)
             {
-                s.RaiseInvalidated();
+                s.RaiseInvalidated(new RenderInvalidatedEventArgs(s, e.Property.Name));
             }
         }
 
@@ -107,14 +107,14 @@ public abstract class Brush : Animatable, IMutableBrush
             {
                 if (e.Sender is T s)
                 {
-                    s.RaiseInvalidated();
+                    s.RaiseInvalidated(new RenderInvalidatedEventArgs(s, e.Property.Name));
                 }
             });
         }
     }
 
-    protected void RaiseInvalidated()
+    protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
     {
-        Invalidated?.Invoke(this, EventArgs.Empty);
+        Invalidated?.Invoke(this, args);
     }
 }

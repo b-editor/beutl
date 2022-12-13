@@ -1,6 +1,9 @@
 ﻿using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Music;
+using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.Threading;
 
@@ -14,9 +17,9 @@ public interface IRenderer : IDisposable
 
     ICanvas Graphics { get; }
 
-    IClock Clock { get; }
+    IAudio Audio { get; }
 
-    //public IAudio Audio { get; }
+    IClock Clock { get; }
 
     Dispatcher Dispatcher { get; }
 
@@ -24,9 +27,15 @@ public interface IRenderer : IDisposable
 
     bool IsDisposed { get; }
 
-    bool IsRendering { get; }
+    bool IsGraphicsRendering { get; }
+    
+    bool IsAudioRendering { get; }
 
     event EventHandler<RenderResult> RenderInvalidated;
+
+    RenderResult RenderGraphics(TimeSpan timeSpan);
+
+    RenderResult RenderAudio(TimeSpan timeSpan);
 
     RenderResult Render(TimeSpan timeSpan);
 
@@ -34,5 +43,7 @@ public interface IRenderer : IDisposable
 
     void AddDirtyRect(Rect rect);
 
-    public record struct RenderResult(Bitmap<Bgra8888> Bitmap/*, IAudio Audio*/);
+    void AddDirtyRange(TimeRange timeRange);
+
+    public record struct RenderResult(Bitmap<Bgra8888>? Bitmap = null, Pcm<Stereo32BitFloat>? Audio = null);
 }

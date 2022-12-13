@@ -39,7 +39,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
     public EditViewModel(Scene scene)
     {
         Scene = scene;
-        Player = new PlayerViewModel(scene);
+        Player = new PlayerViewModel(scene, IsEnabled);
         Commands = new KnownCommandsImpl(scene);
         SelectedObject = new ReactiveProperty<CoreObject?>()
             .DisposeWith(_disposables);
@@ -61,6 +61,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
 
     public ReactiveProperty<CoreObject?> SelectedObject { get; }
 
+    public ReactivePropertySlim<bool> IsEnabled { get; } = new(true);
+
     public PlayerViewModel Player { get; }
 
     //public EasingsViewModel Easings { get; }
@@ -79,10 +81,13 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
 
     public IObservable<Vector2> Offset { get; }
 
+    IReactiveProperty<bool> IEditorContext.IsEnabled => IsEnabled;
+
     public void Dispose()
     {
         SaveState();
         _disposables.Dispose();
+        Player.Dispose();
 
         foreach (ToolTabViewModel item in BottomTabItems.GetMarshal().Value)
         {

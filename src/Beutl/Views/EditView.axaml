@@ -12,6 +12,7 @@
              d:DesignHeight="720"
              d:DesignWidth="1280"
              x:DataType="vm:EditViewModel"
+             IsEnabled="{CompiledBinding IsEnabled.Value}"
              mc:Ignorable="d">
     <UserControl.Styles>
         <Style Selector="GridSplitter.EditViewSplitter">
@@ -106,6 +107,7 @@
                         NextButtonCommand="{CompiledBinding Player.Next}"
                         PlayButtonCommand="{CompiledBinding Player.PlayPause}"
                         PreviousButtonCommand="{CompiledBinding Player.Previous}"
+                        Source="{CompiledBinding Player.PreviewImage.Value, Mode=OneWay}"
                         StartButtonCommand="{CompiledBinding Player.Start}"
                         Value="{Binding Scene.CurrentFrame, Converter={StaticResource TimeSpanToDoubleConverter}}"
                         Duration="{Binding Scene.Duration, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}" />
