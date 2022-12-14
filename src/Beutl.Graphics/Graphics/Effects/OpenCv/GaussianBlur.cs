@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Language;
+using Beutl.Media;
 using Beutl.Media.Pixel;
 
 using OpenCvSharp;
@@ -18,6 +19,7 @@ public class GaussianBlur : BitmapEffect
     {
         KernelSizeProperty = ConfigureProperty<PixelSize, GaussianBlur>(nameof(KernelSize))
             .Accessor(o => o.KernelSize, (o, v) => o.KernelSize = v)
+            .Display(Strings.KernelSize)
             .DefaultValue(PixelSize.Empty)
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("kernel-size")
@@ -25,6 +27,7 @@ public class GaussianBlur : BitmapEffect
 
         SigmaProperty = ConfigureProperty<Vector, GaussianBlur>(nameof(Sigma))
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
+            .Display(Strings.Sigma)
             .DefaultValue(Vector.Zero)
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("sigma")
@@ -32,6 +35,7 @@ public class GaussianBlur : BitmapEffect
 
         FixImageSizeProperty = ConfigureProperty<bool, GaussianBlur>(nameof(FixImageSize))
             .Accessor(o => o.FixImageSize, (o, v) => o.FixImageSize = v)
+            .Display(Strings.FixImageSize)
             .DefaultValue(false)
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("fix-image-size")

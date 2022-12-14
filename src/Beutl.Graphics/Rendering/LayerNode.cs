@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Language;
+using Beutl.Media;
 
 namespace Beutl.Rendering;
 
@@ -15,11 +16,13 @@ public sealed class LayerNode : Element
     {
         StartProperty = ConfigureProperty<TimeSpan, LayerNode>(nameof(Start))
             .Accessor(o => o.Start, (o, v) => o.Start = v)
+            .Display(Strings.StartTime)
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         DurationProperty = ConfigureProperty<TimeSpan, LayerNode>(nameof(Duration))
             .Accessor(o => o.Duration, (o, v) => o.Duration = v)
+            .Display(Strings.DurationTime)
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 

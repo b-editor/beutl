@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Language;
+using Beutl.Media;
 using Beutl.Media.Immutable;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
@@ -55,6 +56,7 @@ public class Border : BitmapEffect
     {
         OffsetProperty = ConfigureProperty<Point, Border>(nameof(Offset))
             .Accessor(o => o.Offset, (o, v) => o.Offset = v)
+            .Display(Strings.Offset)
             .DefaultValue(default)
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("offset")
@@ -62,6 +64,7 @@ public class Border : BitmapEffect
 
         ThicknessProperty = ConfigureProperty<int, Border>(nameof(Thickness))
             .Accessor(o => o.Thickness, (o, v) => o.Thickness = v)
+            .Display(Strings.Thickness)
             .DefaultValue(0)
             .Minimum(0)
             .PropertyFlags(PropertyFlags.All)
@@ -70,6 +73,7 @@ public class Border : BitmapEffect
 
         ColorProperty = ConfigureProperty<Color, Border>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
+            .Display(Strings.Color)
             .DefaultValue(Colors.White)
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("color")
@@ -77,6 +81,7 @@ public class Border : BitmapEffect
 
         MaskTypeProperty = ConfigureProperty<MaskTypes, Border>(nameof(MaskType))
             .Accessor(o => o.MaskType, (o, v) => o.MaskType = v)
+            .Display(Strings.MaskType)
             .DefaultValue(MaskTypes.None)
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("mask-type")
@@ -84,6 +89,7 @@ public class Border : BitmapEffect
 
         StyleProperty = ConfigureProperty<BorderStyles, Border>(nameof(Style))
             .Accessor(o => o.Style, (o, v) => o.Style = v)
+            .Display(Strings.BorderStyle)
             .DefaultValue(BorderStyles.Background)
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("border-style")

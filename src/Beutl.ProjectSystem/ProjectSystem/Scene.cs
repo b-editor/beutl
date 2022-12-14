@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
 using Beutl.Framework;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Rendering;
 
@@ -65,6 +66,7 @@ public class Scene : Element, IStorable, IWorkspaceItem
 
         DurationProperty = ConfigureProperty<TimeSpan, Scene>(nameof(Duration))
             .Accessor(o => o.Duration, (o, v) => o.Duration = v)
+            .Display(Strings.DurationTime)
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("duration")
             .Register();

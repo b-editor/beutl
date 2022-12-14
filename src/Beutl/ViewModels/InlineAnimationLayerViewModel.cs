@@ -47,7 +47,8 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         property.Animation.Invalidated += OnAnimationInvalidated;
         Timeline.Options.Subscribe(_ => UpdateWidth()).DisposeWith(_disposables);
 
-        Header = PropertyEditorService.GetPropertyName(property.Property);
+        CorePropertyMetadata metadata = property.Property.GetMetadata<CorePropertyMetadata>(property.ImplementedType);
+        Header = metadata.DisplayAttribute?.GetName() ?? property.Property.Name;
 
         Close = new ReactiveCommand()
             .WithSubscribe(() => Timeline.DetachInline(this))

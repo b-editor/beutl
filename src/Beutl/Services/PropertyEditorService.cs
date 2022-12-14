@@ -43,24 +43,6 @@ public static class PropertyEditorService
         return default;
     }
 
-    public static string GetPropertyName(CoreProperty property)
-    {
-        ExtensionProvider extp = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
-
-        LocalizedPropertyNameExtension[] items = extp.GetExtensions<LocalizedPropertyNameExtension>();
-        for (int i = items.Length - 1; i >= 0; i--)
-        {
-            LocalizedPropertyNameExtension item = items[i];
-            var o = item.GetLocalizedName(property);
-            if (o != null)
-            {
-                return o;
-            }
-        }
-
-        return property.Name;
-    }
-
     private static Control? CreateEnumEditor(IAbstractProperty s)
     {
         Type type = typeof(EnumEditor<>).MakeGenericType(s.Property.PropertyType);

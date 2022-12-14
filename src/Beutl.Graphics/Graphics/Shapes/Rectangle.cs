@@ -1,4 +1,6 @@
-﻿namespace Beutl.Graphics.Shapes;
+﻿using Beutl.Language;
+
+namespace Beutl.Graphics.Shapes;
 
 public sealed class Rectangle : Drawable
 {
@@ -9,6 +11,7 @@ public sealed class Rectangle : Drawable
     {
         StrokeWidthProperty = ConfigureProperty<float, Rectangle>(nameof(StrokeWidth))
             .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
+            .Display(Strings.StrokeWidth)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(4000)
             .Minimum(0)

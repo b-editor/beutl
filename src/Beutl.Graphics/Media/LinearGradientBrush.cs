@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics;
+using Beutl.Language;
 using Beutl.Media.Immutable;
 
 namespace Beutl.Media;
@@ -17,6 +18,7 @@ public sealed class LinearGradientBrush : GradientBrush, ILinearGradientBrush
     {
         StartPointProperty = ConfigureProperty<RelativePoint, LinearGradientBrush>(nameof(StartPoint))
             .DefaultValue(RelativePoint.TopLeft)
+            .Display(Strings.StartPoint)
             .Accessor(o => o.StartPoint, (o, v) => o.StartPoint = v)
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("start-point")
@@ -24,6 +26,7 @@ public sealed class LinearGradientBrush : GradientBrush, ILinearGradientBrush
 
         EndPointProperty = ConfigureProperty<RelativePoint, LinearGradientBrush>(nameof(EndPoint))
             .DefaultValue(RelativePoint.BottomRight)
+            .Display(Strings.EndPoint)
             .Accessor(o => o.EndPoint, (o, v) => o.EndPoint = v)
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("end-point")

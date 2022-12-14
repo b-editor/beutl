@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Language;
+using Beutl.Media;
 using Beutl.Media.Pixel;
 
 namespace Beutl.Graphics.Shapes;
@@ -14,6 +15,7 @@ public sealed class RoundedRect : Drawable
     {
         StrokeWidthProperty = ConfigureProperty<float, RoundedRect>(nameof(StrokeWidth))
             .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
+            .Display(Strings.StrokeWidth)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(4000)
             .Minimum(0)
@@ -22,6 +24,7 @@ public sealed class RoundedRect : Drawable
 
         CornerRadiusProperty = ConfigureProperty<CornerRadius, RoundedRect>(nameof(CornerRadius))
             .Accessor(o => o.CornerRadius, (o, v) => o.CornerRadius = v)
+            .Display(Strings.CornerRadius)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(new CornerRadius())
             .Minimum(new CornerRadius())

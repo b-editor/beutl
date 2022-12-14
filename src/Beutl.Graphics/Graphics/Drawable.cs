@@ -2,6 +2,7 @@
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Filters;
 using Beutl.Graphics.Transformation;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Rendering;
@@ -37,6 +38,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     {
         WidthProperty = ConfigureProperty<float, Drawable>(nameof(Width))
             .Accessor(o => o.Width, (o, v) => o.Width = v)
+            .Display(Strings.Width)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(0)
             .Minimum(0)
@@ -45,6 +47,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
         HeightProperty = ConfigureProperty<float, Drawable>(nameof(Height))
             .Accessor(o => o.Height, (o, v) => o.Height = v)
+            .Display(Strings.Height)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(0)
             .Minimum(0)
@@ -53,6 +56,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
         TransformProperty = ConfigureProperty<ITransform?, Drawable>(nameof(Transform))
             .Accessor(o => o.Transform, (o, v) => o.Transform = v)
+            .Display(Strings.Transform)
             .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .DefaultValue(null)
             .SerializeName("transform")
@@ -60,6 +64,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
         FilterProperty = ConfigureProperty<IImageFilter?, Drawable>(nameof(Filter))
             .Accessor(o => o.Filter, (o, v) => o.Filter = v)
+            .Display(Strings.ImageFilter)
             .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .DefaultValue(null)
             .SerializeName("filter")
@@ -67,6 +72,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
         EffectProperty = ConfigureProperty<IBitmapEffect?, Drawable>(nameof(Effect))
             .Accessor(o => o.Effect, (o, v) => o.Effect = v)
+            .Display(Strings.BitmapEffect)
             .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .DefaultValue(null)
             .SerializeName("effect")
@@ -74,6 +80,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
         AlignmentXProperty = ConfigureProperty<AlignmentX, Drawable>(nameof(AlignmentX))
             .Accessor(o => o.AlignmentX, (o, v) => o.AlignmentX = v)
+            .Display(Strings.AlignmentX)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(AlignmentX.Left)
             .SerializeName("align-x")
@@ -81,6 +88,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
         AlignmentYProperty = ConfigureProperty<AlignmentY, Drawable>(nameof(AlignmentY))
             .Accessor(o => o.AlignmentY, (o, v) => o.AlignmentY = v)
+            .Display(Strings.AlignmentY)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(AlignmentY.Top)
             .SerializeName("align-y")
@@ -88,18 +96,21 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
         TransformOriginProperty = ConfigureProperty<RelativePoint, Drawable>(nameof(TransformOrigin))
             .Accessor(o => o.TransformOrigin, (o, v) => o.TransformOrigin = v)
+            .Display(Strings.TransformOrigin)
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("transform-origin")
             .Register();
 
         ForegroundProperty = ConfigureProperty<IBrush?, Drawable>(nameof(Foreground))
             .Accessor(o => o.Foreground, (o, v) => o.Foreground = v)
+            .Display(Strings.Foreground)
             .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .SerializeName("foreground")
             .Register();
 
         OpacityMaskProperty = ConfigureProperty<IBrush?, Drawable>(nameof(OpacityMask))
             .Accessor(o => o.OpacityMask, (o, v) => o.OpacityMask = v)
+            .Display(Strings.OpacityMask)
             .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .DefaultValue(null)
             .SerializeName("opacity-mask")
@@ -107,6 +118,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
         BlendModeProperty = ConfigureProperty<BlendMode, Drawable>(nameof(BlendMode))
             .Accessor(o => o.BlendMode, (o, v) => o.BlendMode = v)
+            .Display(Strings.BlendMode)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(BlendMode.SrcOver)
             .SerializeName("blend-mode")

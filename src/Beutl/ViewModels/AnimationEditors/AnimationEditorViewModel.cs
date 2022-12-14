@@ -48,7 +48,8 @@ public sealed class AnimationEditorViewModel : IDisposable
             })
             .AddTo(_disposables);
 
-        Header = PropertyEditorService.GetPropertyName(property.Property);
+        CorePropertyMetadata metadata = property.Property.GetMetadata<CorePropertyMetadata>(property.ImplementedType);
+        Header = metadata.DisplayAttribute?.GetName() ?? property.Property.Name;
     }
 
     ~AnimationEditorViewModel()

@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Validation;
@@ -18,6 +19,7 @@ public class ImageFile : Drawable
     {
         SourceFileProperty = ConfigureProperty<FileInfo?, ImageFile>(nameof(SourceFile))
             .Accessor(o => o.SourceFile, (o, v) => o.SourceFile = v)
+            .Display(Strings.SourceFile)
             .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .Validator(new FileInfoExtensionValidator()
             {

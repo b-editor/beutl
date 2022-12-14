@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
 
@@ -30,6 +31,7 @@ public class TextBlock : Drawable
     {
         FontWeightProperty = ConfigureProperty<FontWeight, TextBlock>(nameof(FontWeight))
             .Accessor(o => o.FontWeight, (o, v) => o.FontWeight = v)
+            .Display(Strings.FontWeight)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(FontWeight.Regular)
             .SerializeName("font-weight")
@@ -37,6 +39,7 @@ public class TextBlock : Drawable
 
         FontStyleProperty = ConfigureProperty<FontStyle, TextBlock>(nameof(FontStyle))
             .Accessor(o => o.FontStyle, (o, v) => o.FontStyle = v)
+            .Display(Strings.FontStyle)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(FontStyle.Normal)
             .SerializeName("font-style")
@@ -44,6 +47,7 @@ public class TextBlock : Drawable
 
         FontFamilyProperty = ConfigureProperty<FontFamily, TextBlock>(nameof(FontFamily))
             .Accessor(o => o.FontFamily, (o, v) => o.FontFamily = v)
+            .Display(Strings.FontFamily)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(FontFamily.Default)
             .SerializeName("font-family")
@@ -51,6 +55,7 @@ public class TextBlock : Drawable
 
         SizeProperty = ConfigureProperty<float, TextBlock>(nameof(Size))
             .Accessor(o => o.Size, (o, v) => o.Size = v)
+            .Display(Strings.Size)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(0)
             .Minimum(0)
@@ -59,6 +64,7 @@ public class TextBlock : Drawable
 
         SpacingProperty = ConfigureProperty<float, TextBlock>(nameof(Spacing))
             .Accessor(o => o.Spacing, (o, v) => o.Spacing = v)
+            .Display(Strings.CharactorSpacing)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(0)
             .SerializeName("spacing")
@@ -66,6 +72,7 @@ public class TextBlock : Drawable
 
         TextProperty = ConfigureProperty<string, TextBlock>(nameof(Text))
             .Accessor(o => o.Text, (o, v) => o.Text = v)
+            .Display(Strings.Text)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(string.Empty)
             .SerializeName("text")
@@ -73,6 +80,7 @@ public class TextBlock : Drawable
 
         MarginProperty = ConfigureProperty<Thickness, TextBlock>(nameof(Margin))
             .Accessor(o => o.Margin, (o, v) => o.Margin = v)
+            .Display(Strings.Margin)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(new Thickness())
             .SerializeName("margin")

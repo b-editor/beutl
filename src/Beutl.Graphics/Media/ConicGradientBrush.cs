@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics;
+using Beutl.Language;
 using Beutl.Media.Immutable;
 
 namespace Beutl.Media;
@@ -17,6 +18,7 @@ public sealed class ConicGradientBrush : GradientBrush, IConicGradientBrush
     {
         CenterProperty = ConfigureProperty<RelativePoint, ConicGradientBrush>(nameof(Center))
             .Accessor(o => o.Center, (o, v) => o.Center = v)
+            .Display(Strings.Center)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(RelativePoint.Center)
             .SerializeName("center")
@@ -24,6 +26,7 @@ public sealed class ConicGradientBrush : GradientBrush, IConicGradientBrush
 
         AngleProperty = ConfigureProperty<float, ConicGradientBrush>(nameof(Angle))
             .Accessor(o => o.Angle, (o, v) => o.Angle = v)
+            .Display(Strings.Angle)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(0)
             .SerializeName("angle")

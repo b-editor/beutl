@@ -19,7 +19,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext
     {
         WrappedProperty = property;
 
-        Header = PropertyEditorService.GetPropertyName(property.Property);
+        CorePropertyMetadata metadata = property.Property.GetMetadata<CorePropertyMetadata>(property.ImplementedType);
+        Header = metadata.DisplayAttribute?.GetName() ?? property.Property.Name;
 
         IObservable<bool> hasAnimation = property is IAbstractAnimatableProperty anm
             ? anm.HasAnimation

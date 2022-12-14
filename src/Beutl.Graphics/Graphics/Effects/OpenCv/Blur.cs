@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Language;
+using Beutl.Media;
 using Beutl.Media.Pixel;
 
 using OpenCvSharp;
@@ -16,6 +17,7 @@ public class Blur : BitmapEffect
     {
         KernelSizeProperty = ConfigureProperty<PixelSize, Blur>(nameof(KernelSize))
             .Accessor(o => o.KernelSize, (o, v) => o.KernelSize = v)
+            .Display(Strings.KernelSize)
             .DefaultValue(PixelSize.Empty)
             .Minimum(new PixelSize(1, 1))
             .PropertyFlags(PropertyFlags.All)
@@ -24,6 +26,7 @@ public class Blur : BitmapEffect
 
         FixImageSizeProperty = ConfigureProperty<bool, Blur>(nameof(FixImageSize))
             .Accessor(o => o.FixImageSize, (o, v) => o.FixImageSize = v)
+            .Display(Strings.FixImageSize)
             .DefaultValue(false)
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("fix-image-size")
