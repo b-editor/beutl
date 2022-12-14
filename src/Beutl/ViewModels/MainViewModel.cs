@@ -339,7 +339,6 @@ public sealed class MainViewModel : BasePageViewModel
                 AnimationTabExtension.Instance,
                 PropertyEditorExtension.Instance,
                 AlignmentsPropertyEditorExtension.Instance,
-                DefaultPropertyNameExtension.Instance,
             });
 
             foreach (LocalPackage item in await manager.GetPackages())

@@ -54,6 +54,7 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
         }
     }
 
+    // Todo: Validation
     public T? Value
     {
         get => _value;
