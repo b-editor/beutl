@@ -1,9 +1,13 @@
-﻿using System.ComponentModel;
+﻿using System.Collections;
+using System.ComponentModel;
+using System.Linq.Expressions;
 using System.Text.Json.Nodes;
+
+using Beutl.Validation;
 
 namespace Beutl;
 
-public interface ICoreObject : INotifyPropertyChanged, IJsonSerializable
+public interface ICoreObject : INotifyPropertyChanged, IJsonSerializable, INotifyDataErrorInfo
 {
     Guid Id { get; set; }
 
@@ -31,9 +35,9 @@ public abstract class CoreObject : ICoreObject
     public static readonly CoreProperty<Guid> IdProperty;
 
     public static readonly CoreProperty<string> NameProperty;
-
     private Dictionary<int, IEntry>? _values;
     private Dictionary<int, IBatchEntry>? _batchChanges;
+    private Dictionary<int, string>? _errors;
     private bool _batchApplying;
 
     private int _batchUpdateCount;
@@ -94,11 +98,47 @@ public abstract class CoreObject : ICoreObject
 
     private Dictionary<int, IBatchEntry> BatchChanges => _batchChanges ??= new();
 
+    private Dictionary<int, string> Errors => _errors ??= new();
+
+    public bool HasErrors => _errors?.Count > 0;
+
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
 
     public static CorePropertyBuilder<T, TOwner> ConfigureProperty<T, TOwner>(string name)
     {
         return new CorePropertyBuilder<T, TOwner>(name);
+    }
+
+    public static CorePropertyBuilder<T, TOwner> ConfigureProperty<T, TOwner>(Expression<Func<TOwner, T>> exp)
+    {
+        return new CorePropertyBuilder<T, TOwner>(exp);
+    }
+
+    public IEnumerable GetErrors(string? propertyName)
+    {
+        if (_errors == null)
+        {
+            return Enumerable.Empty<string>();
+        }
+
+        if (string.IsNullOrEmpty(propertyName))
+        {
+            return _errors.Values;
+        }
+        else
+        {
+            CoreProperty? property = PropertyRegistry.FindRegistered(this, propertyName);
+            if (property != null && _errors.TryGetValue(property.Id, out string? message))
+            {
+                return new OnceEnumerable<string>(message);
+            }
+            else
+            {
+                return Enumerable.Empty<string>();
+            }
+        }
     }
 
     public void BeginBatchUpdate()
@@ -178,6 +218,41 @@ public abstract class CoreObject : ICoreObject
         return property.RouteGetValue(this);
     }
 
+    private void ValidateProperty<TValue>(
+        CorePropertyMetadata<TValue> metadata, CoreProperty<TValue> property, ref TValue? value)
+    {
+        if (metadata.Validator is IValidator<TValue> validator)
+        {
+            bool oldHasErrors = HasErrors;
+            string? oldError = _errors != null && _errors.TryGetValue(property.Id, out string? v) ? v : null;
+            string? newError;
+
+            var vcontext = new ValidationContext(this, property);
+            if (!validator.TryCoerce(vcontext, ref value)
+                && validator.Validate(vcontext, value) is string message)
+            {
+                // 値の強制が失敗、検証に失敗した場合、エラーメッセージを設定
+                Errors[property.Id] = message;
+                newError = message;
+            }
+            else
+            {
+                Errors.Remove(property.Id);
+                newError = null;
+            }
+
+            if (ErrorsChanged != null && oldError != newError)
+            {
+                ErrorsChanged.Invoke(this, new DataErrorsChangedEventArgs(property.Name));
+            }
+
+            if (oldHasErrors != HasErrors)
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasErrors)));
+            }
+        }
+    }
+
     public void SetValue<TValue>(CoreProperty<TValue> property, TValue? value)
     {
         if (value != null && !value.GetType().IsAssignableTo(property.PropertyType))
@@ -198,10 +273,7 @@ public abstract class CoreObject : ICoreObject
         }
 
         CorePropertyMetadata<TValue>? metadata = property.GetMetadata<CorePropertyMetadata<TValue>>(ownerType);
-        if (metadata.Validator != null)
-        {
-            value = metadata.Validator.Coerce(this, value);
-        }
+        ValidateProperty(metadata, property, ref value);
 
         if (BatchUpdate)
         {
@@ -339,10 +411,7 @@ public abstract class CoreObject : ICoreObject
     protected bool SetAndRaise<T>(CoreProperty<T> property, ref T field, T value)
     {
         CorePropertyMetadata<T>? metadata = property.GetMetadata<CorePropertyMetadata<T>>(GetType());
-        if (metadata.Validator != null)
-        {
-            value = metadata.Validator.Coerce(this, value)!;
-        }
+        ValidateProperty(metadata, property, ref value!);
 
         bool result = !EqualityComparer<T>.Default.Equals(field, value);
         if (BatchUpdate)

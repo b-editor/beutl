@@ -8,13 +8,21 @@ internal sealed class TimeSpanRangeValidator : RangeValidator<TimeSpan>
         Minimum = TimeSpan.MinValue;
     }
 
-    public override TimeSpan Coerce(ICoreObject? obj, TimeSpan value)
+    public override bool TryCoerce(ValidationContext context, ref TimeSpan value)
     {
-        return TimeSpan.FromTicks(Math.Clamp(value.Ticks, Minimum.Ticks, Maximum.Ticks));
+        value = TimeSpan.FromTicks(Math.Clamp(value.Ticks, Minimum.Ticks, Maximum.Ticks));
+        return true;
     }
 
-    public override bool Validate(ICoreObject? obj, TimeSpan value)
+    public override string? Validate(ValidationContext context, TimeSpan value)
     {
-        return value >= Minimum && value <= Maximum;
+        if (value >= Minimum && value <= Maximum)
+        {
+            return $"The value must be between {Minimum} and {Maximum}.";
+        }
+        else
+        {
+            return null;
+        }
     }
 }

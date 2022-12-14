@@ -12,17 +12,26 @@ namespace Beutl.Validation
             Minimum = new(System.Single.MinValue, System.Single.MinValue);
         }
 
-        public override System.Numerics.Vector2 Coerce(ICoreObject? obj, System.Numerics.Vector2 value)
+        public override bool TryCoerce(ValidationContext context, ref System.Numerics.Vector2 value)
         {
-            return new System.Numerics.Vector2(
+            value = new System.Numerics.Vector2(
                 Math.Clamp(value.X, Minimum.X, Maximum.X),
                 Math.Clamp(value.Y, Minimum.Y, Maximum.Y));
+
+            return true;
         }
         
-        public override bool Validate(ICoreObject? obj, System.Numerics.Vector2 value)
+        public override string? Validate(ValidationContext context, System.Numerics.Vector2 value)
         {
-            return value.X >= Minimum.X && value.X <= Maximum.X
-                && value.Y >= Minimum.Y && value.Y <= Maximum.Y;
+            if (value.X >= Minimum.X && value.X <= Maximum.X
+                && value.Y >= Minimum.Y && value.Y <= Maximum.Y)
+            {
+                return $"The value must be between {Minimum} and {Maximum}.";
+            }
+            else
+            {
+                return null;
+            }
         }
     }
 
@@ -35,19 +44,28 @@ namespace Beutl.Validation
             Minimum = new(System.Single.MinValue, System.Single.MinValue, System.Single.MinValue);
         }
 
-        public override System.Numerics.Vector3 Coerce(ICoreObject? obj, System.Numerics.Vector3 value)
+        public override bool TryCoerce(ValidationContext context, ref System.Numerics.Vector3 value)
         {
-            return new System.Numerics.Vector3(
+            value = new System.Numerics.Vector3(
                 Math.Clamp(value.X, Minimum.X, Maximum.X),
                 Math.Clamp(value.Y, Minimum.Y, Maximum.Y),
                 Math.Clamp(value.Z, Minimum.Z, Maximum.Z));
+
+            return true;
         }
         
-        public override bool Validate(ICoreObject? obj, System.Numerics.Vector3 value)
+        public override string? Validate(ValidationContext context, System.Numerics.Vector3 value)
         {
-            return value.X >= Minimum.X && value.X <= Maximum.X
+            if (value.X >= Minimum.X && value.X <= Maximum.X
                 && value.Y >= Minimum.Y && value.Y <= Maximum.Y
-                && value.Z >= Minimum.Z && value.Z <= Maximum.Z;
+                && value.Z >= Minimum.Z && value.Z <= Maximum.Z)
+            {
+                return $"The value must be between {Minimum} and {Maximum}.";
+            }
+            else
+            {
+                return null;
+            }
         }
     }
 
@@ -60,21 +78,30 @@ namespace Beutl.Validation
             Minimum = new(System.Single.MinValue, System.Single.MinValue, System.Single.MinValue, System.Single.MinValue);
         }
 
-        public override System.Numerics.Vector4 Coerce(ICoreObject? obj, System.Numerics.Vector4 value)
+        public override bool TryCoerce(ValidationContext context, ref System.Numerics.Vector4 value)
         {
-            return new System.Numerics.Vector4(
+            value = new System.Numerics.Vector4(
                 Math.Clamp(value.X, Minimum.X, Maximum.X),
                 Math.Clamp(value.Y, Minimum.Y, Maximum.Y),
                 Math.Clamp(value.Z, Minimum.Z, Maximum.Z),
                 Math.Clamp(value.W, Minimum.W, Maximum.W));
+
+            return true;
         }
         
-        public override bool Validate(ICoreObject? obj, System.Numerics.Vector4 value)
+        public override string? Validate(ValidationContext context, System.Numerics.Vector4 value)
         {
-            return value.X >= Minimum.X && value.X <= Maximum.X
+            if (value.X >= Minimum.X && value.X <= Maximum.X
                 && value.Y >= Minimum.Y && value.Y <= Maximum.Y
                 && value.Z >= Minimum.Z && value.Z <= Maximum.Z
-                && value.W >= Minimum.W && value.W <= Maximum.W;
+                && value.W >= Minimum.W && value.W <= Maximum.W)
+            {
+                return $"The value must be between {Minimum} and {Maximum}.";
+            }
+            else
+            {
+                return null;
+            }
         }
     }
 }

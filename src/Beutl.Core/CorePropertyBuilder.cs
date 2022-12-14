@@ -1,4 +1,5 @@
-﻿using System.Linq.Expressions;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.Json.Serialization;
 
@@ -16,11 +17,61 @@ public sealed class CorePropertyBuilder<T, TOwner>
     private Optional<T> _defaultValue;
     private IValidator<T>? _validator;
     private JsonConverter<T>? _jsonConverter;
+    private readonly PropertyInfo? _propertyInfo;
+    private DisplayAttribute? _displayAttribute;
+    // Whether _displayAttribute was set from the attribute
+    private bool _displayAttByAtt;
 
     public CorePropertyBuilder(string name)
     {
         _name = name;
         Raw = new RawBuilder(this);
+
+        _propertyInfo = typeof(TOwner).GetProperty(name) ?? throw new InvalidOperationException();
+        _displayAttribute = _propertyInfo.GetCustomAttribute<DisplayAttribute>();
+        _displayAttByAtt = _displayAttribute != null;
+
+        DataAnnotationValidater<T>[] validations
+            = _propertyInfo.GetCustomAttributes<ValidationAttribute>()
+            .Select(att => new DataAnnotationValidater<T>(att))
+            .ToArray();
+
+        _validator = new MultipleValidator<T>(validations);
+    }
+
+    public CorePropertyBuilder(Expression<Func<TOwner, T>> exp)
+    {
+        Raw = new RawBuilder(this);
+
+        _getter = exp.Compile();
+        if (exp.Body is MemberExpression memberExp &&
+            memberExp.Member is PropertyInfo propInfo &&
+            propInfo.SetMethod != null)
+        {
+            _propertyInfo = propInfo;
+            _name = propInfo.Name;
+
+            ParameterExpression ownerParam = Expression.Parameter(typeof(TOwner), "o");
+            ParameterExpression valueParam = Expression.Parameter(typeof(T), "v");
+            MemberExpression? memberAccess = Expression.MakeMemberAccess(ownerParam, propInfo);
+            BinaryExpression? assign = Expression.Assign(memberAccess, valueParam);
+            Expression<Action<TOwner, T>> lambda1 = Expression.Lambda<Action<TOwner, T>>(assign, new[] { ownerParam, valueParam });
+            _setter = lambda1.Compile();
+
+            _displayAttribute = propInfo.GetCustomAttribute<DisplayAttribute>();
+            _displayAttByAtt = _displayAttribute != null;
+
+            DataAnnotationValidater<T>[] validations
+                = propInfo.GetCustomAttributes<ValidationAttribute>()
+                .Select(att => new DataAnnotationValidater<T>(att))
+                .ToArray();
+
+            _validator = new MultipleValidator<T>(validations);
+        }
+        else
+        {
+            throw new InvalidOperationException();
+        }
     }
 
     public RawBuilder Raw { get; }
@@ -29,7 +80,13 @@ public sealed class CorePropertyBuilder<T, TOwner>
     {
         CoreProperty<T>? property = null;
 
-        var metadata = new CorePropertyMetadata<T>(_serializeName, _propertyFlags, _defaultValue, _validator, _jsonConverter);
+        var metadata = new CorePropertyMetadata<T>(
+            serializeName: _serializeName,
+            propertyFlags: _propertyFlags,
+            defaultValue: _defaultValue,
+            validator: _validator,
+            jsonConverter: _jsonConverter,
+            displayAttribute: _displayAttribute);
         if (_getter != null)
         {
             property = new StaticProperty<TOwner, T>(_name, _getter, _setter, metadata);
@@ -38,6 +95,7 @@ public sealed class CorePropertyBuilder<T, TOwner>
         {
             property = new CoreProperty<T>(_name, typeof(TOwner), metadata);
         }
+        property.PropertyInfo = _propertyInfo;
         PropertyRegistry.Register(typeof(TOwner), property);
 
         return property;
@@ -48,28 +106,10 @@ public sealed class CorePropertyBuilder<T, TOwner>
         return (StaticProperty<TOwner, T>)Register();
     }
 
-    public CorePropertyBuilder<T, TOwner> Accessor(Func<TOwner, T> getter, Action<TOwner, T>? setter)
+    public CorePropertyBuilder<T, TOwner> Accessor(Func<TOwner, T> getter, Action<TOwner, T>? setter = null)
     {
         _getter = getter;
         _setter = setter;
-        return this;
-    }
-
-    public CorePropertyBuilder<T, TOwner> Accessor(Expression<Func<TOwner, T>> exp)
-    {
-        _getter = exp.Compile();
-        if (exp.Body is MemberExpression memberExp &&
-            memberExp.Member is PropertyInfo propInfo &&
-            propInfo.SetMethod != null)
-        {
-            ParameterExpression ownerParam = Expression.Parameter(typeof(TOwner), "o");
-            ParameterExpression valueParam = Expression.Parameter(typeof(T), "v");
-            MemberExpression? memberAccess = Expression.MakeMemberAccess(ownerParam, propInfo);
-            BinaryExpression? assign = Expression.Assign(memberAccess, valueParam);
-            Expression<Action<TOwner, T>> lambda1 = Expression.Lambda<Action<TOwner, T>>(assign, new[] { ownerParam, valueParam });
-            _setter = lambda1.Compile();
-        }
-
         return this;
     }
 
@@ -82,6 +122,42 @@ public sealed class CorePropertyBuilder<T, TOwner>
     public CorePropertyBuilder<T, TOwner> SerializeName(string? value)
     {
         _serializeName = value;
+        return this;
+    }
+
+    public CorePropertyBuilder<T, TOwner> Display<TResource>(
+        string? name = null,
+        string? shortName = null,
+        string? description = null,
+        string? prompt = null,
+        string? groupName = null,
+        int? order = null)
+    {
+        Display(name, shortName, description, prompt, groupName, order, typeof(TResource));
+        return this;
+    }
+
+    public CorePropertyBuilder<T, TOwner> Display(
+        string? name = null,
+        string? shortName = null,
+        string? description = null,
+        string? prompt = null,
+        string? groupName = null,
+        int? order = null,
+        Type? resourceType = null)
+    {
+        _displayAttribute = _displayAttByAtt || _displayAttribute == null ? new DisplayAttribute() : _displayAttribute;
+        _displayAttByAtt = false;
+
+        _displayAttribute.ResourceType = resourceType;
+        _displayAttribute.Name = name;
+        _displayAttribute.ShortName = shortName;
+        _displayAttribute.Description = description;
+        _displayAttribute.Prompt = prompt;
+        _displayAttribute.GroupName = groupName;
+        if (order.HasValue)
+            _displayAttribute.Order = order.Value;
+
         return this;
     }
 
@@ -229,8 +305,8 @@ public sealed class CorePropertyBuilder<T, TOwner>
     }
 
     public CorePropertyBuilder<T, TOwner> Validator(
-        Func<ICoreObject?, T?, bool>? validate = null,
-        Func<ICoreObject?, T?, T?>? coerce = null,
+        ValueValidator<T>? validate = null,
+        ValueCoercer<T>? coerce = null,
         bool merge = false)
     {
         IValidator<T> validator1 = new FuncValidator<T>

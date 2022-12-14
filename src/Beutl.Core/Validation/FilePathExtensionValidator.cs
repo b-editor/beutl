@@ -2,14 +2,28 @@
 
 public sealed class FilePathExtensionValidator : IValidator<string?>
 {
-    public string[] FileExtensions { get; set; } = Array.Empty<string>();
+    private string[] _fileExtensions = Array.Empty<string>();
+    private string? _display;
 
-    public string? Coerce(ICoreObject? obj, string? value)
+    public string[] FileExtensions
     {
-        return value;
+        get => _fileExtensions;
+        set
+        {
+            if (_fileExtensions != value)
+            {
+                _display = null;
+                _fileExtensions = value;
+            }
+        }
     }
 
-    public bool Validate(ICoreObject? obj, string? value)
+    public bool TryCoerce(ValidationContext context, ref string? value)
+    {
+        return false;
+    }
+
+    public string? Validate(ValidationContext context, string? value)
     {
         if (value != null)
         {
@@ -18,11 +32,22 @@ public sealed class FilePathExtensionValidator : IValidator<string?>
             {
                 if (extension.EndsWith(item))
                 {
-                    return true;
+                    return null;
                 }
             }
         }
 
-        return false;
+        return GetDisplay();
+    }
+
+    private string GetDisplay()
+    {
+        if (_display == null)
+        {
+            string ext = string.Join(';', _fileExtensions);
+            _display = $"Please specify a file with the following extension.\n{ext}";
+        }
+
+        return _display;
     }
 }
