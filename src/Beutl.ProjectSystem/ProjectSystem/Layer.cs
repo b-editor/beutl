@@ -6,6 +6,7 @@ using System.Text.Json.Nodes;
 using Beutl.Audio;
 using Beutl.Collections;
 using Beutl.Commands;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Rendering;
 using Beutl.Streaming;
@@ -34,12 +35,14 @@ public class Layer : Element, IStorable, ILogicalElement
     {
         StartProperty = ConfigureProperty<TimeSpan, Layer>(nameof(Start))
             .Accessor(o => o.Start, (o, v) => o.Start = v)
+            .Display(Strings.StartTime)
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("start")
             .Register();
 
         LengthProperty = ConfigureProperty<TimeSpan, Layer>(nameof(Length))
             .Accessor(o => o.Length, (o, v) => o.Length = v)
+            .Display(Strings.DurationTime)
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("length")
             .Register();

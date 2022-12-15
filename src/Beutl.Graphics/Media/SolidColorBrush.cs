@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
+using Beutl.Language;
 using Beutl.Media.Immutable;
 
 namespace Beutl.Media;
@@ -16,6 +17,7 @@ public class SolidColorBrush : Brush, ISolidColorBrush
     {
         ColorProperty = ConfigureProperty<Color, SolidColorBrush>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
+            .Display(Strings.Color)
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("color")
             .Register();

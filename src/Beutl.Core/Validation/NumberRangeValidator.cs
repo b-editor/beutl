@@ -11,13 +11,21 @@ internal sealed class NumberRangeValidator<TNumber> : RangeValidator<TNumber>
         Minimum = TNumber.MinValue;
     }
 
-    public override TNumber Coerce(ICoreObject? obj, TNumber value)
+    public override bool TryCoerce(ValidationContext context, ref TNumber value)
     {
-        return TNumber.Clamp(value, Minimum, Maximum);
+        value = TNumber.Clamp(value, Minimum, Maximum);
+        return true;
     }
 
-    public override bool Validate(ICoreObject? obj, TNumber value)
+    public override string? Validate(ValidationContext context, TNumber value)
     {
-        return value >= Minimum && value <= Maximum;
+        if (value >= Minimum && value <= Maximum)
+        {
+            return $"The value must be between {Minimum} and {Maximum}.";
+        }
+        else
+        {
+            return null;
+        }
     }
 }

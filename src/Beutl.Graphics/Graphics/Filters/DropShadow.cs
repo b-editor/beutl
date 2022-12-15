@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Language;
+using Beutl.Media;
 
 using SkiaSharp;
 
@@ -19,6 +20,7 @@ public sealed class DropShadow : ImageFilter
     {
         PositionProperty = ConfigureProperty<Point, DropShadow>(nameof(Position))
             .Accessor(o => o.Position, (o, v) => o.Position = v)
+            .Display(Strings.Position)
             .DefaultValue(new Point())
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("position")
@@ -26,6 +28,7 @@ public sealed class DropShadow : ImageFilter
 
         SigmaProperty = ConfigureProperty<Vector, DropShadow>(nameof(Sigma))
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
+            .Display(Strings.Sigma)
             .DefaultValue(Vector.Zero)
             .Minimum(Vector.Zero)
             .PropertyFlags(PropertyFlags.All)
@@ -34,6 +37,7 @@ public sealed class DropShadow : ImageFilter
 
         ColorProperty = ConfigureProperty<Color, DropShadow>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
+            .Display(Strings.Color)
             .DefaultValue(Colors.Transparent)
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("color")
@@ -41,6 +45,7 @@ public sealed class DropShadow : ImageFilter
 
         ShadowOnlyProperty = ConfigureProperty<bool, DropShadow>(nameof(ShadowOnly))
             .Accessor(o => o.ShadowOnly, (o, v) => o.ShadowOnly = v)
+            .Display(Strings.ShadowOnly)
             .DefaultValue(false)
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("shadow-only")

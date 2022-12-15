@@ -12,13 +12,31 @@ public sealed class TuppleValidator<T> : IValidator<T>
 
     public IValidator<T> Second { get; }
 
-    public T? Coerce(ICoreObject? obj, T? value)
+    public bool TryCoerce(ValidationContext context, ref T? value)
     {
-        return Second.Coerce(obj, First.Coerce(obj, value));
+        T? tmp = value;
+        if (First.TryCoerce(context, ref tmp) && Second.TryCoerce(context, ref tmp))
+        {
+            value = tmp;
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 
-    public bool Validate(ICoreObject? obj, T? value)
+    public string? Validate(ValidationContext context, T? value)
     {
-        return First.Validate(obj, value) && Second.Validate(obj, value);
+        string? ms1 = First.Validate(context, value);
+        string? ms2 = Second.Validate(context, value);
+        if (ms1 != null && ms2 != null)
+        {
+            return $"{ms1}\n{ms2}";
+        }
+        else
+        {
+            return ms1 ?? ms2;
+        }
     }
 }

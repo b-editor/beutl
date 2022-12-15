@@ -1,25 +1,29 @@
 ﻿namespace Beutl.Validation;
 
+public delegate bool ValueCoercer<T>(ValidationContext context, ref T? value);
+
+public delegate string? ValueValidator<T>(ValidationContext context, T? value);
+
 public sealed class FuncValidator<T> : IValidator<T>
 {
-    public Func<ICoreObject?, T?, T?>? CoerceFunc { get; set; }
+    public ValueCoercer<T>? CoerceFunc { get; set; }
 
-    public Func<ICoreObject?, T?, bool>? ValidateFunc { get; set; }
+    public ValueValidator<T>? ValidateFunc { get; set; }
 
-    public T? Coerce(ICoreObject? obj, T? value)
+    public bool TryCoerce(ValidationContext context, ref T? value)
     {
         if (CoerceFunc != null)
         {
-            return CoerceFunc(obj, value);
+            return CoerceFunc(context, ref value);
         }
         else
         {
-            return value;
+            return false;
         }
     }
 
-    public bool Validate(ICoreObject? obj, T? value)
+    public string? Validate(ValidationContext context, T? value)
     {
-        return ValidateFunc?.Invoke(obj, value) ?? true;
+        return ValidateFunc?.Invoke(context, value) ?? null;
     }
 }

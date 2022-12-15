@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics;
+using Beutl.Language;
 
 namespace Beutl.Media;
 
@@ -26,6 +27,7 @@ public abstract class TileBrush : Brush, ITileBrush
     {
         AlignmentXProperty = ConfigureProperty<AlignmentX, TileBrush>(nameof(AlignmentX))
             .Accessor(o => o.AlignmentX, (o, v) => o.AlignmentX = v)
+            .Display(Strings.AlignmentX)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(AlignmentX.Center)
             .SerializeName("alignment-x")
@@ -33,6 +35,7 @@ public abstract class TileBrush : Brush, ITileBrush
 
         AlignmentYProperty = ConfigureProperty<AlignmentY, TileBrush>(nameof(AlignmentY))
             .Accessor(o => o.AlignmentY, (o, v) => o.AlignmentY = v)
+            .Display(Strings.AlignmentY)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(AlignmentY.Center)
             .SerializeName("alignment-y")
@@ -40,6 +43,7 @@ public abstract class TileBrush : Brush, ITileBrush
 
         DestinationRectProperty = ConfigureProperty<RelativeRect, TileBrush>(nameof(DestinationRect))
             .Accessor(o => o.DestinationRect, (o, v) => o.DestinationRect = v)
+            .Display(Strings.DestinationRect)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(RelativeRect.Fill)
             .SerializeName("destination-rect")
@@ -47,6 +51,7 @@ public abstract class TileBrush : Brush, ITileBrush
 
         SourceRectProperty = ConfigureProperty<RelativeRect, TileBrush>(nameof(SourceRect))
             .Accessor(o => o.SourceRect, (o, v) => o.SourceRect = v)
+            .Display(Strings.SourceRect)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(RelativeRect.Fill)
             .SerializeName("source-rect")
@@ -54,6 +59,7 @@ public abstract class TileBrush : Brush, ITileBrush
 
         StretchProperty = ConfigureProperty<Stretch, TileBrush>(nameof(Stretch))
             .Accessor(o => o.Stretch, (o, v) => o.Stretch = v)
+            .Display(Strings.Stretch)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(Stretch.Uniform)
             .SerializeName("stretch")
@@ -61,6 +67,7 @@ public abstract class TileBrush : Brush, ITileBrush
 
         TileModeProperty = ConfigureProperty<TileMode, TileBrush>(nameof(TileMode))
             .Accessor(o => o.TileMode, (o, v) => o.TileMode = v)
+            .Display(Strings.TileMode)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(TileMode.None)
             .SerializeName("tile-mode")
@@ -68,6 +75,7 @@ public abstract class TileBrush : Brush, ITileBrush
 
         BitmapInterpolationModeProperty = ConfigureProperty<BitmapInterpolationMode, TileBrush>(nameof(BitmapInterpolationMode))
             .Accessor(o => o.BitmapInterpolationMode, (o, v) => o.BitmapInterpolationMode = v)
+            .Display(Strings.BitmapInterpolationMode)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(BitmapInterpolationMode.Default)
             .SerializeName("interpolation-mode")

@@ -12,17 +12,25 @@ namespace Beutl.Validation
             Minimum = new(System.Int32.MinValue, System.Int32.MinValue);
         }
 
-        public override Beutl.Media.PixelPoint Coerce(ICoreObject? obj, Beutl.Media.PixelPoint value)
+        public override bool TryCoerce(ValidationContext context, ref Beutl.Media.PixelPoint value)
         {
-            return new Beutl.Media.PixelPoint(
+            value = new Beutl.Media.PixelPoint(
                 Math.Clamp(value.X, Minimum.X, Maximum.X),
                 Math.Clamp(value.Y, Minimum.Y, Maximum.Y));
+            return true;
         }
         
-        public override bool Validate(ICoreObject? obj, Beutl.Media.PixelPoint value)
+        public override string? Validate(ValidationContext context, Beutl.Media.PixelPoint value)
         {
-            return value.X >= Minimum.X && value.X <= Maximum.X
-                && value.Y >= Minimum.Y && value.Y <= Maximum.Y;
+            if (value.X >= Minimum.X && value.X <= Maximum.X
+                && value.Y >= Minimum.Y && value.Y <= Maximum.Y)
+            {
+                return $"The value must be between {Minimum} and {Maximum}.";
+            }
+            else
+            {
+                return null;
+            }
         }
     }
     public sealed class PixelSizeRangeValidator : RangeValidator<Beutl.Media.PixelSize>
@@ -33,17 +41,25 @@ namespace Beutl.Validation
             Minimum = new(System.Int32.MinValue, System.Int32.MinValue);
         }
 
-        public override Beutl.Media.PixelSize Coerce(ICoreObject? obj, Beutl.Media.PixelSize value)
+        public override bool TryCoerce(ValidationContext context, ref Beutl.Media.PixelSize value)
         {
-            return new Beutl.Media.PixelSize(
+            value = new Beutl.Media.PixelSize(
                 Math.Clamp(value.Width, Minimum.Width, Maximum.Width),
                 Math.Clamp(value.Height, Minimum.Height, Maximum.Height));
+            return true;
         }
         
-        public override bool Validate(ICoreObject? obj, Beutl.Media.PixelSize value)
+        public override string? Validate(ValidationContext context, Beutl.Media.PixelSize value)
         {
-            return value.Width >= Minimum.Width && value.Width <= Maximum.Width
-                && value.Height >= Minimum.Height && value.Height <= Maximum.Height;
+            if (value.Width >= Minimum.Width && value.Width <= Maximum.Width
+                && value.Height >= Minimum.Height && value.Height <= Maximum.Height)
+            {
+                return $"The value must be between {Minimum} and {Maximum}.";
+            }
+            else
+            {
+                return null;
+            }
         }
     }
     public sealed class PointRangeValidator : RangeValidator<Beutl.Graphics.Point>
@@ -54,17 +70,25 @@ namespace Beutl.Validation
             Minimum = new(System.Single.MinValue, System.Single.MinValue);
         }
 
-        public override Beutl.Graphics.Point Coerce(ICoreObject? obj, Beutl.Graphics.Point value)
+        public override bool TryCoerce(ValidationContext context, ref Beutl.Graphics.Point value)
         {
-            return new Beutl.Graphics.Point(
+            value = new Beutl.Graphics.Point(
                 Math.Clamp(value.X, Minimum.X, Maximum.X),
                 Math.Clamp(value.Y, Minimum.Y, Maximum.Y));
+            return true;
         }
         
-        public override bool Validate(ICoreObject? obj, Beutl.Graphics.Point value)
+        public override string? Validate(ValidationContext context, Beutl.Graphics.Point value)
         {
-            return value.X >= Minimum.X && value.X <= Maximum.X
-                && value.Y >= Minimum.Y && value.Y <= Maximum.Y;
+            if (value.X >= Minimum.X && value.X <= Maximum.X
+                && value.Y >= Minimum.Y && value.Y <= Maximum.Y)
+            {
+                return $"The value must be between {Minimum} and {Maximum}.";
+            }
+            else
+            {
+                return null;
+            }
         }
     }
     public sealed class SizeRangeValidator : RangeValidator<Beutl.Graphics.Size>
@@ -75,17 +99,25 @@ namespace Beutl.Validation
             Minimum = new(System.Single.MinValue, System.Single.MinValue);
         }
 
-        public override Beutl.Graphics.Size Coerce(ICoreObject? obj, Beutl.Graphics.Size value)
+        public override bool TryCoerce(ValidationContext context, ref Beutl.Graphics.Size value)
         {
-            return new Beutl.Graphics.Size(
+            value = new Beutl.Graphics.Size(
                 Math.Clamp(value.Width, Minimum.Width, Maximum.Width),
                 Math.Clamp(value.Height, Minimum.Height, Maximum.Height));
+            return true;
         }
         
-        public override bool Validate(ICoreObject? obj, Beutl.Graphics.Size value)
+        public override string? Validate(ValidationContext context, Beutl.Graphics.Size value)
         {
-            return value.Width >= Minimum.Width && value.Width <= Maximum.Width
-                && value.Height >= Minimum.Height && value.Height <= Maximum.Height;
+            if (value.Width >= Minimum.Width && value.Width <= Maximum.Width
+                && value.Height >= Minimum.Height && value.Height <= Maximum.Height)
+            {
+                return $"The value must be between {Minimum} and {Maximum}.";
+            }
+            else
+            {
+                return null;
+            }
         }
     }
     public sealed class VectorRangeValidator : RangeValidator<Beutl.Graphics.Vector>
@@ -96,17 +128,25 @@ namespace Beutl.Validation
             Minimum = new(System.Single.MinValue, System.Single.MinValue);
         }
 
-        public override Beutl.Graphics.Vector Coerce(ICoreObject? obj, Beutl.Graphics.Vector value)
+        public override bool TryCoerce(ValidationContext context, ref Beutl.Graphics.Vector value)
         {
-            return new Beutl.Graphics.Vector(
+            value = new Beutl.Graphics.Vector(
                 Math.Clamp(value.X, Minimum.X, Maximum.X),
                 Math.Clamp(value.Y, Minimum.Y, Maximum.Y));
+            return true;
         }
         
-        public override bool Validate(ICoreObject? obj, Beutl.Graphics.Vector value)
+        public override string? Validate(ValidationContext context, Beutl.Graphics.Vector value)
         {
-            return value.X >= Minimum.X && value.X <= Maximum.X
-                && value.Y >= Minimum.Y && value.Y <= Maximum.Y;
+            if (value.X >= Minimum.X && value.X <= Maximum.X
+                && value.Y >= Minimum.Y && value.Y <= Maximum.Y)
+            {
+                return $"The value must be between {Minimum} and {Maximum}.";
+            }
+            else
+            {
+                return null;
+            }
         }
     }
 
@@ -120,22 +160,30 @@ namespace Beutl.Validation
             Maximum = new(System.Int32.MaxValue, System.Int32.MaxValue, System.Int32.MaxValue, System.Int32.MaxValue);
             Minimum = new(System.Int32.MinValue, System.Int32.MinValue, System.Int32.MinValue, System.Int32.MinValue);
         }
-
-        public override Beutl.Media.PixelRect Coerce(ICoreObject? obj, Beutl.Media.PixelRect value)
+        
+        public override bool TryCoerce(ValidationContext context, ref Beutl.Media.PixelRect value)
         {
-            return new Beutl.Media.PixelRect(
+            value = new Beutl.Media.PixelRect(
                 Math.Clamp(value.X, Minimum.X, Maximum.X),
                 Math.Clamp(value.Y, Minimum.Y, Maximum.Y),
                 Math.Clamp(value.Width, Minimum.Width, Maximum.Width),
                 Math.Clamp(value.Height, Minimum.Height, Maximum.Height));
+            return true;
         }
         
-        public override bool Validate(ICoreObject? obj, Beutl.Media.PixelRect value)
+        public override string? Validate(ValidationContext context, Beutl.Media.PixelRect value)
         {
-            return value.X >= Minimum.X && value.X <= Maximum.X
+            if (value.X >= Minimum.X && value.X <= Maximum.X
                 && value.Y >= Minimum.Y && value.Y <= Maximum.Y
                 && value.Width >= Minimum.Width && value.Width <= Maximum.Width
-                && value.Height >= Minimum.Height && value.Height <= Maximum.Height;
+                && value.Height >= Minimum.Height && value.Height <= Maximum.Height)
+            {
+                return $"The value must be between {Minimum} and {Maximum}.";
+            }
+            else
+            {
+                return null;
+            }
         }
     }
     public sealed class CornerRadiusRangeValidator : RangeValidator<Beutl.Media.CornerRadius>
@@ -145,22 +193,30 @@ namespace Beutl.Validation
             Maximum = new(System.Single.MaxValue, System.Single.MaxValue, System.Single.MaxValue, System.Single.MaxValue);
             Minimum = new(System.Single.MinValue, System.Single.MinValue, System.Single.MinValue, System.Single.MinValue);
         }
-
-        public override Beutl.Media.CornerRadius Coerce(ICoreObject? obj, Beutl.Media.CornerRadius value)
+        
+        public override bool TryCoerce(ValidationContext context, ref Beutl.Media.CornerRadius value)
         {
-            return new Beutl.Media.CornerRadius(
+            value = new Beutl.Media.CornerRadius(
                 Math.Clamp(value.TopLeft, Minimum.TopLeft, Maximum.TopLeft),
                 Math.Clamp(value.TopRight, Minimum.TopRight, Maximum.TopRight),
                 Math.Clamp(value.BottomRight, Minimum.BottomRight, Maximum.BottomRight),
                 Math.Clamp(value.BottomLeft, Minimum.BottomLeft, Maximum.BottomLeft));
+            return true;
         }
         
-        public override bool Validate(ICoreObject? obj, Beutl.Media.CornerRadius value)
+        public override string? Validate(ValidationContext context, Beutl.Media.CornerRadius value)
         {
-            return value.TopLeft >= Minimum.TopLeft && value.TopLeft <= Maximum.TopLeft
+            if (value.TopLeft >= Minimum.TopLeft && value.TopLeft <= Maximum.TopLeft
                 && value.TopRight >= Minimum.TopRight && value.TopRight <= Maximum.TopRight
                 && value.BottomRight >= Minimum.BottomRight && value.BottomRight <= Maximum.BottomRight
-                && value.BottomLeft >= Minimum.BottomLeft && value.BottomLeft <= Maximum.BottomLeft;
+                && value.BottomLeft >= Minimum.BottomLeft && value.BottomLeft <= Maximum.BottomLeft)
+            {
+                return $"The value must be between {Minimum} and {Maximum}.";
+            }
+            else
+            {
+                return null;
+            }
         }
     }
     public sealed class RectRangeValidator : RangeValidator<Beutl.Graphics.Rect>
@@ -170,22 +226,30 @@ namespace Beutl.Validation
             Maximum = new(System.Single.MaxValue, System.Single.MaxValue, System.Single.MaxValue, System.Single.MaxValue);
             Minimum = new(System.Single.MinValue, System.Single.MinValue, System.Single.MinValue, System.Single.MinValue);
         }
-
-        public override Beutl.Graphics.Rect Coerce(ICoreObject? obj, Beutl.Graphics.Rect value)
+        
+        public override bool TryCoerce(ValidationContext context, ref Beutl.Graphics.Rect value)
         {
-            return new Beutl.Graphics.Rect(
+            value = new Beutl.Graphics.Rect(
                 Math.Clamp(value.X, Minimum.X, Maximum.X),
                 Math.Clamp(value.Y, Minimum.Y, Maximum.Y),
                 Math.Clamp(value.Width, Minimum.Width, Maximum.Width),
                 Math.Clamp(value.Height, Minimum.Height, Maximum.Height));
+            return true;
         }
         
-        public override bool Validate(ICoreObject? obj, Beutl.Graphics.Rect value)
+        public override string? Validate(ValidationContext context, Beutl.Graphics.Rect value)
         {
-            return value.X >= Minimum.X && value.X <= Maximum.X
+            if (value.X >= Minimum.X && value.X <= Maximum.X
                 && value.Y >= Minimum.Y && value.Y <= Maximum.Y
                 && value.Width >= Minimum.Width && value.Width <= Maximum.Width
-                && value.Height >= Minimum.Height && value.Height <= Maximum.Height;
+                && value.Height >= Minimum.Height && value.Height <= Maximum.Height)
+            {
+                return $"The value must be between {Minimum} and {Maximum}.";
+            }
+            else
+            {
+                return null;
+            }
         }
     }
 }

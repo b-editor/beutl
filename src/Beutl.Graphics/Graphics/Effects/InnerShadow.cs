@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics.Transformation;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
@@ -20,6 +21,7 @@ public class InnerShadow : BitmapEffect
     {
         PositionProperty = ConfigureProperty<Point, InnerShadow>(nameof(Position))
             .Accessor(o => o.Position, (o, v) => o.Position = v)
+            .Display(Strings.Position)
             .DefaultValue(new Point())
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("position")
@@ -27,6 +29,7 @@ public class InnerShadow : BitmapEffect
 
         KernelSizeProperty = ConfigureProperty<PixelSize, InnerShadow>(nameof(KernelSize))
             .Accessor(o => o.KernelSize, (o, v) => o.KernelSize = v)
+            .Display(Strings.KernelSize)
             .PropertyFlags(PropertyFlags.All)
             .Minimum(new PixelSize(1, 1))
             .SerializeName("kernel-size")
@@ -34,6 +37,7 @@ public class InnerShadow : BitmapEffect
 
         ColorProperty = ConfigureProperty<Color, InnerShadow>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
+            .Display(Strings.Color)
             .DefaultValue(Colors.Transparent)
             .PropertyFlags(PropertyFlags.All)
             .SerializeName("color")

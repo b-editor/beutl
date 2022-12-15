@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics;
+using Beutl.Language;
 using Beutl.Media.Immutable;
 
 namespace Beutl.Media;
@@ -19,6 +20,7 @@ public sealed class RadialGradientBrush : GradientBrush, IRadialGradientBrush
     {
         CenterProperty = ConfigureProperty<RelativePoint, RadialGradientBrush>(nameof(Center))
             .Accessor(o => o.Center, (o, v) => o.Center = v)
+            .Display(Strings.Center)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(RelativePoint.Center)
             .SerializeName("center")
@@ -26,6 +28,7 @@ public sealed class RadialGradientBrush : GradientBrush, IRadialGradientBrush
 
         GradientOriginProperty = ConfigureProperty<RelativePoint, RadialGradientBrush>(nameof(GradientOrigin))
             .Accessor(o => o.GradientOrigin, (o, v) => o.GradientOrigin = v)
+            .Display(Strings.GradientOrigin)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(RelativePoint.Center)
             .SerializeName("gradient-origin")
@@ -33,6 +36,7 @@ public sealed class RadialGradientBrush : GradientBrush, IRadialGradientBrush
 
         RadiusProperty = ConfigureProperty<float, RadialGradientBrush>(nameof(Radius))
             .Accessor(o => o.Radius, (o, v) => o.Radius = v)
+            .Display(Strings.Radius)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(0.5f)
             .SerializeName("radius")

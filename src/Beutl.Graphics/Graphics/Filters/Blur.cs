@@ -1,4 +1,6 @@
-﻿using SkiaSharp;
+﻿using Beutl.Language;
+
+using SkiaSharp;
 
 namespace Beutl.Graphics.Filters;
 
@@ -11,6 +13,7 @@ public sealed class Blur : ImageFilter
     {
         SigmaProperty = ConfigureProperty<Vector, Blur>(nameof(Sigma))
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
+            .Display(Strings.Sigma)
             .DefaultValue(Vector.Zero)
             .Minimum(Vector.Zero)
             .PropertyFlags(PropertyFlags.All)

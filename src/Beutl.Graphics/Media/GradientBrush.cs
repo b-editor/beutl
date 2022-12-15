@@ -1,4 +1,6 @@
-﻿namespace Beutl.Media;
+﻿using Beutl.Language;
+
+namespace Beutl.Media;
 
 /// <summary>
 /// Base class for brushes that draw with a gradient.
@@ -14,6 +16,7 @@ public abstract class GradientBrush : Brush, IGradientBrush
     {
         SpreadMethodProperty = ConfigureProperty<GradientSpreadMethod, GradientBrush>(nameof(SpreadMethod))
             .Accessor(o => o.SpreadMethod, (o, v) => o.SpreadMethod = v)
+            .Display(Strings.SpreadMethod)
             .PropertyFlags(PropertyFlags.All)
             .DefaultValue(GradientSpreadMethod.Pad)
             .SerializeName("spread-method")
@@ -21,6 +24,7 @@ public abstract class GradientBrush : Brush, IGradientBrush
 
         GradientStopsProperty = ConfigureProperty<GradientStops, GradientBrush>(nameof(GradientStops))
             .Accessor(o => o.GradientStops, (o, v) => o.GradientStops = v)
+            .Display(Strings.GradientStops)
             .PropertyFlags(PropertyFlags.All)
             .Register();
 

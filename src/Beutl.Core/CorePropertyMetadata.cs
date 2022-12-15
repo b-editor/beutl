@@ -1,4 +1,6 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Reflection;
+using System.Text.Json.Serialization;
 
 using Beutl.Validation;
 
@@ -13,8 +15,9 @@ public class CorePropertyMetadata<T> : CorePropertyMetadata
         Optional<PropertyFlags> propertyFlags = default,
         Optional<T> defaultValue = default,
         IValidator<T>? validator = null,
-        JsonConverter<T>? jsonConverter = null)
-        : base(serializeName, propertyFlags)
+        JsonConverter<T>? jsonConverter = null,
+        DisplayAttribute? displayAttribute = null)
+        : base(serializeName, propertyFlags, displayAttribute)
     {
         _defaultValue = defaultValue;
         Validator = validator;
@@ -95,6 +98,8 @@ public interface ICorePropertyMetadata
 {
     Type PropertyType { get; }
 
+    DisplayAttribute? DisplayAttribute { get; }
+
     void Merge(ICorePropertyMetadata baseMetadata, CoreProperty? property);
 
     object? GetDefaultValue();
@@ -106,10 +111,11 @@ public abstract class CorePropertyMetadata : ICorePropertyMetadata
 {
     private Optional<PropertyFlags> _propertyFlags;
 
-    protected CorePropertyMetadata(string? serializeName, Optional<PropertyFlags> propertyFlags)
+    protected CorePropertyMetadata(string? serializeName, Optional<PropertyFlags> propertyFlags, DisplayAttribute? displayAttribute = null)
     {
         SerializeName = serializeName;
         _propertyFlags = propertyFlags;
+        DisplayAttribute = displayAttribute;
     }
 
     public string? SerializeName { get; private set; }
@@ -117,6 +123,8 @@ public abstract class CorePropertyMetadata : ICorePropertyMetadata
     public PropertyFlags PropertyFlags => _propertyFlags.GetValueOrDefault();
 
     public abstract Type PropertyType { get; }
+
+    public DisplayAttribute? DisplayAttribute { get; private set; }
 
     public virtual void Merge(ICorePropertyMetadata baseMetadata, CoreProperty? property)
     {
@@ -130,6 +138,11 @@ public abstract class CorePropertyMetadata : ICorePropertyMetadata
             if (!_propertyFlags.HasValue)
             {
                 _propertyFlags = metadata1._propertyFlags;
+            }
+
+            if (DisplayAttribute == null)
+            {
+                DisplayAttribute = metadata1.DisplayAttribute;
             }
         }
     }

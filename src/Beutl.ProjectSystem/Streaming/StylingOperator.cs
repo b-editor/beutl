@@ -112,12 +112,6 @@ public sealed class StylingSetterPropertyImpl<T> : IAbstractAnimatableProperty<T
 
     public void SetValue(T? value)
     {
-        CorePropertyMetadata<T>? metadata = Property.GetMetadata<CorePropertyMetadata<T>>(ImplementedType);
-        if (metadata?.Validator != null)
-        {
-            value = metadata.Validator.Coerce(null, value);
-        }
-
         Setter.Value = value;
     }
 }
