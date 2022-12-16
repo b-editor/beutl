@@ -1,5 +1,8 @@
 ﻿using Beutl.Animation;
+using Beutl.Audio.Effects;
 using Beutl.Media;
+using Beutl.Media.Music;
+using Beutl.Media.Music.Samples;
 using Beutl.Rendering;
 
 namespace Beutl.Audio;
@@ -7,10 +10,13 @@ namespace Beutl.Audio;
 public abstract class Sound : Renderable
 {
     public static readonly CoreProperty<float> GainProperty;
+    public static readonly CoreProperty<ISoundEffect?> EffectProperty;
     private float _gain = 1;
     private LayerNode? _layerNode;
     private TimeRange _range;
     private TimeSpan _offset;
+    private ISoundEffect? _effect;
+    private ISoundProcessor? _effectProcessor;
     private static readonly TimeSpan s_second = TimeSpan.FromSeconds(1);
 
     static Sound()
@@ -22,11 +28,28 @@ public abstract class Sound : Renderable
             .SerializeName("gain")
             .Register();
 
-        AffectsRender<Sound>(GainProperty);
+        EffectProperty = ConfigureProperty<ISoundEffect?, Sound>(nameof(Effect))
+            .Accessor(o => o.Effect, (o, v) => o.Effect = v)
+            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
+            .DefaultValue(null)
+            .SerializeName("effect")
+            .Register();
+
+        AffectsRender<Sound>(GainProperty, EffectProperty);
     }
 
     public Sound()
     {
+        Invalidated += OnInvalidated;
+    }
+
+    private void OnInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    {
+        if (e.PropertyName is nameof(Effect))
+        {
+            _effectProcessor?.Dispose();
+            _effectProcessor = null;
+        }
     }
 
     public float Gain
@@ -37,6 +60,24 @@ public abstract class Sound : Renderable
 
     public TimeSpan Duration { get; private set; }
 
+    public ISoundEffect? Effect
+    {
+        get => _effect;
+        set => SetAndRaise(EffectProperty, ref _effect, value);
+    }
+
+    public Pcm<Stereo32BitFloat> ToPcm(int sampleRate)
+    {
+        using (var audio = new Audio(sampleRate))
+        using (audio.PushGain(_gain))
+        using (audio.PushOffset(_offset))
+        {
+            OnRecord(audio, _range);
+
+            return audio.GetPcm();
+        }
+    }
+
     public override void Render(IRenderer renderer)
     {
         UpdateTime(renderer.Clock);
@@ -45,10 +86,28 @@ public abstract class Sound : Renderable
 
     public void Record(IAudio audio)
     {
-        using (audio.PushGain(_gain))
-        using (audio.PushOffset(_offset))
+        if (_effect is { IsEnabled: true } effect)
         {
-            OnRecord(audio, _range);
+            _effectProcessor ??= effect.CreateProcessor();
+
+            Pcm<Stereo32BitFloat> pcm = ToPcm(audio.SampleRate);
+            _effectProcessor.Process(in pcm, out Pcm<Stereo32BitFloat>? outPcm);
+            if (pcm != outPcm)
+            {
+                pcm.Dispose();
+            }
+
+            audio.RecordPcm(outPcm);
+
+            outPcm.Dispose();
+        }
+        else
+        {
+            using (audio.PushGain(_gain))
+            using (audio.PushOffset(_offset))
+            {
+                OnRecord(audio, _range);
+            }
         }
     }
 
