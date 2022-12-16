@@ -35,6 +35,9 @@ public class OperatorsRegistrar
                 .Add<Configure.BitmapEffect.InnerShadowOperator>(Strings.InnerShadow)
                 .Add<Configure.BitmapEffect.BorderOperator>(Strings.Border)
                 .Register())
+            .AddGroup("SoundEffect", helper => helper
+                .Add<Configure.SoundEffect.DelayOperator>("Delay")
+                .Register())
             .Add<Configure.AlignmentOperator>(Strings.Alignment)
             .Add<Configure.BlendOperator>(Strings.BlendMode)
             .Add<Configure.ForegroundOperator>(Strings.Foreground)
