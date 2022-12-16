@@ -6,7 +6,7 @@ namespace Beutl.Graphics.Effects;
 public abstract class BitmapEffect : Animatable, IMutableBitmapEffect
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
-    private bool _isEnabled;
+    private bool _isEnabled = true;
 
     static BitmapEffect()
     {

@@ -310,7 +310,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     {
         if (IsVisible)
         {
-            if (_effect != null)
+            if (_effect?.IsEnabled == true)
             {
                 HasBitmapEffect(canvas);
             }

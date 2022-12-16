@@ -6,7 +6,7 @@ namespace Beutl.Audio.Effects;
 public abstract class SoundEffect : Animatable, IMutableSoundEffect
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
-    private bool _isEnabled;
+    private bool _isEnabled = true;
 
     static SoundEffect()
     {
