@@ -47,9 +47,14 @@ public abstract class Sound : Renderable
     {
         if (e.PropertyName is nameof(Effect))
         {
-            _effectProcessor?.Dispose();
-            _effectProcessor = null;
+            InvalidateEffectProcessor();
         }
+    }
+
+    private void InvalidateEffectProcessor()
+    {
+        _effectProcessor?.Dispose();
+        _effectProcessor = null;
     }
 
     public float Gain
@@ -155,6 +160,11 @@ public abstract class Sound : Renderable
                 {
                     length = s_second;
                 }
+            }
+
+            if (_range.Start > start)
+            {
+                InvalidateEffectProcessor();
             }
 
             _range = new TimeRange(start, length);
