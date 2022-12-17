@@ -47,11 +47,7 @@ public sealed class PlayerViewModel : IDisposable
         Next = new ReactiveCommand(_isEnabled)
             .WithSubscribe(() =>
             {
-                int rate = Project.GetFrameRate();
-                if (rate <= 0)
-                {
-                    rate = 30;
-                }
+                int rate = GetFrameRate();
 
                 Scene.CurrentFrame += TimeSpan.FromSeconds(1d / rate);
             });
@@ -59,11 +55,7 @@ public sealed class PlayerViewModel : IDisposable
         Previous = new ReactiveCommand(_isEnabled)
             .WithSubscribe(() =>
             {
-                int rate = Project.GetFrameRate();
-                if (rate <= 0)
-                {
-                    rate = 30;
-                }
+                int rate = GetFrameRate();
 
                 Scene.CurrentFrame -= TimeSpan.FromSeconds(1d / rate);
             });
@@ -100,7 +92,7 @@ public sealed class PlayerViewModel : IDisposable
 
     public Scene Scene { get; }
 
-    public Project Project => Scene.FindRequiredLogicalParent<Project>();
+    public Project? Project => Scene.FindLogicalParent<Project>();
 
     public ReactivePropertySlim<IImage> PreviewImage { get; } = new();
 
@@ -124,11 +116,7 @@ public sealed class PlayerViewModel : IDisposable
         renderer.RenderInvalidated -= Renderer_RenderInvalidated;
 
         IsPlaying.Value = true;
-        int rate = Project.GetFrameRate();
-        if (rate >= 0)
-        {
-            rate = 30;
-        }
+        int rate = GetFrameRate();
 
         PlayAudio();
 
@@ -149,6 +137,17 @@ public sealed class PlayerViewModel : IDisposable
         }
 
         renderer.RenderInvalidated += Renderer_RenderInvalidated;
+    }
+
+    private int GetFrameRate()
+    {
+        int rate = Project?.GetFrameRate() ?? 30;
+        if (rate <= 0)
+        {
+            rate = 30;
+        }
+
+        return rate;
     }
 
     private async void PlayAudio()

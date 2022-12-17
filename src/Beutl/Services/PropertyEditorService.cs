@@ -5,7 +5,7 @@ using System.Numerics;
 using Avalonia.Controls;
 
 using Beutl.Api.Services;
-
+using Beutl.Audio.Effects;
 using Beutl.Framework;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
@@ -93,6 +93,9 @@ public static class PropertyEditorService
             { ScaleTransform.ScaleProperty.Id, new(_ => new PercentageEditor(), s => new PercentageEditorViewModel(s.ToTyped<float>())) },
             { ScaleTransform.ScaleXProperty.Id, new(_ => new PercentageEditor(), s => new PercentageEditorViewModel(s.ToTyped<float>())) },
             { ScaleTransform.ScaleYProperty.Id, new(_ => new PercentageEditor(), s => new PercentageEditorViewModel(s.ToTyped<float>())) },
+            { Delay.FeedbackProperty.Id, new(_ => new PercentageEditor(), s => new PercentageEditorViewModel(s.ToTyped<float>())) },
+            { Delay.DryMixProperty.Id, new(_ => new PercentageEditor(), s => new PercentageEditorViewModel(s.ToTyped<float>())) },
+            { Delay.WetMixProperty.Id, new(_ => new PercentageEditor(), s => new PercentageEditorViewModel(s.ToTyped<float>())) },
         };
 
         // IList<StreamOperator>

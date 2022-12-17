@@ -1,32 +1,30 @@
 ﻿using Beutl.Animation;
 using Beutl.Media;
 
-namespace Beutl.Graphics.Effects;
+namespace Beutl.Audio.Effects;
 
-public abstract class BitmapEffect : Animatable, IMutableBitmapEffect
+public abstract class SoundEffect : Animatable, IMutableSoundEffect
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
     private bool _isEnabled = true;
 
-    static BitmapEffect()
+    static SoundEffect()
     {
-        IsEnabledProperty = ConfigureProperty<bool, BitmapEffect>(nameof(IsEnabled))
+        IsEnabledProperty = ConfigureProperty<bool, SoundEffect>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
             .SerializeName("is-enabled")
             .Register();
 
-        AffectsRender<BitmapEffect>(IsEnabledProperty);
+        AffectsRender<SoundEffect>(IsEnabledProperty);
     }
 
-    protected BitmapEffect()
+    protected SoundEffect()
     {
         AnimationInvalidated += (_, e) => RaiseInvalidated(e);
     }
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
-
-    public abstract IBitmapProcessor Processor { get; }
 
     public bool IsEnabled
     {
@@ -34,13 +32,16 @@ public abstract class BitmapEffect : Animatable, IMutableBitmapEffect
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
     }
 
-    public virtual Rect TransformBounds(Rect rect)
+    public abstract ISoundProcessor CreateProcessor();
+
+    public override void ApplyAnimations(IClock clock)
     {
-        return rect;
+        // SoundEffectはアニメーションに対応しない。
+        //base.ApplyAnimations(clock);
     }
 
     protected static void AffectsRender<T>(params CoreProperty[] properties)
-        where T : BitmapEffect
+        where T : SoundEffect
     {
         foreach (CoreProperty? item in properties)
         {
