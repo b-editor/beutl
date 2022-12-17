@@ -350,7 +350,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
                 OpenToolTab(tab1);
             }
 
-            if (StreamOperatorsTabExtension.Instance.TryCreateContext(this, out IToolContext? tab2))
+            if (SourceOperatorsTabExtension.Instance.TryCreateContext(this, out IToolContext? tab2))
             {
                 OpenToolTab(tab2);
             }

@@ -1,9 +1,9 @@
 ﻿using Beutl.Animation;
 using Beutl.Rendering;
 
-namespace Beutl.Streaming;
+namespace Beutl.Operation;
 
-public interface IStreamSource : IStreamOperator
+public interface ISourcePublisher : ISourceOperator
 {
     IRenderable? Publish(IClock clock);
 }

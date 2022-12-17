@@ -13,7 +13,7 @@ using Avalonia.Threading;
 using Beutl.Framework;
 using Beutl.Models;
 using Beutl.ProjectSystem;
-using Beutl.Streaming;
+using Beutl.Operation;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
@@ -271,7 +271,7 @@ public sealed partial class Timeline : UserControl
             .RoundToRate(viewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
         viewModel.ClickedLayer = viewModel.ToLayerNumber(pt.Y);
 
-        if (e.Data.Get("StreamOperator") is OperatorRegistry.RegistryItem item2)
+        if (e.Data.Get("SourceOperator") is OperatorRegistry.RegistryItem item2)
         {
             if (e.KeyModifiers == KeyModifiers.Control)
             {
@@ -291,8 +291,7 @@ public sealed partial class Timeline : UserControl
 
     private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains("RenderOperation")
-            || e.Data.Contains("StreamOperator")
+        if (e.Data.Contains("SourceOperator")
             || (e.Data.GetFileNames()?.Any() ?? false))
         {
             e.DragEffects = DragDropEffects.Copy;

@@ -45,6 +45,12 @@
     <Compile Update="Views\Editors\SoundSourceEditor.axaml.cs">
       <DependentUpon>SoundSourceEditor.axaml</DependentUpon>
     </Compile>
+    <Compile Update="Views\Tools\SourceOperatorView.axaml.cs">
+      <DependentUpon>SourceOperatorView.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\Tools\SourceOperatorsTab.axaml.cs">
+      <DependentUpon>SourceOperatorsTab.axaml</DependentUpon>
+    </Compile>
   </ItemGroup>
 
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.props" />

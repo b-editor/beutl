@@ -7,7 +7,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
-using Beutl.Streaming;
+using Beutl.Operation;
 
 namespace Beutl.Views;
 
@@ -76,7 +76,7 @@ public sealed partial class Library : UserControl
             await Task.Delay(10);
 
             var dataObject = new DataObject();
-            dataObject.Set("StreamOperator", item);
+            dataObject.Set("SourceOperator", item);
 
             await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
         }

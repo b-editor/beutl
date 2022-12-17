@@ -9,7 +9,7 @@ using Beutl.Commands;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Rendering;
-using Beutl.Streaming;
+using Beutl.Operation;
 
 namespace Beutl.ProjectSystem;
 
@@ -21,7 +21,7 @@ public class Layer : Element, IStorable, ILogicalElement
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
     public static readonly CoreProperty<LayerNode> NodeProperty;
-    public static readonly CoreProperty<StreamOperators> OperatorsProperty;
+    public static readonly CoreProperty<SourceOperators> OperatorsProperty;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
@@ -71,7 +71,7 @@ public class Layer : Element, IStorable, ILogicalElement
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
-        OperatorsProperty = ConfigureProperty<StreamOperators, Layer>(nameof(Operators))
+        OperatorsProperty = ConfigureProperty<SourceOperators, Layer>(nameof(Operators))
             .Accessor(o => o.Operators, null)
             .Register();
 
@@ -130,7 +130,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
     public Layer()
     {
-        Operators = new StreamOperators(this);
+        Operators = new SourceOperators(this);
         Operators.Attached += item => item.Invalidated += Operator_Invalidated;
         Operators.Detached += item => item.Invalidated -= Operator_Invalidated;
 
@@ -202,7 +202,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
     public DateTime LastSavedTime { get; private set; }
 
-    public StreamOperators Operators { get; }
+    public SourceOperators Operators { get; }
 
     public void Save(string filename)
     {
@@ -261,14 +261,14 @@ public class Layer : Element, IStorable, ILogicalElement
                         && atTypeValue.TryGetValue(out string? atType))
                     {
                         var type = TypeFormat.ToType(atType);
-                        StreamOperator? @operator = null;
+                        SourceOperator? @operator = null;
 
-                        if (type?.IsAssignableTo(typeof(StreamOperator)) ?? false)
+                        if (type?.IsAssignableTo(typeof(SourceOperator)) ?? false)
                         {
-                            @operator = Activator.CreateInstance(type) as StreamOperator;
+                            @operator = Activator.CreateInstance(type) as SourceOperator;
                         }
 
-                        @operator ??= new StreamOperator();
+                        @operator ??= new SourceOperator();
                         @operator.ReadFromJson(operatorJson);
                         Operators.Add(@operator);
                     }
@@ -291,12 +291,12 @@ public class Layer : Element, IStorable, ILogicalElement
                 jobject["renderable"] = node;
             }
 
-            Span<StreamOperator> operators = Operators.GetMarshal().Value;
+            Span<SourceOperator> operators = Operators.GetMarshal().Value;
             if (operators.Length > 0)
             {
                 var array = new JsonArray();
 
-                foreach (StreamOperator item in operators)
+                foreach (SourceOperator item in operators)
                 {
                     JsonNode node = new JsonObject();
                     item.WriteToJson(ref node);
@@ -310,29 +310,29 @@ public class Layer : Element, IStorable, ILogicalElement
         }
     }
 
-    public IRecordableCommand AddChild(StreamOperator @operator)
+    public IRecordableCommand AddChild(SourceOperator @operator)
     {
         ArgumentNullException.ThrowIfNull(@operator);
 
-        return Operators.BeginRecord<StreamOperator>()
+        return Operators.BeginRecord<SourceOperator>()
             .Add(@operator)
             .ToCommand();
     }
 
-    public IRecordableCommand RemoveChild(StreamOperator @operator)
+    public IRecordableCommand RemoveChild(SourceOperator @operator)
     {
         ArgumentNullException.ThrowIfNull(@operator);
 
-        return Operators.BeginRecord<StreamOperator>()
+        return Operators.BeginRecord<SourceOperator>()
             .Remove(@operator)
             .ToCommand();
     }
 
-    public IRecordableCommand InsertChild(int index, StreamOperator @operator)
+    public IRecordableCommand InsertChild(int index, SourceOperator @operator)
     {
         ArgumentNullException.ThrowIfNull(@operator);
 
-        return Operators.BeginRecord<StreamOperator>()
+        return Operators.BeginRecord<SourceOperator>()
             .Insert(index, @operator)
             .ToCommand();
     }
@@ -372,7 +372,7 @@ public class Layer : Element, IStorable, ILogicalElement
             yield return item;
         }
 
-        foreach (StreamOperator item in Operators)
+        foreach (SourceOperator item in Operators)
         {
             yield return item;
         }

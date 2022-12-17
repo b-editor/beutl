@@ -8,14 +8,14 @@ using Avalonia.Xaml.Interactivity;
 using Beutl.Commands;
 using Beutl.Controls.Behaviors;
 using Beutl.ProjectSystem;
-using Beutl.Streaming;
+using Beutl.Operation;
 using Beutl.ViewModels.Tools;
 
 namespace Beutl.Views.Tools;
 
-public sealed partial class StreamOperatorView : UserControl
+public sealed partial class SourceOperatorView : UserControl
 {
-    public StreamOperatorView()
+    public SourceOperatorView()
     {
         InitializeComponent();
         Interaction.SetBehaviors(this, new BehaviorCollection
@@ -32,9 +32,9 @@ public sealed partial class StreamOperatorView : UserControl
 
     public void Remove_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is StreamOperatorViewModel viewModel2)
+        if (DataContext is SourceOperatorViewModel viewModel2)
         {
-            StreamOperator operation = viewModel2.Model;
+            SourceOperator operation = viewModel2.Model;
             Layer layer = operation.FindRequiredLogicalParent<Layer>();
             layer.RemoveChild(operation)
                 .DoAndRecord(CommandRecorder.Default);
@@ -43,10 +43,10 @@ public sealed partial class StreamOperatorView : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get("StreamOperator") is OperatorRegistry.RegistryItem item2
-            && DataContext is StreamOperatorViewModel viewModel2)
+        if (e.Data.Get("SourceOperator") is OperatorRegistry.RegistryItem item2
+            && DataContext is SourceOperatorViewModel viewModel2)
         {
-            StreamOperator operation = viewModel2.Model;
+            SourceOperator operation = viewModel2.Model;
             Layer layer = operation.FindRequiredLogicalParent<Layer>();
             Rect bounds = Bounds;
             Point position = e.GetPosition(this);
@@ -55,12 +55,12 @@ public sealed partial class StreamOperatorView : UserControl
 
             if (half < position.Y)
             {
-                layer.InsertChild(index + 1, (StreamOperator)Activator.CreateInstance(item2.Type)!)
+                layer.InsertChild(index + 1, (SourceOperator)Activator.CreateInstance(item2.Type)!)
                     .DoAndRecord(CommandRecorder.Default);
             }
             else
             {
-                layer.InsertChild(index, (StreamOperator)Activator.CreateInstance(item2.Type)!)
+                layer.InsertChild(index, (SourceOperator)Activator.CreateInstance(item2.Type)!)
                     .DoAndRecord(CommandRecorder.Default);
             }
 
@@ -70,7 +70,7 @@ public sealed partial class StreamOperatorView : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains("StreamOperator"))
+        if (e.Data.Contains("SourceOperator"))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
         }
@@ -83,9 +83,9 @@ public sealed partial class StreamOperatorView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (DataContext is StreamOperatorViewModel viewModel2)
+        if (DataContext is SourceOperatorViewModel viewModel2)
         {
-            StreamOperator operation = viewModel2.Model;
+            SourceOperator operation = viewModel2.Model;
             Type type = operation.GetType();
             OperatorRegistry.RegistryItem? item = OperatorRegistry.FindItem(type);
 
@@ -100,9 +100,9 @@ public sealed partial class StreamOperatorView : UserControl
     {
         protected override void OnMoveDraggedItem(ItemsControl? itemsControl, int oldIndex, int newIndex)
         {
-            if (itemsControl?.DataContext is StreamOperatorsTabViewModel { Layer.Value.Operators: { } list })
+            if (itemsControl?.DataContext is SourceOperatorsTabViewModel { Layer.Value.Operators: { } list })
             {
-                list.BeginRecord<StreamOperator>()
+                list.BeginRecord<SourceOperator>()
                     .Move(oldIndex, newIndex)
                     .ToCommand()
                     .DoAndRecord(CommandRecorder.Default);

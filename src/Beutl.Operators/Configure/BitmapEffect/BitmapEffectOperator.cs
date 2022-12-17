@@ -1,6 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Effects;
-using Beutl.Streaming;
+using Beutl.Operation;
 using Beutl.Styling;
 
 namespace Beutl.Operators.Configure.BitmapEffect;
@@ -8,7 +8,7 @@ namespace Beutl.Operators.Configure.BitmapEffect;
 #pragma warning disable IDE0065
 using BitmapEffect = Graphics.Effects.BitmapEffect;
 
-public abstract class BitmapEffectOperator<T> : ConfigureOperator<Drawable, T>, IStreamSelector
+public abstract class BitmapEffectOperator<T> : ConfigureOperator<Drawable, T>, ISourceTransformer
     where T : BitmapEffect, new()
 {
     protected override void PreSelect(Drawable target, T value)

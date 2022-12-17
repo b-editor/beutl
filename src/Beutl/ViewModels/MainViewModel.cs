@@ -334,7 +334,7 @@ public sealed class MainViewModel : BasePageViewModel
                 AnimationTimelineTabExtension.Instance,
                 ObjectPropertyTabExtension.Instance,
                 StyleEditorTabExtension.Instance,
-                StreamOperatorsTabExtension.Instance,
+                SourceOperatorsTabExtension.Instance,
                 EasingsTabExtension.Instance,
                 AnimationTabExtension.Instance,
                 PropertyEditorExtension.Instance,

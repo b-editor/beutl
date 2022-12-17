@@ -1,11 +1,11 @@
 ﻿using Beutl.Graphics;
 using Beutl.Media;
-using Beutl.Streaming;
+using Beutl.Operation;
 using Beutl.Styling;
 
 namespace Beutl.Operators.Configure;
 
-public sealed class ForegroundOperator : StreamStyler
+public sealed class ForegroundOperator : SourceStyler
 {
     protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
     {

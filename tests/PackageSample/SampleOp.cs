@@ -1,8 +1,8 @@
 ﻿using Beutl.ProjectSystem;
-using Beutl.Streaming;
+using Beutl.Operation;
 
 namespace PackageSample;
 
-public sealed class SampleOp : StreamOperator
+public sealed class SampleOp : SourceOperator
 {
 }

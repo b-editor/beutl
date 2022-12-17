@@ -1,5 +1,5 @@
 ﻿using Beutl.Framework;
-using Beutl.Streaming;
+using Beutl.Operation;
 
 namespace PackageSample;
 

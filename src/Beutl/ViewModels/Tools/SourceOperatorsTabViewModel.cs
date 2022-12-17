@@ -6,26 +6,26 @@ using Beutl.Framework;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
-using Beutl.Streaming;
+using Beutl.Operation;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Tools;
 
-public sealed class StreamOperatorsTabViewModel : IToolContext
+public sealed class SourceOperatorsTabViewModel : IToolContext
 {
     private readonly IDisposable _disposable0;
     private IDisposable? _disposable1;
     private Layer? _oldLayer;
 
-    public StreamOperatorsTabViewModel(EditViewModel editViewModel)
+    public SourceOperatorsTabViewModel(EditViewModel editViewModel)
     {
         Layer = editViewModel.SelectedObject
             .Select(x => x as Layer)
             .ToReactiveProperty();
 
-        Header = new ReactivePropertySlim<string>(Strings.StreamOperators);
+        Header = new ReactivePropertySlim<string>(Strings.SourceOperators);
 
         _disposable0 = Layer.Subscribe(layer =>
         {
@@ -40,13 +40,13 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
             {
                 _disposable1?.Dispose();
 
-                Items.AddRange(layer.Operators.Select(x => new StreamOperatorViewModel(x)));
+                Items.AddRange(layer.Operators.Select(x => new SourceOperatorViewModel(x)));
                 _disposable1 = layer.Operators.CollectionChangedAsObservable()
                     .Subscribe(e =>
                     {
-                        static void RemoveItems(CoreList<StreamOperatorViewModel> items, int index, int count)
+                        static void RemoveItems(CoreList<SourceOperatorViewModel> items, int index, int count)
                         {
-                            foreach (StreamOperatorViewModel item in items.GetMarshal().Value.Slice(index, count))
+                            foreach (SourceOperatorViewModel item in items.GetMarshal().Value.Slice(index, count))
                             {
                                 item?.Dispose();
                             }
@@ -57,8 +57,8 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
                         {
                             case NotifyCollectionChangedAction.Add:
                                 Items.InsertRange(e.NewStartingIndex, e.NewItems!
-                                    .Cast<StreamOperator>()
-                                    .Select(x => new StreamOperatorViewModel(x)));
+                                    .Cast<SourceOperator>()
+                                    .Select(x => new SourceOperatorViewModel(x)));
                                 break;
 
                             case NotifyCollectionChangedAction.Move:
@@ -80,8 +80,8 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
                                 }
 
                                 Items.InsertRange(newIndex, e.NewItems!
-                                    .Cast<StreamOperator>()
-                                    .Select(x => new StreamOperatorViewModel(x)));
+                                    .Cast<SourceOperator>()
+                                    .Select(x => new SourceOperatorViewModel(x)));
                                 break;
 
                             case NotifyCollectionChangedAction.Remove:
@@ -107,13 +107,13 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
         });
     }
 
-    public Action<StreamOperator>? RequestScroll { get; set; }
+    public Action<SourceOperator>? RequestScroll { get; set; }
 
     public ReactiveProperty<Layer?> Layer { get; }
 
-    public CoreList<StreamOperatorViewModel> Items { get; } = new();
+    public CoreList<SourceOperatorViewModel> Items { get; } = new();
 
-    public ToolTabExtension Extension => StreamOperatorsTabExtension.Instance;
+    public ToolTabExtension Extension => SourceOperatorsTabExtension.Instance;
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
@@ -121,7 +121,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
 
     public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Right;
 
-    public void ScrollTo(StreamOperator obj)
+    public void ScrollTo(SourceOperator obj)
     {
         RequestScroll?.Invoke(obj);
     }
@@ -157,7 +157,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
     {
         string viewStateDir = ViewStateDirectory(layer);
         var json = new JsonArray();
-        foreach (StreamOperatorViewModel? item in Items.GetMarshal().Value)
+        foreach (SourceOperatorViewModel? item in Items.GetMarshal().Value)
         {
             json.Add(item?.SaveState());
         }
@@ -176,7 +176,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
             var json = JsonNode.Parse(stream);
             if (json is JsonArray array)
             {
-                foreach ((JsonNode? item, StreamOperatorViewModel? op) in array.Zip(Items))
+                foreach ((JsonNode? item, SourceOperatorViewModel? op) in array.Zip(Items))
                 {
                     if (item != null && op != null)
                     {
@@ -189,7 +189,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
 
     private void ClearItems()
     {
-        foreach (StreamOperatorViewModel? item in Items.GetMarshal().Value)
+        foreach (SourceOperatorViewModel? item in Items.GetMarshal().Value)
         {
             item?.Dispose();
         }

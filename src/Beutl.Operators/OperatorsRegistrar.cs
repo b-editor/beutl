@@ -1,5 +1,5 @@
 ﻿using Beutl.Language;
-using Beutl.Streaming;
+using Beutl.Operation;
 
 namespace Beutl.Operators;
 
@@ -10,7 +10,7 @@ public class OperatorsRegistrar
         OperatorRegistry.RegisterOperations(Strings.Source)
             .Add<Source.EllipseOperator>(Strings.Ellipse)
             .Add<Source.RectOperator>(Strings.Rectangle)
-            .Add<Source.RoundedRectOperation>(Strings.RoundedRect)
+            .Add<Source.RoundedRectOperator>(Strings.RoundedRect)
             .Add<Source.TextBlockOperator>(Strings.Text)
             .Add<Source.ImageFileOperator>(Strings.ImageFile)
             .Add<Source.VideoFrameOperator>("Video")

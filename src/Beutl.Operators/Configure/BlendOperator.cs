@@ -1,10 +1,10 @@
 ﻿using Beutl.Graphics;
-using Beutl.Streaming;
+using Beutl.Operation;
 using Beutl.Styling;
 
 namespace Beutl.Operators.Configure;
 
-public sealed class BlendOperator : StreamStyler
+public sealed class BlendOperator : SourceStyler
 {
     protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
     {

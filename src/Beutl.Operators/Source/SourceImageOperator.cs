@@ -1,11 +1,11 @@
 ﻿using Beutl.Graphics;
 using Beutl.Media.Source;
-using Beutl.Streaming;
+using Beutl.Operation;
 using Beutl.Styling;
 
 namespace Beutl.Operators.Source;
 
-public sealed class SourceImageOperator : StreamStyledSource
+public sealed class SourceImageOperator : StyledSourcePublisher
 {
     protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
     {

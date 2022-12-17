@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 
 using Beutl.Framework;
 using Beutl.Services;
-using Beutl.Streaming;
+using Beutl.Operation;
 
 using DynamicData;
 
@@ -11,9 +11,9 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Tools;
 
-public sealed class StreamOperatorViewModel : IDisposable
+public sealed class SourceOperatorViewModel : IDisposable
 {
-    public StreamOperatorViewModel(StreamOperator model)
+    public SourceOperatorViewModel(SourceOperator model)
     {
         Model = model;
 
@@ -33,7 +33,7 @@ public sealed class StreamOperatorViewModel : IDisposable
         Init();
     }
 
-    public StreamOperator Model { get; }
+    public SourceOperator Model { get; }
 
     public ReactiveProperty<bool> IsExpanded { get; } = new(true);
 

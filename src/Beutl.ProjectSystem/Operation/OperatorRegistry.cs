@@ -2,20 +2,20 @@
 
 using Beutl.Media;
 
-namespace Beutl.Streaming;
+namespace Beutl.Operation;
 
 public class OperatorRegistry
 {
     private static readonly List<BaseRegistryItem> s_operations = new();
 
     public static void RegisterOperation<T>(string displayName)
-        where T : StreamOperator, new()
+        where T : SourceOperator, new()
     {
         Register(new RegistryItem(displayName, Colors.Teal, typeof(T)));
     }
 
     public static void RegisterOperation<T>(string displayName, Color accentColor)
-        where T : StreamOperator, new()
+        where T : SourceOperator, new()
     {
         Register(new RegistryItem(displayName, accentColor, typeof(T)));
     }
@@ -24,8 +24,8 @@ public class OperatorRegistry
         string displayName,
         Color accentColor,
         Func<string, bool> canOpen,
-        Func<string, StreamOperator> openFile)
-        where T : StreamOperator, new()
+        Func<string, SourceOperator> openFile)
+        where T : SourceOperator, new()
     {
         ArgumentNullException.ThrowIfNull(canOpen);
         ArgumentNullException.ThrowIfNull(openFile);
@@ -119,7 +119,7 @@ public class OperatorRegistry
     public record RegistryItem(string DisplayName, Color AccentColor, Type Type)
         : BaseRegistryItem(DisplayName, AccentColor)
     {
-        public Func<string, StreamOperator>? OpenFile { get; init; }
+        public Func<string, SourceOperator>? OpenFile { get; init; }
 
         public Func<string, bool>? CanOpen { get; init; }
     }
@@ -158,7 +158,7 @@ public class OperatorRegistry
         }
 
         public RegistrationHelper Add<T>(string displayName)
-            where T : StreamOperator, new()
+            where T : SourceOperator, new()
         {
             _item.Items!.Add(new RegistryItem(displayName, Colors.Teal, typeof(T)));
 
@@ -166,7 +166,7 @@ public class OperatorRegistry
         }
 
         public RegistrationHelper Add<T>(string displayName, Color accentColor)
-            where T : StreamOperator, new()
+            where T : SourceOperator, new()
         {
             _item.Items.Add(new RegistryItem(displayName, accentColor, typeof(T)));
 
@@ -177,8 +177,8 @@ public class OperatorRegistry
             string displayName,
             Color accentColor,
             Func<string, bool> canOpen,
-            Func<string, StreamOperator> openFile)
-            where T : StreamOperator, new()
+            Func<string, SourceOperator> openFile)
+            where T : SourceOperator, new()
         {
             ArgumentNullException.ThrowIfNull(canOpen);
             ArgumentNullException.ThrowIfNull(openFile);

@@ -4,11 +4,11 @@ using Beutl.Animation;
 using Beutl.Framework;
 using Beutl.Media;
 using Beutl.Rendering;
-using Beutl.Streaming;
+using Beutl.Operation;
 
 namespace Beutl.Operators.Configure;
 
-public abstract class ConfigureOperator<TTarget, TValue> : StreamOperator, IStreamSelector
+public abstract class ConfigureOperator<TTarget, TValue> : SourceOperator, ISourceTransformer
     where TTarget : IRenderable
     where TValue : CoreObject, IAffectsRender, new()
 {
@@ -44,7 +44,7 @@ public abstract class ConfigureOperator<TTarget, TValue> : StreamOperator, IStre
 
     protected TTarget? Previous { get; set; }
 
-    public IRenderable? Select(IRenderable? value, IClock clock)
+    public IRenderable? Transform(IRenderable? value, IClock clock)
     {
         try
         {

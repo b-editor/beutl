@@ -1,12 +1,12 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
-using Beutl.Streaming;
+using Beutl.Operation;
 using Beutl.Styling;
 
 namespace Beutl.Operators.Source;
 
-public sealed class TextBlockOperator : StreamStyledSource
+public sealed class TextBlockOperator : StyledSourcePublisher
 {
     protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
     {

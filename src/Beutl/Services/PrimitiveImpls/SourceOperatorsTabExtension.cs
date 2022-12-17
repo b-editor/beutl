@@ -10,23 +10,23 @@ using Beutl.Views.Tools;
 namespace Beutl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
-public sealed class StreamOperatorsTabExtension : ToolTabExtension
+public sealed class SourceOperatorsTabExtension : ToolTabExtension
 {
-    public static readonly StreamOperatorsTabExtension Instance = new();
+    public static readonly SourceOperatorsTabExtension Instance = new();
 
     public override bool CanMultiple => false;
 
-    public override string Name => "Stream operators editor";
+    public override string Name => "Operators editor";
 
-    public override string DisplayName => "Stream operators editor";
+    public override string DisplayName => "Operators editor";
 
-    public override string? Header => Strings.StreamOperators;
+    public override string? Header => Strings.SourceOperators;
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
     {
         if (editorContext is EditViewModel)
         {
-            control = new StreamOperatorsTab();
+            control = new SourceOperatorsTab();
             return true;
         }
         else
@@ -40,7 +40,7 @@ public sealed class StreamOperatorsTabExtension : ToolTabExtension
     {
         if (editorContext is EditViewModel editViewModel)
         {
-            context = new StreamOperatorsTabViewModel(editViewModel);
+            context = new SourceOperatorsTabViewModel(editViewModel);
             return true;
         }
         else

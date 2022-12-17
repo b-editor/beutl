@@ -3,11 +3,11 @@
 using Beutl.Collections;
 using Beutl.ProjectSystem;
 
-namespace Beutl.Streaming;
+namespace Beutl.Operation;
 
-public sealed class StreamOperators : CoreList<StreamOperator>
+public sealed class SourceOperators : CoreList<SourceOperator>
 {
-    public StreamOperators(Layer parent)
+    public SourceOperators(Layer parent)
     {
         Parent = parent;
         ResetBehavior = ResetBehavior.Remove;
@@ -18,7 +18,7 @@ public sealed class StreamOperators : CoreList<StreamOperator>
 
     private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        Span<StreamOperator> span = GetMarshal().Value;
+        Span<SourceOperator> span = GetMarshal().Value;
         var args = new LogicalTreeAttachmentEventArgs(Parent);
         switch (e.Action)
         {
@@ -33,7 +33,7 @@ public sealed class StreamOperators : CoreList<StreamOperator>
                     (span[i] as ILogicalElement).NotifyDetachedFromLogicalTree(args);
                 }
 
-                foreach (StreamOperator item in span)
+                foreach (SourceOperator item in span)
                 {
                     (item as ILogicalElement).NotifyAttachedToLogicalTree(args);
                 }
@@ -45,12 +45,12 @@ public sealed class StreamOperators : CoreList<StreamOperator>
                     (e.OldItems![i] as ILogicalElement)?.NotifyDetachedFromLogicalTree(args);
                 }
 
-                foreach (StreamOperator item in span)
+                foreach (SourceOperator item in span)
                 {
                     (item as ILogicalElement).NotifyDetachedFromLogicalTree(args);
                 }
 
-                foreach (StreamOperator item in span)
+                foreach (SourceOperator item in span)
                 {
                     (item as ILogicalElement).NotifyAttachedToLogicalTree(args);
                 }
@@ -73,7 +73,7 @@ public sealed class StreamOperators : CoreList<StreamOperator>
                     (span[i] as ILogicalElement).NotifyDetachedFromLogicalTree(args);
                 }
 
-                foreach (StreamOperator item in span)
+                foreach (SourceOperator item in span)
                 {
                     (item as ILogicalElement).NotifyAttachedToLogicalTree(args);
                 }

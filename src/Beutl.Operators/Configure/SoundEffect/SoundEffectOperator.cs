@@ -6,14 +6,14 @@ using System.Threading.Tasks;
 
 using Beutl.Audio;
 using Beutl.Audio.Effects;
-using Beutl.Streaming;
+using Beutl.Operation;
 
 namespace Beutl.Operators.Configure.SoundEffect;
 
 #pragma warning disable IDE0065
 using SoundEffect = Audio.Effects.SoundEffect;
 
-public abstract class SoundEffectOperator<T> : ConfigureOperator<Sound, T>, IStreamSelector
+public abstract class SoundEffectOperator<T> : ConfigureOperator<Sound, T>, ISourceTransformer
     where T : SoundEffect, new()
 {
     protected override void PreSelect(Sound target, T value)

@@ -2,24 +2,23 @@
 using Beutl.Framework;
 using Beutl.Media;
 
-namespace Beutl.Streaming;
+namespace Beutl.Operation;
 
-public interface IStreamOperator : IAffectsRender
+public interface ISourceOperator : IAffectsRender
 {
     bool IsEnabled { get; }
 
     ICoreList<IAbstractProperty> Properties { get; }
 }
 
-// PropertyInstanceに依存しない代替案
-public class StreamOperator : Element, IStreamOperator
+public class SourceOperator : Element, ISourceOperator
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
     private bool _isEnabled = true;
 
-    static StreamOperator()
+    static SourceOperator()
     {
-        IsEnabledProperty = ConfigureProperty<bool, StreamOperator>(nameof(IsEnabled))
+        IsEnabledProperty = ConfigureProperty<bool, SourceOperator>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
             .PropertyFlags(PropertyFlags.NotifyChanged)

@@ -525,8 +525,8 @@
   <data name="BitmapInterpolationMode" xml:space="preserve">
     <value>ビットマップ補間モード</value>
   </data>
-  <data name="StreamOperators" xml:space="preserve">
-    <value>ストリーム操作</value>
+  <data name="SourceOperator" xml:space="preserve">
+    <value>ソース操作</value>
   </data>
   <data name="Style" xml:space="preserve">
     <value>スタイル</value>

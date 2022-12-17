@@ -1,7 +1,7 @@
 ﻿using Beutl.Media;
 using Beutl.Models;
 using Beutl.ProjectSystem;
-using Beutl.Streaming;
+using Beutl.Operation;
 
 using Reactive.Bindings;
 
@@ -83,7 +83,7 @@ public sealed class AddLayerViewModel
 
             if (_layerDescription.InitialOperator != null)
             {
-                sLayer.AddChild((StreamOperator)Activator.CreateInstance(_layerDescription.InitialOperator.Type)!)
+                sLayer.AddChild((SourceOperator)Activator.CreateInstance(_layerDescription.InitialOperator.Type)!)
                     .DoAndRecord(CommandRecorder.Default);
             }
 

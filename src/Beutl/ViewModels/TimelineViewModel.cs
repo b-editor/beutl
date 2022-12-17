@@ -10,7 +10,7 @@ using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Reactive;
 using Beutl.Services.PrimitiveImpls;
-using Beutl.Streaming;
+using Beutl.Operation;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -67,7 +67,7 @@ public sealed class TimelineViewModel : IToolContext
             if (item.InitialOperator != null)
             {
                 sLayer.AccentColor = item.InitialOperator.AccentColor;
-                sLayer.AddChild((StreamOperator)(Activator.CreateInstance(item.InitialOperator.Type)!))
+                sLayer.AddChild((SourceOperator)(Activator.CreateInstance(item.InitialOperator.Type)!))
                     .DoAndRecord(CommandRecorder.Default);
             }
 

@@ -9,11 +9,11 @@ using Beutl.Styling;
 
 using Reactive.Bindings.Extensions;
 
-namespace Beutl.Streaming;
+namespace Beutl.Operation;
 
-public abstract class StreamStyler : StylingOperator, IStreamSelector
+public abstract class SourceStyler : StylingOperator, ISourceTransformer
 {
-    public virtual IRenderable? Select(IRenderable? value, IClock clock)
+    public virtual IRenderable? Transform(IRenderable? value, IClock clock)
     {
         OnPreSelect(value);
         if (value == null)

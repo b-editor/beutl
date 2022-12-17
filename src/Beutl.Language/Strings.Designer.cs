@@ -1691,6 +1691,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Source Operators に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SourceOperators {
+            get {
+                return ResourceManager.GetString("SourceOperators", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Source に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string SourceRect {
@@ -1750,15 +1759,6 @@ namespace Beutl.Language {
         public static string Stereo {
             get {
                 return ResourceManager.GetString("Stereo", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Stream Operators に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string StreamOperators {
-            get {
-                return ResourceManager.GetString("StreamOperators", resourceCulture);
             }
         }
         

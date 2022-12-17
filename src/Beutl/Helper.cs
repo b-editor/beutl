@@ -7,7 +7,7 @@ using Beutl.Animation;
 using Beutl.Framework;
 using Beutl.ProjectSystem;
 using Beutl.Services.Editors.Wrappers;
-using Beutl.Streaming;
+using Beutl.Operation;
 using Beutl.Styling;
 
 namespace Beutl;

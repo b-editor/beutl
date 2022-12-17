@@ -5,7 +5,7 @@ using Beutl.Graphics;
 using Beutl.Media.TextFormatting;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;
-using Beutl.Streaming;
+using Beutl.Operation;
 using Beutl.Styling;
 using Beutl.Threading;
 
@@ -69,13 +69,13 @@ internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/
         prevResult?.BeginBatchUpdate();
 
         Renderable? result = prevResult;
-        foreach (StreamOperator? item in layer.Operators.GetMarshal().Value)
+        foreach (SourceOperator? item in layer.Operators.GetMarshal().Value)
         {
-            if (item is IStreamSelector selector)
+            if (item is ISourceTransformer selector)
             {
-                result = selector.Select(prevResult, Clock) as Renderable;
+                result = selector.Transform(prevResult, Clock) as Renderable;
             }
-            else if (item is IStreamSource source)
+            else if (item is ISourcePublisher source)
             {
                 result = source.Publish(Clock) as Renderable;
             }

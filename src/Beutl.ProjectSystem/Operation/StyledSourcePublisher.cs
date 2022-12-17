@@ -2,9 +2,9 @@
 using Beutl.Rendering;
 using Beutl.Styling;
 
-namespace Beutl.Streaming;
+namespace Beutl.Operation;
 
-public abstract class StreamStyledSource : StylingOperator, IStreamSource
+public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
 {
     public virtual IRenderable? Publish(IClock clock)
     {

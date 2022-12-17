@@ -1,16 +1,16 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
-using Beutl.Streaming;
+using Beutl.Operation;
 using Beutl.Styling;
 
 namespace Beutl.Operators.Source;
 
-public sealed class RoundedRectOperation : StreamStyledSource
+public sealed class RectOperator : StyledSourcePublisher
 {
     protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
     {
-        var style = new Style<RoundedRect>();
+        var style = new Style<Rectangle>();
         style.Setters.AddRange(setters());
         return style;
     }
@@ -19,8 +19,7 @@ public sealed class RoundedRectOperation : StreamStyledSource
     {
         initializing.Add(new Setter<float>(Drawable.WidthProperty, 100));
         initializing.Add(new Setter<float>(Drawable.HeightProperty, 100));
-        initializing.Add(new Setter<float>(RoundedRect.StrokeWidthProperty, 4000));
+        initializing.Add(new Setter<float>(Rectangle.StrokeWidthProperty, 4000));
         initializing.Add(new Setter<IBrush?>(Drawable.ForegroundProperty, new SolidColorBrush(Colors.White)));
-        initializing.Add(new Setter<CornerRadius>(RoundedRect.CornerRadiusProperty, new CornerRadius(25)));
     }
 }

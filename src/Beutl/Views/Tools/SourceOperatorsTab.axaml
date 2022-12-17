@@ -1,0 +1,23 @@
+<UserControl x:Class="Beutl.Views.Tools.SourceOperatorsTab"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="using:Beutl.Views.Tools"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.ViewModels.Tools"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="viewModel:SourceOperatorsTabViewModel"
+             DragDrop.AllowDrop="True"
+             mc:Ignorable="d">
+    <ScrollViewer x:Name="scrollViewer">
+        <ItemsControl x:Name="itemsControl" Items="{CompiledBinding Items}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <local:SourceOperatorView />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </ScrollViewer>
+</UserControl>

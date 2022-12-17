@@ -1,11 +1,11 @@
 ﻿using Beutl.Audio;
 using Beutl.Media.Source;
-using Beutl.Streaming;
+using Beutl.Operation;
 using Beutl.Styling;
 
 namespace Beutl.Operators.Source;
 
-public sealed class SourceSoundOperator : StreamStyledSource
+public sealed class SourceSoundOperator : StyledSourcePublisher
 {
     protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
     {

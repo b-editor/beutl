@@ -14,7 +14,7 @@ using Beutl.Styling;
 
 using Reactive.Bindings.Extensions;
 
-namespace Beutl.Streaming;
+namespace Beutl.Operation;
 
 public interface IStylingSetterPropertyImpl : IAbstractProperty
 {
@@ -116,7 +116,7 @@ public sealed class StylingSetterPropertyImpl<T> : IAbstractAnimatableProperty<T
     }
 }
 
-public abstract class StylingOperator : StreamOperator
+public abstract class StylingOperator : SourceOperator
 {
     private bool _isSettersChanging;
     private IStyle _style;

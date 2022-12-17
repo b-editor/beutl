@@ -64,7 +64,7 @@ public sealed partial class EditorBadge : UserControl
         if (DataContext is BaseEditorViewModel viewModel
             && viewModel.WrappedProperty is IAbstractAnimatableProperty animatableProperty
             && this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
-            && this.FindLogicalAncestorOfType<StreamOperatorsTab>()?.DataContext is StreamOperatorsTabViewModel { Layer.Value: { } layer }
+            && this.FindLogicalAncestorOfType<SourceOperatorsTab>()?.DataContext is SourceOperatorsTabViewModel { Layer.Value: { } layer }
             && editViewModel.FindToolTab<TimelineViewModel>() is { } timeline)
         {
             // 右側のタブを開く

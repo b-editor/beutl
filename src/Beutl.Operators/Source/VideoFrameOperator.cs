@@ -1,10 +1,10 @@
 ﻿using Beutl.Graphics.Drawables;
-using Beutl.Streaming;
+using Beutl.Operation;
 using Beutl.Styling;
 
 namespace Beutl.Operators.Source;
 
-public sealed class VideoFrameOperator : StreamStyledSource
+public sealed class VideoFrameOperator : StyledSourcePublisher
 {
     protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
     {

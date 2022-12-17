@@ -2,14 +2,14 @@
 using Avalonia.Input;
 
 using Beutl.ProjectSystem;
-using Beutl.Streaming;
+using Beutl.Operation;
 using Beutl.ViewModels.Tools;
 
 namespace Beutl.Views.Tools;
 
-public sealed partial class StreamOperatorsTab : UserControl
+public sealed partial class SourceOperatorsTab : UserControl
 {
-    public StreamOperatorsTab()
+    public SourceOperatorsTab()
     {
         InitializeComponent();
         AddHandler(DragDrop.DragOverEvent, DragOver);
@@ -19,18 +19,18 @@ public sealed partial class StreamOperatorsTab : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (DataContext is StreamOperatorsTabViewModel viewModel)
+        if (DataContext is SourceOperatorsTabViewModel viewModel)
         {
-            var self = new WeakReference<StreamOperatorsTab>(this);
+            var self = new WeakReference<SourceOperatorsTab>(this);
             viewModel.RequestScroll = obj =>
             {
-                if (self.TryGetTarget(out StreamOperatorsTab? @this) && @this.DataContext is StreamOperatorsTabViewModel viewModel)
+                if (self.TryGetTarget(out SourceOperatorsTab? @this) && @this.DataContext is SourceOperatorsTabViewModel viewModel)
                 {
                     int index = 0;
                     bool found = false;
                     for (; index < viewModel.Items.Count; index++)
                     {
-                        StreamOperatorViewModel? item = viewModel.Items[index];
+                        SourceOperatorViewModel? item = viewModel.Items[index];
                         if (ReferenceEquals(item?.Model, obj))
                         {
                             found = true;
@@ -53,11 +53,11 @@ public sealed partial class StreamOperatorsTab : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get("StreamOperator") is OperatorRegistry.RegistryItem item
-            && DataContext is StreamOperatorsTabViewModel vm
+        if (e.Data.Get("SourceOperator") is OperatorRegistry.RegistryItem item
+            && DataContext is SourceOperatorsTabViewModel vm
             && vm.Layer.Value is Layer layer)
         {
-            layer.AddChild((StreamOperator)Activator.CreateInstance(item.Type)!)
+            layer.AddChild((SourceOperator)Activator.CreateInstance(item.Type)!)
                 .DoAndRecord(CommandRecorder.Default);
 
             e.Handled = true;
@@ -66,7 +66,7 @@ public sealed partial class StreamOperatorsTab : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains("StreamOperator"))
+        if (e.Data.Contains("SourceOperator"))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
         }

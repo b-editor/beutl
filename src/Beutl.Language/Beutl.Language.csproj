@@ -8,6 +8,9 @@
 
   <!-- CS8032 -->
   <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.Analyzers.props" />
+  <ItemGroup>
+    <None Remove="Strings.resx~RFeaca14.TMP" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
