@@ -1,15 +1,15 @@
 ﻿namespace Beutl.Rendering;
 
 // ProjectSystem側のLayerをRendering専用に抽象化
-public interface ILayerContext
+public interface IRenderLayer
 {
-    LayerNode? this[TimeSpan timeSpan] { get; }
+    RenderLayerSpan? this[TimeSpan timeSpan] { get; }
 
-    void AddNode(LayerNode node);
+    void AddNode(RenderLayerSpan node);
 
-    void RemoveNode(LayerNode node);
+    void RemoveNode(RenderLayerSpan node);
 
-    bool ContainsNode(LayerNode node);
+    bool ContainsNode(RenderLayerSpan node);
 
     void RenderGraphics(IRenderer renderer, TimeSpan timeSpan);
 

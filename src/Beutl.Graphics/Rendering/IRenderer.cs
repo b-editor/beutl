@@ -13,7 +13,7 @@ namespace Beutl.Rendering;
 // Renderable内で持続時間と開始時間のプロパティを追加
 public interface IRenderer : IDisposable
 {
-    ILayerContext? this[int index] { get; set; }
+    IRenderLayer? this[int index] { get; set; }
 
     ICanvas Graphics { get; }
 

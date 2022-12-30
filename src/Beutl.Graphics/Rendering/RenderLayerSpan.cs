@@ -1,9 +1,13 @@
-﻿using Beutl.Language;
+﻿using System.ComponentModel;
+
+using Beutl.Animation;
+using Beutl.Graphics;
+using Beutl.Language;
 using Beutl.Media;
 
 namespace Beutl.Rendering;
 
-public sealed class LayerNode : Element
+public sealed class RenderLayerSpan : Element
 {
     public static readonly CoreProperty<TimeSpan> StartProperty;
     public static readonly CoreProperty<TimeSpan> DurationProperty;
@@ -12,26 +16,26 @@ public sealed class LayerNode : Element
     private TimeSpan _duration;
     private Renderable? _value;
 
-    static LayerNode()
+    static RenderLayerSpan()
     {
-        StartProperty = ConfigureProperty<TimeSpan, LayerNode>(nameof(Start))
+        StartProperty = ConfigureProperty<TimeSpan, RenderLayerSpan>(nameof(Start))
             .Accessor(o => o.Start, (o, v) => o.Start = v)
             .Display(Strings.StartTime)
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
-        DurationProperty = ConfigureProperty<TimeSpan, LayerNode>(nameof(Duration))
+        DurationProperty = ConfigureProperty<TimeSpan, RenderLayerSpan>(nameof(Duration))
             .Accessor(o => o.Duration, (o, v) => o.Duration = v)
             .Display(Strings.DurationTime)
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
-        ValueProperty = ConfigureProperty<Renderable?, LayerNode>(nameof(Value))
+        ValueProperty = ConfigureProperty<Renderable?, RenderLayerSpan>(nameof(Value))
             .Accessor(o => o.Value, (o, v) => o.Value = v)
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
-        LogicalChild<LayerNode>(ValueProperty);
+        LogicalChild<RenderLayerSpan>(ValueProperty);
     }
 
     public TimeSpan Start

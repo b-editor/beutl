@@ -31,7 +31,7 @@ public class VideoFrame : Drawable
     private TimeSpan _requestedPosition;
     private IBitmap? _previousBitmap;
     private double _previousFrame;
-    private LayerNode? _layerNode;
+    private RenderLayerSpan? _layerNode;
 
     static VideoFrame()
     {
@@ -141,7 +141,7 @@ public class VideoFrame : Drawable
     protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
     {
         base.OnAttachedToLogicalTree(args);
-        _layerNode = args.Parent?.FindLogicalParent<LayerNode>(true);
+        _layerNode = args.Parent?.FindLogicalParent<RenderLayerSpan>(true);
     }
 
     protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)

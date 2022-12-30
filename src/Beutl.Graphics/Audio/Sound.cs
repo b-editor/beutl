@@ -12,7 +12,7 @@ public abstract class Sound : Renderable
     public static readonly CoreProperty<float> GainProperty;
     public static readonly CoreProperty<ISoundEffect?> EffectProperty;
     private float _gain = 1;
-    private LayerNode? _layerNode;
+    private RenderLayerSpan? _layerSpan;
     private TimeRange _range;
     private TimeSpan _offset;
     private ISoundEffect? _effect;
@@ -128,22 +128,22 @@ public abstract class Sound : Renderable
     protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
     {
         base.OnAttachedToLogicalTree(args);
-        _layerNode = args.Parent as LayerNode;
+        _layerSpan = args.Parent as RenderLayerSpan;
     }
 
     protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
     {
         base.OnDetachedFromLogicalTree(args);
-        _layerNode = null;
+        _layerSpan = null;
     }
 
     private void UpdateTime(IClock clock)
     {
-        if (_layerNode != null)
+        if (_layerSpan != null)
         {
             TimeSpan currentTime = clock.AudioStartTime;
 
-            TimeSpan start = currentTime - _layerNode.Start;
+            TimeSpan start = currentTime - _layerSpan.Start;
             TimeSpan length;
 
             if (start < TimeSpan.Zero)
@@ -155,7 +155,7 @@ public abstract class Sound : Renderable
             else
             {
                 _offset = TimeSpan.Zero;
-                length = _layerNode.Range.End - start;
+                length = _layerSpan.Range.End - start;
                 if (length > s_second)
                 {
                     length = s_second;

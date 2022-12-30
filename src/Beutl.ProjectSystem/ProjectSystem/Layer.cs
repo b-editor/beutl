@@ -20,7 +20,7 @@ public class Layer : Element, IStorable, ILogicalElement
     public static readonly CoreProperty<int> ZIndexProperty;
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
-    public static readonly CoreProperty<LayerNode> NodeProperty;
+    public static readonly CoreProperty<RenderLayerSpan> NodeProperty;
     public static readonly CoreProperty<SourceOperators> OperatorsProperty;
     private TimeSpan _start;
     private TimeSpan _length;
@@ -66,7 +66,7 @@ public class Layer : Element, IStorable, ILogicalElement
             .SerializeName("isEnabled")
             .Register();
 
-        NodeProperty = ConfigureProperty<LayerNode, Layer>(nameof(Node))
+        NodeProperty = ConfigureProperty<RenderLayerSpan, Layer>(nameof(Node))
             .Accessor(o => o.Node, null)
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
@@ -84,10 +84,10 @@ public class Layer : Element, IStorable, ILogicalElement
                 renderer[args.OldValue]?.RemoveNode(layer.Node);
                 if (args.NewValue >= 0)
                 {
-                    ILayerContext? context = renderer[args.NewValue];
+                    IRenderLayer? context = renderer[args.NewValue];
                     if (context == null)
                     {
-                        context = new LayerContext();
+                        context = new RenderLayer();
                         renderer[args.NewValue] = context;
                     }
                     context.AddNode(layer.Node);
@@ -182,7 +182,7 @@ public class Layer : Element, IStorable, ILogicalElement
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
     }
 
-    public LayerNode Node { get; } = new();
+    public RenderLayerSpan Node { get; } = new();
 
     //public Renderable? Renderable
     //{
@@ -342,10 +342,10 @@ public class Layer : Element, IStorable, ILogicalElement
         base.OnAttachedToLogicalTree(args);
         if (args.Parent is Scene { Renderer: { IsDisposed: false } renderer } && ZIndex >= 0)
         {
-            ILayerContext? context = renderer[ZIndex];
+            IRenderLayer? context = renderer[ZIndex];
             if (context == null)
             {
-                context = new LayerContext();
+                context = new RenderLayer();
                 renderer[ZIndex] = context;
             }
             context.AddNode(Node);
@@ -404,7 +404,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
     private IDisposable SubscribeToLayerNode()
     {
-        return Node.GetObservable(LayerNode.ValueProperty)
+        return Node.GetObservable(RenderLayerSpan.ValueProperty)
             .SelectMany(value => value != null
                 ? Observable.FromEventPattern<RenderInvalidatedEventArgs>(h => value.Invalidated += h, h => value.Invalidated -= h)
                     .Select(_ => Unit.Default)

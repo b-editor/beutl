@@ -11,7 +11,7 @@ namespace Beutl.Rendering;
 public class DeferredRenderer : IRenderer
 {
     internal static readonly Dispatcher s_dispatcher = Dispatcher.Spawn();
-    private readonly SortedDictionary<int, ILayerContext> _objects = new();
+    private readonly SortedDictionary<int, IRenderLayer> _objects = new();
     private readonly List<Rect> _clips = new();
     private readonly Canvas _graphics;
     private readonly Audio.Audio _audio;
@@ -53,9 +53,9 @@ public class DeferredRenderer : IRenderer
 
     public IClock Clock => _instanceClock;
 
-    public ILayerContext? this[int index]
+    public IRenderLayer? this[int index]
     {
-        get => _objects.TryGetValue(index, out ILayerContext? value) ? value : null;
+        get => _objects.TryGetValue(index, out IRenderLayer? value) ? value : null;
         set
         {
             if (value != null)
@@ -107,7 +107,7 @@ public class DeferredRenderer : IRenderer
 
     protected virtual void RenderGraphicsCore(TimeSpan timeSpan)
     {
-        var objects = new KeyValuePair<int, ILayerContext>[_objects.Count];
+        var objects = new KeyValuePair<int, IRenderLayer>[_objects.Count];
         _objects.CopyTo(objects, 0);
         Func(objects, 0, objects.Length, timeSpan);
 
@@ -127,7 +127,7 @@ public class DeferredRenderer : IRenderer
                 Graphics.Clear();
             }
 
-            foreach (KeyValuePair<int, ILayerContext> item in objects)
+            foreach (KeyValuePair<int, IRenderLayer> item in objects)
             {
                 IRenderable? renderable = item.Value[timeSpan]?.Value;
                 if (renderable?.IsDirty ?? false)
@@ -167,14 +167,14 @@ public class DeferredRenderer : IRenderer
 
     // 変更されているオブジェクトのBoundsを_clipsに追加して、
     // そのオブジェクトが影響を与えるオブジェクトも同様の処理をする
-    private void Func(ReadOnlySpan<KeyValuePair<int, ILayerContext>> items, int start, int length, TimeSpan timeSpan)
+    private void Func(ReadOnlySpan<KeyValuePair<int, IRenderLayer>> items, int start, int length, TimeSpan timeSpan)
     {
         for (int i = length - 1; i >= start; i--)
         {
-            KeyValuePair<int, ILayerContext> item = items[i];
-            ILayerContext context = item.Value;
-            LayerNode? layerNode = context[timeSpan];
-            LayerNode? lastLayerNode = context[_lastTimeSpan];
+            KeyValuePair<int, IRenderLayer> item = items[i];
+            IRenderLayer context = item.Value;
+            RenderLayerSpan? layerNode = context[timeSpan];
+            RenderLayerSpan? lastLayerNode = context[_lastTimeSpan];
             IRenderable? renderable = layerNode?.Value;
             IRenderable? lastRenderable = lastLayerNode?.Value;
 
@@ -277,7 +277,7 @@ public class DeferredRenderer : IRenderer
 
         _audio.Clear();
 
-        foreach (KeyValuePair<int, ILayerContext> item in _objects)
+        foreach (KeyValuePair<int, IRenderLayer> item in _objects)
         {
             item.Value.RenderAudio(this, timeSpan);
         }

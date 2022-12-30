@@ -8,7 +8,7 @@ namespace Beutl.Rendering;
 
 public class ImmediateRenderer : IRenderer
 {
-    private readonly SortedDictionary<int, ILayerContext> _objects = new();
+    private readonly SortedDictionary<int, IRenderLayer> _objects = new();
     private readonly Canvas _graphics;
     private readonly Audio.Audio _audio;
     private readonly FpsText _fpsText = new();
@@ -40,9 +40,9 @@ public class ImmediateRenderer : IRenderer
 
     public IAudio Audio => _audio;
 
-    public ILayerContext? this[int index]
+    public IRenderLayer? this[int index]
     {
-        get => _objects.TryGetValue(index, out ILayerContext? value) ? value : null;
+        get => _objects.TryGetValue(index, out IRenderLayer? value) ? value : null;
         set
         {
             if (value != null)
@@ -106,7 +106,7 @@ public class ImmediateRenderer : IRenderer
         {
             Graphics.Clear();
 
-            foreach (KeyValuePair<int, ILayerContext> item in _objects)
+            foreach (KeyValuePair<int, IRenderLayer> item in _objects)
             {
                 item.Value.RenderGraphics(this, timeSpan);
             }
@@ -117,7 +117,7 @@ public class ImmediateRenderer : IRenderer
     {
         _audio.Clear();
 
-        foreach (KeyValuePair<int, ILayerContext> item in _objects)
+        foreach (KeyValuePair<int, IRenderLayer> item in _objects)
         {
             item.Value.RenderAudio(this, timeSpan);
         }

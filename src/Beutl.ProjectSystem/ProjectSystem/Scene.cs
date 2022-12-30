@@ -172,10 +172,10 @@ public class Scene : Element, IStorable, IWorkspaceItem
 
         foreach (Layer item in _children.GetMarshal().Value)
         {
-            ILayerContext? context = _renderer[item.ZIndex];
+            IRenderLayer? context = _renderer[item.ZIndex];
             if (context == null)
             {
-                context = new LayerContext();
+                context = new RenderLayer();
                 _renderer[item.ZIndex] = context;
             }
             context.AddNode(item.Node);

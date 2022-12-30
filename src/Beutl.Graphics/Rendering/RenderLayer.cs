@@ -1,4 +1,4 @@
-﻿using System.Buffers;
+﻿using System.ComponentModel;
 using System.Runtime.InteropServices;
 
 using Beutl.Audio;
@@ -7,34 +7,34 @@ using Beutl.Media;
 
 namespace Beutl.Rendering;
 
-public class LayerContext : ILayerContext
+public class RenderLayer : IRenderLayer
 {
     private TimeSpan? _lastTimeSpan;
-    private LayerNode? _lastTimeResult;
-    private readonly List<LayerNode> _nodes = new();
+    private RenderLayerSpan? _lastTimeResult;
+    private readonly List<RenderLayerSpan> _nodes = new();
 
-    public LayerNode? this[TimeSpan timeSpan] => Get(timeSpan);
+    public RenderLayerSpan? this[TimeSpan timeSpan] => Get(timeSpan);
 
-    public void AddNode(LayerNode node)
+    public void AddNode(RenderLayerSpan node)
     {
         _nodes.Add(node);
         _lastTimeSpan = null;
         _lastTimeResult = null;
     }
 
-    public void RemoveNode(LayerNode node)
+    public void RemoveNode(RenderLayerSpan node)
     {
         _nodes.Remove(node);
         _lastTimeSpan = null;
         _lastTimeResult = null;
     }
 
-    public bool ContainsNode(LayerNode node)
+    public bool ContainsNode(RenderLayerSpan node)
     {
         return _nodes.Contains(node);
     }
 
-    private LayerNode? Get(TimeSpan timeSpan)
+    private RenderLayerSpan? Get(TimeSpan timeSpan)
     {
         if (_lastTimeSpan.HasValue && _lastTimeSpan == timeSpan)
         {
@@ -43,7 +43,7 @@ public class LayerContext : ILayerContext
 
         _lastTimeSpan = timeSpan;
 
-        foreach (LayerNode node in CollectionsMarshal.AsSpan(_nodes))
+        foreach (RenderLayerSpan node in CollectionsMarshal.AsSpan(_nodes))
         {
             if (node.Range.Contains(timeSpan))
             {
@@ -56,12 +56,12 @@ public class LayerContext : ILayerContext
         return null;
     }
 
-    public Span<LayerNode> GetRange(TimeSpan start, TimeSpan duration)
+    public Span<RenderLayerSpan> GetRange(TimeSpan start, TimeSpan duration)
     {
-        var list = new List<LayerNode>();
+        var list = new List<RenderLayerSpan>();
         var range = new TimeRange(start, duration);
 
-        foreach (LayerNode node in CollectionsMarshal.AsSpan(_nodes))
+        foreach (RenderLayerSpan node in CollectionsMarshal.AsSpan(_nodes))
         {
             if (node.Range.Intersects(range))
             {
@@ -74,7 +74,7 @@ public class LayerContext : ILayerContext
 
     public void RenderGraphics(IRenderer renderer, TimeSpan timeSpan)
     {
-        LayerNode? layer = Get(timeSpan);
+        RenderLayerSpan? layer = Get(timeSpan);
         if (layer != null && layer.Value is Drawable drawable)
         {
             drawable.Render(renderer);
@@ -83,10 +83,10 @@ public class LayerContext : ILayerContext
 
     public void RenderAudio(IRenderer renderer, TimeSpan timeSpan)
     {
-        Span<LayerNode> span = GetRange(timeSpan, TimeSpan.FromSeconds(1));
-        foreach (LayerNode item in span)
+        Span<RenderLayerSpan> span = GetRange(timeSpan, TimeSpan.FromSeconds(1));
+        foreach (RenderLayerSpan item in span)
         {
-            if(item.Value is Sound sound)
+            if (item.Value is Sound sound)
             {
                 sound.Render(renderer);
             }

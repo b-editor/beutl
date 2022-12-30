@@ -64,7 +64,7 @@ internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/
 
     private void Render_StreamOperators(Layer layer)
     {
-        LayerNode? node = layer.Node;
+        RenderLayerSpan? node = layer.Node;
         Renderable? prevResult = null;
         prevResult?.BeginBatchUpdate();
 
