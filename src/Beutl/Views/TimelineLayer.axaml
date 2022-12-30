@@ -79,7 +79,7 @@
                 </ui:MenuFlyoutSubItem>
             </ui:FAMenuFlyout>
         </Border.ContextFlyout>
-        <TextBlock Text="{Binding Model.ZIndex}" />
+        <TextBlock Text="{Binding Model.Name}" />
     </Border>
 
 </UserControl>
