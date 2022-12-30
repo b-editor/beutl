@@ -33,7 +33,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="OpenTK.OpenAL" Version="4.7.5" />
-    <PackageReference Include="Vortice.XAudio2" Version="2.1.41" />
+    <PackageReference Include="Vortice.XAudio2" Version="2.2.0" />
   </ItemGroup>
   <Import Project="$(RootDirectory)\build\props\OpenCvSharp4.props" />
   <Import Project="$(RootDirectory)\build\props\SkiaSharp.props" />
