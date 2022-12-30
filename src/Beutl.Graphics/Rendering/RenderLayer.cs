@@ -10,13 +10,13 @@ public class RenderLayer : IRenderLayer
 {
     private TimeSpan? _lastTimeSpan;
     private RenderLayerSpan? _lastTimeResult;
-    private readonly List<RenderLayerSpan> _nodes = new();
+    private readonly List<RenderLayerSpan> _spans = new();
 
     public RenderLayerSpan? this[TimeSpan timeSpan] => Get(timeSpan);
 
     public IRenderer? Renderer { get; private set; }
 
-    private void OnNodeInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void OnSpanInvalidated(object? sender, RenderInvalidatedEventArgs e)
     {
         if (Renderer is { } renderer
             && sender is RenderLayerSpan span
@@ -26,29 +26,29 @@ public class RenderLayer : IRenderLayer
         }
     }
 
-    public void AddNode(RenderLayerSpan node)
+    public void AddSpan(RenderLayerSpan span)
     {
-        _nodes.Add(node);
+        _spans.Add(span);
         _lastTimeSpan = null;
         _lastTimeResult = null;
 
-        node.Invalidated += OnNodeInvalidated;
-        node.AttachToRenderLayer(this);
+        span.Invalidated += OnSpanInvalidated;
+        span.AttachToRenderLayer(this);
     }
 
-    public void RemoveNode(RenderLayerSpan node)
+    public void RemoveSpan(RenderLayerSpan span)
     {
-        _nodes.Remove(node);
+        _spans.Remove(span);
         _lastTimeSpan = null;
         _lastTimeResult = null;
 
-        node.Invalidated -= OnNodeInvalidated;
-        node.DetachFromRenderLayer();
+        span.Invalidated -= OnSpanInvalidated;
+        span.DetachFromRenderLayer();
     }
 
-    public bool ContainsNode(RenderLayerSpan node)
+    public bool ContainsSpan(RenderLayerSpan span)
     {
-        return _nodes.Contains(node);
+        return _spans.Contains(span);
     }
 
     private RenderLayerSpan? Get(TimeSpan timeSpan)
@@ -60,12 +60,12 @@ public class RenderLayer : IRenderLayer
 
         _lastTimeSpan = timeSpan;
 
-        foreach (RenderLayerSpan node in CollectionsMarshal.AsSpan(_nodes))
+        foreach (RenderLayerSpan span in CollectionsMarshal.AsSpan(_spans))
         {
-            if (node.Range.Contains(timeSpan))
+            if (span.Range.Contains(timeSpan))
             {
-                _lastTimeResult = node;
-                return node;
+                _lastTimeResult = span;
+                return span;
             }
         }
 
@@ -78,7 +78,7 @@ public class RenderLayer : IRenderLayer
         var list = new List<RenderLayerSpan>();
         var range = new TimeRange(start, duration);
 
-        foreach (RenderLayerSpan node in CollectionsMarshal.AsSpan(_nodes))
+        foreach (RenderLayerSpan node in CollectionsMarshal.AsSpan(_spans))
         {
             if (node.Range.Intersects(range))
             {

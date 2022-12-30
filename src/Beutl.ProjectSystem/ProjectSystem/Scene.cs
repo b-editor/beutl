@@ -178,7 +178,7 @@ public class Scene : Element, IStorable, IWorkspaceItem
                 context = new RenderLayer();
                 _renderer[item.ZIndex] = context;
             }
-            context.AddNode(item.Node);
+            context.AddSpan(item.Span);
         }
 
         OnPropertyChanged(new CorePropertyChangedEventArgs<int>(

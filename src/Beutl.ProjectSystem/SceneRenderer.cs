@@ -1,13 +1,8 @@
 ﻿using System.Runtime.InteropServices;
 
-using Beutl.Animation;
-using Beutl.Graphics;
-using Beutl.Media.TextFormatting;
+using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;
-using Beutl.Operation;
-using Beutl.Styling;
-using Beutl.Threading;
 
 namespace Beutl;
 
@@ -37,15 +32,15 @@ internal sealed class SceneRenderer :
 
         foreach (Layer layer in layers)
         {
-            Render_StreamOperators(layer);
+            InvokeSourceOperators(layer);
         }
 
         base.RenderGraphicsCore();
     }
 
-    private void Render_StreamOperators(Layer layer)
+    private void InvokeSourceOperators(Layer layer)
     {
-        RenderLayerSpan? node = layer.Node;
+        RenderLayerSpan? span = layer.Span;
         Renderable? prevResult = null;
         prevResult?.BeginBatchUpdate();
 
@@ -70,15 +65,15 @@ internal sealed class SceneRenderer :
             }
         }
 
-        node.Value = result;
-        node.Value?.ApplyStyling(Clock);
-        node.Value?.ApplyAnimations(Clock);
+        span.Value = result;
+        span.Value?.ApplyStyling(Clock);
+        span.Value?.ApplyAnimations(Clock);
 
         if (prevResult != null)
         {
             prevResult.IsVisible = layer.IsEnabled;
         }
-        node.Value?.EndBatchUpdate();
+        span.Value?.EndBatchUpdate();
     }
 
     // Layersを振り分ける

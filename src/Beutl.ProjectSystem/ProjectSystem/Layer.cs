@@ -20,7 +20,7 @@ public class Layer : Element, IStorable, ILogicalElement
     public static readonly CoreProperty<int> ZIndexProperty;
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
-    public static readonly CoreProperty<RenderLayerSpan> NodeProperty;
+    public static readonly CoreProperty<RenderLayerSpan> SpanProperty;
     public static readonly CoreProperty<SourceOperators> OperatorsProperty;
     private TimeSpan _start;
     private TimeSpan _length;
@@ -66,8 +66,8 @@ public class Layer : Element, IStorable, ILogicalElement
             .SerializeName("isEnabled")
             .Register();
 
-        NodeProperty = ConfigureProperty<RenderLayerSpan, Layer>(nameof(Node))
-            .Accessor(o => o.Node, null)
+        SpanProperty = ConfigureProperty<RenderLayerSpan, Layer>(nameof(Span))
+            .Accessor(o => o.Span, null)
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
@@ -81,7 +81,7 @@ public class Layer : Element, IStorable, ILogicalElement
         {
             if (args.Sender is Layer layer && layer.Parent is Scene { Renderer: { IsDisposed: false } renderer })
             {
-                renderer[args.OldValue]?.RemoveNode(layer.Node);
+                renderer[args.OldValue]?.RemoveSpan(layer.Span);
                 if (args.NewValue >= 0)
                 {
                     IRenderLayer? context = renderer[args.NewValue];
@@ -90,7 +90,7 @@ public class Layer : Element, IStorable, ILogicalElement
                         context = new RenderLayer();
                         renderer[args.NewValue] = context;
                     }
-                    context.AddNode(layer.Node);
+                    context.AddSpan(layer.Span);
                 }
             }
         });
@@ -115,7 +115,7 @@ public class Layer : Element, IStorable, ILogicalElement
         {
             if (e.Sender is Layer layer)
             {
-                layer.Node.Start = e.NewValue;
+                layer.Span.Start = e.NewValue;
             }
         });
 
@@ -123,7 +123,7 @@ public class Layer : Element, IStorable, ILogicalElement
         {
             if (e.Sender is Layer layer)
             {
-                layer.Node.Duration = e.NewValue;
+                layer.Span.Duration = e.NewValue;
             }
         });
     }
@@ -134,7 +134,7 @@ public class Layer : Element, IStorable, ILogicalElement
         Operators.Attached += item => item.Invalidated += Operator_Invalidated;
         Operators.Detached += item => item.Invalidated -= Operator_Invalidated;
 
-        (Node as ILogicalElement).NotifyAttachedToLogicalTree(new(this));
+        (Span as ILogicalElement).NotifyAttachedToLogicalTree(new(this));
     }
 
     event EventHandler IStorable.Saved
@@ -182,13 +182,10 @@ public class Layer : Element, IStorable, ILogicalElement
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
     }
 
-    public RenderLayerSpan Node { get; } = new();
+    public RenderLayerSpan Span { get; } = new();
 
-    //public Renderable? Renderable
-    //{
-    //    get => _renderable;
-    //    set => SetAndRaise(RenderableProperty, ref _renderable, value);
-    //}
+    [Obsolete("Use 'Layer.Span'.")]
+    public RenderLayerSpan Node => Span;
 
     public string FileName
     {
@@ -248,7 +245,7 @@ public class Layer : Element, IStorable, ILogicalElement
                 && Activator.CreateInstance(renderableType) is Renderable renderable)
             {
                 renderable.ReadFromJson(renderableObj);
-                Node.Value = renderable;
+                Span.Value = renderable;
             }
 
             if (jobject.TryGetPropertyValue("operators", out JsonNode? operatorsNode)
@@ -283,7 +280,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
         if (json is JsonObject jobject)
         {
-            if (Node.Value is Renderable renderable)
+            if (Span.Value is Renderable renderable)
             {
                 JsonNode node = new JsonObject();
                 renderable.WriteToJson(ref node);
@@ -348,7 +345,7 @@ public class Layer : Element, IStorable, ILogicalElement
                 context = new RenderLayer();
                 renderer[ZIndex] = context;
             }
-            context.AddNode(Node);
+            context.AddSpan(Span);
 
             _disposable = SubscribeToLayerNode();
         }
@@ -359,7 +356,7 @@ public class Layer : Element, IStorable, ILogicalElement
         base.OnDetachedFromLogicalTree(args);
         if (args.Parent is Scene { Renderer: { IsDisposed: false } renderer } && ZIndex >= 0)
         {
-            renderer[ZIndex]?.RemoveNode(Node);
+            renderer[ZIndex]?.RemoveSpan(Span);
             _disposable?.Dispose();
             _disposable = null;
         }
@@ -377,9 +374,9 @@ public class Layer : Element, IStorable, ILogicalElement
             yield return item;
         }
 
-        if (Node != null)
+        if (Span != null)
         {
-            yield return Node;
+            yield return Span;
         }
     }
 
@@ -391,7 +388,7 @@ public class Layer : Element, IStorable, ILogicalElement
     private void ForceRender()
     {
         Scene? scene = this.FindLogicalParent<Scene>();
-        if (Node.Value is not Sound
+        if (Span.Value is not Sound
             && IsEnabled
             && scene != null
             && Start <= scene.CurrentFrame
@@ -404,7 +401,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
     private IDisposable SubscribeToLayerNode()
     {
-        return Node.GetObservable(RenderLayerSpan.ValueProperty)
+        return Span.GetObservable(RenderLayerSpan.ValueProperty)
             .SelectMany(value => value != null
                 ? Observable.FromEventPattern<RenderInvalidatedEventArgs>(h => value.Invalidated += h, h => value.Invalidated -= h)
                     .Select(_ => Unit.Default)

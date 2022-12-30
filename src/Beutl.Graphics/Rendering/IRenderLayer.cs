@@ -7,11 +7,11 @@ public interface IRenderLayer
 
     IRenderer? Renderer { get; }
 
-    void AddNode(RenderLayerSpan node);
+    void AddSpan(RenderLayerSpan node);
 
-    void RemoveNode(RenderLayerSpan node);
+    void RemoveSpan(RenderLayerSpan node);
 
-    bool ContainsNode(RenderLayerSpan node);
+    bool ContainsSpan(RenderLayerSpan node);
 
     void RenderGraphics();
 
