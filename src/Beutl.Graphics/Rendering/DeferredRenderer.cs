@@ -8,6 +8,7 @@ using SkiaSharp;
 
 namespace Beutl.Rendering;
 
+#if false
 public class DeferredRenderer : IRenderer
 {
     internal static readonly Dispatcher s_dispatcher = Dispatcher.Spawn();
@@ -354,3 +355,4 @@ public class DeferredRenderer : IRenderer
         }
     }
 }
+#endif

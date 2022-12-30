@@ -8,6 +8,7 @@ namespace Beutl.Rendering;
 
 public class ImmediateRenderer : IRenderer
 {
+    internal static readonly Dispatcher s_dispatcher = Dispatcher.Spawn();
     private readonly SortedDictionary<int, IRenderLayer> _objects = new();
     private readonly Canvas _graphics;
     private readonly Audio.Audio _audio;
@@ -22,7 +23,7 @@ public class ImmediateRenderer : IRenderer
 
     public ICanvas Graphics => _graphics;
 
-    public Dispatcher Dispatcher => DeferredRenderer.s_dispatcher;
+    public Dispatcher Dispatcher => s_dispatcher;
 
     public bool IsDisposed { get; private set; }
 
@@ -125,14 +126,14 @@ public class ImmediateRenderer : IRenderer
         }
     }
 
-    void IRenderer.AddDirtyRect(Rect rect)
-    {
-    }
+    //void IRenderer.AddDirtyRect(Rect rect)
+    //{
+    //}
 
-    void IRenderer.AddDirtyRange(TimeRange timeRange)
-    {
+    //void IRenderer.AddDirtyRange(TimeRange timeRange)
+    //{
 
-    }
+    //}
 
     public IRenderer.RenderResult RenderAudio(TimeSpan timeSpan)
     {
@@ -176,7 +177,7 @@ public class ImmediateRenderer : IRenderer
         }
     }
 
-    public void AddDirty(IRenderable renderable)
-    {
-    }
+    //public void AddDirty(IRenderable renderable)
+    //{
+    //}
 }

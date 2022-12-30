@@ -41,11 +41,11 @@ public interface IRenderer : IDisposable
 
     void Invalidate(TimeSpan timeSpan);
 
-    void AddDirty(IRenderable renderable);
+    //void AddDirty(IRenderable renderable);
     
-    void AddDirtyRect(Rect rect);
+    //void AddDirtyRect(Rect rect);
 
-    void AddDirtyRange(TimeRange timeRange);
+    //void AddDirtyRange(TimeRange timeRange);
 
     public record struct RenderResult(Bitmap<Bgra8888>? Bitmap = null, Pcm<Stereo32BitFloat>? Audio = null);
 }

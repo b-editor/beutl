@@ -16,23 +16,12 @@ public class RenderLayer : IRenderLayer
 
     public IRenderer? Renderer { get; private set; }
 
-    private void OnSpanInvalidated(object? sender, RenderInvalidatedEventArgs e)
-    {
-        if (Renderer is { } renderer
-            && sender is RenderLayerSpan span
-            && span.Value is { } renderable)
-        {
-            renderer.AddDirty(renderable);
-        }
-    }
-
     public void AddSpan(RenderLayerSpan span)
     {
         _spans.Add(span);
         _lastTimeSpan = null;
         _lastTimeResult = null;
 
-        span.Invalidated += OnSpanInvalidated;
         span.AttachToRenderLayer(this);
     }
 
@@ -42,7 +31,6 @@ public class RenderLayer : IRenderLayer
         _lastTimeSpan = null;
         _lastTimeResult = null;
 
-        span.Invalidated -= OnSpanInvalidated;
         span.DetachFromRenderLayer();
     }
 

@@ -425,7 +425,7 @@ public sealed class OutputViewModel : IOutputContext
             _isEncoding.Value = true;
             Started?.Invoke(this, EventArgs.Empty);
 
-            await DeferredRenderer.s_dispatcher.InvokeAsync(() =>
+            await ImmediateRenderer.s_dispatcher.InvokeAsync(() =>
             {
                 _isIndeterminate.Value = true;
                 if (!_itemContainer.TryGetOrCreateItem(TargetFile, out Scene? scene))

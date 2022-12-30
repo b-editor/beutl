@@ -7,8 +7,8 @@ using Beutl.Rendering;
 namespace Beutl;
 
 internal sealed class SceneRenderer :
-    //ImmediateRenderer
-    DeferredRenderer
+    ImmediateRenderer
+//DeferredRenderer
 {
     private readonly Scene _scene;
     private readonly List<Layer> _layers = new();
