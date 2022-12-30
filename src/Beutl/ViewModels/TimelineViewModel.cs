@@ -14,6 +14,7 @@ using Beutl.Operation;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using Beutl.Operators.Handler;
 
 namespace Beutl.ViewModels;
 
@@ -68,6 +69,7 @@ public sealed class TimelineViewModel : IToolContext
             {
                 sLayer.AccentColor = item.InitialOperator.AccentColor;
                 sLayer.AddChild((SourceOperator)(Activator.CreateInstance(item.InitialOperator.Type)!))
+                    .Append(sLayer.AddChild(new DefaultSourceHandler()))
                     .DoAndRecord(CommandRecorder.Default);
             }
 

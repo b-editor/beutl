@@ -6,6 +6,7 @@ using Beutl.Operation;
 using Reactive.Bindings;
 
 using AColor = Avalonia.Media.Color;
+using Beutl.Operators.Handler;
 
 namespace Beutl.ViewModels.Dialogs;
 
@@ -84,6 +85,7 @@ public sealed class AddLayerViewModel
             if (_layerDescription.InitialOperator != null)
             {
                 sLayer.AddChild((SourceOperator)Activator.CreateInstance(_layerDescription.InitialOperator.Type)!)
+                    .Append(sLayer.AddChild(new DefaultSourceHandler()))
                     .DoAndRecord(CommandRecorder.Default);
             }
 
