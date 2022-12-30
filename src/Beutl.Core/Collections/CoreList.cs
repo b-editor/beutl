@@ -149,7 +149,7 @@ public class CoreList<T> : ICoreList<T>
             List<T>? items = null;
             NotifyCollectionChangedEventArgs? eventArgs = null;
 
-            if ((CollectionChanged != null && ResetBehavior == ResetBehavior.Reset)
+            if ((CollectionChanged != null && ResetBehavior == ResetBehavior.Remove)
                 || Detached != null)
             {
                 items = Inner.ToList();
