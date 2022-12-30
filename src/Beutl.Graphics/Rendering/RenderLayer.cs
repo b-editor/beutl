@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 using Beutl.Audio;
 using Beutl.Graphics;
@@ -11,12 +10,25 @@ public class RenderLayer : IRenderLayer
 {
     private TimeSpan? _lastTimeSpan;
     private RenderLayerSpan? _lastTimeResult;
+    private IRenderer? _renderer;
     private readonly List<RenderLayerSpan> _nodes = new();
 
     public RenderLayerSpan? this[TimeSpan timeSpan] => Get(timeSpan);
 
+    private void OnNodeInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    {
+        if (_renderer is { } renderer
+            && sender is RenderLayerSpan span
+            && span.Value is { } renderable)
+        {
+            renderer.AddDirty(renderable);
+        }
+    }
+
     public void AddNode(RenderLayerSpan node)
     {
+        node.Invalidated += OnNodeInvalidated;
+
         _nodes.Add(node);
         _lastTimeSpan = null;
         _lastTimeResult = null;
@@ -24,6 +36,8 @@ public class RenderLayer : IRenderLayer
 
     public void RemoveNode(RenderLayerSpan node)
     {
+        node.Invalidated -= OnNodeInvalidated;
+
         _nodes.Remove(node);
         _lastTimeSpan = null;
         _lastTimeResult = null;
@@ -72,24 +86,45 @@ public class RenderLayer : IRenderLayer
         return CollectionsMarshal.AsSpan(list);
     }
 
-    public void RenderGraphics(IRenderer renderer, TimeSpan timeSpan)
+    public void RenderGraphics()
     {
-        RenderLayerSpan? layer = Get(timeSpan);
-        if (layer != null && layer.Value is Drawable drawable)
+        if (_renderer is { Clock.CurrentTime: { } timeSpan } renderer)
         {
-            drawable.Render(renderer);
+            RenderLayerSpan? layer = Get(timeSpan);
+            if (layer != null && layer.Value is Drawable drawable)
+            {
+                drawable.Render(renderer);
+            }
         }
     }
 
-    public void RenderAudio(IRenderer renderer, TimeSpan timeSpan)
+    public void RenderAudio()
     {
-        Span<RenderLayerSpan> span = GetRange(timeSpan, TimeSpan.FromSeconds(1));
-        foreach (RenderLayerSpan item in span)
+        if (_renderer is { Clock.AudioStartTime: { } timeSpan } renderer)
         {
-            if (item.Value is Sound sound)
+            Span<RenderLayerSpan> span = GetRange(timeSpan, TimeSpan.FromSeconds(1));
+            foreach (RenderLayerSpan item in span)
             {
-                sound.Render(renderer);
+                if (item.Value is Sound sound)
+                {
+                    sound.Render(renderer);
+                }
             }
         }
+    }
+
+    public void AttachToRenderer(IRenderer renderer)
+    {
+        if (_renderer != null && _renderer != renderer)
+        {
+            throw new InvalidOperationException();
+        }
+
+        _renderer = renderer;
+    }
+
+    public void DetachFromRenderer()
+    {
+        _renderer = null;
     }
 }

@@ -11,7 +11,11 @@ public interface IRenderLayer
 
     bool ContainsNode(RenderLayerSpan node);
 
-    void RenderGraphics(IRenderer renderer, TimeSpan timeSpan);
+    void RenderGraphics();
 
-    void RenderAudio(IRenderer renderer, TimeSpan timeSpan);
+    void RenderAudio();
+
+    void AttachToRenderer(IRenderer renderer);
+
+    void DetachFromRenderer();
 }

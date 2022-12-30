@@ -41,6 +41,8 @@ public interface IRenderer : IDisposable
 
     void Invalidate(TimeSpan timeSpan);
 
+    void AddDirty(IRenderable renderable);
+    
     void AddDirtyRect(Rect rect);
 
     void AddDirtyRange(TimeRange timeRange);

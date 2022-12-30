@@ -13,6 +13,7 @@ public class DeferredRenderer : IRenderer
     internal static readonly Dispatcher s_dispatcher = Dispatcher.Spawn();
     private readonly SortedDictionary<int, IRenderLayer> _objects = new();
     private readonly List<Rect> _clips = new();
+    private readonly HashSet<IRenderable> _dirtyItems = new();
     private readonly Canvas _graphics;
     private readonly Audio.Audio _audio;
     private readonly Rect _canvasBounds;
@@ -60,10 +61,12 @@ public class DeferredRenderer : IRenderer
         {
             if (value != null)
             {
+                value.AttachToRenderer(this);
                 _objects[index] = value;
             }
-            else
+            else if (_objects.TryGetValue(index, out IRenderLayer? oldLayer))
             {
+                oldLayer.DetachFromRenderer();
                 _objects.Remove(index);
             }
         }
@@ -90,7 +93,7 @@ public class DeferredRenderer : IRenderer
             _instanceClock.CurrentTime = timeSpan;
             using (_fpsText.StartRender(this))
             {
-                RenderGraphicsCore(timeSpan);
+                RenderGraphicsCore();
             }
 
             IsGraphicsRendering = false;
@@ -105,10 +108,11 @@ public class DeferredRenderer : IRenderer
         }
     }
 
-    protected virtual void RenderGraphicsCore(TimeSpan timeSpan)
+    protected virtual void RenderGraphicsCore()
     {
         var objects = new KeyValuePair<int, IRenderLayer>[_objects.Count];
         _objects.CopyTo(objects, 0);
+        var timeSpan = Clock.CurrentTime;
         Func(objects, 0, objects.Length, timeSpan);
 
         using (Graphics.PushCanvas())
@@ -130,13 +134,15 @@ public class DeferredRenderer : IRenderer
             foreach (KeyValuePair<int, IRenderLayer> item in objects)
             {
                 IRenderable? renderable = item.Value[timeSpan]?.Value;
-                if (renderable?.IsDirty ?? false)
+                if (renderable != null
+                    && _dirtyItems.Contains(renderable))
                 {
-                    renderable.Render(this);
+                    item.Value.RenderGraphics();
                 }
             }
 
             _clips.Clear();
+            _dirtyItems.Clear();
         }
     }
 
@@ -149,7 +155,11 @@ public class DeferredRenderer : IRenderer
             {
                 rect1 = ClipToCanvasBounds(rect1);
             }
-            _clips.Add(rect1);
+
+            if (!_clips.Contains(rect1))
+            {
+                _clips.Add(rect1);
+            }
         }
         if (!rect2.IsEmpty)
         {
@@ -158,7 +168,7 @@ public class DeferredRenderer : IRenderer
                 rect2 = ClipToCanvasBounds(rect2);
             }
 
-            if (rect1 != rect2)
+            if (rect1 != rect2 && !_clips.Contains(rect2))
             {
                 _clips.Add(rect2);
             }
@@ -183,7 +193,12 @@ public class DeferredRenderer : IRenderer
                 if (lastRenderable is Drawable lastDrawable)
                 {
                     AddDirtyRect(lastDrawable.Bounds);
-                    lastDrawable.Invalidate();
+                    //lastDrawable.Invalidate();
+                }
+
+                if (renderable != null)
+                {
+                    AddDirty(renderable);
                 }
             }
 
@@ -193,17 +208,16 @@ public class DeferredRenderer : IRenderer
                 drawable.Measure(_canvasBounds.Size);
                 Rect rect2 = drawable.Bounds;
 
-                if (drawable.IsDirty)
+                if (_dirtyItems.Contains(drawable))
                 {
                     AddDirtyRects(rect1, rect2);
-                    drawable.Invalidate();
 
                     //Func(items, 0, i);
                     Func(items, i + 1, items.Length, timeSpan);
                 }
                 else if (renderable.IsVisible && HitTestClips(rect1, rect2))
                 {
-                    drawable.Invalidate();
+                    AddDirty(renderable);
                 }
             }
         }
@@ -252,7 +266,11 @@ public class DeferredRenderer : IRenderer
             {
                 rect = ClipToCanvasBounds(rect);
             }
-            _clips.Add(rect);
+
+            if (!_clips.Contains(rect))
+            {
+                _clips.Add(rect);
+            }
         }
     }
 
@@ -266,7 +284,7 @@ public class DeferredRenderer : IRenderer
 
     }
 
-    protected virtual void RenderAudioCore(TimeSpan timeSpan)
+    protected virtual void RenderAudioCore()
     {
         //var range = new TimeRange(timeSpan, TimeSpan.FromSeconds(1));
         //var lastRange = new TimeRange(_lastTimeSpan, TimeSpan.FromSeconds(1));
@@ -279,7 +297,7 @@ public class DeferredRenderer : IRenderer
 
         foreach (KeyValuePair<int, IRenderLayer> item in _objects)
         {
-            item.Value.RenderAudio(this, timeSpan);
+            item.Value.RenderAudio();
         }
 
         //_lastAudioTime = timeSpan;
@@ -291,7 +309,7 @@ public class DeferredRenderer : IRenderer
         {
             IsAudioRendering = true;
             _instanceClock.AudioStartTime = timeSpan;
-            RenderAudioCore(timeSpan);
+            RenderAudioCore();
 
             IsAudioRendering = false;
             return new IRenderer.RenderResult(Audio: Audio.GetPcm());
@@ -313,8 +331,8 @@ public class DeferredRenderer : IRenderer
             _instanceClock.AudioStartTime = timeSpan;
             using (_fpsText.StartRender(this))
             {
-                RenderGraphicsCore(timeSpan);
-                RenderAudioCore(timeSpan);
+                RenderGraphicsCore();
+                RenderAudioCore();
             }
 
             IsGraphicsRendering = false;
@@ -325,6 +343,14 @@ public class DeferredRenderer : IRenderer
         else
         {
             return default;
+        }
+    }
+
+    public void AddDirty(IRenderable renderable)
+    {
+        if (renderable is Drawable)
+        {
+            _dirtyItems.Add(renderable);
         }
     }
 }

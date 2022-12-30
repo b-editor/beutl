@@ -47,10 +47,12 @@ public class ImmediateRenderer : IRenderer
         {
             if (value != null)
             {
+                value.AttachToRenderer(this);
                 _objects[index] = value;
             }
-            else
+            else if (_objects.TryGetValue(index, out IRenderLayer? oldLayer))
             {
+                oldLayer.DetachFromRenderer();
                 _objects.Remove(index);
             }
         }
@@ -88,7 +90,7 @@ public class ImmediateRenderer : IRenderer
             _instanceClock.CurrentTime = timeSpan;
             using (_fpsText.StartRender(this))
             {
-                RenderGraphicsCore(timeSpan);
+                RenderGraphicsCore();
             }
 
             IsGraphicsRendering = false;
@@ -100,7 +102,7 @@ public class ImmediateRenderer : IRenderer
         }
     }
 
-    protected virtual void RenderGraphicsCore(TimeSpan timeSpan)
+    protected virtual void RenderGraphicsCore()
     {
         using (Graphics.PushCanvas())
         {
@@ -108,18 +110,18 @@ public class ImmediateRenderer : IRenderer
 
             foreach (KeyValuePair<int, IRenderLayer> item in _objects)
             {
-                item.Value.RenderGraphics(this, timeSpan);
+                item.Value.RenderGraphics();
             }
         }
     }
 
-    protected virtual void RenderAudioCore(TimeSpan timeSpan)
+    protected virtual void RenderAudioCore()
     {
         _audio.Clear();
 
         foreach (KeyValuePair<int, IRenderLayer> item in _objects)
         {
-            item.Value.RenderAudio(this, timeSpan);
+            item.Value.RenderAudio();
         }
     }
 
@@ -138,7 +140,7 @@ public class ImmediateRenderer : IRenderer
         {
             IsAudioRendering = true;
             _instanceClock.AudioStartTime = timeSpan;
-            RenderAudioCore(timeSpan);
+            RenderAudioCore();
 
             IsAudioRendering = false;
             return new IRenderer.RenderResult(Audio: Audio.GetPcm());
@@ -160,8 +162,8 @@ public class ImmediateRenderer : IRenderer
             _instanceClock.AudioStartTime = timeSpan;
             using (_fpsText.StartRender(this))
             {
-                RenderGraphicsCore(timeSpan);
-                RenderAudioCore(timeSpan);
+                RenderGraphicsCore();
+                RenderAudioCore();
             }
 
             IsGraphicsRendering = false;
@@ -172,5 +174,9 @@ public class ImmediateRenderer : IRenderer
         {
             return default;
         }
+    }
+
+    public void AddDirty(IRenderable renderable)
+    {
     }
 }

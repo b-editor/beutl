@@ -21,8 +21,6 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
         AffectsRender<Renderable>(IsVisibleProperty);
     }
 
-    public bool IsDirty { get; protected set; }
-
     public bool IsVisible
     {
         get => _isVisible;
@@ -31,7 +29,6 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
 
     private void AffectsRender_Invalidated(object? sender, RenderInvalidatedEventArgs e)
     {
-        IsDirty = true;
         Invalidated?.Invoke(this, e);
     }
 
@@ -44,7 +41,6 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
             {
                 if (e.Sender is T s)
                 {
-                    s.IsDirty = true;
                     s.Invalidated?.Invoke(s, new RenderInvalidatedEventArgs(s, e.Property.Name));
 
                     if (e.OldValue is IAffectsRender oldAffectsRender)
@@ -63,7 +59,6 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
 
     public void Invalidate()
     {
-        IsDirty = true;
         Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(this));
     }
 

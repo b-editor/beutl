@@ -1,13 +1,9 @@
-﻿using System.ComponentModel;
-
-using Beutl.Animation;
-using Beutl.Graphics;
-using Beutl.Language;
+﻿using Beutl.Language;
 using Beutl.Media;
 
 namespace Beutl.Rendering;
 
-public sealed class RenderLayerSpan : Element
+public sealed class RenderLayerSpan : Element, IAffectsRender
 {
     public static readonly CoreProperty<TimeSpan> StartProperty;
     public static readonly CoreProperty<TimeSpan> DurationProperty;
@@ -36,6 +32,24 @@ public sealed class RenderLayerSpan : Element
             .Register();
 
         LogicalChild<RenderLayerSpan>(ValueProperty);
+
+        ValueProperty.Changed.Subscribe(x =>
+        {
+            if (x.Sender is RenderLayerSpan s)
+            {
+                if (x.OldValue is { } oldValue)
+                {
+                    oldValue.Invalidated -= s.OnValueInvalidated;
+                }
+
+                if (x.NewValue is { } newValue)
+                {
+                    newValue.Invalidated += s.OnValueInvalidated;
+                }
+
+                s.Invalidated?.Invoke(s, new RenderInvalidatedEventArgs(s, nameof(Value)));
+            }
+        });
     }
 
     public TimeSpan Start
@@ -56,5 +70,12 @@ public sealed class RenderLayerSpan : Element
     {
         get => _value;
         set => SetAndRaise(ValueProperty, ref _value, value);
+    }
+
+    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+
+    private void OnValueInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    {
+        Invalidated?.Invoke(this, e);
     }
 }

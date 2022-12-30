@@ -339,7 +339,6 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
             }
         }
 
-        IsDirty = false;
 #if DEBUG
         //Rect bounds = Bounds.Inflate(10);
         //using (canvas.PushTransform(Matrix.CreateTranslation(bounds.Position)))

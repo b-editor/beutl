@@ -11,13 +11,12 @@ using Beutl.Threading;
 
 namespace Beutl;
 
-internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/
+internal sealed class SceneRenderer :
+    //ImmediateRenderer
+    DeferredRenderer
 {
     private readonly Scene _scene;
-    private readonly List<Layer> _begin = new();
-    private readonly List<Layer> _end = new();
     private readonly List<Layer> _layers = new();
-    private TimeSpan _recentTime = TimeSpan.MinValue;
 
     public SceneRenderer(Scene scene, int width, int height)
         : base(width, height)
@@ -29,37 +28,19 @@ internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/
 
     public TimeSpan CurrentTime { get; private set; }
 
-    protected override void RenderGraphicsCore(TimeSpan timeSpan)
+    protected override void RenderGraphicsCore()
     {
+        var timeSpan = Clock.CurrentTime;
         CurrentTime = timeSpan;
         SortLayers(timeSpan);
         Span<Layer> layers = CollectionsMarshal.AsSpan(_layers);
-        Span<Layer> begin = CollectionsMarshal.AsSpan(_begin);
-        Span<Layer> end = CollectionsMarshal.AsSpan(_end);
-
-        foreach (Layer item in begin)
-        {
-            item.Node.Value?.Invalidate();
-        }
 
         foreach (Layer layer in layers)
         {
             Render_StreamOperators(layer);
         }
 
-        foreach (Layer item in end)
-        {
-            if (item.Node.Value is { } renderable)
-            {
-                renderable.IsVisible = false;
-
-                if (renderable is Drawable d)
-                    (this as IRenderer).AddDirtyRect(d.Bounds);
-            }
-        }
-
-        base.RenderGraphicsCore(timeSpan);
-        _recentTime = timeSpan;
+        base.RenderGraphicsCore();
     }
 
     private void Render_StreamOperators(Layer layer)
@@ -103,28 +84,14 @@ internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/
     // Layersを振り分ける
     private void SortLayers(TimeSpan timeSpan)
     {
-        _begin.Clear();
-        _end.Clear();
         _layers.Clear();
         foreach (Layer? item in _scene.Children)
         {
-            bool recent = InRange(item, _recentTime);
             bool current = InRange(item, timeSpan);
 
             if (current)
             {
                 _layers.Add(item);
-            }
-
-            if (!recent && current)
-            {
-                // _recentTimeの範囲外でcurrntTimeの範囲内
-                _begin.Add(item);
-            }
-            else if (recent && !current)
-            {
-                // _recentTimeの範囲内でcurrntTimeの範囲外
-                _end.Add(item);
             }
         }
     }
