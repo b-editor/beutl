@@ -46,6 +46,7 @@ public class OperatorsRegistrar
 
         OperatorRegistry.RegisterOperations("オペレーター")
             .Add<Handler.DefaultSourceHandler>("描画")
+            .Add<TestSourceFilter>("制限")
             .Register();
     }
 }

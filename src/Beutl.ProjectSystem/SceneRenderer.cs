@@ -88,7 +88,20 @@ internal sealed class SceneRenderer :
                     unhandleds.Add(renderable);
                     // Todo: Publish内でBeginBatchUpdateするようにする
                     renderable.BeginBatchUpdate();
+                }
             }
+            else if (item is ISourceFilter { IsEnabled: true } filter)
+            {
+                if (filter.Scope == SourceFilterScope.Local)
+                {
+                    unhandleds = filter.Filter(unhandleds, Clock);
+                }
+                else
+                {
+                    unhandleds = filter.Filter(unhandleds, Clock);
+                    _unhandleds.Clear();
+                    _unhandleds.AddRange(unhandleds);
+                }
             }
 
             if (item is ISourceHandler handler)
