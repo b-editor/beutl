@@ -329,7 +329,11 @@ public abstract class CoreObject : ICoreObject
 
     public void ClearValue<TValue>(CoreProperty<TValue> property)
     {
-        SetValue(property, property.GetMetadata<CorePropertyMetadata<TValue>>(GetType()));
+        var metadata = property.GetMetadata<CorePropertyMetadata<TValue>>(GetType());
+        if (metadata.HasDefaultValue)
+        {
+            SetValue(property, metadata.DefaultValue);
+        }
     }
 
     public void ClearValue(CoreProperty property)
