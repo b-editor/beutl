@@ -42,6 +42,14 @@ public class SourceOperator : Element, ISourceOperator
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
+    public virtual void Enter()
+    {
+    }
+    
+    public virtual void Exit()
+    {
+    }
+
     protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
     {
         Invalidated?.Invoke(this, args);

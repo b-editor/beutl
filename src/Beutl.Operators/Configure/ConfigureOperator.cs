@@ -5,6 +5,7 @@ using Beutl.Framework;
 using Beutl.Media;
 using Beutl.Rendering;
 using Beutl.Operation;
+using System.Buffers;
 
 namespace Beutl.Operators.Configure;
 
@@ -12,14 +13,16 @@ public abstract class ConfigureOperator<TTarget, TValue> : SourceOperator, ISour
     where TTarget : IRenderable
     where TValue : CoreObject, IAffectsRender, new()
 {
-    private bool _selecting;
+    private bool _transforming;
+    private Renderable[]? _snapshot;
+    private int _snapshotCount;
 
     public ConfigureOperator()
     {
         Value = new TValue();
         Value.Invalidated += (_, e) =>
         {
-            if (!_selecting)
+            if (!_transforming)
             {
                 RaiseInvalidated(e);
             }
@@ -42,40 +45,57 @@ public abstract class ConfigureOperator<TTarget, TValue> : SourceOperator, ISour
 
     protected TValue Value { get; }
 
-    protected TTarget? Previous { get; set; }
-
-    public IRenderable? Transform(IRenderable? value, IClock clock)
+    public void Transform(IList<Renderable> value, IClock clock)
     {
         try
         {
-            _selecting = true;
-            if (value is TTarget current)
-            {
-                PreSelect(current, Value);
-                if (!ReferenceEquals(Previous, current))
-                {
-                    if (Previous != null)
-                    {
-                        OnDetached(Previous, Value);
-                    }
+            _transforming = true;
 
-                    OnAttached(current, Value);
-                    Previous = current;
+            if (_snapshot != null)
+            {
+                foreach (TTarget item in _snapshot.Take(_snapshotCount).Except(value).OfType<TTarget>())
+                {
+                    PreSelect(item, Value);
+                    OnDetached(item, Value);
+                    PostSelect(item, Value);
                 }
 
-                PostSelect(current, Value);
+                foreach (TTarget item in value.Except(_snapshot.Take(_snapshotCount)).OfType<TTarget>())
+                {
+                    PreSelect(item, Value);
+                    OnAttached(item, Value);
+                    PostSelect(item, Value);
+                }
             }
-            else if (Previous != null)
+            else
             {
-                OnDetached(Previous, Value);
-                Previous = default;
+                foreach (TTarget item in value.OfType<TTarget>())
+                {
+                    PreSelect(item, Value);
+                    OnAttached(item, Value);
+                    PostSelect(item, Value);
+                }
             }
-
-            return value;
         }
         finally
         {
-            _selecting = false;
+            _transforming = false;
+
+            if (_snapshot != null)
+            {
+                if (_snapshot.Length < value.Count)
+                {
+                    ArrayPool<Renderable>.Shared.Return(_snapshot, true);
+                    _snapshot = ArrayPool<Renderable>.Shared.Rent(value.Count);
+                }
+            }
+            else
+            {
+                _snapshot = ArrayPool<Renderable>.Shared.Rent(value.Count);
+            }
+
+            _snapshotCount = value.Count;
+            value.CopyTo(_snapshot, 0);
         }
     }
 
@@ -101,6 +121,22 @@ public abstract class ConfigureOperator<TTarget, TValue> : SourceOperator, ISour
         }
     }
 
+    public override void Exit()
+    {
+        base.Exit();
+
+        if (_snapshot != null)
+        {
+            foreach (TTarget item in _snapshot.Take(_snapshotCount).OfType<TTarget>())
+            {
+                OnDetached(item, Value);
+            }
+
+            ArrayPool<Renderable>.Shared.Return(_snapshot, true);
+            _snapshot = null;
+        }
+    }
+
     protected virtual void PreSelect(TTarget target, TValue value)
     {
     }
@@ -116,10 +152,16 @@ public abstract class ConfigureOperator<TTarget, TValue> : SourceOperator, ISour
     protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
     {
         base.OnDetachedFromLogicalTree(args);
-        if (Previous is { } previous)
+
+        if (_snapshot != null)
         {
-            OnDetached(previous, Value);
-            Previous = default;
+            foreach (TTarget item in _snapshot.Take(_snapshotCount).OfType<TTarget>())
+            {
+                OnDetached(item, Value);
+            }
+
+            ArrayPool<Renderable>.Shared.Return(_snapshot, true);
+            _snapshot = null;
         }
     }
 

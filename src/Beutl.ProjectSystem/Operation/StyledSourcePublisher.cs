@@ -6,6 +6,8 @@ namespace Beutl.Operation;
 
 public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
 {
+    public IStyleInstance? Instance { get; private set; }
+
     public virtual IRenderable? Publish(IClock clock)
     {
         OnPrePublish();
@@ -16,6 +18,7 @@ public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
             renderable = Activator.CreateInstance(Style.TargetType) as IRenderable;
             if (renderable is IStyleable styleable)
             {
+                Instance?.Dispose();
                 Instance = Style.Instance(styleable);
             }
             else

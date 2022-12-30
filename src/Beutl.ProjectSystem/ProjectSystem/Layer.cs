@@ -10,6 +10,10 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.Rendering;
 using Beutl.Operation;
+using Beutl.Graphics;
+using System.Collections.Specialized;
+using System.Text;
+using System.Diagnostics;
 
 namespace Beutl.ProjectSystem;
 
@@ -133,8 +137,33 @@ public class Layer : Element, IStorable, ILogicalElement
         Operators = new SourceOperators(this);
         Operators.Attached += item => item.Invalidated += Operator_Invalidated;
         Operators.Detached += item => item.Invalidated -= Operator_Invalidated;
+        Operators.CollectionChanged += OnOperatorsCollectionChanged;
 
         (Span as ILogicalElement).NotifyAttachedToLogicalTree(new(this));
+    }
+
+    private void OnOperatorsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        UpdateName();
+    }
+
+    [Conditional("DEBUG")]
+    private void UpdateName()
+    {
+        var sb = new StringBuilder();
+        for (int i = 0; i < Operators.Count; i++)
+        {
+            SourceOperator op = Operators[i];
+            if (op.IsEnabled)
+            {
+                Type type = op.GetType();
+                string name = OperatorRegistry.FindItem(type)?.DisplayName ?? type.Name;
+
+                sb.Append($"{name}, ");
+            }
+        }
+
+        Name = sb.ToString();
     }
 
     event EventHandler IStorable.Saved
@@ -235,18 +264,18 @@ public class Layer : Element, IStorable, ILogicalElement
                 ZIndex = layer;
             }
 
-            if (jobject.TryGetPropertyValue("renderable", out JsonNode? renderableNode)
-                && renderableNode is JsonObject renderableObj
-                && renderableObj.TryGetPropertyValue("@type", out JsonNode? renderableTypeNode)
-                && renderableTypeNode is JsonValue renderableTypeValue
-                && renderableTypeValue.TryGetValue(out string? renderableTypeStr)
-                && TypeFormat.ToType(renderableTypeStr) is Type renderableType
-                && renderableType.IsAssignableTo(typeof(Renderable))
-                && Activator.CreateInstance(renderableType) is Renderable renderable)
-            {
-                renderable.ReadFromJson(renderableObj);
-                Span.Value = renderable;
-            }
+            //if (jobject.TryGetPropertyValue("renderable", out JsonNode? renderableNode)
+            //    && renderableNode is JsonObject renderableObj
+            //    && renderableObj.TryGetPropertyValue("@type", out JsonNode? renderableTypeNode)
+            //    && renderableTypeNode is JsonValue renderableTypeValue
+            //    && renderableTypeValue.TryGetValue(out string? renderableTypeStr)
+            //    && TypeFormat.ToType(renderableTypeStr) is Type renderableType
+            //    && renderableType.IsAssignableTo(typeof(Renderable))
+            //    && Activator.CreateInstance(renderableType) is Renderable renderable)
+            //{
+            //    renderable.ReadFromJson(renderableObj);
+            //    Span.Value = renderable;
+            //}
 
             if (jobject.TryGetPropertyValue("operators", out JsonNode? operatorsNode)
                 && operatorsNode is JsonArray operatorsArray)
@@ -280,13 +309,13 @@ public class Layer : Element, IStorable, ILogicalElement
 
         if (json is JsonObject jobject)
         {
-            if (Span.Value is Renderable renderable)
-            {
-                JsonNode node = new JsonObject();
-                renderable.WriteToJson(ref node);
-                node["@type"] = TypeFormat.ToString(renderable.GetType());
-                jobject["renderable"] = node;
-            }
+            //if (Span.Value is Renderable renderable)
+            //{
+            //    JsonNode node = new JsonObject();
+            //    renderable.WriteToJson(ref node);
+            //    node["@type"] = TypeFormat.ToString(renderable.GetType());
+            //    jobject["renderable"] = node;
+            //}
 
             Span<SourceOperator> operators = Operators.GetMarshal().Value;
             if (operators.Length > 0)
@@ -388,8 +417,7 @@ public class Layer : Element, IStorable, ILogicalElement
     private void ForceRender()
     {
         Scene? scene = this.FindLogicalParent<Scene>();
-        if (Span.Value is not Sound
-            && IsEnabled
+        if (IsEnabled
             && scene != null
             && Start <= scene.CurrentFrame
             && scene.CurrentFrame < Start + Length

@@ -7,11 +7,11 @@ public sealed class RenderLayerSpan : Element, IAffectsRender
 {
     public static readonly CoreProperty<TimeSpan> StartProperty;
     public static readonly CoreProperty<TimeSpan> DurationProperty;
-    public static readonly CoreProperty<Renderable?> ValueProperty;
+    public static readonly CoreProperty<Renderables> ValueProperty;
     public static readonly CoreProperty<RenderLayer?> RenderLayerProperty;
+    private readonly Renderables _value = new();
     private TimeSpan _start;
     private TimeSpan _duration;
-    private Renderable? _value;
     private RenderLayer? _renderLayer;
 
     static RenderLayerSpan()
@@ -28,9 +28,8 @@ public sealed class RenderLayerSpan : Element, IAffectsRender
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
-        ValueProperty = ConfigureProperty<Renderable?, RenderLayerSpan>(nameof(Value))
-            .Accessor(o => o.Value, (o, v) => o.Value = v)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
+        ValueProperty = ConfigureProperty<Renderables, RenderLayerSpan>(nameof(Value))
+            .Accessor(o => o.Value)
             .Register();
 
         RenderLayerProperty = ConfigureProperty<RenderLayer?, RenderLayerSpan>(nameof(RenderLayer))
@@ -39,24 +38,11 @@ public sealed class RenderLayerSpan : Element, IAffectsRender
             .Register();
 
         LogicalChild<RenderLayerSpan>(ValueProperty);
+    }
 
-        ValueProperty.Changed.Subscribe(x =>
-        {
-            if (x.Sender is RenderLayerSpan s)
-            {
-                if (x.OldValue is { } oldValue)
-                {
-                    oldValue.Invalidated -= s.OnValueInvalidated;
-                }
-
-                if (x.NewValue is { } newValue)
-                {
-                    newValue.Invalidated += s.OnValueInvalidated;
-                }
-
-                s.Invalidated?.Invoke(s, new RenderInvalidatedEventArgs(s, nameof(Value)));
-            }
-        });
+    public RenderLayerSpan()
+    {
+        _value.Invalidated += OnValueInvalidated;
     }
 
     public TimeSpan Start
@@ -73,11 +59,7 @@ public sealed class RenderLayerSpan : Element, IAffectsRender
 
     public TimeRange Range => new(Start, Duration);
 
-    public Renderable? Value
-    {
-        get => _value;
-        set => SetAndRaise(ValueProperty, ref _value, value);
-    }
+    public Renderables Value => _value;
 
     public RenderLayer? RenderLayer
     {

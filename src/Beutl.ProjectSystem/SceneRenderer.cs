@@ -11,7 +11,11 @@ internal sealed class SceneRenderer :
 //DeferredRenderer
 {
     private readonly Scene _scene;
+    private readonly List<Layer> _begin = new();
+    private readonly List<Layer> _end = new();
     private readonly List<Layer> _layers = new();
+    private readonly List<Renderable> _unhandleds = new();
+    private TimeSpan _recentTime = TimeSpan.MinValue;
 
     public SceneRenderer(Scene scene, int width, int height)
         : base(width, height)
@@ -29,6 +33,19 @@ internal sealed class SceneRenderer :
         CurrentTime = timeSpan;
         SortLayers(timeSpan);
         Span<Layer> layers = CollectionsMarshal.AsSpan(_layers);
+        Span<Layer> begin = CollectionsMarshal.AsSpan(_begin);
+        Span<Layer> end = CollectionsMarshal.AsSpan(_end);
+        _unhandleds.Clear();
+
+        foreach (Layer item in end)
+        {
+            ExitSourceOperators(item);
+        }
+
+        foreach (Layer item in begin)
+        {
+            EnterSourceOperators(item);
+        }
 
         foreach (Layer layer in layers)
         {
@@ -36,60 +53,92 @@ internal sealed class SceneRenderer :
         }
 
         base.RenderGraphicsCore();
+        _recentTime = timeSpan;
+    }
+
+    private static void EnterSourceOperators(Layer layer)
+    {
+        foreach (SourceOperator item in layer.Operators.GetMarshal().Value)
+        {
+            item.Enter();
+        }
+    }
+
+    private static void ExitSourceOperators(Layer layer)
+    {
+        foreach (SourceOperator item in layer.Operators.GetMarshal().Value)
+        {
+            item.Exit();
+        }
     }
 
     private void InvokeSourceOperators(Layer layer)
     {
-        RenderLayerSpan? span = layer.Span;
-        Renderable? prevResult = null;
-        prevResult?.BeginBatchUpdate();
-
-        Renderable? result = prevResult;
+        List<Renderable> unhandleds = _unhandleds;
         foreach (SourceOperator? item in layer.Operators.GetMarshal().Value)
         {
             if (item is ISourceTransformer selector)
             {
-                result = selector.Transform(prevResult, Clock) as Renderable;
+                selector.Transform(unhandleds, Clock);
             }
             else if (item is ISourcePublisher source)
             {
-                result = source.Publish(Clock) as Renderable;
+                if (source.Publish(Clock) is Renderable renderable)
+                {
+                    unhandleds.Add(renderable);
+                    // Todo: Publish内でBeginBatchUpdateするようにする
+                    renderable.BeginBatchUpdate();
+            }
             }
 
-            if (prevResult != result)
+            if (item is ISourceHandler handler)
             {
-                // Resultが変更された
-                prevResult?.EndBatchUpdate();
-                result?.BeginBatchUpdate();
-                prevResult = result;
+                handler.Handle(unhandleds, Clock);
+                // 差分を取ってEndBatchUpdateする
             }
         }
 
-        span.Value = result;
-        span.Value?.ApplyStyling(Clock);
-        span.Value?.ApplyAnimations(Clock);
+        //span.Value = result;
+        //span.Value?.ApplyStyling(Clock);
+        //span.Value?.ApplyAnimations(Clock);
 
-        if (prevResult != null)
-        {
-            prevResult.IsVisible = layer.IsEnabled;
-        }
-        span.Value?.EndBatchUpdate();
+        //if (prevResult != null)
+        //{
+        //    prevResult.IsVisible = layer.IsEnabled;
+        //}
+        //span.Value?.EndBatchUpdate();
     }
 
     // Layersを振り分ける
     private void SortLayers(TimeSpan timeSpan)
     {
+        _begin.Clear();
+        _end.Clear();
         _layers.Clear();
+        // Todo: 'public Layers Children'はソート済みにしたい
         foreach (Layer? item in _scene.Children)
         {
+            bool recent = InRange(item, _recentTime);
             bool current = InRange(item, timeSpan);
 
             if (current)
             {
-                _layers.Add(item);
+                _layers.OrderedAdd(item, x => x.ZIndex);
+            }
+
+            if (!recent && current)
+            {
+                // _recentTimeの範囲外でcurrntTimeの範囲内
+                _begin.OrderedAdd(item, x => x.ZIndex);
+            }
+            else if (recent && !current)
+            {
+                // _recentTimeの範囲内でcurrntTimeの範囲外
+                _end.OrderedAdd(item, x => x.ZIndex);
             }
         }
     }
+
 
     // itemがtsの範囲内かを確かめます
     private static bool InRange(Layer item, TimeSpan ts)

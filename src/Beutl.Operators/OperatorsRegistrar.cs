@@ -43,5 +43,9 @@ public class OperatorsRegistrar
             .Add<Configure.ForegroundOperator>(Strings.Foreground)
             .Add<Configure.OpacityMaskOperator>(Strings.OpacityMask)
             .Register();
+
+        OperatorRegistry.RegisterOperations("オペレーター")
+            .Add<Handler.DefaultSourceHandler>("描画")
+            .Register();
     }
 }

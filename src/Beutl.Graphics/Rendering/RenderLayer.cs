@@ -82,9 +82,15 @@ public class RenderLayer : IRenderLayer
         if (Renderer is { Clock.CurrentTime: { } timeSpan } renderer)
         {
             RenderLayerSpan? layer = Get(timeSpan);
-            if (layer != null && layer.Value is Drawable drawable)
+            if (layer != null)
             {
-                drawable.Render(renderer);
+                foreach (Renderable r in layer.Value.GetMarshal().Value)
+                {
+                    if (r is Drawable drawable)
+                    {
+                        drawable.Render(renderer);
+                    }
+                }
             }
         }
     }
@@ -96,9 +102,12 @@ public class RenderLayer : IRenderLayer
             Span<RenderLayerSpan> span = GetRange(timeSpan, TimeSpan.FromSeconds(1));
             foreach (RenderLayerSpan item in span)
             {
-                if (item.Value is Sound sound)
+                foreach (Renderable r in item.Value.GetMarshal().Value)
                 {
-                    sound.Render(renderer);
+                    if (r is Sound sound)
+                    {
+                        sound.Render(renderer);
+                    }
                 }
             }
         }

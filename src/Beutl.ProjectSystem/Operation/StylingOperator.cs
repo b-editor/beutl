@@ -119,7 +119,7 @@ public sealed class StylingSetterPropertyImpl<T> : IAbstractAnimatableProperty<T
 public abstract class StylingOperator : SourceOperator
 {
     private bool _isSettersChanging;
-    private IStyle _style;
+    private Style _style;
 
     protected StylingOperator()
     {
@@ -131,7 +131,7 @@ public abstract class StylingOperator : SourceOperator
         });
     }
 
-    public IStyle Style
+    public Style Style
     {
         get => _style;
 
@@ -164,12 +164,12 @@ public abstract class StylingOperator : SourceOperator
                 }
 
                 Properties.CollectionChanged += Properties_CollectionChanged;
-                Instance = null;
+                //Instance = null;
             }
         }
     }
 
-    public IStyleInstance? Instance { get; protected set; }
+    //public IStyleInstance? Instance { get; protected set; }
 
     protected abstract Style OnInitializeStyle(Func<IList<ISetter>> setters);
 

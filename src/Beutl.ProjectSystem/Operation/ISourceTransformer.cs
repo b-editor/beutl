@@ -6,5 +6,5 @@ namespace Beutl.Operation;
 // 流れてくる値を変換
 public interface ISourceTransformer : ISourceOperator
 {
-    IRenderable? Transform(IRenderable? value, IClock clock);
+    void Transform(IList<Renderable> value, IClock clock);
 }

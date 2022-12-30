@@ -1,40 +1,35 @@
-﻿using System.Reactive.Linq;
+﻿using System.Runtime.CompilerServices;
 
 using Beutl.Animation;
-using Beutl.Animation.Easings;
-using Beutl.Framework;
-using Beutl.Reactive;
 using Beutl.Rendering;
 using Beutl.Styling;
-
-using Reactive.Bindings.Extensions;
 
 namespace Beutl.Operation;
 
 public abstract class SourceStyler : StylingOperator, ISourceTransformer
 {
-    public virtual IRenderable? Transform(IRenderable? value, IClock clock)
+    private readonly ConditionalWeakTable<Renderable, IStyleInstance> _table = new();
+
+    public virtual void Transform(IList<Renderable> value, IClock clock)
     {
-        OnPreSelect(value);
-        if (value == null)
-            return null;
-
-        IStyleInstance? prevInstance = Instance;
-        IStyleInstance? instance = GetInstance(value);
-        if (!ReferenceEquals(prevInstance, instance))
+        for (int i = 0; i < value.Count; i++)
         {
-            prevInstance?.Dispose();
-            Instance = instance;
+            Renderable renderable = value[i];
+            OnPreSelect(renderable);
+            IStyleInstance? instance = GetInstance(value[i]);
+
+            if (instance != null)
+            {
+                ApplyStyle(instance, renderable, clock);
+            }
+
+            OnPostSelect(renderable);
         }
+    }
 
-        if (Instance != null)
-        {
-            ApplyStyle(Instance, value, clock);
-        }
-
-        OnPostSelect(value);
-
-        return value;
+    public override void Exit()
+    {
+        base.Exit();
     }
 
     protected virtual void OnPreSelect(IRenderable? value)
@@ -45,23 +40,25 @@ public abstract class SourceStyler : StylingOperator, ISourceTransformer
     {
     }
 
-    protected virtual IStyleInstance? GetInstance(IRenderable value)
+    protected virtual IStyleInstance? GetInstance(Renderable value)
     {
         Type type = value.GetType();
-        if (!ReferenceEquals(Instance?.Target, value))
+        if (_table.TryGetValue(value, out IStyleInstance? styleInstance))
+        {
+            return styleInstance;
+        }
+        else
         {
             if (type.IsAssignableTo(Style.TargetType) && value is IStyleable styleable)
             {
-                return Style.Instance(styleable);
+                var instance = Style.Instance(styleable);
+                _table.AddOrUpdate(value, instance);
+                return instance;
             }
             else
             {
                 return null;
             }
-        }
-        else
-        {
-            return Instance;
         }
     }
 
@@ -71,5 +68,16 @@ public abstract class SourceStyler : StylingOperator, ISourceTransformer
         instance.Begin();
         instance.Apply(clock);
         instance.End();
+    }
+
+    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    {
+        base.OnDetachedFromLogicalTree(args);
+        foreach (KeyValuePair<Renderable, IStyleInstance> item in _table)
+        {
+            item.Value.Dispose();
+        }
+
+        _table.Clear();
     }
 }
