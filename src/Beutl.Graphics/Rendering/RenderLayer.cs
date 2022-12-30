@@ -10,14 +10,15 @@ public class RenderLayer : IRenderLayer
 {
     private TimeSpan? _lastTimeSpan;
     private RenderLayerSpan? _lastTimeResult;
-    private IRenderer? _renderer;
     private readonly List<RenderLayerSpan> _nodes = new();
 
     public RenderLayerSpan? this[TimeSpan timeSpan] => Get(timeSpan);
 
+    public IRenderer? Renderer { get; private set; }
+
     private void OnNodeInvalidated(object? sender, RenderInvalidatedEventArgs e)
     {
-        if (_renderer is { } renderer
+        if (Renderer is { } renderer
             && sender is RenderLayerSpan span
             && span.Value is { } renderable)
         {
@@ -27,20 +28,22 @@ public class RenderLayer : IRenderLayer
 
     public void AddNode(RenderLayerSpan node)
     {
-        node.Invalidated += OnNodeInvalidated;
-
         _nodes.Add(node);
         _lastTimeSpan = null;
         _lastTimeResult = null;
+
+        node.Invalidated += OnNodeInvalidated;
+        node.AttachToRenderLayer(this);
     }
 
     public void RemoveNode(RenderLayerSpan node)
     {
-        node.Invalidated -= OnNodeInvalidated;
-
         _nodes.Remove(node);
         _lastTimeSpan = null;
         _lastTimeResult = null;
+
+        node.Invalidated -= OnNodeInvalidated;
+        node.DetachFromRenderLayer();
     }
 
     public bool ContainsNode(RenderLayerSpan node)
@@ -88,7 +91,7 @@ public class RenderLayer : IRenderLayer
 
     public void RenderGraphics()
     {
-        if (_renderer is { Clock.CurrentTime: { } timeSpan } renderer)
+        if (Renderer is { Clock.CurrentTime: { } timeSpan } renderer)
         {
             RenderLayerSpan? layer = Get(timeSpan);
             if (layer != null && layer.Value is Drawable drawable)
@@ -100,7 +103,7 @@ public class RenderLayer : IRenderLayer
 
     public void RenderAudio()
     {
-        if (_renderer is { Clock.AudioStartTime: { } timeSpan } renderer)
+        if (Renderer is { Clock.AudioStartTime: { } timeSpan } renderer)
         {
             Span<RenderLayerSpan> span = GetRange(timeSpan, TimeSpan.FromSeconds(1));
             foreach (RenderLayerSpan item in span)
@@ -115,16 +118,16 @@ public class RenderLayer : IRenderLayer
 
     public void AttachToRenderer(IRenderer renderer)
     {
-        if (_renderer != null && _renderer != renderer)
+        if (Renderer != null && Renderer != renderer)
         {
             throw new InvalidOperationException();
         }
 
-        _renderer = renderer;
+        Renderer = renderer;
     }
 
     public void DetachFromRenderer()
     {
-        _renderer = null;
+        Renderer = null;
     }
 }

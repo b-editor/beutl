@@ -5,6 +5,8 @@ public interface IRenderLayer
 {
     RenderLayerSpan? this[TimeSpan timeSpan] { get; }
 
+    IRenderer? Renderer { get; }
+
     void AddNode(RenderLayerSpan node);
 
     void RemoveNode(RenderLayerSpan node);
