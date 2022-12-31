@@ -47,7 +47,7 @@ public readonly struct TimeRange : IEquatable<TimeRange>
 
     public bool Contains(TimeSpan time)
     {
-        return time >= Start && time <= End;
+        return time >= Start && time < End;
     }
 
     public bool Contains(TimeRange time)
