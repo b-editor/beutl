@@ -78,7 +78,13 @@
                 </ui:MenuFlyoutSubItem>
             </ui:FAMenuFlyout>
         </Border.ContextFlyout>
-        <TextBlock Text="{Binding Model.Name}" />
+        <Panel>
+            <TextBlock x:Name="textBlock" Text="{Binding Model.Name}" />
+            <TextBox x:Name="textBox"
+                     HorizontalAlignment="Stretch"
+                     IsVisible="False"
+                     Text="{Binding Model.Name}" />
+        </Panel>
     </Border>
 
 </UserControl>

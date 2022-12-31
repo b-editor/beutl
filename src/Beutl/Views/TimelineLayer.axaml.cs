@@ -58,6 +58,14 @@ public sealed partial class TimelineLayer : UserControl
         AddHandler(PointerPressedEvent, Layer_PointerPressed, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, Layer_PointerReleased, RoutingStrategies.Tunnel);
         AddHandler(PointerMovedEvent, Layer_PointerMoved, RoutingStrategies.Tunnel);
+
+        textBox.LostFocus += TextBox_LostFocus;
+    }
+
+    private void TextBox_LostFocus(object? sender, RoutedEventArgs e)
+    {
+        textBlock.IsVisible = true;
+        textBox.IsVisible = false;
     }
 
     public Func<TimeSpan> GetClickedTime => () => _pointerPosition;
@@ -144,7 +152,10 @@ public sealed partial class TimelineLayer : UserControl
     private void Layer_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         ZIndex = 5;
-        Focus();
+        if (!textBox.IsFocused)
+        {
+            Focus();
+        }
     }
 
     private async void Layer_PointerReleased(object? sender, PointerReleasedEventArgs e)
@@ -168,14 +179,23 @@ public sealed partial class TimelineLayer : UserControl
         PointerPoint point = e.GetCurrentPoint(border);
         if (point.Properties.IsLeftButtonPressed)
         {
-            s_animation1.PlaybackDirection = PlaybackDirection.Normal;
-            Task task1 = s_animation1.RunAsync(border, null);
+            if (e.ClickCount == 2)
+            {
+                textBlock.IsVisible = false;
+                textBox.IsVisible = true;
+                textBox.SelectAll();
+            }
+            else
+            {
+                s_animation1.PlaybackDirection = PlaybackDirection.Normal;
+                Task task1 = s_animation1.RunAsync(border, null);
 
-            EditViewModel editorContext = _timeline.ViewModel.EditorContext;
-            editorContext.SelectedObject.Value = ViewModel.Model;
+                EditViewModel editorContext = _timeline.ViewModel.EditorContext;
+                editorContext.SelectedObject.Value = ViewModel.Model;
 
-            await task1;
-            border.Opacity = 0.8;
+                await task1;
+                border.Opacity = 0.8;
+            }
         }
     }
 
