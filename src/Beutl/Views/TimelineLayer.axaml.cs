@@ -7,6 +7,7 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.Xaml.Interactivity;
 
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
@@ -43,18 +44,17 @@ public sealed partial class TimelineLayer : UserControl
         }
     };
     private Timeline? _timeline;
-    private MouseFlags _mouseFlag = MouseFlags.MouseUp;
-    private AlignmentX _resizeType = AlignmentX.Center;
-    private Point _layerStartAbs;
-    private Point _layerStartRel;
     private TimeSpan _pointerPosition;
-    private Layer? _before;
-    private Layer? _after;
     private IDisposable? _disposable1;
 
     public TimelineLayer()
     {
         InitializeComponent();
+
+        BehaviorCollection behaviors = Interaction.GetBehaviors(this);
+        behaviors.Add(new _ResizeBehavior());
+        behaviors.Add(new _MoveBehavior());
+
         AddHandler(PointerPressedEvent, Layer_PointerPressed, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, Layer_PointerReleased, RoutingStrategies.Tunnel);
         AddHandler(PointerMovedEvent, Layer_PointerMoved, RoutingStrategies.Tunnel);
@@ -154,56 +154,9 @@ public sealed partial class TimelineLayer : UserControl
 
     private void Layer_PointerMoved(object? sender, PointerEventArgs e)
     {
-        Scene scene = ViewModel.Scene;
         Point point = e.GetPosition(this);
         float scale = ViewModel.Timeline.Options.Value.Scale;
-        TimeSpan pointerFrame = point.X.ToTimeSpan(scale);
-        _pointerPosition = pointerFrame;
-
-        if (_timeline == null || _mouseFlag == MouseFlags.MouseUp)
-            return;
-
-        TimelineLayerViewModel vm = ViewModel;
-        pointerFrame = RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Control));
-        point = point.WithX(pointerFrame.ToPixel(scale));
-
-        if (Cursor == Cursors.Arrow || Cursor == null)
-        {
-            TimeSpan newframe = pointerFrame - _layerStartRel.X.ToTimeSpan(scale);
-
-            newframe = TimeSpan.FromTicks(Math.Clamp(newframe.Ticks, TimeSpan.Zero.Ticks, scene.Duration.Ticks));
-
-            vm.Margin.Value = new Thickness(
-                0,
-                Math.Max(e.GetPosition(_timeline.TimelinePanel).Y - _layerStartRel.Y, 0),
-                0,
-                0);
-            vm.BorderMargin.Value = new Thickness(newframe.ToPixel(scale), 0, 0, 0);
-        }
-        else
-        {
-            double move = (pointerFrame - _layerStartAbs.X.ToTimeSpan(scale)).ToPixel(scale); //一時的な移動量
-            double width = ViewModel.Width.Value;
-            double left = ViewModel.BorderMargin.Value.Left;
-
-            if (_resizeType == AlignmentX.Right)
-            {
-                // 右
-                double right = width + left;
-                move = _after == null ? move : (Math.Min(_after.Start.ToPixel(scale), right + move) - right);
-                ViewModel.Width.Value += move;
-            }
-            else if (_resizeType == AlignmentX.Left && pointerFrame >= TimeSpan.Zero)
-            {
-                // 左
-                move = Math.Max(_before?.Range.End.ToPixel(scale) ?? 0, left + move) - left;
-                ViewModel.Width.Value -= move;
-                ViewModel.BorderMargin.Value += new Thickness(move, 0, 0, 0);
-            }
-        }
-
-        _layerStartAbs = point;
-        e.Handled = true;
+        _pointerPosition = point.X.ToTimeSpan(scale);
     }
 
     private async void Border_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -213,19 +166,12 @@ public sealed partial class TimelineLayer : UserControl
         PointerPoint point = e.GetCurrentPoint(border);
         if (point.Properties.IsLeftButtonPressed)
         {
-            _before = ViewModel.Model.GetBefore(ViewModel.Model.ZIndex, ViewModel.Model.Start);
-            _after = ViewModel.Model.GetAfter(ViewModel.Model.ZIndex, ViewModel.Model.Range.End);
+            s_animation1.PlaybackDirection = PlaybackDirection.Normal;
             Task task1 = s_animation1.RunAsync(border, null);
 
-            _mouseFlag = MouseFlags.MouseDown;
-            _layerStartAbs = e.GetPosition(this);
-            _layerStartRel = point.Position;
             EditViewModel editorContext = _timeline.ViewModel.EditorContext;
             editorContext.SelectedObject.Value = ViewModel.Model;
 
-            e.Handled = true;
-
-            s_animation1.PlaybackDirection = PlaybackDirection.Normal;
             await task1;
             border.Opacity = 0.8;
         }
@@ -235,7 +181,6 @@ public sealed partial class TimelineLayer : UserControl
     {
         if (_timeline == null) return;
 
-        _mouseFlag = MouseFlags.MouseUp;
         s_animation1.PlaybackDirection = PlaybackDirection.Reverse;
         Task task1 = s_animation1.RunAsync(border, null);
 
@@ -243,31 +188,6 @@ public sealed partial class TimelineLayer : UserControl
         editorContext.SelectedObject.Value = ViewModel.Model;
         await task1;
         border.Opacity = 1;
-    }
-
-    private void Border_PointerMoved(object? sender, PointerEventArgs e)
-    {
-        if (_mouseFlag == MouseFlags.MouseDown) return;
-
-        Point point = e.GetPosition(border);
-        double horizon = point.X;
-
-        // 左右 10px内 なら左右矢印
-        if (horizon < 10)
-        {
-            Cursor = Cursors.SizeWestEast;
-            _resizeType = AlignmentX.Left;
-        }
-        else if (horizon > border.Bounds.Width - 10)
-        {
-            Cursor = Cursors.SizeWestEast;
-            _resizeType = AlignmentX.Right;
-        }
-        else
-        {
-            Cursor = null;
-            _resizeType = AlignmentX.Center;
-        }
     }
 
     private TimeSpan RoundStartTime(TimeSpan time, float scale, bool flag)
@@ -300,5 +220,211 @@ public sealed partial class TimelineLayer : UserControl
         }
 
         return time;
+    }
+
+    private sealed class _ResizeBehavior : Behavior<TimelineLayer>
+    {
+        private Layer? _before;
+        private Layer? _after;
+        private bool _pressed;
+        private Point _start;
+        private AlignmentX _resizeType;
+
+        protected override void OnAttached()
+        {
+            base.OnAttached();
+            if (AssociatedObject != null)
+            {
+                AssociatedObject.AddHandler(PointerMovedEvent, OnPointerMoved);
+                AssociatedObject.border.AddHandler(PointerPressedEvent, OnBorderPointerPressed);
+                AssociatedObject.border.AddHandler(PointerReleasedEvent, OnBorderPointerReleased);
+                AssociatedObject.border.AddHandler(PointerMovedEvent, OnBorderPointerMoved);
+            }
+        }
+
+        protected override void OnDetaching()
+        {
+            base.OnDetaching();
+            if (AssociatedObject != null)
+            {
+                AssociatedObject.RemoveHandler(PointerMovedEvent, OnPointerMoved);
+                AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
+                AssociatedObject.border.RemoveHandler(PointerMovedEvent, OnBorderPointerMoved);
+            }
+        }
+
+        private void OnPointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (AssociatedObject is { ViewModel: { } viewModel } layer)
+            {
+                Point point = e.GetPosition(layer);
+                float scale = viewModel.Timeline.Options.Value.Scale;
+                TimeSpan pointerFrame = point.X.ToTimeSpan(scale);
+
+                if (layer._timeline is { } timeline && _pressed)
+                {
+                    pointerFrame = layer.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Control));
+                    point = point.WithX(pointerFrame.ToPixel(scale));
+
+                    if (layer.Cursor != Cursors.Arrow && layer.Cursor is { })
+                    {
+                        double move = (pointerFrame - _start.X.ToTimeSpan(scale)).ToPixel(scale); //一時的な移動量
+                        double width = viewModel.Width.Value;
+                        double left = viewModel.BorderMargin.Value.Left;
+
+                        if (_resizeType == AlignmentX.Right)
+                        {
+                            // 右
+                            double right = width + left;
+                            move = _after == null ? move : (Math.Min(_after.Start.ToPixel(scale), right + move) - right);
+                            viewModel.Width.Value += move;
+                        }
+                        else if (_resizeType == AlignmentX.Left && pointerFrame >= TimeSpan.Zero)
+                        {
+                            // 左
+                            move = Math.Max(_before?.Range.End.ToPixel(scale) ?? 0, left + move) - left;
+                            viewModel.Width.Value -= move;
+                            viewModel.BorderMargin.Value += new Thickness(move, 0, 0, 0);
+                        }
+
+                        _start = point;
+                        e.Handled = true;
+                    }
+                }
+            }
+        }
+
+        private void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (AssociatedObject is { _timeline: { }, border: { } border, ViewModel: { } viewModel } layer)
+            {
+                PointerPoint point = e.GetCurrentPoint(layer.border);
+                if (point.Properties.IsLeftButtonPressed)
+                {
+                    _before = viewModel.Model.GetBefore(viewModel.Model.ZIndex, viewModel.Model.Start);
+                    _after = viewModel.Model.GetAfter(viewModel.Model.ZIndex, viewModel.Model.Range.End);
+                    _pressed = true;
+                    _start = e.GetPosition(layer);
+
+                    if (layer.Cursor != Cursors.Arrow && layer.Cursor is { })
+                    {
+                        e.Handled = true;
+                    }
+                }
+            }
+        }
+
+        private void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            _before = null;
+            _after = null;
+            _pressed = false;
+        }
+
+        private void OnBorderPointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (!_pressed && AssociatedObject is { border: { } border } layer)
+            {
+                Point point = e.GetPosition(border);
+                double horizon = point.X;
+
+                // 左右 10px内 なら左右矢印
+                if (horizon < 10)
+                {
+                    layer.Cursor = Cursors.SizeWestEast;
+                    _resizeType = AlignmentX.Left;
+                }
+                else if (horizon > border.Bounds.Width - 10)
+                {
+                    layer.Cursor = Cursors.SizeWestEast;
+                    _resizeType = AlignmentX.Right;
+                }
+                else
+                {
+                    layer.Cursor = null;
+                    _resizeType = AlignmentX.Center;
+                }
+            }
+        }
+    }
+
+    private sealed class _MoveBehavior : Behavior<TimelineLayer>
+    {
+        private bool _pressed;
+        private Point _start;
+
+        protected override void OnAttached()
+        {
+            base.OnAttached();
+            if (AssociatedObject != null)
+            {
+                AssociatedObject.AddHandler(PointerMovedEvent, OnPointerMoved);
+                AssociatedObject.border.AddHandler(PointerPressedEvent, OnBorderPointerPressed);
+                AssociatedObject.border.AddHandler(PointerReleasedEvent, OnBorderPointerReleased);
+            }
+        }
+
+        protected override void OnDetaching()
+        {
+            base.OnDetaching();
+            if (AssociatedObject != null)
+            {
+                AssociatedObject.RemoveHandler(PointerMovedEvent, OnPointerMoved);
+                AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
+                AssociatedObject.border.RemoveHandler(PointerReleasedEvent, OnBorderPointerReleased);
+            }
+        }
+
+        private void OnPointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (AssociatedObject is { ViewModel: { } viewModel } layer)
+            {
+                Scene scene = viewModel.Scene;
+                Point point = e.GetPosition(layer);
+                float scale = viewModel.Timeline.Options.Value.Scale;
+                TimeSpan pointerFrame = point.X.ToTimeSpan(scale);
+
+                if (layer._timeline is { } timeline && _pressed)
+                {
+                    pointerFrame = layer.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Control));
+
+                    if (layer.Cursor == Cursors.Arrow || layer.Cursor == null)
+                    {
+                        TimeSpan newframe = pointerFrame - _start.X.ToTimeSpan(scale);
+
+                        newframe = TimeSpan.FromTicks(Math.Clamp(newframe.Ticks, TimeSpan.Zero.Ticks, scene.Duration.Ticks));
+
+                        viewModel.Margin.Value = new Thickness(
+                            0,
+                            Math.Max(e.GetPosition(timeline.TimelinePanel).Y - _start.Y, 0),
+                            0,
+                            0);
+                        viewModel.BorderMargin.Value = new Thickness(newframe.ToPixel(scale), 0, 0, 0);
+
+                        e.Handled = true;
+                    }
+                }
+            }
+        }
+
+        private void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (AssociatedObject is { _timeline: { }, border: { } border } layer)
+            {
+                PointerPoint point = e.GetCurrentPoint(layer.border);
+                if (point.Properties.IsLeftButtonPressed)
+                {
+                    _pressed = true;
+                    _start = point.Position;
+
+                    e.Handled = true;
+                }
+            }
+        }
+
+        private void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            _pressed = false;
+        }
     }
 }

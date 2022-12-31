@@ -32,7 +32,6 @@
             HorizontalAlignment="Left"
             Background="{CompiledBinding Color.Value, Converter={StaticResource ColorToBrushConverter}}"
             BorderBrush="{DynamicResource TextControlForeground}"
-            PointerMoved="Border_PointerMoved"
             PointerPressed="Border_PointerPressed"
             PointerReleased="Border_PointerReleased">
         <Border.ContextFlyout>
