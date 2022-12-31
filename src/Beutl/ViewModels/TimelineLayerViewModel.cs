@@ -193,7 +193,7 @@ public sealed class TimelineLayerViewModel : IDisposable
         Margin.Value = newMargin;
     }
 
-    public async void SyncModelToViewModel()
+    public async ValueTask SyncModelToViewModel()
     {
         float scale = Timeline.Options.Value.Scale;
         int rate = Scene.Parent is Project proj ? proj.GetFrameRate() : 30;

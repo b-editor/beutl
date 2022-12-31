@@ -143,13 +143,15 @@ public sealed partial class TimelineLayer : UserControl
 
     private void Layer_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        ZIndex = 5;
         Focus();
     }
 
-    private void Layer_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    private async void Layer_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         // View (ViewModel)の位置情報をModelと同期する
-        ViewModel.SyncModelToViewModel();
+        await ViewModel.SyncModelToViewModel();
+        ZIndex = 0;
     }
 
     private void Layer_PointerMoved(object? sender, PointerEventArgs e)
@@ -227,7 +229,6 @@ public sealed partial class TimelineLayer : UserControl
         private Layer? _before;
         private Layer? _after;
         private bool _pressed;
-        private Point _start;
         private AlignmentX _resizeType;
 
         protected override void OnAttached()
@@ -268,26 +269,23 @@ public sealed partial class TimelineLayer : UserControl
 
                     if (layer.Cursor != Cursors.Arrow && layer.Cursor is { })
                     {
-                        double move = (pointerFrame - _start.X.ToTimeSpan(scale)).ToPixel(scale); //一時的な移動量
-                        double width = viewModel.Width.Value;
                         double left = viewModel.BorderMargin.Value.Left;
 
                         if (_resizeType == AlignmentX.Right)
                         {
                             // 右
-                            double right = width + left;
-                            move = _after == null ? move : (Math.Min(_after.Start.ToPixel(scale), right + move) - right);
-                            viewModel.Width.Value += move;
+                            double x = _after == null ? point.X : Math.Min(_after.Start.ToPixel(scale), point.X);
+                            viewModel.Width.Value = x - left;
                         }
                         else if (_resizeType == AlignmentX.Left && pointerFrame >= TimeSpan.Zero)
                         {
                             // 左
-                            move = Math.Max(_before?.Range.End.ToPixel(scale) ?? 0, left + move) - left;
-                            viewModel.Width.Value -= move;
-                            viewModel.BorderMargin.Value += new Thickness(move, 0, 0, 0);
+                            double x = _before == null ? point.X : Math.Max(_before.Range.End.ToPixel(scale), point.X);
+
+                            viewModel.Width.Value += left - x;
+                            viewModel.BorderMargin.Value = new Thickness(x, 0, 0, 0);
                         }
 
-                        _start = point;
                         e.Handled = true;
                     }
                 }
@@ -304,7 +302,6 @@ public sealed partial class TimelineLayer : UserControl
                     _before = viewModel.Model.GetBefore(viewModel.Model.ZIndex, viewModel.Model.Start);
                     _after = viewModel.Model.GetAfter(viewModel.Model.ZIndex, viewModel.Model.Range.End);
                     _pressed = true;
-                    _start = e.GetPosition(layer);
 
                     if (layer.Cursor != Cursors.Arrow && layer.Cursor is { })
                     {
