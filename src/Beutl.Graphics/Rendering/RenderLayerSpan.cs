@@ -9,7 +9,7 @@ public sealed class RenderLayerSpan : Element, IAffectsRender
     public static readonly CoreProperty<TimeSpan> DurationProperty;
     public static readonly CoreProperty<Renderables> ValueProperty;
     public static readonly CoreProperty<RenderLayer?> RenderLayerProperty;
-    private readonly Renderables _value = new();
+    private readonly Renderables _value;
     private TimeSpan _start;
     private TimeSpan _duration;
     private RenderLayer? _renderLayer;
@@ -36,12 +36,11 @@ public sealed class RenderLayerSpan : Element, IAffectsRender
             .Accessor(o => o.RenderLayer)
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
-
-        LogicalChild<RenderLayerSpan>(ValueProperty);
     }
 
     public RenderLayerSpan()
     {
+        _value = new(this);
         _value.Invalidated += OnValueInvalidated;
     }
 
