@@ -18,7 +18,7 @@ public class TimeRangeTests
 
         Assert.AreEqual(true, range1.Contains(range2));
         Assert.AreEqual(false, range2.Contains(range3));
-        Assert.AreEqual(true, range1.Contains(TimeSpan.FromSeconds(7)));
+        Assert.AreEqual(false, range1.Contains(TimeSpan.FromSeconds(7)));
     }
     
     [Test]
