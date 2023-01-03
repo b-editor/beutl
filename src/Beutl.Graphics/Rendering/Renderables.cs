@@ -6,9 +6,10 @@ using Beutl.Media;
 
 namespace Beutl.Rendering;
 
-public sealed class Renderables : CoreList<Renderable>, IAffectsRender
+public sealed class Renderables : LogicalList<Renderable>, IAffectsRender
 {
-    public Renderables()
+    public Renderables(ILogicalElement parent)
+        : base(parent)
     {
         ResetBehavior = ResetBehavior.Remove;
         CollectionChanged += OnCollectionChanged;
