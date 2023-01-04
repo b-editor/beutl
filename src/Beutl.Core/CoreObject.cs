@@ -15,7 +15,7 @@ public interface ICoreObject : INotifyPropertyChanged, IJsonSerializable, INotif
 
     void BeginBatchUpdate();
 
-    void EndBatchUpdate();
+    bool EndBatchUpdate();
 
     void ClearValue<TValue>(CoreProperty<TValue> property);
 
@@ -146,11 +146,13 @@ public abstract class CoreObject : ICoreObject
         _batchUpdateCount++;
     }
 
-    public void EndBatchUpdate()
+    public bool EndBatchUpdate()
     {
         _batchUpdateCount--;
         if (_batchUpdateCount < 0)
-            throw new InvalidOperationException();
+        {
+            return false;
+        }
 
         if (_batchUpdateCount == 0)
         {
@@ -173,6 +175,12 @@ public abstract class CoreObject : ICoreObject
                     _batchApplying = false;
                 }
             }
+
+            return true;
+        }
+        else
+        {
+            return false;
         }
     }
 
