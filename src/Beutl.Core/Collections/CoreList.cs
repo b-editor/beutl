@@ -213,6 +213,7 @@ public class CoreList<T> : ICoreList<T>
             }
 
             Inner.AddRange(source);
+            span = CollectionsMarshal.AsSpan(Inner);
 
             foreach (T? item in span)
             {
