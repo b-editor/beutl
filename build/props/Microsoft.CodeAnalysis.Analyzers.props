@@ -1,6 +1,6 @@
 <Project>
   <ItemGroup>
     <!-- https://zenn.dev/mayuki/articles/c4728ae9cdef8e -->
-    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.3" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
   </ItemGroup>
 </Project>
