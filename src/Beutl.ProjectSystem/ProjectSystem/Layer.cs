@@ -7,6 +7,7 @@ using System.Text.Json.Nodes;
 
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.NodeTree;
 using Beutl.Operation;
 using Beutl.Rendering;
 
@@ -22,6 +23,8 @@ public class Layer : Element, IStorable, ILogicalElement
     public static readonly CoreProperty<bool> AllowOutflowProperty;
     public static readonly CoreProperty<RenderLayerSpan> SpanProperty;
     public static readonly CoreProperty<SourceOperators> OperatorsProperty;
+    public static readonly CoreProperty<NodeTreeSpace> SpaceProperty;
+    public static readonly CoreProperty<bool> UseNodeProperty;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
@@ -31,6 +34,7 @@ public class Layer : Element, IStorable, ILogicalElement
     private EventHandler? _saved;
     private EventHandler? _restored;
     private IDisposable? _disposable;
+    private bool _useNode;
 
     static Layer()
     {
@@ -81,6 +85,17 @@ public class Layer : Element, IStorable, ILogicalElement
 
         OperatorsProperty = ConfigureProperty<SourceOperators, Layer>(nameof(Operators))
             .Accessor(o => o.Operators, null)
+            .Register();
+
+        SpaceProperty = ConfigureProperty<NodeTreeSpace, Layer>(nameof(Space))
+            .Accessor(o => o.Space, null)
+            .Register();
+
+        UseNodeProperty = ConfigureProperty<bool, Layer>(nameof(UseNode))
+            .Accessor(o => o.UseNode, (o, v) => o.UseNode = v)
+            .DefaultValue(false)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
+            .SerializeName("useNode")
             .Register();
 
         NameProperty.OverrideMetadata<Layer>(new CorePropertyMetadata<string>("name"));
@@ -151,6 +166,8 @@ public class Layer : Element, IStorable, ILogicalElement
         Operators.CollectionChanged += OnOperatorsCollectionChanged;
 
         (Span as ILogicalElement).NotifyAttachedToLogicalTree(new(this));
+
+        Space = new NodeTreeSpace();
     }
 
     private void OnOperatorsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -246,6 +263,14 @@ public class Layer : Element, IStorable, ILogicalElement
     public DateTime LastSavedTime { get; private set; }
 
     public SourceOperators Operators { get; }
+
+    public NodeTreeSpace Space { get; }
+
+    public bool UseNode
+    {
+        get => _useNode;
+        set => SetAndRaise(UseNodeProperty, ref _useNode, value);
+    }
 
     public void Save(string filename)
     {

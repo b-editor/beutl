@@ -50,7 +50,14 @@ internal sealed class SceneRenderer :
 
         foreach (Layer layer in layers)
         {
-            EvaluateLayer(layer);
+            if (layer.UseNode)
+            {
+                InvokeNode(layer);
+            }
+            else
+            {
+                EvaluateLayer(layer);
+            }
         }
 
         base.RenderGraphicsCore();
@@ -166,6 +173,12 @@ internal sealed class SceneRenderer :
         //    prevResult.IsVisible = layer.IsEnabled;
         //}
         //span.Value?.EndBatchUpdate();
+    }
+
+    private void InvokeNode(Layer layer)
+    {
+        List<Renderable> unhandleds = _unhandleds;
+        layer.Space.Evaluate(Clock, layer);
     }
 
     // Layersを振り分ける
