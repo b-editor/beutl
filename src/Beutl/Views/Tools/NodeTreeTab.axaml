@@ -1,0 +1,44 @@
+<UserControl x:Class="Beutl.Views.Tools.NodeTreeTab"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="using:Beutl.Views.Tools"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:paz="using:Avalonia.Controls.PanAndZoom"
+             xmlns:viewModel="using:Beutl.ViewModels.Tools"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="viewModel:NodeTreeTabViewModel"
+             mc:Ignorable="d">
+    <ScrollViewer Grid.Row="4"
+                  Grid.Column="1"
+                  HorizontalScrollBarVisibility="Auto"
+                  VerticalScrollBarVisibility="Auto">
+        <Panel>
+            <local:NodeTreeBackground HorizontalAlignment="Stretch"
+                                      VerticalAlignment="Stretch"
+                                      BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                      IsHitTestVisible="False"
+                                      ZoomBorder="{Binding #zoomBorder}" />
+
+            <paz:ZoomBorder Name="zoomBorder"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            ClipToBounds="True"
+                            Focusable="True"
+                            PanButton="Left"
+                            Stretch="None"
+                            ZoomSpeed="1.2">
+                <paz:ZoomBorder.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Add node">
+                            <MenuItem Click="AddRectClick" Header="Rect" />
+                        </MenuItem>
+                        <MenuItem Click="ResetZoomClick" Header="Reset zoom" />
+                    </ContextMenu>
+                </paz:ZoomBorder.ContextMenu>
+                <Canvas x:Name="canvas" />
+            </paz:ZoomBorder>
+        </Panel>
+    </ScrollViewer>
+</UserControl>

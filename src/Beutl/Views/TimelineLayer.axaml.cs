@@ -12,7 +12,9 @@ using Avalonia.Xaml.Interactivity;
 
 using Beutl.Commands;
 using Beutl.ProjectSystem;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
+using Beutl.ViewModels.Tools;
 
 using NuGet.Frameworks;
 
@@ -157,6 +159,18 @@ public sealed partial class TimelineLayer : UserControl
     {
         textBlock.IsVisible = true;
         textBox.IsVisible = false;
+    }
+
+    private void OpenNodeTree_Click(object? sender, RoutedEventArgs e)
+    {
+        Layer layer = ViewModel.Model;
+        EditViewModel context = ViewModel.Timeline.EditorContext;
+        NodeTreeTabViewModel? nodeTree = context.FindToolTab<NodeTreeTabViewModel>(
+            v => v.Layer.Value == layer || v.Layer.Value == null);
+        nodeTree ??= new NodeTreeTabViewModel(context);
+        nodeTree.Layer.Value = layer;
+
+        context.OpenToolTab(nodeTree);
     }
 
     private TimeSpan RoundStartTime(TimeSpan time, float scale, bool flag)
