@@ -1,16 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Diagnostics.CodeAnalysis;
 
 using Avalonia.Controls;
 
 using Beutl.Framework;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
+using Beutl.ViewModels.NodeTree;
+using Beutl.Views.NodeTree;
 
 namespace Beutl.Services.PrimitiveImpls;
 

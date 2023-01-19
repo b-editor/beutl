@@ -10,7 +10,7 @@ using Beutl.NodeTree;
 
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.ViewModels.NodeTree;
 
 public sealed class NodeViewModel : IDisposable
 {

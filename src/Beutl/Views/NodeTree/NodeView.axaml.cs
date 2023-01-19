@@ -9,10 +9,9 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.Transformation;
 using Avalonia.VisualTree;
+using Beutl.ViewModels.NodeTree;
 
-using Beutl.ViewModels.Tools;
-
-namespace Beutl.Views.Tools;
+namespace Beutl.Views.NodeTree;
 
 public partial class NodeView : UserControl
 {

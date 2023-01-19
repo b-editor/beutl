@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.PanAndZoom;
 using Avalonia.Media;
 
-namespace Beutl.Views.Tools;
+namespace Beutl.Views.NodeTree;
 
 public sealed class NodeTreeBackground : Control
 {

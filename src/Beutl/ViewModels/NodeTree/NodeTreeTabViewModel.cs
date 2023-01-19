@@ -1,19 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.Json.Nodes;
-using System.Threading.Tasks;
+﻿using System.Text.Json.Nodes;
 
-using Beutl.Collections;
 using Beutl.Framework;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
-using Beutl.ViewModels.ExtensionsPages;
 
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.ViewModels.NodeTree;
 
 public sealed class NodeTreeTabViewModel : IToolContext
 {

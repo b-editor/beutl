@@ -5,9 +5,9 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 
 using Beutl.NodeTree.Nodes;
-using Beutl.ViewModels.Tools;
+using Beutl.ViewModels.NodeTree;
 
-namespace Beutl.Views.Tools;
+namespace Beutl.Views.NodeTree;
 
 public partial class NodeTreeTab : UserControl
 {

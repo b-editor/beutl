@@ -14,7 +14,7 @@ using Beutl.Commands;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
+using Beutl.ViewModels.NodeTree;
 
 using NuGet.Frameworks;
 
