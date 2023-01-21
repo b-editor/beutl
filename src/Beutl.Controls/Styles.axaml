@@ -12,6 +12,7 @@
                 <ResourceInclude Source="/Styling/ContextMenu.axaml" />
                 <ResourceInclude Source="/Styling/Separator.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/StringEditor.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/Vector2Editor.axaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <x:Double x:Key="LayerHeight">25</x:Double>
