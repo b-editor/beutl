@@ -11,10 +11,12 @@
                 <ResourceInclude Source="/Styling/FileInputArea.axaml" />
                 <ResourceInclude Source="/Styling/ContextMenu.axaml" />
                 <ResourceInclude Source="/Styling/Separator.axaml" />
+                <ResourceInclude Source="/Styling/ListRadioButton.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/StringEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/Vector2Editor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/Vector3Editor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/Vector4Editor.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/AlignmentXEditor.axaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <x:Double x:Key="LayerHeight">25</x:Double>
@@ -61,6 +63,5 @@
     <StyleInclude Source="avares://Beutl.Controls/Styling/NavigationView.axaml" />
     <StyleInclude Source="avares://Beutl.Controls/Styling/OptionsDisplayItem.axaml" />
     <StyleInclude Source="avares://Beutl.Controls/Styling/Player.axaml" />
-    <StyleInclude Source="avares://Beutl.Controls/Styling/ListRadioButton.axaml" />
     <StyleInclude Source="avares://Beutl.Controls/Styling/CommandBarStyles_WithoutCompiledBinding.axaml" />
 </Styles>

@@ -30,19 +30,22 @@
             <RadioButton Checked="Top_Checked"
                          Classes="list"
                          CornerRadius="4,0,0,4"
-                         IsChecked="{Binding IsTop.Value}">
+                         IsChecked="{Binding IsTop.Value}"
+                         Theme="{StaticResource HorizontalRadioButton}">
                 <icons:SymbolIcon Symbol="AlignTop" />
             </RadioButton>
             <RadioButton Checked="Center_Checked"
                          Classes="list"
                          CornerRadius="0"
-                         IsChecked="{Binding IsCenter.Value}">
+                         IsChecked="{Binding IsCenter.Value}"
+                         Theme="{StaticResource HorizontalRadioButton}">
                 <icons:SymbolIcon Symbol="AlignCenterHorizontal" />
             </RadioButton>
             <RadioButton Checked="Bottom_Checked"
                          Classes="list"
                          CornerRadius="0,4,4,0"
-                         IsChecked="{Binding IsBottom.Value}">
+                         IsChecked="{Binding IsBottom.Value}"
+                         Theme="{StaticResource HorizontalRadioButton}">
                 <icons:SymbolIcon Symbol="AlignBottom" />
             </RadioButton>
         </WrapPanel>

@@ -18,9 +18,9 @@ namespace PropertyEditorViewTests
 #if DEBUG
             this.AttachDevTools();
 #endif
-            vector2Editor = new Vector2Editor<float>();
-            vector3Editor = new Vector3Editor<float>();
-            vector4Editor = new Vector4Editor<float>();
+            vector2Editor = new Vector2Editor<float>() { Header = "Property 3" };
+            vector3Editor = new Vector3Editor<float>() { Header = "Property 4" };
+            vector4Editor = new Vector4Editor<float>() { Header = "Property 5" };
             stack.Children.Add(vector2Editor);
             stack.Children.Add(vector3Editor);
             stack.Children.Add(vector4Editor);

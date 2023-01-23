@@ -19,18 +19,22 @@
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}">
                     <Grid ColumnDefinitions="2*,3*,Auto">
-                        <TextBlock Margin="4,0,0,0"
+                        <TextBlock Name="PART_HeaderTextBlock"
+                                   Margin="4,0,0,0"
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
+                                   ClipToBounds="False"
                                    Text="{TemplateBinding Header}" />
 
                         <TextBox x:Name="PART_InnerTextBox"
                                  Grid.Column="1"
+                                 MinWidth="120"
                                  Margin="4"
                                  IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                  Text="{TemplateBinding Text, Mode=TwoWay}" />
 
-                        <ContentPresenter Grid.Column="2"
+                        <ContentPresenter Name="PART_MenuContentPresenter"
+                                          Grid.Column="2"
                                           Content="{TemplateBinding MenuContent}"
                                           ContentTemplate="{TemplateBinding MenuContentTemplate}" />
                     </Grid>
@@ -39,7 +43,7 @@
         </Setter>
 
 
-        <Style Selector="^.filled">
+        <!--<Style Selector="^.filled">
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Padding="{TemplateBinding Padding}"
@@ -68,7 +72,7 @@
                     </Border>
                 </ControlTemplate>
             </Setter>
-        </Style>
+        </Style>-->
     </ControlTheme>
 
 </ResourceDictionary>
