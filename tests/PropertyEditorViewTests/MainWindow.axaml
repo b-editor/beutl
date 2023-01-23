@@ -8,9 +8,7 @@
         Width="250"
         Height="300"
         mc:Ignorable="d">
-    <StackPanel>
+    <StackPanel x:Name="stack">
         <pe:StringEditor Classes="filled" Header="Property 1" />
-        <pe:Vector2Editor Header="Property 1" />
-        <pe:Vector2Editor Header="Property 1" IsReadOnly="True" />
     </StackPanel>
 </Window>

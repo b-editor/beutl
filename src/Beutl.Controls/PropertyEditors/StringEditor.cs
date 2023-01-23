@@ -53,7 +53,10 @@ public class StringEditor : PropertyEditor, IStyleable
 
     protected virtual void OnTextBoxLostFocus(RoutedEventArgs e)
     {
-        RaiseEvent(new PropertyEditorValueChangedEventArgs<string>(Text, _oldValue, ValueChangedEvent));
+        if (Text != _oldValue)
+        {
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<string>(Text, _oldValue, ValueChangedEvent));
+        }
     }
 
     protected virtual void OnTextBoxTextChanged(string newValue, string oldValue)

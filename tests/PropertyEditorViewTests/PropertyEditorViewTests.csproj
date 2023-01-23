@@ -12,5 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Beutl.Controls\Beutl.Controls.csproj" />
   </ItemGroup>
+  
+  <Import Project="..\..\build\props\XamlNameReferenceGenerator.props" />
 
 </Project>

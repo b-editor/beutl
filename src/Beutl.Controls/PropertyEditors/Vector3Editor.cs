@@ -11,23 +11,30 @@ using Avalonia.Styling;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class Vector2Editor<TElement> : Vector2Editor
+public class Vector3Editor<TElement> : Vector3Editor
     where TElement : INumber<TElement>
 {
-    public static readonly DirectProperty<Vector2Editor<TElement>, TElement> FirstValueProperty =
-        Vector4Editor<TElement>.FirstValueProperty.AddOwner<Vector2Editor<TElement>>(
+    public static readonly DirectProperty<Vector3Editor<TElement>, TElement> FirstValueProperty =
+        Vector4Editor<TElement>.FirstValueProperty.AddOwner<Vector3Editor<TElement>>(
             o => o.FirstValue,
             (o, v) => o.FirstValue = v);
 
-    public static readonly DirectProperty<Vector2Editor<TElement>, TElement> SecondValueProperty =
-        Vector4Editor<TElement>.SecondValueProperty.AddOwner<Vector2Editor<TElement>>(
+    public static readonly DirectProperty<Vector3Editor<TElement>, TElement> SecondValueProperty =
+        Vector4Editor<TElement>.SecondValueProperty.AddOwner<Vector3Editor<TElement>>(
             o => o.SecondValue,
             (o, v) => o.SecondValue = v);
+
+    public static readonly DirectProperty<Vector3Editor<TElement>, TElement> ThirdValueProperty =
+        Vector4Editor<TElement>.ThirdValueProperty.AddOwner<Vector3Editor<TElement>>(
+            o => o.ThirdValue,
+            (o, v) => o.ThirdValue = v);
 
     private TElement _firstValue;
     private TElement _oldFirstValue;
     private TElement _secondValue;
     private TElement _oldSecondValue;
+    private TElement _thirdValue;
+    private TElement _oldThirdValue;
 
     public TElement FirstValue
     {
@@ -53,6 +60,18 @@ public class Vector2Editor<TElement> : Vector2Editor
         }
     }
 
+    public TElement ThirdValue
+    {
+        get => _thirdValue;
+        set
+        {
+            if (SetAndRaise(ThirdValueProperty, ref _thirdValue, value))
+            {
+                ThirdText = value.ToString();
+            }
+        }
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         void SubscribeEvents(TextBox textBox)
@@ -73,9 +92,11 @@ public class Vector2Editor<TElement> : Vector2Editor
         base.OnApplyTemplate(e);
         FirstText = _firstValue.ToString();
         SecondText = _secondValue.ToString();
+        ThirdText = _thirdValue.ToString();
 
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
+        SubscribeEvents(InnerThirdTextBox);
     }
 
     private void OnInnerTextBoxGotFocus(object sender, GotFocusEventArgs e)
@@ -84,6 +105,7 @@ public class Vector2Editor<TElement> : Vector2Editor
         {
             _oldFirstValue = FirstValue;
             _oldSecondValue = SecondValue;
+            _oldThirdValue = ThirdValue;
         }
     }
 
@@ -93,11 +115,12 @@ public class Vector2Editor<TElement> : Vector2Editor
         {
             if (
                 FirstValue != _oldFirstValue
-                || SecondValue != _oldSecondValue)
+                || SecondValue != _oldSecondValue
+                || ThirdValue != _oldThirdValue)
             {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
-                    (FirstValue, SecondValue),
-                    (_oldFirstValue, _oldSecondValue),
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
+                    (FirstValue, SecondValue, ThirdValue),
+                    (_oldFirstValue, _oldSecondValue, _oldThirdValue),
                     ValueChangedEvent));
             }
         }
@@ -119,16 +142,23 @@ public class Vector2Editor<TElement> : Vector2Editor
                 {
                     case "PART_InnerFirstTextBox":
                         FirstValue = newValue2;
-                        RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
-                            (newValue2, SecondValue),
-                            (oldValue2, SecondValue),
+                        RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
+                            (newValue2, SecondValue, ThirdValue),
+                            (oldValue2, SecondValue, ThirdValue),
                             ValueChangingEvent));
                         break;
                     case "PART_InnerSecondTextBox":
                         SecondValue = newValue2;
-                        RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
-                            (FirstValue, newValue2),
-                            (FirstValue, oldValue2),
+                        RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
+                            (FirstValue, newValue2, ThirdValue),
+                            (FirstValue, oldValue2, ThirdValue),
+                            ValueChangingEvent));
+                        break;
+                    case "PART_InnerThirdTextBox":
+                        ThirdValue = newValue2;
+                        RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
+                            (FirstValue, SecondValue, newValue2),
+                            (FirstValue, SecondValue, oldValue2),
                             ValueChangingEvent));
                         break;
                     default:
@@ -144,7 +174,8 @@ public class Vector2Editor<TElement> : Vector2Editor
     {
         if (
             TElement.TryParse(InnerFirstTextBox.Text, CultureInfo.CurrentUICulture, out _)
-            && TElement.TryParse(InnerSecondTextBox.Text, CultureInfo.CurrentUICulture, out _))
+            && TElement.TryParse(InnerSecondTextBox.Text, CultureInfo.CurrentUICulture, out _)
+            && TElement.TryParse(InnerThirdTextBox.Text, CultureInfo.CurrentUICulture, out _))
         {
             DataValidationErrors.ClearErrors(this);
         }
@@ -184,6 +215,9 @@ public class Vector2Editor<TElement> : Vector2Editor
                 case "PART_InnerSecondTextBox":
                     SecondValue = value;
                     break;
+                case "PART_InnerThirdTextBox":
+                    ThirdValue = value;
+                    break;
                 default:
                     break;
             }
@@ -196,30 +230,40 @@ public class Vector2Editor<TElement> : Vector2Editor
 [PseudoClasses(FocusAnyTextBox, BorderPointerOver)]
 [TemplatePart("PART_InnerFirstTextBox", typeof(TextBox))]
 [TemplatePart("PART_InnerSecondTextBox", typeof(TextBox))]
+[TemplatePart("PART_InnerThirdTextBox", typeof(TextBox))]
 [TemplatePart("PART_BackgroundBorder", typeof(Border))]
-public class Vector2Editor : PropertyEditor, IStyleable
+public class Vector3Editor : PropertyEditor, IStyleable
 {
-    public static readonly DirectProperty<Vector2Editor, string> FirstTextProperty =
-        Vector4Editor.FirstTextProperty.AddOwner<Vector2Editor>(
+    public static readonly DirectProperty<Vector3Editor, string> FirstTextProperty =
+        Vector4Editor.FirstTextProperty.AddOwner<Vector3Editor>(
             o => o.FirstText,
             (o, v) => o.FirstText = v);
 
-    public static readonly DirectProperty<Vector2Editor, string> SecondTextProperty =
-        Vector4Editor.SecondTextProperty.AddOwner<Vector2Editor>(
+    public static readonly DirectProperty<Vector3Editor, string> SecondTextProperty =
+        Vector4Editor.SecondTextProperty.AddOwner<Vector3Editor>(
             o => o.SecondText,
             (o, v) => o.SecondText = v);
 
+    public static readonly DirectProperty<Vector3Editor, string> ThirdTextProperty =
+        Vector4Editor.ThirdTextProperty.AddOwner<Vector3Editor>(
+            o => o.ThirdText,
+            (o, v) => o.ThirdText = v);
+
     public static readonly StyledProperty<string> FirstHeaderProperty =
-        Vector4Editor.FirstHeaderProperty.AddOwner<Vector2Editor>();
+        Vector4Editor.FirstHeaderProperty.AddOwner<Vector3Editor>();
 
     public static readonly StyledProperty<string> SecondHeaderProperty =
-        Vector4Editor.SecondHeaderProperty.AddOwner<Vector2Editor>();
+        Vector4Editor.SecondHeaderProperty.AddOwner<Vector3Editor>();
+
+    public static readonly StyledProperty<string> ThirdHeaderProperty =
+        Vector4Editor.ThirdHeaderProperty.AddOwner<Vector3Editor>();
 
     private const string FocusAnyTextBox = ":focus-any-textbox";
     private const string BorderPointerOver = ":border-pointerover";
     private Border _backgroundBorder;
     private string _firstText;
     private string _secondText;
+    private string _thirdText;
 
     public string FirstText
     {
@@ -231,6 +275,12 @@ public class Vector2Editor : PropertyEditor, IStyleable
     {
         get => _secondText;
         set => SetAndRaise(SecondTextProperty, ref _secondText, value);
+    }
+
+    public string ThirdText
+    {
+        get => _thirdText;
+        set => SetAndRaise(ThirdTextProperty, ref _thirdText, value);
     }
 
     public string FirstHeader
@@ -245,11 +295,19 @@ public class Vector2Editor : PropertyEditor, IStyleable
         set => SetValue(SecondHeaderProperty, value);
     }
 
+    public string ThirdHeader
+    {
+        get => GetValue(ThirdHeaderProperty);
+        set => SetValue(ThirdHeaderProperty, value);
+    }
+
     protected TextBox InnerFirstTextBox { get; private set; }
 
     protected TextBox InnerSecondTextBox { get; private set; }
 
-    Type IStyleable.StyleKey => typeof(Vector2Editor);
+    protected TextBox InnerThirdTextBox { get; private set; }
+
+    Type IStyleable.StyleKey => typeof(Vector3Editor);
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -263,10 +321,12 @@ public class Vector2Editor : PropertyEditor, IStyleable
         base.OnApplyTemplate(e);
         InnerFirstTextBox = e.NameScope.Get<TextBox>("PART_InnerFirstTextBox");
         InnerSecondTextBox = e.NameScope.Get<TextBox>("PART_InnerSecondTextBox");
+        InnerThirdTextBox = e.NameScope.Get<TextBox>("PART_InnerThirdTextBox");
         _backgroundBorder = e.NameScope.Get<Border>("PART_BackgroundBorder");
 
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
+        SubscribeEvents(InnerThirdTextBox);
 
         _backgroundBorder.GetObservable(IsPointerOverProperty).Subscribe(IsPointerOverChanged);
     }
@@ -275,7 +335,8 @@ public class Vector2Editor : PropertyEditor, IStyleable
     {
         if (_backgroundBorder.IsPointerOver
             || InnerFirstTextBox.IsPointerOver
-            || InnerSecondTextBox.IsPointerOver)
+            || InnerSecondTextBox.IsPointerOver
+            || InnerThirdTextBox.IsPointerOver)
         {
             PseudoClasses.Add(BorderPointerOver);
         }
@@ -299,7 +360,8 @@ public class Vector2Editor : PropertyEditor, IStyleable
     {
         if (
             InnerFirstTextBox.IsFocused
-            || InnerSecondTextBox.IsFocused)
+            || InnerSecondTextBox.IsFocused
+            || InnerThirdTextBox.IsFocused)
         {
             PseudoClasses.Add(FocusAnyTextBox);
         }

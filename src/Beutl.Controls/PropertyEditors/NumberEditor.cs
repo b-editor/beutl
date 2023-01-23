@@ -46,7 +46,10 @@ public class NumberEditor<TValue> : StringEditor
 
     protected override void OnTextBoxLostFocus(RoutedEventArgs e)
     {
-        RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueChangedEvent));
+        if (Value != _oldValue)
+        {
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueChangedEvent));
+        }
     }
 
     protected override void OnTextBoxTextChanged(string newValue, string oldValue)
