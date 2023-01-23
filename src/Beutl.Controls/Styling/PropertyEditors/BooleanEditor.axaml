@@ -1,0 +1,37 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:icons="using:FluentIcons.FluentAvalonia"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls">
+    <Design.PreviewWith>
+        <Border Width="300">
+            <StackPanel>
+                <local:BooleanEditor Header="Property 1" />
+            </StackPanel>
+        </Border>
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="{x:Type local:BooleanEditor}" TargetType="local:BooleanEditor">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Padding="{TemplateBinding Padding}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <CheckBox Name="PART_CheckBox"
+                                  Margin="4,0,0,0"
+                                  Content="{TemplateBinding Header}"
+                                  IsChecked="{TemplateBinding Value, Mode=TwoWay}"
+                                  IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}" />
+
+                        <ContentPresenter Name="PART_MenuContentPresenter"
+                                          Grid.Column="1"
+                                          Content="{TemplateBinding MenuContent}"
+                                          ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+</ResourceDictionary>

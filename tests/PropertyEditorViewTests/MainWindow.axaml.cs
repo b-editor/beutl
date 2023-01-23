@@ -21,9 +21,11 @@ namespace PropertyEditorViewTests
             vector2Editor = new Vector2Editor<float>() { Header = "Property 3" };
             vector3Editor = new Vector3Editor<float>() { Header = "Property 4" };
             vector4Editor = new Vector4Editor<float>() { Header = "Property 5" };
+            var boolEditor = new BooleanEditor() { Header = "Property 6" };
             stack.Children.Add(vector2Editor);
             stack.Children.Add(vector3Editor);
             stack.Children.Add(vector4Editor);
+            stack.Children.Add(boolEditor);
             vector2Editor.ValueChanged += Vector2Editor_ValueChanged;
             vector2Editor.ValueChanging += Vector2Editor_ValueChanging;
         }
