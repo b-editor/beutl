@@ -59,7 +59,7 @@ public class AlignmentXEditor : PropertyEditor
     {
         Size arranged = base.ArrangeOverride(finalSize);
 
-        if (_shouldBeWrapped)
+        if (!UseCompact && _shouldBeWrapped)
         {
             Size headerSize = _headerTextBlock.DesiredSize;
             Size menuSize = _menuPresenter.DesiredSize;
@@ -82,7 +82,7 @@ public class AlignmentXEditor : PropertyEditor
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        if (!double.IsInfinity(availableSize.Width))
+        if (!UseCompact && !double.IsInfinity(availableSize.Width))
         {
             Size measured = base.MeasureOverride(availableSize);
             _headerTextBlock.Measure(Size.Infinity);

@@ -6,7 +6,7 @@
         <Border Width="300">
             <StackPanel>
                 <local:StringEditor Header="Property 1" />
-                <local:StringEditor Classes="filled" Header="Property 2" />
+                <local:StringEditor Header="Property 2" />
             </StackPanel>
         </Border>
     </Design.PreviewWith>
@@ -43,7 +43,7 @@
         </Setter>
 
 
-        <!--<Style Selector="^.filled">
+        <Style Selector="^[UseCompact=true]">
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Padding="{TemplateBinding Padding}"
@@ -51,7 +51,8 @@
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{TemplateBinding CornerRadius}">
                         <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,*">
-                            <TextBlock Grid.Row="0"
+                            <TextBlock Name="PART_HeaderTextBlock"
+                                       Grid.Row="0"
                                        Margin="4,0,0,0"
                                        HorizontalAlignment="Left"
                                        VerticalAlignment="Center"
@@ -64,7 +65,8 @@
                                      Text="{TemplateBinding Text, Mode=TwoWay}" />
 
 
-                            <ContentPresenter Grid.Row="1"
+                            <ContentPresenter Name="PART_MenuContentPresenter"
+                                              Grid.Row="1"
                                               Grid.Column="1"
                                               Content="{TemplateBinding MenuContent}"
                                               ContentTemplate="{TemplateBinding MenuContentTemplate}" />
@@ -72,7 +74,7 @@
                     </Border>
                 </ControlTemplate>
             </Setter>
-        </Style>-->
+        </Style>
     </ControlTheme>
 
 </ResourceDictionary>

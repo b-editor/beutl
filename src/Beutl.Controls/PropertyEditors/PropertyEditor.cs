@@ -24,6 +24,9 @@ public class PropertyEditor : TemplatedControl
     public static readonly StyledProperty<bool> IsReadOnlyProperty =
         TextBox.IsReadOnlyProperty.AddOwner<PropertyEditor>();
 
+    public static readonly StyledProperty<bool> UseCompactProperty =
+        AvaloniaProperty.Register<PropertyEditor, bool>(nameof(UseCompact), false);
+
     public static readonly StyledProperty<object> MenuContentProperty =
         AvaloniaProperty.Register<PropertyEditor, object>(nameof(MenuContent));
 
@@ -46,6 +49,12 @@ public class PropertyEditor : TemplatedControl
     {
         get => GetValue(IsReadOnlyProperty);
         set => SetValue(IsReadOnlyProperty, value);
+    }
+    
+    public bool UseCompact
+    {
+        get => GetValue(UseCompactProperty);
+        set => SetValue(UseCompactProperty, value);
     }
 
     public object MenuContent
