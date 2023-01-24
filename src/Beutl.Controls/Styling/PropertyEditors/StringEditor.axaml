@@ -12,6 +12,7 @@
     </Design.PreviewWith>
 
     <ControlTheme x:Key="{x:Type local:StringEditor}" TargetType="local:StringEditor">
+        <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Padding="{TemplateBinding Padding}"
@@ -43,7 +44,7 @@
         </Setter>
 
 
-        <Style Selector="^[UseCompact=true]">
+        <Style Selector="^:compact">
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Padding="{TemplateBinding Padding}"

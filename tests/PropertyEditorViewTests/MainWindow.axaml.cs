@@ -20,12 +20,14 @@ namespace PropertyEditorViewTests
 #endif
             vector2Editor = new Vector2Editor<float>() { Header = "Property 3" };
             vector3Editor = new Vector3Editor<float>() { Header = "Property 4" };
-            vector4Editor = new Vector4Editor<float>() { Header = "Property 5" };
+            vector4Editor = new Vector4Editor<float>() { Header = "Property 5", Theme = (Avalonia.Styling.ControlTheme)this.FindResource("CornerRadiusEditorStyle")! };
             var boolEditor = new BooleanEditor() { Header = "Property 6" };
+            var colorEditor = new ColorEditor() { Header = "Property 7" };
             stack.Children.Add(vector2Editor);
             stack.Children.Add(vector3Editor);
             stack.Children.Add(vector4Editor);
             stack.Children.Add(boolEditor);
+            stack.Children.Add(colorEditor);
             vector2Editor.ValueChanged += Vector2Editor_ValueChanged;
             vector2Editor.ValueChanging += Vector2Editor_ValueChanging;
         }

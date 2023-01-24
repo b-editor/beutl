@@ -20,6 +20,7 @@ public class NumberEditor<TValue> : StringEditor
             defaultBindingMode: BindingMode.TwoWay);
     private TValue _value;
     private TValue _oldValue;
+    private IDisposable _disposable;
 
     public TValue Value
     {
@@ -35,8 +36,9 @@ public class NumberEditor<TValue> : StringEditor
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        _disposable?.Dispose();
         base.OnApplyTemplate(e);
-        InnerTextBox.AddHandler(PointerWheelChangedEvent, OnTextBoxPointerWheelChanged, RoutingStrategies.Tunnel);
+        _disposable = InnerTextBox.AddDisposableHandler(PointerWheelChangedEvent, OnTextBoxPointerWheelChanged, RoutingStrategies.Tunnel);
     }
 
     protected override void OnTextBoxGotFocus(GotFocusEventArgs e)

@@ -12,12 +12,15 @@
                 <ResourceInclude Source="/Styling/ContextMenu.axaml" />
                 <ResourceInclude Source="/Styling/Separator.axaml" />
                 <ResourceInclude Source="/Styling/ListRadioButton.axaml" />
+
+                <ResourceInclude Source="/Styling/PropertyEditors/PropertyEditorResources.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/StringEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/Vector2Editor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/Vector3Editor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/Vector4Editor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/AlignmentXEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/BooleanEditor.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/ColorEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/CornerRadiusEditor.axaml" />
             </ResourceDictionary.MergedDictionaries>
 

@@ -259,6 +259,9 @@ public class Vector3Editor : PropertyEditor, IStyleable
         Vector4Editor.ThirdHeaderProperty.AddOwner<Vector3Editor>();
 
     private const string FocusAnyTextBox = ":focus-any-textbox";
+    private const string FocusFirstTextBox = ":focus-1st-textbox";
+    private const string FocusSecondTextBox = ":focus-2nd-textbox";
+    private const string FocusThirdTextBox = ":focus-3rd-textbox";
     private const string BorderPointerOver = ":border-pointerover";
     private Border _backgroundBorder;
     private string _firstText;
@@ -358,6 +361,16 @@ public class Vector3Editor : PropertyEditor, IStyleable
 
     private void UpdateFocusState()
     {
+        PseudoClasses.Remove(FocusFirstTextBox);
+        PseudoClasses.Remove(FocusSecondTextBox);
+        PseudoClasses.Remove(FocusThirdTextBox);
+        if (InnerFirstTextBox.IsFocused)
+            PseudoClasses.Add(FocusFirstTextBox);
+        else if (InnerSecondTextBox.IsFocused)
+            PseudoClasses.Add(FocusSecondTextBox);
+        else if (InnerThirdTextBox.IsFocused)
+            PseudoClasses.Add(FocusThirdTextBox);
+
         if (
             InnerFirstTextBox.IsFocused
             || InnerSecondTextBox.IsFocused

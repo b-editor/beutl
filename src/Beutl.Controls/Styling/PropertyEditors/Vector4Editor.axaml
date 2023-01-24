@@ -16,6 +16,7 @@
         <Setter Property="SecondHeader" Value="Y" />
         <Setter Property="ThirdHeader" Value="Z" />
         <Setter Property="FourthHeader" Value="W" />
+        <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Padding="{TemplateBinding Padding}"

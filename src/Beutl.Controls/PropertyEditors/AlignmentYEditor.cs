@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using System.Reactive.Disposables;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Presenters;
@@ -22,11 +24,11 @@ public class AlignmentYEditor : PropertyEditor
     private const string TopSelected = ":top-selected";
     private const string CenterSelected = ":center-selected";
     private const string BottomSelected = ":bottom-selected";
+    private readonly CompositeDisposable _disposables = new();
     private AlignmentY _value;
     private TextBlock _headerTextBlock;
     private StackPanel _stackPanel;
     private ContentPresenter _menuPresenter;
-    private bool _shouldBeWrapped;
 
     public AlignmentY Value
     {
@@ -42,49 +44,29 @@ public class AlignmentYEditor : PropertyEditor
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        _disposables.Clear();
+
         base.OnApplyTemplate(e);
         Button topBtn = e.NameScope.Get<Button>("PART_TopButton");
         Button centerBtn = e.NameScope.Get<Button>("PART_CenterButton");
         Button bottomBtn = e.NameScope.Get<Button>("PART_BottomButton");
-        topBtn.Click += OnButtonClick;
-        centerBtn.Click += OnButtonClick;
-        bottomBtn.Click += OnButtonClick;
+        topBtn.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
+            .DisposeWith(_disposables);
+        centerBtn.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
+            .DisposeWith(_disposables);
+        bottomBtn.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
+            .DisposeWith(_disposables);
 
         _headerTextBlock = e.NameScope.Get<TextBlock>("PART_HeaderTextBlock");
         _stackPanel = e.NameScope.Get<StackPanel>("PART_StackPanel");
         _menuPresenter = e.NameScope.Get<ContentPresenter>("PART_MenuContentPresenter");
     }
 
-    protected override Size ArrangeOverride(Size finalSize)
-    {
-        Size arranged = base.ArrangeOverride(finalSize);
-
-        if (!UseCompact && _shouldBeWrapped)
-        {
-            Size headerSize = _headerTextBlock.DesiredSize;
-            Size menuSize = _menuPresenter.DesiredSize;
-            Size stackSize = _stackPanel.DesiredSize;
-
-            // 横に並べたときavailableSizeをはみ出す
-            _headerTextBlock.Arrange(new Rect(default, headerSize));
-
-            double menuTop = new Rect(stackSize).CenterRect(new Rect(menuSize)).Top
-                + headerSize.Height;
-
-            _menuPresenter.Arrange(new Rect(new Point(arranged.Width - menuSize.Width, menuTop), menuSize));
-
-            _stackPanel.Arrange(new Rect(new(0, headerSize.Height), stackSize));
-            arranged = new Size(finalSize.Width, headerSize.Height + Math.Max(stackSize.Height, menuSize.Height));
-        }
-
-        return arranged;
-    }
-
     protected override Size MeasureOverride(Size availableSize)
     {
-        if (!UseCompact && !double.IsInfinity(availableSize.Width))
+        Size measured = base.MeasureOverride(availableSize);
+        if (!double.IsInfinity(availableSize.Width))
         {
-            Size measured = base.MeasureOverride(availableSize);
             _headerTextBlock.Measure(Size.Infinity);
             _stackPanel.Measure(Size.Infinity);
             _menuPresenter.Measure(Size.Infinity);
@@ -94,15 +76,20 @@ public class AlignmentYEditor : PropertyEditor
             Size stackSize = _stackPanel.DesiredSize;
 
             double w = headerSize.Width + stackSize.Width + menuSize.Width;
-            if (w > measured.Width)
+            if (PseudoClasses.Contains(":compact"))
             {
-                _shouldBeWrapped = true;
-                return new Size(measured.Width, headerSize.Height + Math.Max(stackSize.Height, menuSize.Height));
+                if (w < availableSize.Width)
+                {
+                    PseudoClasses.Remove(":compact");
+                }
+            }
+            else if (w > availableSize.Width)
+            {
+                PseudoClasses.Add(":compact");
             }
         }
 
-        _shouldBeWrapped = false;
-        return base.MeasureOverride(availableSize);
+        return measured;
     }
 
     private void OnButtonClick(object sender, RoutedEventArgs e)

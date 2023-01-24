@@ -109,6 +109,7 @@
     <ControlTheme x:Key="{x:Type local:Vector2Editor}" TargetType="local:Vector2Editor">
         <Setter Property="FirstHeader" Value="X" />
         <Setter Property="SecondHeader" Value="Y" />
+        <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Padding="{TemplateBinding Padding}"

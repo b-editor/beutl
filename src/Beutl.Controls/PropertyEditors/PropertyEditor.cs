@@ -1,21 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Input;
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 
-using FluentAvalonia.UI.Controls;
-
 namespace Beutl.Controls.PropertyEditors;
 
+[PseudoClasses(":compact")]
 public class PropertyEditor : TemplatedControl
 {
     public static readonly StyledProperty<string> HeaderProperty =
@@ -35,7 +27,7 @@ public class PropertyEditor : TemplatedControl
 
     public static readonly RoutedEvent<PropertyEditorValueChangedEventArgs> ValueChangingEvent =
         RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueChanging), RoutingStrategies.Bubble);
-    
+
     public static readonly RoutedEvent<PropertyEditorValueChangedEventArgs> ValueChangedEvent =
         RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueChanged), RoutingStrategies.Bubble);
 
@@ -50,7 +42,7 @@ public class PropertyEditor : TemplatedControl
         get => GetValue(IsReadOnlyProperty);
         set => SetValue(IsReadOnlyProperty, value);
     }
-    
+
     public bool UseCompact
     {
         get => GetValue(UseCompactProperty);
@@ -79,5 +71,18 @@ public class PropertyEditor : TemplatedControl
     {
         add => AddHandler(ValueChangedEvent, value);
         remove => RemoveHandler(ValueChangedEvent, value);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == UseCompactProperty)
+        {
+            PseudoClasses.Remove(":compact");
+            if (UseCompact)
+            {
+                PseudoClasses.Add(":compact");
+            }
+        }
     }
 }

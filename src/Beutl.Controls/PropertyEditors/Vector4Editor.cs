@@ -8,6 +8,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Styling;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -319,6 +320,10 @@ public class Vector4Editor : PropertyEditor, IStyleable
         AvaloniaProperty.Register<Vector4Editor, string>(nameof(FourthHeader));
 
     private const string FocusAnyTextBox = ":focus-any-textbox";
+    private const string FocusFirstTextBox = ":focus-1st-textbox";
+    private const string FocusSecondTextBox = ":focus-2nd-textbox";
+    private const string FocusThirdTextBox = ":focus-3rd-textbox";
+    private const string FocusFourthTextBox = ":focus-4th-textbox";
     private const string BorderPointerOver = ":border-pointerover";
     private Border _backgroundBorder;
     private string _firstText;
@@ -436,6 +441,19 @@ public class Vector4Editor : PropertyEditor, IStyleable
 
     private void UpdateFocusState()
     {
+        PseudoClasses.Remove(FocusFirstTextBox);
+        PseudoClasses.Remove(FocusSecondTextBox);
+        PseudoClasses.Remove(FocusThirdTextBox);
+        PseudoClasses.Remove(FocusFourthTextBox);
+        if (InnerFirstTextBox.IsFocused)
+            PseudoClasses.Add(FocusFirstTextBox);
+        else if (InnerSecondTextBox.IsFocused)
+            PseudoClasses.Add(FocusSecondTextBox);
+        else if (InnerThirdTextBox.IsFocused)
+            PseudoClasses.Add(FocusThirdTextBox);
+        else if (InnerFourthTextBox.IsFocused)
+            PseudoClasses.Add(FocusFourthTextBox);
+
         if (
             InnerFirstTextBox.IsFocused
             || InnerSecondTextBox.IsFocused

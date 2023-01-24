@@ -216,6 +216,8 @@ public class Vector2Editor : PropertyEditor, IStyleable
         Vector4Editor.SecondHeaderProperty.AddOwner<Vector2Editor>();
 
     private const string FocusAnyTextBox = ":focus-any-textbox";
+    private const string FocusFirstTextBox = ":focus-1st-textbox";
+    private const string FocusSecondTextBox = ":focus-2nd-textbox";
     private const string BorderPointerOver = ":border-pointerover";
     private Border _backgroundBorder;
     private string _firstText;
@@ -297,6 +299,13 @@ public class Vector2Editor : PropertyEditor, IStyleable
 
     private void UpdateFocusState()
     {
+        PseudoClasses.Remove(FocusFirstTextBox);
+        PseudoClasses.Remove(FocusSecondTextBox);
+        if (InnerFirstTextBox.IsFocused)
+            PseudoClasses.Add(FocusFirstTextBox);
+        else if (InnerSecondTextBox.IsFocused)
+            PseudoClasses.Add(FocusSecondTextBox);
+
         if (
             InnerFirstTextBox.IsFocused
             || InnerSecondTextBox.IsFocused)

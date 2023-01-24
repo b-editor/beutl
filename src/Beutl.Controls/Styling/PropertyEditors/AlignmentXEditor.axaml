@@ -14,6 +14,7 @@
 
 
     <ControlTheme x:Key="{x:Type local:AlignmentXEditor}" TargetType="local:AlignmentXEditor">
+        <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Padding="{TemplateBinding Padding}"
@@ -54,7 +55,7 @@
             </ControlTemplate>
         </Setter>
 
-        <Style Selector="^[UseCompact=true]">
+        <Style Selector="^:compact">
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Padding="{TemplateBinding Padding}"
@@ -117,6 +118,7 @@
 
 
     <ControlTheme x:Key="{x:Type local:AlignmentYEditor}" TargetType="local:AlignmentYEditor">
+        <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Padding="{TemplateBinding Padding}"
@@ -157,7 +159,7 @@
             </ControlTemplate>
         </Setter>
 
-        <Style Selector="^[UseCompact=true]">
+        <Style Selector="^:compact">
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Padding="{TemplateBinding Padding}"

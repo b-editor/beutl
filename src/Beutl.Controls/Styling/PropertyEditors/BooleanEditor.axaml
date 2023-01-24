@@ -12,6 +12,7 @@
     </Design.PreviewWith>
 
     <ControlTheme x:Key="{x:Type local:BooleanEditor}" TargetType="local:BooleanEditor">
+        <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Padding="{TemplateBinding Padding}"
