@@ -22,6 +22,7 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/BooleanEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/ColorEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/CornerRadiusEditor.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/EnumEditor.axaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <x:Double x:Key="LayerHeight">25</x:Double>
