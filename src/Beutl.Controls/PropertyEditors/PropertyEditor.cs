@@ -4,6 +4,7 @@ using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -82,6 +83,18 @@ public class PropertyEditor : TemplatedControl
             if (UseCompact)
             {
                 PseudoClasses.Add(":compact");
+            }
+        }
+        else if (change.Property == MenuContentProperty)
+        {
+            if (change.OldValue is ILogical oldChild)
+            {
+                LogicalChildren.Remove(oldChild);
+            }
+
+            if (change.NewValue is ILogical newChild)
+            {
+                LogicalChildren.Add(newChild);
             }
         }
     }
