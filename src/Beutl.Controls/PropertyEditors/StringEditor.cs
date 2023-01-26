@@ -25,9 +25,7 @@ public class StringEditor : PropertyEditor, IStyleable
     private readonly CompositeDisposable _disposables = new();
     private string _text;
     private string _oldValue;
-    private TextBlock _headerTextBlock;
     private TextBox _innerTextBox;
-    private ContentPresenter _menuPresenter;
 
     public string Text
     {
@@ -57,9 +55,6 @@ public class StringEditor : PropertyEditor, IStyleable
                 }
             })
             .DisposeWith(_disposables);
-
-        _headerTextBlock = e.NameScope.Get<TextBlock>("PART_HeaderTextBlock");
-        _menuPresenter = e.NameScope.Get<ContentPresenter>("PART_MenuContentPresenter");
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -67,25 +62,16 @@ public class StringEditor : PropertyEditor, IStyleable
         Size measured = base.MeasureOverride(availableSize);
         if (!double.IsInfinity(availableSize.Width))
         {
-            _headerTextBlock.Measure(Size.Infinity);
-            _innerTextBox.Measure(Size.Infinity);
-            _menuPresenter.Measure(Size.Infinity);
-
-            Size headerSize = _headerTextBlock.DesiredSize;
-            Size menuSize = _menuPresenter.DesiredSize;
-            Size textboxSize = _innerTextBox.DesiredSize;
-
-            double w = headerSize.Width + textboxSize.Width + menuSize.Width;
-            if (PseudoClasses.Contains(":compact"))
+            if (availableSize.Width <= 224)
             {
-                if (w < availableSize.Width)
+                if (!PseudoClasses.Contains(":compact"))
                 {
-                    PseudoClasses.Remove(":compact");
+                    PseudoClasses.Add(":compact");
                 }
             }
-            else if (w > availableSize.Width)
+            else
             {
-                PseudoClasses.Add(":compact");
+                PseudoClasses.Remove(":compact");
             }
         }
 
