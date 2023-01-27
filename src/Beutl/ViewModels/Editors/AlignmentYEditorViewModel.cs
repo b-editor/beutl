@@ -1,8 +1,8 @@
-﻿using Beutl.Framework;
-using Beutl.Media;
+﻿using Avalonia;
 
-using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
+using Beutl.Controls.PropertyEditors;
+using Beutl.Framework;
+using Beutl.Media;
 
 namespace Beutl.ViewModels.Editors;
 
@@ -11,25 +11,23 @@ public sealed class AlignmentYEditorViewModel : ValueEditorViewModel<AlignmentY>
     public AlignmentYEditorViewModel(IAbstractProperty<AlignmentY> property)
         : base(property)
     {
-        IsTop = property.GetObservable()
-            .Select(x => x is AlignmentY.Top)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(Disposables);
-
-        IsCenter = property.GetObservable()
-            .Select(x => x is AlignmentY.Center)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(Disposables);
-
-        IsBottom = property.GetObservable()
-            .Select(x => x is AlignmentY.Bottom)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(Disposables);
     }
 
-    public ReadOnlyReactivePropertySlim<bool> IsTop { get; }
+    public override void Accept(IPropertyEditorContextVisitor visitor)
+    {
+        base.Accept(visitor);
+        if (visitor is AlignmentYEditor view)
+        {
+            view[!AlignmentYEditor.ValueProperty] = Value.ToBinding();
+            view.ValueChanged += OnValueChanged;
+        }
+    }
 
-    public ReadOnlyReactivePropertySlim<bool> IsCenter { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> IsBottom { get; }
+    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+    {
+        if (e is PropertyEditorValueChangedEventArgs<AlignmentY> args)
+        {
+            SetValue(args.OldValue, args.NewValue);
+        }
+    }
 }

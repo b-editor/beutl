@@ -29,7 +29,9 @@ public sealed class DefaultSourceHandler : SourceOperator, ISourceHandler
                 item.ApplyStyling(clock);
                 item.ApplyAnimations(clock);
                 item.IsVisible = _layer.IsEnabled;
-                item.EndBatchUpdate();
+                while (!item.EndBatchUpdate())
+                {
+                }
             }
 
             renderables.Clear();

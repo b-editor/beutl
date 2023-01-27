@@ -1,0 +1,81 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls">
+    <Design.PreviewWith>
+        <Border Width="300">
+            <StackPanel>
+                <local:StringEditor Header="Property 1" />
+                <local:StringEditor Header="Property 2" />
+            </StackPanel>
+        </Border>
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="{x:Type local:StringEditor}" TargetType="local:StringEditor">
+        <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Padding="{TemplateBinding Padding}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <Grid ColumnDefinitions="2*,3*,Auto">
+                        <TextBlock Name="PART_HeaderTextBlock"
+                                   Margin="4,0,0,0"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Center"
+                                   ClipToBounds="False"
+                                   Text="{TemplateBinding Header}" />
+
+                        <TextBox x:Name="PART_InnerTextBox"
+                                 Grid.Column="1"
+                                 MinWidth="120"
+                                 Margin="4"
+                                 IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                 Text="{TemplateBinding Text, Mode=TwoWay}" />
+
+                        <ContentPresenter Name="PART_MenuContentPresenter"
+                                          Grid.Column="2"
+                                          Content="{TemplateBinding MenuContent}"
+                                          ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+
+        <Style Selector="^:compact">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,*">
+                            <TextBlock Name="PART_HeaderTextBlock"
+                                       Grid.Row="0"
+                                       Margin="4,0,0,0"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"
+                                       Text="{TemplateBinding Header}" />
+
+                            <TextBox x:Name="PART_InnerTextBox"
+                                     Grid.Row="1"
+                                     Margin="4"
+                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                     Text="{TemplateBinding Text, Mode=TwoWay}" />
+
+
+                            <ContentPresenter Name="PART_MenuContentPresenter"
+                                              Grid.Row="1"
+                                              Grid.Column="1"
+                                              Content="{TemplateBinding MenuContent}"
+                                              ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+    </ControlTheme>
+
+</ResourceDictionary>

@@ -1,0 +1,48 @@
+<UserControl x:Class="Beutl.Views.Editors.PropertyEditorMenu"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.ViewModels.Editors"
+             VerticalAlignment="Center"
+             d:DesignHeight="100"
+             d:DesignWidth="100"
+             x:CompileBindings="True"
+             x:DataType="vm:BaseEditorViewModel"
+             mc:Ignorable="d">
+    <Button Width="24"
+            Height="24"
+            Padding="0"
+            HorizontalAlignment="Center"
+            Background="Transparent"
+            BorderThickness="0"
+            Click="Button_Click">
+        <Button.ContextMenu>
+            <ContextMenu>
+                <MenuItem Command="{Binding Reset}"
+                          Header="{x:Static lang:Strings.Reset}"
+                          IsEnabled="{Binding CanReset}" />
+                <MenuItem Click="EditAnimation_Click" Header="{x:Static lang:Strings.EditAnimation}" />
+                <MenuItem Click="EditInlineAnimation_Click" Header="アニメーションを編集(Inline)" />
+                <MenuItem Click="DeleteSetter_Click"
+                          Header="{x:Static lang:Strings.Delete}"
+                          IsVisible="{Binding IsStylingSetter}" />
+            </ContextMenu>
+        </Button.ContextMenu>
+        <icons:SymbolIcon Classes.hasAnimation="{Binding HasAnimation.Value}">
+            <icons:SymbolIcon.Styles>
+                <Style Selector="icons|SymbolIcon">
+                    <Setter Property="Symbol" Value="MoreVertical" />
+                </Style>
+                <Style Selector="icons|SymbolIcon.hasAnimation">
+                    <Setter Property="Symbol" Value="Flow" />
+                    <Setter Property="IsFilled" Value="True" />
+                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
+                    <Setter Property="ToolTip.Tip" Value="{x:Static lang:Message.AnimationIsEnabled}" />
+                </Style>
+            </icons:SymbolIcon.Styles>
+        </icons:SymbolIcon>
+    </Button>
+</UserControl>

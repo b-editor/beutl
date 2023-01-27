@@ -14,10 +14,13 @@
   <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.Analyzers.props" />
   <ItemGroup>
     <None Remove="BcTabView\BcTabView.cs~RF21e1abb7.TMP" />
+    <None Remove="PropertyEditors\FontFamilyEditor.cs~RF1dd27d42.TMP" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Beutl.Framework\Beutl.Framework.csproj" />
     <ProjectReference Include="..\Beutl.Language\Beutl.Language.csproj" />
+    <ProjectReference Include="..\Beutl.Graphics\Beutl.Graphics.csproj" />
   </ItemGroup>
 
 </Project>

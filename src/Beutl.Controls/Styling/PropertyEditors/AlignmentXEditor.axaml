@@ -1,0 +1,223 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:icons="using:FluentIcons.FluentAvalonia"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls">
+    <Design.PreviewWith>
+        <Border Width="300">
+            <StackPanel>
+                <local:AlignmentXEditor />
+                <local:AlignmentYEditor />
+            </StackPanel>
+        </Border>
+    </Design.PreviewWith>
+
+
+    <ControlTheme x:Key="{x:Type local:AlignmentXEditor}" TargetType="local:AlignmentXEditor">
+        <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Padding="{TemplateBinding Padding}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <Grid ColumnDefinitions="2*,3*,Auto">
+                        <TextBlock Name="PART_HeaderTextBlock"
+                                   Margin="4,0,0,0"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Center"
+                                   ClipToBounds="False"
+                                   Text="{TemplateBinding Header}" />
+
+                        <StackPanel Name="PART_StackPanel"
+                                    Grid.Column="1"
+                                    Margin="4,2"
+                                    HorizontalAlignment="Right"
+                                    IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                    Orientation="Horizontal">
+                            <RadioButton Name="PART_LeftButton" CornerRadius="4,0,0,4">
+                                <icons:SymbolIcon Symbol="AlignLeft" />
+                            </RadioButton>
+                            <RadioButton Name="PART_CenterButton" CornerRadius="0">
+                                <icons:SymbolIcon Symbol="AlignCenterVertical" />
+                            </RadioButton>
+                            <RadioButton Name="PART_RightButton" CornerRadius="0,4,4,0">
+                                <icons:SymbolIcon Symbol="AlignRight" />
+                            </RadioButton>
+                        </StackPanel>
+
+                        <ContentPresenter Name="PART_MenuContentPresenter"
+                                          Grid.Column="2"
+                                          Content="{TemplateBinding MenuContent}"
+                                          ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:compact">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,*">
+                            <TextBlock Name="PART_HeaderTextBlock"
+                                       Margin="4,0,0,0"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"
+                                       ClipToBounds="False"
+                                       Text="{TemplateBinding Header}" />
+
+                            <StackPanel Name="PART_StackPanel"
+                                        Grid.Row="1"
+                                        Margin="4,2"
+                                        HorizontalAlignment="Left"
+                                        IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                        Orientation="Horizontal">
+                                <RadioButton Name="PART_LeftButton" CornerRadius="4,0,0,4">
+                                    <icons:SymbolIcon Symbol="AlignLeft" />
+                                </RadioButton>
+                                <RadioButton Name="PART_CenterButton" CornerRadius="0">
+                                    <icons:SymbolIcon Symbol="AlignCenterVertical" />
+                                </RadioButton>
+                                <RadioButton Name="PART_RightButton" CornerRadius="0,4,4,0">
+                                    <icons:SymbolIcon Symbol="AlignRight" />
+                                </RadioButton>
+                            </StackPanel>
+
+                            <ContentPresenter Name="PART_MenuContentPresenter"
+                                              Grid.Row="1"
+                                              Grid.Column="1"
+                                              Content="{TemplateBinding MenuContent}"
+                                              ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="^ /template/ RadioButton">
+            <Setter Property="Padding" Value="12,4" />
+            <Setter Property="Theme" Value="{StaticResource HorizontalRadioButton}" />
+            <Setter Property="MinHeight" Value="{DynamicResource TextControlThemeMinHeight}" />
+            <Setter Property="FontSize" Value="18" />
+        </Style>
+
+        <Style Selector="^:left-selected /template/ RadioButton#PART_LeftButton">
+            <Setter Property="IsChecked" Value="True" />
+        </Style>
+        <Style Selector="^:center-selected /template/ RadioButton#PART_CenterButton">
+            <Setter Property="IsChecked" Value="True" />
+        </Style>
+        <Style Selector="^:right-selected /template/ RadioButton#PART_RightButton">
+            <Setter Property="IsChecked" Value="True" />
+        </Style>
+    </ControlTheme>
+
+
+    <ControlTheme x:Key="{x:Type local:AlignmentYEditor}" TargetType="local:AlignmentYEditor">
+        <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Padding="{TemplateBinding Padding}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <Grid ColumnDefinitions="2*,3*,Auto">
+                        <TextBlock Name="PART_HeaderTextBlock"
+                                   Margin="4,0,0,0"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Center"
+                                   ClipToBounds="False"
+                                   Text="{TemplateBinding Header}" />
+
+                        <StackPanel Name="PART_StackPanel"
+                                    Grid.Column="1"
+                                    Margin="4,2"
+                                    HorizontalAlignment="Right"
+                                    IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                    Orientation="Horizontal">
+                            <RadioButton Name="PART_TopButton" CornerRadius="4,0,0,4">
+                                <icons:SymbolIcon Symbol="AlignTop" />
+                            </RadioButton>
+                            <RadioButton Name="PART_CenterButton" CornerRadius="0">
+                                <icons:SymbolIcon Symbol="AlignCenterHorizontal" />
+                            </RadioButton>
+                            <RadioButton Name="PART_BottomButton" CornerRadius="0,4,4,0">
+                                <icons:SymbolIcon Symbol="AlignBottom" />
+                            </RadioButton>
+                        </StackPanel>
+
+                        <ContentPresenter Name="PART_MenuContentPresenter"
+                                          Grid.Column="2"
+                                          Content="{TemplateBinding MenuContent}"
+                                          ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:compact">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,*">
+                            <TextBlock Name="PART_HeaderTextBlock"
+                                       Margin="4,0,0,0"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"
+                                       ClipToBounds="False"
+                                       Text="{TemplateBinding Header}" />
+
+                            <StackPanel Name="PART_StackPanel"
+                                        Grid.Row="1"
+                                        Margin="4,2"
+                                        HorizontalAlignment="Left"
+                                        IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                        Orientation="Horizontal">
+                                <RadioButton Name="PART_TopButton" CornerRadius="4,0,0,4">
+                                    <icons:SymbolIcon Symbol="AlignTop" />
+                                </RadioButton>
+                                <RadioButton Name="PART_CenterButton" CornerRadius="0">
+                                    <icons:SymbolIcon Symbol="AlignCenterHorizontal" />
+                                </RadioButton>
+                                <RadioButton Name="PART_BottomButton" CornerRadius="0,4,4,0">
+                                    <icons:SymbolIcon Symbol="AlignBottom" />
+                                </RadioButton>
+                            </StackPanel>
+
+                            <ContentPresenter Name="PART_MenuContentPresenter"
+                                              Grid.Row="1"
+                                              Grid.Column="1"
+                                              Content="{TemplateBinding MenuContent}"
+                                              ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="^ /template/ RadioButton">
+            <Setter Property="Padding" Value="12,4" />
+            <Setter Property="Theme" Value="{StaticResource HorizontalRadioButton}" />
+            <Setter Property="MinHeight" Value="{DynamicResource TextControlThemeMinHeight}" />
+            <Setter Property="FontSize" Value="18" />
+        </Style>
+
+        <Style Selector="^:top-selected /template/ RadioButton#PART_TopButton">
+            <Setter Property="IsChecked" Value="True" />
+        </Style>
+        <Style Selector="^:center-selected /template/ RadioButton#PART_CenterButton">
+            <Setter Property="IsChecked" Value="True" />
+        </Style>
+        <Style Selector="^:bottom-selected /template/ RadioButton#PART_BottomButton">
+            <Setter Property="IsChecked" Value="True" />
+        </Style>
+    </ControlTheme>
+
+</ResourceDictionary>

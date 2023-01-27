@@ -1,4 +1,7 @@
-﻿using Beutl.Framework;
+﻿using Avalonia;
+
+using Beutl.Controls.PropertyEditors;
+using Beutl.Framework;
 using Beutl.Media;
 
 using Reactive.Bindings;
@@ -20,4 +23,22 @@ public sealed class ColorEditorViewModel : BaseEditorViewModel<Color>
     }
 
     public ReadOnlyReactivePropertySlim<AColor> Value { get; }
+
+    public override void Accept(IPropertyEditorContextVisitor visitor)
+    {
+        base.Accept(visitor);
+        if (visitor is ColorEditor editor)
+        {
+            editor[!ColorEditor.ValueProperty] = Value.ToBinding();
+            editor.ValueChanged += OnValueChanged;
+        }
+    }
+
+    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+    {
+        if (e is PropertyEditorValueChangedEventArgs<AColor> args)
+        {
+            SetValue(args.OldValue.ToMedia(), args.NewValue.ToMedia());
+        }
+    }
 }

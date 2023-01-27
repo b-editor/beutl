@@ -1,57 +1,45 @@
 ﻿using System.Numerics;
 
-using Beutl.Framework;
-using Beutl.Services.Editors;
+using Avalonia;
 
-using Reactive.Bindings;
+using Beutl.Controls.PropertyEditors;
+using Beutl.Framework;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class NumberEditorViewModel<T> : BaseEditorViewModel<T>
+public sealed class NumberEditorViewModel<T> : ValueEditorViewModel<T>
     where T : struct, INumber<T>
 {
     public NumberEditorViewModel(IAbstractProperty<T> property)
         : base(property)
     {
-        Text = property.GetObservable()
-            .Select(Format)
-            .ToReadOnlyReactivePropertySlim(Format(property.GetValue()))
-            .DisposeWith(Disposables);
     }
 
-    public ReadOnlyReactivePropertySlim<string> Text { get; }
-
-    private static string Format(T value)
+    public override void Accept(IPropertyEditorContextVisitor visitor)
     {
-        return value.ToString() ?? string.Empty;
-    }
-
-    public T Decrement(T value, int increment)
-    {
-        unchecked
+        base.Accept(visitor);
+        if (visitor is NumberEditor<T> editor)
         {
-            for (int i = 0; i < increment; i++)
-            {
-                value--;
-            }
+            editor[!NumberEditor<T>.ValueProperty] = Value.ToBinding();
+            editor.ValueChanging += OnValueChanging;
+            editor.ValueChanged += OnValueChanged;
         }
-        return value;
     }
 
-    public T Increment(T value, int increment)
+    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        unchecked
+        if (e is PropertyEditorValueChangedEventArgs<T> args)
         {
-            for (int i = 0; i < increment; i++)
-            {
-                value++;
-            }
+            SetValue(args.OldValue, args.NewValue);
         }
-        return value;
     }
 
-    public bool TryParse(string? s, out T result)
+    private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        return T.TryParse(s, CultureInfo.CurrentUICulture, out result);
+        if (sender is NumberEditor<T> editor)
+        {
+            WrappedProperty.SetValue(editor.Value);
+            editor.Value = WrappedProperty.GetValue();
+        }
     }
 }

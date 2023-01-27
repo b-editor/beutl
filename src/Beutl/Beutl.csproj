@@ -26,30 +26,23 @@
     <ProjectReference Include="..\Beutl.PackageTools\Beutl.PackageTools.csproj" />
     <ProjectReference Include="..\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj" />
   </ItemGroup>
-
   <ItemGroup>
-    <None Update="Views\Editors\Editors.tt">
+    <None Update="ViewModels\Editors\VectorEditorViewModels.tt">
       <Generator>TextTemplatingFileGenerator</Generator>
-      <LastGenOutput>Editors.cs</LastGenOutput>
+      <LastGenOutput>VectorEditorViewModels.cs</LastGenOutput>
     </None>
   </ItemGroup>
   <ItemGroup>
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Update="Views\Editors\Editors.cs">
+    <Compile Update="ViewModels\Editors\VectorEditorViewModels.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
-      <DependentUpon>Editors.tt</DependentUpon>
+      <DependentUpon>VectorEditorViewModels.tt</DependentUpon>
     </Compile>
-    <Compile Update="Views\Editors\SoundSourceEditor.axaml.cs">
-      <DependentUpon>SoundSourceEditor.axaml</DependentUpon>
-    </Compile>
-    <Compile Update="Views\Tools\SourceOperatorView.axaml.cs">
-      <DependentUpon>SourceOperatorView.axaml</DependentUpon>
-    </Compile>
-    <Compile Update="Views\Tools\SourceOperatorsTab.axaml.cs">
-      <DependentUpon>SourceOperatorsTab.axaml</DependentUpon>
+    <Compile Update="Views\Editors\PropertyEditorMenu.axaml.cs">
+      <DependentUpon>PropertyEditorMenu.axaml</DependentUpon>
     </Compile>
   </ItemGroup>
 

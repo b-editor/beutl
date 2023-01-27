@@ -1,0 +1,47 @@
+<Window x:Class="PropertyEditorViewTests.MainWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:icons="using:FluentIcons.FluentAvalonia"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:pe="using:Beutl.Controls.PropertyEditors"
+        Title="PropertyEditorViewTests"
+        Width="250"
+        Height="300"
+        MinWidth="200"
+        mc:Ignorable="d">
+    <ScrollViewer>
+        <StackPanel x:Name="stack">
+            <pe:StringEditor Classes="filled" Header="Property 1" />
+            <pe:AlignmentXEditor Header="Property 2">
+                <pe:AlignmentXEditor.MenuContent>
+
+                    <Button Width="24"
+                            Height="24"
+                            Padding="0"
+                            HorizontalAlignment="Center"
+                            Background="Transparent"
+                            BorderThickness="0">
+                        <icons:SymbolIcon Symbol="MoreVertical" />
+                    </Button>
+                </pe:AlignmentXEditor.MenuContent>
+            </pe:AlignmentXEditor>
+            <pe:AlignmentYEditor Header="Property 3">
+                <pe:AlignmentYEditor.MenuContent>
+
+                    <Button Width="24"
+                            Height="24"
+                            Padding="0"
+                            HorizontalAlignment="Center"
+                            Background="Transparent"
+                            BorderThickness="0">
+                        <icons:SymbolIcon Symbol="MoreVertical" />
+                    </Button>
+                </pe:AlignmentYEditor.MenuContent>
+            </pe:AlignmentYEditor>
+            <pe:StorageFileEditor Header="AAA" />
+            <pe:FontFamilyEditor Header="BBB" />
+            <pe:RelativePointEditor Header="CCC" />
+        </StackPanel>
+    </ScrollViewer>
+</Window>

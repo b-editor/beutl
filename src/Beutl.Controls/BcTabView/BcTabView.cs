@@ -24,7 +24,7 @@ public partial class BcTabView : TabControl
 {
     internal double _lastselectindex = 0;
     private Button _adderButton;
-    private readonly Animation _animation = new()
+    private readonly Avalonia.Animation.Animation _animation = new()
     {
         Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
         Children =

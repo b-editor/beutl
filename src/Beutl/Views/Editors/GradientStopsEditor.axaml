@@ -1,40 +1,38 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="Beutl.Views.Editors.GradientStopsEditor"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.Editors"
-             xmlns:local="using:Beutl.Views.Editors"
-             mc:Ignorable="d" d:DesignWidth="300"
-             x:DataType="vm:GradientStopsEditorViewModel"
+             d:DesignWidth="300"
              x:CompileBindings="True"
-             x:Class="Beutl.Views.Editors.GradientStopsEditor">
+             x:DataType="vm:GradientStopsEditorViewModel"
+             mc:Ignorable="d">
     <Grid ColumnDefinitions="*,Auto" RowDefinitions="32,Auto,Auto">
-        <TextBlock
-            Margin="10,0,0,0"
-            Text="{Binding Header}"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Center" />
+        <TextBlock Margin="4,0,0,0"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Center"
+                   Text="{Binding Header}" />
 
         <Border Grid.Row="1"
                 Height="20"
-                CornerRadius="10"
                 Margin="8,0"
+                CornerRadius="10"
                 PointerPressed="Items_PointerPressed"
                 PointerReleased="Items_PointerReleased">
             <Border.Background>
-                <LinearGradientBrush StartPoint="0%,50%"
-                                     EndPoint="100%,50%"
-                                     GradientStops="{Binding Stops}" />
-            </Border.Background>            
+                <LinearGradientBrush GradientStops="{Binding Stops}" StartPoint="0%,50%" EndPoint="100%,50%" />
+            </Border.Background>
         </Border>
-        <ItemsControl Items="{Binding Stops}"
-                      IsEnabled="{Binding CanEdit.Value}"
-                      x:Name="items"
+        <ItemsControl x:Name="items"
                       Grid.Row="1"
                       Height="20"
+                      Margin="8,0"
                       ClipToBounds="False"
-                      Margin="8,0">
+                      IsEnabled="{Binding CanEdit.Value}"
+                      Items="{Binding Stops}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <Panel />
@@ -44,17 +42,17 @@
                 <DataTemplate>
 
                     <Border HorizontalAlignment="Left"
-                            BorderThickness="3"
+                            Background="{Binding Color, Converter={StaticResource ColorToBrush}}"
                             BorderBrush="{Binding Color, Converter={StaticResource ColorToBorderBrush}}"
+                            BorderThickness="3"
+                            PointerExited="Item_PointerExited"
                             PointerMoved="Item_PointerMoved"
                             PointerPressed="Item_PointerPressed"
-                            PointerReleased="Item_PointerReleased"
-                            PointerExited="Item_PointerExited"
-                            Background="{Binding Color, Converter={StaticResource ColorToBrush}}">
+                            PointerReleased="Item_PointerReleased">
                         <Border.RenderTransform>
                             <MultiBinding Converter="{StaticResource GradientStopToTransform}">
                                 <Binding Path="Offset" />
-                                <Binding Path="Bounds.Width" ElementName="items" />
+                                <Binding ElementName="items" Path="Bounds.Width" />
                             </MultiBinding>
                         </Border.RenderTransform>
                         <Border.Styles>
@@ -70,22 +68,24 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-        <local:EditorBadge Grid.Column="1" Grid.Row="1" />
+        <local:PropertyEditorMenu Grid.Row="1" Grid.Column="1" />
 
         <StackPanel Grid.Row="2"
                     Margin="8,8,4,0"
-                    Orientation="Horizontal"
-                    Spacing="4"
+                    HorizontalAlignment="Right"
                     IsEnabled="{Binding CanEditStop.Value}"
-                    HorizontalAlignment="Right">
-            <Button Width="35" Height="35" Click="Delete_Click">
-                <ui:SymbolIcon Symbol="Delete" FontSize="16" />
+                    Orientation="Horizontal"
+                    Spacing="4">
+            <Button Width="35"
+                    Height="35"
+                    Click="Delete_Click">
+                <ui:SymbolIcon FontSize="16" Symbol="Delete" />
             </Button>
-            
+
             <ui:ColorPickerButton x:Name="colorPicker"
-                                  Color="{Binding SelectedItem.Value.Color}"
                                   CustomPaletteColors="{StaticResource PaletteColors}"
-                                  UseColorPalette="True" />
+                                  UseColorPalette="True"
+                                  Color="{Binding SelectedItem.Value.Color}" />
         </StackPanel>
     </Grid>
 </UserControl>
