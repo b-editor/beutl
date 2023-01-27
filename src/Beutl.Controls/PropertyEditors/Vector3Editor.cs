@@ -36,6 +36,13 @@ public class Vector3Editor<TElement> : Vector3Editor
     private TElement _thirdValue;
     private TElement _oldThirdValue;
 
+    public Vector3Editor()
+    {
+        FirstHeader = "0";
+        SecondHeader = "0";
+        ThirdHeader = "0";
+    }
+
     public TElement FirstValue
     {
         get => _firstValue;

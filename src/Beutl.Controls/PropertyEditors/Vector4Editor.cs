@@ -53,6 +53,14 @@ public class Vector4Editor<TElement> : Vector4Editor
     private TElement _fourthValue;
     private TElement _oldFourthValue;
 
+    public Vector4Editor()
+    {
+        FirstHeader = "0";
+        SecondHeader = "0";
+        ThirdHeader = "0";
+        FourthHeader = "0";
+    }
+
     public TElement FirstValue
     {
         get => _firstValue;

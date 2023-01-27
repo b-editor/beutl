@@ -1,20 +1,42 @@
-﻿using Beutl.Framework;
+﻿using Avalonia;
 
-using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
+using Beutl.Controls.PropertyEditors;
+using Beutl.Framework;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class StringEditorViewModel : BaseEditorViewModel<string>
+public sealed class StringEditorViewModel : ValueEditorViewModel<string>
 {
     public StringEditorViewModel(IAbstractProperty<string> property)
         : base(property)
     {
-        Value = property.GetObservable()
-            .Select(x => x ?? string.Empty)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(Disposables)!;
     }
 
-    public ReadOnlyReactivePropertySlim<string> Value { get; }
+    public override void Accept(IPropertyEditorContextVisitor visitor)
+    {
+        base.Accept(visitor);
+        if (visitor is StringEditor editor)
+        {
+            editor[!StringEditor.TextProperty] = Value.ToBinding();
+            editor.ValueChanging += OnValueChanging;
+            editor.ValueChanged += OnValueChanged;
+        }
+    }
+
+    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+    {
+        if (e is PropertyEditorValueChangedEventArgs<string> args)
+        {
+            SetValue(args.OldValue, args.NewValue);
+        }
+    }
+
+    private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+    {
+        if (sender is StringEditor editor)
+        {
+            WrappedProperty.SetValue(editor.Text);
+            editor.Text = WrappedProperty.GetValue();
+        }
+    }
 }

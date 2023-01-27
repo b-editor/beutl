@@ -1,0 +1,257 @@
+<#@ template debug="false" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ output extension=".cs" #>
+<#
+    var vec2Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY, bool IsSize)[]
+    {
+        ("Media", "PixelPoint", "int", "X", "Y", false),
+        ("Media", "PixelSize", "int", "Width", "Height", true),
+        ("Graphics", "Point", "float", "X", "Y", false),
+        ("Graphics", "Size", "float", "Width", "Height", true),
+        ("Graphics", "Vector", "float", "X", "Y", false),
+        ("System.Numerics", "Vector2", "float", "X", "Y", false),
+    };
+
+    var vec3Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY, string FieldZ)[]
+    {
+        ("System.Numerics", "Vector3", "float", "X", "Y", "Z"),
+    };
+
+    var vec4Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY, string FieldZ, string FieldW, bool IsRect)[]
+    {
+        ("Media", "PixelRect", "int", "X", "Y", "Width", "Height", true),
+        ("Graphics", "Rect", "float", "X", "Y", "Width", "Height", true),
+        ("System.Numerics", "Vector4", "float", "X", "Y", "Z", "W", false),
+    };
+#>
+using Avalonia;
+
+using Beutl.Controls.PropertyEditors;
+using Beutl.Framework;
+using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
+
+namespace Beutl.ViewModels.Editors
+{
+    // Vector2
+<# foreach(var t in vec2Types) { #>
+<# var fullName = $"{t.Namespace}.{t.Name}"; #>
+    public sealed class <#= t.Name #>EditorViewModel : BaseEditorViewModel<<#= fullName #>>
+    {
+        public <#= t.Name #>EditorViewModel(IAbstractProperty<<#= fullName #>> property)
+            : base(property)
+        {
+            FirstValue = property.GetObservable()
+                .Select(x => x.<#= t.FieldX #>)
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(Disposables);
+
+            SecondValue = property.GetObservable()
+                .Select(x => x.<#= t.FieldY #>)
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(Disposables);
+        }
+
+        public ReadOnlyReactivePropertySlim<<#= t.Element #>> FirstValue { get; }
+
+        public ReadOnlyReactivePropertySlim<<#= t.Element #>> SecondValue { get; }
+
+        public override void Accept(IPropertyEditorContextVisitor visitor)
+        {
+            base.Accept(visitor);
+            if (visitor is Vector2Editor<<#= t.Element #>> editor)
+            {
+<# if (t.IsSize) { #>
+                editor.FirstHeader = Strings.Width;
+                editor.SecondHeader = Strings.Height;
+<# } else { #>
+                editor.FirstHeader = "X";
+                editor.SecondHeader = "Y";
+<# } #>
+                editor[!Vector2Editor<<#= t.Element #>>.FirstValueProperty] = FirstValue.ToBinding();
+                editor[!Vector2Editor<<#= t.Element #>>.SecondValueProperty] = SecondValue.ToBinding();
+                editor.ValueChanged += OnValueChanged;
+                editor.ValueChanging += OnValueChanging;
+            }
+        }
+
+        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+        {
+            if (e is PropertyEditorValueChangedEventArgs<(<#= t.Element #> <#= t.FieldX #>, <#= t.Element #> <#= t.FieldY #>)> args)
+            {
+                SetValue(new <#= fullName #>(args.OldValue.<#= t.FieldX #>, args.OldValue.<#= t.FieldY #>),
+                         new <#= fullName #>(args.NewValue.<#= t.FieldX #>, args.NewValue.<#= t.FieldY #>));
+            }
+        }
+
+        private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+        {
+            if (sender is Vector2Editor<<#= t.Element #>> editor)
+            {
+                WrappedProperty.SetValue(new <#= fullName #>(editor.FirstValue, editor.SecondValue));
+                <#= fullName #> coerced = WrappedProperty.GetValue();
+                editor.FirstValue = coerced.<#= t.FieldX #>;
+                editor.SecondValue = coerced.<#= t.FieldY #>;
+            }
+        }
+    }
+<# } #>
+
+    // Vector3
+<# foreach(var t in vec3Types) { #>
+<# var fullName = $"{t.Namespace}.{t.Name}"; #>
+    public sealed class <#= t.Name #>EditorViewModel : BaseEditorViewModel<<#= fullName #>>
+    {
+        public <#= t.Name #>EditorViewModel(IAbstractProperty<<#= fullName #>> property)
+            : base(property)
+        {
+            FirstValue = property.GetObservable()
+                .Select(x => x.<#= t.FieldX #>)
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(Disposables);
+
+            SecondValue = property.GetObservable()
+                .Select(x => x.<#= t.FieldY #>)
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(Disposables);
+
+            ThirdValue = property.GetObservable()
+                .Select(x => x.<#= t.FieldZ #>)
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(Disposables);
+        }
+
+        public ReadOnlyReactivePropertySlim<<#= t.Element #>> FirstValue { get; }
+
+        public ReadOnlyReactivePropertySlim<<#= t.Element #>> SecondValue { get; }
+
+        public ReadOnlyReactivePropertySlim<<#= t.Element #>> ThirdValue { get; }
+
+        public override void Accept(IPropertyEditorContextVisitor visitor)
+        {
+            base.Accept(visitor);
+            if (visitor is Vector3Editor<<#= t.Element #>> editor)
+            {
+                editor.FirstHeader = "X";
+                editor.SecondHeader = "Y";
+                editor.ThirdHeader = "Z";
+
+                editor[!Vector3Editor<<#= t.Element #>>.FirstValueProperty] = FirstValue.ToBinding();
+                editor[!Vector3Editor<<#= t.Element #>>.SecondValueProperty] = SecondValue.ToBinding();
+                editor[!Vector3Editor<<#= t.Element #>>.ThirdValueProperty] = ThirdValue.ToBinding();
+                editor.ValueChanged += OnValueChanged;
+                editor.ValueChanging += OnValueChanging;
+            }
+        }
+
+        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+        {
+            if (e is PropertyEditorValueChangedEventArgs<(<#= t.Element #> <#= t.FieldX #>, <#= t.Element #> <#= t.FieldY #>, <#= t.Element #> <#= t.FieldZ #>)> args)
+            {
+                SetValue(new <#= fullName #>(args.OldValue.<#= t.FieldX #>, args.OldValue.<#= t.FieldY #>, args.OldValue.<#= t.FieldZ #>),
+                         new <#= fullName #>(args.NewValue.<#= t.FieldX #>, args.NewValue.<#= t.FieldY #>, args.NewValue.<#= t.FieldZ #>));
+            }
+        }
+
+        private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+        {
+            if (sender is Vector3Editor<<#= t.Element #>> editor)
+            {
+                WrappedProperty.SetValue(new <#= fullName #>(editor.FirstValue, editor.SecondValue, editor.ThirdValue));
+                <#= fullName #> coerced = WrappedProperty.GetValue();
+                editor.FirstValue = coerced.<#= t.FieldX #>;
+                editor.SecondValue = coerced.<#= t.FieldY #>;
+                editor.ThirdValue = coerced.<#= t.FieldZ #>;
+            }
+        }
+    }
+<# } #>
+
+    // Vector4
+<# foreach(var t in vec4Types) { #>
+<# var fullName = $"{t.Namespace}.{t.Name}"; #>
+    public sealed class <#= t.Name #>EditorViewModel : BaseEditorViewModel<<#= fullName #>>
+    {
+        public <#= t.Name #>EditorViewModel(IAbstractProperty<<#= fullName #>> property)
+            : base(property)
+        {
+            FirstValue = property.GetObservable()
+                .Select(x => x.<#= t.FieldX #>)
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(Disposables);
+
+            SecondValue = property.GetObservable()
+                .Select(x => x.<#= t.FieldY #>)
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(Disposables);
+
+            ThirdValue = property.GetObservable()
+                .Select(x => x.<#= t.FieldZ #>)
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(Disposables);
+
+            FourthValue = property.GetObservable()
+                .Select(x => x.<#= t.FieldW #>)
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(Disposables);
+        }
+
+        public ReadOnlyReactivePropertySlim<<#= t.Element #>> FirstValue { get; }
+
+        public ReadOnlyReactivePropertySlim<<#= t.Element #>> SecondValue { get; }
+
+        public ReadOnlyReactivePropertySlim<<#= t.Element #>> ThirdValue { get; }
+
+        public ReadOnlyReactivePropertySlim<<#= t.Element #>> FourthValue { get; }
+
+        public override void Accept(IPropertyEditorContextVisitor visitor)
+        {
+            base.Accept(visitor);
+            if (visitor is Vector4Editor<<#= t.Element #>> editor)
+            {
+                editor.FirstHeader = "X";
+                editor.SecondHeader = "Y";
+<# if (t.IsRect) { #>
+                editor.ThirdHeader = Strings.Width;
+                editor.FourthHeader = Strings.Height;
+<# } else { #>
+                editor.ThirdHeader = "Z";
+                editor.FourthHeader = "W";
+<# } #>
+
+                editor[!Vector4Editor<<#= t.Element #>>.FirstValueProperty] = FirstValue.ToBinding();
+                editor[!Vector4Editor<<#= t.Element #>>.SecondValueProperty] = SecondValue.ToBinding();
+                editor[!Vector4Editor<<#= t.Element #>>.ThirdValueProperty] = ThirdValue.ToBinding();
+                editor[!Vector4Editor<<#= t.Element #>>.FourthValueProperty] = FourthValue.ToBinding();
+                editor.ValueChanged += OnValueChanged;
+                editor.ValueChanging += OnValueChanging;
+            }
+        }
+
+        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+        {
+            if (e is PropertyEditorValueChangedEventArgs<(<#= t.Element #> <#= t.FieldX #>, <#= t.Element #> <#= t.FieldY #>, <#= t.Element #> <#= t.FieldZ #>, <#= t.Element #> <#= t.FieldW #>)> args)
+            {
+                SetValue(new <#= fullName #>(args.OldValue.<#= t.FieldX #>, args.OldValue.<#= t.FieldY #>, args.OldValue.<#= t.FieldZ #>, args.OldValue.<#= t.FieldW #>),
+                         new <#= fullName #>(args.NewValue.<#= t.FieldX #>, args.NewValue.<#= t.FieldY #>, args.NewValue.<#= t.FieldZ #>, args.NewValue.<#= t.FieldW #>));
+            }
+        }
+
+        private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+        {
+            if (sender is Vector4Editor<<#= t.Element #>> editor)
+            {
+                WrappedProperty.SetValue(new <#= fullName #>(editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue));
+                <#= fullName #> coerced = WrappedProperty.GetValue();
+                editor.FirstValue = coerced.<#= t.FieldX #>;
+                editor.SecondValue = coerced.<#= t.FieldY #>;
+                editor.ThirdValue = coerced.<#= t.FieldZ #>;
+                editor.FourthValue = coerced.<#= t.FieldW #>;
+            }
+        }
+    }
+<# } #>
+}

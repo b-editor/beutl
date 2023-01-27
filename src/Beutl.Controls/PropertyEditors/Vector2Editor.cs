@@ -29,6 +29,12 @@ public class Vector2Editor<TElement> : Vector2Editor
     private TElement _secondValue;
     private TElement _oldSecondValue;
 
+    public Vector2Editor()
+    {
+        FirstHeader = "0";
+        SecondHeader = "0";
+    }
+
     public TElement FirstValue
     {
         get => _firstValue;

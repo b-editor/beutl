@@ -45,7 +45,14 @@ public class PropertyEditorExtension : Extension
     }
 }
 
+public interface IPropertyEditorContextVisitor
+{
+    void Visit(IPropertyEditorContext context);
+}
+
 public interface IPropertyEditorContext : IDisposable, IJsonSerializable
 {
     PropertyEditorExtension Extension { get; }
+
+    void Accept(IPropertyEditorContextVisitor visitor);
 }

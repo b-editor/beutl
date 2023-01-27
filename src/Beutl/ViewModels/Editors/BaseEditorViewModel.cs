@@ -1,6 +1,9 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
+using Avalonia;
+
+using Beutl.Controls.PropertyEditors;
 using Beutl.Framework;
 using Beutl.Services;
 using Beutl.Services.Editors.Wrappers;
@@ -40,6 +43,11 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
+        IsReadOnly = observable
+            .Not()
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(Disposables);
+
         HasAnimation = hasAnimation
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
@@ -58,6 +66,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext
     public string Header { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsReadOnly { get; }
 
     public ReadOnlyReactivePropertySlim<bool> HasAnimation { get; }
 
@@ -86,6 +96,16 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext
 
     public void ReadFromJson(JsonNode json)
     {
+    }
+
+    public virtual void Accept(IPropertyEditorContextVisitor visitor)
+    {
+        visitor.Visit(this);
+        if (visitor is PropertyEditor editor)
+        {
+            editor[!PropertyEditor.IsReadOnlyProperty] = IsReadOnly.ToBinding();
+            editor.Header = Header;
+        }
     }
 
     protected object? GetDefaultValue()

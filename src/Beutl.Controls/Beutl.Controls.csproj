@@ -18,6 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Beutl.Framework\Beutl.Framework.csproj" />
     <ProjectReference Include="..\Beutl.Language\Beutl.Language.csproj" />
     <ProjectReference Include="..\Beutl.Graphics\Beutl.Graphics.csproj" />
   </ItemGroup>

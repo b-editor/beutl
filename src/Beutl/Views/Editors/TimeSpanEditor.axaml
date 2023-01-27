@@ -29,6 +29,6 @@
             </TextBox.Styles>
         </TextBox>
 
-        <local:EditorBadge Grid.Column="2" />
+        <local:PropertyEditorMenu Grid.Column="2" />
     </Grid>
 </UserControl>

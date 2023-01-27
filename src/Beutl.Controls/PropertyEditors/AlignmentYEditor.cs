@@ -30,6 +30,11 @@ public class AlignmentYEditor : PropertyEditor
     private StackPanel _stackPanel;
     private ContentPresenter _menuPresenter;
 
+    public AlignmentYEditor()
+    {
+        UpdatePseudoClasses();
+    }
+
     public AlignmentY Value
     {
         get => _value;

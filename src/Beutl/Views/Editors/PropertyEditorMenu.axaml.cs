@@ -13,9 +13,9 @@ using Beutl.Views.Tools;
 
 namespace Beutl.Views.Editors;
 
-public sealed partial class EditorBadge : UserControl
+public sealed partial class PropertyEditorMenu : UserControl
 {
-    public EditorBadge()
+    public PropertyEditorMenu()
     {
         InitializeComponent();
     }

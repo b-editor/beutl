@@ -6,10 +6,12 @@ using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
+using Beutl.Framework;
+
 namespace Beutl.Controls.PropertyEditors;
 
 [PseudoClasses(":compact")]
-public class PropertyEditor : TemplatedControl
+public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor
 {
     public static readonly StyledProperty<string> HeaderProperty =
         AvaloniaProperty.Register<PropertyEditor, string>(nameof(Header));
@@ -72,6 +74,10 @@ public class PropertyEditor : TemplatedControl
     {
         add => AddHandler(ValueChangedEvent, value);
         remove => RemoveHandler(ValueChangedEvent, value);
+    }
+
+    public virtual void Visit(IPropertyEditorContext context)
+    {
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)

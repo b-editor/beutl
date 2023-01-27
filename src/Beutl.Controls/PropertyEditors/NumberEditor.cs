@@ -23,6 +23,11 @@ public class NumberEditor<TValue> : StringEditor
     private TValue _oldValue;
     private IDisposable _disposable;
 
+    public NumberEditor()
+    {
+        Text = "0";
+    }
+
     public TValue Value
     {
         get => _value;
