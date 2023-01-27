@@ -11,7 +11,7 @@
              x:DataType="vm:OpacityEditorViewModel"
              mc:Ignorable="d">
     <Grid ColumnDefinitions="*,Auto" RowDefinitions="32,Auto,Auto">
-        <TextBlock Margin="10,0,0,0"
+        <TextBlock Margin="4,0,0,0"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Center"
                    Text="{Binding Header}" />

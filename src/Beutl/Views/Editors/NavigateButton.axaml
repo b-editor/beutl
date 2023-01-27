@@ -13,7 +13,7 @@
              x:DataType="vm:INavigationButtonViewModel"
              mc:Ignorable="d">
     <Grid ColumnDefinitions="2*,3*,24">
-        <TextBlock Margin="10,0,0,0"
+        <TextBlock Margin="4,0,0,0"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Center"
                    Text="{Binding Header}" />

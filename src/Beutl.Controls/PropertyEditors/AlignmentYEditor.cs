@@ -7,7 +7,8 @@ using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
-using Avalonia.Media;
+
+using Beutl.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
