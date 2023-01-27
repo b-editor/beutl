@@ -24,6 +24,8 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/CornerRadiusEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/EnumEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/StorageFileEditor.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/FontFamilyEditor.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/FontFamilyPicker.axaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <x:Double x:Key="LayerHeight">25</x:Double>

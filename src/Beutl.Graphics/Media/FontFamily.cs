@@ -8,7 +8,7 @@ using SkiaSharp;
 namespace Beutl.Media;
 
 [JsonConverter(typeof(FontFamilyJsonConverter))]
-public readonly struct FontFamily : IEquatable<FontFamily>
+public class FontFamily : IEquatable<FontFamily>
 {
     public static readonly FontFamily Default = new(GetDefaultFontFamily());
 
@@ -39,9 +39,9 @@ public readonly struct FontFamily : IEquatable<FontFamily>
         return obj is FontFamily family && Equals(family);
     }
 
-    public bool Equals(FontFamily other)
+    public bool Equals(FontFamily? other)
     {
-        return Name == other.Name;
+        return Name == other?.Name;
     }
 
     public override int GetHashCode()
@@ -69,7 +69,7 @@ public readonly struct FontFamily : IEquatable<FontFamily>
 
     public static bool operator ==(FontFamily left, FontFamily right)
     {
-        return left.Equals(right);
+        return left?.Name == right?.Name;
     }
 
     public static bool operator !=(FontFamily left, FontFamily right)
