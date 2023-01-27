@@ -8,6 +8,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage.FileIO;
 using Avalonia.Styling;
 
 namespace Beutl.Controls.PropertyEditors;

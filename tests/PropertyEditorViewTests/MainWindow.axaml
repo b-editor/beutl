@@ -38,5 +38,6 @@
                 </Button>
             </pe:AlignmentYEditor.MenuContent>
         </pe:AlignmentYEditor>
+        <pe:StorageFileEditor Header="AAA" />
     </StackPanel>
 </Window>

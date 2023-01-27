@@ -2,6 +2,7 @@
 using System.Numerics;
 
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
@@ -43,12 +44,16 @@ public class NumberEditor<TValue> : StringEditor
 
     protected override void OnTextBoxGotFocus(GotFocusEventArgs e)
     {
-        _oldValue = Value;
+        if (!DataValidationErrors.GetHasErrors(InnerTextBox))
+        {
+            _oldValue = Value;
+        }
     }
 
     protected override void OnTextBoxLostFocus(RoutedEventArgs e)
     {
-        if (Value != _oldValue)
+        if (!DataValidationErrors.GetHasErrors(InnerTextBox)
+            && Value != _oldValue)
         {
             RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueChangedEvent));
         }
@@ -56,18 +61,40 @@ public class NumberEditor<TValue> : StringEditor
 
     protected override void OnTextBoxTextChanged(string newValue, string oldValue)
     {
-        if (TValue.TryParse(newValue, CultureInfo.CurrentUICulture, out TValue newValue2)
-            && TValue.TryParse(oldValue, CultureInfo.CurrentUICulture, out TValue oldValue2)
-            && newValue2 != oldValue2)
+        if (TValue.TryParse(newValue, CultureInfo.CurrentUICulture, out TValue newValue2))
         {
-            Value = newValue2;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue2, oldValue2, ValueChangingEvent));
+            bool invalidOldValue = !TValue.TryParse(oldValue, CultureInfo.CurrentUICulture, out TValue oldValue2);
+            if (invalidOldValue)
+            {
+                oldValue2 = newValue2;
+            }
+
+            if (invalidOldValue || newValue2 != oldValue2)
+            {
+                Value = newValue2;
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue2, oldValue2, ValueChangingEvent));
+            }
+        }
+
+        UpdateErrors();
+    }
+
+    private void UpdateErrors()
+    {
+        if (TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentUICulture, out _))
+        {
+            DataValidationErrors.ClearErrors(InnerTextBox);
+        }
+        else
+        {
+            DataValidationErrors.SetErrors(InnerTextBox, DataValidationMessages.InvalidString);
         }
     }
 
     private void OnTextBoxPointerWheelChanged(object sender, PointerWheelEventArgs e)
     {
-        if (InnerTextBox.IsKeyboardFocusWithin
+        if (!DataValidationErrors.GetHasErrors(InnerTextBox)
+            && InnerTextBox.IsKeyboardFocusWithin
             && TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentUICulture, out TValue value))
         {
             value = e.Delta.Y switch
