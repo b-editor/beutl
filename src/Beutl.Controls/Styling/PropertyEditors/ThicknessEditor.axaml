@@ -1,0 +1,124 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:icons="using:FluentIcons.FluentAvalonia"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls">
+    <Design.PreviewWith>
+        <Border Width="300" Height="300">
+            <StackPanel>
+                <local:Vector4Editor Header="Property 2" Theme="{StaticResource ThicknessEditorStyle}" />
+            </StackPanel>
+        </Border>
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="ThicknessEditorStyle" TargetType="local:Vector4Editor">
+        <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Padding="{TemplateBinding Padding}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,*">
+                        <TextBlock Grid.Row="0"
+                                   Margin="4,0,0,0"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Center"
+                                   Text="{TemplateBinding Header}" />
+
+                        <DataValidationErrors Grid.Row="2">
+                            <Grid ColumnDefinitions="Auto,*,*,*,*">
+                                <Border Name="PART_BackgroundBorder"
+                                        Grid.ColumnSpan="5"
+                                        Margin="4"
+                                        Background="{DynamicResource TextControlBackground}"
+                                        BorderBrush="{DynamicResource TextControlBorderBrush}"
+                                        BorderThickness="{DynamicResource TextControlBorderThemeThickness}"
+                                        CornerRadius="{DynamicResource ControlCornerRadius}" />
+                                <icons:SymbolIcon Name="PART_SelectedSide"
+                                                  Width="16"
+                                                  Height="16"
+                                                  Margin="8,0,12,0"
+                                                  ClipToBounds="False"
+                                                  FontSize="18"
+                                                  Symbol="BorderNone" />
+
+                                <TextBox x:Name="PART_InnerFirstTextBox"
+                                         Grid.Column="1"
+                                         Margin="0,4"
+                                         HorizontalContentAlignment="Center"
+                                         IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                         Text="{TemplateBinding FirstText, Mode=TwoWay}"
+                                         Theme="{StaticResource VectorElementTextBox}" />
+
+                                <TextBox x:Name="PART_InnerSecondTextBox"
+                                         Grid.Column="2"
+                                         Margin="0,4"
+                                         HorizontalContentAlignment="Center"
+                                         IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                         Text="{TemplateBinding SecondText, Mode=TwoWay}"
+                                         Theme="{StaticResource VectorElementTextBox}" />
+
+                                <TextBox x:Name="PART_InnerThirdTextBox"
+                                         Grid.Column="3"
+                                         Margin="0,4"
+                                         HorizontalContentAlignment="Center"
+                                         IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                         Text="{TemplateBinding ThirdText, Mode=TwoWay}"
+                                         Theme="{StaticResource VectorElementTextBox}" />
+
+                                <TextBox x:Name="PART_InnerFourthTextBox"
+                                         Grid.Column="4"
+                                         Margin="0,4,4,4"
+                                         HorizontalContentAlignment="Center"
+                                         IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                         Text="{TemplateBinding FourthText, Mode=TwoWay}"
+                                         Theme="{StaticResource VectorElementTextBox}" />
+                            </Grid>
+                        </DataValidationErrors>
+
+                        <ContentPresenter Grid.Row="2"
+                                          Grid.Column="1"
+                                          Content="{TemplateBinding MenuContent}"
+                                          ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:focus-1st-textbox /template/ icons|SymbolIcon#PART_SelectedSide">
+            <Setter Property="Symbol" Value="BorderLeft" />
+        </Style>
+        <Style Selector="^:focus-2nd-textbox /template/ icons|SymbolIcon#PART_SelectedSide">
+            <Setter Property="Symbol" Value="BorderTop" />
+        </Style>
+        <Style Selector="^:focus-3rd-textbox /template/ icons|SymbolIcon#PART_SelectedSide">
+            <Setter Property="Symbol" Value="BorderRight" />
+        </Style>
+        <Style Selector="^:focus-4th-textbox /template/ icons|SymbolIcon#PART_SelectedSide">
+            <Setter Property="Symbol" Value="BorderBottom" />
+        </Style>
+
+        <Style Selector="^:border-pointerover /template/ Border#PART_BackgroundBorder">
+            <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushPointerOver}" />
+            <Setter Property="Background" Value="{DynamicResource TextControlBackgroundPointerOver}" />
+        </Style>
+
+        <Style Selector="^[IsReadOnly=True] /template/ Border#PART_BackgroundBorder">
+            <Setter Property="Background" Value="{DynamicResource TextControlBackgroundDisabled}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushDisabled}" />
+        </Style>
+
+        <Style Selector="^:focus-any-textbox /template/ Border#PART_BackgroundBorder">
+            <Setter Property="Background" Value="{DynamicResource TextControlBackgroundFocused}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushFocused}" />
+            <Setter Property="BorderThickness" Value="{DynamicResource TextControlBorderThemeThicknessFocused}" />
+        </Style>
+
+        <Style Selector="^:error /template/ Border#PART_BackgroundBorder">
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        </Style>
+
+    </ControlTheme>
+
+</ResourceDictionary>

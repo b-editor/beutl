@@ -41,6 +41,7 @@
             </pe:AlignmentYEditor>
             <pe:StorageFileEditor Header="AAA" />
             <pe:FontFamilyEditor Header="BBB" />
+            <pe:RelativePointEditor Header="CCC" />
         </StackPanel>
     </ScrollViewer>
 </Window>

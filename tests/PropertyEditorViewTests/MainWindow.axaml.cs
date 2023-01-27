@@ -38,7 +38,8 @@ namespace PropertyEditorViewTests
 #endif
             //vector2Editor = new Vector2Editor<float>() { Header = "Property 3" };
             //vector3Editor = new Vector3Editor<float>() { Header = "Property 4" };
-            //vector4Editor = new Vector4Editor<float>() { Header = "Property 5", Theme = (Avalonia.Styling.ControlTheme)this.FindResource("CornerRadiusEditorStyle")! };
+            var cornerRadiusEditor = new Vector4Editor<float>() { Header = "Property 5", Theme = (Avalonia.Styling.ControlTheme)this.FindResource("CornerRadiusEditorStyle")! };
+            var thicknessEditor = new Vector4Editor<float>() { Header = "Property 5", Theme = (Avalonia.Styling.ControlTheme)this.FindResource("ThicknessEditorStyle")! };
             var boolEditor = new BooleanEditor() { Header = "Property 6" };
             var colorEditor = new ColorEditor() { Header = "Property 7" };
             enumEditor = new EnumEditor() { Header = "Property 8", Items = new string[] { "Apple", "Grape", "Orange", "Lemon" } };
@@ -46,7 +47,8 @@ namespace PropertyEditorViewTests
             indexEditor = new NumberEditor<int>() { Header = "Property 9(Index)" };
             //stack.Children.Add(vector2Editor);
             //stack.Children.Add(vector3Editor);
-            //stack.Children.Add(vector4Editor);
+            stack.Children.Add(cornerRadiusEditor);
+            stack.Children.Add(thicknessEditor);
             stack.Children.Add(boolEditor);
             stack.Children.Add(colorEditor);
             stack.Children.Add(enumEditor);
