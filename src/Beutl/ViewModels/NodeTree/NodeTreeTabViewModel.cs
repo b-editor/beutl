@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Framework;
+using Beutl.NodeTree;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 
@@ -32,7 +33,11 @@ public sealed class NodeTreeTabViewModel : IToolContext
             if (v != null)
             {
                 _innerDisposable = v.Space.Nodes.ForEachItem(
-                    (idx, item) => Nodes.Insert(idx, new NodeViewModel(item)),
+                    (idx, item) =>
+                    {
+                        var viewModel = new NodeViewModel(item);
+                        Nodes.Insert(idx, viewModel);
+                    },
                     (idx, _) =>
                     {
                         NodeViewModel viewModel = Nodes[idx];
@@ -60,6 +65,22 @@ public sealed class NodeTreeTabViewModel : IToolContext
     public ReactivePropertySlim<Layer?> Layer { get; } = new();
 
     public CoreList<NodeViewModel> Nodes { get; } = new();
+
+    public SocketViewModel? FindSocketViewModel(ISocket socket)
+    {
+        foreach (NodeViewModel node in Nodes.GetMarshal().Value)
+        {
+            foreach (NodeItemViewModel item in node.Items.GetMarshal().Value)
+            {
+                if (item.Model == socket)
+                {
+                    return item as SocketViewModel;
+                }
+            }
+        }
+
+        return null;
+    }
 
     public void Dispose()
     {

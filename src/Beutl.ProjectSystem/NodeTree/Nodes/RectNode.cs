@@ -57,7 +57,10 @@ public class LayerOutputNode : Node
 
     public LayerOutputNode()
     {
-        _renderableSocket = new _Socket();
+        _renderableSocket = new _Socket()
+        {
+            Name = "Input"
+        };
         _items = new INodeItem[]
         {
             _renderableSocket

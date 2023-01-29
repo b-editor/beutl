@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 
+using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes;
 using Beutl.ViewModels.NodeTree;
 
@@ -37,9 +38,19 @@ public partial class NodeTreeTab : UserControl
 
     private void AddRectClick(object? sender, RoutedEventArgs e)
     {
+        AddNode(() => new RectNode());
+    }
+
+    private void AddOutputClick(object? sender, RoutedEventArgs e)
+    {
+        AddNode(() => new LayerOutputNode());
+    }
+
+    private void AddNode(Func<Node> factory)
+    {
         if (DataContext is NodeTreeTabViewModel { Layer.Value: { } layer } viewModel)
         {
-            var node = new RectNode();
+            Node node = factory();
             layer.Space.Nodes.Add(node);
             NodeViewModel? nodeViewModel = viewModel.Nodes.FirstOrDefault(x => x.Node == node);
             if (nodeViewModel != null)

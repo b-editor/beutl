@@ -3,52 +3,71 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="using:Beutl.ViewModels.NodeTree"
+             xmlns:views="using:Beutl.Views.NodeTree"
              Canvas.Left="{Binding Position.Value.X}"
              Canvas.Top="{Binding Position.Value.Y}"
-             Width="200"
+             Width="205"
+             x:DataType="viewModels:NodeViewModel"
              Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
              BorderBrush="{DynamicResource ControlElevationBorderBrush}"
              BorderThickness="1"
+             ClipToBounds="False"
              CornerRadius="{DynamicResource ControlCornerRadius}"
              mc:Ignorable="d">
-    <Grid RowDefinitions="Auto,Auto">
-        <Border x:Name="handle" Background="Transparent">
+    <Grid Background="{Binding Color}" RowDefinitions="Auto,Auto">
+        <Border x:Name="handle"
+                Padding="4"
+                Background="Transparent">
 
-            <ToggleButton x:Name="expandToggle"
-                          Width="30"
-                          Padding="5"
-                          VerticalAlignment="Stretch"
-                          BorderThickness="0"
-                          IsChecked="True"
-                          Theme="{StaticResource TransparentToggleButton}">
-                <ToggleButton.Resources>
-                    <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="Transparent" />
-                    <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="SubtleFillColorTertiaryBrush" />
-                    <StaticResource x:Key="ToggleButtonBackgroundCheckedDisabled" ResourceKey="SubtleFillColorDisabledBrush" />
-                    <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="SubtleFillColorSecondaryBrush" />
-                </ToggleButton.Resources>
+            <Grid ColumnDefinitions="Auto,*">
+                <ToggleButton x:Name="expandToggle"
+                              Width="30"
+                              Padding="5"
+                              VerticalAlignment="Stretch"
+                              BorderThickness="0"
+                              IsChecked="{Binding IsExpanded.Value}"
+                              Theme="{StaticResource TransparentToggleButton}">
+                    <ToggleButton.Resources>
+                        <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="Transparent" />
+                        <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="SubtleFillColorTertiaryBrush" />
+                        <StaticResource x:Key="ToggleButtonBackgroundCheckedDisabled" ResourceKey="SubtleFillColorDisabledBrush" />
+                        <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="SubtleFillColorSecondaryBrush" />
+                    </ToggleButton.Resources>
 
-                <TextBlock x:Name="ExpandCollapseChevron"
-                           HorizontalAlignment="Center"
+                    <TextBlock x:Name="ExpandCollapseChevron"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               FontFamily="{DynamicResource SymbolThemeFontFamily}"
+                               FontSize="15"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                               RenderTransform="none"
+                               Text="{StaticResource ExpanderChevronDownGlyph}">
+                        <TextBlock.Transitions>
+                            <Transitions>
+                                <TransformOperationsTransition Property="RenderTransform" Duration="00:00:00.167" />
+                            </Transitions>
+                        </TextBlock.Transitions>
+                    </TextBlock>
+                </ToggleButton>
+
+                <TextBlock Grid.Column="1"
+                           Margin="8,0,0,0"
                            VerticalAlignment="Center"
-                           FontFamily="{DynamicResource SymbolThemeFontFamily}"
-                           FontSize="15"
-                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                           RenderTransform="none"
-                           Text="{StaticResource ExpanderChevronDownGlyph}">
-                    <TextBlock.Transitions>
-                        <Transitions>
-                            <TransformOperationsTransition Property="RenderTransform" Duration="00:00:00.167" />
-                        </Transitions>
-                    </TextBlock.Transitions>
-                </TextBlock>
-            </ToggleButton>
-
+                           Text="{Binding NodeName}" />
+            </Grid>
         </Border>
         <Border x:Name="nodeContent"
                 Grid.Row="1"
-                Height="200">
-            <TextBlock Text="Content" />
+                MinHeight="200"
+                ClipToBounds="False">
+            <ItemsControl ClipToBounds="False" Items="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <views:SocketView />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </Border>
     </Grid>
 </UserControl>

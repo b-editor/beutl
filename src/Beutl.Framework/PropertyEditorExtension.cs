@@ -13,7 +13,11 @@ internal interface IPropertyEditorExtensionImpl
 
     bool TryCreateContext(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context);
 
+    bool TryCreateContextForNode(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context);
+
     bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out IControl? control);
+
+    bool TryCreateControlForNode(IPropertyEditorContext context, [NotNullWhen(true)] out IControl? control);
 }
 
 [PrimitiveImpl]
@@ -42,6 +46,18 @@ public class PropertyEditorExtension : Extension
     {
         _impl ??= ServiceLocator.Current.GetRequiredService<IPropertyEditorExtensionImpl>();
         return _impl.TryCreateControl(context, out control);
+    }
+
+    public virtual bool TryCreateContextForNode(IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
+    {
+        _impl ??= ServiceLocator.Current.GetRequiredService<IPropertyEditorExtensionImpl>();
+        return _impl.TryCreateContextForNode(this, properties, out context);
+    }
+
+    public virtual bool TryCreateControlForNode(IPropertyEditorContext context, [NotNullWhen(true)] out IControl? control)
+    {
+        _impl ??= ServiceLocator.Current.GetRequiredService<IPropertyEditorExtensionImpl>();
+        return _impl.TryCreateControlForNode(context, out control);
     }
 }
 

@@ -33,6 +33,7 @@
                     <ContextMenu>
                         <MenuItem Header="Add node">
                             <MenuItem Click="AddRectClick" Header="Rect" />
+                            <MenuItem Click="AddOutputClick" Header="Output" />
                         </MenuItem>
                         <MenuItem Click="ResetZoomClick" Header="Reset zoom" />
                     </ContextMenu>

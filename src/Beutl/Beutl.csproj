@@ -45,6 +45,9 @@
     <Compile Update="Views\Editors\PropertyEditorMenu.axaml.cs">
       <DependentUpon>PropertyEditorMenu.axaml</DependentUpon>
     </Compile>
+    <Compile Update="Views\NodeTree\SocketView.axaml.cs">
+      <DependentUpon>SocketView.axaml</DependentUpon>
+    </Compile>
   </ItemGroup>
 
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.props" />

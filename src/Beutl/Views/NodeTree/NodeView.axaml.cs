@@ -3,12 +3,14 @@ using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.PanAndZoom;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.Transformation;
 using Avalonia.VisualTree;
+
 using Beutl.ViewModels.NodeTree;
 
 namespace Beutl.Views.NodeTree;
@@ -67,8 +69,10 @@ public partial class NodeView : UserControl
             _start = position;
             double left = Canvas.GetLeft(this) + delta.X;
             double top = Canvas.GetTop(this) + delta.Y;
-            Canvas.SetLeft(this, left);
-            Canvas.SetTop(this, top);
+            if (DataContext is NodeViewModel viewModel)
+            {
+                viewModel.Position.Value = new(left, top);
+            }
 
             e.Handled = true;
         }
@@ -83,17 +87,15 @@ public partial class NodeView : UserControl
 
             if (Parent is Canvas canvas)
             {
-                int minZindex = canvas.Children.Max(x => x.ZIndex);
+                int minZindex = canvas.Children.Where(x => x is NodeView).Min(x => x.ZIndex);
                 for (int i = 0; i < canvas.Children.Count; i++)
                 {
                     IControl? item = canvas.Children[i];
-                    item.ZIndex -= minZindex;
+                    if (item is NodeView)
+                    {
+                        item.ZIndex -= minZindex;
+                    }
                 }
-            }
-
-            if (DataContext is NodeViewModel viewModel)
-            {
-                viewModel.NotifyPositionChange(new Point(Canvas.GetLeft(this), Canvas.GetTop(this)));
             }
         }
     }

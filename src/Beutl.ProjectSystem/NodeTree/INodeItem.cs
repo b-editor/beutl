@@ -7,6 +7,8 @@ public interface INodeItem : ILogicalElement, IAffectsRender
 {
     IAbstractProperty? Property { get; }
 
+    Type? AssociatedType { get; }
+
     object? Value { get; }
 
     public event EventHandler? NodeTreeInvalidated;

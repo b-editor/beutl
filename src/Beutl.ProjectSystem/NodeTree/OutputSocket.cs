@@ -20,7 +20,8 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
 
     public bool TryConnect(IInputSocket socket)
     {
-        if (_connections.Any(x => x.Input == socket))
+        if (_connections.Any(x => x.Input == socket)
+            || socket.Connection != null)
             return false;
 
         var connection = new Connection(socket, this);

@@ -52,6 +52,8 @@ public class NodeItem<T> : NodeItem, INodeItem<T>
     // レンダリング時に変更されるので、変更通知は必要ない
     public T? Value { get; set; }
 
+    public virtual Type? AssociatedType => typeof(T);
+
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
     public virtual void Evaluate(EvaluationContext context)
