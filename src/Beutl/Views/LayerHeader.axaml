@@ -50,32 +50,8 @@
         </Border>
 
         <ToggleButton Grid.Column="1"
-                      BorderThickness="0"
                       IsChecked="{CompiledBinding IsEnabled.Value}"
-                      Theme="{StaticResource TransparentToggleButton}">
-            <ToggleButton.Resources>
-                <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="Transparent" />
-                <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="SubtleFillColorTertiaryBrush" />
-                <StaticResource x:Key="ToggleButtonBackgroundCheckedDisabled" ResourceKey="SubtleFillColorDisabledBrush" />
-                <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="SubtleFillColorSecondaryBrush" />
-            </ToggleButton.Resources>
-            <ToggleButton.Styles>
-                <Style Selector="ToggleButton">
-                    <Setter Property="Content">
-                        <Template>
-                            <icons:SymbolIcon Symbol="EyeOff" />
-                        </Template>
-                    </Setter>
-                </Style>
-                <Style Selector="ToggleButton:checked">
-                    <Setter Property="Content">
-                        <Template>
-                            <icons:SymbolIcon Foreground="{DynamicResource TextFillColorPrimaryBrush}" Symbol="Eye" />
-                        </Template>
-                    </Setter>
-                </Style>
-            </ToggleButton.Styles>
-        </ToggleButton>
+                      Theme="{StaticResource VisibilityToggleButtonStyle}" />
 
         <ui:ColorPickerButton Grid.Column="2"
                               MinHeight="{DynamicResource LayerHeight}"

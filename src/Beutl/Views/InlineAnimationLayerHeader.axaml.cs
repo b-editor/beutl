@@ -16,16 +16,6 @@ namespace Beutl.Views;
 
 public partial class InlineAnimationLayerHeader : UserControl
 {
-    private static readonly ITransform s_rotate_180deg_transform;
-
-    static InlineAnimationLayerHeader()
-    {
-        TransformOperations.Builder builder = TransformOperations.CreateBuilder(1);
-        builder.AppendRotate(Math.PI);
-
-        s_rotate_180deg_transform = builder.Build();
-    }
-
     public InlineAnimationLayerHeader()
     {
         InitializeComponent();
@@ -34,11 +24,6 @@ public partial class InlineAnimationLayerHeader : UserControl
             DragControl = border,
             Orientation = Orientation.Vertical
         });
-
-        ExpandToggle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(v => ExpandCollapseChevron.RenderTransform = v == true
-                                ? s_rotate_180deg_transform
-                                : TransformOperations.Identity);
     }
 
     private void OpenTab_Click(object? sender, RoutedEventArgs e)

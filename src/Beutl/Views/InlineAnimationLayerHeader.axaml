@@ -71,31 +71,8 @@
                       Width="30"
                       Padding="5"
                       VerticalAlignment="Stretch"
-                      BorderThickness="0"
                       IsChecked="{CompiledBinding IsExpanded.Value}"
-                      Theme="{StaticResource TransparentToggleButton}">
-            <ToggleButton.Resources>
-                <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="Transparent" />
-                <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="SubtleFillColorTertiaryBrush" />
-                <StaticResource x:Key="ToggleButtonBackgroundCheckedDisabled" ResourceKey="SubtleFillColorDisabledBrush" />
-                <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="SubtleFillColorSecondaryBrush" />
-            </ToggleButton.Resources>
-
-            <TextBlock x:Name="ExpandCollapseChevron"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       FontFamily="{DynamicResource SymbolThemeFontFamily}"
-                       FontSize="15"
-                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                       RenderTransform="none"
-                       Text="{StaticResource ExpanderChevronDownGlyph}">
-                <TextBlock.Transitions>
-                    <Transitions>
-                        <TransformOperationsTransition Property="RenderTransform" Duration="00:00:00.167" />
-                    </Transitions>
-                </TextBlock.Transitions>
-            </TextBlock>
-        </ToggleButton>
+                      Theme="{StaticResource ExpandCollapseToggleButtonStyle}" />
 
         <Button Grid.Column="4"
                 Width="30"

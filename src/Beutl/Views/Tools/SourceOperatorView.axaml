@@ -38,32 +38,7 @@
                     <icons:SymbolIcon FontSize="16" Symbol="ReOrderDotsVertical" />
                 </Border>
 
-                <ToggleButton BorderThickness="0" IsChecked="{Binding Model.IsEnabled}">
-                    <ToggleButton.Resources>
-                        <SolidColorBrush x:Key="ToggleButtonBackground" Color="Transparent" />
-                        <SolidColorBrush x:Key="ToggleButtonBackgroundDisabled" Color="Transparent" />
-                        <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="Transparent" />
-                        <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="ControlFillColorTertiaryBrush" />
-                        <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedDisabled" Color="Transparent" />
-                        <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="ControlFillColorSecondaryBrush" />
-                    </ToggleButton.Resources>
-                    <ToggleButton.Styles>
-                        <Style Selector="ToggleButton">
-                            <Setter Property="Content">
-                                <Template>
-                                    <icons:SymbolIcon Symbol="EyeOff" />
-                                </Template>
-                            </Setter>
-                        </Style>
-                        <Style Selector="ToggleButton:checked">
-                            <Setter Property="Content">
-                                <Template>
-                                    <icons:SymbolIcon Foreground="{DynamicResource TextFillColorPrimaryBrush}" Symbol="Eye" />
-                                </Template>
-                            </Setter>
-                        </Style>
-                    </ToggleButton.Styles>
-                </ToggleButton>
+                <ToggleButton IsChecked="{Binding Model.IsEnabled}" Theme="{StaticResource VisibilityToggleButtonStyle}" />
 
                 <TextBlock x:Name="headerText" VerticalAlignment="Center" />
             </StackPanel>
