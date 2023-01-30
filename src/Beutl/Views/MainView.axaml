@@ -175,14 +175,13 @@
                 <MenuItem Header="{x:Static lang:Strings.Help}" />
             </Menu>
 
-            <Border Grid.Column="2"
-                    Padding="4"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Center"
-                    Background="{DynamicResource ControlFillColorDefaultBrush}"
-                    IsVisible="{CompiledBinding IsDebuggerAttached}">
-                <TextBlock Text="Debug" />
-            </Border>
+            <TextBlock Grid.Column="2"
+                       Margin="0,0,16,0"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       IsVisible="{CompiledBinding IsDebuggerAttached}"
+                       Text="Debug" />
         </Grid>
 
         <ui:NavigationView x:Name="Navi"

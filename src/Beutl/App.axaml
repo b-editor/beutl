@@ -49,8 +49,6 @@
     </Application.Resources>
     <Application.Styles>
         <sty:FluentAvaloniaTheme />
-        <StyleInclude Source="avares://FluentAvalonia.UI.Windowing/Styles/FAWindowingStyles.axaml" />
-
         <StyleInclude Source="avares://Beutl.Controls/Styles.axaml" />
 
         <Style Selector="TextBlock.ErrorTextBlockStyle">

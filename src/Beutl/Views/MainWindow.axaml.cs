@@ -25,7 +25,7 @@ public sealed partial class MainWindow : AppWindow
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
             Margin = new Thickness(64, 40, 0, 0)
         };
-
+        TitleBar.Height = 40;
 #if DEBUG
         this.AttachDevTools();
 #endif
