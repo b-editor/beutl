@@ -40,7 +40,9 @@
                 </ctrls:OptionsDisplayItem.Icon>
 
                 <ctrls:OptionsDisplayItem.ActionButton>
-                    <ToggleSwitch Margin="0,-4,-72,-4" IsChecked="{CompiledBinding IsMicaEnabled.Value}" />
+                    <ToggleSwitch Classes="left"
+                                  IsChecked="{CompiledBinding IsMicaEnabled.Value}"
+                                  Theme="{StaticResource CompactToggleSwitchStyle}" />
                 </ctrls:OptionsDisplayItem.ActionButton>
             </ctrls:OptionsDisplayItem>
 

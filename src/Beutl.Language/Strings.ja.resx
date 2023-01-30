@@ -754,4 +754,10 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="AdditionalOptions" xml:space="preserve">
     <value>追加のオプション</value>
   </data>
+  <data name="Off" xml:space="preserve">
+    <value>オフ</value>
+  </data>
+  <data name="On" xml:space="preserve">
+    <value>オン</value>
+  </data>
 </root>

@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:b="using:Beutl.Controls.Behaviors"
         xmlns:i="using:Avalonia.Xaml.Interactivity"
+        xmlns:lang="using:Beutl.Language"
         xmlns:local="using:Beutl.Controls"
         xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
@@ -9,6 +10,7 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="/Styling/AppWindowStyles.axaml" />
+                <ResourceInclude Source="/Styling/ToggleSwitchStyles.axaml" />
 
                 <ResourceInclude Source="/Styling/FileInputArea.axaml" />
                 <ResourceInclude Source="/Styling/ContextMenu.axaml" />
@@ -68,6 +70,11 @@
 
     <Style Selector=":is(Visual).transparent">
         <Setter Property="Opacity" Value="0" />
+    </Style>
+
+    <Style Selector="ToggleSwitch">
+        <Setter Property="OnContent" Value="{x:Static lang:Strings.On}" />
+        <Setter Property="OffContent" Value="{x:Static lang:Strings.Off}" />
     </Style>
 
     <StyleInclude Source="avares://Beutl.Controls/Styling/BcTabItem.axaml" />

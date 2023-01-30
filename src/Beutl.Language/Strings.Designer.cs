@@ -1178,6 +1178,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Off に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Off {
+            get {
+                return ResourceManager.GetString("Off", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Offset に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Offset {
@@ -1192,6 +1201,15 @@ namespace Beutl.Language {
         public static string OK {
             get {
                 return ResourceManager.GetString("OK", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   On に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string On {
+            get {
+                return ResourceManager.GetString("On", resourceCulture);
             }
         }
         

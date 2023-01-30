@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
@@ -42,11 +43,12 @@ public sealed class App : Application
 
         GlobalConfiguration config = GlobalConfiguration.Instance;
         config.Restore(GlobalConfiguration.DefaultFilePath);
+        ViewConfig view = config.ViewConfig;
+        CultureInfo.CurrentUICulture = view.UICulture;
 
         AvaloniaXamlLoader.Load(this);
         Resources["PaletteColors"] = colors;
 
-        ViewConfig view = config.ViewConfig;
         view.GetObservable(ViewConfig.ThemeProperty).Subscribe(v =>
         {
             Dispatcher.UIThread.InvokeAsync(() =>
@@ -70,8 +72,6 @@ public sealed class App : Application
                 }
             });
         });
-
-        CultureInfo.CurrentUICulture = view.UICulture;
 
 #if DEBUG
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
