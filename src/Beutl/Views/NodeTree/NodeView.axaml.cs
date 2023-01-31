@@ -19,19 +19,10 @@ public partial class NodeView : UserControl
 {
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
 
-    private static readonly ITransform s_rotate_180deg_transform;
     private CancellationTokenSource? _lastTransitionCts;
 
     private Point _start;
     private bool _captured;
-
-    static NodeView()
-    {
-        TransformOperations.Builder builder = TransformOperations.CreateBuilder(1);
-        builder.AppendRotate(Math.PI);
-
-        s_rotate_180deg_transform = builder.Build();
-    }
 
     public NodeView()
     {
@@ -44,10 +35,6 @@ public partial class NodeView : UserControl
         expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(v =>
             {
-                ExpandCollapseChevron.RenderTransform = v == true
-                                                ? s_rotate_180deg_transform
-                                                : TransformOperations.Identity;
-
                 _lastTransitionCts?.Cancel();
                 _lastTransitionCts = new CancellationTokenSource();
                 CancellationToken localToken = _lastTransitionCts.Token;
