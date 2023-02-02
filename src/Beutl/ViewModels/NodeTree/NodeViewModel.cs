@@ -14,7 +14,9 @@ namespace Beutl.ViewModels.NodeTree;
 
 public sealed class NodeViewModel : IDisposable
 {
-    public NodeViewModel(INode node)
+    private readonly CompositeDisposable _disposables = new();
+
+    public NodeViewModel(Node node)
     {
         Node = node;
         Type nodeType = node.GetType();
@@ -38,17 +40,22 @@ public sealed class NodeViewModel : IDisposable
             Color = Brushes.Transparent;
         }
 
+        Position = node.GetObservable(Node.PositionProperty)
+            .Select(x => new Point(x.X, x.Y))
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+
         InitItems();
     }
 
-    public INode Node { get; }
+    public Node Node { get; }
 
     public string NodeName { get; }
 
     public IBrush Color { get; }
 
-    public ReactivePropertySlim<Point> Position { get; } = new();
-    
+    public ReactiveProperty<Point> Position { get; }
+
     public ReactivePropertySlim<bool> IsExpanded { get; } = new(true);
 
     public CoreList<NodeItemViewModel> Items { get; } = new();
@@ -61,6 +68,7 @@ public sealed class NodeViewModel : IDisposable
         }
         Items.Clear();
         Position.Dispose();
+        _disposables.Dispose();
     }
 
     private void InitItems()
@@ -93,8 +101,8 @@ public sealed class NodeViewModel : IDisposable
         };
     }
 
-    public void NotifyPositionChange(Point point)
+    public void NotifyPositionChange()
     {
-        Position.Value = point;
+        Node.Position = (Position.Value.X, Position.Value.Y);
     }
 }

@@ -51,14 +51,10 @@ public partial class NodeTreeTab : UserControl
         if (DataContext is NodeTreeTabViewModel { Layer.Value: { } layer } viewModel)
         {
             Node node = factory();
+            node.Position = (_rightClickedPosition.X, _rightClickedPosition.Y);
             layer.Space.Nodes.Add(node);
-            NodeViewModel? nodeViewModel = viewModel.Nodes.FirstOrDefault(x => x.Node == node);
-            if (nodeViewModel != null)
-            {
-                nodeViewModel.Position.Value = _rightClickedPosition;
             }
         }
-    }
 
     private void ResetZoomClick(object? sender, RoutedEventArgs e)
     {

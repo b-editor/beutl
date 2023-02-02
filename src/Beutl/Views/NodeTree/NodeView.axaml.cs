@@ -84,6 +84,11 @@ public partial class NodeView : UserControl
                     }
                 }
             }
+
+            if (DataContext is NodeViewModel viewModel)
+            {
+                viewModel.NotifyPositionChange();
+            }
         }
     }
 
