@@ -342,6 +342,12 @@ public class Layer : Element, IStorable, ILogicalElement
                     }
                 }
             }
+
+            if (jobject.TryGetPropertyValue("space", out JsonNode? spaceNode)
+                && spaceNode != null)
+            {
+                Space.ReadFromJson(spaceNode);
+            }
         }
     }
 
@@ -375,6 +381,10 @@ public class Layer : Element, IStorable, ILogicalElement
 
                 jobject["operators"] = array;
             }
+
+            JsonNode spaceNode = new JsonObject();
+            Space.WriteToJson(ref spaceNode);
+            jobject["space"] = spaceNode;
         }
     }
 

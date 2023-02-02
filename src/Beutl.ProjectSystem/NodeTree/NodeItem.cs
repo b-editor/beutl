@@ -54,6 +54,8 @@ public class NodeItem<T> : NodeItem, INodeItem<T>
 
     public virtual Type? AssociatedType => typeof(T);
 
+    public NodeTreeSpace? NodeTree { get; private set; }
+
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
     public virtual void Evaluate(EvaluationContext context)
@@ -74,5 +76,31 @@ public class NodeItem<T> : NodeItem, INodeItem<T>
     protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
     {
         Invalidated?.Invoke(this, args);
+    }
+
+    protected virtual void OnAttachedToNodeTree(NodeTreeSpace nodeTree)
+    {
+    }
+    
+    protected virtual void OnDetachedFromNodeTree(NodeTreeSpace nodeTree)
+    {
+    }
+
+    void INodeItem.NotifyAttachedToNodeTree(NodeTreeSpace nodeTree)
+    {
+        if (NodeTree != null)
+            throw new InvalidOperationException("Already attached to the node tree.");
+
+        NodeTree = nodeTree;
+        OnAttachedToNodeTree(nodeTree);
+    }
+
+    void INodeItem.NotifyDetachedFromNodeTree(NodeTreeSpace nodeTree)
+    {
+        if (NodeTree == null)
+            throw new InvalidOperationException("Already detached from the node tree.");
+
+        NodeTree = null;
+        OnDetachedFromNodeTree(nodeTree);
     }
 }

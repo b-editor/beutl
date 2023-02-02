@@ -1,15 +1,44 @@
 ﻿using System.Reactive.Linq;
+using System.Text.Json.Nodes;
 
 using Beutl.Animation;
+using Beutl.Collections;
 using Beutl.Framework;
 using Beutl.Media;
 using Beutl.Reactive;
 using Beutl.Styling;
+using Beutl.Utilities;
 
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.NodeTree;
 
+internal static class SetterPropertyImplSerializeHelper
+{
+    public static JsonObject Serialize<T>(SetterPropertyImpl<T> property)
+    {
+        return new JsonObject
+        {
+            ["property"] = property.Property.Name,
+            ["target"] = TypeFormat.ToString(property.ImplementedType),
+
+            ["setter"] = StyleSerializer.ToJson(property.Setter, property.ImplementedType).Item2
+        };
+    }
+
+    public static string? GetPropertyName(JsonNode jsonNode)
+    {
+        if (jsonNode is JsonObject obj
+            && obj.TryGetPropertyValue("property", out var propNode)
+            && propNode is JsonValue propValue
+            && propValue.TryGetValue(out string? propName))
+        {
+            return propName;
+        }
+
+        return null;
+    }
+}
 public sealed class SetterPropertyImpl<T> : IAbstractAnimatableProperty<T>
 {
     private sealed class HasAnimationObservable : LightweightObservableBase<bool>
@@ -95,11 +124,92 @@ public sealed class SetterPropertyImpl<T> : IAbstractAnimatableProperty<T>
     {
         Setter.Value = value;
     }
+
+    public void WriteToJson(ref JsonNode json)
+    {
+        json["property"] = Property.Name;
+        json["target"] = TypeFormat.ToString(ImplementedType);
+
+        json["setter"] = StyleSerializer.ToJson(Setter, ImplementedType).Item2;
+    }
+
+    public void ReadFromJson(JsonNode json)
+    {
+        if (json is JsonObject obj)
+        {
+            if (obj.TryGetPropertyValue("setter", out var setterNode)
+                && setterNode != null)
+            {
+                if (StyleSerializer.ToSetter(setterNode, Property.Name, ImplementedType) is Setter<T> setter)
+                {
+                    if (setter.Animation != null)
+                    {
+                        if (Setter.Animation == null)
+                        {
+                            Setter.Animation = setter.Animation;
+                        }
+                        else
+                        {
+                            Setter.Animation.Children.Clear();
+                            Setter.Animation.Children.Replace(setter.Animation.Children);
+                        }
+                    }
+
+                    Setter.Value = setter.Value;
+                }
+            }
+        }
+    }
 }
 
 public abstract class Node : Element, INode
 {
-    public abstract IReadOnlyList<INodeItem> Items { get; }
+    public static readonly CoreProperty<(double X, double Y)> PositionProperty;
+    private readonly LogicalList<INodeItem> _items;
+    private (double X, double Y) _position;
+    private NodeTreeSpace? _nodeTree;
+
+    static Node()
+    {
+        PositionProperty = ConfigureProperty<(double X, double Y), Node>(nameof(Position))
+            .Accessor(o => o.Position, (o, v) => o.Position = v)
+            .DefaultValue((0, 0))
+            .Register();
+    }
+
+    public Node()
+    {
+        _items = new(this);
+
+        _items.Attached += OnItemAttached;
+        _items.Detached += OnItemDetached;
+    }
+
+    private void OnItemDetached(INodeItem obj)
+    {
+        obj.NodeTreeInvalidated -= OnItemNodeTreeInvalidated;
+        if (_nodeTree != null)
+        {
+            obj.NotifyDetachedFromNodeTree(_nodeTree);
+        }
+    }
+
+    private void OnItemAttached(INodeItem obj)
+    {
+        obj.NodeTreeInvalidated += OnItemNodeTreeInvalidated;
+        if (_nodeTree != null)
+        {
+            obj.NotifyAttachedToNodeTree(_nodeTree);
+        }
+    }
+
+    public ICoreList<INodeItem> Items => _items;
+
+    public (double X, double Y) Position
+    {
+        get => _position;
+        set => SetAndRaise(PositionProperty, ref _position, value);
+    }
 
     public event EventHandler? NodeTreeInvalidated;
 
@@ -142,47 +252,240 @@ public abstract class Node : Element, INode
     //    }
     //}
 
-    public static InputSocket<T> ToInput<T>(CoreProperty<T> property)
+    protected InputSocket<T> AsInput<T>(CoreProperty<T> property)
     {
         var setter = new Setter<T>(property);
         var propImpl = new SetterPropertyImpl<T>(setter, property.OwnerType);
-        var socket = new _InputSocket<T>();
+        var socket = new InputSocketImpl<T>();
         socket.SetProperty(propImpl);
+        Items.Add(socket);
         return socket;
     }
 
-    public static InputSocket<T> ToInput<T, TOwner>(CoreProperty<T> property)
+    protected InputSocket<T> AsInput<T, TOwner>(CoreProperty<T> property)
     {
         var setter = new Setter<T>(property);
         var propImpl = new SetterPropertyImpl<T>(setter, typeof(TOwner));
-        var socket = new _InputSocket<T>();
+        var socket = new InputSocketImpl<T>();
         socket.SetProperty(propImpl);
+        Items.Add(socket);
         return socket;
     }
 
-    public static InputSocket<T> ToInput<T>(CoreProperty<T> property, T value)
+    protected InputSocket<T> AsInput<T>(CoreProperty<T> property, T value)
     {
         var setter = new Setter<T>(property, value);
         var propImpl = new SetterPropertyImpl<T>(setter, property.OwnerType);
-        var socket = new _InputSocket<T>();
+        var socket = new InputSocketImpl<T>();
         socket.SetProperty(propImpl);
+        Items.Add(socket);
         return socket;
     }
 
-    public static InputSocket<T> ToInput<T, TOwner>(CoreProperty<T> property, T value)
+    protected InputSocket<T> AsInput<T, TOwner>(CoreProperty<T> property, T value)
     {
         var setter = new Setter<T>(property, value);
         var propImpl = new SetterPropertyImpl<T>(setter, typeof(TOwner));
-        var socket = new _InputSocket<T>();
+        var socket = new InputSocketImpl<T>();
         socket.SetProperty(propImpl);
+        Items.Add(socket);
         return socket;
     }
 
-    private sealed class _InputSocket<T> : InputSocket<T>
+    protected InputSocket<T> AsInput<T>(string name, string? display = null)
     {
-        public void SetProperty(IAbstractProperty<T> property)
+        display ??= name;
+        var socket = new InputSocketImpl<T>()
+        {
+            Name = display,
+        };
+        socket.SetName(name);
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected OutputSocket<T> AsOutput<T>(string name, T value, string? display = null)
+    {
+        display ??= name;
+        var socket = new OutputSocketImpl<T>(name)
+        {
+            Name = display,
+            Value = value
+        };
+        Items.Add(socket);
+        return socket;
+    }
+
+    public override void ReadFromJson(JsonNode json)
+    {
+        base.ReadFromJson(json);
+        if (json is JsonObject obj)
+        {
+            if (obj.TryGetPropertyValue("position", out JsonNode? posNode)
+                && posNode is JsonValue posVal
+                && posVal.TryGetValue(out string? posStr))
+            {
+                var tokenizer = new RefStringTokenizer(posStr);
+                if (tokenizer.TryReadDouble(out double x)
+                    && tokenizer.TryReadDouble(out double y))
+                {
+                    Position = (x, y);
+                }
+            }
+
+            if (obj.TryGetPropertyValue("items", out var itemsNode)
+                && itemsNode is JsonArray itemsArray)
+            {
+                foreach (JsonNode? item in itemsArray)
+                {
+                    if (item is JsonObject itemObj)
+                    {
+                        string? name = SetterPropertyImplSerializeHelper.GetPropertyName(itemObj);
+                        if (name != null)
+                        {
+                            INodeItem? nodeItem = Items.FirstOrDefault(
+                                x => x is ISocketImpl impl
+                                    ? impl.GetName() == name
+                                    : x.Property?.Property.Name == name);
+
+                            if (nodeItem is IJsonSerializable serializable)
+                            {
+                                serializable.ReadFromJson(itemObj);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public override void WriteToJson(ref JsonNode json)
+    {
+        base.WriteToJson(ref json);
+        json["position"] = $"{Position.X},{Position.Y}";
+
+        var array = new JsonArray();
+        foreach (INodeItem item in Items)
+        {
+            JsonNode itemJson = new JsonObject();
+            if (item is IJsonSerializable serializable)
+            {
+                serializable.WriteToJson(ref itemJson);
+                itemJson["@type"] = TypeFormat.ToString(item.GetType());
+            }
+            array.Add(itemJson);
+        }
+
+        json["items"] = array;
+    }
+
+    protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    {
+        base.OnAttachedToLogicalTree(args);
+        if (args.Parent is NodeTreeSpace nodeTree)
+        {
+            _nodeTree = nodeTree;
+            foreach (INodeItem item in _items.GetMarshal().Value)
+            {
+                item.NotifyAttachedToNodeTree(nodeTree);
+            }
+        }
+    }
+
+    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    {
+        base.OnDetachedFromLogicalTree(args);
+        if (args.Parent is NodeTreeSpace nodeTree)
+        {
+            _nodeTree = null;
+            foreach (INodeItem item in _items.GetMarshal().Value)
+            {
+                item.NotifyDetachedFromNodeTree(nodeTree);
+            }
+        }
+    }
+
+    private void OnItemNodeTreeInvalidated(object? sender, EventArgs e)
+    {
+        InvalidateNodeTree();
+    }
+
+    private interface ISocketImpl
+    {
+        string? GetName();
+    }
+
+    private interface IInputSocketImpl : ICoreObject, ISocketImpl
+    {
+    }
+
+    private sealed class OutputSocketImpl<T> : OutputSocket<T>, ISocketImpl
+    {
+        private readonly string _name;
+
+        public OutputSocketImpl(string name)
+        {
+            _name = name;
+        }
+
+        public string? GetName()
+        {
+            return _name;
+        }
+
+        public override void ReadFromJson(JsonNode json)
+        {
+            base.ReadFromJson(json);
+        }
+
+        public override void WriteToJson(ref JsonNode json)
+        {
+            base.WriteToJson(ref json);
+            json["property"] = _name;
+        }
+    }
+
+    private sealed class InputSocketImpl<T> : InputSocket<T>, IInputSocketImpl
+    {
+        private string? _name;
+
+        public void SetName(string name)
+        {
+            _name = name;
+        }
+
+        public string? GetName()
+        {
+            return _name ?? Property?.Property?.Name;
+        }
+
+        public void SetProperty(SetterPropertyImpl<T> property)
         {
             Property = property;
+        }
+
+        public SetterPropertyImpl<T>? GetProperty()
+        {
+            return Property as SetterPropertyImpl<T>;
+        }
+
+        public override void ReadFromJson(JsonNode json)
+        {
+            base.ReadFromJson(json);
+            GetProperty()?.ReadFromJson(json);
+        }
+
+        public override void WriteToJson(ref JsonNode json)
+        {
+            base.WriteToJson(ref json);
+            if (_name != null)
+            {
+                json["property"] = _name;
+            }
+            else
+            {
+                GetProperty()?.WriteToJson(ref json);
+            }
         }
     }
 }

@@ -1,10 +1,13 @@
-﻿using Beutl.Media;
+﻿using Beutl.Collections;
+using Beutl.Media;
 
 namespace Beutl.NodeTree;
 
 public interface INode : ILogicalElement, IAffectsRender
 {
-    IReadOnlyList<INodeItem> Items { get; }
+    ICoreList<INodeItem> Items { get; }
+
+    (double X, double Y) Position { get; }
 
     event EventHandler? NodeTreeInvalidated;
 

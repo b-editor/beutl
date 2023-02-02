@@ -8,6 +8,8 @@ public interface ISocket : INodeItem
     event EventHandler<SocketConnectionChangedEventArgs>? Disconnected;
 
     Color Color { get; }
+
+    Guid Id { get; }
 }
 
 public class Socket<T> : NodeItem<T>, ISocket

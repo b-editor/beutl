@@ -6,39 +6,25 @@ namespace Beutl.NodeTree.Nodes;
 public class RectNode : Node
 {
     private readonly Rectangle _rectangle;
-    private readonly OutputSocket<Rectangle> _outputSocket;
     private readonly InputSocket<float> _widthSocket;
     private readonly InputSocket<float> _heightSocket;
     private readonly InputSocket<float> _strokeSocket;
-    private readonly INodeItem[] _items;
 
     public RectNode()
     {
         _rectangle = new Rectangle();
-        _outputSocket = new OutputSocket<Rectangle>()
-        {
-            Name = "Output",
-            Value = _rectangle
-        };
-        _widthSocket = ToInput<float, Rectangle>(Drawable.WidthProperty, 100);
-        _heightSocket = ToInput<float, Rectangle>(Drawable.HeightProperty, 100);
-        _strokeSocket = ToInput<float, Rectangle>(Rectangle.StrokeWidthProperty, 4000);
+        AsOutput("Output", _rectangle);
 
-        _items = new INodeItem[]
-        {
-            _outputSocket,
-            _widthSocket,
-            _heightSocket,
-            _strokeSocket
-        };
+        _widthSocket = AsInput<float, Rectangle>(Drawable.WidthProperty, 100);
+        _heightSocket = AsInput<float, Rectangle>(Drawable.HeightProperty, 100);
+        _strokeSocket = AsInput<float, Rectangle>(Rectangle.StrokeWidthProperty, 4000);
     }
-
-    public override IReadOnlyList<INodeItem> Items => _items;
 
     public override void Evaluate(EvaluationContext context)
     {
-        while (!_rectangle.EndBatchUpdate())
+        while (_rectangle.BatchUpdate)
         {
+            _rectangle.EndBatchUpdate();
         }
 
         _rectangle.BeginBatchUpdate();
@@ -52,22 +38,12 @@ public class RectNode : Node
 
 public class LayerOutputNode : Node
 {
-    private readonly _Socket _renderableSocket;
-    private readonly INodeItem[] _items;
+    private readonly InputSocket<Drawable> _renderableSocket;
 
     public LayerOutputNode()
     {
-        _renderableSocket = new _Socket()
-        {
-            Name = "Input"
-        };
-        _items = new INodeItem[]
-        {
-            _renderableSocket
-        };
+        _renderableSocket = AsInput<Drawable>("Input");
     }
-
-    public override IReadOnlyList<INodeItem> Items => _items;
 
     public override void Evaluate(EvaluationContext context)
     {
@@ -75,15 +51,12 @@ public class LayerOutputNode : Node
 
         if (_renderableSocket.Value is { } value)
         {
-            while (!value.EndBatchUpdate())
+            while (value.BatchUpdate)
             {
+                value.EndBatchUpdate();
             }
+
             context.AddRenderable(value);
         }
-    }
-
-    public sealed class _Socket : InputSocket<Drawable>
-    {
-
     }
 }
