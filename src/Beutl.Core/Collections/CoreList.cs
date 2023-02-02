@@ -141,6 +141,11 @@ public class CoreList<T> : ICoreList<T>
     {
         InsertRange(Inner.Count, items);
     }
+    
+    public virtual void AddRange(T[] items)
+    {
+        InsertRange(Inner.Count, items.AsSpan());
+    }
 
     public virtual void Clear()
     {
