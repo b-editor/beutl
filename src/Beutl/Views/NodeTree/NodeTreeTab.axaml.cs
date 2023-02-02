@@ -1,10 +1,14 @@
 ﻿using Avalonia;
+using Avalonia.Collections;
 using Avalonia.Collections.Pooled;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
+using Avalonia.Controls.Templates;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Markup.Xaml.Templates;
 using Avalonia.Media;
 
 using Beutl.NodeTree;
@@ -22,7 +26,62 @@ public partial class NodeTreeTab : UserControl
     public NodeTreeTab()
     {
         InitializeComponent();
+        InitializeMenuItems();
         this.SubscribeDataContextChange<NodeTreeTabViewModel>(OnDataContextAttached, OnDataContextDetached);
+    }
+
+    private void InitializeMenuItems()
+    {
+        var menulist = new AvaloniaList<MenuItem>();
+        addNode.Items = menulist;
+
+        foreach (NodeRegistry.BaseRegistryItem item in NodeRegistry.GetRegistered())
+        {
+            var menuItem = new MenuItem
+            {
+                Header = item.DisplayName,
+                DataContext = item,
+            };
+            menuItem.Click += AddNodeClick;
+            menulist.Add(menuItem);
+
+            if (item is NodeRegistry.GroupableRegistryItem groupable)
+            {
+                Add(menuItem, groupable);
+            }
+        }
+    }
+
+    private void Add(MenuItem menuItem, NodeRegistry.GroupableRegistryItem list)
+    {
+        var alist = new AvaloniaList<MenuItem>();
+        menuItem.Items = alist;
+        foreach (NodeRegistry.BaseRegistryItem item in list.Items)
+        {
+            var menuItem2 = new MenuItem
+            {
+                Header = item.DisplayName,
+                DataContext = item,
+            };
+
+            if (item is NodeRegistry.GroupableRegistryItem inner)
+            {
+                Add(menuItem2, inner);
+            }
+            else
+            {
+                menuItem2.Click += AddNodeClick;
+            }
+            alist.Add(menuItem2);
+        }
+    }
+
+    private void AddNodeClick(object? sender, RoutedEventArgs e)
+    {
+        if(sender is MenuItem { DataContext: NodeRegistry.RegistryItem item })
+        {
+            AddNode((Node)Activator.CreateInstance(item.Type)!);
+        }
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -39,21 +98,10 @@ public partial class NodeTreeTab : UserControl
         }
     }
 
-    private void AddRectClick(object? sender, RoutedEventArgs e)
-    {
-        AddNode(() => new RectNode());
-    }
-
-    private void AddOutputClick(object? sender, RoutedEventArgs e)
-    {
-        AddNode(() => new LayerOutputNode());
-    }
-
-    private void AddNode(Func<Node> factory)
+    private void AddNode(Node node)
     {
         if (DataContext is NodeTreeTabViewModel { Layer.Value: { } layer } viewModel)
         {
-            Node node = factory();
             node.Position = (_rightClickedPosition.X, _rightClickedPosition.Y);
             layer.Space.Nodes.Add(node);
         }

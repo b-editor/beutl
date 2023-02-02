@@ -7,5 +7,6 @@ public static class NodesRegistrar
     public static void RegisterAll()
     {
         NodeRegistry.RegisterNode<RectNode>(Strings.Rectangle);
+        NodeRegistry.RegisterNode<LayerOutputNode>("Layer output");
     }
 }
