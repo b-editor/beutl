@@ -35,6 +35,17 @@ public sealed class ConnectionLine : Line
     public ISocket? First { get; set; }
 
     public ISocket? Second { get; set; }
+
+    public bool Match(ISocket? first, ISocket? second)
+    {
+        return (First == first && Second == second)
+            || (Second == first && First == second);
+    }
+
+    public bool Match(ISocket? socket)
+    {
+        return First == socket || Second == socket;
+    }
 }
 
 public sealed class SocketPoint : Control
