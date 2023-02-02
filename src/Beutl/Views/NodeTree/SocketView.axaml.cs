@@ -1,8 +1,8 @@
-﻿using Avalonia;
+﻿using System.Diagnostics.CodeAnalysis;
+
+using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
-using Avalonia.Media;
 using Avalonia.VisualTree;
 
 using Beutl.Controls.PropertyEditors;
@@ -151,9 +151,8 @@ public partial class SocketView : UserControl
             for (int i = _canvas.Children.Count - 1; i >= 0; i--)
             {
                 IControl item = _canvas.Children[i];
-                if (item is ConnectionLine { First: { } first, Second: { } second }
-                    && ((first == currentSocket && second == anotherSocket)
-                    || (first == anotherSocket && second == currentSocket)))
+                if (item is ConnectionLine line
+                    && line.Match(currentSocket, anotherSocket))
                 {
                     _canvas.Children.RemoveAt(i);
                 }
@@ -171,29 +170,9 @@ public partial class SocketView : UserControl
             if (anotherViewModel == null)
                 return;
 
-            bool exists = false;
-            foreach (IControl item in _canvas.Children)
+            if (!_canvas.Children.OfType<ConnectionLine>().Any(x => x.Match(currentSocket, anotherSocket)))
             {
-                if (item is ConnectionLine { First: { } first, Second: { } second }
-                    && ((first == currentSocket && second == anotherSocket)
-                    || (first == anotherSocket && second == currentSocket)))
-                {
-                    exists = true;
-                    break;
-                }
-            }
-
-            if (!exists)
-            {
-                _canvas.Children.Insert(0, new ConnectionLine
-                {
-                    [!Line.StartPointProperty] = viewModel.SocketPosition.ToBinding(),
-                    [!Line.EndPointProperty] = anotherViewModel.SocketPosition.ToBinding(),
-                    Stroke = Brushes.White,
-                    StrokeThickness = 3,
-                    First = currentSocket,
-                    Second = anotherSocket,
-                });
+                _canvas.Children.Insert(0, NodeTreeTab.CreateLine(viewModel, anotherViewModel));
             }
         }
     }
@@ -219,57 +198,54 @@ public partial class SocketView : UserControl
                 InitEditor(obj);
                 obj.Model.Connected += OnSocketConnected;
                 obj.Model.Disconnected += OnSocketDisconnected;
-                if (obj.Model is IOutputSocket outputSocket)
-                {
-                    foreach (IConnection item in outputSocket.Connections)
-                    {
-                        AddConnectionLine(item.Input);
-                    }
-                }
-                else if (obj.Model is IInputSocket { Connection.Output: { } output })
-                {
-                    AddConnectionLine(output);
-                }
-
                 UpdateSocketPosition();
                 break;
         }
     }
 
+    private static bool SortSocket(
+        ISocket first, ISocket second,
+        [NotNullWhen(true)] out IInputSocket? inputSocket,
+        [NotNullWhen(true)] out IOutputSocket? outputSocket)
+    {
+        if (first is IInputSocket input)
+        {
+            inputSocket = input;
+            outputSocket = second as IOutputSocket;
+        }
+        else
+        {
+            inputSocket = second as IInputSocket;
+            outputSocket = first as IOutputSocket;
+        }
+
+        return outputSocket != null && inputSocket != null;
+    }
+
     private void OnSocketPointDisconnectRequested(object? sender, SocketConnectRequestedEventArgs e)
     {
-        if (DataContext is SocketViewModel viewModel)
+        if (DataContext is SocketViewModel viewModel
+            && SortSocket(
+                viewModel.Model, e.Target,
+                out IInputSocket? inputSocket, out IOutputSocket? outputSocket))
         {
-            if (viewModel.Model is not IOutputSocket outputSocket)
-                outputSocket = (e.Target as IOutputSocket)!;
-            if (viewModel.Model is not IInputSocket inputSocket)
-                inputSocket = (e.Target as IInputSocket)!;
-
-            if (outputSocket != null && inputSocket != null)
-            {
-                // Todo: コマンド対応
-                outputSocket.Disconnect(inputSocket);
-                e.State = SocketState.Disconnected;
-            }
+            // Todo: コマンド対応
+            outputSocket.Disconnect(inputSocket);
+            e.State = SocketState.Disconnected;
         }
     }
 
     private void OnSocketPointConnectRequested(object? sender, SocketConnectRequestedEventArgs e)
     {
-        if (DataContext is SocketViewModel viewModel)
+        if (DataContext is SocketViewModel viewModel
+            && SortSocket(
+                viewModel.Model, e.Target,
+                out IInputSocket? inputSocket, out IOutputSocket? outputSocket))
         {
-            if (viewModel.Model is not IOutputSocket outputSocket)
-                outputSocket = (e.Target as IOutputSocket)!;
-            if (viewModel.Model is not IInputSocket inputSocket)
-                inputSocket = (e.Target as IInputSocket)!;
-
-            if (outputSocket != null && inputSocket != null)
-            {
-                // Todo: コマンド対応
-                e.State = outputSocket.TryConnect(inputSocket)
-                    ? SocketState.Connected
-                    : SocketState.Disconnected;
-            }
+            // Todo: コマンド対応
+            e.State = outputSocket.TryConnect(inputSocket)
+                ? SocketState.Connected
+                : SocketState.Disconnected;
         }
     }
 }
