@@ -41,8 +41,8 @@ public sealed class NodeTreeTabViewModel : IToolContext
                     (idx, _) =>
                     {
                         NodeViewModel viewModel = Nodes[idx];
-                        viewModel.Dispose();
                         Nodes.RemoveAt(idx);
+                        viewModel.Dispose();
                     },
                     () =>
                     {
@@ -84,6 +84,12 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
     public void Dispose()
     {
+        foreach (NodeViewModel item in Nodes)
+        {
+            item.Dispose();
+        }
+        Nodes.Clear();
+
         _disposables.Dispose();
         _innerDisposable?.Dispose();
         _innerDisposable = null;
