@@ -134,13 +134,17 @@ public sealed partial class Timeline : UserControl
             {
                 if (_selectedLayer != null)
                 {
-                    _selectedLayer.border.BorderThickness = new Thickness(0);
+                    foreach (TimelineLayerViewModel item in ViewModel.Layers.GetMarshal().Value)
+                    {
+                        item.IsSelected.Value = false;
+                    }
+
                     _selectedLayer = null;
                 }
 
-                if (e is Layer layer && FindLayerView(layer) is TimelineLayer newView)
+                if (e is Layer layer && FindLayerView(layer) is TimelineLayer { DataContext: TimelineLayerViewModel viewModel } newView)
                 {
-                    newView.border.BorderThickness = new Thickness(1);
+                    viewModel.IsSelected.Value = true;
                     _selectedLayer = newView;
                 }
             });
@@ -184,7 +188,7 @@ public sealed partial class Timeline : UserControl
         else if (e.KeyModifiers == KeyModifiers.Shift)
         {
             // オフセット(Y) をスクロール
-            offset.Y -= (float)(e.Delta.Y * 50);
+            offset.Y -= (float)(e.Delta.X * 50);
         }
         else
         {

@@ -522,4 +522,41 @@ public class Layer : Element, IStorable, ILogicalElement
 
         return (null, null, null);
     }
+
+    internal (Layer? Before, Layer? After, Layer? Cover) GetBeforeAndAfterAndCover(int zindex, TimeSpan start, Layer[] excludes)
+    {
+        if (Parent is Scene scene)
+        {
+            Layer? beforeTmp = null;
+            Layer? afterTmp = null;
+            Layer? coverTmp = null;
+            var range = new TimeRange(start, Length);
+
+            foreach (Layer? item in scene.Children.Except(excludes))
+            {
+                if (item != this && item.ZIndex == zindex)
+                {
+                    if (item.Start < start
+                        && (beforeTmp == null || beforeTmp.Start <= item.Start))
+                    {
+                        beforeTmp = item;
+                    }
+
+                    if (item.Range.End > range.End
+                        && (afterTmp == null || afterTmp.Range.End >= item.Range.End))
+                    {
+                        afterTmp = item;
+                    }
+
+                    if (range.Contains(item.Range))
+                    {
+                        coverTmp = item;
+                    }
+                }
+            }
+            return (beforeTmp, afterTmp, coverTmp);
+        }
+
+        return (null, null, null);
+    }
 }

@@ -227,6 +227,16 @@ public class Scene : Element, IStorable, IWorkspaceItem
         return new MoveCommand(layerNum, layer, start, layer.Start, length, layer.Length);
     }
 
+    public IRecordableCommand MoveChildren(int deltaIndex, TimeSpan deltaStart, Layer[] layers)
+    {
+        if (layers.Length < 2)
+        {
+            throw new ArgumentOutOfRangeException(nameof(layers));
+        }
+
+        return new MultipleMoveCommand(this, layers, deltaIndex, deltaStart);
+    }
+
     public override void ReadFromJson(JsonNode json)
     {
         static void Process(Func<string, Matcher> add, JsonNode node, List<string> list)
@@ -620,6 +630,121 @@ public class Scene : Element, IStorable, IWorkspaceItem
             _layer.ZIndex = _oldLayerNum;
             _layer.Start = _oldStart;
             _layer.Length = _oldLength;
+        }
+    }
+
+    private sealed class MultipleMoveCommand : IRecordableCommand
+    {
+        private readonly Layer[] _layers;
+        private readonly int _deltaLayer;
+        private readonly TimeSpan _deltaTime;
+        private readonly bool _conflict;
+
+        public MultipleMoveCommand(
+            Scene scene,
+            Layer[] layers,
+            int deltaLayer,
+            TimeSpan deltaTime)
+        {
+            _layers = layers;
+            _deltaLayer = deltaLayer;
+            _deltaTime = deltaTime;
+
+            foreach (Layer item in layers)
+            {
+                _conflict = HasConflict(scene, _deltaLayer, _deltaTime);
+                if (!_conflict)
+                {
+                    break;
+                }
+                else
+                {
+                    TimeSpan? newDeltaStart = DeltaStart(item);
+                    if (newDeltaStart.HasValue)
+                    {
+                        _deltaTime = newDeltaStart.Value;
+                    }
+                }
+            }
+
+            _conflict = HasConflict(scene, _deltaLayer, _deltaTime);
+        }
+
+        private bool HasConflict(Scene scene, int deltaLayer, TimeSpan deltaTime)
+        {
+            Layer[] others = scene.Children.Except(_layers).ToArray();
+            foreach (Layer item in _layers)
+            {
+                TimeRange newRange = item.Range.AddStart(deltaTime);
+                int newLayer = item.ZIndex + deltaLayer;
+                if (newLayer < 0)
+                    return true;
+
+                foreach (Layer other in others)
+                {
+                    if (other.ZIndex == newLayer && other.Range.Intersects(newRange))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private TimeSpan? DeltaStart(Layer layer)
+        {
+            TimeSpan newStart = layer.Start + _deltaTime;
+            TimeSpan newEnd = newStart + layer.Length;
+            int newIndex = layer.ZIndex + _deltaLayer;
+            (Layer? before, Layer? after, Layer? _) = layer.GetBeforeAndAfterAndCover(newIndex, newStart, _layers);
+
+            if (before != null && before.Range.End >= newStart)
+            {
+                if ((after != null && (after.Start - before.Range.End) >= layer.Length) || after == null)
+                {
+                    return before.Range.End - layer.Start;
+                }
+            }
+            else if (after != null && after.Start < newEnd)
+            {
+                TimeSpan ns = after.Start - layer.Length;
+                if (((before != null && (after.Start - before.Range.End) >= layer.Length) || before == null) && ns >= TimeSpan.Zero)
+                {
+                    return ns - layer.Start;
+                }
+            }
+
+            return null;
+        }
+
+        public void Do()
+        {
+            if (!_conflict)
+            {
+                foreach (Layer item in _layers)
+                {
+                    item.Start += _deltaTime;
+                    item.ZIndex += _deltaLayer;
+                }
+            }
+        }
+
+        public void Redo()
+        {
+            Do();
+        }
+
+        public void Undo()
+        {
+            if (!_conflict)
+            {
+                foreach (Layer item in _layers)
+                {
+                    item.Start -= _deltaTime;
+                    item.ZIndex -= _deltaLayer;
+                }
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
+using Avalonia.Collections.Pooled;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -12,6 +13,8 @@ using Avalonia.Xaml.Interactivity;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 
+using NuGet.Frameworks;
+
 using static Beutl.Views.Timeline;
 
 using Setter = Avalonia.Styling.Setter;
@@ -20,29 +23,6 @@ namespace Beutl.Views;
 
 public sealed partial class TimelineLayer : UserControl
 {
-    private static readonly Avalonia.Animation.Animation s_animation1 = new()
-    {
-        Duration = TimeSpan.FromSeconds(0.083),
-        Children =
-        {
-            new KeyFrame
-            {
-                Cue = new Cue(0),
-                Setters =
-                {
-                    new Setter(OpacityProperty, 1d),
-                }
-            },
-            new KeyFrame
-            {
-                Cue = new Cue(1),
-                Setters =
-                {
-                    new Setter(OpacityProperty, 0.8),
-                }
-            }
-        }
-    };
     private Timeline? _timeline;
     private TimeSpan _pointerPosition;
     private IDisposable? _disposable1;
@@ -51,21 +31,7 @@ public sealed partial class TimelineLayer : UserControl
     {
         InitializeComponent();
 
-        BehaviorCollection behaviors = Interaction.GetBehaviors(this);
-        behaviors.Add(new _ResizeBehavior());
-        behaviors.Add(new _MoveBehavior());
-
-        AddHandler(PointerPressedEvent, Layer_PointerPressed, RoutingStrategies.Tunnel);
-        AddHandler(PointerReleasedEvent, Layer_PointerReleased, RoutingStrategies.Tunnel);
-        AddHandler(PointerMovedEvent, Layer_PointerMoved, RoutingStrategies.Tunnel);
-
-        textBox.LostFocus += TextBox_LostFocus;
-    }
-
-    private void TextBox_LostFocus(object? sender, RoutedEventArgs e)
-    {
-        textBlock.IsVisible = true;
-        textBox.IsVisible = false;
+        textBox.LostFocus += OnTextBoxLostFocus;
     }
 
     public Func<TimeSpan> GetClickedTime => () => _pointerPosition;
@@ -76,6 +42,19 @@ public sealed partial class TimelineLayer : UserControl
     {
         base.OnAttachedToLogicalTree(e);
         _timeline = this.FindLogicalAncestorOfType<Timeline>();
+
+        BehaviorCollection behaviors = Interaction.GetBehaviors(this);
+        behaviors.Clear();
+        behaviors.Add(new _SelectBehavior());
+        behaviors.Add(new _ResizeBehavior());
+        behaviors.Add(new _MoveBehavior());
+    }
+
+    protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromLogicalTree(e);
+        BehaviorCollection behaviors = Interaction.GetBehaviors(this);
+        behaviors.Clear();
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -100,7 +79,8 @@ public sealed partial class TimelineLayer : UserControl
                                 Cue = new Cue(0),
                                 Setters =
                                 {
-                                    new Setter(MarginProperty, border.Margin)
+                                    new Setter(MarginProperty, border.Margin),
+                                    new Setter(WidthProperty, border.Width),
                                 }
                             },
                             new KeyFrame()
@@ -108,7 +88,8 @@ public sealed partial class TimelineLayer : UserControl
                                 Cue = new Cue(1),
                                 Setters =
                                 {
-                                    new Setter(MarginProperty, args.BorderMargin)
+                                    new Setter(MarginProperty, args.BorderMargin),
+                                    new Setter(WidthProperty, args.Width)
                                 }
                             }
                         }
@@ -149,67 +130,18 @@ public sealed partial class TimelineLayer : UserControl
         }
     }
 
-    private void Layer_PointerPressed(object? sender, PointerPressedEventArgs e)
+    protected override void OnPointerMoved(PointerEventArgs e)
     {
-        ZIndex = 5;
-        if (!textBox.IsFocused)
-        {
-            Focus();
-        }
-    }
-
-    private async void Layer_PointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        // View (ViewModel)の位置情報をModelと同期する
-        await ViewModel.SyncModelToViewModel();
-        ZIndex = 0;
-    }
-
-    private void Layer_PointerMoved(object? sender, PointerEventArgs e)
-    {
+        base.OnPointerMoved(e);
         Point point = e.GetPosition(this);
         float scale = ViewModel.Timeline.Options.Value.Scale;
         _pointerPosition = point.X.ToTimeSpan(scale);
     }
 
-    private async void Border_PointerPressed(object? sender, PointerPressedEventArgs e)
+    private void OnTextBoxLostFocus(object? sender, RoutedEventArgs e)
     {
-        if (_timeline == null) return;
-
-        PointerPoint point = e.GetCurrentPoint(border);
-        if (point.Properties.IsLeftButtonPressed)
-        {
-            if (e.ClickCount == 2)
-            {
-                textBlock.IsVisible = false;
-                textBox.IsVisible = true;
-                textBox.SelectAll();
-            }
-            else
-            {
-                s_animation1.PlaybackDirection = PlaybackDirection.Normal;
-                Task task1 = s_animation1.RunAsync(border, null);
-
-                EditViewModel editorContext = _timeline.ViewModel.EditorContext;
-                editorContext.SelectedObject.Value = ViewModel.Model;
-
-                await task1;
-                border.Opacity = 0.8;
-            }
-        }
-    }
-
-    private async void Border_PointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        if (_timeline == null) return;
-
-        s_animation1.PlaybackDirection = PlaybackDirection.Reverse;
-        Task task1 = s_animation1.RunAsync(border, null);
-
-        EditViewModel editorContext = _timeline.ViewModel.EditorContext;
-        editorContext.SelectedObject.Value = ViewModel.Model;
-        await task1;
-        border.Opacity = 1;
+        textBlock.IsVisible = true;
+        textBox.IsVisible = false;
     }
 
     private TimeSpan RoundStartTime(TimeSpan time, float scale, bool flag)
@@ -284,7 +216,7 @@ public sealed partial class TimelineLayer : UserControl
 
                 if (layer._timeline is { } timeline && _pressed)
                 {
-                    pointerFrame = layer.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Control));
+                    pointerFrame = layer.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
                     point = point.WithX(pointerFrame.ToPixel(scale));
 
                     if (layer.Cursor != Cursors.Arrow && layer.Cursor is { })
@@ -317,49 +249,64 @@ public sealed partial class TimelineLayer : UserControl
             if (AssociatedObject is { _timeline: { }, border: { } border, ViewModel: { } viewModel } layer)
             {
                 PointerPoint point = e.GetCurrentPoint(layer.border);
-                if (point.Properties.IsLeftButtonPressed)
+                if (point.Properties.IsLeftButtonPressed && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt
+                    && layer.Cursor != Cursors.Arrow && layer.Cursor is { })
                 {
                     _before = viewModel.Model.GetBefore(viewModel.Model.ZIndex, viewModel.Model.Start);
                     _after = viewModel.Model.GetAfter(viewModel.Model.ZIndex, viewModel.Model.Range.End);
                     _pressed = true;
 
-                    if (layer.Cursor != Cursors.Arrow && layer.Cursor is { })
-                    {
-                        e.Handled = true;
-                    }
+                    e.Handled = true;
                 }
             }
         }
 
-        private void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
+        private async void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
-            _before = null;
-            _after = null;
-            _pressed = false;
+            if (_pressed)
+            {
+                _before = null;
+                _after = null;
+                _pressed = false;
+
+                if (AssociatedObject is { ViewModel: { } viewModel })
+                {
+                    await viewModel.SyncModelToViewModel();
+                    e.Handled = true;
+                }
+            }
         }
 
         private void OnBorderPointerMoved(object? sender, PointerEventArgs e)
         {
-            if (!_pressed && AssociatedObject is { border: { } border } layer)
+            if (AssociatedObject is { border: { } border } layer)
             {
-                Point point = e.GetPosition(border);
-                double horizon = point.X;
-
-                // 左右 10px内 なら左右矢印
-                if (horizon < 10)
-                {
-                    layer.Cursor = Cursors.SizeWestEast;
-                    _resizeType = AlignmentX.Left;
-                }
-                else if (horizon > border.Bounds.Width - 10)
-                {
-                    layer.Cursor = Cursors.SizeWestEast;
-                    _resizeType = AlignmentX.Right;
-                }
-                else
+                if (e.KeyModifiers is not (KeyModifiers.None or KeyModifiers.Alt))
                 {
                     layer.Cursor = null;
                     _resizeType = AlignmentX.Center;
+                }
+                else if (!_pressed)
+                {
+                    Point point = e.GetPosition(border);
+                    double horizon = point.X;
+
+                    // 左右 10px内 なら左右矢印
+                    if (horizon < 10)
+                    {
+                        layer.Cursor = Cursors.SizeWestEast;
+                        _resizeType = AlignmentX.Left;
+                    }
+                    else if (horizon > border.Bounds.Width - 10)
+                    {
+                        layer.Cursor = Cursors.SizeWestEast;
+                        _resizeType = AlignmentX.Right;
+                    }
+                    else
+                    {
+                        layer.Cursor = null;
+                        _resizeType = AlignmentX.Center;
+                    }
                 }
             }
         }
@@ -394,33 +341,35 @@ public sealed partial class TimelineLayer : UserControl
 
         private void OnPointerMoved(object? sender, PointerEventArgs e)
         {
-            if (AssociatedObject is { ViewModel: { } viewModel } layer)
+            if (AssociatedObject is { ViewModel: { } viewModel } layer
+                && layer._timeline is { } timeline && _pressed)
             {
                 Scene scene = viewModel.Scene;
                 Point point = e.GetPosition(layer);
                 float scale = viewModel.Timeline.Options.Value.Scale;
                 TimeSpan pointerFrame = point.X.ToTimeSpan(scale);
 
-                if (layer._timeline is { } timeline && _pressed)
+                pointerFrame = layer.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
+
+                TimeSpan newframe = pointerFrame - _start.X.ToTimeSpan(scale);
+
+                newframe = TimeSpan.FromTicks(Math.Clamp(newframe.Ticks, TimeSpan.Zero.Ticks, scene.Duration.Ticks));
+
+                var newTop = Math.Max(e.GetPosition(timeline.TimelinePanel).Y - _start.Y, 0);
+                var newLeft = newframe.ToPixel(scale);
+                var deltaTop = newTop - viewModel.Margin.Value.Top;
+                var deltaLeft = newLeft - viewModel.BorderMargin.Value.Left;
+
+                viewModel.Margin.Value = new(0, newTop, 0, 0);
+                viewModel.BorderMargin.Value = new Thickness(newLeft, 0, 0, 0);
+
+                foreach (TimelineLayerViewModel item in viewModel.Timeline.GetSelected(viewModel))
                 {
-                    pointerFrame = layer.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Control));
-
-                    if (layer.Cursor == Cursors.Arrow || layer.Cursor == null)
-                    {
-                        TimeSpan newframe = pointerFrame - _start.X.ToTimeSpan(scale);
-
-                        newframe = TimeSpan.FromTicks(Math.Clamp(newframe.Ticks, TimeSpan.Zero.Ticks, scene.Duration.Ticks));
-
-                        viewModel.Margin.Value = new Thickness(
-                            0,
-                            Math.Max(e.GetPosition(timeline.TimelinePanel).Y - _start.Y, 0),
-                            0,
-                            0);
-                        viewModel.BorderMargin.Value = new Thickness(newframe.ToPixel(scale), 0, 0, 0);
-
-                        e.Handled = true;
-                    }
+                    item.Margin.Value = new(0, item.Margin.Value.Top + deltaTop, 0, 0);
+                    item.BorderMargin.Value = new(item.BorderMargin.Value.Left + deltaLeft, 0, 0, 0);
                 }
+
+                e.Handled = true;
             }
         }
 
@@ -429,19 +378,187 @@ public sealed partial class TimelineLayer : UserControl
             if (AssociatedObject is { _timeline: { }, border: { } border } layer)
             {
                 PointerPoint point = e.GetCurrentPoint(layer.border);
-                if (point.Properties.IsLeftButtonPressed)
+                if (point.Properties.IsLeftButtonPressed
+                    && (layer.Cursor == Cursors.Arrow || layer.Cursor == null))
                 {
                     _pressed = true;
                     _start = point.Position;
-
                     e.Handled = true;
                 }
             }
         }
 
-        private void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
+        private async void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
-            _pressed = false;
+            if (_pressed)
+            {
+                _pressed = false;
+
+                if (AssociatedObject is { ViewModel: { } viewModel })
+                {
+                    e.Handled = true;
+                    var layers = new List<Layer>() { viewModel.Model };
+                    layers.AddRange(viewModel.Timeline.GetSelected(viewModel).Select(x => x.Model));
+
+                    if (layers.Count == 1)
+                    {
+                        await viewModel.SyncModelToViewModel();
+                    }
+                    else
+                    {
+                        float scale = viewModel.Timeline.Options.Value.Scale;
+                        int rate = viewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
+                        TimeSpan newStart = viewModel.BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate);
+                        int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
+                        TimeSpan deltaStart = newStart - viewModel.Model.Start;
+                        int deltaIndex = newIndex - viewModel.Model.ZIndex;
+
+                        var animations = viewModel.Timeline.GetSelected(viewModel).Append(viewModel)
+                            .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
+                            .ToArray();
+
+                        viewModel.Scene.MoveChildren(deltaIndex, deltaStart, layers.ToArray())
+                            .DoAndRecord(CommandRecorder.Default);
+
+                        foreach (var (item, context) in animations)
+                        {
+                            _ = item.AnimationRequest(context);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private sealed class _SelectBehavior : Behavior<TimelineLayer>
+    {
+        private static readonly Avalonia.Animation.Animation s_animation1 = new()
+        {
+            Duration = TimeSpan.FromSeconds(0.083),
+            Children =
+            {
+                new KeyFrame
+                {
+                    Cue = new Cue(0),
+                    Setters =
+                    {
+                        new Setter(OpacityProperty, 1d),
+                    }
+                },
+                new KeyFrame
+                {
+                    Cue = new Cue(1),
+                    Setters =
+                    {
+                        new Setter(OpacityProperty, 0.8),
+                    }
+                }
+            }
+        };
+
+        protected override void OnAttached()
+        {
+            base.OnAttached();
+            if (AssociatedObject != null)
+            {
+                AssociatedObject.AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
+                AssociatedObject.AddHandler(PointerReleasedEvent, OnPointerReleased, RoutingStrategies.Tunnel);
+                AssociatedObject.border.AddHandler(PointerPressedEvent, OnBorderPointerPressed);
+                AssociatedObject.border.AddHandler(PointerReleasedEvent, OnBorderPointerReleased);
+            }
+        }
+
+        protected override void OnDetaching()
+        {
+            base.OnDetaching();
+            if (AssociatedObject != null)
+            {
+                AssociatedObject.AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
+                AssociatedObject.AddHandler(PointerReleasedEvent, OnPointerReleased, RoutingStrategies.Tunnel);
+                AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
+                AssociatedObject.border.RemoveHandler(PointerReleasedEvent, OnBorderPointerReleased);
+            }
+        }
+
+        private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (AssociatedObject is { } obj)
+            {
+                obj.ZIndex = 5;
+                if (!obj.textBox.IsFocused)
+                {
+                    obj.Focus();
+                }
+            }
+        }
+
+        private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (AssociatedObject is { } obj)
+            {
+                obj.ZIndex = 0;
+            }
+        }
+
+        private bool _pressedWithModifier;
+        private async void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (AssociatedObject is { _timeline: { } } obj)
+            {
+                PointerPoint point = e.GetCurrentPoint(obj.border);
+                if (point.Properties.IsLeftButtonPressed)
+                {
+                    if (e.ClickCount == 2)
+                    {
+                        obj.textBlock.IsVisible = false;
+                        obj.textBox.IsVisible = true;
+                        obj.textBox.SelectAll();
+                    }
+                    else
+                    {
+                        s_animation1.PlaybackDirection = PlaybackDirection.Normal;
+                        Task task1 = s_animation1.RunAsync(obj.border, null);
+
+                        if (e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt)
+                        {
+                            if (obj.ViewModel.IsSelected.Value
+                                && obj.ViewModel.Timeline.AnySelected(obj.ViewModel))
+                            {
+                                // 自分と自分以外が選択されている
+                            }
+                            else
+                            {
+                                EditViewModel editorContext = obj._timeline.ViewModel.EditorContext;
+                                editorContext.SelectedObject.Value = obj.ViewModel.Model;
+                                obj.ViewModel.IsSelected.Value = true;
+                            }
+                        }
+                        else
+                        {
+                            _pressedWithModifier = true;
+                        }
+
+                        await task1;
+                        obj.border.Opacity = 0.8;
+                    }
+                }
+            }
+        }
+
+        private async void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (AssociatedObject is { _timeline: { } } obj)
+            {
+                if (_pressedWithModifier)
+                {
+                    obj.ViewModel.IsSelected.Value = !obj.ViewModel.IsSelected.Value;
+                    _pressedWithModifier = false;
+                }
+
+                s_animation1.PlaybackDirection = PlaybackDirection.Reverse;
+                await s_animation1.RunAsync(obj.border, null);
+                obj.border.Opacity = 1;
+            }
         }
     }
 }

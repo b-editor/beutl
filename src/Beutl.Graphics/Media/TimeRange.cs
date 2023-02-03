@@ -104,6 +104,16 @@ public readonly struct TimeRange : IEquatable<TimeRange>
         return new TimeRange(Start, duration);
     }
 
+    public TimeRange AddStart(TimeSpan ts)
+    {
+        return new TimeRange(Start + ts, Duration);
+    }
+    
+    public TimeRange SubtractStart(TimeSpan ts)
+    {
+        return new TimeRange(Start - ts, Duration);
+    }
+
     public override bool Equals(object? obj) => obj is TimeRange range && Equals(range);
 
     public bool Equals(TimeRange other) => Start.Equals(other.Start) && Duration.Equals(other.Duration);

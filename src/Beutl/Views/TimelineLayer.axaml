@@ -32,8 +32,13 @@
             HorizontalAlignment="Left"
             Background="{CompiledBinding Color.Value, Converter={StaticResource ColorToBrushConverter}}"
             BorderBrush="{DynamicResource TextControlForeground}"
-            PointerPressed="Border_PointerPressed"
-            PointerReleased="Border_PointerReleased">
+            Classes.selected="{CompiledBinding IsSelected.Value}">
+        <Border.Styles>
+            <Style Selector="Border.selected">
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="-1" />
+            </Style>
+        </Border.Styles>
         <Border.ContextFlyout>
             <ui:FAMenuFlyout>
                 <ui:MenuFlyoutItem Command="{CompiledBinding Split}"
