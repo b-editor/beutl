@@ -188,6 +188,7 @@ public abstract class Node : Element, INode
     private void OnItemDetached(INodeItem obj)
     {
         obj.NodeTreeInvalidated -= OnItemNodeTreeInvalidated;
+        obj.Invalidated -= OnItemInvalidated;
         if (_nodeTree != null)
         {
             obj.NotifyDetachedFromNodeTree(_nodeTree);
@@ -197,10 +198,16 @@ public abstract class Node : Element, INode
     private void OnItemAttached(INodeItem obj)
     {
         obj.NodeTreeInvalidated += OnItemNodeTreeInvalidated;
+        obj.Invalidated += OnItemInvalidated;
         if (_nodeTree != null)
         {
             obj.NotifyAttachedToNodeTree(_nodeTree);
         }
+    }
+
+    private void OnItemInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    {
+        RaiseInvalidated(e);
     }
 
     public ICoreList<INodeItem> Items => _items;
@@ -462,6 +469,12 @@ public abstract class Node : Element, INode
         public void SetProperty(SetterPropertyImpl<T> property)
         {
             Property = property;
+            property.Setter.Invalidated += OnSetterInvalidated;
+        }
+
+        private void OnSetterInvalidated(object? sender, EventArgs e)
+        {
+            RaiseInvalidated(new RenderInvalidatedEventArgs(this));
         }
 
         public SetterPropertyImpl<T>? GetProperty()

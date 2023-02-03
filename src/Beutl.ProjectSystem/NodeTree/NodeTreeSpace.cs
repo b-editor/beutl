@@ -5,17 +5,20 @@ using Avalonia.Collections.Pooled;
 
 using Beutl.Animation;
 using Beutl.Collections;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;
 
 namespace Beutl.NodeTree;
 
-public class NodeTreeSpace : Element
+public class NodeTreeSpace : Element, IAffectsRender
 {
     private readonly LogicalList<Node> _nodes;
     // 評価する順番
     private readonly List<Node[]> _evaluationList = new();
     private bool _isDirty = true;
+
+    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
     public NodeTreeSpace()
     {
@@ -27,12 +30,19 @@ public class NodeTreeSpace : Element
     private void OnNodeTreeInvalidated(object? sender, EventArgs e)
     {
         _isDirty = true;
+        Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(this));
+    }
+
+    private void OnNodeInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    {
+        Invalidated?.Invoke(this, e);
     }
 
     private void OnNodeAttached(Node obj)
     {
         _isDirty = true;
         obj.NodeTreeInvalidated += OnNodeTreeInvalidated;
+        obj.Invalidated += OnNodeInvalidated;
         Build();
     }
 
@@ -40,6 +50,7 @@ public class NodeTreeSpace : Element
     {
         _isDirty = true;
         obj.NodeTreeInvalidated -= OnNodeTreeInvalidated;
+        obj.Invalidated -= OnNodeInvalidated;
         Build();
     }
 

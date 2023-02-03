@@ -140,6 +140,13 @@ public class Layer : Element, IStorable, ILogicalElement
                 layer.ForceRender();
             }
         });
+        UseNodeProperty.Changed.Subscribe(args =>
+        {
+            if (args.Sender is Layer layer)
+            {
+                layer.ForceRender();
+            }
+        });
 
         StartProperty.Changed.Subscribe(e =>
         {
@@ -168,6 +175,7 @@ public class Layer : Element, IStorable, ILogicalElement
         (Span as ILogicalElement).NotifyAttachedToLogicalTree(new(this));
 
         Space = new NodeTreeSpace();
+        Space.Invalidated += (_, _) => ForceRender();
     }
 
     private void OnOperatorsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

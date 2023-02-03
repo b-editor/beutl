@@ -21,7 +21,6 @@
         <Border x:Name="handle"
                 Padding="4"
                 Background="Transparent">
-
             <Grid ColumnDefinitions="Auto,*">
                 <ToggleButton x:Name="expandToggle"
                               Width="30"
