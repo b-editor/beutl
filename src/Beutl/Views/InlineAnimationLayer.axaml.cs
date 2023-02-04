@@ -55,7 +55,7 @@ public partial class InlineAnimationLayer : UserControl
                 var animation = new Avalonia.Animation.Animation
                 {
                     Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
-                    Duration = TimeSpan.FromSeconds(0.67),
+                    Duration = TimeSpan.FromSeconds(0.25),
                     FillMode = FillMode.Forward,
                     Children =
                     {
