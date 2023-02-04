@@ -21,6 +21,13 @@ using Setter = Avalonia.Styling.Setter;
 
 namespace Beutl.Views;
 
+/*
+ * 移動アニメーション中にUndoを行うと、
+ * 表示される位置がUndo前になる。
+ * 解決するには、オブジェクトがUndo/Redoしたかを追跡するAPIを追加して、
+ * Undo/Redoがされた場合アニメーションをキャンセルする必要がある。
+ */
+
 public sealed partial class TimelineLayer : UserControl
 {
     private Timeline? _timeline;
@@ -70,7 +77,7 @@ public sealed partial class TimelineLayer : UserControl
                     var animation1 = new Avalonia.Animation.Animation
                     {
                         Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
-                        Duration = TimeSpan.FromSeconds(0.67),
+                        Duration = TimeSpan.FromSeconds(0.25),
                         FillMode = FillMode.Forward,
                         Children =
                         {
@@ -97,7 +104,7 @@ public sealed partial class TimelineLayer : UserControl
                     var animation2 = new Avalonia.Animation.Animation
                     {
                         Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
-                        Duration = TimeSpan.FromSeconds(0.67),
+                        Duration = TimeSpan.FromSeconds(0.25),
                         FillMode = FillMode.Forward,
                         Children =
                         {
