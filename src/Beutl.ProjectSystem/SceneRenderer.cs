@@ -15,6 +15,7 @@ internal sealed class SceneRenderer :
     private readonly List<Layer> _end = new();
     private readonly List<Layer> _layers = new();
     private readonly List<Renderable> _unhandleds = new();
+    private readonly List<Renderable> _sharedList = new();
     private TimeSpan _recentTime = TimeSpan.MinValue;
 
     public SceneRenderer(Scene scene, int width, int height)
@@ -49,7 +50,7 @@ internal sealed class SceneRenderer :
 
         foreach (Layer layer in layers)
         {
-            InvokeSourceOperators(layer);
+            EvaluateLayer(layer);
         }
 
         base.RenderGraphicsCore();
@@ -72,43 +73,88 @@ internal sealed class SceneRenderer :
         }
     }
 
-    private void InvokeSourceOperators(Layer layer)
+    private void EvaluateLayer(Layer layer)
     {
-        List<Renderable> unhandleds = _unhandleds;
-        foreach (SourceOperator? item in layer.Operators.GetMarshal().Value)
+        void Detach(IList<Renderable> renderables)
         {
-            if (item is ISourceTransformer selector)
+            foreach (Renderable item in renderables)
             {
-                selector.Transform(unhandleds, Clock);
-            }
-            else if (item is ISourcePublisher source)
-            {
-                if (source.Publish(Clock) is Renderable renderable)
+                if ((item as ILogicalElement).LogicalParent is RenderLayerSpan span
+                    && layer.Span != span)
                 {
-                    unhandleds.Add(renderable);
-                    // Todo: Publish内でBeginBatchUpdateするようにする
-                    renderable.BeginBatchUpdate();
+                    span.Value.Remove(item);
                 }
             }
-            else if (item is ISourceFilter { IsEnabled: true } filter)
+        }
+
+        void DefaultHandler(IList<Renderable> renderables)
+        {
+            RenderLayerSpan span = layer.Span;
+            Detach(renderables);
+
+            span.Value.Replace(renderables);
+
+            foreach (Renderable item in span.Value.GetMarshal().Value)
             {
-                if (filter.Scope == SourceFilterScope.Local)
+                item.ApplyStyling(Clock);
+                item.ApplyAnimations(Clock);
+                item.IsVisible = layer.IsEnabled;
+                while (!item.EndBatchUpdate())
                 {
-                    unhandleds = filter.Filter(unhandleds, Clock);
-                }
-                else
-                {
-                    unhandleds = filter.Filter(unhandleds, Clock);
-                    _unhandleds.Clear();
-                    _unhandleds.AddRange(unhandleds);
                 }
             }
 
-            if (item is ISourceHandler handler)
+            renderables.Clear();
+        }
+
+        void EvaluateSourceOperators(List<Renderable> unhandleds)
+        {
+            foreach (SourceOperator? item in layer.Operators.GetMarshal().Value)
             {
-                handler.Handle(unhandleds, Clock);
-                // 差分を取ってEndBatchUpdateする
+                if (item is ISourceTransformer selector)
+                {
+                    selector.Transform(unhandleds, Clock);
+                }
+                else if (item is ISourcePublisher source)
+                {
+                    if (source.Publish(Clock) is Renderable renderable)
+                    {
+                        unhandleds.Add(renderable);
+                        // Todo: Publish内でBeginBatchUpdateするようにする
+                        renderable.BeginBatchUpdate();
+                    }
+                }
+                else if (item is ISourceFilter { IsEnabled: true } filter)
+                {
+                    if (filter.Scope == SourceFilterScope.Local)
+                    {
+                        unhandleds = filter.Filter(unhandleds, Clock);
+                    }
+                    else
+                    {
+                        unhandleds = filter.Filter(unhandleds, Clock);
+                        _unhandleds.Clear();
+                        _unhandleds.AddRange(unhandleds);
+                    }
+                }
+
+                if (item is ISourceHandler handler)
+                {
+                    handler.Handle(unhandleds, Clock);
+                    // 差分を取ってEndBatchUpdateする
+                }
             }
+        }
+
+        if (layer.AllowOutflow)
+        {
+            EvaluateSourceOperators(_unhandleds);
+        }
+        else
+        {
+            EvaluateSourceOperators(_sharedList);
+
+            DefaultHandler(_sharedList);
         }
 
         //span.Value = result;

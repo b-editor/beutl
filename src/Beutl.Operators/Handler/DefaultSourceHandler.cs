@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Beutl.Animation;
-
+﻿using Beutl.Animation;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;
@@ -16,11 +9,24 @@ public sealed class DefaultSourceHandler : SourceOperator, ISourceHandler
 {
     private Layer? _layer;
 
+    private static void Detach(Layer layer, IList<Renderable> renderables)
+    {
+        foreach (Renderable item in renderables)
+        {
+            if ((item as ILogicalElement).LogicalParent is RenderLayerSpan span
+                && layer.Span != span)
+            {
+                span.Value.Remove(item);
+            }
+        }
+    }
+
     public void Handle(IList<Renderable> renderables, IClock clock)
     {
         if (_layer != null)
         {
             RenderLayerSpan span = _layer.Span;
+            Detach(_layer, renderables);
 
             span.Value.Replace(renderables);
 

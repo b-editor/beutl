@@ -1,19 +1,14 @@
-﻿using System.Reactive;
+﻿using System.Collections.Specialized;
+using System.Diagnostics;
+using System.Reactive;
 using System.Reactive.Linq;
-using System.Text.Json;
+using System.Text;
 using System.Text.Json.Nodes;
 
-using Beutl.Audio;
-using Beutl.Collections;
-using Beutl.Commands;
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.Rendering;
 using Beutl.Operation;
-using Beutl.Graphics;
-using System.Collections.Specialized;
-using System.Text;
-using System.Diagnostics;
+using Beutl.Rendering;
 
 namespace Beutl.ProjectSystem;
 
@@ -24,6 +19,7 @@ public class Layer : Element, IStorable, ILogicalElement
     public static readonly CoreProperty<int> ZIndexProperty;
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
+    public static readonly CoreProperty<bool> AllowOutflowProperty;
     public static readonly CoreProperty<RenderLayerSpan> SpanProperty;
     public static readonly CoreProperty<SourceOperators> OperatorsProperty;
     private TimeSpan _start;
@@ -31,6 +27,7 @@ public class Layer : Element, IStorable, ILogicalElement
     private int _zIndex;
     private string? _fileName;
     private bool _isEnabled = true;
+    private bool _allowOutflow = false;
     private EventHandler? _saved;
     private EventHandler? _restored;
     private IDisposable? _disposable;
@@ -68,6 +65,13 @@ public class Layer : Element, IStorable, ILogicalElement
             .DefaultValue(true)
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("isEnabled")
+            .Register();
+
+        AllowOutflowProperty = ConfigureProperty<bool, Layer>(nameof(AllowOutflow))
+            .Accessor(o => o.AllowOutflow, (o, v) => o.AllowOutflow = v)
+            .DefaultValue(false)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
+            .SerializeName("allowOutflow")
             .Register();
 
         SpanProperty = ConfigureProperty<RenderLayerSpan, Layer>(nameof(Span))
@@ -108,6 +112,13 @@ public class Layer : Element, IStorable, ILogicalElement
         //});
 
         IsEnabledProperty.Changed.Subscribe(args =>
+        {
+            if (args.Sender is Layer layer)
+            {
+                layer.ForceRender();
+            }
+        });
+        AllowOutflowProperty.Changed.Subscribe(args =>
         {
             if (args.Sender is Layer layer)
             {
@@ -209,6 +220,12 @@ public class Layer : Element, IStorable, ILogicalElement
     {
         get => _isEnabled;
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
+    }
+
+    public bool AllowOutflow
+    {
+        get => _allowOutflow;
+        set => SetAndRaise(AllowOutflowProperty, ref _allowOutflow, value);
     }
 
     public RenderLayerSpan Span { get; } = new();

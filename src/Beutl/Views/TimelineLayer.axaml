@@ -39,6 +39,10 @@
                 <Setter Property="Padding" Value="-1" />
             </Style>
         </Border.Styles>
+        <Border.Resources>
+            <Thickness x:Key="MenuFlyoutItemPlaceholderThemeThickness">0,0,0,0</Thickness>
+            <Thickness x:Key="MenuFlyoutItemDoublePlaceholderThemeThickness">28,0,0,0</Thickness>
+        </Border.Resources>
         <Border.ContextFlyout>
             <ui:FAMenuFlyout>
                 <ui:MenuFlyoutItem Command="{CompiledBinding Split}"
@@ -76,6 +80,15 @@
                         <icons:SymbolIcon Symbol="Delete" />
                     </ui:MenuFlyoutItem.Icon>
                 </ui:MenuFlyoutItem>
+                <ui:ToggleMenuFlyoutItem Click="AllowOutflowClick"
+                                         IsChecked="{Binding Model.AllowOutflow, Mode=OneWay}"
+                                         Text="流入出を許可">
+                    <ui:ToggleMenuFlyoutItem.Styles>
+                        <Style Selector="ui|ToggleMenuFlyoutItem /template/ Viewbox#IconRoot">
+                            <Setter Property="Width" Value="0" />
+                        </Style>
+                    </ui:ToggleMenuFlyoutItem.Styles>
+                </ui:ToggleMenuFlyoutItem>
                 <ui:MenuFlyoutSeparator />
                 <ui:MenuFlyoutSubItem Text="{x:Static lang:Strings.Animation}">
                     <ui:MenuFlyoutItem Command="{CompiledBinding FinishEditingAnimation}" Text="{x:Static lang:Strings.FinishEditing}" />

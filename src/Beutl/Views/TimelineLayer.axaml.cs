@@ -10,6 +10,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 
+using Beutl.Commands;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 
@@ -143,6 +144,13 @@ public sealed partial class TimelineLayer : UserControl
         Point point = e.GetPosition(this);
         float scale = ViewModel.Timeline.Options.Value.Scale;
         _pointerPosition = point.X.ToTimeSpan(scale);
+    }
+
+    private void AllowOutflowClick(object? sender, RoutedEventArgs e)
+    {
+        var layer = ViewModel.Model;
+        var command = new ChangePropertyCommand<bool>(layer, Layer.AllowOutflowProperty, !layer.AllowOutflow, layer.AllowOutflow);
+        command.DoAndRecord(CommandRecorder.Default);
     }
 
     private void OnTextBoxLostFocus(object? sender, RoutedEventArgs e)
