@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 
+using Beutl.Media;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 
@@ -148,6 +149,8 @@ public sealed class TimelineLayerViewModel : IDisposable
 
     public ReactiveProperty<double> Width { get; }
 
+    public ReactiveProperty<bool> IsSelected { get; } = new(false);
+
     public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader { get; set; } = new();
 
     public ReactiveProperty<Avalonia.Media.Color> Color { get; }
@@ -193,37 +196,48 @@ public sealed class TimelineLayerViewModel : IDisposable
         Margin.Value = newMargin;
     }
 
-    public async ValueTask SyncModelToViewModel()
+    public async Task AnimationRequest(PrepareAnimationContext context, CancellationToken cancellationToken = default)
     {
-        float scale = Timeline.Options.Value.Scale;
-        int rate = Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
-        Thickness oldMargin = Margin.Value;
-        Thickness oldBorderMargin = BorderMargin.Value;
-        double oldWidth = Width.Value;
-        var inlines = Timeline.Inlines
-            .Where(x => x.Layer == this)
-            .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
-            .ToArray();
-
-        int layerNum = Timeline.ToLayerNumber(Margin.Value);
-        Scene.MoveChild(
-            layerNum,
-            BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate),
-            Width.Value.ToTimeSpan(scale).RoundToRate(rate),
-            Model).DoAndRecord(CommandRecorder.Default);
-
         var margin = new Thickness(0, Timeline.CalculateLayerTop(Model.ZIndex), 0, 0);
         var borderMargin = new Thickness(Model.Start.ToPixel(Timeline.Options.Value.Scale), 0, 0, 0);
         double width = Model.Length.ToPixel(Timeline.Options.Value.Scale);
 
-        BorderMargin.Value = oldBorderMargin;
-        Margin.Value = oldMargin;
-        Width.Value = oldWidth;
+        BorderMargin.Value = context.BorderMargin;
+        Margin.Value = context.Margin;
+        Width.Value = context.Width;
 
-        foreach (var (item, context) in inlines)
-            item.AnimationRequest(context, margin);
+        foreach (var (item, inlineContext) in context.Inlines)
+        {
+            item.AnimationRequest(inlineContext, margin, cancellationToken);
+        }
 
-        await AnimationRequested((margin, borderMargin, width), default);
+        await AnimationRequested((margin, borderMargin, width), cancellationToken);
+        BorderMargin.Value = borderMargin;
+        Margin.Value = margin;
+        Width.Value = width;
+    }
+
+    public async Task SyncModelToViewModel()
+    {
+        PrepareAnimationContext context = PrepareAnimation();
+
+        float scale = Timeline.Options.Value.Scale;
+        int rate = Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
+        int zindex = Timeline.ToLayerNumber(Margin.Value);
+        TimeSpan start = BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate);
+        TimeSpan length = Width.Value.ToTimeSpan(scale).RoundToRate(rate);
+        Scene.MoveChild(zindex, start, length, Model)
+            .DoAndRecord(CommandRecorder.Default);
+
+        await AnimationRequest(context);
+    }
+
+    public void PullFromModel()
+    {
+        var margin = new Thickness(0, Timeline.CalculateLayerTop(Model.ZIndex), 0, 0);
+        var borderMargin = new Thickness(Model.Start.ToPixel(Timeline.Options.Value.Scale), 0, 0, 0);
+        double width = Model.Length.ToPixel(Timeline.Options.Value.Scale);
+
         BorderMargin.Value = borderMargin;
         Margin.Value = margin;
         Width.Value = width;
@@ -249,4 +263,22 @@ public sealed class TimelineLayerViewModel : IDisposable
             return false;
         }
     }
+
+    public PrepareAnimationContext PrepareAnimation()
+    {
+        return new PrepareAnimationContext(
+            Margin: Margin.Value,
+            BorderMargin: BorderMargin.Value,
+            Width: Width.Value,
+            Inlines: Timeline.Inlines
+                .Where(x => x.Layer == this)
+                .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
+                .ToArray());
+    }
+
+    public record struct PrepareAnimationContext(
+        Thickness Margin,
+        Thickness BorderMargin,
+        double Width,
+        (InlineAnimationLayerViewModel ViewModel, InlineAnimationLayerViewModel.PrepareAnimationContext Context)[] Inlines);
 }

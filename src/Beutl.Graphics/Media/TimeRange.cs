@@ -40,6 +40,11 @@ public readonly struct TimeRange : IEquatable<TimeRange>
         return new TimeRange(TimeSpan.FromSeconds(duration));
     }
 
+    public static TimeRange FromRange(TimeSpan start, TimeSpan end)
+    {
+        return new TimeRange(start, end - start);
+    }
+
     public override string ToString()
     {
         return $"{Start:hh\\:mm\\:ss\\.ff}, {Duration:hh\\:mm\\:ss\\.ff}";
@@ -102,6 +107,16 @@ public readonly struct TimeRange : IEquatable<TimeRange>
     public TimeRange WithDuration(TimeSpan duration)
     {
         return new TimeRange(Start, duration);
+    }
+
+    public TimeRange AddStart(TimeSpan ts)
+    {
+        return new TimeRange(Start + ts, Duration);
+    }
+
+    public TimeRange SubtractStart(TimeSpan ts)
+    {
+        return new TimeRange(Start - ts, Duration);
     }
 
     public override bool Equals(object? obj) => obj is TimeRange range && Equals(range);

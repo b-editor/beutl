@@ -22,7 +22,7 @@ public sealed partial class LayerHeader : UserControl
             o => o.PositionY,
             (o, v) => o.PositionY = v);
 
-    private MouseFlags _mouseFlag = MouseFlags.MouseUp;
+    private bool _pressed;
     private Timeline? _timeline;
     private Point _startRel;
     private Point _start;
@@ -68,7 +68,7 @@ public sealed partial class LayerHeader : UserControl
 
     private void Border_PointerMoved(object? sender, PointerEventArgs e)
     {
-        if (_mouseFlag == MouseFlags.MouseDown && GetOrFindTimeline() is { } timeline)
+        if (_pressed && GetOrFindTimeline() is { } timeline)
         {
             Point position = e.GetPosition(timeline.TimelinePanel);
             LayerHeaderViewModel vm = ViewModel;
@@ -91,7 +91,7 @@ public sealed partial class LayerHeader : UserControl
 
     private void Border_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        _mouseFlag = MouseFlags.MouseUp;
+        _pressed = false;
 
         int newLayerNum = _newLayer;
         int oldLayerNum = ViewModel.Number.Value;
@@ -104,7 +104,7 @@ public sealed partial class LayerHeader : UserControl
         PointerPoint point = e.GetCurrentPoint(border);
         if (point.Properties.IsLeftButtonPressed && GetOrFindTimeline() is { } timeline)
         {
-            _mouseFlag = MouseFlags.MouseDown;
+            _pressed = true;
             _startRel = point.Position;
             _start = e.GetCurrentPoint(timeline.TimelinePanel).Position;
             _layers = ViewModel.Timeline.Layers

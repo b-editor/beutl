@@ -122,11 +122,12 @@
                                           BorderThickness="0.5"
                                           ItemHeight="{DynamicResource LayerHeight}" />
 
-                <local:TimelineOverlay VerticalAlignment="Stretch"
+                <local:TimelineOverlay x:Name="overlay"
+                                       VerticalAlignment="Stretch"
                                        EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
                                        SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
                                        Viewport="{Binding #ContentScroll.Viewport, Mode=OneWay}"
-                                       ZIndex="2"
+                                       ZIndex="6"
                                        Offset="{Binding #ContentScroll.Offset, Mode=OneWay}" />
             </Panel>
         </ScrollViewer>

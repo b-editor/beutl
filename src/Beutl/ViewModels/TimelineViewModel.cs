@@ -233,6 +233,30 @@ public sealed class TimelineViewModel : IToolContext
         return -1;
     }
 
+    public bool AnySelected(TimelineLayerViewModel? exclude = null)
+    {
+        foreach (TimelineLayerViewModel item in Layers)
+        {
+            if ((exclude == null || exclude != item) && item.IsSelected.Value)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+    
+    public IEnumerable<TimelineLayerViewModel> GetSelected(TimelineLayerViewModel? exclude = null)
+    {
+        foreach (TimelineLayerViewModel item in Layers)
+        {
+            if ((exclude == null || exclude != item) && item.IsSelected.Value)
+            {
+                yield return item;
+            }
+        }
+    }
+
     internal void RaiseLayerHeightChanged(LayerHeaderViewModel value)
     {
         _layerHeightChanged.OnNext(value);
