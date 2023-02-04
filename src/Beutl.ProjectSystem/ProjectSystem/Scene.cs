@@ -677,7 +677,7 @@ public class Scene : Element, IStorable, IWorkspaceItem
             {
                 TimeRange newRange = item.Range.AddStart(deltaTime);
                 int newLayer = item.ZIndex + deltaLayer;
-                if (newLayer < 0)
+                if (newLayer < 0 || newRange.Start.Ticks < 0)
                     return true;
 
                 foreach (Layer other in others)
@@ -695,6 +695,7 @@ public class Scene : Element, IStorable, IWorkspaceItem
         private TimeSpan? DeltaStart(Layer layer)
         {
             TimeSpan newStart = layer.Start + _deltaTime;
+
             TimeSpan newEnd = newStart + layer.Length;
             int newIndex = layer.ZIndex + _deltaLayer;
             (Layer? before, Layer? after, Layer? _) = layer.GetBeforeAndAfterAndCover(newIndex, newStart, _layers);
@@ -713,6 +714,10 @@ public class Scene : Element, IStorable, IWorkspaceItem
                 {
                     return ns - layer.Start;
                 }
+            }
+            else if (newStart.Ticks < 0)
+            {
+                return -layer.Start;
             }
 
             return null;
