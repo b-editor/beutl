@@ -13,13 +13,11 @@ using Beutl.ViewModels;
 
 using Reactive.Bindings;
 
-using static Beutl.Views.Timeline;
-
 namespace Beutl.Views;
 
 public sealed partial class AnimationTimeline : UserControl
 {
-    internal MouseFlags _seekbarMouseFlag = MouseFlags.MouseUp;
+    private bool _pressed;
     private TimeSpan _clickedFrame;
     internal TimeSpan _pointerFrame;
     private AnimationTimelineViewModel? _viewModel;
@@ -129,7 +127,7 @@ public sealed partial class AnimationTimeline : UserControl
         _pointerFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.OptionsProvider.Options.Value.Scale)
             .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
 
-        if (_seekbarMouseFlag == MouseFlags.MouseDown)
+        if (_pressed)
         {
             ViewModel.Scene.CurrentFrame = _pointerFrame;
         }
@@ -142,7 +140,7 @@ public sealed partial class AnimationTimeline : UserControl
 
         if (pointerPt.Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased)
         {
-            _seekbarMouseFlag = MouseFlags.MouseUp;
+            _pressed = false;
         }
     }
 
@@ -155,7 +153,7 @@ public sealed partial class AnimationTimeline : UserControl
 
         if (pointerPt.Properties.IsLeftButtonPressed)
         {
-            _seekbarMouseFlag = MouseFlags.MouseDown;
+            _pressed = true;
             ViewModel.Scene.CurrentFrame = _clickedFrame;
         }
     }
@@ -163,7 +161,7 @@ public sealed partial class AnimationTimeline : UserControl
     // ポインターが離れた
     private void TimelinePanel_PointerExited(object? sender, PointerEventArgs e)
     {
-        _seekbarMouseFlag = MouseFlags.MouseUp;
+        _pressed = false;
     }
 
     private void TimelinePanel_Drop(object? sender, DragEventArgs e)

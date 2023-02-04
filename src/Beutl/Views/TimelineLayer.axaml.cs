@@ -432,6 +432,8 @@ public sealed partial class TimelineLayer : UserControl
 
     private sealed class _SelectBehavior : Behavior<TimelineLayer>
     {
+        private bool _pressedWithModifier;
+        private Thickness _snapshot;
         private static readonly Avalonia.Animation.Animation s_animation1 = new()
         {
             Duration = TimeSpan.FromSeconds(0.083),
@@ -500,7 +502,6 @@ public sealed partial class TimelineLayer : UserControl
             }
         }
 
-        private bool _pressedWithModifier;
         private async void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
         {
             if (AssociatedObject is { _timeline: { } } obj)
@@ -521,20 +522,15 @@ public sealed partial class TimelineLayer : UserControl
 
                         if (e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt)
                         {
-                            if (obj.ViewModel.IsSelected.Value
-                                && obj.ViewModel.Timeline.AnySelected(obj.ViewModel))
-                            {
-                                // 自分と自分以外が選択されている
-                            }
-                            else
-                            {
-                                EditViewModel editorContext = obj._timeline.ViewModel.EditorContext;
-                                editorContext.SelectedObject.Value = obj.ViewModel.Model;
-                                obj.ViewModel.IsSelected.Value = true;
-                            }
+                            EditViewModel editorContext = obj._timeline.ViewModel.EditorContext;
+                            editorContext.SelectedObject.Value = obj.ViewModel.Model;
+                            obj.ViewModel.IsSelected.Value = true;
                         }
                         else
                         {
+                            Thickness margin = obj.ViewModel.Margin.Value;
+                            Thickness borderMargin = obj.ViewModel.BorderMargin.Value;
+                            _snapshot = new(borderMargin.Left, margin.Top, 0, 0);
                             _pressedWithModifier = true;
                         }
 
@@ -551,7 +547,14 @@ public sealed partial class TimelineLayer : UserControl
             {
                 if (_pressedWithModifier)
                 {
-                    obj.ViewModel.IsSelected.Value = !obj.ViewModel.IsSelected.Value;
+                    Thickness margin = obj.ViewModel.Margin.Value;
+                    Thickness borderMargin = obj.ViewModel.BorderMargin.Value;
+                    if (borderMargin.Left == _snapshot.Left
+                        && margin.Top == _snapshot.Top)
+                    {
+                        obj.ViewModel.IsSelected.Value = !obj.ViewModel.IsSelected.Value;
+                    }
+
                     _pressedWithModifier = false;
                 }
 

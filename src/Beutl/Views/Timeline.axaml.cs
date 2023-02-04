@@ -17,6 +17,7 @@ using Beutl.Operation;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
+using Beutl.Media;
 
 namespace Beutl.Views;
 
@@ -24,11 +25,12 @@ public sealed partial class Timeline : UserControl
 {
     internal enum MouseFlags
     {
-        MouseUp,
-        MouseDown
+        Free,
+        SeekBarPressed,
+        RangeSelectionPressed
     }
 
-    internal MouseFlags _seekbarMouseFlag = MouseFlags.MouseUp;
+    internal MouseFlags _mouseFlag = MouseFlags.Free;
     internal TimeSpan _pointerFrame;
     internal int _pointerLayer;
     private TimelineViewModel? _viewModel;
@@ -38,6 +40,7 @@ public sealed partial class Timeline : UserControl
     private IDisposable? _disposable3;
     private IDisposable? _disposable4;
     private TimelineLayer? _selectedLayer;
+    private List<(TimelineLayerViewModel Layer, bool IsSelectedOriginal)> _rangeSelection = new();
 
     public Timeline()
     {
@@ -218,9 +221,15 @@ public sealed partial class Timeline : UserControl
             _pointerLayer = viewModel.ToLayerNumber(pointerPt.Position.Y);
         }
 
-        if (_seekbarMouseFlag == MouseFlags.MouseDown)
+        if (_mouseFlag == MouseFlags.SeekBarPressed)
         {
             viewModel.Scene.CurrentFrame = _pointerFrame;
+        }
+        else if (_mouseFlag == MouseFlags.RangeSelectionPressed)
+        {
+            Rect rect = overlay.SelectionRange;
+            overlay.SelectionRange = new(rect.Position, pointerPt.Position);
+            UpdateRangeSelection();
         }
     }
 
@@ -231,7 +240,41 @@ public sealed partial class Timeline : UserControl
 
         if (pointerPt.Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased)
         {
-            _seekbarMouseFlag = MouseFlags.MouseUp;
+            if (_mouseFlag == MouseFlags.RangeSelectionPressed)
+            {
+                overlay.SelectionRange = default;
+                _rangeSelection.Clear();
+            }
+
+            _mouseFlag = MouseFlags.Free;
+        }
+    }
+
+    private void UpdateRangeSelection()
+    {
+        TimelineViewModel viewModel = ViewModel;
+        foreach ((TimelineLayerViewModel layer, bool isSelectedOriginal) in _rangeSelection)
+        {
+            layer.IsSelected.Value = isSelectedOriginal;
+        }
+
+        _rangeSelection.Clear();
+        Rect rect = overlay.SelectionRange.Normalize();
+        var startTime = rect.Left.ToTimeSpan(viewModel.Options.Value.Scale);
+        var endTime = rect.Right.ToTimeSpan(viewModel.Options.Value.Scale);
+        var timeRange = TimeRange.FromRange(startTime, endTime);
+
+        int startLayer = viewModel.ToLayerNumber(rect.Top);
+        int endLayer = viewModel.ToLayerNumber(rect.Bottom);
+
+        foreach (TimelineLayerViewModel item in viewModel.Layers)
+        {
+            if (timeRange.Intersects(item.Model.Range)
+                && startLayer <= item.Model.ZIndex && item.Model.ZIndex <= endLayer)
+            {
+                _rangeSelection.Add((item, item.IsSelected.Value));
+                item.IsSelected.Value = true;
+            }
         }
     }
 
@@ -252,15 +295,23 @@ public sealed partial class Timeline : UserControl
 
         if (pointerPt.Properties.IsLeftButtonPressed)
         {
-            _seekbarMouseFlag = MouseFlags.MouseDown;
-            viewModel.Scene.CurrentFrame = viewModel.ClickedFrame;
+            if (e.KeyModifiers == KeyModifiers.Control)
+            {
+                _mouseFlag = MouseFlags.RangeSelectionPressed;
+                overlay.SelectionRange = new(pointerPt.Position, Size.Empty);
+            }
+            else
+            {
+                _mouseFlag = MouseFlags.SeekBarPressed;
+                viewModel.Scene.CurrentFrame = viewModel.ClickedFrame;
+            }
         }
     }
 
     // ポインターが離れた
     private void TimelinePanel_PointerExited(object? sender, PointerEventArgs e)
     {
-        _seekbarMouseFlag = MouseFlags.MouseUp;
+        _mouseFlag = MouseFlags.Free;
     }
 
     // ドロップされた
