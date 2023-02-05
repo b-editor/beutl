@@ -4,9 +4,9 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="using:Beutl.Views.NodeTree"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:nodeTree="using:Beutl.NodeTree"
              xmlns:paz="using:Avalonia.Controls.PanAndZoom"
              xmlns:viewModel="using:Beutl.ViewModels.NodeTree"
-             xmlns:nodeTree="using:Beutl.NodeTree"
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="viewModel:NodeTreeTabViewModel"
@@ -38,6 +38,12 @@
                 </paz:ZoomBorder.ContextMenu>
                 <Canvas x:Name="canvas" />
             </paz:ZoomBorder>
+
+            <local:NodeTreeOverlay x:Name="overlay"
+                                   HorizontalAlignment="Stretch"
+                                   VerticalAlignment="Stretch"
+                                   IsHitTestVisible="False"
+                                   ZoomBorder="{Binding #zoomBorder}" />
         </Panel>
     </ScrollViewer>
 </UserControl>

@@ -12,9 +12,15 @@
              Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
              BorderBrush="{DynamicResource ControlElevationBorderBrush}"
              BorderThickness="1"
+             Classes.selected="{Binding IsSelected.Value}"
              ClipToBounds="False"
              CornerRadius="{DynamicResource ControlCornerRadius}"
              mc:Ignorable="d">
+    <UserControl.Styles>
+        <Style Selector="views|NodeView.selected /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuterBrush}" />
+        </Style>
+    </UserControl.Styles>
     <!--  BoxShadow="0 32 64 #47000000, 0 2 21 #38000000">  -->
     <!--  BoxShadow="0 32 64 #8E000000, 0 2 21 #8C000000">  -->
     <Grid Background="{Binding Color}" RowDefinitions="Auto,Auto">
@@ -32,6 +38,7 @@
                 <TextBlock Grid.Column="1"
                            Margin="8,0,0,0"
                            VerticalAlignment="Center"
+                           IsHitTestVisible="False"
                            Text="{Binding NodeName}" />
             </Grid>
         </Border>

@@ -14,9 +14,12 @@ namespace Beutl.Views.NodeTree;
 
 public partial class SocketView : UserControl
 {
+    private readonly CompositeDisposable _disposables = new();
     private SocketPoint? _socketPt;
     private NodeView? _nodeView;
     private Canvas? _canvas;
+    private IControl? _editor;
+    private TextBlock? _label;
 
     public SocketView()
     {
@@ -41,6 +44,11 @@ public partial class SocketView : UserControl
     {
         obj.Model.Connected -= OnSocketConnected;
         obj.Model.Disconnected -= OnSocketDisconnected;
+        _disposables.Clear();
+        grid.Children.Clear();
+
+        _editor = null;
+        _label = null;
     }
 
     private static string GetSocketName(ISocket socket)
@@ -118,24 +126,25 @@ public partial class SocketView : UserControl
 
     private void InitEditor(SocketViewModel obj)
     {
-        IControl? control = null;
         if (obj.PropertyEditorContext is { } propContext)
         {
             PropertyEditorExtension extension = obj.PropertyEditorContext.Extension;
-            extension.TryCreateControlForNode(obj.PropertyEditorContext, out control);
-            if (control is PropertyEditor pe)
+            extension.TryCreateControlForNode(obj.PropertyEditorContext, out IControl? control1);
+            if (control1 is PropertyEditor pe)
             {
                 pe.UseCompact = true;
             }
+
+            _editor = control1;
         }
 
-        control ??= new TextBlock
+        _label = new TextBlock
         {
             Text = GetSocketName(obj.Model)
         };
 
-        Grid.SetColumn((Control)control, 1);
-        grid.Children.Add(control);
+        var control = (Control)(_editor ?? _label);
+        Grid.SetColumn(control, 1);
     }
 
     private void OnSocketDisconnected(object? sender, SocketConnectionChangedEventArgs e)
@@ -199,7 +208,28 @@ public partial class SocketView : UserControl
                 obj.Model.Connected += OnSocketConnected;
                 obj.Model.Disconnected += OnSocketDisconnected;
                 UpdateSocketPosition();
+
+                obj.State.Subscribe(OnStateChanged).DisposeWith(_disposables);
                 break;
+        }
+    }
+
+    private void OnStateChanged(SocketState obj)
+    {
+        if (_label != null)
+        {
+            grid.Children.Remove(_label);
+            if (_editor != null)
+                grid.Children.Remove(_editor);
+
+            if (obj == SocketState.Disconnected)
+            {
+                grid.Children.Add(_editor ?? _label);
+            }
+            else
+            {
+                grid.Children.Add(_label);
+            }
         }
     }
 

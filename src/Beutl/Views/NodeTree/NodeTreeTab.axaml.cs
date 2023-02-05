@@ -2,6 +2,7 @@
 using Avalonia.Collections;
 using Avalonia.Collections.Pooled;
 using Avalonia.Controls;
+using Avalonia.Controls.PanAndZoom;
 using Avalonia.Controls.Shapes;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
@@ -22,12 +23,96 @@ public partial class NodeTreeTab : UserControl
     private IDisposable? _disposable;
     private Point _rightClickedPosition;
     internal Point _leftClickedPosition;
+    private bool _rangeSelectionPressed;
+    private List<(NodeView Node, bool IsSelectedOriginal)> _rangeSelection = new();
 
     public NodeTreeTab()
     {
         InitializeComponent();
         InitializeMenuItems();
         this.SubscribeDataContextChange<NodeTreeTabViewModel>(OnDataContextAttached, OnDataContextDetached);
+
+        AddHandler(PointerPressedEvent, OnNodeTreePointerPressed, RoutingStrategies.Tunnel);
+        AddHandler(PointerReleasedEvent, OnNodeTreePointerReleased, RoutingStrategies.Tunnel);
+        AddHandler(PointerMovedEvent, OnNodeTreePointerMoved, RoutingStrategies.Tunnel);
+        zoomBorder.ZoomChanged += OnZoomChanged;
+    }
+
+    private void OnZoomChanged(object sender, ZoomChangedEventArgs e)
+    {
+        if (_rangeSelectionPressed)
+        {
+            UpdateRangeSelection();
+        }
+    }
+
+    private void UpdateRangeSelection()
+    {
+        foreach ((var node, bool isSelectedOriginal) in _rangeSelection)
+        {
+            if (node.DataContext is NodeViewModel nodeViewModel)
+            {
+                nodeViewModel.IsSelected.Value = isSelectedOriginal;
+            }
+        }
+
+        _rangeSelection.Clear();
+        Rect rect = overlay.SelectionRange.Normalize();
+
+        foreach (IControl item in canvas.Children)
+        {
+            if (item is NodeView { DataContext: NodeViewModel nodeViewModel } nodeView)
+            {
+                var bounds = new Rect(nodeView.GetPoint(), nodeView.Bounds.Size);
+                if (rect.Intersects(bounds))
+                {
+                    _rangeSelection.Add((nodeView, nodeViewModel.IsSelected.Value));
+                    nodeViewModel.IsSelected.Value = true;
+                }
+            }
+        }
+    }
+
+    private void OnNodeTreePointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_rangeSelectionPressed)
+        {
+            PointerPoint point = e.GetCurrentPoint(canvas);
+            Rect rect = overlay.SelectionRange;
+            overlay.SelectionRange = new(rect.Position, point.Position);
+            UpdateRangeSelection();
+        }
+    }
+
+    private void OnNodeTreePointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_rangeSelectionPressed)
+        {
+            overlay.SelectionRange = default;
+            _rangeSelection.Clear();
+            _rangeSelectionPressed = false;
+        }
+    }
+
+    private void OnNodeTreePointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        PointerPoint point = e.GetCurrentPoint(canvas);
+        if (point.Properties.IsRightButtonPressed)
+        {
+            _rightClickedPosition = point.Position;
+        }
+        else if (point.Properties.IsLeftButtonPressed)
+        {
+            _leftClickedPosition = point.Position;
+
+            if (e.KeyModifiers == KeyModifiers.Control
+                && e.Source is ZoomBorder)
+            {
+                _rangeSelectionPressed = true;
+                overlay.SelectionRange = new(point.Position, Size.Empty);
+                e.Handled = true;
+            }
+        }
     }
 
     private void InitializeMenuItems()
@@ -78,23 +163,9 @@ public partial class NodeTreeTab : UserControl
 
     private void AddNodeClick(object? sender, RoutedEventArgs e)
     {
-        if(sender is MenuItem { DataContext: NodeRegistry.RegistryItem item })
+        if (sender is MenuItem { DataContext: NodeRegistry.RegistryItem item })
         {
             AddNode((Node)Activator.CreateInstance(item.Type)!);
-        }
-    }
-
-    protected override void OnPointerPressed(PointerPressedEventArgs e)
-    {
-        base.OnPointerPressed(e);
-        PointerPoint point = e.GetCurrentPoint(canvas);
-        if (point.Properties.IsRightButtonPressed)
-        {
-            _rightClickedPosition = point.Position;
-        }
-        else if (point.Properties.IsLeftButtonPressed)
-        {
-            _leftClickedPosition = point.Position;
         }
     }
 

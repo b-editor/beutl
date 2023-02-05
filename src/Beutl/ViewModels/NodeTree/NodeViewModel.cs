@@ -54,6 +54,8 @@ public sealed class NodeViewModel : IDisposable
 
     public IBrush Color { get; }
 
+    public ReactiveProperty<bool> IsSelected { get; } = new();
+    
     public ReactiveProperty<Point> Position { get; }
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new(true);

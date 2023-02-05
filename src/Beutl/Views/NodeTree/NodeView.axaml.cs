@@ -23,6 +23,7 @@ public partial class NodeView : UserControl
 
     private Point _start;
     private bool _captured;
+    private Point _snapshot;
 
     public NodeView()
     {
@@ -47,21 +48,58 @@ public partial class NodeView : UserControl
 
     private void OnHandlePointerMoved(object? sender, PointerEventArgs e)
     {
-        var properties = e.GetCurrentPoint(this).Properties;
+        PointerPoint point = e.GetCurrentPoint(this);
         if (_captured
-            && properties.IsLeftButtonPressed)
+            && point.Properties.IsLeftButtonPressed
+            && Parent is Canvas canvas)
         {
-            Point position = e.GetPosition(Parent);
+            Point position = e.GetPosition(canvas);
             Point delta = position - _start;
             _start = position;
             double left = Canvas.GetLeft(this) + delta.X;
             double top = Canvas.GetTop(this) + delta.Y;
+
             if (DataContext is NodeViewModel viewModel)
             {
                 viewModel.Position.Value = new(left, top);
             }
 
+            foreach (NodeView? item in GetSelection())
+            {
+                if (item != this && item.DataContext is NodeViewModel itemViewModel)
+                {
+                    itemViewModel.Position.Value += delta;
+                }
+            }
+
             e.Handled = true;
+        }
+    }
+
+    private IEnumerable<NodeView> GetSelection()
+    {
+        if (Parent is Canvas canvas)
+        {
+            return canvas.Children.Where(x => x is NodeView { DataContext: NodeViewModel { IsSelected.Value: true } })
+                .OfType<NodeView>();
+        }
+        else
+        {
+            return Enumerable.Empty<NodeView>();
+        }
+    }
+
+    private void ClearSelection()
+    {
+        if (Parent is Canvas canvas)
+        {
+            foreach (IControl? item in canvas.Children.Where(x => x.DataContext is NodeViewModel))
+            {
+                if (item.DataContext is NodeViewModel itemViewModel)
+                {
+                    itemViewModel.IsSelected.Value = false;
+                }
+            }
         }
     }
 
@@ -83,22 +121,49 @@ public partial class NodeView : UserControl
                         item.ZIndex -= minZindex;
                     }
                 }
-            }
 
-            if (DataContext is NodeViewModel viewModel)
-            {
-                viewModel.NotifyPositionChange();
+                if (DataContext is NodeViewModel viewModel)
+                {
+                    if (_snapshot.NearlyEquals(GetPoint()))
+                    {
+                        if (e.KeyModifiers == KeyModifiers.Control)
+                        {
+                            viewModel.IsSelected.Value = !viewModel.IsSelected.Value;
+                        }
+                        else
+                        {
+                            ClearSelection();
+                        }
+                    }
+                    else
+                    {
+                        viewModel.NotifyPositionChange();
+                        foreach (NodeView? item in GetSelection())
+                        {
+                            if (item != this && item.DataContext is NodeViewModel itemViewModel)
+                            {
+                                itemViewModel.NotifyPositionChange();
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 
+    public Point GetPoint()
+    {
+        return new(Canvas.GetLeft(this), Canvas.GetTop(this));
+    }
+
     private void OnHandlePointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        var properties = e.GetCurrentPoint(this).Properties;
-        if (properties.IsLeftButtonPressed)
+        PointerPoint point = e.GetCurrentPoint(this);
+        if (point.Properties.IsLeftButtonPressed)
         {
             _start = e.GetPosition(Parent);
             _captured = true;
+            _snapshot = GetPoint();
 
             e.Handled = true;
 

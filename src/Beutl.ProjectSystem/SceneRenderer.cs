@@ -96,22 +96,25 @@ internal sealed class SceneRenderer :
 
         void DefaultHandler(IList<Renderable> renderables)
         {
-            RenderLayerSpan span = layer.Span;
-            Detach(renderables);
-
-            span.Value.Replace(renderables);
-
-            foreach (Renderable item in span.Value.GetMarshal().Value)
+            if (renderables.Count > 0)
             {
-                item.ApplyStyling(Clock);
-                item.ApplyAnimations(Clock);
-                item.IsVisible = layer.IsEnabled;
-                while (!item.EndBatchUpdate())
-                {
-                }
-            }
+                RenderLayerSpan span = layer.Span;
+                Detach(renderables);
 
-            renderables.Clear();
+                span.Value.Replace(renderables);
+
+                foreach (Renderable item in span.Value.GetMarshal().Value)
+                {
+                    item.ApplyStyling(Clock);
+                    item.ApplyAnimations(Clock);
+                    item.IsVisible = layer.IsEnabled;
+                    while (!item.EndBatchUpdate())
+                    {
+                    }
+                }
+
+                renderables.Clear();
+            }
         }
 
         void EvaluateSourceOperators(List<Renderable> unhandleds)
@@ -177,7 +180,6 @@ internal sealed class SceneRenderer :
 
     private void InvokeNode(Layer layer)
     {
-        List<Renderable> unhandleds = _unhandleds;
         layer.Space.Evaluate(Clock, layer);
     }
 
