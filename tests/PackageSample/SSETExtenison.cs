@@ -23,7 +23,7 @@ public sealed class SSETExtenison : ToolTabExtension
 
     public override string Header => "Sample tab";
 
-    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
+    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
         control = new TextBlock()
         {

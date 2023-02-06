@@ -77,7 +77,7 @@ public sealed class TextEditorContext : IEditorContext
     }
 }
 
-public class TextEditor : TextBox, IEditor, IStyleable
+public class TextEditor : TextBox, IStyleable
 {
     public TextEditor()
     {
@@ -133,7 +133,7 @@ public sealed class SampleEditorExtension : EditorExtension
         }
     }
 
-    public override bool TryCreateEditor(string file, [NotNullWhen(true)] out IEditor? editor)
+    public override bool TryCreateEditor(string file, [NotNullWhen(true)] out Control? editor)
     {
         editor = null;
         if (file.EndsWith(".txt") || file.EndsWith(".scene"))

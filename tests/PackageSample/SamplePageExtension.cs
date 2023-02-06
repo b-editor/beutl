@@ -35,7 +35,7 @@ public sealed class SamplePageExtension : PageExtension
 
     // 本来はControlを返す。
     // nullを返すとErrorUIが表示される
-    public override IControl CreateControl()
+    public override Control CreateControl()
     {
         return null!;
     }
