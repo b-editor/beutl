@@ -64,12 +64,15 @@
                                     <Grid Grid.Column="0"
                                           Margin="{TemplateBinding ItemsMargin}"
                                           ColumnDefinitions="*,Auto">
+
+                                        <!--
+                                            ItemTemplate="{TemplateBinding ItemTemplate}"
+                                            Items="{TemplateBinding Items}"
+                                        -->
                                         <ItemsPresenter Name="PART_ItemsPresenter"
                                                         Grid.Column="0"
                                                         MaxWidth="{TemplateBinding MaxWidthOfItemsPresenter}"
                                                         HorizontalAlignment="Left"
-                                                        ItemTemplate="{TemplateBinding ItemTemplate}"
-                                                        Items="{TemplateBinding Items}"
                                                         ItemsPanel="{TemplateBinding ItemsPanel}">
                                             <ItemsPresenter.Transitions>
                                                 <Transitions>
@@ -177,12 +180,15 @@
                                     <Grid Grid.Column="0"
                                           Margin="{TemplateBinding ItemsMargin}"
                                           ColumnDefinitions="*,Auto">
+
+                                        <!--
+                                            ItemTemplate="{TemplateBinding ItemTemplate}"
+                                            Items="{TemplateBinding Items}"
+                                        -->
                                         <ItemsPresenter Name="PART_ItemsPresenter"
                                                         Grid.Column="0"
                                                         MaxWidth="{TemplateBinding MaxWidthOfItemsPresenter}"
                                                         HorizontalAlignment="Left"
-                                                        ItemTemplate="{TemplateBinding ItemTemplate}"
-                                                        Items="{TemplateBinding Items}"
                                                         ItemsPanel="{TemplateBinding ItemsPanel}">
                                             <ItemsPresenter.Transitions>
                                                 <Transitions>
@@ -246,13 +252,16 @@
                                     <Grid Grid.Row="0"
                                           Margin="{TemplateBinding ItemsMargin}"
                                           RowDefinitions="*,Auto">
+
+                                        <!--
+                                            ItemTemplate="{TemplateBinding ItemTemplate}"
+                                            Items="{TemplateBinding Items}"
+                                        -->
                                         <ItemsPresenter Name="PART_ItemsPresenter"
                                                         Grid.Row="0"
                                                         MaxHeight="{TemplateBinding MaxWidthOfItemsPresenter}"
                                                         HorizontalAlignment="Stretch"
                                                         VerticalAlignment="Top"
-                                                        ItemTemplate="{TemplateBinding ItemTemplate}"
-                                                        Items="{TemplateBinding Items}"
                                                         ItemsPanel="{TemplateBinding ItemsPanel}">
                                             <ItemsPresenter.Transitions>
                                                 <Transitions>
@@ -339,13 +348,15 @@
                                               Margin="{TemplateBinding ItemsMargin}"
                                               DockPanel.Dock="Top"
                                               RowDefinitions="*,auto">
+                                            <!--
+                                                ItemTemplate="{TemplateBinding ItemTemplate}"
+                                                Items="{TemplateBinding Items}"
+                                            -->
                                             <ItemsPresenter Name="PART_ItemsPresenter"
                                                             Grid.Row="0"
                                                             MaxHeight="{TemplateBinding MaxWidthOfItemsPresenter}"
                                                             HorizontalAlignment="Stretch"
                                                             VerticalAlignment="Top"
-                                                            ItemTemplate="{TemplateBinding ItemTemplate}"
-                                                            Items="{TemplateBinding Items}"
                                                             ItemsPanel="{TemplateBinding ItemsPanel}">
                                                 <ItemsPresenter.Transitions>
                                                     <Transitions>
