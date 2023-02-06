@@ -3,6 +3,7 @@ using System.CommandLine.Parsing;
 using System.ComponentModel;
 
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 
 using FluentAvalonia.UI.Windowing;
@@ -82,7 +83,7 @@ public partial class MainWindow : AppWindow
         _closable = result.GetValueForOption(closableOption);
     }
 
-    protected override void OnClosing(CancelEventArgs e)
+    protected override void OnClosing(WindowClosingEventArgs e)
     {
         base.OnClosing(e);
         e.Cancel = !_closable;
