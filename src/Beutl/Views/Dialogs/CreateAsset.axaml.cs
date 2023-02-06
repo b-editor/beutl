@@ -54,8 +54,7 @@ public partial class CreateAsset : ContentDialog, IStyleable
             IReadOnlyList<IStorageFile> result = await parent.StorageProvider.OpenFilePickerAsync(options);
 
             if (result.Count > 0
-                && result[0].TryGetUri(out Uri? uri)
-                && uri.IsFile)
+                && result[0].Path is { IsFile: true } uri)
             {
                 viewModel.File.Value = uri.LocalPath;
             }

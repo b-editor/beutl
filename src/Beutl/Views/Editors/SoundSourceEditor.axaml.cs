@@ -60,8 +60,7 @@ public partial class SoundSourceEditor : UserControl
 
         IReadOnlyList<IStorageFile> result = await topLevel.StorageProvider.OpenFilePickerAsync(options);
         if (result.Count > 0
-            && result[0].TryGetUri(out Uri? uri)
-            && uri.IsFile
+            && result[0].Path is { IsFile: true } uri
             && MediaSourceManager.Shared.OpenSoundSource(uri.LocalPath, out ISoundSource? soundSource))
         {
             ISoundSource? oldValue = vm.WrappedProperty.GetValue();

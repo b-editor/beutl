@@ -24,9 +24,7 @@ public partial class OutputView : UserControl
             };
             IStorageFile? file = await topLevel.StorageProvider.SaveFilePickerAsync(options);
 
-            if (file != null
-                && file.TryGetUri(out Uri? uri)
-                && uri.IsFile)
+            if (file?.Path is { IsFile: true } uri)
             {
                 viewModel.DestinationFile.Value = uri.LocalPath;
                 file.Dispose();

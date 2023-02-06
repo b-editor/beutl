@@ -40,8 +40,7 @@ public sealed class StorageFileEditorViewModel : BaseEditorViewModel<FileInfo>
     private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (e is PropertyEditorValueChangedEventArgs<IStorageFile> args
-            && args.NewValue.TryGetUri(out Uri? uri)
-            && uri.IsFile)
+            && args.NewValue.Path is { IsFile: true } uri)
         {
             SetValue(Value.Value, new FileInfo(uri.LocalPath));
             args.NewValue.Dispose();

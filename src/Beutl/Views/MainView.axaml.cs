@@ -124,7 +124,7 @@ public sealed partial class MainView : UserControl
         FillMode = FillMode.Forward
     };
     private readonly TaskCompletionSource _windowOpenedTask = new();
-    private IControl? _settingsView;
+    private Control? _settingsView;
 
     public MainView()
     {
@@ -431,8 +431,7 @@ Error:
 
                 IReadOnlyList<IStorageFile> result = await window.StorageProvider.OpenFilePickerAsync(options);
                 if (result.Count > 0
-                    && result[0].TryGetUri(out Uri? uri)
-                    && uri.IsFile)
+                    && result[0].Path is { IsFile: true } uri)
                 {
                     _projectService.OpenProject(uri.LocalPath);
                 }
@@ -465,7 +464,7 @@ Error:
 
                 foreach (IStorageFile file in files)
                 {
-                    if (file.TryGetUri(out Uri? uri) && uri.IsFile)
+                    if (file.Path is { IsFile: true } uri)
                     {
                         string path = uri.LocalPath;
                         if (project != null && _workspaceItemContainer.TryGetOrCreateItem(path, out IWorkspaceItem? item))

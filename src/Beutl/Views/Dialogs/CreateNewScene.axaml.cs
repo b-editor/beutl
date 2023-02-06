@@ -27,8 +27,7 @@ public sealed partial class CreateNewScene : ContentDialog, IStyleable
             IReadOnlyList<IStorageFolder> result = await parent.StorageProvider.OpenFolderPickerAsync(options);
 
             if (result.Count > 0
-                && result[0].TryGetUri(out Uri? uri)
-                && uri.IsFile)
+                && result[0].Path is { IsFile: true } uri)
             {
                 vm.Location.Value = uri.LocalPath;
             }

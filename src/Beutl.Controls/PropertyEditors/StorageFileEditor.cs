@@ -42,7 +42,7 @@ public class StorageFileEditor : StringEditor, IStyleable
         get => _value;
         set
         {
-            string text = value?.TryGetUri(out Uri uri) == true ? uri.LocalPath : "";
+            string text = value?.Path?.LocalPath ?? "";
             if (SetAndRaise(ValueProperty, ref _value, value))
             {
                 Text = text;

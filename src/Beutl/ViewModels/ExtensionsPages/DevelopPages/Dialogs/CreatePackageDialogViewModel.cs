@@ -28,7 +28,7 @@ public sealed class CreatePackageDialogViewModel
             try
             {
                 IsFileLoading.Value = true;
-                if (file?.CanOpenRead == true && file.TryGetUri(out Uri? uri))
+                if (file?.CanOpenRead == true && file.Path is { IsFile: true } uri)
                 {
                     string ext = Path.GetExtension(uri.OriginalString);
                     bool nuspec = ext is ".nuspec";

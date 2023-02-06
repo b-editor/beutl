@@ -25,7 +25,7 @@ public sealed partial class FontSettingsPage : UserControl
 
             foreach (var item in result)
             {
-                if (item.TryGetUri(out var uri) && uri.IsFile)
+                if (item.Path is { IsFile: true } uri)
                 {
                     vm.FontDirectories.Add(uri.LocalPath);
                 }
