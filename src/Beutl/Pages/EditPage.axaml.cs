@@ -67,9 +67,9 @@ public sealed partial class EditPage : UserControl
                         Content = new ContentControl
                         {
                             [!ContentProperty] = s_contentBinding,
-                            DataContext = item.Context.Select<IEditorContext, IControl>(obj =>
+                            DataContext = item.Context.Select(obj =>
                             {
-                                if (obj?.Extension.TryCreateEditor(obj.EdittingFile, out IEditor? editor) == true)
+                                if (obj?.Extension.TryCreateEditor(obj.EdittingFile, out Control? editor) == true)
                                 {
                                     editor.DataContext = obj;
                                     return editor;

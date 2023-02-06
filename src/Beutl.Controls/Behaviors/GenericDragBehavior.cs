@@ -2,7 +2,6 @@
 
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Generators;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -17,7 +16,7 @@ namespace Beutl.Controls.Behaviors;
 
 #nullable enable
 
-public class GenericDragBehavior : Behavior<IControl>
+public class GenericDragBehavior : Behavior<Control>
 {
     private bool _enableDrag;
     private bool _dragStarted;
@@ -25,7 +24,7 @@ public class GenericDragBehavior : Behavior<IControl>
     private int _draggedIndex;
     private int _targetIndex;
     private ItemsControl? _itemsControl;
-    private IControl? _draggedContainer;
+    private Control? _draggedContainer;
 
     public static readonly StyledProperty<Orientation> OrientationProperty =
         AvaloniaProperty.Register<GenericDragBehavior, Orientation>(nameof(Orientation));
@@ -98,7 +97,7 @@ public class GenericDragBehavior : Behavior<IControl>
     protected virtual void OnStartedDragging()
     {
     }
-    
+
     protected virtual void OnFinishedDragging()
     {
     }
@@ -160,9 +159,9 @@ public class GenericDragBehavior : Behavior<IControl>
 
         if (_itemsControl is { })
         {
-            foreach (ItemContainerInfo? container in _itemsControl.ItemContainerGenerator.Containers)
+            foreach (Control control in _itemsControl.GetRealizedContainers())
             {
-                SetDraggingPseudoClasses(container.ContainerControl, true);
+                SetDraggingPseudoClasses(control, true);
             }
         }
 
@@ -174,9 +173,9 @@ public class GenericDragBehavior : Behavior<IControl>
 
         if (_itemsControl is { })
         {
-            foreach (ItemContainerInfo container in _itemsControl.ItemContainerGenerator.Containers)
+            foreach (Control control in _itemsControl.GetRealizedContainers())
             {
-                SetDraggingPseudoClasses(container.ContainerControl, false);
+                SetDraggingPseudoClasses(control, false);
             }
         }
 
@@ -205,7 +204,7 @@ public class GenericDragBehavior : Behavior<IControl>
 
         foreach (object? _ in itemsControl.Items)
         {
-            IControl? container = itemsControl.ItemContainerGenerator.ContainerFromIndex(i);
+            Control? container = itemsControl.ContainerFromIndex(i);
             if (container is not null)
             {
                 SetTranslateTransform(container, 0, 0);
@@ -226,7 +225,7 @@ public class GenericDragBehavior : Behavior<IControl>
 
         foreach (object? _ in itemsControl.Items)
         {
-            IControl? container = itemsControl.ItemContainerGenerator.ContainerFromIndex(i);
+            Control? container = itemsControl.ContainerFromIndex(i);
             if (container is not null)
             {
                 SetTranslateTransform(container, 0, 0);
@@ -309,7 +308,7 @@ public class GenericDragBehavior : Behavior<IControl>
                 SetTranslateTransform(_draggedContainer, 0, delta);
             }
 
-            _draggedIndex = _itemsControl.ItemContainerGenerator.IndexFromContainer(_draggedContainer);
+            _draggedIndex = _itemsControl.IndexFromContainer(_draggedContainer);
             _targetIndex = -1;
 
             Rect draggedBounds = _draggedContainer.Bounds;
@@ -328,7 +327,7 @@ public class GenericDragBehavior : Behavior<IControl>
 
             foreach (object? _ in _itemsControl.Items)
             {
-                IControl? targetContainer = _itemsControl.ItemContainerGenerator.ContainerFromIndex(i);
+                Control? targetContainer = _itemsControl.ContainerFromIndex(i);
                 if (targetContainer?.RenderTransform is null || ReferenceEquals(targetContainer, _draggedContainer))
                 {
                     i++;
@@ -343,7 +342,7 @@ public class GenericDragBehavior : Behavior<IControl>
                     ? targetBounds.X + targetBounds.Width / 2
                     : targetBounds.Y + targetBounds.Height / 2;
 
-                int targetIndex = _itemsControl.ItemContainerGenerator.IndexFromContainer(targetContainer);
+                int targetIndex = _itemsControl.IndexFromContainer(targetContainer);
 
                 if (targetStart > draggedStart && draggedDeltaEnd >= targetMid)
                 {
@@ -390,7 +389,7 @@ public class GenericDragBehavior : Behavior<IControl>
         }
     }
 
-    private static void SetDraggingPseudoClasses(IControl control, bool isDragging)
+    private static void SetDraggingPseudoClasses(Control control, bool isDragging)
     {
         if (isDragging)
         {
@@ -402,7 +401,7 @@ public class GenericDragBehavior : Behavior<IControl>
         }
     }
 
-    private static void SetTranslateTransform(IControl control, double x, double y)
+    private static void SetTranslateTransform(Control control, double x, double y)
     {
         var transformBuilder = new TransformOperations.Builder(1);
         transformBuilder.AppendTranslate(x, y);

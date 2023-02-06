@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-using Avalonia.Media;
+using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 
 using Beutl.Framework.Services;
@@ -43,7 +43,7 @@ public abstract class EditorExtension : ViewExtension
 
     public abstract bool TryCreateEditor(
         string file,
-        [NotNullWhen(true)] out IEditor? editor);
+        [NotNullWhen(true)] out Control? control);
 
     // NOTE: ここからIWorkspaceItemを取得する場合、
     //       IWorkspaceItemContainerから取得すればいい

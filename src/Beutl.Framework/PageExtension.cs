@@ -1,6 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 
 using FluentAvalonia.UI.Controls;
 
@@ -8,8 +6,8 @@ namespace Beutl.Framework;
 
 public abstract class PageExtension : Extension
 {
-    public abstract IControl CreateControl();
-    
+    public abstract Control CreateControl();
+
     public abstract IPageContext CreateContext();
 
     public abstract IconSource GetFilledIcon();

@@ -4,7 +4,6 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
-using Avalonia.Controls.Generators;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -14,7 +13,6 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 
 using Beutl.Controls.Extensions;
-using Beutl.Controls.Generators;
 
 namespace Beutl.Controls;
 
@@ -79,9 +77,6 @@ public partial class BcTabView : TabControl
         e_.Handled = true;
     }
 
-    protected override IItemContainerGenerator CreateItemContainerGenerator()
-        => new BcTabItemContainerGenerator(this, ContentControl.ContentProperty, ContentControl.ContentTemplateProperty);
-
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -115,7 +110,7 @@ public partial class BcTabView : TabControl
         _g = e.NameScope.Find<Grid>("PART_InternalGrid");
         _gridHost = e.NameScope.Find<Grid>("PART_GridHost");
 
-        PropertyChanged += AuraTabView_PropertyChanged;
+        PropertyChanged += OnBcTabViewPropertyChanged;
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -140,7 +135,7 @@ public partial class BcTabView : TabControl
         }
     }
 
-    private void AuraTabView_PropertyChanged(object sender, AvaloniaPropertyChangedEventArgs e)
+    private void OnBcTabViewPropertyChanged(object sender, AvaloniaPropertyChangedEventArgs e)
     {
         WidthRemainingSpace = _g.Bounds.Width;
         HeightRemainingSpace = _g.Bounds.Height;
@@ -150,4 +145,8 @@ public partial class BcTabView : TabControl
     {
         TabControlExtensions.AddTab(this, ItemToAdd, isSelected);
     }
+
+    protected override Control CreateContainerForItemOverride() => new BcTabItem();
+
+    protected override bool IsItemItsOwnContainerOverride(Control item) => item is BcTabItem;
 }

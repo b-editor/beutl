@@ -10,8 +10,8 @@ namespace Beutl.Controls;
 
 public partial class BcTabItem
 {
-    public static readonly StyledProperty<IControl> IconProperty =
-        AvaloniaProperty.Register<BcTabItem, IControl>(nameof(Icon));
+    public static readonly StyledProperty<Control> IconProperty =
+        AvaloniaProperty.Register<BcTabItem, Control>(nameof(Icon));
 
     public static readonly StyledProperty<bool> IsClosableProperty =
         AvaloniaProperty.Register<BcTabItem, bool>(nameof(IsClosable), true);
@@ -24,7 +24,7 @@ public partial class BcTabItem
 
     private bool _isclosing = false;
 
-    public IControl Icon
+    public Control Icon
     {
         get => GetValue(IconProperty);
         set => SetValue(IconProperty, value);

@@ -204,7 +204,7 @@ public static class FormattedTextParser
                 }
             }
 
-            font = default;
+            font = FontFamily.Default;
             return false;
         }
 

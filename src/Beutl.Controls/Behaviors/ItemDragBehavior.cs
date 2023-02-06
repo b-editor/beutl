@@ -13,7 +13,7 @@ using Avalonia.Xaml.Interactivity;
 
 namespace Beutl.Controls.Behaviors;
 
-public class ItemDragBehavior : Behavior<IControl>
+public class ItemDragBehavior : Behavior<Control>
 {
     public static readonly StyledProperty<Orientation> OrientationProperty =
         AvaloniaProperty.Register<ItemDragBehavior, Orientation>(nameof(Orientation));
@@ -23,7 +23,7 @@ public class ItemDragBehavior : Behavior<IControl>
     private int _draggedIndex;
     private int _targetIndex;
     private ItemsControl _itemsControl;
-    private IControl _draggedContainer;
+    private Control _draggedContainer;
 
     public Orientation Orientation
     {
@@ -105,7 +105,7 @@ public class ItemDragBehavior : Behavior<IControl>
 
         foreach (object _ in itemsControl.Items)
         {
-            IControl container = itemsControl.ItemContainerGenerator.ContainerFromIndex(i);
+            Control container = itemsControl.ContainerFromIndex(i);
             if (container != null)
             {
                 container.RenderTransform = new TranslateTransform();
@@ -126,7 +126,7 @@ public class ItemDragBehavior : Behavior<IControl>
 
         foreach (object _ in itemsControl.Items)
         {
-            IControl container = itemsControl.ItemContainerGenerator.ContainerFromIndex(i);
+            Control container = itemsControl.ContainerFromIndex(i);
             if (container != null)
             {
                 container.RenderTransform = null;
@@ -180,7 +180,7 @@ public class ItemDragBehavior : Behavior<IControl>
             ((TranslateTransform)_draggedContainer.RenderTransform).Y = delta;
         }
 
-        _draggedIndex = _itemsControl.ItemContainerGenerator.IndexFromContainer(_draggedContainer);
+        _draggedIndex = _itemsControl.IndexFromContainer(_draggedContainer);
         _targetIndex = -1;
 
         Rect draggedBounds = _draggedContainer.Bounds;
@@ -198,7 +198,7 @@ public class ItemDragBehavior : Behavior<IControl>
 
         foreach (object _ in _itemsControl.Items)
         {
-            IControl targetContainer = _itemsControl.ItemContainerGenerator.ContainerFromIndex(i);
+            Control targetContainer = _itemsControl.ContainerFromIndex(i);
             if (targetContainer?.RenderTransform is null || ReferenceEquals(targetContainer, _draggedContainer))
             {
                 i++;
@@ -213,7 +213,7 @@ public class ItemDragBehavior : Behavior<IControl>
             double targetMid = orientation == Orientation.Horizontal ?
                 targetBounds.X + targetBounds.Width / 2 : targetBounds.Y + targetBounds.Height / 2;
 
-            int targetIndex = _itemsControl.ItemContainerGenerator.IndexFromContainer(targetContainer);
+            int targetIndex = _itemsControl.IndexFromContainer(targetContainer);
 
             if (targetStart > draggedStart && draggedDeltaEnd >= targetMid)
             {

@@ -69,13 +69,13 @@ public partial class OutputPage : UserControl
 
     private sealed class _DataTemplate : IDataTemplate
     {
-        private readonly Dictionary<OutputExtension, IControl> _contextToViewType = new();
+        private readonly Dictionary<OutputExtension, Control> _contextToViewType = new();
 
-        public IControl? Build(object? param)
+        public Control? Build(object? param)
         {
             if (param is OutputQueueItem item)
             {
-                if (_contextToViewType.TryGetValue(item.Context.Extension, out IControl? control))
+                if (_contextToViewType.TryGetValue(item.Context.Extension, out Control? control))
                 {
                     control.DataContext = item.Context;
                     return control;

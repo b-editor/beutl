@@ -62,7 +62,7 @@ public sealed class SceneOutputExtension : OutputExtension
         }
     }
 
-    public override bool TryCreateControl(string file, [NotNullWhen(true)] out IControl? control)
+    public override bool TryCreateControl(string file, [NotNullWhen(true)] out Control? control)
     {
         if (file.EndsWith(".scene"))
         {

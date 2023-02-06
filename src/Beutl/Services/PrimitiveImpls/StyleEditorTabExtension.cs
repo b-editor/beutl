@@ -22,7 +22,7 @@ public sealed class StyleEditorTabExtension : ToolTabExtension
 
     public override string? Header => Strings.Style;
 
-    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
+    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
         if (editorContext is EditViewModel)
         {

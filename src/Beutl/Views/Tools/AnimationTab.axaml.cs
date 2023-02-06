@@ -39,7 +39,7 @@ public partial class AnimationTab : UserControl
 
                     if (found)
                     {
-                        IControl? ctrl = @this.itemsControl.ItemContainerGenerator.ContainerFromIndex(index);
+                        Control? ctrl = @this.itemsControl.ContainerFromIndex(index);
                         if (ctrl != null)
                         {
                             @this.scrollViewer.Offset = new Avalonia.Vector(@this.scrollViewer.Offset.X, ctrl.Bounds.Top);

@@ -298,7 +298,7 @@ public sealed partial class Timeline : UserControl
             if (e.KeyModifiers == KeyModifiers.Control)
             {
                 _mouseFlag = MouseFlags.RangeSelectionPressed;
-                overlay.SelectionRange = new(pointerPt.Position, Size.Empty);
+                overlay.SelectionRange = new(pointerPt.Position, (Size)default);
             }
             else
             {
@@ -395,7 +395,7 @@ public sealed partial class Timeline : UserControl
 
         for (int i = 0; i < TimelinePanel.Children.Count; i++)
         {
-            IControl item = TimelinePanel.Children[i];
+            Control item = TimelinePanel.Children[i];
             if (item.DataContext is TimelineLayerViewModel vm && vm.Model == layer)
             {
                 TimelinePanel.Children.RemoveAt(i);
@@ -419,7 +419,7 @@ public sealed partial class Timeline : UserControl
         IAbstractAnimatableProperty prop = viewModel.Property;
         for (int i = 0; i < TimelinePanel.Children.Count; i++)
         {
-            IControl item = TimelinePanel.Children[i];
+            Control item = TimelinePanel.Children[i];
             if (item.DataContext is InlineAnimationLayerViewModel vm && vm.Property == prop)
             {
                 TimelinePanel.Children.RemoveAt(i);

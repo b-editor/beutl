@@ -23,7 +23,7 @@ public sealed class ExtensionsPageExtension : PageExtension
         throw new InvalidOperationException();
     }
 
-    public override IControl CreateControl()
+    public override Control CreateControl()
     {
         return new Pages.ExtensionsPage();
     }

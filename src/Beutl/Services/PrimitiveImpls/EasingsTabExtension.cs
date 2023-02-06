@@ -21,7 +21,7 @@ public sealed class EasingsTabExtension : ToolTabExtension
 
     public override string? Header => Strings.Easings;
 
-    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
+    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
         control = new Easings();
         return true;

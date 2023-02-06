@@ -13,7 +13,7 @@ internal interface IPropertyEditorExtensionImpl
 
     bool TryCreateContext(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context);
 
-    bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out IControl? control);
+    bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control);
 }
 
 [PrimitiveImpl]
@@ -38,7 +38,7 @@ public class PropertyEditorExtension : Extension
         return _impl.TryCreateContext(this, properties, out context);
     }
 
-    public virtual bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out IControl? control)
+    public virtual bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
     {
         _impl ??= ServiceLocator.Current.GetRequiredService<IPropertyEditorExtensionImpl>();
         return _impl.TryCreateControl(context, out control);

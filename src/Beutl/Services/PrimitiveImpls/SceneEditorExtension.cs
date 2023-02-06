@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
+using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 
 using Beutl.Framework;
@@ -26,16 +27,16 @@ public sealed class SceneEditorExtension : EditorExtension
 
     public override string DisplayName => "Scene editor";
 
-    public override bool TryCreateEditor(string file, [NotNullWhen(true)] out IEditor? editor)
+    public override bool TryCreateEditor(string file, [NotNullWhen(true)] out Control? control)
     {
         if (file.EndsWith($".{Constants.SceneFileExtension}"))
         {
-            editor = new EditView();
+            control = new EditView();
             return true;
         }
         else
         {
-            editor = null;
+            control = null;
             return false;
         }
     }

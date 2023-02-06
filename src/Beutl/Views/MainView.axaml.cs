@@ -250,7 +250,7 @@ public sealed partial class MainView : UserControl
         NaviContent.Children.Add(_settingsView);
         _navigationItems.Clear();
 
-        IControl[] pageViews = viewModel.Pages.Select(CreateView).ToArray();
+        Control[] pageViews = viewModel.Pages.Select(CreateView).ToArray();
         NaviContent.Children.InsertRange(0, pageViews);
 
         NavigationViewItem[] navItems = viewModel.Pages.Select(item =>
@@ -280,10 +280,10 @@ public sealed partial class MainView : UserControl
             {
                 int idx = obj == null ? -1 : viewModel.Pages.IndexOf(obj);
 
-                IControl? oldControl = null;
+                Control? oldControl = null;
                 for (int i = 0; i < NaviContent.Children.Count; i++)
                 {
-                    if (NaviContent.Children[i] is IControl { IsVisible: true } control)
+                    if (NaviContent.Children[i] is Control { IsVisible: true } control)
                     {
                         control.IsVisible = false;
                         oldControl = control;
@@ -291,7 +291,7 @@ public sealed partial class MainView : UserControl
                 }
 
                 Navi.SelectedItem = idx >= 0 ? _navigationItems[idx] : Navi.FooterMenuItems.Cast<object>().First();
-                IControl newControl = idx >= 0 ? NaviContent.Children[idx] : _settingsView;
+                Control newControl = idx >= 0 ? NaviContent.Children[idx] : _settingsView;
 
                 newControl.IsVisible = true;
                 newControl.Opacity = 0;
@@ -303,9 +303,9 @@ public sealed partial class MainView : UserControl
         }).AddTo(_disposables);
     }
 
-    private static IControl CreateView(MainViewModel.NavItemViewModel item)
+    private static Control CreateView(MainViewModel.NavItemViewModel item)
     {
-        IControl? view = null;
+        Control? view = null;
         Exception? exception = null;
         try
         {
@@ -348,7 +348,7 @@ Error:
                 if (item != null)
                 {
                     int idx = index++;
-                    IControl view = CreateView(item);
+                    Control view = CreateView(item);
 
                     NaviContent.Children.Insert(idx, view);
                     _navigationItems.Insert(idx, new NavigationViewItem()

@@ -19,7 +19,7 @@ public sealed class AnimationTimelineTabExtension : ToolTabExtension
 
     public override bool CanMultiple => true;
 
-    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
+    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
         if (editorContext is EditViewModel)
         {

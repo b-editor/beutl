@@ -226,7 +226,7 @@ public static class PropertyEditorService
             return result;
         }
 
-        public bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out IControl? control)
+        public bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
         {
             control = null;
             try

@@ -19,7 +19,7 @@ public sealed partial class Easings : UserControl
             int index = 0;
             foreach (object? item in items)
             {
-                IControl? control = itemsControl.ItemContainerGenerator.ContainerFromIndex(index);
+                Control? control = itemsControl.ContainerFromIndex(index);
 
                 if (control?.IsPointerOver == true)
                 {
