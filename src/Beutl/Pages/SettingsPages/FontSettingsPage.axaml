@@ -18,7 +18,7 @@
         <ui:CommandBar DefaultLabelPosition="Right">
             <ui:CommandBar.PrimaryCommands>
                 <ui:CommandBarButton Click="AddClick"
-                                     Icon="Add"
+                                     IconSource="Add"
                                      Label="{x:Static lang:Strings.Add}" />
             </ui:CommandBar.PrimaryCommands>
         </ui:CommandBar>
@@ -32,7 +32,7 @@
                         <ui:CommandBarButton HorizontalAlignment="Right"
                                              Command="{Binding #root.DataContext.Remove, Mode=OneTime}"
                                              CommandParameter="{Binding $self.DataContext}"
-                                             Icon="Delete"
+                                             IconSource="Delete"
                                              Label="{x:Static lang:Strings.Remove}" />
                     </Panel>
                 </DataTemplate>

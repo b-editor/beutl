@@ -26,7 +26,7 @@
         <ui:CommandBar DefaultLabelPosition="Right">
             <ui:CommandBar.PrimaryCommands>
                 <ui:CommandBarButton Click="Add_Click"
-                                     Icon="Add"
+                                     IconSource="Add"
                                      Label="{x:Static lang:Strings.Add}" />
             </ui:CommandBar.PrimaryCommands>
         </ui:CommandBar>

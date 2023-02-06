@@ -22,11 +22,11 @@
                        DefaultLabelPosition="Right">
             <ui:CommandBar.PrimaryCommands>
                 <ui:CommandBarButton Click="OnAddClick"
-                                     Icon="Add"
+                                     IconSource="Add"
                                      Label="追加" />
                 <ui:CommandBarSeparator />
                 <ui:CommandBarButton Click="OnRemoveClick"
-                                     Icon="Dismiss"
+                                     IconSource="Dismiss"
                                      IsEnabled="{Binding CanRemove.Value}"
                                      Label="閉じる" />
             </ui:CommandBar.PrimaryCommands>

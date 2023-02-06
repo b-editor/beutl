@@ -15,8 +15,6 @@ public class NavItemHelper : Behavior<NavigationViewItem>
     public static readonly StyledProperty<IconSource> FilledIconProperty
         = AvaloniaProperty.Register<NavItemHelper, IconSource>("FilledIcon");
     private IDisposable _disposable;
-    private IconSourceElement _regular;
-    private IconSourceElement _filled;
 
     public IconSource RegularIcon
     {
@@ -33,18 +31,6 @@ public class NavItemHelper : Behavior<NavigationViewItem>
     protected override void OnAttached()
     {
         base.OnAttached();
-        _regular = new IconSourceElement()
-        {
-            IconSource = RegularIcon,
-            Width = 40,
-            Height = 40
-        };
-        _filled = new IconSourceElement()
-        {
-            IconSource = FilledIcon,
-            Width = 40,
-            Height = 40
-        };
 
         SetFontSize(RegularIcon);
         SetFontSize(FilledIcon);
@@ -57,8 +43,6 @@ public class NavItemHelper : Behavior<NavigationViewItem>
     protected override void OnDetaching()
     {
         base.OnDetaching();
-        _regular = null;
-        _filled = null;
         _disposable?.Dispose();
     }
 
@@ -67,17 +51,8 @@ public class NavItemHelper : Behavior<NavigationViewItem>
         base.OnPropertyChanged(change);
         if (change.Property.Name is nameof(RegularIcon) or nameof(FilledIcon))
         {
-            if (_regular != null)
-            {
-                SetFontSize(RegularIcon);
-                _regular.IconSource = RegularIcon;
-            }
-
-            if (_filled != null)
-            {
-                SetFontSize(FilledIcon);
-                _filled.IconSource = FilledIcon;
-            }
+            SetFontSize(RegularIcon);
+            SetFontSize(FilledIcon);
         }
     }
 
@@ -97,11 +72,11 @@ public class NavItemHelper : Behavior<NavigationViewItem>
     {
         if (sender.IsSelected)
         {
-            sender.Icon = _filled;
+            sender.IconSource = FilledIcon;
         }
         else
         {
-            sender.Icon = _regular;
+            sender.IconSource = RegularIcon;
         }
     }
 }
