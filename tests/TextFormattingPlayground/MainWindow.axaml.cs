@@ -56,7 +56,7 @@ public partial class MainWindow : Window
 
         if (image.Source is WriteableBitmap old)
         {
-            image.Source = null;
+            image.Source = null!;
             old.Dispose();
             old.PlatformImpl.Item?.Dispose();
         }

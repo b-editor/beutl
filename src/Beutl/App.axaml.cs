@@ -6,6 +6,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Platform;
+using Avalonia.ReactiveUI;
 using Avalonia.Styling;
 using Avalonia.Threading;
 
@@ -57,17 +58,16 @@ public sealed class App : Application
                 switch (v)
                 {
                     case ViewConfig.ViewTheme.Light:
-                        thm.RequestedTheme = FluentAvaloniaTheme.LightModeString;
+                        RequestedThemeVariant = ThemeVariant.Light;
                         break;
                     case ViewConfig.ViewTheme.Dark:
-                        thm.RequestedTheme = FluentAvaloniaTheme.DarkModeString;
+                        RequestedThemeVariant = ThemeVariant.Dark;
                         break;
                     case ViewConfig.ViewTheme.HighContrast:
-                        thm.RequestedTheme = FluentAvaloniaTheme.HighContrastModeString;
+                        RequestedThemeVariant = FluentAvaloniaTheme.HighContrastTheme;
                         break;
                     case ViewConfig.ViewTheme.System:
                         thm.PreferSystemTheme = true;
-                        thm.InvalidateThemingFromSystemThemeChanged();
                         break;
                 }
             });
