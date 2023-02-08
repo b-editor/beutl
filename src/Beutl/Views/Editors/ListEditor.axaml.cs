@@ -162,9 +162,9 @@ public partial class ListEditor : UserControl
                 = editViewModel.FindToolTab<ObjectPropertyEditorViewModel>()
                     ?? new ObjectPropertyEditorViewModel(editViewModel);
 
-            if (logical.FindLogicalAncestorOfType<Grid>() is { } grid)
+            if (logical.FindLogicalAncestorOfType<Grid>() is { Parent: Control container } grid)
             {
-                int index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
+                int index = items.IndexFromContainer(container);
 
                 if (index >= 0)
                 {
@@ -184,7 +184,7 @@ public partial class ListEditor : UserControl
                     }
                 }
             }
-            
+
             editViewModel.OpenToolTab(objViewModel);
         }
     }
@@ -193,9 +193,9 @@ public partial class ListEditor : UserControl
     {
         if (sender is MenuItem menuItem
             && DataContext is ListEditorViewModel { List.Value: { } list } viewModel
-            && menuItem.FindLogicalAncestorOfType<Grid>() is { } grid)
+            && menuItem.FindLogicalAncestorOfType<Grid>() is { Parent: Control container } grid)
         {
-            int index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
+            int index = items.IndexFromContainer(container);
 
             if (index >= 0)
             {

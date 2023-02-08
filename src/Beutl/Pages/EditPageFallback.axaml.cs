@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 
 using Beutl.Configuration;
@@ -22,7 +23,6 @@ namespace Beutl.Pages;
 
 public partial class EditPageFallback : UserControl
 {
-    private readonly FluentAvaloniaTheme _theme;
     private bool _flag;
 
     public EditPageFallback()
@@ -30,27 +30,41 @@ public partial class EditPageFallback : UserControl
         InitializeComponent();
         recentList.AddHandler(PointerPressedEvent, OnRecentListPointerPressed, RoutingStrategies.Tunnel);
         recentList.AddHandler(PointerReleasedEvent, OnRecentListPointerReleased, RoutingStrategies.Tunnel);
-        _theme = AvaloniaLocator.Current.GetRequiredService<FluentAvaloniaTheme>();
 
         InitRecentItems();
+    }
+
+    private void OnActualThemeVariantChanged(object? sender, EventArgs e)
+    {
+        OnThemeChanged(Application.Current!.ActualThemeVariant);
     }
 
     protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
         base.OnAttachedToLogicalTree(e);
-        _theme.RequestedThemeChanged += Theme_RequestedThemeChanged;
-        OnThemeChanged(_theme.RequestedTheme);
+        Application.Current!.ActualThemeVariantChanged += OnActualThemeVariantChanged;
+        OnThemeChanged(Application.Current!.ActualThemeVariant);
     }
 
     protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromLogicalTree(e);
-        _theme.RequestedThemeChanged -= Theme_RequestedThemeChanged;
+        Application.Current!.ActualThemeVariantChanged -= OnActualThemeVariantChanged;
     }
 
-    private void Theme_RequestedThemeChanged(FluentAvaloniaTheme sender, RequestedThemeChangedEventArgs args)
+    private void OnThemeChanged(ThemeVariant theme)
     {
-        OnThemeChanged(args.NewTheme);
+        if (theme == ThemeVariant.Light
+            || theme == FluentAvaloniaTheme.HighContrastTheme)
+        {
+            githubLightLogo.IsVisible = true;
+            githubDarkLogo.IsVisible = false;
+        }
+        else if (theme == ThemeVariant.Dark)
+        {
+            githubLightLogo.IsVisible = false;
+            githubDarkLogo.IsVisible = true;
+        }
     }
 
     private void OpenContext(object? sender, RoutedEventArgs e)
@@ -105,21 +119,6 @@ public partial class EditPageFallback : UserControl
         if (sender is MenuItem { DataContext: FileInfo fi })
         {
             OpenRecentFile(fi.FullName);
-        }
-    }
-
-    private void OnThemeChanged(string theme)
-    {
-        switch (theme)
-        {
-            case "Light" or "HightContrast":
-                githubLightLogo.IsVisible = true;
-                githubDarkLogo.IsVisible = false;
-                break;
-            case "Dark":
-                githubLightLogo.IsVisible = false;
-                githubDarkLogo.IsVisible = true;
-                break;
         }
     }
 

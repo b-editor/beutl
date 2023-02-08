@@ -49,9 +49,9 @@
                     <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding ShowAnimationVisual.Value}" Text="{x:Static lang:Strings.ShowPreview}" />
 
                     <ui:MenuFlyoutItem Click="OpenAnimationTimelineClick" Text="{x:Static lang:Strings.OpenTimeline}">
-                        <ui:MenuFlyoutItem.Icon>
-                            <icons:SymbolIcon Symbol="Open" />
-                        </ui:MenuFlyoutItem.Icon>
+                        <ui:MenuFlyoutItem.IconSource>
+                            <icons:SymbolIconSource Symbol="Open" />
+                        </ui:MenuFlyoutItem.IconSource>
                     </ui:MenuFlyoutItem>
                 </ui:FAMenuFlyout>
             </Border.ContextFlyout>

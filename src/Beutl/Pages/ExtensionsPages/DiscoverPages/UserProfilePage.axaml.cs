@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.Styling;
 
 using Beutl.Api.Objects;
 
@@ -15,46 +16,43 @@ namespace Beutl.Pages.ExtensionsPages.DiscoverPages;
 
 public partial class UserProfilePage : UserControl
 {
-    private readonly FluentAvaloniaTheme _theme;
-
     public UserProfilePage()
     {
         InitializeComponent();
         AddHandler(Frame.NavigatedFromEvent, OnNavigatedFrom, RoutingStrategies.Direct);
         AddHandler(Frame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
-        _theme = AvaloniaLocator.Current.GetRequiredService<FluentAvaloniaTheme>();
+    }
+
+    private void OnActualThemeVariantChanged(object? sender, EventArgs e)
+    {
+        OnThemeChanged(Application.Current!.ActualThemeVariant);
     }
 
     protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
         base.OnAttachedToLogicalTree(e);
-        _theme.RequestedThemeChanged += Theme_RequestedThemeChanged;
-        OnThemeChanged(_theme.RequestedTheme);
+        Application.Current!.ActualThemeVariantChanged += OnActualThemeVariantChanged;
+        OnThemeChanged(Application.Current!.ActualThemeVariant);
     }
 
     protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromLogicalTree(e);
-        _theme.RequestedThemeChanged -= Theme_RequestedThemeChanged;
+        Application.Current!.ActualThemeVariantChanged -= OnActualThemeVariantChanged;
     }
 
-    private void Theme_RequestedThemeChanged(FluentAvaloniaTheme sender, RequestedThemeChangedEventArgs args)
+    private void OnThemeChanged(ThemeVariant theme)
     {
-        OnThemeChanged(args.NewTheme);
-    }
-
-    private void OnThemeChanged(string theme)
-    {
-        switch (theme)
+        if (theme == ThemeVariant.Light
+            || theme == FluentAvaloniaTheme.HighContrastTheme)
         {
-            case "Light" or "HightContrast":
-                githubLightLogo.IsVisible = true;
-                githubDarkLogo.IsVisible = false;
-                break;
-            case "Dark":
-                githubLightLogo.IsVisible = false;
-                githubDarkLogo.IsVisible = true;
-                break;
+            githubLightLogo.IsVisible = true;
+            githubDarkLogo.IsVisible = false;
+        }
+        else if (theme == ThemeVariant.Dark)
+        {
+            githubLightLogo.IsVisible = false;
+            githubDarkLogo.IsVisible = true;
         }
     }
 

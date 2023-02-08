@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using Avalonia.Styling;
 using Avalonia.Threading;
 
 using Beutl.Configuration;
@@ -39,11 +40,11 @@ public sealed partial class MainWindow : AppWindow
         mainView.Focus();
         FluentAvaloniaTheme thm = AvaloniaLocator.Current.GetService<FluentAvaloniaTheme>()!;
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        thm.RequestedThemeChanged += (_, e) => OnThemeChanged(e.NewTheme, viewConfig.IsMicaEffectEnabled);
+        Application.Current!.ActualThemeVariantChanged += (_, _) => OnThemeChanged(viewConfig.IsMicaEffectEnabled);
 
         viewConfig.GetObservable(ViewConfig.IsMicaEffectEnabledProperty).Subscribe(value
             => Dispatcher.UIThread.InvokeAsync(()
-                => OnThemeChanged(thm.RequestedTheme, value)));
+                => OnThemeChanged(value)));
 
         if (OperatingSystem.IsWindows())
         {
@@ -53,9 +54,10 @@ public sealed partial class MainWindow : AppWindow
         }
     }
 
-    private void OnThemeChanged(string theme, bool isMicaEnabled)
+    private void OnThemeChanged(bool isMicaEnabled)
     {
-        if (theme == FluentAvaloniaTheme.HighContrastModeString)
+        var theme = Application.Current!.ActualThemeVariant;
+        if (theme == FluentAvaloniaTheme.HighContrastTheme)
         {
             SetValue(BackgroundProperty, AvaloniaProperty.UnsetValue);
         }
@@ -77,7 +79,7 @@ public sealed partial class MainWindow : AppWindow
         }
     }
 
-    private void TryEnableMicaEffect(string thm)
+    private void TryEnableMicaEffect(ThemeVariant theme)
     {
         // The background colors for the Mica brush are still based around SolidBackgroundFillColorBase resource
         // BUT since we can't control the actual Mica brush color, we have to use the window background to create
@@ -86,7 +88,7 @@ public sealed partial class MainWindow : AppWindow
         // apply the opacity until we get the roughly the correct color
         // NOTE that the effect still doesn't look right, but it suffices. Ideally we need access to the Mica
         // CompositionBrush to properly change the color but I don't know if we can do that or not
-        if (thm == FluentAvaloniaTheme.DarkModeString)
+        if (theme == ThemeVariant.Dark)
         {
             Color2 color = this.TryFindResource("SolidBackgroundFillColorBase", out object? value)
                 ? (Color)value!
@@ -96,7 +98,7 @@ public sealed partial class MainWindow : AppWindow
 
             Background = new ImmutableSolidColorBrush(color, 0.78);
         }
-        else if (thm == FluentAvaloniaTheme.LightModeString)
+        else if (theme == ThemeVariant.Light)
         {
             // Similar effect here
             Color2 color = this.TryFindResource("SolidBackgroundFillColorBase", out object? value)
@@ -109,9 +111,9 @@ public sealed partial class MainWindow : AppWindow
         }
     }
 
-    private void TryDisableMicaEffect(string thm)
+    private void TryDisableMicaEffect(ThemeVariant theme)
     {
-        if (thm == FluentAvaloniaTheme.DarkModeString)
+        if (theme == ThemeVariant.Dark)
         {
             Color2 color = this.TryFindResource("SolidBackgroundFillColorBase", out object? value)
                 ? (Color)value!
@@ -121,7 +123,7 @@ public sealed partial class MainWindow : AppWindow
 
             Background = new ImmutableSolidColorBrush(color);
         }
-        else if (thm == FluentAvaloniaTheme.LightModeString)
+        else if (theme == ThemeVariant.Light)
         {
             // Similar effect here
             Color2 color = this.TryFindResource("SolidBackgroundFillColorBase", out object? value)
