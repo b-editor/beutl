@@ -272,8 +272,8 @@ public partial class SocketView : UserControl
                 viewModel.Model, e.Target,
                 out IInputSocket? inputSocket, out IOutputSocket? outputSocket))
         {
-            // Todo: コマンド対応
-            outputSocket.Disconnect(inputSocket);
+            var command = new DisconnectCommand(inputSocket, outputSocket);
+            command.DoAndRecord(CommandRecorder.Default);
             e.State = SocketState.Disconnected;
         }
     }
@@ -285,10 +285,67 @@ public partial class SocketView : UserControl
                 viewModel.Model, e.Target,
                 out IInputSocket? inputSocket, out IOutputSocket? outputSocket))
         {
-            // Todo: コマンド対応
-            e.State = outputSocket.TryConnect(inputSocket)
+            var command = new ConnectCommand(inputSocket, outputSocket);
+            command.DoAndRecord(CommandRecorder.Default);
+            e.State = command.State;
+        }
+    }
+
+    private sealed class DisconnectCommand : IRecordableCommand
+    {
+        private readonly IInputSocket _inputSocket;
+        private readonly IOutputSocket _outputSocket;
+
+        public DisconnectCommand(IInputSocket inputSocket, IOutputSocket outputSocket)
+        {
+            _inputSocket = inputSocket;
+            _outputSocket = outputSocket;
+        }
+
+        public void Do()
+        {
+            _outputSocket.Disconnect(_inputSocket);
+        }
+
+        public void Redo()
+        {
+            Do();
+        }
+
+        public void Undo()
+        {
+            _outputSocket.TryConnect(_inputSocket);
+        }
+    }
+
+    private sealed class ConnectCommand : IRecordableCommand
+    {
+        private readonly IInputSocket _inputSocket;
+        private readonly IOutputSocket _outputSocket;
+
+        public ConnectCommand(IInputSocket inputSocket, IOutputSocket outputSocket)
+        {
+            _inputSocket = inputSocket;
+            _outputSocket = outputSocket;
+        }
+
+        public SocketState State { get; set; }
+
+        public void Do()
+        {
+            State = _outputSocket.TryConnect(_inputSocket)
                 ? SocketState.Connected
                 : SocketState.Disconnected;
+        }
+
+        public void Redo()
+        {
+            Do();
+        }
+
+        public void Undo()
+        {
+            _outputSocket.Disconnect(_inputSocket);
         }
     }
 }
