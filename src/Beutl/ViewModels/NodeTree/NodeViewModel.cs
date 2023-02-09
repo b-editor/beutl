@@ -98,7 +98,7 @@ public sealed class NodeViewModel : IDisposable
                 ctmp[0] = aproperty.Property;
                 atmp[0] = aproperty;
                 (_, PropertyEditorExtension ext) = PropertyEditorService.MatchProperty(ctmp);
-                ext.TryCreateContextForNode(atmp, out context);
+                ext?.TryCreateContextForNode(atmp, out context);
             }
 
             Items.Add(CreateNodeItemViewModel(item, context));

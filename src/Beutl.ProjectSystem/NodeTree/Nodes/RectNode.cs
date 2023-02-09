@@ -31,8 +31,6 @@ public class RectNode : Node
         _rectangle.Width = _widthSocket.Value;
         _rectangle.Height = _heightSocket.Value;
         _rectangle.StrokeWidth = _strokeSocket.Value;
-
-        base.Evaluate(context);
     }
 }
 
@@ -47,8 +45,6 @@ public class LayerOutputNode : Node
 
     public override void Evaluate(EvaluationContext context)
     {
-        base.Evaluate(context);
-
         if (_renderableSocket.Value is { } value)
         {
             while (value.BatchUpdate)

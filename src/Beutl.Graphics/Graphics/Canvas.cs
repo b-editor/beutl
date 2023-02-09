@@ -168,7 +168,7 @@ public class Canvas : ICanvas
         VerifyAccess();
         _sharedPaint.Reset();
         ConfigurePaint(_sharedPaint, size);
-        float stroke = Math.Min(StrokeWidth, Math.Min(size.Width, size.Height));
+        float stroke = Math.Min(StrokeWidth, Math.Min(size.Width, size.Height)) / 2;
 
         _sharedPaint.Style = SKPaintStyle.Stroke;
         _sharedPaint.StrokeWidth = stroke;

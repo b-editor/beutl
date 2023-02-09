@@ -66,7 +66,9 @@ public class NodeTreeSpace : Element, IAffectsRender
             var context = new EvaluationContext(clock, item, list);
             foreach (Node? node in item)
             {
+                node.PreEvaluate(context);
                 node.Evaluate(context);
+                node.PostEvaluate(context);
             }
         }
 

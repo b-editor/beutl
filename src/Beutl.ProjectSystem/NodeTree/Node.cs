@@ -236,10 +236,29 @@ public abstract class Node : Element, INode
     // 2. IOutputSocket.ConnectionsからIInputSocketにデータを送る (Receive)
     public virtual void Evaluate(EvaluationContext context)
     {
+    }
+
+    public virtual void PreEvaluate(EvaluationContext context)
+    {
         for (int i = 0; i < Items.Count; i++)
         {
             INodeItem item = Items[i];
-            item.Evaluate(context);
+            if (item is IInputSocket)
+            {
+                item.Evaluate(context);
+            }
+        }
+    }
+    
+    public virtual void PostEvaluate(EvaluationContext context)
+    {
+        for (int i = 0; i < Items.Count; i++)
+        {
+            INodeItem item = Items[i];
+            if (item is IOutputSocket)
+            {
+                item.Evaluate(context);
+            }
         }
     }
 
@@ -318,6 +337,17 @@ public abstract class Node : Element, INode
         {
             Name = display,
             Value = value
+        };
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected OutputSocket<T> AsOutput<T>(string name, string? display = null)
+    {
+        display ??= name;
+        var socket = new OutputSocketImpl<T>(name)
+        {
+            Name = display
         };
         Items.Add(socket);
         return socket;

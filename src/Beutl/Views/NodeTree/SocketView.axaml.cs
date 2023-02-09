@@ -73,9 +73,15 @@ public partial class SocketView : UserControl
     private static string GetSocketName(ISocket socket)
     {
         string? name = (socket as CoreObject)?.Name;
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            name = null;
+        }
+
         if (socket.Property is { } property)
         {
             CorePropertyMetadata metadata = property.Property.GetMetadata<CorePropertyMetadata>(property.ImplementedType);
+
             return metadata.DisplayAttribute?.GetName() ?? name ?? property.Property.Name;
         }
         else
@@ -153,7 +159,10 @@ public partial class SocketView : UserControl
 
         _label = new TextBlock
         {
-            Text = GetSocketName(obj.Model)
+            Text = GetSocketName(obj.Model),
+            HorizontalAlignment = obj is OutputSocketViewModel
+                ? HorizontalAlignment.Right
+                : HorizontalAlignment.Left
         };
 
         var control = (Control)(_editor ?? _label);
