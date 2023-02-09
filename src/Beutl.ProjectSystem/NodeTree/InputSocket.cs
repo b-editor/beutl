@@ -10,6 +10,11 @@ public class InputSocket<T> : Socket<T>, IInputSocket<T>
 
     public void NotifyConnected(IConnection connection)
     {
+        if (_outputId == connection.Output.Id)
+        {
+            _outputId = Guid.Empty;
+        }
+
         Connection = connection;
         RaiseConnected(connection);
     }
@@ -79,5 +84,15 @@ public class InputSocket<T> : Socket<T>, IInputSocket<T>
     {
         base.OnAttachedToNodeTree(nodeTree);
         TryRestoreConnection();
+    }
+
+    protected override void OnDetachedFromNodeTree(NodeTreeSpace nodeTree)
+    {
+        base.OnDetachedFromNodeTree(nodeTree);
+        if (Connection != null && _outputId == Guid.Empty)
+        {
+            _outputId = Connection.Output.Id;
+            Connection.Output.Disconnect(this);
+        }
     }
 }

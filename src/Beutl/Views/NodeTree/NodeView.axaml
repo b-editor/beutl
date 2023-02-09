@@ -2,7 +2,10 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModels="using:Beutl.ViewModels.NodeTree"
              xmlns:views="using:Beutl.Views.NodeTree"
              Canvas.Left="{Binding Position.Value.X}"
@@ -26,7 +29,22 @@
     <Grid Background="{Binding Color}" RowDefinitions="Auto,Auto">
         <Border x:Name="handle"
                 Padding="4"
-                Background="Transparent">
+                Background="Transparent"
+                Focusable="True">
+            <Border.ContextFlyout>
+                <ui:FAMenuFlyout>
+                    <ui:MenuFlyoutItem Command="{Binding Delete}"
+                                       InputGesture="Delete"
+                                       Text="{x:Static lang:Strings.Delete}">
+                        <ui:MenuFlyoutItem.Icon>
+                            <icons:SymbolIcon Symbol="Delete" />
+                        </ui:MenuFlyoutItem.Icon>
+                    </ui:MenuFlyoutItem>
+                </ui:FAMenuFlyout>
+            </Border.ContextFlyout>
+            <Border.KeyBindings>
+                <KeyBinding Command="{Binding Delete}" Gesture="Delete" />
+            </Border.KeyBindings>
             <Grid ColumnDefinitions="Auto,*">
                 <ToggleButton x:Name="expandToggle"
                               Width="30"

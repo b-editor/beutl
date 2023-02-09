@@ -2,6 +2,7 @@
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 
+using Beutl.Commands;
 using Beutl.Framework;
 using Beutl.NodeTree;
 using Beutl.Services;
@@ -45,6 +46,16 @@ public sealed class NodeViewModel : IDisposable
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
+        Delete.Subscribe(() =>
+        {
+            NodeTreeSpace? tree = Node.FindLogicalParent<NodeTreeSpace>();
+            if (tree != null)
+            {
+                new RemoveCommand<Node>(tree.Nodes, Node)
+                    .DoAndRecord(CommandRecorder.Default);
+            }
+        });
+
         InitItems();
     }
 
@@ -55,10 +66,12 @@ public sealed class NodeViewModel : IDisposable
     public IBrush Color { get; }
 
     public ReactiveProperty<bool> IsSelected { get; } = new();
-    
+
     public ReactiveProperty<Point> Position { get; }
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new(true);
+
+    public ReactiveCommand Delete { get; } = new();
 
     public CoreList<NodeItemViewModel> Items { get; } = new();
 

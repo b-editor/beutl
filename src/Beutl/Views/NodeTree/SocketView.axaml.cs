@@ -20,6 +20,7 @@ public partial class SocketView : UserControl
     private Canvas? _canvas;
     private IControl? _editor;
     private TextBlock? _label;
+    private bool _firstArrange = true;
 
     public SocketView()
     {
@@ -27,9 +28,27 @@ public partial class SocketView : UserControl
         this.SubscribeDataContextChange<SocketViewModel>(OnDataContextAttached, OnDataContextDetached);
     }
 
+    private void SocketView_LayoutUpdated(object? sender, EventArgs e)
+    {
+        LayoutUpdated -= SocketView_LayoutUpdated;
+        UpdateSocketPosition();
+    }
+
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        if (_firstArrange)
+        {
+            LayoutUpdated += SocketView_LayoutUpdated;
+            _firstArrange = false;
+        }
+
+        return base.ArrangeOverride(finalSize);
+    }
+
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        _firstArrange = true;
         _nodeView = this.FindAncestorOfType<NodeView>();
         _canvas = this.FindAncestorOfType<Canvas>();
 
@@ -63,12 +82,6 @@ public partial class SocketView : UserControl
         {
             return name ?? "Unknown";
         }
-    }
-
-    protected override void OnLoaded()
-    {
-        base.OnLoaded();
-        UpdateSocketPosition();
     }
 
     private void UpdateSocketPosition()
