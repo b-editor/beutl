@@ -10,7 +10,7 @@
              xmlns:views="using:Beutl.Views.NodeTree"
              Canvas.Left="{Binding Position.Value.X}"
              Canvas.Top="{Binding Position.Value.Y}"
-             Width="205"
+             Width="215"
              x:DataType="viewModels:NodeViewModel"
              Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
              BorderBrush="{DynamicResource ControlElevationBorderBrush}"
@@ -62,7 +62,8 @@
         </Border>
         <Border x:Name="nodeContent"
                 Grid.Row="1"
-                MinHeight="200"
+                Padding="0,0,0,8"
+                Background="Transparent"
                 ClipToBounds="False">
             <ItemsControl ClipToBounds="False" Items="{Binding Items}">
                 <ItemsControl.ItemTemplate>

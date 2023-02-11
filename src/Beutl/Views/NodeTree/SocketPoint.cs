@@ -32,9 +32,28 @@ public class SocketConnectRequestedEventArgs : EventArgs
 
 public sealed class ConnectionLine : Line
 {
+    private IDisposable? _strokeBinding;
+
+    static ConnectionLine()
+    {
+        StrokeThicknessProperty.OverrideDefaultValue<ConnectionLine>(3);
+    }
+
     public ISocket? First { get; set; }
 
     public ISocket? Second { get; set; }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _strokeBinding = Bind(StrokeProperty, this.GetResourceObservable("TextControlForeground"));
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        _strokeBinding?.Dispose();
+    }
 
     public bool Match(ISocket? first, ISocket? second)
     {
@@ -122,8 +141,6 @@ public sealed class SocketPoint : Control
             {
                 [!Line.StartPointProperty] = viewModel.SocketPosition.ToBinding(),
                 EndPoint = e.GetPosition(_canvas),
-                Stroke = Brushes.White,
-                StrokeThickness = 3,
                 First = viewModel.Model
             };
             _canvas.Children.Insert(0, _line);

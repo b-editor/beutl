@@ -25,7 +25,7 @@ public partial class SocketView : UserControl
     public SocketView()
     {
         InitializeComponent();
-        this.SubscribeDataContextChange<SocketViewModel>(OnDataContextAttached, OnDataContextDetached);
+        this.SubscribeDataContextChange<NodeItemViewModel>(OnDataContextAttached, OnDataContextDetached);
     }
 
     private void SocketView_LayoutUpdated(object? sender, EventArgs e)
@@ -59,10 +59,14 @@ public partial class SocketView : UserControl
         }
     }
 
-    private void OnDataContextDetached(SocketViewModel obj)
+    private void OnDataContextDetached(NodeItemViewModel obj)
     {
-        obj.Model.Connected -= OnSocketConnected;
-        obj.Model.Disconnected -= OnSocketDisconnected;
+        if (obj is SocketViewModel socketObj)
+        {
+            socketObj.Model.Connected -= OnSocketConnected;
+            socketObj.Model.Disconnected -= OnSocketDisconnected;
+        }
+
         _disposables.Clear();
         grid.Children.Clear();
 
@@ -70,15 +74,15 @@ public partial class SocketView : UserControl
         _label = null;
     }
 
-    private static string GetSocketName(ISocket socket)
+    private static string GetSocketName(INodeItem item)
     {
-        string? name = (socket as CoreObject)?.Name;
+        string? name = (item as CoreObject)?.Name;
         if (string.IsNullOrWhiteSpace(name))
         {
             name = null;
         }
 
-        if (socket.Property is { } property)
+        if (item.Property is { } property)
         {
             CorePropertyMetadata metadata = property.Property.GetMetadata<CorePropertyMetadata>(property.ImplementedType);
 
@@ -143,7 +147,7 @@ public partial class SocketView : UserControl
         grid.Children.Add(_socketPt);
     }
 
-    private void InitEditor(SocketViewModel obj)
+    private void InitEditor(NodeItemViewModel obj)
     {
         if (obj.PropertyEditorContext is { } propContext)
         {
@@ -155,6 +159,7 @@ public partial class SocketView : UserControl
             }
 
             _editor = control1;
+            Grid.SetColumn((Control)_editor!, 1);
         }
 
         _label = new TextBlock
@@ -165,8 +170,7 @@ public partial class SocketView : UserControl
                 : HorizontalAlignment.Left
         };
 
-        var control = (Control)(_editor ?? _label);
-        Grid.SetColumn(control, 1);
+        Grid.SetColumn(_label, 1);
     }
 
     private void OnSocketDisconnected(object? sender, SocketConnectionChangedEventArgs e)
@@ -219,20 +223,22 @@ public partial class SocketView : UserControl
         }
     }
 
-    private void OnDataContextAttached(SocketViewModel obj)
+    private void OnDataContextAttached(NodeItemViewModel obj)
     {
-        switch (obj)
-        {
-            case InputSocketViewModel:
-            case OutputSocketViewModel:
-                InitSocketPoint(obj);
-                InitEditor(obj);
-                obj.Model.Connected += OnSocketConnected;
-                obj.Model.Disconnected += OnSocketDisconnected;
-                UpdateSocketPosition();
+        InitEditor(obj);
 
-                obj.State.Subscribe(OnStateChanged).DisposeWith(_disposables);
-                break;
+        if (obj is SocketViewModel socketObj)
+        {
+            InitSocketPoint(socketObj);
+            socketObj.Model.Connected += OnSocketConnected;
+            socketObj.Model.Disconnected += OnSocketDisconnected;
+            UpdateSocketPosition();
+
+            socketObj.State.Subscribe(OnStateChanged).DisposeWith(_disposables);
+        }
+        else if (_label != null)
+        {
+            grid.Children.Add(_editor ?? _label);
         }
     }
 

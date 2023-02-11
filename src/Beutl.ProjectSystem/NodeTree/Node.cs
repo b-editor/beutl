@@ -280,6 +280,9 @@ public abstract class Node : Element, INode
 
     protected InputSocket<T> AsInput<T>(CoreProperty<T> property)
     {
+        if (ContainsByName(property.Name))
+            throw new InvalidOperationException("An item with the same name already exists.");
+
         var setter = new Setter<T>(property);
         var propImpl = new SetterPropertyImpl<T>(setter, property.OwnerType);
         var socket = new InputSocketImpl<T>();
@@ -290,6 +293,9 @@ public abstract class Node : Element, INode
 
     protected InputSocket<T> AsInput<T, TOwner>(CoreProperty<T> property)
     {
+        if (ContainsByName(property.Name))
+            throw new InvalidOperationException("An item with the same name already exists.");
+
         var setter = new Setter<T>(property);
         var propImpl = new SetterPropertyImpl<T>(setter, typeof(TOwner));
         var socket = new InputSocketImpl<T>();
@@ -300,6 +306,9 @@ public abstract class Node : Element, INode
 
     protected InputSocket<T> AsInput<T>(CoreProperty<T> property, T value)
     {
+        if (ContainsByName(property.Name))
+            throw new InvalidOperationException("An item with the same name already exists.");
+
         var setter = new Setter<T>(property, value);
         var propImpl = new SetterPropertyImpl<T>(setter, property.OwnerType);
         var socket = new InputSocketImpl<T>();
@@ -310,6 +319,9 @@ public abstract class Node : Element, INode
 
     protected InputSocket<T> AsInput<T, TOwner>(CoreProperty<T> property, T value)
     {
+        if (ContainsByName(property.Name))
+            throw new InvalidOperationException("An item with the same name already exists.");
+
         var setter = new Setter<T>(property, value);
         var propImpl = new SetterPropertyImpl<T>(setter, typeof(TOwner));
         var socket = new InputSocketImpl<T>();
@@ -320,6 +332,9 @@ public abstract class Node : Element, INode
 
     protected InputSocket<T> AsInput<T>(string name, string? display = null)
     {
+        if (ContainsByName(name))
+            throw new InvalidOperationException("An item with the same name already exists.");
+
         display ??= name;
         var socket = new InputSocketImpl<T>()
         {
@@ -332,6 +347,9 @@ public abstract class Node : Element, INode
 
     protected OutputSocket<T> AsOutput<T>(string name, T value, string? display = null)
     {
+        if (ContainsByName(name))
+            throw new InvalidOperationException("An item with the same name already exists.");
+
         display ??= name;
         var socket = new OutputSocketImpl<T>(name)
         {
@@ -344,6 +362,9 @@ public abstract class Node : Element, INode
 
     protected OutputSocket<T> AsOutput<T>(string name, string? display = null)
     {
+        if (ContainsByName(name))
+            throw new InvalidOperationException("An item with the same name already exists.");
+
         display ??= name;
         var socket = new OutputSocketImpl<T>(name)
         {
@@ -351,6 +372,37 @@ public abstract class Node : Element, INode
         };
         Items.Add(socket);
         return socket;
+    }
+
+    protected NodeItem<T> AsProperty<T>(CoreProperty<T> property)
+    {
+        if (ContainsByName(property.Name))
+            throw new InvalidOperationException("An item with the same name already exists.");
+
+        var setter = new Setter<T>(property);
+        var propImpl = new SetterPropertyImpl<T>(setter, property.OwnerType);
+        var socket = new NodeItemImpl<T>();
+        socket.SetProperty(propImpl);
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected NodeItem<T> AsProperty<T>(CoreProperty<T> property, T value)
+    {
+        if (ContainsByName(property.Name))
+            throw new InvalidOperationException("An item with the same name already exists.");
+
+        var setter = new Setter<T>(property, value);
+        var propImpl = new SetterPropertyImpl<T>(setter, property.OwnerType);
+        var socket = new NodeItemImpl<T>();
+        socket.SetProperty(propImpl);
+        Items.Add(socket);
+        return socket;
+    }
+
+    private bool ContainsByName(string name)
+    {
+        return Items.Any(x => x is INodeItemImpl impl ? impl.GetName() == name : x.Property?.Property.Name == name);
     }
 
     public override void ReadFromJson(JsonNode json)
@@ -381,7 +433,7 @@ public abstract class Node : Element, INode
                         if (name != null)
                         {
                             INodeItem? nodeItem = Items.FirstOrDefault(
-                                x => x is ISocketImpl impl
+                                x => x is INodeItemImpl impl
                                     ? impl.GetName() == name
                                     : x.Property?.Property.Name == name);
 
@@ -447,16 +499,66 @@ public abstract class Node : Element, INode
         InvalidateNodeTree();
     }
 
-    private interface ISocketImpl
+    private interface INodeItemImpl
     {
         string? GetName();
     }
 
-    private interface IInputSocketImpl : ICoreObject, ISocketImpl
+    private interface IInputSocketImpl : ICoreObject, INodeItemImpl
     {
     }
 
-    private sealed class OutputSocketImpl<T> : OutputSocket<T>, ISocketImpl
+    private sealed class NodeItemImpl<T> : NodeItem<T>, INodeItemImpl
+    {
+        private string? _name;
+
+        public void SetName(string name)
+        {
+            _name = name;
+        }
+
+        public string? GetName()
+        {
+            return _name ?? Property?.Property?.Name;
+        }
+
+        public void SetProperty(SetterPropertyImpl<T> property)
+        {
+            Property = property;
+            property.Setter.Invalidated += OnSetterInvalidated;
+        }
+
+        private void OnSetterInvalidated(object? sender, EventArgs e)
+        {
+            RaiseInvalidated(new RenderInvalidatedEventArgs(this));
+        }
+
+        public SetterPropertyImpl<T>? GetProperty()
+        {
+            return Property as SetterPropertyImpl<T>;
+        }
+
+        public override void ReadFromJson(JsonNode json)
+        {
+            base.ReadFromJson(json);
+            GetProperty()?.ReadFromJson(json);
+        }
+
+        public override void WriteToJson(ref JsonNode json)
+        {
+            base.WriteToJson(ref json);
+            if (_name != null)
+            {
+                json["property"] = _name;
+            }
+            else
+    {
+                GetProperty()?.WriteToJson(ref json);
+            }
+        }
+    }
+
+    private sealed class OutputSocketImpl<T> : OutputSocket<T>, INodeItemImpl
     {
         private readonly string _name;
 

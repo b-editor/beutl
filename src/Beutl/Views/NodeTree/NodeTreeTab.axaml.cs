@@ -189,8 +189,6 @@ public partial class NodeTreeTab : UserControl
         {
             [!Line.StartPointProperty] = first.SocketPosition.ToBinding(),
             [!Line.EndPointProperty] = second.SocketPosition.ToBinding(),
-            Stroke = Brushes.White,
-            StrokeThickness = 3,
             First = first.Model,
             Second = second.Model
         };

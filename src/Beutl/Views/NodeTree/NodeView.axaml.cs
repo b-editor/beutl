@@ -32,6 +32,7 @@ public partial class NodeView : UserControl
         handle.PointerPressed += OnHandlePointerPressed;
         handle.PointerReleased += OnHandlePointerReleased;
         handle.PointerMoved += OnHandlePointerMoved;
+        nodeContent.PointerPressed += OnNodeContentPointerPressed;
 
         expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(v =>
@@ -44,6 +45,11 @@ public partial class NodeView : UserControl
 
                 _ = s_transition.Start(null, this, localToken);
             });
+    }
+
+    private void OnNodeContentPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        e.Handled = true;
     }
 
     private void OnHandlePointerMoved(object? sender, PointerEventArgs e)
