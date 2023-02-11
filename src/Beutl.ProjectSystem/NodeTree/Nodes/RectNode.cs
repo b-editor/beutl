@@ -13,7 +13,7 @@ public class RectNode : Node
     public RectNode()
     {
         _rectangle = new Rectangle();
-        AsOutput("Output", _rectangle);
+        AsOutput("Rectangle", _rectangle);
 
         _widthSocket = AsInput<float, Rectangle>(Drawable.WidthProperty, 100);
         _heightSocket = AsInput<float, Rectangle>(Drawable.HeightProperty, 100);
@@ -31,28 +31,5 @@ public class RectNode : Node
         _rectangle.Width = _widthSocket.Value;
         _rectangle.Height = _heightSocket.Value;
         _rectangle.StrokeWidth = _strokeSocket.Value;
-    }
-}
-
-public class LayerOutputNode : Node
-{
-    private readonly InputSocket<Drawable> _renderableSocket;
-
-    public LayerOutputNode()
-    {
-        _renderableSocket = AsInput<Drawable>("Input");
-    }
-
-    public override void Evaluate(EvaluationContext context)
-    {
-        if (_renderableSocket.Value is { } value)
-        {
-            while (value.BatchUpdate)
-            {
-                value.EndBatchUpdate();
-            }
-
-            context.AddRenderable(value);
-        }
     }
 }
