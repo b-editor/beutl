@@ -56,9 +56,9 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
         return true;
     }
 
-    public override void Evaluate(EvaluationContext context)
+    public override void PostEvaluate(EvaluationContext context)
     {
-        base.Evaluate(context);
+        base.PostEvaluate(context);
         foreach (IConnection item in _connections.GetMarshal().Value)
         {
             item.Input.Receive(Value);

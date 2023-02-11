@@ -13,7 +13,11 @@ public interface INodeItem : ILogicalElement, IAffectsRender
 
     public event EventHandler? NodeTreeInvalidated;
 
+    void PreEvaluate(EvaluationContext context);
+
     void Evaluate(EvaluationContext context);
+
+    void PostEvaluate(EvaluationContext context);
 
     void NotifyAttachedToNodeTree(NodeTreeSpace nodeTree);
 

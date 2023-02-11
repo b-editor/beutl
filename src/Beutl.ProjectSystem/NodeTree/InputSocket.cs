@@ -33,11 +33,12 @@ public class InputSocket<T> : Socket<T>, IInputSocket<T>
         Value = value;
     }
 
-    public override void Evaluate(EvaluationContext context)
+    public override void PreEvaluate(EvaluationContext context)
     {
         if (Connection == null)
         {
-            base.Evaluate(context);
+            Value = default;
+            base.PreEvaluate(context);
         }
     }
 

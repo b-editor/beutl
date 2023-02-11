@@ -58,7 +58,7 @@ public class NodeItem<T> : NodeItem, INodeItem<T>
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
-    public virtual void Evaluate(EvaluationContext context)
+    public virtual void PreEvaluate(EvaluationContext context)
     {
         if (Property is { } property)
         {
@@ -73,6 +73,14 @@ public class NodeItem<T> : NodeItem, INodeItem<T>
         }
     }
 
+    public virtual void Evaluate(EvaluationContext context)
+    {
+    }
+
+    public virtual void PostEvaluate(EvaluationContext context)
+    {
+    }
+
     protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
     {
         Invalidated?.Invoke(this, args);
@@ -81,7 +89,7 @@ public class NodeItem<T> : NodeItem, INodeItem<T>
     protected virtual void OnAttachedToNodeTree(NodeTreeSpace nodeTree)
     {
     }
-    
+
     protected virtual void OnDetachedFromNodeTree(NodeTreeSpace nodeTree)
     {
     }
