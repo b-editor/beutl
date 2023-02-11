@@ -18,11 +18,19 @@ public static class NodesRegistrar
             .Add<SkewNode>(Strings.Skew)
             .Register();
 
-        NodeRegistry.RegisterNodes("Math")
-            .Add<Mathematics.TranslateMatrixNode>("Translate")
-            .Add<Mathematics.RotationMatrixNode>("Rotation")
-            .Add<Mathematics.ScaleMatrixNode>("Scale")
-            .Add<Mathematics.SkewMatrixNode>("Skew")
+        NodeRegistry.RegisterNodes("Utilities")
+            .AddGroup("Matrix", o => o
+                .Add<Utilities.TranslateMatrixNode>("Translate")
+                .Add<Utilities.RotationMatrixNode>("Rotation")
+                .Add<Utilities.ScaleMatrixNode>("Scale")
+                .Add<Utilities.SkewMatrixNode>("Skew")
+                .Register())
+            .AddGroup("Random", o => o
+                .Add<Utilities.RandomSingleNode>("Random Float")
+                .Add<Utilities.RandomDoubleNode>("Random Double")
+                .Add<Utilities.RandomInt32Node>("Random 32-bit signed integer")
+                .Add<Utilities.RandomInt64Node>("Random 64-bit signed integer")
+                .Register())
             .Register();
     }
 }

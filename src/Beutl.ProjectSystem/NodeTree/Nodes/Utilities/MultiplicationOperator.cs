@@ -1,4 +1,4 @@
-﻿namespace Beutl.NodeTree.Nodes.Mathematics;
+﻿namespace Beutl.NodeTree.Nodes.Utilities;
 
 public enum MultiplicationOperator
 {

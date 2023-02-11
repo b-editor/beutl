@@ -1,4 +1,6 @@
-﻿using Beutl.Framework;
+﻿using System.Runtime.Serialization;
+
+using Beutl.Framework;
 using Beutl.NodeTree;
 using Beutl.Views.NodeTree;
 
@@ -44,16 +46,43 @@ public class OutputSocketViewModel : SocketViewModel
 
     private static bool MatchPropertyType(IInputSocket input, IOutputSocket output)
     {
-        if (output.Property != null && input.Property != null)
+        bool MatchType()
         {
-            return output.Property.Property.PropertyType.IsAssignableTo(input.Property.Property.PropertyType);
+            if (output.Property != null && input.Property != null)
+            {
+                return output.Property.Property.PropertyType.IsAssignableTo(input.Property.Property.PropertyType);
+            }
+            else if (output.AssociatedType != null && input.AssociatedType != null)
+            {
+                return output.AssociatedType.IsAssignableTo(input.AssociatedType);
+            }
+            else
+            {
+                return false;
+            }
         }
-        else if (output.AssociatedType != null && input.AssociatedType != null)
+
+        if (MatchType())
         {
-            return output.AssociatedType.IsAssignableTo(input.AssociatedType);
+            return true;
         }
         else
         {
+            if (output.AssociatedType != null && input.AssociatedType != null
+                && !output.AssociatedType.IsAssignableTo(typeof(IDisposable))
+                && !input.AssociatedType.IsAssignableTo(typeof(IDisposable)))
+            {
+                try
+                {
+                    object dummy = FormatterServices.GetUninitializedObject(input.AssociatedType);
+                    _ = Convert.ChangeType(dummy, output.AssociatedType);
+                    return true;
+                }
+                catch
+                {
+                }
+            }
+
             return false;
         }
     }

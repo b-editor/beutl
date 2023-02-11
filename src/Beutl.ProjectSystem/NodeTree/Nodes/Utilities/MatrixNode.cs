@@ -1,6 +1,6 @@
 ﻿using Beutl.Graphics;
 
-namespace Beutl.NodeTree.Nodes.Mathematics;
+namespace Beutl.NodeTree.Nodes.Utilities;
 
 public abstract class MatrixNode : Node
 {

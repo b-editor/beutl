@@ -2,7 +2,7 @@
 using Beutl.Graphics.Transformation;
 using Beutl.Utilities;
 
-namespace Beutl.NodeTree.Nodes.Mathematics;
+namespace Beutl.NodeTree.Nodes.Utilities;
 
 public class RotationMatrixNode : MatrixNode
 {

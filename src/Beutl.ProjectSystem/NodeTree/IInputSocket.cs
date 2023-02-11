@@ -1,4 +1,6 @@
-﻿namespace Beutl.NodeTree;
+﻿using System.Globalization;
+
+namespace Beutl.NodeTree;
 
 public interface IInputSocket : ISocket
 {
@@ -21,9 +23,26 @@ public interface IInputSocket<T> : IInputSocket
         {
             Receive(t);
         }
-
-        if (value == null)
+        else if (value == null)
         {
+            Receive(default);
+        }
+        else
+        {
+            if (value is IConvertible convertible)
+            {
+                try
+                {
+                    if (convertible.ToType(typeof(T), CultureInfo.CurrentCulture) is T converted)
+                    {
+                        Receive(converted);
+                    }
+                }
+                catch
+                {
+                }
+            }
+
             Receive(default);
         }
     }

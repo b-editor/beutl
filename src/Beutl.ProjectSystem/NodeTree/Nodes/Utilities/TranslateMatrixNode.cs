@@ -1,7 +1,7 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
 
-namespace Beutl.NodeTree.Nodes.Mathematics;
+namespace Beutl.NodeTree.Nodes.Utilities;
 
 public class TranslateMatrixNode : MatrixNode
 {
