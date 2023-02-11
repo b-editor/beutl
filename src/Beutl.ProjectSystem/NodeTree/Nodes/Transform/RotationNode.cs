@@ -3,26 +3,19 @@ using Beutl.Graphics.Transformation;
 
 namespace Beutl.NodeTree.Nodes.Transform;
 
-public class TransformNode : ConfigureNode
+public class RotationNode : ConfigureNode
 {
-    private readonly InputSocket<Matrix> _matrixSocket;
-    private readonly MatrixTransform _model = new();
+    private readonly InputSocket<float> _rotationSocket;
+    private readonly RotationTransform _model = new();
 
-    public TransformNode()
+    public RotationNode()
     {
-        _matrixSocket = AsInput<Matrix>("Matrix", "Matrix");
+        _rotationSocket = AsInput(RotationTransform.RotationProperty);
     }
 
     protected override void EvaluateCore(EvaluationContext context)
     {
-        if (_matrixSocket.Connection != null)
-        {
-            _model.Matrix = _matrixSocket.Value;
-        }
-        else
-        {
-            _model.Matrix = Matrix.Identity;
-        }
+        _model.Rotation = _rotationSocket.Value;
     }
 
     protected override void Attach(Drawable drawable)

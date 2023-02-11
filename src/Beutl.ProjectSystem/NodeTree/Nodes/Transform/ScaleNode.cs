@@ -3,26 +3,25 @@ using Beutl.Graphics.Transformation;
 
 namespace Beutl.NodeTree.Nodes.Transform;
 
-public class TransformNode : ConfigureNode
+public class ScaleNode : ConfigureNode
 {
-    private readonly InputSocket<Matrix> _matrixSocket;
-    private readonly MatrixTransform _model = new();
+    private readonly InputSocket<float> _scaleSocket;
+    private readonly InputSocket<float> _scaleXSocket;
+    private readonly InputSocket<float> _scaleYSocket;
+    private readonly ScaleTransform _model = new();
 
-    public TransformNode()
+    public ScaleNode()
     {
-        _matrixSocket = AsInput<Matrix>("Matrix", "Matrix");
+        _scaleSocket = AsInput(ScaleTransform.ScaleProperty);
+        _scaleXSocket = AsInput(ScaleTransform.ScaleXProperty);
+        _scaleYSocket = AsInput(ScaleTransform.ScaleYProperty);
     }
 
     protected override void EvaluateCore(EvaluationContext context)
     {
-        if (_matrixSocket.Connection != null)
-        {
-            _model.Matrix = _matrixSocket.Value;
-        }
-        else
-        {
-            _model.Matrix = Matrix.Identity;
-        }
+        _model.Scale = _scaleSocket.Value;
+        _model.ScaleX = _scaleXSocket.Value;
+        _model.ScaleY = _scaleYSocket.Value;
     }
 
     protected override void Attach(Drawable drawable)

@@ -3,26 +3,22 @@ using Beutl.Graphics.Transformation;
 
 namespace Beutl.NodeTree.Nodes.Transform;
 
-public class TransformNode : ConfigureNode
+public class SkewNode : ConfigureNode
 {
-    private readonly InputSocket<Matrix> _matrixSocket;
-    private readonly MatrixTransform _model = new();
+    private readonly InputSocket<float> _skewXSocket;
+    private readonly InputSocket<float> _skewYSocket;
+    private readonly SkewTransform _model = new();
 
-    public TransformNode()
+    public SkewNode()
     {
-        _matrixSocket = AsInput<Matrix>("Matrix", "Matrix");
+        _skewXSocket = AsInput(SkewTransform.SkewXProperty);
+        _skewYSocket = AsInput(SkewTransform.SkewYProperty);
     }
 
     protected override void EvaluateCore(EvaluationContext context)
     {
-        if (_matrixSocket.Connection != null)
-        {
-            _model.Matrix = _matrixSocket.Value;
-        }
-        else
-        {
-            _model.Matrix = Matrix.Identity;
-        }
+        _model.SkewY = _skewXSocket.Value;
+        _model.SkewY = _skewYSocket.Value;
     }
 
     protected override void Attach(Drawable drawable)
