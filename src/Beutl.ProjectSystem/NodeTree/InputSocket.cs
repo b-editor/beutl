@@ -5,6 +5,8 @@ namespace Beutl.NodeTree;
 public class InputSocket<T> : Socket<T>, IInputSocket<T>
 {
     private Guid _outputId;
+    private Func<object?, bool>? _onReceive;
+    private bool _force;
 
     public IConnection? Connection { get; private set; }
 
@@ -15,6 +17,7 @@ public class InputSocket<T> : Socket<T>, IInputSocket<T>
             _outputId = Guid.Empty;
         }
 
+        IsValid = null;
         Connection = connection;
         RaiseConnected(connection);
     }
@@ -23,6 +26,7 @@ public class InputSocket<T> : Socket<T>, IInputSocket<T>
     {
         if (Connection == connection)
         {
+            IsValid = null;
             Connection = null;
             RaiseDisconnected(connection);
         }
@@ -30,7 +34,56 @@ public class InputSocket<T> : Socket<T>, IInputSocket<T>
 
     public virtual void Receive(T? value)
     {
-        Value = value;
+        if (_force && _onReceive != null)
+        {
+            IsValid = _onReceive(value);
+        }
+        else
+        {
+            Value = value;
+            IsValid = true;
+        }
+    }
+
+    public void Receive(object? value)
+    {
+        if (value is T t)
+        {
+            Receive(t);
+            IsValid = true;
+        }
+        else
+        {
+            if (_onReceive != null)
+            {
+                IsValid = _onReceive(value);
+            }
+            else
+            {
+                T? value1 = default;
+                if (Property != null)
+                {
+                    value1 = Property.GetValue();
+                    if (value1 == null
+                        && Property?.Property.GetMetadata<CorePropertyMetadata<T>>(Property.ImplementedType) is { } metadata
+                        && metadata.HasDefaultValue)
+                    {
+                        value1 = metadata.DefaultValue;
+                    }
+                }
+
+                Receive(value1);
+
+                IsValid = false;
+            }
+        }
+    }
+
+    // force: 型が一致している場合でも、このReceiverを使います。
+    public void RegisterReceiver(Func<object?, bool> onReceive, bool force = false)
+    {
+        _onReceive = onReceive;
+        _force = force;
     }
 
     public override void PreEvaluate(EvaluationContext context)

@@ -8,30 +8,31 @@ using Avalonia.VisualTree;
 using Beutl.NodeTree;
 using Beutl.ViewModels.NodeTree;
 
-namespace Beutl.Views.NodeTree;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-public enum SocketState
-{
-    Disconnected,
-    Connected,
-    Invalid,
-}
+using Reactive.Bindings.Extensions;
+
+namespace Beutl.Views.NodeTree;
 
 public class SocketConnectRequestedEventArgs : EventArgs
 {
-    public SocketConnectRequestedEventArgs(ISocket target, SocketState state)
+    public SocketConnectRequestedEventArgs(ISocket target, bool isConnected)
     {
         Target = target;
-        State = state;
+        IsConnected = isConnected;
     }
 
     public ISocket Target { get; }
 
-    public SocketState State { get; set; }
+    public bool IsConnected { get; set; }
 }
 
 public sealed class ConnectionLine : Line
 {
+    public static readonly StyledProperty<IInputSocket?> InputSocketProperty
+        = AvaloniaProperty.Register<ConnectionLine, IInputSocket?>(nameof(InputSocket));
+    public static readonly StyledProperty<IOutputSocket?> OutputSocketProperty
+        = AvaloniaProperty.Register<ConnectionLine, IOutputSocket?>(nameof(OutputSocket));
     private IDisposable? _strokeBinding;
 
     static ConnectionLine()
@@ -39,14 +40,38 @@ public sealed class ConnectionLine : Line
         StrokeThicknessProperty.OverrideDefaultValue<ConnectionLine>(3);
     }
 
-    public ISocket? First { get; set; }
+    public IInputSocket? InputSocket
+    {
+        get => GetValue(InputSocketProperty);
+        set => SetValue(InputSocketProperty, value);
+    }
 
-    public ISocket? Second { get; set; }
+    public IOutputSocket? OutputSocket
+    {
+        get => GetValue(OutputSocketProperty);
+        set => SetValue(OutputSocketProperty, value);
+    }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        _strokeBinding = Bind(StrokeProperty, this.GetResourceObservable("TextControlForeground"));
+        _strokeBinding = this.GetResourceObservable("TextControlForeground")
+            .CombineLatest(
+                this.GetResourceObservable("SystemFillColorCriticalBrush"),
+                this.GetObservable(InputSocketProperty)
+                    .SelectMany(o => (o as CoreObject)?.GetObservable(NodeItem.IsValidProperty) ?? Observable.Return<bool?>(null)))
+            .ObserveOnUIDispatcher()
+            .Subscribe(x =>
+            {
+                if (x.Third == false)
+                {
+                    Stroke = x.Second as IBrush;
+                }
+                else
+                {
+                    Stroke = x.First as IBrush;
+                }
+            });
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -57,13 +82,37 @@ public sealed class ConnectionLine : Line
 
     public bool Match(ISocket? first, ISocket? second)
     {
-        return (First == first && Second == second)
-            || (Second == first && First == second);
+        return (InputSocket == first && OutputSocket == second)
+            || (OutputSocket == first && InputSocket == second);
     }
 
     public bool Match(ISocket? socket)
     {
-        return First == socket || Second == socket;
+        return InputSocket == socket || OutputSocket == socket;
+    }
+
+    public ISocket? GetTarget(ISocket? socket)
+    {
+        return InputSocket == socket ? OutputSocket
+            : OutputSocket == socket ? InputSocket : null;
+    }
+
+    public bool SetSocket(ISocket socket)
+    {
+        if (socket is IInputSocket input && InputSocket == null)
+        {
+            InputSocket = input;
+            return true;
+        }
+        else if (socket is IOutputSocket output && OutputSocket == null)
+        {
+            OutputSocket = output;
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 }
 
@@ -72,19 +121,17 @@ public sealed class SocketPoint : Control
     public static readonly StyledProperty<IBrush?> BrushProperty =
         AvaloniaProperty.Register<SocketPoint, IBrush?>(nameof(Brush));
 
-    public static readonly StyledProperty<SocketState> StateProperty =
-        AvaloniaProperty.Register<SocketPoint, SocketState>(nameof(State));
+    public static readonly StyledProperty<bool> IsConnectedProperty =
+        AvaloniaProperty.Register<SocketPoint, bool>(nameof(IsConnected));
 
     private ConnectionLine? _line;
-    private IBrush? _criticalBrush;
-    private IDisposable? _disposable;
     private bool _captured;
     private bool _doubleClick;
     private Canvas? _canvas;
 
     static SocketPoint()
     {
-        AffectsRender<SocketPoint>(BrushProperty, StateProperty);
+        AffectsRender<SocketPoint>(BrushProperty, IsConnectedProperty);
     }
 
     public IBrush? Brush
@@ -93,10 +140,10 @@ public sealed class SocketPoint : Control
         set => SetValue(BrushProperty, value);
     }
 
-    public SocketState State
+    public bool IsConnected
     {
-        get => GetValue(StateProperty);
-        set => SetValue(StateProperty, value);
+        get => GetValue(IsConnectedProperty);
+        set => SetValue(IsConnectedProperty, value);
     }
 
     public event EventHandler<SocketConnectRequestedEventArgs>? ConnectRequested;
@@ -106,18 +153,12 @@ public sealed class SocketPoint : Control
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        _disposable = this.GetResourceObservable("SystemFillColorCriticalBrush").Subscribe(x =>
-        {
-            _criticalBrush = x as IBrush;
-            InvalidateVisual();
-        });
         _canvas = this.FindAncestorOfType<Canvas>();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
-        _disposable?.Dispose();
         _canvas = null;
     }
 
@@ -140,9 +181,9 @@ public sealed class SocketPoint : Control
             _line = new ConnectionLine()
             {
                 [!Line.StartPointProperty] = viewModel.SocketPosition.ToBinding(),
-                EndPoint = e.GetPosition(_canvas),
-                First = viewModel.Model
+                EndPoint = e.GetPosition(_canvas)
             };
+            _line.SetSocket(viewModel.Model);
             _canvas.Children.Insert(0, _line);
 
             e.Handled = true;
@@ -180,12 +221,16 @@ public sealed class SocketPoint : Control
                     if (_line != null)
                     {
                         _line.Bind(Line.EndPointProperty, endViewModel.SocketPosition.ToBinding());
-                        _line.Second = endViewModel.Model;
+                        if (!_line.SetSocket(endViewModel.Model))
+                        {
+                            Disconnect();
+                            goto Finally;
+                        }
                     }
 
-                    var args = new SocketConnectRequestedEventArgs(endViewModel.Model, State);
+                    var args = new SocketConnectRequestedEventArgs(endViewModel.Model, false);
                     ConnectRequested?.Invoke(this, args);
-                    if (args.State == SocketState.Disconnected)
+                    if (!args.IsConnected)
                     {
                         Disconnect();
                     }
@@ -196,6 +241,7 @@ public sealed class SocketPoint : Control
                 }
             }
 
+        Finally:
             _line = null;
             e.Handled = true;
             _captured = false;
@@ -216,23 +262,24 @@ public sealed class SocketPoint : Control
     {
         if (_canvas != null && DataContext is SocketViewModel viewModel)
         {
-            var socket = viewModel.Model;
+            ISocket socket = viewModel.Model;
             for (int i = _canvas.Children.Count - 1; i >= 0; i--)
             {
                 IControl item = _canvas.Children[i];
-                if (item is ConnectionLine cline
-                    && (cline.First == socket || cline.Second == socket))
+                if (item is ConnectionLine cline && cline.Match(socket))
                 {
-                    ISocket? target = cline.First == socket ? cline.Second : cline.First;
+                    ISocket? target = cline.GetTarget(socket);
                     if (target == null)
                         goto RemoveLine;
 
-                    var args = new SocketConnectRequestedEventArgs(target, State);
+                    var args = new SocketConnectRequestedEventArgs(target, true);
                     DisconnectRequested?.Invoke(this, args);
-                    if (args.State != SocketState.Disconnected)
+                    if (args.IsConnected)
+                    {
                         continue;
+                    }
 
-                    RemoveLine:
+                RemoveLine:
                     _canvas.Children.Remove(cline);
                 }
             }
@@ -242,13 +289,9 @@ public sealed class SocketPoint : Control
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        if (State == SocketState.Connected)
+        if (IsConnected)
         {
             context.FillRectangle(Brush ?? Brushes.Teal, new Rect(0, 0, 10, 10), 5);
-        }
-        else if (State == SocketState.Invalid)
-        {
-            context.FillRectangle(_criticalBrush ?? Brushes.OrangeRed, new Rect(0, 0, 10, 10), 5);
         }
         else
         {

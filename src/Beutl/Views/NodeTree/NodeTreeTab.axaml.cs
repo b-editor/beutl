@@ -183,14 +183,14 @@ public partial class NodeTreeTab : UserControl
         zoomBorder.Zoom(1, zoomBorder.OffsetX, zoomBorder.OffsetY);
     }
 
-    internal static ConnectionLine CreateLine(SocketViewModel first, SocketViewModel second)
+    internal static ConnectionLine CreateLine(InputSocketViewModel input, OutputSocketViewModel output)
     {
         return new ConnectionLine()
         {
-            [!Line.StartPointProperty] = first.SocketPosition.ToBinding(),
-            [!Line.EndPointProperty] = second.SocketPosition.ToBinding(),
-            First = first.Model,
-            Second = second.Model
+            [!Line.StartPointProperty] = input.SocketPosition.ToBinding(),
+            [!Line.EndPointProperty] = output.SocketPosition.ToBinding(),
+            InputSocket = input.Model,
+            OutputSocket = output.Model
         };
     }
 
@@ -220,15 +220,12 @@ public partial class NodeTreeTab : UserControl
 
                 foreach (IConnection connection in list.Span)
                 {
-                    if (!canvas.Children.OfType<ConnectionLine>().Any(x => x.Match(connection.Input, connection.Output)))
+                    if (!canvas.Children.OfType<ConnectionLine>().Any(x => x.Match(connection.Input, connection.Output)) &&
+                        obj.FindSocketViewModel(connection.Input) is InputSocketViewModel inputViewModel &&
+                        obj.FindSocketViewModel(connection.Output) is OutputSocketViewModel outputViewModel)
                     {
-                        SocketViewModel? first = obj.FindSocketViewModel(connection.Input);
-                        SocketViewModel? second = obj.FindSocketViewModel(connection.Output);
-                        if (first != null && second != null)
-                        {
-                            ConnectionLine line = CreateLine(first, second);
-                            canvas.Children.Insert(0, line);
-                        }
+                        ConnectionLine line = CreateLine(inputViewModel, outputViewModel);
+                        canvas.Children.Insert(0, line);
                     }
                 }
             },

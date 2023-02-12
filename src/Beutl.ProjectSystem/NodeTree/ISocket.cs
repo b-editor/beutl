@@ -14,7 +14,7 @@ public interface ISocket : INodeItem
 
 public class Socket<T> : NodeItem<T>, ISocket
 {
-    public Color Color { get; }
+    public Color Color { get; set; } = Colors.Teal;
 
     public event EventHandler<SocketConnectionChangedEventArgs>? Connected;
 

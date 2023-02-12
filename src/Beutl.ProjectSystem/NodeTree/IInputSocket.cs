@@ -1,10 +1,10 @@
-﻿using System.Globalization;
-
-namespace Beutl.NodeTree;
+﻿namespace Beutl.NodeTree;
 
 public interface IInputSocket : ISocket
 {
     IConnection? Connection { get; }
+
+    bool? IsValid { get; }
 
     void Receive(object? value);
 
@@ -16,34 +16,4 @@ public interface IInputSocket : ISocket
 public interface IInputSocket<T> : IInputSocket
 {
     void Receive(T? value);
-
-    void IInputSocket.Receive(object? value)
-    {
-        if (value is T t)
-        {
-            Receive(t);
-        }
-        else if (value == null)
-        {
-            Receive(default);
-        }
-        else
-        {
-            if (value is IConvertible convertible)
-            {
-                try
-                {
-                    if (convertible.ToType(typeof(T), CultureInfo.CurrentCulture) is T converted)
-                    {
-                        Receive(converted);
-                    }
-                }
-                catch
-                {
-                }
-            }
-
-            Receive(default);
-        }
-    }
 }

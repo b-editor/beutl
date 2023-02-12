@@ -5,14 +5,27 @@ namespace Beutl.NodeTree;
 
 public abstract class NodeItem : Element
 {
+    public static readonly CoreProperty<bool?> IsValidProperty;
+    private bool? _isValid;
+
     static NodeItem()
     {
+        IsValidProperty = ConfigureProperty<bool?, NodeItem>(o => o.IsValid)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
+            .Register();
+
         IdProperty.OverrideMetadata<NodeItem>(new CorePropertyMetadata<Guid>("id"));
     }
 
     public NodeItem()
     {
         Id = Guid.NewGuid();
+    }
+
+    public bool? IsValid
+    {
+        get => _isValid;
+        protected set => SetAndRaise(IsValidProperty, ref _isValid, value);
     }
 
     public event EventHandler? NodeTreeInvalidated;

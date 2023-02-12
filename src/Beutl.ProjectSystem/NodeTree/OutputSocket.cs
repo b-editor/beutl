@@ -8,6 +8,8 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
 {
     private readonly CoreList<IConnection> _connections = new();
     private List<Guid>? _inputIds = null;
+    // 型が一致していない、ソケットの数
+    private int _unmatchSockets;
 
     public ICoreReadOnlyList<IConnection> Connections => _connections;
 
@@ -18,6 +20,11 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
             _connections.Remove(connection);
             RaiseDisconnected(connection);
             socket.NotifyDisconnected(connection);
+
+            if (socket is not IInputSocket<T>)
+            {
+                _unmatchSockets--;
+            }
         }
     }
 
@@ -53,15 +60,34 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
         _connections.Add(connection);
         RaiseConnected(connection);
         socket.NotifyConnected(connection);
+
+        if (socket is not IInputSocket<T>)
+        {
+            _unmatchSockets++;
+        }
+
         return true;
     }
 
     public override void PostEvaluate(EvaluationContext context)
     {
         base.PostEvaluate(context);
+        object? boxed = null;
+        if (_unmatchSockets > 0)
+        {
+            boxed = Value;
+        }
+
         foreach (IConnection item in _connections.GetMarshal().Value)
         {
-            item.Input.Receive(Value);
+            if (item.Input is IInputSocket<T> sameTypeSocket)
+            {
+                sameTypeSocket.Receive(Value);
+            }
+            else
+            {
+                item.Input.Receive(boxed);
+            }
         }
     }
 

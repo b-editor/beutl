@@ -8,7 +8,11 @@ using Avalonia.VisualTree;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Framework;
 using Beutl.NodeTree;
+using Beutl.NodeTree.Nodes;
 using Beutl.ViewModels.NodeTree;
+
+using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views.NodeTree;
 
@@ -61,12 +65,6 @@ public partial class SocketView : UserControl
 
     private void OnDataContextDetached(NodeItemViewModel obj)
     {
-        if (obj is SocketViewModel socketObj)
-        {
-            socketObj.Model.Connected -= OnSocketConnected;
-            socketObj.Model.Disconnected -= OnSocketDisconnected;
-        }
-
         _disposables.Clear();
         grid.Children.Clear();
 
@@ -128,7 +126,8 @@ public partial class SocketView : UserControl
     {
         _socketPt = new SocketPoint()
         {
-            [!SocketPoint.StateProperty] = obj.State.ToBinding(),
+            [!SocketPoint.BrushProperty] = obj.Brush.ToBinding(),
+            [!SocketPoint.IsConnectedProperty] = obj.IsConnected.ToBinding(),
             VerticalAlignment = VerticalAlignment.Top
         };
         _socketPt.ConnectRequested += OnSocketPointConnectRequested;
@@ -173,8 +172,9 @@ public partial class SocketView : UserControl
         Grid.SetColumn(_label, 1);
     }
 
-    private void OnSocketDisconnected(object? sender, SocketConnectionChangedEventArgs e)
+    private void OnSocketDisconnected(EventPattern<SocketConnectionChangedEventArgs> obj)
     {
+        SocketConnectionChangedEventArgs e = obj.EventArgs;
         if (_canvas is { }
             && DataContext is SocketViewModel viewModel)
         {
@@ -205,15 +205,19 @@ public partial class SocketView : UserControl
             if (anotherViewModel == null)
                 return;
 
-            if (!_canvas.Children.OfType<ConnectionLine>().Any(x => x.Match(currentSocket, anotherSocket)))
+            if (!_canvas.Children.OfType<ConnectionLine>().Any(x => x.Match(currentSocket, anotherSocket))
+                && SortSocket(
+                    viewModel, anotherViewModel,
+                    out InputSocketViewModel? inputViewModel, out OutputSocketViewModel? outputViewModel))
             {
-                _canvas.Children.Insert(0, NodeTreeTab.CreateLine(viewModel, anotherViewModel));
+                _canvas.Children.Insert(0, NodeTreeTab.CreateLine(inputViewModel, outputViewModel));
             }
         }
     }
 
-    private void OnSocketConnected(object? sender, SocketConnectionChangedEventArgs e)
+    private void OnSocketConnected(EventPattern<SocketConnectionChangedEventArgs> obj)
     {
+        SocketConnectionChangedEventArgs e = obj.EventArgs;
         if (DataContext is SocketViewModel viewModel)
         {
             ISocket anotherSocket = viewModel.Model == e.Connection.Output
@@ -230,11 +234,20 @@ public partial class SocketView : UserControl
         if (obj is SocketViewModel socketObj)
         {
             InitSocketPoint(socketObj);
-            socketObj.Model.Connected += OnSocketConnected;
-            socketObj.Model.Disconnected += OnSocketDisconnected;
-            UpdateSocketPosition();
+            Observable.FromEventPattern<SocketConnectionChangedEventArgs>(x => socketObj.Model.Connected += x, x => socketObj.Model.Connected -= x)
+                .ObserveOnUIDispatcher()
+                .Subscribe(OnSocketConnected)
+                .DisposeWith(_disposables);
 
-            socketObj.State.Subscribe(OnStateChanged).DisposeWith(_disposables);
+            Observable.FromEventPattern<SocketConnectionChangedEventArgs>(x => socketObj.Model.Disconnected += x, x => socketObj.Model.Disconnected -= x)
+                .ObserveOnUIDispatcher()
+                .Subscribe(OnSocketDisconnected)
+                .DisposeWith(_disposables);
+
+            socketObj.IsConnected
+                .ObserveOnUIDispatcher()
+                .Subscribe(OnIsConnectedChanged)
+                .DisposeWith(_disposables);
         }
         else if (_label != null)
         {
@@ -242,7 +255,7 @@ public partial class SocketView : UserControl
         }
     }
 
-    private void OnStateChanged(SocketState obj)
+    private void OnIsConnectedChanged(bool obj)
     {
         if (_label != null)
         {
@@ -250,13 +263,13 @@ public partial class SocketView : UserControl
             if (_editor != null)
                 grid.Children.Remove(_editor);
 
-            if (obj == SocketState.Disconnected)
+            if (obj && DataContext is InputSocketViewModel)
             {
-                grid.Children.Add(_editor ?? _label);
+                grid.Children.Add(_label);
             }
             else
             {
-                grid.Children.Add(_label);
+                grid.Children.Add(_editor ?? _label);
             }
         }
 
@@ -282,6 +295,25 @@ public partial class SocketView : UserControl
         return outputSocket != null && inputSocket != null;
     }
 
+    private static bool SortSocket(
+        SocketViewModel first, SocketViewModel second,
+        [NotNullWhen(true)] out InputSocketViewModel? inputSocket,
+        [NotNullWhen(true)] out OutputSocketViewModel? outputSocket)
+    {
+        if (first is InputSocketViewModel input)
+        {
+            inputSocket = input;
+            outputSocket = second as OutputSocketViewModel;
+        }
+        else
+        {
+            inputSocket = second as InputSocketViewModel;
+            outputSocket = first as OutputSocketViewModel;
+        }
+
+        return outputSocket != null && inputSocket != null;
+    }
+
     private void OnSocketPointDisconnectRequested(object? sender, SocketConnectRequestedEventArgs e)
     {
         if (DataContext is SocketViewModel viewModel
@@ -291,7 +323,7 @@ public partial class SocketView : UserControl
         {
             var command = new DisconnectCommand(inputSocket, outputSocket);
             command.DoAndRecord(CommandRecorder.Default);
-            e.State = SocketState.Disconnected;
+            e.IsConnected = false;
         }
     }
 
@@ -304,7 +336,7 @@ public partial class SocketView : UserControl
         {
             var command = new ConnectCommand(inputSocket, outputSocket);
             command.DoAndRecord(CommandRecorder.Default);
-            e.State = command.State;
+            e.IsConnected = command.IsConnected;
         }
     }
 
@@ -346,13 +378,11 @@ public partial class SocketView : UserControl
             _outputSocket = outputSocket;
         }
 
-        public SocketState State { get; set; }
+        public bool IsConnected { get; set; }
 
         public void Do()
         {
-            State = _outputSocket.TryConnect(_inputSocket)
-                ? SocketState.Connected
-                : SocketState.Disconnected;
+            IsConnected = _outputSocket.TryConnect(_inputSocket);
         }
 
         public void Redo()

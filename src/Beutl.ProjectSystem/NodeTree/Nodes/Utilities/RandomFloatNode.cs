@@ -23,7 +23,7 @@ public class RandomSingleNode : Node
         _minimumSocket = AsInput(MinimumProperty);
     }
 
-    private float Maximum { get; set; }
+    private float Maximum { get; set; } = 1;
 
     private float Minimum { get; set; }
 
@@ -60,7 +60,7 @@ public class RandomDoubleNode : Node
         _minimumSocket = AsInput(MinimumProperty);
     }
 
-    private float Maximum { get; set; }
+    private float Maximum { get; set; } = 1;
 
     private float Minimum { get; set; }
 
@@ -97,7 +97,7 @@ public class RandomInt32Node : Node
         _minimumSocket = AsInput(MinimumProperty);
     }
 
-    private int Maximum { get; set; }
+    private int Maximum { get; set; } = 1;
 
     private int Minimum { get; set; }
 
@@ -132,7 +132,7 @@ public class RandomInt64Node : Node
         _minimumSocket = AsInput(MinimumProperty);
     }
 
-    private long Maximum { get; set; }
+    private long Maximum { get; set; } = 1;
 
     private long Minimum { get; set; }
 

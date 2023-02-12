@@ -174,6 +174,7 @@ public abstract class Node : Element, INode
         PositionProperty = ConfigureProperty<(double X, double Y), Node>(nameof(Position))
             .Accessor(o => o.Position, (o, v) => o.Position = v)
             .DefaultValue((0, 0))
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
     }
 
