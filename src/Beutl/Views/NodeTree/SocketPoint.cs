@@ -114,6 +114,33 @@ public sealed class ConnectionLine : Line
             return false;
         }
     }
+
+    protected override Geometry CreateDefiningGeometry()
+    {
+        var geometry = new StreamGeometry();
+
+        using var context = geometry.Open();
+
+        context.BeginFigure(StartPoint, false);
+
+        double delta = 0;
+        if (StartPoint.X < EndPoint.X)
+        {
+            delta = (EndPoint.X - StartPoint.X) / 2;
+        }
+        else
+        {
+            delta = (StartPoint.X - EndPoint.X) / 2;
+        }
+
+        delta = Math.Clamp(delta, 10, 50);
+
+        context.CubicBezierTo(StartPoint.WithX(StartPoint.X - delta), EndPoint.WithX(EndPoint.X + delta), EndPoint);
+
+        context.EndFigure(false);
+
+        return geometry;
+    }
 }
 
 public sealed class SocketPoint : Control
@@ -180,9 +207,16 @@ public sealed class SocketPoint : Control
         {
             _line = new ConnectionLine()
             {
-                [!Line.StartPointProperty] = viewModel.SocketPosition.ToBinding(),
                 EndPoint = e.GetPosition(_canvas)
             };
+            if (viewModel is InputSocketViewModel)
+            {
+                _line.Bind(Line.StartPointProperty, viewModel.SocketPosition.ToBinding());
+            }
+            else
+            {
+                _line.Bind(Line.EndPointProperty, viewModel.SocketPosition.ToBinding());
+            }
             _line.SetSocket(viewModel.Model);
             _canvas.Children.Insert(0, _line);
 
@@ -220,7 +254,15 @@ public sealed class SocketPoint : Control
                 {
                     if (_line != null)
                     {
-                        _line.Bind(Line.EndPointProperty, endViewModel.SocketPosition.ToBinding());
+                        if (endViewModel is InputSocketViewModel)
+                        {
+                            _line.Bind(Line.StartPointProperty, endViewModel.SocketPosition.ToBinding());
+                        }
+                        else
+                        {
+                            _line.Bind(Line.EndPointProperty, endViewModel.SocketPosition.ToBinding());
+                        }
+
                         if (!_line.SetSocket(endViewModel.Model))
                         {
                             Disconnect();
