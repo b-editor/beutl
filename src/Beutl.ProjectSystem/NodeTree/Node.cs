@@ -246,9 +246,17 @@ public abstract class Node : Element, INode
         Invalidated?.Invoke(this, args);
     }
 
+    public virtual void InitializeForContext(NodeEvaluationContext context)
+    {
+    }
+    
+    public virtual void UninitializeForContext(NodeEvaluationContext context)
+    {
+    }
+
     // 1. ItemsのIInputSocket.Connection.Nodeを評価する。
     // 2. IOutputSocket.ConnectionsからIInputSocketにデータを送る (Receive)
-    public virtual void Evaluate(EvaluationContext context)
+    public virtual void Evaluate(NodeEvaluationContext context)
     {
         for (int i = 0; i < Items.Count; i++)
         {
@@ -257,7 +265,7 @@ public abstract class Node : Element, INode
         }
     }
 
-    public virtual void PreEvaluate(EvaluationContext context)
+    public virtual void PreEvaluate(NodeEvaluationContext context)
     {
         for (int i = 0; i < Items.Count; i++)
         {
@@ -266,7 +274,7 @@ public abstract class Node : Element, INode
         }
     }
 
-    public virtual void PostEvaluate(EvaluationContext context)
+    public virtual void PostEvaluate(NodeEvaluationContext context)
     {
         for (int i = 0; i < Items.Count; i++)
         {

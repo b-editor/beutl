@@ -2,37 +2,65 @@
 
 namespace Beutl.NodeTree.Nodes;
 
+public class ConfigureNodeEvaluationState
+{
+    public ConfigureNodeEvaluationState(Drawable? previous, object? addtionalState)
+    {
+        Previous = previous;
+        AddtionalState = addtionalState;
+    }
+
+    public Drawable? Previous { get; set; }
+
+    public object? AddtionalState { get; set; }
+}
+
 public abstract class ConfigureNode : Node
 {
-    private Drawable? _prevDrawable;
-
     public ConfigureNode()
     {
         OutputSocket = AsOutput<Drawable>("Output", "Drawable");
         InputSocket = AsInput<Drawable>("Input", "Drawable");
-
-        InputSocket.Disconnected += OnInputSocketDisconnected;
     }
 
     protected OutputSocket<Drawable> OutputSocket { get; }
 
     protected InputSocket<Drawable> InputSocket { get; }
 
-    public override void Evaluate(EvaluationContext context)
+    public override void UninitializeForContext(NodeEvaluationContext context)
+    {
+        base.UninitializeForContext(context);
+        if (context.State is ConfigureNodeEvaluationState { Previous: { } } state)
+        {
+            Detach(state.Previous, state.AddtionalState);
+            context.State = null;
+        }
+    }
+
+    public override void Evaluate(NodeEvaluationContext context)
     {
         Drawable? value = InputSocket.Value;
-        if (value != _prevDrawable)
+        var state = context.State as ConfigureNodeEvaluationState;
+        Drawable? prevDrawable = state?.Previous;
+        if (state != null)
         {
-            if (_prevDrawable != null)
+            state.Previous = value;
+        }
+        else
+        {
+            context.State = new ConfigureNodeEvaluationState(value, null);
+        }
+
+        if (value != prevDrawable)
+        {
+            if (prevDrawable != null)
             {
-                Detach(_prevDrawable);
+                Detach(prevDrawable, state?.AddtionalState);
             }
             if (value != null)
             {
-                Attach(value);
+                Attach(value, state?.AddtionalState);
             }
-
-            _prevDrawable = value;
         }
 
         EvaluateCore(context);
@@ -40,28 +68,9 @@ public abstract class ConfigureNode : Node
         OutputSocket.Value = value;
     }
 
-    protected abstract void EvaluateCore(EvaluationContext context);
+    protected abstract void EvaluateCore(NodeEvaluationContext context);
 
-    protected abstract void Attach(Drawable drawable);
+    protected abstract void Attach(Drawable drawable, object? state);
 
-    protected abstract void Detach(Drawable drawable);
-
-    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
-    {
-        base.OnDetachedFromLogicalTree(args);
-        if (_prevDrawable != null)
-        {
-            Detach(_prevDrawable);
-            _prevDrawable = null;
-        }
-    }
-
-    private void OnInputSocketDisconnected(object? sender, SocketConnectionChangedEventArgs e)
-    {
-        if (_prevDrawable != null)
-        {
-            Detach(_prevDrawable);
-            _prevDrawable = null;
-        }
-    }
+    protected abstract void Detach(Drawable drawable, object? state);
 }

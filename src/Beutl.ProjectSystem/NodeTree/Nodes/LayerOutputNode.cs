@@ -20,7 +20,6 @@ public class LayerOutputNode : OutputNode
 
     protected override void Attach(Drawable drawable)
     {
-
     }
 
     protected override void Detach(Drawable drawable)
@@ -31,7 +30,7 @@ public class LayerOutputNode : OutputNode
         drawable.TransformOrigin = RelativePoint.TopLeft;
     }
 
-    protected override void EvaluateCore(EvaluationContext context)
+    protected override void EvaluateCore(NodeEvaluationContext context)
     {
         if (InputSocket.Value is { } value)
         {

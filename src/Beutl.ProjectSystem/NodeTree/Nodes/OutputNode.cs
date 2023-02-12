@@ -15,7 +15,7 @@ public abstract class OutputNode : Node
 
     protected InputSocket<Drawable> InputSocket { get; }
 
-    public override void Evaluate(EvaluationContext context)
+    public override void Evaluate(NodeEvaluationContext context)
     {
         Drawable? value = InputSocket.Value;
         if (value != _prevDrawable)
@@ -35,7 +35,7 @@ public abstract class OutputNode : Node
         EvaluateCore(context);
     }
 
-    protected abstract void EvaluateCore(EvaluationContext context);
+    protected abstract void EvaluateCore(NodeEvaluationContext context);
 
     protected abstract void Attach(Drawable drawable);
 

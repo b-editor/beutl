@@ -8,7 +8,6 @@ public class ScaleNode : ConfigureNode
     private readonly InputSocket<float> _scaleSocket;
     private readonly InputSocket<float> _scaleXSocket;
     private readonly InputSocket<float> _scaleYSocket;
-    private readonly ScaleTransform _model = new();
 
     public ScaleNode()
     {
@@ -17,28 +16,41 @@ public class ScaleNode : ConfigureNode
         _scaleYSocket = AsInput(ScaleTransform.ScaleYProperty).AcceptNumber();
     }
 
-    protected override void EvaluateCore(EvaluationContext context)
+    public override void InitializeForContext(NodeEvaluationContext context)
     {
-        _model.Scale = _scaleSocket.Value;
-        _model.ScaleX = _scaleXSocket.Value;
-        _model.ScaleY = _scaleYSocket.Value;
+        base.InitializeForContext(context);
+        context.State = new ConfigureNodeEvaluationState(null, new ScaleTransform());
     }
 
-    protected override void Attach(Drawable drawable)
+    protected override void EvaluateCore(NodeEvaluationContext context)
     {
-        if (drawable.Transform is not TransformGroup group)
+        if (context.State is ConfigureNodeEvaluationState { AddtionalState: ScaleTransform model })
         {
-            drawable.Transform = group = new TransformGroup();
+            model.Scale = _scaleSocket.Value;
+            model.ScaleX = _scaleXSocket.Value;
+            model.ScaleY = _scaleYSocket.Value;
         }
-
-        group.Children.Add(_model);
     }
 
-    protected override void Detach(Drawable drawable)
+    protected override void Attach(Drawable drawable, object? state)
     {
-        if (drawable.Transform is TransformGroup group)
+        if (state is ScaleTransform model)
         {
-            group.Children.Remove(_model);
+            if (drawable.Transform is not TransformGroup group)
+            {
+                drawable.Transform = group = new TransformGroup();
+            }
+
+            group.Children.Add(model);
+        }
+    }
+
+    protected override void Detach(Drawable drawable, object? state)
+    {
+        if (state is ScaleTransform model
+            && drawable.Transform is TransformGroup group)
+        {
+            group.Children.Remove(model);
         }
     }
 }

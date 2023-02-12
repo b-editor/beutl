@@ -15,7 +15,7 @@ public class NodeTreeSpace : Element, IAffectsRender
 {
     private readonly LogicalList<Node> _nodes;
     // 評価する順番
-    private readonly List<Node[]> _evaluationList = new();
+    private readonly List<NodeEvaluationContext[]> _evalContexts = new();
     private bool _isDirty = true;
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
@@ -43,7 +43,6 @@ public class NodeTreeSpace : Element, IAffectsRender
         _isDirty = true;
         obj.NodeTreeInvalidated += OnNodeTreeInvalidated;
         obj.Invalidated += OnNodeInvalidated;
-        Build();
     }
 
     private void OnNodeDetached(Node obj)
@@ -51,24 +50,24 @@ public class NodeTreeSpace : Element, IAffectsRender
         _isDirty = true;
         obj.NodeTreeInvalidated -= OnNodeTreeInvalidated;
         obj.Invalidated -= OnNodeInvalidated;
-        Build();
     }
 
     public ICoreList<Node> Nodes => _nodes;
 
     public void Evaluate(IClock clock, Layer layer)
     {
-        Build();
+        Build(clock);
         using var list = new PooledList<Renderable>();
 
-        foreach (Node[]? item in CollectionsMarshal.AsSpan(_evaluationList))
+        foreach (NodeEvaluationContext[]? item in CollectionsMarshal.AsSpan(_evalContexts))
         {
-            var context = new EvaluationContext(clock, item, list);
-            foreach (Node? node in item)
+            foreach (NodeEvaluationContext? context in item)
             {
-                node.PreEvaluate(context);
-                node.Evaluate(context);
-                node.PostEvaluate(context);
+                context._renderables = list;
+
+                context.Node.PreEvaluate(context);
+                context.Node.Evaluate(context);
+                context.Node.PostEvaluate(context);
             }
         }
 
@@ -81,7 +80,7 @@ public class NodeTreeSpace : Element, IAffectsRender
         {
             foreach (INodeItem item in node.Items.GetMarshal().Value)
             {
-                if(item is ISocket socket
+                if (item is ISocket socket
                     && socket.Id == id)
                 {
                     return socket;
@@ -92,28 +91,54 @@ public class NodeTreeSpace : Element, IAffectsRender
         return null;
     }
 
-    private void Build()
+    private void Uninitialize()
+    {
+        foreach (var item in CollectionsMarshal.AsSpan(_evalContexts))
+        {
+            foreach (NodeEvaluationContext? context in item.AsSpan())
+            {
+                context.Node.UninitializeForContext(context);
+            }
+        }
+
+        _evalContexts.Clear();
+    }
+
+    private void Build(IClock clock)
     {
         if (_isDirty)
         {
-            _evaluationList.Clear();
+            Uninitialize();
+            int nextId = 0;
 
             foreach (Node? lastNode in _nodes.Where(x => !x.Items.Any(x => x is IOutputSocket)))
             {
-                var stack = new Stack<Node>();
+                var stack = new Stack<NodeEvaluationContext>();
                 BuildNode(lastNode, stack);
-                _evaluationList.Add(stack.ToArray());
+                NodeEvaluationContext[] array = stack.ToArray();
+
+                _evalContexts.Add(array);
+                foreach (NodeEvaluationContext item in array)
+                {
+                    item.Clock = clock;
+                    item.Id = nextId;
+                    item.List = array;
+                    item.Node.InitializeForContext(item);
+                }
+
+                nextId++;
             }
 
             _isDirty = false;
         }
     }
 
-    private void BuildNode(Node node, Stack<Node> stack)
+    private void BuildNode(Node node, Stack<NodeEvaluationContext> stack)
     {
-        if (!stack.Contains(node))
+        if (!stack.Any(x => x.Node == node))
         {
-            stack.Push(node);
+            var context = new NodeEvaluationContext(node);
+            stack.Push(context);
         }
 
         for (int i = 0; i < node.Items.Count; i++)

@@ -14,5 +14,5 @@ public class TranslateMatrixNode : MatrixNode
         _ySocket = AsInput(TranslateTransform.YProperty).AcceptNumber();
     }
 
-    public override Matrix GetMatrix(EvaluationContext context) => Matrix.CreateTranslation(_xSocket.Value, _ySocket.Value);
+    public override Matrix GetMatrix(NodeEvaluationContext context) => Matrix.CreateTranslation(_xSocket.Value, _ySocket.Value);
 }

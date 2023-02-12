@@ -33,7 +33,7 @@ public abstract class MatrixNode : Node
     }
 #pragma warning restore CA1822 // メンバーを static に設定します
 
-    public override void Evaluate(EvaluationContext context)
+    public override void Evaluate(NodeEvaluationContext context)
     {
         Matrix matrix = GetMatrix(context);
 
@@ -56,5 +56,5 @@ public abstract class MatrixNode : Node
         }
     }
 
-    public abstract Matrix GetMatrix(EvaluationContext context);
+    public abstract Matrix GetMatrix(NodeEvaluationContext context);
 }

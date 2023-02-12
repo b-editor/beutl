@@ -6,33 +6,45 @@ namespace Beutl.NodeTree.Nodes.Transform;
 public class RotationNode : ConfigureNode
 {
     private readonly InputSocket<float> _rotationSocket;
-    private readonly RotationTransform _model = new();
 
     public RotationNode()
     {
         _rotationSocket = AsInput(RotationTransform.RotationProperty).AcceptNumber();
     }
 
-    protected override void EvaluateCore(EvaluationContext context)
+    public override void InitializeForContext(NodeEvaluationContext context)
     {
-        _model.Rotation = _rotationSocket.Value;
+        base.InitializeForContext(context);
+        context.State = new ConfigureNodeEvaluationState(null, new RotationTransform());
     }
 
-    protected override void Attach(Drawable drawable)
+    protected override void EvaluateCore(NodeEvaluationContext context)
     {
-        if (drawable.Transform is not TransformGroup group)
+        if (context.State is ConfigureNodeEvaluationState { AddtionalState: RotationTransform model })
         {
-            drawable.Transform = group = new TransformGroup();
+            model.Rotation = _rotationSocket.Value;
         }
-
-        group.Children.Add(_model);
     }
 
-    protected override void Detach(Drawable drawable)
+    protected override void Attach(Drawable drawable, object? state)
     {
-        if (drawable.Transform is TransformGroup group)
+        if (state is RotationTransform model)
         {
-            group.Children.Remove(_model);
+            if (drawable.Transform is not TransformGroup group)
+            {
+                drawable.Transform = group = new TransformGroup();
+            }
+
+            group.Children.Add(model);
+        }
+    }
+
+    protected override void Detach(Drawable drawable, object? state)
+    {
+        if (state is RotationTransform model
+            && drawable.Transform is TransformGroup group)
+        {
+            group.Children.Remove(model);
         }
     }
 }

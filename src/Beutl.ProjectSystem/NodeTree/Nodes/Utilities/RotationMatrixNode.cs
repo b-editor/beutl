@@ -13,7 +13,7 @@ public class RotationMatrixNode : MatrixNode
         _rotationSocket = AsInput(RotationTransform.RotationProperty).AcceptNumber();
     }
 
-    public override Matrix GetMatrix(EvaluationContext context)
+    public override Matrix GetMatrix(NodeEvaluationContext context)
     {
         return Matrix.CreateRotation(MathUtilities.ToRadians(_rotationSocket.Value));
     }

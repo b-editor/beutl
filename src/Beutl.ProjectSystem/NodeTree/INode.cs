@@ -13,5 +13,13 @@ public interface INode : ILogicalElement, IAffectsRender
 
     // 1. ItemsのIInputSocket.Connection.Nodeを評価する。
     // 2. IOutputSocket.ConnectionsからIInputSocketにデータを送る (Receive)
-    void Evaluate(EvaluationContext context);
+    void Evaluate(NodeEvaluationContext context);
+
+    void PreEvaluate(NodeEvaluationContext context);
+
+    void PostEvaluate(NodeEvaluationContext context);
+
+    void InitializeForContext(NodeEvaluationContext context);
+
+    void UninitializeForContext(NodeEvaluationContext context);
 }

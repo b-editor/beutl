@@ -12,7 +12,6 @@ public class Rotation3DNode : ConfigureNode
     private readonly InputSocket<float> _centerYSocket;
     private readonly InputSocket<float> _centerZSocket;
     private readonly InputSocket<float> _depthSocket;
-    private readonly Rotation3DTransform _model = new();
 
     public Rotation3DNode()
     {
@@ -25,32 +24,45 @@ public class Rotation3DNode : ConfigureNode
         _depthSocket = AsInput(Rotation3DTransform.DepthProperty).AcceptNumber();
     }
 
-    protected override void EvaluateCore(EvaluationContext context)
+    public override void InitializeForContext(NodeEvaluationContext context)
     {
-        _model.RotationX = _rotationXSocket.Value;
-        _model.RotationY = _rotationYSocket.Value;
-        _model.RotationZ = _rotationZSocket.Value;
-        _model.CenterX = _centerXSocket.Value;
-        _model.CenterY = _centerYSocket.Value;
-        _model.CenterZ = _centerZSocket.Value;
-        _model.Depth = _depthSocket.Value;
+        base.InitializeForContext(context);
+        context.State = new ConfigureNodeEvaluationState(null, new Rotation3DTransform());
     }
 
-    protected override void Attach(Drawable drawable)
+    protected override void EvaluateCore(NodeEvaluationContext context)
     {
-        if (drawable.Transform is not TransformGroup group)
+        if (context.State is ConfigureNodeEvaluationState { AddtionalState: Rotation3DTransform model })
         {
-            drawable.Transform = group = new TransformGroup();
+            model.RotationX = _rotationXSocket.Value;
+            model.RotationY = _rotationYSocket.Value;
+            model.RotationZ = _rotationZSocket.Value;
+            model.CenterX = _centerXSocket.Value;
+            model.CenterY = _centerYSocket.Value;
+            model.CenterZ = _centerZSocket.Value;
+            model.Depth = _depthSocket.Value;
         }
-
-        group.Children.Add(_model);
     }
 
-    protected override void Detach(Drawable drawable)
+    protected override void Attach(Drawable drawable, object? state)
     {
-        if (drawable.Transform is TransformGroup group)
+        if (state is Rotation3DTransform model)
         {
-            group.Children.Remove(_model);
+            if (drawable.Transform is not TransformGroup group)
+            {
+                drawable.Transform = group = new TransformGroup();
+            }
+
+            group.Children.Add(model);
+        }
+    }
+
+    protected override void Detach(Drawable drawable, object? state)
+    {
+        if (state is Rotation3DTransform model
+            && drawable.Transform is TransformGroup group)
+        {
+            group.Children.Remove(model);
         }
     }
 }

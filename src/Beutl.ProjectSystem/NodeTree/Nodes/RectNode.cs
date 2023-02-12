@@ -5,31 +5,45 @@ namespace Beutl.NodeTree.Nodes;
 
 public class RectNode : Node
 {
-    private readonly Rectangle _rectangle;
+    private readonly OutputSocket<Rectangle> _outputSocket;
     private readonly InputSocket<float> _widthSocket;
     private readonly InputSocket<float> _heightSocket;
     private readonly InputSocket<float> _strokeSocket;
 
     public RectNode()
     {
-        _rectangle = new Rectangle();
-        AsOutput("Rectangle", _rectangle);
+        _outputSocket = AsOutput<Rectangle>("Rectangle");
 
         _widthSocket = AsInput<float, Rectangle>(Drawable.WidthProperty, 100).AcceptNumber();
         _heightSocket = AsInput<float, Rectangle>(Drawable.HeightProperty, 100).AcceptNumber();
         _strokeSocket = AsInput<float, Rectangle>(Rectangle.StrokeWidthProperty, 4000).AcceptNumber();
     }
 
-    public override void Evaluate(EvaluationContext context)
+    public override void InitializeForContext(NodeEvaluationContext context)
     {
-        while (_rectangle.BatchUpdate)
+        base.InitializeForContext(context);
+        context.State = new Rectangle();
+    }
+
+    public override void UninitializeForContext(NodeEvaluationContext context)
+    {
+        base.UninitializeForContext(context);
+        context.State = null;
+    }
+
+    public override void Evaluate(NodeEvaluationContext context)
+    {
+        Rectangle rectangle = context.GetOrSetState<Rectangle>();
+        while (rectangle.BatchUpdate)
         {
-            _rectangle.EndBatchUpdate();
+            rectangle.EndBatchUpdate();
         }
 
-        _rectangle.BeginBatchUpdate();
-        _rectangle.Width = _widthSocket.Value;
-        _rectangle.Height = _heightSocket.Value;
-        _rectangle.StrokeWidth = _strokeSocket.Value;
+        rectangle.BeginBatchUpdate();
+        rectangle.Width = _widthSocket.Value;
+        rectangle.Height = _heightSocket.Value;
+        rectangle.StrokeWidth = _strokeSocket.Value;
+
+        _outputSocket.Value = rectangle;
     }
 }

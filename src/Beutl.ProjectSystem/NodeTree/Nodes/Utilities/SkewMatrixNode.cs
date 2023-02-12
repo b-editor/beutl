@@ -15,5 +15,5 @@ public class SkewMatrixNode : MatrixNode
         _skewYSocket = AsInput(SkewTransform.SkewYProperty).AcceptNumber();
     }
 
-    public override Matrix GetMatrix(EvaluationContext context) => Matrix.CreateSkew(MathUtilities.ToRadians(_skewXSocket.Value), MathUtilities.ToRadians(_skewYSocket.Value));
+    public override Matrix GetMatrix(NodeEvaluationContext context) => Matrix.CreateSkew(MathUtilities.ToRadians(_skewXSocket.Value), MathUtilities.ToRadians(_skewYSocket.Value));
 }

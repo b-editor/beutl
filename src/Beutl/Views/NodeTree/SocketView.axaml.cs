@@ -114,6 +114,10 @@ public partial class SocketView : UserControl
             {
                 pe.UseCompact = true;
             }
+            if (control1 != null)
+            {
+                control1.DataContext = obj.PropertyEditorContext;
+            }
 
             _editor = control1;
             Grid.SetColumn((Control)_editor!, 1);

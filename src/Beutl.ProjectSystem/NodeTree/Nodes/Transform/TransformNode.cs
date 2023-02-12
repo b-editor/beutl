@@ -6,40 +6,52 @@ namespace Beutl.NodeTree.Nodes.Transform;
 public class TransformNode : ConfigureNode
 {
     private readonly InputSocket<Matrix> _matrixSocket;
-    private readonly MatrixTransform _model = new();
 
     public TransformNode()
     {
         _matrixSocket = AsInput<Matrix>("Matrix", "Matrix");
     }
 
-    protected override void EvaluateCore(EvaluationContext context)
+    public override void InitializeForContext(NodeEvaluationContext context)
     {
-        if (_matrixSocket.Connection != null)
+        base.InitializeForContext(context);
+        context.State = new ConfigureNodeEvaluationState(null, new MatrixTransform());
+    }
+
+    protected override void EvaluateCore(NodeEvaluationContext context)
+    {
+        if (context.State is ConfigureNodeEvaluationState { AddtionalState: MatrixTransform model })
         {
-            _model.Matrix = _matrixSocket.Value;
-        }
-        else
-        {
-            _model.Matrix = Matrix.Identity;
+            if (_matrixSocket.Connection != null)
+            {
+                model.Matrix = _matrixSocket.Value;
+            }
+            else
+            {
+                model.Matrix = Matrix.Identity;
+            }
         }
     }
 
-    protected override void Attach(Drawable drawable)
+    protected override void Attach(Drawable drawable, object? state)
     {
-        if (drawable.Transform is not TransformGroup group)
+        if (state is MatrixTransform model)
         {
-            drawable.Transform = group = new TransformGroup();
-        }
+            if (drawable.Transform is not TransformGroup group)
+            {
+                drawable.Transform = group = new TransformGroup();
+            }
 
-        group.Children.Add(_model);
+            group.Children.Add(model);
+        }
     }
 
-    protected override void Detach(Drawable drawable)
+    protected override void Detach(Drawable drawable, object? state)
     {
-        if (drawable.Transform is TransformGroup group)
+        if (state is MatrixTransform model
+            && drawable.Transform is TransformGroup group)
         {
-            group.Children.Remove(_model);
+            group.Children.Remove(model);
         }
     }
 }

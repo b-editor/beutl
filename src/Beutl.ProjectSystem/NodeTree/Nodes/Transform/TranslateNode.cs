@@ -7,7 +7,6 @@ public class TranslateNode : ConfigureNode
 {
     private readonly InputSocket<float> _xSocket;
     private readonly InputSocket<float> _ySocket;
-    private readonly TranslateTransform _model = new();
 
     public TranslateNode()
     {
@@ -15,27 +14,40 @@ public class TranslateNode : ConfigureNode
         _ySocket = AsInput(TranslateTransform.YProperty).AcceptNumber();
     }
 
-    protected override void EvaluateCore(EvaluationContext context)
+    public override void InitializeForContext(NodeEvaluationContext context)
     {
-        _model.X = _xSocket.Value;
-        _model.Y = _ySocket.Value;
+        base.InitializeForContext(context);
+        context.State = new ConfigureNodeEvaluationState(null, new TranslateTransform());
     }
 
-    protected override void Attach(Drawable drawable)
+    protected override void EvaluateCore(NodeEvaluationContext context)
     {
-        if (drawable.Transform is not TransformGroup group)
+        if (context.State is ConfigureNodeEvaluationState { AddtionalState: TranslateTransform model })
         {
-            drawable.Transform = group = new TransformGroup();
+            model.X = _xSocket.Value;
+            model.Y = _ySocket.Value;
         }
-
-        group.Children.Add(_model);
     }
 
-    protected override void Detach(Drawable drawable)
+    protected override void Attach(Drawable drawable, object? state)
     {
-        if (drawable.Transform is TransformGroup group)
+        if (state is TranslateTransform model)
         {
-            group.Children.Remove(_model);
+            if (drawable.Transform is not TransformGroup group)
+            {
+                drawable.Transform = group = new TransformGroup();
+            }
+
+            group.Children.Add(model);
+        }
+    }
+
+    protected override void Detach(Drawable drawable, object? state)
+    {
+        if (state is TranslateTransform model
+            && drawable.Transform is TransformGroup group)
+        {
+            group.Children.Remove(model);
         }
     }
 }

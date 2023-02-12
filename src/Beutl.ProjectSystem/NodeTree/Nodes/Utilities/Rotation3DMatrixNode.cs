@@ -27,7 +27,7 @@ public class Rotation3DMatrixNode : MatrixNode
         _depthSocket = AsInput(Rotation3DTransform.DepthProperty).AcceptNumber();
     }
 
-    public override Matrix GetMatrix(EvaluationContext context)
+    public override Matrix GetMatrix(NodeEvaluationContext context)
     {
         Matrix4x4 matrix44 = Matrix4x4.Identity;
         float centerSum = _centerXSocket.Value + _centerYSocket.Value + _centerZSocket.Value;

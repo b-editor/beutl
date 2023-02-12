@@ -7,7 +7,6 @@ public class SkewNode : ConfigureNode
 {
     private readonly InputSocket<float> _skewXSocket;
     private readonly InputSocket<float> _skewYSocket;
-    private readonly SkewTransform _model = new();
 
     public SkewNode()
     {
@@ -15,27 +14,40 @@ public class SkewNode : ConfigureNode
         _skewYSocket = AsInput(SkewTransform.SkewYProperty).AcceptNumber();
     }
 
-    protected override void EvaluateCore(EvaluationContext context)
+    public override void InitializeForContext(NodeEvaluationContext context)
     {
-        _model.SkewY = _skewXSocket.Value;
-        _model.SkewY = _skewYSocket.Value;
+        base.InitializeForContext(context);
+        context.State = new ConfigureNodeEvaluationState(null, new SkewTransform());
     }
 
-    protected override void Attach(Drawable drawable)
+    protected override void EvaluateCore(NodeEvaluationContext context)
     {
-        if (drawable.Transform is not TransformGroup group)
+        if (context.State is ConfigureNodeEvaluationState { AddtionalState: SkewTransform model })
         {
-            drawable.Transform = group = new TransformGroup();
+            model.SkewY = _skewXSocket.Value;
+            model.SkewY = _skewYSocket.Value;
         }
-
-        group.Children.Add(_model);
     }
 
-    protected override void Detach(Drawable drawable)
+    protected override void Attach(Drawable drawable, object? state)
     {
-        if (drawable.Transform is TransformGroup group)
+        if (state is SkewTransform model)
         {
-            group.Children.Remove(_model);
+            if (drawable.Transform is not TransformGroup group)
+            {
+                drawable.Transform = group = new TransformGroup();
+            }
+
+            group.Children.Add(model);
+        }
+    }
+
+    protected override void Detach(Drawable drawable, object? state)
+    {
+        if (state is SkewTransform model
+            && drawable.Transform is TransformGroup group)
+        {
+            group.Children.Remove(model);
         }
     }
 }

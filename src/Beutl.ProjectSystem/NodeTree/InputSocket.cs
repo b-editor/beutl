@@ -1,11 +1,14 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Nodes;
 
 namespace Beutl.NodeTree;
+
+public delegate bool InputSocketReceiver<T>(object? obj, out T? received);
 
 public class InputSocket<T> : Socket<T>, IInputSocket<T>
 {
     private Guid _outputId;
-    private Func<object?, bool>? _onReceive;
+    private InputSocketReceiver<T>? _onReceive;
     private bool _force;
 
     public IConnection? Connection { get; private set; }
@@ -36,7 +39,11 @@ public class InputSocket<T> : Socket<T>, IInputSocket<T>
     {
         if (_force && _onReceive != null)
         {
-            IsValid = _onReceive(value);
+            IsValid = _onReceive(value, out T? received);
+            if (IsValid.Value)
+            {
+                Value = received;
+            }
         }
         else
         {
@@ -56,7 +63,11 @@ public class InputSocket<T> : Socket<T>, IInputSocket<T>
         {
             if (_onReceive != null)
             {
-                IsValid = _onReceive(value);
+                IsValid = _onReceive(value, out T? received);
+                if (IsValid.Value)
+                {
+                    Value = received;
+                }
             }
             else
             {
@@ -80,7 +91,7 @@ public class InputSocket<T> : Socket<T>, IInputSocket<T>
     }
 
     // force: 型が一致している場合でも、このReceiverを使います。
-    public void RegisterReceiver(Func<object?, bool> onReceive, bool force = false)
+    public void RegisterReceiver(InputSocketReceiver<T> onReceive, bool force = false)
     {
         _onReceive = onReceive;
         _force = force;

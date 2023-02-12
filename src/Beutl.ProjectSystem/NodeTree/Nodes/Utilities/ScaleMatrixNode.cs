@@ -16,7 +16,7 @@ public class ScaleMatrixNode : MatrixNode
         _scaleYSocket = AsInput(ScaleTransform.ScaleYProperty).AcceptNumber();
     }
 
-    public override Matrix GetMatrix(EvaluationContext context)
+    public override Matrix GetMatrix(NodeEvaluationContext context)
     {
         return Matrix.CreateScale(_scaleSocket.Value * _scaleXSocket.Value, _scaleSocket.Value * _scaleYSocket.Value);
     }

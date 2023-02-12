@@ -27,7 +27,7 @@ public class RandomSingleNode : Node
 
     private float Minimum { get; set; }
 
-    public override void Evaluate(EvaluationContext context)
+    public override void Evaluate(NodeEvaluationContext context)
     {
         float value = Random.Shared.NextSingle();
         float max = _maximumSocket.Value;
@@ -64,7 +64,7 @@ public class RandomDoubleNode : Node
 
     private double Minimum { get; set; }
 
-    public override void Evaluate(EvaluationContext context)
+    public override void Evaluate(NodeEvaluationContext context)
     {
         double value = Random.Shared.NextDouble();
         double max = _maximumSocket.Value;
@@ -101,7 +101,7 @@ public class RandomInt32Node : Node
 
     private int Minimum { get; set; }
 
-    public override void Evaluate(EvaluationContext context)
+    public override void Evaluate(NodeEvaluationContext context)
     {
         int max = _maximumSocket.Value;
         int min = _minimumSocket.Value;
@@ -136,7 +136,7 @@ public class RandomInt64Node : Node
 
     private long Minimum { get; set; }
 
-    public override void Evaluate(EvaluationContext context)
+    public override void Evaluate(NodeEvaluationContext context)
     {
         long max = _maximumSocket.Value;
         long min = _minimumSocket.Value;

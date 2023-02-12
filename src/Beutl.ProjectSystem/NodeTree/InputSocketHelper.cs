@@ -7,17 +7,18 @@ public static class InputSocketHelper
     public static InputSocket<T> AcceptNumber<T>(this InputSocket<T> inputSocket)
         where T : INumber<T>
     {
-        inputSocket.RegisterReceiver(value =>
+        inputSocket.RegisterReceiver((object? obj, out T? value) =>
         {
-            if (value == null)
+            value = default;
+            if (obj == null)
             {
                 return false;
             }
             else
             {
-                if (ToNumber<T>(value, out T? numValue))
+                if (ToNumber<T>(obj, out T? numValue))
                 {
-                    inputSocket.Value = numValue;
+                    value = numValue;
                     return true;
                 }
                 else
@@ -32,23 +33,24 @@ public static class InputSocketHelper
 
     public static InputSocket<Graphics.Thickness> AcceptNumber(this InputSocket<Graphics.Thickness> inputSocket)
     {
-        inputSocket.RegisterReceiver(value =>
+        inputSocket.RegisterReceiver((object? obj, out Graphics.Thickness value) =>
         {
-            if (value == null)
+            value = default;
+            if (obj == null)
             {
                 return false;
             }
             else
             {
-                if (ToNumber(value, out float numValue))
+                if (ToNumber(obj, out float numValue))
                 {
-                    inputSocket.Value = new Graphics.Thickness(numValue, numValue);
+                    value = new Graphics.Thickness(numValue, numValue);
                     return true;
                 }
-                else if (value is string str
+                else if (obj is string str
                     && Graphics.Thickness.TryParse(str, out Graphics.Thickness parsed))
                 {
-                    inputSocket.Value = parsed;
+                    value = parsed;
                     return true;
                 }
                 else
@@ -63,33 +65,34 @@ public static class InputSocketHelper
 
     public static InputSocket<Graphics.Vector> AcceptNumber(this InputSocket<Graphics.Vector> inputSocket)
     {
-        inputSocket.RegisterReceiver(value =>
+        inputSocket.RegisterReceiver((object? obj, out Graphics.Vector value) =>
         {
-            if (value == null)
+            value = default;
+            if (obj == null)
             {
                 return false;
             }
             else
             {
-                if (ToNumber(value, out float numValue))
+                if (ToNumber(obj, out float numValue))
                 {
-                    inputSocket.Value = new Graphics.Vector(numValue, numValue);
+                    value = new Graphics.Vector(numValue, numValue);
                     return true;
                 }
-                else if (value is Graphics.Size size)
+                else if (obj is Graphics.Size size)
                 {
-                    inputSocket.Value = new Graphics.Vector(size.Width, size.Height);
+                    value = new Graphics.Vector(size.Width, size.Height);
                     return true;
                 }
-                else if (value is Graphics.Point point)
+                else if (obj is Graphics.Point point)
                 {
-                    inputSocket.Value = new Graphics.Vector(point.X, point.Y);
+                    value = new Graphics.Vector(point.X, point.Y);
                     return true;
                 }
-                else if (value is string str
+                else if (obj is string str
                     && Graphics.Vector.TryParse(str, out Graphics.Vector parsed))
                 {
-                    inputSocket.Value = parsed;
+                    value = parsed;
                     return true;
                 }
                 else
@@ -104,33 +107,34 @@ public static class InputSocketHelper
 
     public static InputSocket<Graphics.Point> AcceptNumber(this InputSocket<Graphics.Point> inputSocket)
     {
-        inputSocket.RegisterReceiver(value =>
+        inputSocket.RegisterReceiver((object? obj, out Graphics.Point value) =>
         {
-            if (value == null)
+            value = default;
+            if (obj == null)
             {
                 return false;
             }
             else
             {
-                if (ToNumber(value, out float numValue))
+                if (ToNumber(obj, out float numValue))
                 {
-                    inputSocket.Value = new Graphics.Point(numValue, numValue);
+                    value = new Graphics.Point(numValue, numValue);
                     return true;
                 }
-                else if (value is Graphics.Size size)
+                else if (obj is Graphics.Size size)
                 {
-                    inputSocket.Value = new Graphics.Point(size.Width, size.Height);
+                    value = new Graphics.Point(size.Width, size.Height);
                     return true;
                 }
-                else if (value is Graphics.Vector vec)
+                else if (obj is Graphics.Vector vec)
                 {
-                    inputSocket.Value = new Graphics.Point(vec.X, vec.Y);
+                    value = new Graphics.Point(vec.X, vec.Y);
                     return true;
                 }
-                else if (value is string str
+                else if (obj is string str
                     && Graphics.Point.TryParse(str, out Graphics.Point parsed))
                 {
-                    inputSocket.Value = parsed;
+                    value = parsed;
                     return true;
                 }
                 else
@@ -145,33 +149,34 @@ public static class InputSocketHelper
 
     public static InputSocket<Graphics.Size> AcceptNumber(this InputSocket<Graphics.Size> inputSocket)
     {
-        inputSocket.RegisterReceiver(value =>
+        inputSocket.RegisterReceiver((object? obj, out Graphics.Size value) =>
         {
-            if (value == null)
+            value = default;
+            if (obj == null)
             {
                 return false;
             }
             else
             {
-                if (ToNumber(value, out float numValue))
+                if (ToNumber(obj, out float numValue))
                 {
-                    inputSocket.Value = new Graphics.Size(numValue, numValue);
+                    value = new Graphics.Size(numValue, numValue);
                     return true;
                 }
-                else if (value is Graphics.Point point)
+                else if (obj is Graphics.Point point)
                 {
-                    inputSocket.Value = new Graphics.Size(point.X, point.Y);
+                    value = new Graphics.Size(point.X, point.Y);
                     return true;
                 }
-                else if (value is Graphics.Vector vec)
+                else if (obj is Graphics.Vector vec)
                 {
-                    inputSocket.Value = new Graphics.Size(vec.X, vec.Y);
+                    value = new Graphics.Size(vec.X, vec.Y);
                     return true;
                 }
-                else if (value is string str
+                else if (obj is string str
                     && Graphics.Size.TryParse(str, out Graphics.Size parsed))
                 {
-                    inputSocket.Value = parsed;
+                    value = parsed;
                     return true;
                 }
                 else
@@ -186,28 +191,29 @@ public static class InputSocketHelper
 
     public static InputSocket<Graphics.Rect> AcceptNumber(this InputSocket<Graphics.Rect> inputSocket)
     {
-        inputSocket.RegisterReceiver(value =>
+        inputSocket.RegisterReceiver((object? obj, out Graphics.Rect value) =>
         {
-            if (value == null)
+            value = default;
+            if (obj == null)
             {
                 return false;
             }
             else
             {
-                if (ToNumber(value, out float numValue))
+                if (ToNumber(obj, out float numValue))
                 {
-                    inputSocket.Value = new Graphics.Rect(numValue, numValue, numValue, numValue);
+                    value = new Graphics.Rect(numValue, numValue, numValue, numValue);
                     return true;
                 }
-                else if (value is Graphics.Size size)
+                else if (obj is Graphics.Size size)
                 {
-                    inputSocket.Value = new Graphics.Rect(size);
+                    value = new Graphics.Rect(size);
                     return true;
                 }
-                else if (value is string str
+                else if (obj is string str
                     && Graphics.Rect.TryParse(str, out Graphics.Rect parsed))
                 {
-                    inputSocket.Value = parsed;
+                    value = parsed;
                     return true;
                 }
                 else
@@ -222,28 +228,29 @@ public static class InputSocketHelper
 
     public static InputSocket<Media.PixelPoint> AcceptNumber(this InputSocket<Media.PixelPoint> inputSocket)
     {
-        inputSocket.RegisterReceiver(value =>
+        inputSocket.RegisterReceiver((object? obj, out Media.PixelPoint value) =>
         {
-            if (value == null)
+            value = default;
+            if (obj == null)
             {
                 return false;
             }
             else
             {
-                if (ToNumber(value, out int numValue))
+                if (ToNumber(obj, out int numValue))
                 {
-                    inputSocket.Value = new Media.PixelPoint(numValue, numValue);
+                    value = new Media.PixelPoint(numValue, numValue);
                     return true;
                 }
-                else if (value is Media.PixelSize size)
+                else if (obj is Media.PixelSize size)
                 {
-                    inputSocket.Value = new Media.PixelPoint(size.Width, size.Height);
+                    value = new Media.PixelPoint(size.Width, size.Height);
                     return true;
                 }
-                else if (value is string str
+                else if (obj is string str
                     && Media.PixelPoint.TryParse(str, out Media.PixelPoint parsed))
                 {
-                    inputSocket.Value = parsed;
+                    value = parsed;
                     return true;
                 }
                 else
@@ -258,28 +265,29 @@ public static class InputSocketHelper
 
     public static InputSocket<Media.PixelSize> AcceptNumber(this InputSocket<Media.PixelSize> inputSocket)
     {
-        inputSocket.RegisterReceiver(value =>
+        inputSocket.RegisterReceiver((object? obj, out Media.PixelSize value) =>
         {
-            if (value == null)
+            value = default;
+            if (obj == null)
             {
                 return false;
             }
             else
             {
-                if (ToNumber(value, out int numValue))
+                if (ToNumber(obj, out int numValue))
                 {
-                    inputSocket.Value = new Media.PixelSize(numValue, numValue);
+                    value = new Media.PixelSize(numValue, numValue);
                     return true;
                 }
-                else if (value is Media.PixelPoint point)
+                else if (obj is Media.PixelPoint point)
                 {
-                    inputSocket.Value = new Media.PixelSize(point.X, point.Y);
+                    value = new Media.PixelSize(point.X, point.Y);
                     return true;
                 }
-                else if (value is string str
+                else if (obj is string str
                     && Media.PixelSize.TryParse(str, out Media.PixelSize parsed))
                 {
-                    inputSocket.Value = parsed;
+                    value = parsed;
                     return true;
                 }
                 else
@@ -294,28 +302,29 @@ public static class InputSocketHelper
 
     public static InputSocket<Media.PixelRect> AcceptNumber(this InputSocket<Media.PixelRect> inputSocket)
     {
-        inputSocket.RegisterReceiver(value =>
+        inputSocket.RegisterReceiver((object? obj, out Media.PixelRect value) =>
         {
-            if (value == null)
+            value = default;
+            if (obj == null)
             {
                 return false;
             }
             else
             {
-                if (ToNumber(value, out int numValue))
+                if (ToNumber(obj, out int numValue))
                 {
-                    inputSocket.Value = new Media.PixelRect(numValue, numValue, numValue, numValue);
+                    value = new Media.PixelRect(numValue, numValue, numValue, numValue);
                     return true;
                 }
-                else if (value is Media.PixelSize size)
+                else if (obj is Media.PixelSize size)
                 {
-                    inputSocket.Value = new Media.PixelRect(size);
+                    value = new Media.PixelRect(size);
                     return true;
                 }
-                else if (value is string str
+                else if (obj is string str
                     && Media.PixelRect.TryParse(str, out Media.PixelRect parsed))
                 {
-                    inputSocket.Value = parsed;
+                    value = parsed;
                     return true;
                 }
                 else
