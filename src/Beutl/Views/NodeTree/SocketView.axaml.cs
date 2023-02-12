@@ -20,7 +20,7 @@ public partial class SocketView : UserControl
     private Canvas? _canvas;
     private IControl? _editor;
     private TextBlock? _label;
-    private bool _firstArrange = true;
+    private bool _updateSocketPosition = true;
 
     public SocketView()
     {
@@ -36,10 +36,10 @@ public partial class SocketView : UserControl
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        if (_firstArrange)
+        if (_updateSocketPosition)
         {
             LayoutUpdated += SocketView_LayoutUpdated;
-            _firstArrange = false;
+            _updateSocketPosition = false;
         }
 
         return base.ArrangeOverride(finalSize);
@@ -48,7 +48,7 @@ public partial class SocketView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        _firstArrange = true;
+        _updateSocketPosition = true;
         _nodeView = this.FindAncestorOfType<NodeView>();
         _canvas = this.FindAncestorOfType<Canvas>();
 
@@ -259,6 +259,8 @@ public partial class SocketView : UserControl
                 grid.Children.Add(_label);
             }
         }
+
+        _updateSocketPosition = true;
     }
 
     private static bool SortSocket(
