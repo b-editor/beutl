@@ -33,6 +33,7 @@ public partial class NodeView : UserControl
         handle.PointerReleased += OnHandlePointerReleased;
         handle.PointerMoved += OnHandlePointerMoved;
         nodeContent.PointerPressed += OnNodeContentPointerPressed;
+        nodeContent.PointerReleased += OnNodeContentPointerReleased;
 
         expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(v =>
@@ -47,8 +48,15 @@ public partial class NodeView : UserControl
             });
     }
 
+    private void OnNodeContentPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        OnReleased();
+        e.Handled = true;
+    }
+
     private void OnNodeContentPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        OnPressed();
         e.Handled = true;
     }
 
@@ -116,40 +124,28 @@ public partial class NodeView : UserControl
             _captured = false;
             e.Handled = true;
 
-            if (Parent is Canvas canvas)
+            OnReleased();
+            if (DataContext is NodeViewModel viewModel)
             {
-                int minZindex = canvas.Children.Where(x => x is NodeView).Min(x => x.ZIndex);
-                for (int i = 0; i < canvas.Children.Count; i++)
+                if (_snapshot.NearlyEquals(GetPoint()))
                 {
-                    IControl? item = canvas.Children[i];
-                    if (item is NodeView)
+                    if (e.KeyModifiers == KeyModifiers.Control)
                     {
-                        item.ZIndex -= minZindex;
-                    }
-                }
-
-                if (DataContext is NodeViewModel viewModel)
-                {
-                    if (_snapshot.NearlyEquals(GetPoint()))
-                    {
-                        if (e.KeyModifiers == KeyModifiers.Control)
-                        {
-                            viewModel.IsSelected.Value = !viewModel.IsSelected.Value;
-                        }
-                        else
-                        {
-                            ClearSelection();
-                        }
+                        viewModel.IsSelected.Value = !viewModel.IsSelected.Value;
                     }
                     else
                     {
-                        viewModel.NotifyPositionChange();
-                        foreach (NodeView? item in GetSelection())
+                        ClearSelection();
+                    }
+                }
+                else
+                {
+                    viewModel.NotifyPositionChange();
+                    foreach (NodeView? item in GetSelection())
+                    {
+                        if (item != this && item.DataContext is NodeViewModel itemViewModel)
                         {
-                            if (item != this && item.DataContext is NodeViewModel itemViewModel)
-                            {
-                                itemViewModel.NotifyPositionChange();
-                            }
+                            itemViewModel.NotifyPositionChange();
                         }
                     }
                 }
@@ -172,10 +168,30 @@ public partial class NodeView : UserControl
             _snapshot = GetPoint();
 
             e.Handled = true;
+            OnPressed();
+        }
+    }
 
-            if (Parent is Canvas canvas)
+    private void OnPressed()
+    {
+        if (Parent is Canvas canvas)
+        {
+            ZIndex = canvas.Children.Max(x => x.ZIndex) + 1;
+        }
+    }
+
+    private void OnReleased()
+    {
+        if (Parent is Canvas canvas)
+        {
+            int minZindex = canvas.Children.Where(x => x is NodeView).Min(x => x.ZIndex);
+            for (int i = 0; i < canvas.Children.Count; i++)
             {
-                ZIndex = canvas.Children.Max(x => x.ZIndex) + 1;
+                IControl? item = canvas.Children[i];
+                if (item is NodeView)
+                {
+                    item.ZIndex -= minZindex;
+                }
             }
         }
     }
