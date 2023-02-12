@@ -1,7 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
+using Avalonia.Controls.Generators;
 using Avalonia.Controls.PanAndZoom;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
@@ -24,6 +26,7 @@ public partial class NodeView : UserControl
     private Point _start;
     private bool _captured;
     private Point _snapshot;
+    private IDisposable? _positionDisposable;
 
     public NodeView()
     {
@@ -46,6 +49,58 @@ public partial class NodeView : UserControl
 
                 _ = s_transition.Start(null, this, localToken);
             });
+
+        this.SubscribeDataContextChange<NodeViewModel>(OnDataContextAttached, OnDataContextDetached);
+
+        SizeChanged += OnSizeChanged;
+    }
+
+    private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        UpdateSocketPosition();
+    }
+
+    private void OnDataContextDetached(NodeViewModel obj)
+    {
+        _positionDisposable?.Dispose();
+    }
+
+    private void OnDataContextAttached(NodeViewModel obj)
+    {
+        _positionDisposable = obj.Position.Subscribe(_ => UpdateSocketPosition());
+    }
+
+    internal void UpdateSocketPosition()
+    {
+        if (DataContext is NodeViewModel viewModel)
+        {
+            if (viewModel.IsExpanded.Value)
+            {
+                foreach (ItemContainerInfo item in itemsControl.ItemContainerGenerator.Containers)
+                {
+                    if (item.ContainerControl is ContentPresenter { Child: SocketView socketView })
+                    {
+                        socketView.UpdateSocketPosition();
+                    }
+                }
+            }
+            else
+            {
+                Point vcenter = viewModel.Position.Value + default(Point).WithY(handle.Bounds.Height / 2);
+                foreach (NodeItemViewModel item in viewModel.Items)
+                {
+                    switch (item)
+                    {
+                        case InputSocketViewModel input:
+                            input.SocketPosition.Value = vcenter;
+                            break;
+                        case OutputSocketViewModel output:
+                            output.SocketPosition.Value = vcenter + default(Point).WithX(Bounds.Width);
+                            break;
+                    }
+                }
+            }
+        }
     }
 
     private void OnNodeContentPointerReleased(object? sender, PointerReleasedEventArgs e)

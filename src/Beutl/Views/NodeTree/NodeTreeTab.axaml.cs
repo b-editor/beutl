@@ -2,7 +2,9 @@
 using Avalonia.Collections;
 using Avalonia.Collections.Pooled;
 using Avalonia.Controls;
+using Avalonia.Controls.Generators;
 using Avalonia.Controls.PanAndZoom;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Shapes;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
@@ -192,6 +194,32 @@ public partial class NodeTreeTab : UserControl
             InputSocket = input.Model,
             OutputSocket = output.Model
         };
+    }
+
+    protected override void OnLoaded()
+    {
+        base.OnLoaded();
+        //foreach (var nodeView in canvas.Children.OfType<NodeView>())
+        //{
+        //    foreach (var control in nodeView.itemsControl.Children)
+        //    {
+        //        if (control is SocketView view)
+        //        {
+        //            view.UpdateSocketPosition();
+        //        }
+        //    }
+        //}
+        //foreach (var nodeView in canvas.Children.OfType<NodeView>())
+        //{
+        //    foreach (ItemContainerInfo item in nodeView.itemsControl.ItemContainerGenerator.Containers)
+        //    {
+        //        IControl control = item.ContainerControl;
+        //        if (control is ContentPresenter { Child: SocketView view })
+        //        {
+        //            view.UpdateSocketPosition();
+        //        }
+        //    }
+        //}
     }
 
     private void OnDataContextAttached(NodeTreeTabViewModel obj)

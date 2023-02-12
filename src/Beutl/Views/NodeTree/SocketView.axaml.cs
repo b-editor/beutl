@@ -8,10 +8,8 @@ using Avalonia.VisualTree;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Framework;
 using Beutl.NodeTree;
-using Beutl.NodeTree.Nodes;
 using Beutl.ViewModels.NodeTree;
 
-using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views.NodeTree;
@@ -24,7 +22,6 @@ public partial class SocketView : UserControl
     private Canvas? _canvas;
     private IControl? _editor;
     private TextBlock? _label;
-    private bool _updateSocketPosition = true;
 
     public SocketView()
     {
@@ -32,35 +29,11 @@ public partial class SocketView : UserControl
         this.SubscribeDataContextChange<NodeItemViewModel>(OnDataContextAttached, OnDataContextDetached);
     }
 
-    private void SocketView_LayoutUpdated(object? sender, EventArgs e)
-    {
-        LayoutUpdated -= SocketView_LayoutUpdated;
-        UpdateSocketPosition();
-    }
-
-    protected override Size ArrangeOverride(Size finalSize)
-    {
-        if (_updateSocketPosition)
-        {
-            LayoutUpdated += SocketView_LayoutUpdated;
-            _updateSocketPosition = false;
-        }
-
-        return base.ArrangeOverride(finalSize);
-    }
-
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        _updateSocketPosition = true;
         _nodeView = this.FindAncestorOfType<NodeView>();
         _canvas = this.FindAncestorOfType<Canvas>();
-
-        if (_nodeView?.DataContext is NodeViewModel nodeViewModel)
-        {
-            nodeViewModel.Position.Subscribe(_ => UpdateSocketPosition());
-            nodeViewModel.IsExpanded.Subscribe(_ => UpdateSocketPosition());
-        }
     }
 
     private void OnDataContextDetached(NodeItemViewModel obj)
@@ -92,32 +65,17 @@ public partial class SocketView : UserControl
         }
     }
 
-    private void UpdateSocketPosition()
+    internal void UpdateSocketPosition()
     {
         if (_socketPt != null
             && _nodeView is { DataContext: NodeViewModel nodeViewModel }
-            && DataContext is SocketViewModel viewModel)
+            && DataContext is SocketViewModel viewModel
+            && nodeViewModel.IsExpanded.Value)
         {
-            if (nodeViewModel.IsExpanded.Value)
+            Point? pos = _socketPt.TranslatePoint(new(5, 5), _nodeView);
+            if (pos.HasValue)
             {
-                Point? pos = _socketPt.TranslatePoint(new(5, 5), _nodeView);
-                if (pos.HasValue)
-                {
-                    viewModel.SocketPosition.Value = pos.Value + nodeViewModel.Position.Value;
-                }
-            }
-            else
-            {
-                Point vcenter = nodeViewModel.Position.Value + default(Point).WithY(_nodeView.handle.Bounds.Height / 2);
-                switch (viewModel)
-                {
-                    case InputSocketViewModel:
-                        viewModel.SocketPosition.Value = vcenter;
-                        break;
-                    case OutputSocketViewModel:
-                        viewModel.SocketPosition.Value = vcenter + default(Point).WithX(_nodeView.Bounds.Width);
-                        break;
-                }
+                viewModel.SocketPosition.Value = pos.Value + nodeViewModel.Position.Value;
             }
         }
     }
@@ -272,8 +230,6 @@ public partial class SocketView : UserControl
                 grid.Children.Add(_editor ?? _label);
             }
         }
-
-        _updateSocketPosition = true;
     }
 
     private static bool SortSocket(
