@@ -14,6 +14,7 @@ public static class NodesRegistrar
             .Add<TransformNode>(Strings.Transform)
             .Add<TranslateNode>(Strings.Translate)
             .Add<RotationNode>(Strings.Rotation)
+            .Add<Rotation3DNode>(Strings.Rotation3D)
             .Add<ScaleNode>(Strings.Scale)
             .Add<SkewNode>(Strings.Skew)
             .Register();
@@ -22,6 +23,7 @@ public static class NodesRegistrar
             .AddGroup("Matrix", o => o
                 .Add<Utilities.TranslateMatrixNode>("Translate")
                 .Add<Utilities.RotationMatrixNode>("Rotation")
+                .Add<Utilities.Rotation3DMatrixNode>("Rotation 3D")
                 .Add<Utilities.ScaleMatrixNode>("Scale")
                 .Add<Utilities.SkewMatrixNode>("Skew")
                 .Register())
