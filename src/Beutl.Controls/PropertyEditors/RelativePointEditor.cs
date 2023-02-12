@@ -101,8 +101,7 @@ public class RelativePointEditor : Vector2Editor
         }
 
         base.OnApplyTemplate(e);
-        FirstText = _firstValue.ToString();
-        SecondText = _secondValue.ToString();
+        UpdateText();
 
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);

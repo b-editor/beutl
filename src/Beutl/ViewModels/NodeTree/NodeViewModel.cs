@@ -41,6 +41,13 @@ public sealed class NodeViewModel : IDisposable
             Color = Brushes.Transparent;
         }
 
+        IsExpanded = node.GetObservable(Node.IsExpandedProperty)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+
+        IsExpanded.Subscribe(v => Node.IsExpanded = v)
+            .DisposeWith(_disposables);
+
         Position = node.GetObservable(Node.PositionProperty)
             .Select(x => new Point(x.X, x.Y))
             .ToReactiveProperty()
@@ -69,7 +76,7 @@ public sealed class NodeViewModel : IDisposable
 
     public ReactiveProperty<Point> Position { get; }
 
-    public ReactivePropertySlim<bool> IsExpanded { get; } = new(true);
+    public ReactiveProperty<bool> IsExpanded { get; }
 
     public ReactiveCommand Delete { get; } = new();
 

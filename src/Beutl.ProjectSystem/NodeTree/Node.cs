@@ -164,6 +164,7 @@ public sealed class SetterPropertyImpl<T> : IAbstractAnimatableProperty<T>
 
 public abstract class Node : Element, INode
 {
+    public static readonly CoreProperty<bool> IsExpandedProperty;
     public static readonly CoreProperty<(double X, double Y)> PositionProperty;
     private readonly LogicalList<INodeItem> _items;
     private (double X, double Y) _position;
@@ -171,6 +172,12 @@ public abstract class Node : Element, INode
 
     static Node()
     {
+        IsExpandedProperty = ConfigureProperty<bool, Node>(nameof(Position))
+            .DefaultValue(true)
+            .SerializeName("is-expanded")
+            .PropertyFlags(PropertyFlags.NotifyChanged)
+            .Register();
+
         PositionProperty = ConfigureProperty<(double X, double Y), Node>(nameof(Position))
             .Accessor(o => o.Position, (o, v) => o.Position = v)
             .DefaultValue((0, 0))
@@ -212,6 +219,12 @@ public abstract class Node : Element, INode
     }
 
     public ICoreList<INodeItem> Items => _items;
+
+    public bool IsExpanded
+    {
+        get => GetValue(IsExpandedProperty);
+        set => SetValue(IsExpandedProperty, value);
+    }
 
     public (double X, double Y) Position
     {
