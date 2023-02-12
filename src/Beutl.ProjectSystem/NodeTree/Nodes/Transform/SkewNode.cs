@@ -11,8 +11,8 @@ public class SkewNode : ConfigureNode
 
     public SkewNode()
     {
-        _skewXSocket = AsInput(SkewTransform.SkewXProperty);
-        _skewYSocket = AsInput(SkewTransform.SkewYProperty);
+        _skewXSocket = AsInput(SkewTransform.SkewXProperty).AcceptNumber();
+        _skewYSocket = AsInput(SkewTransform.SkewYProperty).AcceptNumber();
     }
 
     protected override void EvaluateCore(EvaluationContext context)

@@ -11,8 +11,8 @@ public class TranslateNode : ConfigureNode
 
     public TranslateNode()
     {
-        _xSocket = AsInput(TranslateTransform.XProperty);
-        _ySocket = AsInput(TranslateTransform.YProperty);
+        _xSocket = AsInput(TranslateTransform.XProperty).AcceptNumber();
+        _ySocket = AsInput(TranslateTransform.YProperty).AcceptNumber();
     }
 
     protected override void EvaluateCore(EvaluationContext context)

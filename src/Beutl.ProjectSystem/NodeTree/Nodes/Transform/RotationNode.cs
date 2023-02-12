@@ -10,7 +10,7 @@ public class RotationNode : ConfigureNode
 
     public RotationNode()
     {
-        _rotationSocket = AsInput(RotationTransform.RotationProperty);
+        _rotationSocket = AsInput(RotationTransform.RotationProperty).AcceptNumber();
     }
 
     protected override void EvaluateCore(EvaluationContext context)

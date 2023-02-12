@@ -19,8 +19,8 @@ public class RandomSingleNode : Node
     public RandomSingleNode()
     {
         _valueSocket = AsOutput<float>("Output", "Value");
-        _maximumSocket = AsInput(MaximumProperty);
-        _minimumSocket = AsInput(MinimumProperty);
+        _maximumSocket = AsInput(MaximumProperty).AcceptNumber();
+        _minimumSocket = AsInput(MinimumProperty).AcceptNumber();
     }
 
     private float Maximum { get; set; } = 1;
@@ -49,20 +49,20 @@ public class RandomDoubleNode : Node
             .DefaultValue(0)
             .SerializeName("minimum")
             .Register();
-    private OutputSocket<double> _valueSocket;
-    private InputSocket<double> _maximumSocket;
-    private InputSocket<double> _minimumSocket;
+    private readonly OutputSocket<double> _valueSocket;
+    private readonly InputSocket<double> _maximumSocket;
+    private readonly InputSocket<double> _minimumSocket;
 
     public RandomDoubleNode()
     {
         _valueSocket = AsOutput<double>("Output", "Value");
-        _maximumSocket = AsInput(MaximumProperty);
-        _minimumSocket = AsInput(MinimumProperty);
+        _maximumSocket = AsInput(MaximumProperty).AcceptNumber();
+        _minimumSocket = AsInput(MinimumProperty).AcceptNumber();
     }
 
-    private float Maximum { get; set; } = 1;
+    private double Maximum { get; set; } = 1;
 
-    private float Minimum { get; set; }
+    private double Minimum { get; set; }
 
     public override void Evaluate(EvaluationContext context)
     {
@@ -86,15 +86,15 @@ public class RandomInt32Node : Node
             .DefaultValue(0)
             .SerializeName("minimum")
             .Register();
-    private OutputSocket<int> _valueSocket;
-    private InputSocket<int> _maximumSocket;
-    private InputSocket<int> _minimumSocket;
+    private readonly OutputSocket<int> _valueSocket;
+    private readonly InputSocket<int> _maximumSocket;
+    private readonly InputSocket<int> _minimumSocket;
 
     public RandomInt32Node()
     {
         _valueSocket = AsOutput<int>("Output", "Value");
-        _maximumSocket = AsInput(MaximumProperty);
-        _minimumSocket = AsInput(MinimumProperty);
+        _maximumSocket = AsInput(MaximumProperty).AcceptNumber();
+        _minimumSocket = AsInput(MinimumProperty).AcceptNumber();
     }
 
     private int Maximum { get; set; } = 1;
@@ -121,15 +121,15 @@ public class RandomInt64Node : Node
             .DefaultValue(0)
             .SerializeName("minimum")
             .Register();
-    private OutputSocket<long> _valueSocket;
-    private InputSocket<long> _maximumSocket;
-    private InputSocket<long> _minimumSocket;
+    private readonly OutputSocket<long> _valueSocket;
+    private readonly InputSocket<long> _maximumSocket;
+    private readonly InputSocket<long> _minimumSocket;
 
     public RandomInt64Node()
     {
         _valueSocket = AsOutput<long>("Output", "Value");
-        _maximumSocket = AsInput(MaximumProperty);
-        _minimumSocket = AsInput(MinimumProperty);
+        _maximumSocket = AsInput(MaximumProperty).AcceptNumber();
+        _minimumSocket = AsInput(MinimumProperty).AcceptNumber();
     }
 
     private long Maximum { get; set; } = 1;

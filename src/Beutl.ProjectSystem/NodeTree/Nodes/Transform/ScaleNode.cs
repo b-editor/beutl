@@ -12,9 +12,9 @@ public class ScaleNode : ConfigureNode
 
     public ScaleNode()
     {
-        _scaleSocket = AsInput(ScaleTransform.ScaleProperty);
-        _scaleXSocket = AsInput(ScaleTransform.ScaleXProperty);
-        _scaleYSocket = AsInput(ScaleTransform.ScaleYProperty);
+        _scaleSocket = AsInput(ScaleTransform.ScaleProperty).AcceptNumber();
+        _scaleXSocket = AsInput(ScaleTransform.ScaleXProperty).AcceptNumber();
+        _scaleYSocket = AsInput(ScaleTransform.ScaleYProperty).AcceptNumber();
     }
 
     protected override void EvaluateCore(EvaluationContext context)

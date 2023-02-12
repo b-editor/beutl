@@ -10,8 +10,8 @@ public class TranslateMatrixNode : MatrixNode
 
     public TranslateMatrixNode()
     {
-        _xSocket = AsInput(TranslateTransform.XProperty);
-        _ySocket = AsInput(TranslateTransform.YProperty);
+        _xSocket = AsInput(TranslateTransform.XProperty).AcceptNumber();
+        _ySocket = AsInput(TranslateTransform.YProperty).AcceptNumber();
     }
 
     public override Matrix GetMatrix(EvaluationContext context) => Matrix.CreateTranslation(_xSocket.Value, _ySocket.Value);
