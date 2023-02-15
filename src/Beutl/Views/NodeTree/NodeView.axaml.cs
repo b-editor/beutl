@@ -37,6 +37,7 @@ public partial class NodeView : UserControl
         handle.PointerMoved += OnHandlePointerMoved;
         nodeContent.PointerPressed += OnNodeContentPointerPressed;
         nodeContent.PointerReleased += OnNodeContentPointerReleased;
+        ContextRequested += OnContextRequested;
 
         expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(v =>
@@ -53,6 +54,11 @@ public partial class NodeView : UserControl
         this.SubscribeDataContextChange<NodeViewModel>(OnDataContextAttached, OnDataContextDetached);
 
         SizeChanged += OnSizeChanged;
+    }
+
+    private void OnContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        e.Handled = true;
     }
 
     private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
