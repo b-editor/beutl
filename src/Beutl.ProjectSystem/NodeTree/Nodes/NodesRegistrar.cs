@@ -13,7 +13,11 @@ public static class NodesRegistrar
 
         NodeRegistry.RegisterNodes("Brush")
             .Add<ForegroundNode>("Set Foreground")
+            .Add<SolidColorBrushNode>("Solid Color Brush")
             .Add<LinearGradientBrushNode>("Linear Gradient Brush")
+            .Add<RadialGradientBrushNode>("Radial Gradient Brush")
+            .Add<ConicGradientBrushNode>("Conic Gradient Brush")
+            .Add<DrawableBrushNode>("Drawable Gradient Brush")
             .Register();
         
         NodeRegistry.RegisterNodes("Transform")
