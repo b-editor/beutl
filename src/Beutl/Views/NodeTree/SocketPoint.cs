@@ -205,16 +205,15 @@ public sealed class SocketPoint : Control
         }
         else if (_canvas != null && DataContext is SocketViewModel viewModel)
         {
-            _line = new ConnectionLine()
-            {
-                EndPoint = e.GetPosition(_canvas)
-            };
+            _line = new ConnectionLine();
             if (viewModel is InputSocketViewModel)
             {
+                _line.EndPoint = e.GetPosition(_canvas);
                 _line.Bind(Line.StartPointProperty, viewModel.SocketPosition.ToBinding());
             }
             else
             {
+                _line.StartPoint = e.GetPosition(_canvas);
                 _line.Bind(Line.EndPointProperty, viewModel.SocketPosition.ToBinding());
             }
             _line.SetSocket(viewModel.Model);
@@ -231,7 +230,14 @@ public sealed class SocketPoint : Control
         base.OnPointerMoved(e);
         if (_captured && !_doubleClick && _line != null)
         {
-            _line.EndPoint = e.GetPosition(_canvas);
+            if (DataContext is InputSocketViewModel)
+            {
+                _line.EndPoint = e.GetPosition(_canvas);
+            }
+            else
+            {
+                _line.StartPoint = e.GetPosition(_canvas);
+            }
             e.Handled = true;
         }
     }
