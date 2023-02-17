@@ -23,7 +23,7 @@ public class SizeNode : Node
 
     public SizeNode()
     {
-        _valueSocket = AsOutput<Size>("Output", "Size");
+        _valueSocket = AsOutput<Size>("Size");
         _widthSocket = AsInput(WidthProperty).AcceptNumber();
         _heightSocket = AsInput(HeightProperty).AcceptNumber();
     }

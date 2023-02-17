@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 
 using Avalonia.Collections.Pooled;
@@ -6,130 +7,144 @@ using Avalonia.Collections.Pooled;
 using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Media;
+using Beutl.NodeTree.Nodes.Group;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;
 
 namespace Beutl.NodeTree;
 
-public class NodeTreeSpace : Element, IAffectsRender
+public class NodeGroup : NodeTreeSpace
 {
-    private readonly LogicalList<Node> _nodes;
-    // 評価する順番
-    private readonly List<NodeEvaluationContext[]> _evalContexts = new();
-    private bool _isDirty = true;
+    public static readonly CoreProperty<GroupInput?> InputProperty;
+    public static readonly CoreProperty<GroupOutput?> OutputProperty;
 
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+    private GroupInput? _input;
+    private GroupOutput? _output;
 
-    public NodeTreeSpace()
+    static NodeGroup()
     {
-        _nodes = new LogicalList<Node>(this);
-        _nodes.Attached += OnNodeAttached;
-        _nodes.Detached += OnNodeDetached;
+        InputProperty = ConfigureProperty<GroupInput?, NodeGroup>(o => o.Input)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
+            .Register();
+
+        OutputProperty = ConfigureProperty<GroupOutput?, NodeGroup>(o => o.Output)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
+            .Register();
+
+        IdProperty.OverrideMetadata<NodeGroup>(new CorePropertyMetadata<Guid>("id"));
+        NameProperty.OverrideMetadata<NodeGroup>(new CorePropertyMetadata<string>("name"));
+    }
+
+    public NodeGroup()
+    {
+        Id = Guid.NewGuid();
+        Nodes.Attached += OnNodeAttached;
+        Nodes.Detached += OnNodeDetached;
+    }
+
+    public GroupInput? Input
+    {
+        get => _input;
+        set => SetAndRaise(InputProperty, ref _input, value);
+    }
+
+    public GroupOutput? Output
+    {
+        get => _output;
+        set => SetAndRaise(OutputProperty, ref _output, value);
     }
 
     private void OnNodeTreeInvalidated(object? sender, EventArgs e)
     {
-        _isDirty = true;
-        Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(this));
+        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
     }
 
     private void OnNodeInvalidated(object? sender, RenderInvalidatedEventArgs e)
     {
-        Invalidated?.Invoke(this, e);
+        RaiseInvalidated(e);
     }
 
     private void OnNodeAttached(Node obj)
     {
-        _isDirty = true;
         obj.NodeTreeInvalidated += OnNodeTreeInvalidated;
         obj.Invalidated += OnNodeInvalidated;
+        if (obj is GroupInput groupInput)
+        {
+            Input = groupInput;
+        }
+        if (obj is GroupOutput groupOutput)
+        {
+            Output = groupOutput;
+        }
     }
 
     private void OnNodeDetached(Node obj)
     {
-        _isDirty = true;
         obj.NodeTreeInvalidated -= OnNodeTreeInvalidated;
         obj.Invalidated -= OnNodeInvalidated;
-    }
-
-    public ICoreList<Node> Nodes => _nodes;
-
-    public void Evaluate(IClock clock, Layer layer)
-    {
-        Build(clock);
-        using var list = new PooledList<Renderable>();
-
-        foreach (NodeEvaluationContext[]? item in CollectionsMarshal.AsSpan(_evalContexts))
+        if (obj == Input)
         {
-            foreach (NodeEvaluationContext? context in item)
-            {
-                context._renderables = list;
-
-                context.Node.PreEvaluate(context);
-                context.Node.Evaluate(context);
-                context.Node.PostEvaluate(context);
-            }
+            Input = null;
         }
-
-        layer.Span.Value.Replace(list);
+        if (obj == Output)
+        {
+            Output = null;
+        }
     }
 
-    public ISocket? FindSocket(Guid id)
+    public void Evaluate(NodeEvaluationContext parentContext, object state)
     {
-        foreach (Node node in _nodes.GetMarshal().Value)
+        if (state is List<NodeEvaluationContext[]> contexts)
         {
-            foreach (INodeItem item in node.Items.GetMarshal().Value)
+            foreach (NodeEvaluationContext[]? item in CollectionsMarshal.AsSpan(contexts))
             {
-                if (item is ISocket socket
-                    && socket.Id == id)
+                foreach (NodeEvaluationContext? context in item)
                 {
-                    return socket;
+                    context._renderables = parentContext._renderables;
+
+                    context.Node.PreEvaluate(context);
+                    context.Node.Evaluate(context);
+                    context.Node.PostEvaluate(context);
                 }
             }
         }
-
-        return null;
     }
 
-    private void Uninitialize()
+    public object InitializeForState(IClock clock)
     {
-        foreach (var item in CollectionsMarshal.AsSpan(_evalContexts))
+        var evalContexts = new List<NodeEvaluationContext[]>();
+
+        foreach (Node? lastNode in Nodes.Where(x => !x.Items.Any(x => x is IOutputSocket)))
         {
-            foreach (NodeEvaluationContext? context in item.AsSpan())
+            var stack = new Stack<NodeEvaluationContext>();
+            BuildNode(lastNode, stack);
+            NodeEvaluationContext[] array = stack.ToArray();
+
+            evalContexts.Add(array);
+            foreach (NodeEvaluationContext item in array)
             {
-                context.Node.UninitializeForContext(context);
+                item.Clock = clock;
+                item.List = array;
+                item.Node.InitializeForContext(item);
             }
         }
 
-        _evalContexts.Clear();
+        return evalContexts;
     }
 
-    private void Build(IClock clock)
+    public void UninitializeForState(object? state)
     {
-        if (_isDirty)
+        if (state is List<NodeEvaluationContext[]> contexts)
         {
-            Uninitialize();
-            int nextId = 0;
-
-            foreach (Node? lastNode in _nodes.Where(x => !x.Items.Any(x => x is IOutputSocket)))
+            foreach (NodeEvaluationContext[] item in CollectionsMarshal.AsSpan(contexts))
             {
-                var stack = new Stack<NodeEvaluationContext>();
-                BuildNode(lastNode, stack);
-                NodeEvaluationContext[] array = stack.ToArray();
-
-                _evalContexts.Add(array);
-                foreach (NodeEvaluationContext item in array)
+                foreach (NodeEvaluationContext? context in item.AsSpan())
                 {
-                    item.Clock = clock;
-                    item.Id = nextId;
-                    item.List = array;
-                    item.Node.InitializeForContext(item);
+                    context.Node.UninitializeForContext(context);
                 }
-
-                nextId++;
             }
 
-            _isDirty = false;
+            contexts.Clear();
         }
     }
 
@@ -153,6 +168,77 @@ public class NodeTreeSpace : Element, IAffectsRender
                 }
             }
         }
+    }
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        base.OnPropertyChanged(args);
+        if (args is CorePropertyChangedEventArgs e)
+        {
+            if (e.Property == InputProperty
+                || e.Property == OutputProperty)
+            {
+                int index = -1;
+
+                if (e.OldValue is Node oldNode)
+                {
+                    index = Nodes.IndexOf(oldNode);
+                    Nodes.Remove(oldNode);
+                }
+
+                if (index == -1)
+                {
+                    index = Nodes.Count;
+                }
+
+                if (e.NewValue is Node newNode)
+                {
+                    if (e.Property == InputProperty && Nodes.Any(x => x is GroupInput))
+                        return;
+                    else if (e.Property == OutputProperty && Nodes.Any(x => x is GroupOutput))
+                        return;
+
+                    Nodes.Insert(index, newNode);
+                }
+            }
+        }
+    }
+}
+
+// Todo: NodeTreeModel
+public abstract class NodeTreeSpace : Element, IAffectsRender
+{
+    private readonly LogicalList<Node> _nodes;
+
+    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+
+    public NodeTreeSpace()
+    {
+        _nodes = new LogicalList<Node>(this);
+    }
+
+    public ICoreList<Node> Nodes => _nodes;
+
+    protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
+    {
+        Invalidated?.Invoke(this, args);
+    }
+
+    public ISocket? FindSocket(Guid id)
+    {
+        foreach (Node node in Nodes.GetMarshal().Value)
+        {
+            foreach (INodeItem item in node.Items.GetMarshal().Value)
+            {
+                if (item is ISocket socket
+                    && socket.Id == id)
+                {
+                    return socket;
+                }
+            }
+        }
+
+        return null;
     }
 
     public override void ReadFromJson(JsonNode json)

@@ -1,10 +1,14 @@
-﻿using Avalonia;
+﻿using System.Collections;
+using System.Collections.Specialized;
+
+using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 
 using Beutl.Commands;
 using Beutl.Framework;
 using Beutl.NodeTree;
+using Beutl.NodeTree.Nodes.Group;
 using Beutl.Services;
 
 using FluentAvalonia.UI.Media;
@@ -74,6 +78,8 @@ public sealed class NodeViewModel : IDisposable
 
     public ReactiveProperty<bool> IsSelected { get; } = new();
 
+    public bool IsGroupNode => Node is GroupNode;
+
     public ReactiveProperty<Point> Position { get; }
 
     public ReactiveProperty<bool> IsExpanded { get; }
@@ -84,6 +90,7 @@ public sealed class NodeViewModel : IDisposable
 
     public void Dispose()
     {
+        Node.Items.CollectionChanged -= OnItemsCollectionChanged;
         foreach (NodeItemViewModel item in Items)
         {
             item.Dispose();
@@ -99,27 +106,82 @@ public sealed class NodeViewModel : IDisposable
         var atmp = new IAbstractProperty[1];
         foreach (INodeItem item in Node.Items)
         {
-            IPropertyEditorContext? context = null;
-            if (item.Property is { } aproperty)
+            Items.Add(CreateNodeItemViewModel(ctmp, atmp, item));
+        }
+
+        Node.Items.CollectionChanged += OnItemsCollectionChanged;
+    }
+
+    private void OnItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        void Add(int index, IList items)
+        {
+            var ctmp = new CoreProperty[1];
+            var atmp = new IAbstractProperty[1];
+            foreach (INodeItem item in items)
             {
-                ctmp[0] = aproperty.Property;
-                atmp[0] = aproperty;
-                (_, PropertyEditorExtension ext) = PropertyEditorService.MatchProperty(ctmp);
-                ext?.TryCreateContextForNode(atmp, out context);
+                Items.Insert(index++, CreateNodeItemViewModel(ctmp, atmp, item));
+            }
+        }
+
+        void Remove(int index, IList items)
+        {
+            for (int i = 0; i < items.Count; ++i)
+            {
+                Items[index + i].Dispose();
             }
 
-            Items.Add(CreateNodeItemViewModel(item, context));
+            Items.RemoveRange(index, items.Count);
+        }
+
+        switch (e.Action)
+        {
+            case NotifyCollectionChangedAction.Add:
+                Add(e.NewStartingIndex, e.NewItems!);
+                break;
+
+            case NotifyCollectionChangedAction.Move:
+            case NotifyCollectionChangedAction.Replace:
+                Remove(e.OldStartingIndex, e.OldItems!);
+                Add(e.NewStartingIndex, e.NewItems!);
+                break;
+
+            case NotifyCollectionChangedAction.Remove:
+                Remove(e.OldStartingIndex, e.OldItems!);
+                break;
+
+            case NotifyCollectionChangedAction.Reset:
+                foreach (NodeItemViewModel item in Items)
+                {
+                    item.Dispose();
+                }
+                Items.Clear();
+                break;
         }
     }
 
-    private static NodeItemViewModel CreateNodeItemViewModel(INodeItem nodeItem, IPropertyEditorContext? propertyEditorContext)
+    private NodeItemViewModel CreateNodeItemViewModel(CoreProperty[] ctmp, IAbstractProperty[] atmp, INodeItem item)
+    {
+        IPropertyEditorContext? context = null;
+        if (item.Property is { } aproperty)
+        {
+            ctmp[0] = aproperty.Property;
+            atmp[0] = aproperty;
+            (_, PropertyEditorExtension ext) = PropertyEditorService.MatchProperty(ctmp);
+            ext?.TryCreateContextForNode(atmp, out context);
+        }
+
+        return CreateNodeItemViewModelCore(item, context);
+    }
+
+    private NodeItemViewModel CreateNodeItemViewModelCore(INodeItem nodeItem, IPropertyEditorContext? propertyEditorContext)
     {
         return nodeItem switch
         {
-            IOutputSocket osocket => new OutputSocketViewModel(osocket, propertyEditorContext),
-            IInputSocket isocket => new InputSocketViewModel(isocket, propertyEditorContext),
-            ISocket socket => new SocketViewModel(socket, propertyEditorContext),
-            _ => new NodeItemViewModel(nodeItem, propertyEditorContext),
+            IOutputSocket osocket => new OutputSocketViewModel(osocket, propertyEditorContext, Node),
+            IInputSocket isocket => new InputSocketViewModel(isocket, propertyEditorContext, Node),
+            ISocket socket => new SocketViewModel(socket, propertyEditorContext, Node),
+            _ => new NodeItemViewModel(nodeItem, propertyEditorContext, Node),
         };
     }
 

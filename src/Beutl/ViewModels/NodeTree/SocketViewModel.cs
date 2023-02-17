@@ -12,18 +12,25 @@ namespace Beutl.ViewModels.NodeTree;
 
 public class SocketViewModel : NodeItemViewModel
 {
-    private readonly IDisposable _disposable;
+    private readonly IDisposable? _disposable;
 
-    public SocketViewModel(ISocket socket, IPropertyEditorContext? propertyEditorContext)
-        : base(socket, propertyEditorContext)
+    public SocketViewModel(ISocket? socket, IPropertyEditorContext? propertyEditorContext, Node node)
+        : base(socket, propertyEditorContext, node)
     {
-        Brush = new(new ImmutableSolidColorBrush(socket.Color.ToAvalonia()));
-        _disposable = ((NodeItem)socket).GetObservable(NodeItem.IsValidProperty).Subscribe(OnIsConnectedChanged);
-        socket.Connected += OnSocketConnected;
-        socket.Disconnected += OnSocketDisconnected;
+        _disposable = (socket as NodeItem)?.GetObservable(NodeItem.IsValidProperty)?.Subscribe(OnIsConnectedChanged);
+        if (socket != null)
+        {
+            Brush = new(new ImmutableSolidColorBrush(socket.Color.ToAvalonia()));
+            socket.Connected += OnSocketConnected;
+            socket.Disconnected += OnSocketDisconnected;
+        }
+        else
+        {
+            Brush = new(Brushes.Gray);
+        }
     }
 
-    public new ISocket Model => (ISocket)base.Model;
+    public new ISocket? Model => base.Model as ISocket;
 
     // IsValidがfalseの時、false
     public ReactivePropertySlim<bool> IsConnected { get; } = new();
@@ -35,19 +42,28 @@ public class SocketViewModel : NodeItemViewModel
     protected override void OnDispose()
     {
         base.OnDispose();
-        _disposable.Dispose();
-        Model.Connected -= OnSocketConnected;
-        Model.Disconnected -= OnSocketDisconnected;
+        _disposable?.Dispose();
+        if (Model != null)
+        {
+            Model.Connected -= OnSocketConnected;
+            Model.Disconnected -= OnSocketDisconnected;
+        }
     }
 
     protected virtual void OnSocketDisconnected(object? sender, SocketConnectionChangedEventArgs e)
     {
-        OnIsConnectedChanged(((NodeItem)Model).IsValid);
+        if (Model != null)
+        {
+            OnIsConnectedChanged(((NodeItem)Model).IsValid);
+        }
     }
 
     protected virtual void OnSocketConnected(object? sender, SocketConnectionChangedEventArgs e)
     {
-        OnIsConnectedChanged(((NodeItem)Model).IsValid);
+        if (Model != null)
+        {
+            OnIsConnectedChanged(((NodeItem)Model).IsValid);
+        }
     }
 
     protected virtual void OnIsConnectedChanged(bool? isValid)

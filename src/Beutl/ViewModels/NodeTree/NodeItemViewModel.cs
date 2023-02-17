@@ -7,10 +7,11 @@ public class NodeItemViewModel : IDisposable
 {
     private bool _disposedValue;
 
-    public NodeItemViewModel(INodeItem nodeItem, IPropertyEditorContext? propertyEditorContext)
+    public NodeItemViewModel(INodeItem? nodeItem, IPropertyEditorContext? propertyEditorContext, Node node)
     {
         Model = nodeItem;
         PropertyEditorContext = propertyEditorContext;
+        Node = node;
     }
 
     ~NodeItemViewModel()
@@ -22,9 +23,11 @@ public class NodeItemViewModel : IDisposable
         }
     }
 
-    public INodeItem Model { get; }
+    public INodeItem? Model { get; }
 
     public IPropertyEditorContext? PropertyEditorContext { get; }
+
+    public Node Node { get; }
 
     public void Dispose()
     {

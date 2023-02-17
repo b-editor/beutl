@@ -9,7 +9,7 @@ public class ForegroundNode : ConfigureNode
 
     public ForegroundNode()
     {
-        _brushSocket = AsInput<IBrush>("Brush", "Brush");
+        _brushSocket = AsInput<IBrush>("Brush");
     }
 
     protected override void Attach(Drawable drawable, object? state)

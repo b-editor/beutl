@@ -23,7 +23,7 @@ public class RectNode : Node
 
     public RectNode()
     {
-        _valueSocket = AsOutput<Rect>("Output", "PixelRect");
+        _valueSocket = AsOutput<Rect>("Rect");
         _positionSocket = AsInput(TopLeftProperty).AcceptNumber();
         _sizeSocket = AsInput(SizeProperty).AcceptNumber();
     }

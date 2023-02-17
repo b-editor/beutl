@@ -13,6 +13,7 @@ using Avalonia.Media;
 using Avalonia.Media.Transformation;
 using Avalonia.VisualTree;
 
+using Beutl.NodeTree.Nodes.Group;
 using Beutl.ViewModels.NodeTree;
 
 namespace Beutl.Views.NodeTree;
@@ -27,6 +28,8 @@ public partial class NodeView : UserControl
     private bool _captured;
     private Point _snapshot;
     private IDisposable? _positionDisposable;
+    private SocketView? _undecidedSocket;
+    private SocketViewModel? _undecidedSocketContext;
 
     public NodeView()
     {
@@ -69,11 +72,27 @@ public partial class NodeView : UserControl
     private void OnDataContextDetached(NodeViewModel obj)
     {
         _positionDisposable?.Dispose();
+
+        _undecidedSocket = null;
+        _undecidedSocketContext?.Dispose();
+        _undecidedSocketContext = null;
+        stackPanel.Children.RemoveRange(1, stackPanel.Children.Count - 1);
     }
 
     private void OnDataContextAttached(NodeViewModel obj)
     {
         _positionDisposable = obj.Position.Subscribe(_ => UpdateSocketPosition());
+        if (obj.Node is GroupInput or GroupOutput)
+        {
+            _undecidedSocketContext = obj.Node is GroupInput
+                    ? new OutputSocketViewModel(null, null, obj.Node)
+                    : new InputSocketViewModel(null, null, obj.Node);
+            _undecidedSocket = new SocketView
+            {
+                DataContext = _undecidedSocketContext
+            };
+            stackPanel.Children.Add(_undecidedSocket);
+        }
     }
 
     internal void UpdateSocketPosition()
@@ -89,6 +108,8 @@ public partial class NodeView : UserControl
                         socketView.UpdateSocketPosition();
                     }
                 }
+
+                _undecidedSocket?.UpdateSocketPosition();
             }
             else
             {
@@ -104,6 +125,16 @@ public partial class NodeView : UserControl
                             output.SocketPosition.Value = vcenter + default(Point).WithX(Bounds.Width);
                             break;
                     }
+                }
+
+                switch (_undecidedSocketContext)
+                {
+                    case InputSocketViewModel input:
+                        input.SocketPosition.Value = vcenter;
+                        break;
+                    case OutputSocketViewModel output:
+                        output.SocketPosition.Value = vcenter + default(Point).WithX(Bounds.Width);
+                        break;
                 }
             }
         }
@@ -254,6 +285,15 @@ public partial class NodeView : UserControl
                     item.ZIndex -= minZindex;
                 }
             }
+        }
+    }
+
+    private void OpenNodeClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is NodeViewModel { Node: GroupNode groupNode }
+            && this.FindAncestorOfType<NodeTreeTab>()?.DataContext is NodeTreeTabViewModel tabViewModel)
+        {
+            tabViewModel.NavigateTo(groupNode.Group);
         }
     }
 }

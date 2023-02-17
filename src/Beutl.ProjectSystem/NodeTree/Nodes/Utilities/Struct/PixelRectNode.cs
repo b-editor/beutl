@@ -23,7 +23,7 @@ public class PixelRectNode : Node
 
     public PixelRectNode()
     {
-        _valueSocket = AsOutput<PixelRect>("Output", "PixelRect");
+        _valueSocket = AsOutput<PixelRect>("PixelRect");
         _positionSocket = AsInput(TopLeftProperty).AcceptNumber();
         _sizeSocket = AsInput(SizeProperty).AcceptNumber();
     }

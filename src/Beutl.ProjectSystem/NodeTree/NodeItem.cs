@@ -6,12 +6,20 @@ namespace Beutl.NodeTree;
 public abstract class NodeItem : Element
 {
     public static readonly CoreProperty<bool?> IsValidProperty;
+    public static readonly CoreProperty<int> LocalIdProperty;
     private bool? _isValid;
+    private int _localId = -1;
 
     static NodeItem()
     {
         IsValidProperty = ConfigureProperty<bool?, NodeItem>(o => o.IsValid)
             .PropertyFlags(PropertyFlags.NotifyChanged)
+            .Register();
+
+        LocalIdProperty = ConfigureProperty<int, NodeItem>(o => o.LocalId)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
+            .SerializeName("local-id")
+            .DefaultValue(-1)
             .Register();
 
         IdProperty.OverrideMetadata<NodeItem>(new CorePropertyMetadata<Guid>("id"));
@@ -28,6 +36,12 @@ public abstract class NodeItem : Element
         protected set => SetAndRaise(IsValidProperty, ref _isValid, value);
     }
 
+    public int LocalId
+    {
+        get => _localId;
+        set => SetAndRaise(LocalIdProperty, ref _localId, value);
+    }
+
     public event EventHandler? NodeTreeInvalidated;
 
     protected void InvalidateNodeTree()
@@ -36,7 +50,7 @@ public abstract class NodeItem : Element
     }
 }
 
-public class NodeItem<T> : NodeItem, INodeItem<T>
+public class NodeItem<T> : NodeItem, INodeItem<T>, ISupportSetValueNodeItem
 {
     private IAbstractProperty<T>? _property;
 
@@ -123,5 +137,13 @@ public class NodeItem<T> : NodeItem, INodeItem<T>
 
         NodeTree = null;
         OnDetachedFromNodeTree(nodeTree);
+    }
+
+    void ISupportSetValueNodeItem.SetThrough(INodeItem nodeItem)
+    {
+        if (nodeItem is INodeItem<T> t)
+        {
+            Value = t.Value;
+        }
     }
 }

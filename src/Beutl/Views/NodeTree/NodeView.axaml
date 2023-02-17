@@ -45,7 +45,7 @@
             <Border.KeyBindings>
                 <KeyBinding Command="{Binding Delete}" Gesture="Delete" />
             </Border.KeyBindings>
-            <Grid ColumnDefinitions="Auto,*">
+            <Grid ColumnDefinitions="Auto,*,Auto">
                 <ToggleButton x:Name="expandToggle"
                               Width="30"
                               Padding="5"
@@ -58,6 +58,13 @@
                            VerticalAlignment="Center"
                            IsHitTestVisible="False"
                            Text="{Binding NodeName}" />
+
+                <Button Grid.Column="2"
+                        Click="OpenNodeClick"
+                        IsVisible="{Binding IsGroupNode}"
+                        Theme="{StaticResource TransparentButton}">
+                    <icons:SymbolIcon Symbol="Open" />
+                </Button>
             </Grid>
         </Border>
         <Border x:Name="nodeContent"
@@ -65,15 +72,17 @@
                 Padding="0,0,0,8"
                 Background="Transparent"
                 ClipToBounds="False">
-            <ItemsControl x:Name="itemsControl"
-                          ClipToBounds="False"
-                          Items="{Binding Items}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <views:SocketView />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <StackPanel x:Name="stackPanel">
+                <ItemsControl x:Name="itemsControl"
+                              ClipToBounds="False"
+                              Items="{Binding Items}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <views:SocketView />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
         </Border>
     </Grid>
 </UserControl>

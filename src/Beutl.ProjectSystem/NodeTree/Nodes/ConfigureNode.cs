@@ -19,8 +19,8 @@ public abstract class ConfigureNode : Node
 {
     public ConfigureNode()
     {
-        OutputSocket = AsOutput<Drawable>("Output", "Drawable");
-        InputSocket = AsInput<Drawable>("Input", "Drawable");
+        OutputSocket = AsOutput<Drawable>("Drawable");
+        InputSocket = AsInput<Drawable>("Drawable");
     }
 
     protected OutputSocket<Drawable> OutputSocket { get; }

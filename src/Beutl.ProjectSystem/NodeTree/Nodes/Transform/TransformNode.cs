@@ -9,7 +9,7 @@ public class TransformNode : ConfigureNode
 
     public TransformNode()
     {
-        _matrixSocket = AsInput<Matrix>("Matrix", "Matrix");
+        _matrixSocket = AsInput<Matrix>("Matrix");
     }
 
     public override void InitializeForContext(NodeEvaluationContext context)

@@ -18,7 +18,7 @@ public class RandomSingleNode : Node
 
     public RandomSingleNode()
     {
-        _valueSocket = AsOutput<float>("Output", "Value");
+        _valueSocket = AsOutput<float>("Value");
         _maximumSocket = AsInput(MaximumProperty).AcceptNumber();
         _minimumSocket = AsInput(MinimumProperty).AcceptNumber();
     }
@@ -55,7 +55,7 @@ public class RandomDoubleNode : Node
 
     public RandomDoubleNode()
     {
-        _valueSocket = AsOutput<double>("Output", "Value");
+        _valueSocket = AsOutput<double>("Value");
         _maximumSocket = AsInput(MaximumProperty).AcceptNumber();
         _minimumSocket = AsInput(MinimumProperty).AcceptNumber();
     }
@@ -92,7 +92,7 @@ public class RandomInt32Node : Node
 
     public RandomInt32Node()
     {
-        _valueSocket = AsOutput<int>("Output", "Value");
+        _valueSocket = AsOutput<int>("Value");
         _maximumSocket = AsInput(MaximumProperty).AcceptNumber();
         _minimumSocket = AsInput(MinimumProperty).AcceptNumber();
     }
@@ -127,7 +127,7 @@ public class RandomInt64Node : Node
 
     public RandomInt64Node()
     {
-        _valueSocket = AsOutput<long>("Output", "Value");
+        _valueSocket = AsOutput<long>("Value");
         _maximumSocket = AsInput(MaximumProperty).AcceptNumber();
         _minimumSocket = AsInput(MinimumProperty).AcceptNumber();
     }

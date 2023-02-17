@@ -20,7 +20,7 @@ public class PointNode : Node
 
     public PointNode()
     {
-        _valueSocket = AsOutput<Point>("Output", "Point");
+        _valueSocket = AsOutput<Point>("Point");
         _xSocket = AsInput(XProperty).AcceptNumber();
         _ySocket = AsInput(YProperty).AcceptNumber();
     }

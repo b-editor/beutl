@@ -26,7 +26,7 @@ public class RelativePointNode : Node
 
     public RelativePointNode()
     {
-        _valueSocket = AsOutput("Output", RelativePoint.TopLeft, "RelativePoint");
+        _valueSocket = AsOutput("RelativePoint", RelativePoint.TopLeft);
         _unitSocket = AsProperty(UnitProperty);
         _xSocket = AsInput(XProperty).AcceptNumber();
         _ySocket = AsInput(YProperty).AcceptNumber();

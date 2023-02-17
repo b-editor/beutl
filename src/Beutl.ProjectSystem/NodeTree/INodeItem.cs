@@ -3,8 +3,15 @@ using Beutl.Media;
 
 namespace Beutl.NodeTree;
 
+internal interface ISupportSetValueNodeItem
+{
+    void SetThrough(INodeItem nodeItem);
+}
+
 public interface INodeItem : ILogicalElement, IAffectsRender
 {
+    int LocalId { get; }
+
     IAbstractProperty? Property { get; }
 
     Type? AssociatedType { get; }

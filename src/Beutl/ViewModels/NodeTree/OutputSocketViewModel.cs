@@ -5,15 +5,18 @@ namespace Beutl.ViewModels.NodeTree;
 
 public class OutputSocketViewModel : SocketViewModel
 {
-    public OutputSocketViewModel(IOutputSocket socket, IPropertyEditorContext? propertyEditorContext)
-        : base(socket, propertyEditorContext)
+    public OutputSocketViewModel(IOutputSocket? socket, IPropertyEditorContext? propertyEditorContext, Node node)
+        : base(socket, propertyEditorContext, node)
     {
     }
 
-    public new IOutputSocket Model => (IOutputSocket)base.Model;
+    public new IOutputSocket? Model => base.Model as IOutputSocket;
 
     protected override void OnIsConnectedChanged(bool? isValid)
     {
-        IsConnected.Value = Model.Connections.Count > 0;
+        if (Model != null)
+        {
+            IsConnected.Value = Model.Connections.Count > 0;
+        }
     }
 }

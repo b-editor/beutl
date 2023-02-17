@@ -1,5 +1,6 @@
 ﻿using Beutl.Language;
 using Beutl.NodeTree.Nodes.Brushes;
+using Beutl.NodeTree.Nodes.Group;
 using Beutl.NodeTree.Nodes.Transform;
 
 namespace Beutl.NodeTree.Nodes;
@@ -8,6 +9,10 @@ public static class NodesRegistrar
 {
     public static void RegisterAll()
     {
+        NodeRegistry.RegisterNode<GroupInput>("Group Input");
+        NodeRegistry.RegisterNode<GroupOutput>("Group Output");
+        NodeRegistry.RegisterNode<GroupNode>("Group Node");
+
         NodeRegistry.RegisterNode<RectNode>(Strings.Rectangle);
         NodeRegistry.RegisterNode<LayerOutputNode>("Layer output");
 

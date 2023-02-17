@@ -23,7 +23,7 @@ public class PixelSizeNode : Node
 
     public PixelSizeNode()
     {
-        _valueSocket = AsOutput<PixelSize>("Output", "PixelSize");
+        _valueSocket = AsOutput<PixelSize>("PixelSize");
         _widthSocket = AsInput(WidthProperty).AcceptNumber();
         _heightSocket = AsInput(HeightProperty).AcceptNumber();
     }

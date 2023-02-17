@@ -20,8 +20,8 @@ public abstract class MatrixNode : Node
 
     public MatrixNode()
     {
-        _outputSocket = AsOutput<Matrix>("Output", "Matrix");
-        _inputSocket = AsInput<Matrix>("Input", "Matrix");
+        _outputSocket = AsOutput<Matrix>("Matrix");
+        _inputSocket = AsInput<Matrix>("Matrix");
         _operatorSocket = AsProperty(OperatorProperty);
     }
 

@@ -10,7 +10,7 @@ public class BrushNode<T> : Node
 {
     public BrushNode()
     {
-        OutputSocket = AsOutput<T>("Output", "Brush");
+        OutputSocket = AsOutput<T>("Brush");
         OpacitySocket = AsInput(Brush.OpacityProperty).AcceptNumber();
         TransformSocket = AsInput(Brush.TransformProperty);
         TransformSocket.RegisterReceiver((object? obj, out ITransform? value) =>

@@ -68,7 +68,6 @@ public class EvaluationContext
         Clock = context.Clock;
         List = context.List;
         _renderables = context._renderables;
-        Id = context.Id;
     }
 
 #pragma warning disable CS8618
@@ -80,8 +79,6 @@ public class EvaluationContext
     public IClock Clock { get; internal set; }
 
     public IReadOnlyList<NodeEvaluationContext> List { get; internal set; }
-
-    public int Id { get; internal set; }
 
     public void AddRenderable(Renderable renderable)
     {

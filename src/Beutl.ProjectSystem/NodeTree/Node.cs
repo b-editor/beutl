@@ -13,32 +13,6 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.NodeTree;
 
-internal static class SetterPropertyImplSerializeHelper
-{
-    public static JsonObject Serialize<T>(SetterPropertyImpl<T> property)
-    {
-        return new JsonObject
-        {
-            ["property"] = property.Property.Name,
-            ["target"] = TypeFormat.ToString(property.ImplementedType),
-
-            ["setter"] = StyleSerializer.ToJson(property.Setter, property.ImplementedType).Item2
-        };
-    }
-
-    public static string? GetPropertyName(JsonNode jsonNode)
-    {
-        if (jsonNode is JsonObject obj
-            && obj.TryGetPropertyValue("property", out var propNode)
-            && propNode is JsonValue propValue
-            && propValue.TryGetValue(out string? propName))
-        {
-            return propName;
-        }
-
-        return null;
-    }
-}
 public sealed class SetterPropertyImpl<T> : IAbstractAnimatableProperty<T>
 {
     private sealed class HasAnimationObservable : LightweightObservableBase<bool>
@@ -162,6 +136,83 @@ public sealed class SetterPropertyImpl<T> : IAbstractAnimatableProperty<T>
     }
 }
 
+
+internal interface IInputSocketForSetter : ICoreObject, IInputSocket
+{
+    new int LocalId { get; set; }
+
+    void SetProperty(object property);
+}
+
+public sealed class NodeItemForSetter<T> : NodeItem<T>
+{
+    public void SetProperty(SetterPropertyImpl<T> property)
+    {
+        Property = property;
+        property.Setter.Invalidated += OnSetterInvalidated;
+    }
+
+    private void OnSetterInvalidated(object? sender, EventArgs e)
+    {
+        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
+    }
+
+    public SetterPropertyImpl<T>? GetProperty()
+    {
+        return Property as SetterPropertyImpl<T>;
+    }
+
+    public override void ReadFromJson(JsonNode json)
+    {
+        base.ReadFromJson(json);
+        GetProperty()?.ReadFromJson(json);
+    }
+
+    public override void WriteToJson(ref JsonNode json)
+    {
+        base.WriteToJson(ref json);
+        GetProperty()?.WriteToJson(ref json);
+    }
+}
+
+public sealed class InputSocketForSetter<T> : InputSocket<T>, IInputSocketForSetter
+{
+    public void SetProperty(SetterPropertyImpl<T> property)
+    {
+        Property = property;
+        property.Setter.Invalidated += OnSetterInvalidated;
+    }
+
+    void IInputSocketForSetter.SetProperty(object property)
+    {
+        var obj = (SetterPropertyImpl<T>)property;
+        Property = obj;
+        obj.Setter.Invalidated += OnSetterInvalidated;
+    }
+
+    private void OnSetterInvalidated(object? sender, EventArgs e)
+    {
+        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
+    }
+
+    public SetterPropertyImpl<T>? GetProperty()
+    {
+        return Property as SetterPropertyImpl<T>;
+    }
+
+    public override void ReadFromJson(JsonNode json)
+    {
+        base.ReadFromJson(json);
+        GetProperty()?.ReadFromJson(json);
+    }
+
+    public override void WriteToJson(ref JsonNode json)
+    {
+        base.WriteToJson(ref json);
+        GetProperty()?.WriteToJson(ref json);
+    }
+}
+
 public abstract class Node : Element, INode
 {
     public static readonly CoreProperty<bool> IsExpandedProperty;
@@ -232,6 +283,8 @@ public abstract class Node : Element, INode
         set => SetAndRaise(PositionProperty, ref _position, value);
     }
 
+    protected int NextLocalId { get; set; } = 0;
+
     public event EventHandler? NodeTreeInvalidated;
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
@@ -249,7 +302,7 @@ public abstract class Node : Element, INode
     public virtual void InitializeForContext(NodeEvaluationContext context)
     {
     }
-    
+
     public virtual void UninitializeForContext(NodeEvaluationContext context)
     {
     }
@@ -283,147 +336,267 @@ public abstract class Node : Element, INode
         }
     }
 
-    //public void ApplyTo(ICoreObject obj)
-    //{
-    //    Type objType = obj.GetType();
-    //    for (int i = 0; i < Items.Count; i++)
-    //    {
-    //        INodeItem? item = Items[i];
-    //        if (item.Property is { Property: { OwnerType: { } ownerType } property })
-    //        {
-    //            if (objType.IsAssignableTo(ownerType))
-    //            {
-    //                obj.SetValue(property, item.Value);
-    //            }
-    //        }
-    //    }
-    //}
-
-    protected InputSocket<T> AsInput<T>(CoreProperty<T> property)
+    protected InputSocket<T> AsInput<T>(CoreProperty<T> property, int localId = -1)
     {
-        if (ContainsByName(property.Name))
-            throw new InvalidOperationException("An item with the same name already exists.");
+        InputSocket<T> socket = CreateInput<T>(property, localId);
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected IInputSocket AsInput(CoreProperty property, int localId = -1)
+    {
+        IInputSocket socket = CreateInput(property, localId);
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected InputSocket<T> AsInput<T, TOwner>(CoreProperty<T> property, int localId = -1)
+    {
+        InputSocket<T> socket = CreateInput<T, TOwner>(property, localId);
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected InputSocket<T> AsInput<T>(CoreProperty<T> property, T value, int localId = -1)
+    {
+        InputSocket<T> socket = CreateInput(property, value, localId);
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected InputSocket<T> AsInput<T, TOwner>(CoreProperty<T> property, T value, int localId = -1)
+    {
+        InputSocket<T> socket = CreateInput<T, TOwner>(property, value, localId);
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected InputSocket<T> AsInput<T>(string name, int localId = -1)
+    {
+        InputSocket<T> socket = CreateInput<T>(name, localId);
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected IInputSocket AsInput(string name, Type type, int localId = -1)
+    {
+        IInputSocket socket = CreateInput(name, type, localId);
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected OutputSocket<T> AsOutput<T>(string name, T value, int localId = -1)
+    {
+        OutputSocket<T> socket = CreateOutput<T>(name, value, localId);
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected OutputSocket<T> AsOutput<T>(string name, int localId = -1)
+    {
+        OutputSocket<T> socket = CreateOutput<T>(name, localId);
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected NodeItem<T> AsProperty<T>(CoreProperty<T> property, int localId = -1)
+    {
+        NodeItem<T> socket = CreateProperty(property, localId);
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected NodeItem<T> AsProperty<T>(CoreProperty<T> property, T value, int localId = -1)
+    {
+        NodeItem<T> socket = CreateProperty(property, value, localId);
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected InputSocket<T> CreateInput<T>(CoreProperty<T> property, int localId = -1)
+    {
+        localId = GetLocalId(localId);
+
+        if (ValidateLocalId(localId))
+            throw new InvalidOperationException("An item with the same local-id already exists.");
 
         var setter = new Setter<T>(property);
         var propImpl = new SetterPropertyImpl<T>(setter, property.OwnerType);
-        var socket = new InputSocketImpl<T>();
+        var socket = new InputSocketForSetter<T>() { LocalId = localId };
         socket.SetProperty(propImpl);
-        Items.Add(socket);
         return socket;
     }
 
-    protected InputSocket<T> AsInput<T, TOwner>(CoreProperty<T> property)
+    protected IInputSocket CreateInput(CoreProperty property, int localId = -1)
     {
-        if (ContainsByName(property.Name))
-            throw new InvalidOperationException("An item with the same name already exists.");
+        localId = GetLocalId(localId);
+
+        if (ValidateLocalId(localId))
+            throw new InvalidOperationException("An item with the same local-id already exists.");
+
+        Type propertyType = property.PropertyType;
+        object setter = Activator.CreateInstance(typeof(Setter<>).MakeGenericType(propertyType), property)!;
+        object propImpl = Activator.CreateInstance(typeof(SetterPropertyImpl<>).MakeGenericType(propertyType), setter, property.OwnerType)!;
+        var socket = (IInputSocketForSetter)Activator.CreateInstance(typeof(InputSocketForSetter<>).MakeGenericType(propertyType))!;
+        socket.LocalId = localId;
+        socket.SetProperty(propImpl);
+        return socket;
+    }
+
+    protected InputSocket<T> CreateInput<T, TOwner>(CoreProperty<T> property, int localId = -1)
+    {
+        localId = GetLocalId(localId);
+
+        if (ValidateLocalId(localId))
+            throw new InvalidOperationException("An item with the same local-id already exists.");
 
         var setter = new Setter<T>(property);
         var propImpl = new SetterPropertyImpl<T>(setter, typeof(TOwner));
-        var socket = new InputSocketImpl<T>();
+        var socket = new InputSocketForSetter<T>() { LocalId = localId };
         socket.SetProperty(propImpl);
-        Items.Add(socket);
         return socket;
     }
 
-    protected InputSocket<T> AsInput<T>(CoreProperty<T> property, T value)
+    protected InputSocket<T> CreateInput<T>(CoreProperty<T> property, T value, int localId = -1)
     {
-        if (ContainsByName(property.Name))
-            throw new InvalidOperationException("An item with the same name already exists.");
+        localId = GetLocalId(localId);
+
+        if (ValidateLocalId(localId))
+            throw new InvalidOperationException("An item with the same local-id already exists.");
 
         var setter = new Setter<T>(property, value);
         var propImpl = new SetterPropertyImpl<T>(setter, property.OwnerType);
-        var socket = new InputSocketImpl<T>();
+        var socket = new InputSocketForSetter<T>() { LocalId = localId };
         socket.SetProperty(propImpl);
-        Items.Add(socket);
         return socket;
     }
 
-    protected InputSocket<T> AsInput<T, TOwner>(CoreProperty<T> property, T value)
+    protected InputSocket<T> CreateInput<T, TOwner>(CoreProperty<T> property, T value, int localId = -1)
     {
-        if (ContainsByName(property.Name))
-            throw new InvalidOperationException("An item with the same name already exists.");
+        localId = GetLocalId(localId);
+
+        if (ValidateLocalId(localId))
+            throw new InvalidOperationException("An item with the same local-id already exists.");
 
         var setter = new Setter<T>(property, value);
         var propImpl = new SetterPropertyImpl<T>(setter, typeof(TOwner));
-        var socket = new InputSocketImpl<T>();
+        var socket = new InputSocketForSetter<T>() { LocalId = localId };
         socket.SetProperty(propImpl);
-        Items.Add(socket);
         return socket;
     }
 
-    protected InputSocket<T> AsInput<T>(string name, string? display = null)
+    protected InputSocket<T> CreateInput<T>(string name, int localId = -1)
     {
-        if (ContainsByName(name))
-            throw new InvalidOperationException("An item with the same name already exists.");
+        localId = GetLocalId(localId);
 
-        display ??= name;
-        var socket = new InputSocketImpl<T>()
+        if (ValidateLocalId(localId))
+            throw new InvalidOperationException("An item with the same local-id already exists.");
+
+        return new InputSocketForSetter<T>()
         {
-            Name = display,
+            Name = name,
+            LocalId = localId
         };
-        socket.SetName(name);
-        Items.Add(socket);
+    }
+
+    protected IInputSocket CreateInput(string name, Type type, int localId = -1)
+    {
+        localId = GetLocalId(localId);
+
+        if (ValidateLocalId(localId))
+            throw new InvalidOperationException("An item with the same local-id already exists.");
+
+        var socket = (IInputSocketForSetter)Activator.CreateInstance(typeof(InputSocketForSetter<>).MakeGenericType(type))!;
+        socket.Name = name;
+        socket.LocalId = localId;
         return socket;
     }
 
-    protected OutputSocket<T> AsOutput<T>(string name, T value, string? display = null)
+    protected OutputSocket<T> CreateOutput<T>(string name, T value, int localId = -1)
     {
-        if (ContainsByName(name))
-            throw new InvalidOperationException("An item with the same name already exists.");
+        localId = GetLocalId(localId);
 
-        display ??= name;
-        var socket = new OutputSocketImpl<T>(name)
+        if (ValidateLocalId(localId))
+            throw new InvalidOperationException("An item with the same local-id already exists.");
+
+        return new OutputSocket<T>()
         {
-            Name = display,
+            Name = name,
+            LocalId = localId,
             Value = value
         };
-        Items.Add(socket);
-        return socket;
     }
 
-    protected OutputSocket<T> AsOutput<T>(string name, string? display = null)
+    protected OutputSocket<T> CreateOutput<T>(string name, int localId = -1)
     {
-        if (ContainsByName(name))
-            throw new InvalidOperationException("An item with the same name already exists.");
+        localId = GetLocalId(localId);
 
-        display ??= name;
-        var socket = new OutputSocketImpl<T>(name)
+        if (ValidateLocalId(localId))
+            throw new InvalidOperationException("An item with the same local-id already exists.");
+
+        return new OutputSocket<T>()
         {
-            Name = display
+            Name = name,
+            LocalId = localId
         };
-        Items.Add(socket);
+    }
+
+    protected IOutputSocket CreateOutput(string name, Type type, int localId = -1)
+    {
+        localId = GetLocalId(localId);
+
+        if (ValidateLocalId(localId))
+            throw new InvalidOperationException("An item with the same local-id already exists.");
+
+        var socket = (IOutputSocket)Activator.CreateInstance(typeof(OutputSocket<>).MakeGenericType(type))!;
+        if (socket is NodeItem nodeItem)
+        {
+            nodeItem.Name = name;
+            nodeItem.LocalId = localId;
+        }
         return socket;
     }
 
-    protected NodeItem<T> AsProperty<T>(CoreProperty<T> property)
+    protected NodeItem<T> CreateProperty<T>(CoreProperty<T> property, int localId = -1)
     {
-        if (ContainsByName(property.Name))
-            throw new InvalidOperationException("An item with the same name already exists.");
+        localId = GetLocalId(localId);
+
+        if (ValidateLocalId(localId))
+            throw new InvalidOperationException("An item with the same local-id already exists.");
 
         var setter = new Setter<T>(property);
         var propImpl = new SetterPropertyImpl<T>(setter, property.OwnerType);
-        var socket = new NodeItemImpl<T>();
+        var socket = new NodeItemForSetter<T>();
         socket.SetProperty(propImpl);
-        Items.Add(socket);
+        socket.LocalId = localId;
         return socket;
     }
 
-    protected NodeItem<T> AsProperty<T>(CoreProperty<T> property, T value)
+    protected NodeItem<T> CreateProperty<T>(CoreProperty<T> property, T value, int localId = -1)
     {
-        if (ContainsByName(property.Name))
-            throw new InvalidOperationException("An item with the same name already exists.");
+        localId = GetLocalId(localId);
+
+        if (ValidateLocalId(localId))
+            throw new InvalidOperationException("An item with the same local-id already exists.");
 
         var setter = new Setter<T>(property, value);
         var propImpl = new SetterPropertyImpl<T>(setter, property.OwnerType);
-        var socket = new NodeItemImpl<T>();
+        var socket = new NodeItemForSetter<T>();
         socket.SetProperty(propImpl);
-        Items.Add(socket);
+        socket.LocalId = localId;
         return socket;
     }
 
-    private bool ContainsByName(string name)
+    private bool ValidateLocalId(int localId)
     {
-        return Items.Any(x => x is INodeItemImpl impl ? impl.GetName() == name : x.Property?.Property.Name == name);
+        return Items.Any(x => x.LocalId == localId);
+    }
+
+    private int GetLocalId(int requestedLocalId)
+    {
+        requestedLocalId = Math.Max(requestedLocalId, NextLocalId);
+        NextLocalId++;
+        return requestedLocalId;
     }
 
     public override void ReadFromJson(JsonNode json)
@@ -446,24 +619,32 @@ public abstract class Node : Element, INode
             if (obj.TryGetPropertyValue("items", out var itemsNode)
                 && itemsNode is JsonArray itemsArray)
             {
+                int index = 0;
                 foreach (JsonNode? item in itemsArray)
                 {
                     if (item is JsonObject itemObj)
                     {
-                        string? name = SetterPropertyImplSerializeHelper.GetPropertyName(itemObj);
-                        if (name != null)
+                        int localId;
+                        if (itemObj.TryGetPropertyValue("local-id", out var localIdNode)
+                            && localIdNode is JsonValue localIdValue
+                            && localIdValue.TryGetValue(out int actualLId))
                         {
-                            INodeItem? nodeItem = Items.FirstOrDefault(
-                                x => x is INodeItemImpl impl
-                                    ? impl.GetName() == name
-                                    : x.Property?.Property.Name == name);
+                            localId = actualLId;
+                        }
+                        else
+                        {
+                            localId = index;
+                        }
 
-                            if (nodeItem is IJsonSerializable serializable)
-                            {
-                                serializable.ReadFromJson(itemObj);
-                            }
+                        INodeItem? nodeItem = Items.FirstOrDefault(x => x.LocalId == localId);
+
+                        if (nodeItem is IJsonSerializable serializable)
+                        {
+                            serializable.ReadFromJson(itemObj);
                         }
                     }
+
+                    index++;
                 }
             }
         }
@@ -518,140 +699,5 @@ public abstract class Node : Element, INode
     private void OnItemNodeTreeInvalidated(object? sender, EventArgs e)
     {
         InvalidateNodeTree();
-    }
-
-    private interface INodeItemImpl
-    {
-        string? GetName();
-    }
-
-    private interface IInputSocketImpl : ICoreObject, INodeItemImpl
-    {
-    }
-
-    private sealed class NodeItemImpl<T> : NodeItem<T>, INodeItemImpl
-    {
-        private string? _name;
-
-        public void SetName(string name)
-        {
-            _name = name;
-        }
-
-        public string? GetName()
-        {
-            return _name ?? Property?.Property?.Name;
-        }
-
-        public void SetProperty(SetterPropertyImpl<T> property)
-        {
-            Property = property;
-            property.Setter.Invalidated += OnSetterInvalidated;
-        }
-
-        private void OnSetterInvalidated(object? sender, EventArgs e)
-        {
-            RaiseInvalidated(new RenderInvalidatedEventArgs(this));
-        }
-
-        public SetterPropertyImpl<T>? GetProperty()
-        {
-            return Property as SetterPropertyImpl<T>;
-        }
-
-        public override void ReadFromJson(JsonNode json)
-        {
-            base.ReadFromJson(json);
-            GetProperty()?.ReadFromJson(json);
-        }
-
-        public override void WriteToJson(ref JsonNode json)
-        {
-            base.WriteToJson(ref json);
-            if (_name != null)
-            {
-                json["property"] = _name;
-            }
-            else
-            {
-                GetProperty()?.WriteToJson(ref json);
-            }
-        }
-    }
-
-    private sealed class OutputSocketImpl<T> : OutputSocket<T>, INodeItemImpl
-    {
-        private readonly string _name;
-
-        public OutputSocketImpl(string name)
-        {
-            _name = name;
-        }
-
-        public string? GetName()
-        {
-            return _name;
-        }
-
-        public override void ReadFromJson(JsonNode json)
-        {
-            base.ReadFromJson(json);
-        }
-
-        public override void WriteToJson(ref JsonNode json)
-        {
-            base.WriteToJson(ref json);
-            json["property"] = _name;
-        }
-    }
-
-    private sealed class InputSocketImpl<T> : InputSocket<T>, IInputSocketImpl
-    {
-        private string? _name;
-
-        public void SetName(string name)
-        {
-            _name = name;
-        }
-
-        public string? GetName()
-        {
-            return _name ?? Property?.Property?.Name;
-        }
-
-        public void SetProperty(SetterPropertyImpl<T> property)
-        {
-            Property = property;
-            property.Setter.Invalidated += OnSetterInvalidated;
-        }
-
-        private void OnSetterInvalidated(object? sender, EventArgs e)
-        {
-            RaiseInvalidated(new RenderInvalidatedEventArgs(this));
-        }
-
-        public SetterPropertyImpl<T>? GetProperty()
-        {
-            return Property as SetterPropertyImpl<T>;
-        }
-
-        public override void ReadFromJson(JsonNode json)
-        {
-            base.ReadFromJson(json);
-            GetProperty()?.ReadFromJson(json);
-        }
-
-        public override void WriteToJson(ref JsonNode json)
-        {
-            base.WriteToJson(ref json);
-            if (_name != null)
-            {
-                json["property"] = _name;
-            }
-            else
-            {
-                GetProperty()?.WriteToJson(ref json);
-            }
-        }
     }
 }

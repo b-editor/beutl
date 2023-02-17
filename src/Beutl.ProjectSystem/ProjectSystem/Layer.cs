@@ -23,8 +23,9 @@ public class Layer : Element, IStorable, ILogicalElement
     public static readonly CoreProperty<bool> AllowOutflowProperty;
     public static readonly CoreProperty<RenderLayerSpan> SpanProperty;
     public static readonly CoreProperty<SourceOperators> OperatorsProperty;
-    public static readonly CoreProperty<NodeTreeSpace> SpaceProperty;
+    public static readonly CoreProperty<LayerNodeTreeModel> SpaceProperty;
     public static readonly CoreProperty<bool> UseNodeProperty;
+    public static readonly CoreProperty<string> FileNameProperty;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
@@ -87,7 +88,7 @@ public class Layer : Element, IStorable, ILogicalElement
             .Accessor(o => o.Operators, null)
             .Register();
 
-        SpaceProperty = ConfigureProperty<NodeTreeSpace, Layer>(nameof(Space))
+        SpaceProperty = ConfigureProperty<LayerNodeTreeModel, Layer>(nameof(Space))
             .Accessor(o => o.Space, null)
             .Register();
 
@@ -96,6 +97,11 @@ public class Layer : Element, IStorable, ILogicalElement
             .DefaultValue(false)
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("useNode")
+            .Register();
+
+        FileNameProperty = ConfigureProperty<string, Layer>(nameof(FileName))
+            .Accessor(o => o.FileName, (o, v) => o.FileName = v)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         NameProperty.OverrideMetadata<Layer>(new CorePropertyMetadata<string>("name"));
@@ -174,7 +180,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
         (Span as ILogicalElement).NotifyAttachedToLogicalTree(new(this));
 
-        Space = new NodeTreeSpace();
+        Space = new LayerNodeTreeModel();
         Space.Invalidated += (_, _) => ForceRender();
     }
 
@@ -260,19 +266,15 @@ public class Layer : Element, IStorable, ILogicalElement
 
     public string FileName
     {
-        get => _fileName ?? throw new Exception("The file name is not set.");
-        set
-        {
-            ArgumentNullException.ThrowIfNull(value);
-            _fileName = value;
-        }
+        get => _fileName!;
+        set => SetAndRaise(FileNameProperty, ref _fileName!, value);
     }
 
     public DateTime LastSavedTime { get; private set; }
 
     public SourceOperators Operators { get; }
 
-    public NodeTreeSpace Space { get; }
+    public LayerNodeTreeModel Space { get; }
 
     public bool UseNode
     {

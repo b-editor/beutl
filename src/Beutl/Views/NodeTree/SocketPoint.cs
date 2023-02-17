@@ -8,31 +8,29 @@ using Avalonia.VisualTree;
 using Beutl.NodeTree;
 using Beutl.ViewModels.NodeTree;
 
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views.NodeTree;
 
 public class SocketConnectRequestedEventArgs : EventArgs
 {
-    public SocketConnectRequestedEventArgs(ISocket target, bool isConnected)
+    public SocketConnectRequestedEventArgs(SocketViewModel target, bool isConnected)
     {
         Target = target;
         IsConnected = isConnected;
     }
 
-    public ISocket Target { get; }
+    public SocketViewModel Target { get; }
 
     public bool IsConnected { get; set; }
 }
 
 public sealed class ConnectionLine : Line
 {
-    public static readonly StyledProperty<IInputSocket?> InputSocketProperty
-        = AvaloniaProperty.Register<ConnectionLine, IInputSocket?>(nameof(InputSocket));
-    public static readonly StyledProperty<IOutputSocket?> OutputSocketProperty
-        = AvaloniaProperty.Register<ConnectionLine, IOutputSocket?>(nameof(OutputSocket));
+    public static readonly StyledProperty<InputSocketViewModel?> InputSocketProperty
+        = AvaloniaProperty.Register<ConnectionLine, InputSocketViewModel?>(nameof(InputSocket));
+    public static readonly StyledProperty<OutputSocketViewModel?> OutputSocketProperty
+        = AvaloniaProperty.Register<ConnectionLine, OutputSocketViewModel?>(nameof(OutputSocket));
     private IDisposable? _strokeBinding;
 
     static ConnectionLine()
@@ -40,13 +38,13 @@ public sealed class ConnectionLine : Line
         StrokeThicknessProperty.OverrideDefaultValue<ConnectionLine>(3);
     }
 
-    public IInputSocket? InputSocket
+    public InputSocketViewModel? InputSocket
     {
         get => GetValue(InputSocketProperty);
         set => SetValue(InputSocketProperty, value);
     }
 
-    public IOutputSocket? OutputSocket
+    public OutputSocketViewModel? OutputSocket
     {
         get => GetValue(OutputSocketProperty);
         set => SetValue(OutputSocketProperty, value);
@@ -59,7 +57,7 @@ public sealed class ConnectionLine : Line
             .CombineLatest(
                 this.GetResourceObservable("SystemFillColorCriticalBrush"),
                 this.GetObservable(InputSocketProperty)
-                    .SelectMany(o => (o as CoreObject)?.GetObservable(NodeItem.IsValidProperty) ?? Observable.Return<bool?>(null)))
+                    .SelectMany(o => (o?.Model as CoreObject)?.GetObservable(NodeItem.IsValidProperty) ?? Observable.Return<bool?>(null)))
             .ObserveOnUIDispatcher()
             .Subscribe(x =>
             {
@@ -80,31 +78,48 @@ public sealed class ConnectionLine : Line
         _strokeBinding?.Dispose();
     }
 
-    public bool Match(ISocket? first, ISocket? second)
+    public bool Match(SocketViewModel? first, SocketViewModel? second)
     {
         return (InputSocket == first && OutputSocket == second)
             || (OutputSocket == first && InputSocket == second);
     }
 
-    public bool Match(ISocket? socket)
+    public bool Match(SocketViewModel? socket)
     {
         return InputSocket == socket || OutputSocket == socket;
     }
 
-    public ISocket? GetTarget(ISocket? socket)
+    public SocketViewModel? GetTarget(SocketViewModel? socket)
     {
         return InputSocket == socket ? OutputSocket
             : OutputSocket == socket ? InputSocket : null;
     }
-
-    public bool SetSocket(ISocket socket)
+    
+    public bool Match(ISocket? first, ISocket? second)
     {
-        if (socket is IInputSocket input && InputSocket == null)
+        return (InputSocket?.Model == first && OutputSocket?.Model == second)
+            || (OutputSocket?.Model == first && InputSocket?.Model == second);
+    }
+
+    public bool Match(ISocket? socket)
+    {
+        return InputSocket?.Model == socket || OutputSocket?.Model == socket;
+    }
+
+    public ISocket? GetTarget(ISocket? socket)
+    {
+        return InputSocket?.Model == socket ? OutputSocket?.Model
+            : OutputSocket?.Model == socket ? InputSocket?.Model : null;
+    }
+
+    public bool SetSocket(SocketViewModel socket)
+    {
+        if (socket is InputSocketViewModel input && InputSocket == null)
         {
             InputSocket = input;
             return true;
         }
-        else if (socket is IOutputSocket output && OutputSocket == null)
+        else if (socket is OutputSocketViewModel output && OutputSocket == null)
         {
             OutputSocket = output;
             return true;
@@ -216,7 +231,7 @@ public sealed class SocketPoint : Control
                 _line.StartPoint = e.GetPosition(_canvas);
                 _line.Bind(Line.EndPointProperty, viewModel.SocketPosition.ToBinding());
             }
-            _line.SetSocket(viewModel.Model);
+            _line.SetSocket(viewModel);
             _canvas.Children.Insert(0, _line);
 
             e.Handled = true;
@@ -258,7 +273,10 @@ public sealed class SocketPoint : Control
                 IInputElement? elm = _canvas!.InputHitTest(e.GetPosition(_canvas));
                 if (elm != this && elm is SocketPoint { DataContext: SocketViewModel endViewModel })
                 {
-                    if (_line != null)
+                    ISocket? socket = endViewModel.Model;
+                    var args = new SocketConnectRequestedEventArgs(endViewModel, false);
+                    ConnectRequested?.Invoke(this, args);
+                    if (args.IsConnected && _line != null)
                     {
                         if (endViewModel is InputSocketViewModel)
                         {
@@ -269,16 +287,12 @@ public sealed class SocketPoint : Control
                             _line.Bind(Line.EndPointProperty, endViewModel.SocketPosition.ToBinding());
                         }
 
-                        if (!_line.SetSocket(endViewModel.Model))
+                        if (!_line.SetSocket(endViewModel))
                         {
                             Disconnect();
-                            goto Finally;
                         }
                     }
-
-                    var args = new SocketConnectRequestedEventArgs(endViewModel.Model, false);
-                    ConnectRequested?.Invoke(this, args);
-                    if (!args.IsConnected)
+                    else
                     {
                         Disconnect();
                     }
@@ -289,7 +303,6 @@ public sealed class SocketPoint : Control
                 }
             }
 
-        Finally:
             _line = null;
             e.Handled = true;
             _captured = false;
@@ -310,13 +323,12 @@ public sealed class SocketPoint : Control
     {
         if (_canvas != null && DataContext is SocketViewModel viewModel)
         {
-            ISocket socket = viewModel.Model;
             for (int i = _canvas.Children.Count - 1; i >= 0; i--)
             {
                 IControl item = _canvas.Children[i];
-                if (item is ConnectionLine cline && cline.Match(socket))
+                if (item is ConnectionLine cline && cline.Match(viewModel))
                 {
-                    ISocket? target = cline.GetTarget(socket);
+                    SocketViewModel? target = cline.GetTarget(viewModel);
                     if (target == null)
                         goto RemoveLine;
 

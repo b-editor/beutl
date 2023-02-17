@@ -20,7 +20,7 @@ public class PixelPointNode : Node
 
     public PixelPointNode()
     {
-        _valueSocket = AsOutput<PixelPoint>("Output", "PixelPoint");
+        _valueSocket = AsOutput<PixelPoint>("PixelPoint");
         _xSocket = AsInput(XProperty).AcceptNumber();
         _ySocket = AsInput(YProperty).AcceptNumber();
     }

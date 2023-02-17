@@ -8,7 +8,7 @@ public abstract class OutputNode : Node
 
     public OutputNode()
     {
-        InputSocket = AsInput<Drawable>("Input", "Drawable");
+        InputSocket = AsInput<Drawable>("Drawable");
 
         InputSocket.Disconnected += OnInputSocketDisconnected;
     }

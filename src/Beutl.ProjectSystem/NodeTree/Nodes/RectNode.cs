@@ -14,9 +14,9 @@ public class RectNode : Node
     {
         _outputSocket = AsOutput<Rectangle>("Rectangle");
 
-        _widthSocket = AsInput<float, Rectangle>(Drawable.WidthProperty, 100).AcceptNumber();
-        _heightSocket = AsInput<float, Rectangle>(Drawable.HeightProperty, 100).AcceptNumber();
-        _strokeSocket = AsInput<float, Rectangle>(Rectangle.StrokeWidthProperty, 4000).AcceptNumber();
+        _widthSocket = AsInput<float, Rectangle>(Drawable.WidthProperty, value: 100).AcceptNumber();
+        _heightSocket = AsInput<float, Rectangle>(Drawable.HeightProperty, value: 100).AcceptNumber();
+        _strokeSocket = AsInput<float, Rectangle>(Rectangle.StrokeWidthProperty, value: 4000).AcceptNumber();
     }
 
     public override void InitializeForContext(NodeEvaluationContext context)

@@ -5,12 +5,12 @@ namespace Beutl.ViewModels.NodeTree;
 
 public class InputSocketViewModel : SocketViewModel
 {
-    public InputSocketViewModel(IInputSocket socket, IPropertyEditorContext? propertyEditorContext)
-        : base(socket, propertyEditorContext)
+    public InputSocketViewModel(IInputSocket? socket, IPropertyEditorContext? propertyEditorContext, Node node)
+        : base(socket, propertyEditorContext, node)
     {
     }
 
-    public new IInputSocket Model => (IInputSocket)base.Model;
+    public new IInputSocket? Model => base.Model as IInputSocket;
 
     protected override void OnIsConnectedChanged(bool? isValid)
     {
@@ -18,7 +18,7 @@ public class InputSocketViewModel : SocketViewModel
         {
             IsConnected.Value = false;
         }
-        else
+        else if (Model != null)
         {
             IsConnected.Value = Model.Connection != null;
         }
