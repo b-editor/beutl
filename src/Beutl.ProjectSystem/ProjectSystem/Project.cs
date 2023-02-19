@@ -130,7 +130,7 @@ public sealed class Project : Element, IStorable, ILogicalElement, IWorkspace
                 foreach (KeyValuePair<string, JsonNode?> item in variablesObj)
                 {
                     if (item.Value != null)
-                        Variables[item.Key] = item.Value.ToJsonString();
+                        Variables[item.Key] = item.Value.AsValue().ToString();
                 }
             }
         }

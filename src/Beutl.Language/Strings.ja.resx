@@ -525,7 +525,7 @@
   <data name="BitmapInterpolationMode" xml:space="preserve">
     <value>ビットマップ補間モード</value>
   </data>
-  <data name="SourceOperator" xml:space="preserve">
+  <data name="SourceOperators" xml:space="preserve">
     <value>ソース操作</value>
   </data>
   <data name="Style" xml:space="preserve">
@@ -759,5 +759,8 @@ b-editorがダウンロードURLを管理します。</value>
   </data>
   <data name="On" xml:space="preserve">
     <value>オン</value>
+  </data>
+  <data name="NodeTree" xml:space="preserve">
+    <value>ノードツリー</value>
   </data>
 </root>

@@ -2,17 +2,13 @@
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Generators;
-using Avalonia.Controls.PanAndZoom;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
-using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.LogicalTree;
-using Avalonia.Media;
-using Avalonia.Media.Transformation;
 using Avalonia.VisualTree;
 
+using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes.Group;
 using Beutl.ViewModels.NodeTree;
 
@@ -28,8 +24,10 @@ public partial class NodeView : UserControl
     private bool _captured;
     private Point _snapshot;
     private IDisposable? _positionDisposable;
-    private SocketView? _undecidedSocket;
-    private SocketViewModel? _undecidedSocketContext;
+    private SocketView? _undecidedLeftSocket;
+    private SocketView? _undecidedRightSocket;
+    private SocketViewModel? _undecidedLeftSocketContext;
+    private SocketViewModel? _undecidedRightSocketContext;
 
     public NodeView()
     {
@@ -71,27 +69,48 @@ public partial class NodeView : UserControl
 
     private void OnDataContextDetached(NodeViewModel obj)
     {
+        void DetachUndecidedSocket(ref SocketView? socket, ref SocketViewModel? socketViewModel)
+        {
+            if (socket != null)
+            {
+                stackPanel.Children.Remove(socket);
+            }
+
+            socket = null;
+            socketViewModel?.Dispose();
+            socketViewModel = null;
+        }
+
         _positionDisposable?.Dispose();
 
-        _undecidedSocket = null;
-        _undecidedSocketContext?.Dispose();
-        _undecidedSocketContext = null;
-        stackPanel.Children.RemoveRange(1, stackPanel.Children.Count - 1);
+        DetachUndecidedSocket(ref _undecidedLeftSocket, ref _undecidedLeftSocketContext);
+        DetachUndecidedSocket(ref _undecidedRightSocket, ref _undecidedRightSocketContext);
     }
 
     private void OnDataContextAttached(NodeViewModel obj)
     {
         _positionDisposable = obj.Position.Subscribe(_ => UpdateSocketPosition());
-        if (obj.Node is GroupInput or GroupOutput)
+        if (obj.Node is ISocketsCanBeAdded canBeAdded)
         {
-            _undecidedSocketContext = obj.Node is GroupInput
-                    ? new OutputSocketViewModel(null, null, obj.Node)
-                    : new InputSocketViewModel(null, null, obj.Node);
-            _undecidedSocket = new SocketView
+            if (canBeAdded.PossibleLocation.HasFlag(SocketLocation.Left))
             {
-                DataContext = _undecidedSocketContext
-            };
-            stackPanel.Children.Add(_undecidedSocket);
+                _undecidedLeftSocketContext = new InputSocketViewModel(null, null, obj.Node);
+                _undecidedLeftSocket = new SocketView
+                {
+                    DataContext = _undecidedLeftSocketContext
+                };
+                stackPanel.Children.Add(_undecidedLeftSocket);
+            }
+
+            if (canBeAdded.PossibleLocation.HasFlag(SocketLocation.Right))
+            {
+                _undecidedRightSocketContext = new OutputSocketViewModel(null, null, obj.Node);
+                _undecidedRightSocket = new SocketView
+                {
+                    DataContext = _undecidedRightSocketContext
+                };
+                stackPanel.Children.Add(_undecidedRightSocket);
+            }
         }
     }
 
@@ -109,14 +128,15 @@ public partial class NodeView : UserControl
                     }
                 }
 
-                _undecidedSocket?.UpdateSocketPosition();
+                _undecidedLeftSocket?.UpdateSocketPosition();
+                _undecidedRightSocket?.UpdateSocketPosition();
             }
             else
             {
                 Point vcenter = viewModel.Position.Value + default(Point).WithY(handle.Bounds.Height / 2);
-                foreach (NodeItemViewModel item in viewModel.Items)
+                void UpdatePosition(NodeItemViewModel? viewModel)
                 {
-                    switch (item)
+                    switch (viewModel)
                     {
                         case InputSocketViewModel input:
                             input.SocketPosition.Value = vcenter;
@@ -127,15 +147,13 @@ public partial class NodeView : UserControl
                     }
                 }
 
-                switch (_undecidedSocketContext)
+                foreach (NodeItemViewModel item in viewModel.Items)
                 {
-                    case InputSocketViewModel input:
-                        input.SocketPosition.Value = vcenter;
-                        break;
-                    case OutputSocketViewModel output:
-                        output.SocketPosition.Value = vcenter + default(Point).WithX(Bounds.Width);
-                        break;
+                    UpdatePosition(item);
                 }
+
+                UpdatePosition(_undecidedLeftSocketContext);
+                UpdatePosition(_undecidedRightSocketContext);
             }
         }
     }

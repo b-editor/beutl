@@ -86,7 +86,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
         }).DisposeWith(_disposables);
     }
 
-    public string Header => "Node Tree";
+    public string Header => Strings.NodeTree;
 
     public ToolTabExtension Extension => NodeTreeTabExtension.Instance;
 

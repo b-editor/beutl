@@ -1160,6 +1160,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Node Tree に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string NodeTree {
+            get {
+                return ResourceManager.GetString("NodeTree", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   No files used recently. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string NoFilesUsedRecently {

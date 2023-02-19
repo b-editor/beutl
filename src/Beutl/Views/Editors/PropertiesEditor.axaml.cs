@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using System.Diagnostics.CodeAnalysis;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
@@ -20,6 +22,8 @@ public partial class PropertiesEditor : UserControl
     private sealed class ViewModelToViewConverter : IValueConverter
     {
         public static readonly ViewModelToViewConverter Instance = new();
+
+        private delegate bool TryCreateControlDelegate(IPropertyEditorContext context, [NotNullWhen(true)] out IControl? control);
 
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {

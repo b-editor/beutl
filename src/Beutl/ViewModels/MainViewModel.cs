@@ -339,6 +339,7 @@ public sealed class MainViewModel : BasePageViewModel
                 AnimationTabExtension.Instance,
                 PropertyEditorExtension.Instance,
                 NodeTreeTabExtension.Instance,
+                NodeTreeInputTabExtension.Instance,
             });
 
             foreach (LocalPackage item in await manager.GetPackages())

@@ -15,43 +15,11 @@ public interface IGroupSocket : ISocket
     CoreProperty? AssociatedProperty { get; set; }
 }
 
-public interface IGroupInputOutputNode : INode
+public class GroupInput : Node, ISocketsCanBeAdded
 {
-    bool AddSocket(ISocket socket, out IConnection? connection);
-}
+    public SocketLocation PossibleLocation => SocketLocation.Right;
 
-internal class GroupNodeHelper
-{
-    public static string GetDisplayName(INodeItem item)
-    {
-        string? name = (item as CoreObject)?.Name;
-        if (string.IsNullOrWhiteSpace(name) || name == "Unknown")
-        {
-            name = null;
-        }
-
-        if (item.Property is { } property)
-        {
-            CorePropertyMetadata metadata = property.Property.GetMetadata<CorePropertyMetadata>(property.ImplementedType);
-
-            return metadata.DisplayAttribute?.GetName() ?? name ?? property.Property.Name;
-        }
-        else if (item is IGroupSocket { AssociatedProperty: { } asProperty })
-        {
-            CorePropertyMetadata metadata = asProperty.GetMetadata<CorePropertyMetadata>(asProperty.OwnerType);
-
-            return metadata.DisplayAttribute?.GetName() ?? name ?? asProperty.Name;
-        }
-        else
-        {
-            return name ?? "Unknown";
-        }
-    }
-}
-
-public class GroupInput : Node, IGroupInputOutputNode
-{
-    public class GroupInputSocket<T> : OutputSocket<T>, IGroupSocket
+    public class GroupInputSocket<T> : OutputSocket<T>, IGroupSocket, IAutomaticallyGeneratedSocket
     {
         static GroupInputSocket()
         {
@@ -104,7 +72,7 @@ public class GroupInput : Node, IGroupInputOutputNode
         if (Activator.CreateInstance(type) is IOutputSocket outputSocket)
         {
             ((NodeItem)outputSocket).LocalId = NextLocalId++;
-            ((CoreObject)outputSocket).Name = GroupNodeHelper.GetDisplayName(inputSocket);
+            ((CoreObject)outputSocket).Name = NodeDisplayNameHelper.GetDisplayName(inputSocket);
             ((IGroupSocket)outputSocket).AssociatedProperty = inputSocket.Property?.Property;
 
             Items.Add(outputSocket);
@@ -165,9 +133,11 @@ public class GroupInput : Node, IGroupInputOutputNode
     }
 }
 
-public class GroupOutput : Node, IGroupInputOutputNode
+public class GroupOutput : Node, ISocketsCanBeAdded
 {
-    public class GroupOutputSocket<T> : InputSocket<T>
+    public SocketLocation PossibleLocation => SocketLocation.Left;
+
+    public class GroupOutputSocket<T> : InputSocket<T>, IAutomaticallyGeneratedSocket
     {
         static GroupOutputSocket()
         {
@@ -188,7 +158,7 @@ public class GroupOutput : Node, IGroupInputOutputNode
         if (Activator.CreateInstance(type) is IInputSocket inputSocket)
         {
             ((NodeItem)inputSocket).LocalId = NextLocalId++;
-            ((CoreObject)inputSocket).Name = GroupNodeHelper.GetDisplayName(outputSocket);
+            ((CoreObject)inputSocket).Name = NodeDisplayNameHelper.GetDisplayName(outputSocket);
             //((IGroupSocket)inputSocket).AssociatedProperty = outputSocket.Property?.Property;
 
             Items.Add(inputSocket);

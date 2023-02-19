@@ -13,8 +13,9 @@ public static class NodesRegistrar
         NodeRegistry.RegisterNode<GroupOutput>("Group Output");
         NodeRegistry.RegisterNode<GroupNode>("Group Node");
 
-        NodeRegistry.RegisterNode<RectNode>(Strings.Rectangle);
+        NodeRegistry.RegisterNode<LayerInputNode>("Layer input");
         NodeRegistry.RegisterNode<LayerOutputNode>("Layer output");
+        NodeRegistry.RegisterNode<RectNode>(Strings.Rectangle);
 
         NodeRegistry.RegisterNodes("Brush")
             .Add<ForegroundNode>("Set Foreground")

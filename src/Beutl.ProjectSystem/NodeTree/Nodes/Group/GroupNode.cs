@@ -126,7 +126,7 @@ public class GroupNode : Node
 
     private void AddOutput(int index, IInputSocket item)
     {
-        IOutputSocket? outputSocket = CreateOutput(GroupNodeHelper.GetDisplayName(item), item.AssociatedType!);
+        IOutputSocket? outputSocket = CreateOutput(NodeDisplayNameHelper.GetDisplayName(item), item.AssociatedType!);
         if (outputSocket is ISupportSetValueNodeItem supportSetValue)
         {
             supportSetValue.SetThrough(item);
@@ -208,7 +208,7 @@ public class GroupNode : Node
         }
         else
         {
-            inputSocket = CreateInput(GroupNodeHelper.GetDisplayName(item), item.AssociatedType!);
+            inputSocket = CreateInput(NodeDisplayNameHelper.GetDisplayName(item), item.AssociatedType!);
         }
 
         Items.Insert(_outputSocketCount + index, inputSocket);

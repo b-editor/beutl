@@ -49,6 +49,9 @@
     <Compile Update="Views\NodeTree\SocketView.axaml.cs">
       <DependentUpon>SocketView.axaml</DependentUpon>
     </Compile>
+    <Compile Update="Views\NodeTree\NodeTreeInputTab.axaml.cs">
+      <DependentUpon>NodeTreeInputTab.axaml</DependentUpon>
+    </Compile>
   </ItemGroup>
 
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.props" />

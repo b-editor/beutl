@@ -300,16 +300,16 @@ public partial class SocketView : UserControl
             if ((e.Target.Model == null || viewModel.Model == null)
                 && !(e.Target.Model == null && viewModel.Model == null))
             {
-                IGroupInputOutputNode? groupNode = null;
+                ISocketsCanBeAdded? groupNode = null;
                 ISocket? socket = null;
                 switch ((viewModel.Node, e.Target.Node))
                 {
-                    case (IGroupInputOutputNode node1, _):
+                    case (ISocketsCanBeAdded node1, _):
                         groupNode = node1;
                         socket = e.Target.Model;
                         break;
 
-                    case (_, IGroupInputOutputNode node2):
+                    case (_, ISocketsCanBeAdded node2):
                         groupNode = node2;
                         socket = viewModel.Model;
                         break;
