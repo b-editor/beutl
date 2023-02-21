@@ -50,7 +50,7 @@ public abstract class NodeItem : Element
     }
 }
 
-public class NodeItem<T> : NodeItem, INodeItem<T>, ISupportSetValueNodeItem
+public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
 {
     private IAbstractProperty<T>? _property;
 
@@ -139,9 +139,13 @@ public class NodeItem<T> : NodeItem, INodeItem<T>, ISupportSetValueNodeItem
         OnDetachedFromNodeTree(nodeTree);
     }
 
+    IAbstractProperty? INodeItem.Property => Property;
+
+    object? INodeItem.Value => Value;
+
     void ISupportSetValueNodeItem.SetThrough(INodeItem nodeItem)
     {
-        if (nodeItem is INodeItem<T> t)
+        if (nodeItem is NodeItem<T> t)
         {
             Value = t.Value;
         }

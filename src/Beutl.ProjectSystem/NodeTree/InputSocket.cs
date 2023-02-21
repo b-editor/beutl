@@ -5,15 +5,15 @@ namespace Beutl.NodeTree;
 
 public delegate bool InputSocketReceiver<T>(object? obj, out T? received);
 
-public class InputSocket<T> : Socket<T>, IInputSocket<T>
+public class InputSocket<T> : Socket<T>, IInputSocket
 {
     private Guid _outputId;
     private InputSocketReceiver<T>? _onReceive;
     private bool _force;
 
-    public IConnection? Connection { get; private set; }
+    public Connection? Connection { get; private set; }
 
-    public void NotifyConnected(IConnection connection)
+    public void NotifyConnected(Connection connection)
     {
         if (_outputId == connection.Output.Id)
         {
@@ -25,7 +25,7 @@ public class InputSocket<T> : Socket<T>, IInputSocket<T>
         RaiseConnected(connection);
     }
 
-    public void NotifyDisconnected(IConnection connection)
+    public void NotifyDisconnected(Connection connection)
     {
         if (Connection == connection)
         {

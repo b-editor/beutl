@@ -191,7 +191,7 @@ public partial class NodeTreeView : UserControl
                 };
                 canvas.Children.Add(control);
 
-                using var list = new PooledList<IConnection>();
+                using var list = new PooledList<Connection>();
                 foreach (NodeItemViewModel item in node.Items)
                 {
                     if (item is InputSocketViewModel { Model.Connection: { } connection })
@@ -204,7 +204,7 @@ public partial class NodeTreeView : UserControl
                     }
                 }
 
-                foreach (IConnection connection in list.Span)
+                foreach (Connection connection in list.Span)
                 {
                     if (!canvas.Children.OfType<ConnectionLine>().Any(x => x.Match(connection.Input, connection.Output)) &&
                         obj.FindSocketViewModel(connection.Input) is InputSocketViewModel inputViewModel &&

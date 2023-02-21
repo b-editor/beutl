@@ -6,12 +6,12 @@ namespace Beutl.NodeTree;
 
 public class OutputSocket<T> : Socket<T>, IOutputSocket
 {
-    private readonly CoreList<IConnection> _connections = new();
+    private readonly CoreList<Connection> _connections = new();
     private List<Guid>? _inputIds = null;
     // 型が一致していない、ソケットの数
     private int _unmatchSockets;
 
-    public ICoreReadOnlyList<IConnection> Connections => _connections;
+    public ICoreReadOnlyList<Connection> Connections => _connections;
 
     public void Disconnect(IInputSocket socket)
     {
@@ -21,7 +21,7 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
             RaiseDisconnected(connection);
             socket.NotifyDisconnected(connection);
 
-            if (socket is not IInputSocket<T>)
+            if (socket is not InputSocket<T>)
             {
                 _unmatchSockets--;
             }
@@ -61,7 +61,7 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
         RaiseConnected(connection);
         socket.NotifyConnected(connection);
 
-        if (socket is not IInputSocket<T>)
+        if (socket is not InputSocket<T>)
         {
             _unmatchSockets++;
         }
@@ -78,9 +78,9 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
             boxed = Value;
         }
 
-        foreach (IConnection item in _connections.GetMarshal().Value)
+        foreach (Connection item in _connections.GetMarshal().Value)
         {
-            if (item.Input is IInputSocket<T> sameTypeSocket)
+            if (item.Input is InputSocket<T> sameTypeSocket)
             {
                 sameTypeSocket.Receive(Value);
             }
@@ -130,7 +130,7 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
         if (_connections.Count > 0)
         {
             var array = new JsonArray();
-            foreach (IConnection item in _connections)
+            foreach (Connection item in _connections)
             {
                 array.Add(item.Input.Id);
             }
@@ -183,7 +183,7 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
 
         for (int i = _connections.Count - 1; i >= 0; i--)
         {
-            IConnection item = _connections[i];
+            Connection item = _connections[i];
 
             _inputIds.Add(item.Input.Id);
 

@@ -111,7 +111,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         }
     }
 
-    public bool AddSocket(ISocket socket, [NotNullWhen(true)] out IConnection? connection)
+    public bool AddSocket(ISocket socket, [NotNullWhen(true)] out Connection? connection)
     {
         connection = null;
         if (socket is IInputSocket { AssociatedType: { } valueType, Property.Property: { } property } inputSocket)

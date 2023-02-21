@@ -2,18 +2,13 @@
 
 public interface IInputSocket : ISocket
 {
-    IConnection? Connection { get; }
+    Connection? Connection { get; }
 
     bool? IsValid { get; }
 
     void Receive(object? value);
 
-    void NotifyConnected(IConnection connection);
+    void NotifyConnected(Connection connection);
 
-    void NotifyDisconnected(IConnection connection);
-}
-
-public interface IInputSocket<T> : IInputSocket
-{
-    void Receive(T? value);
+    void NotifyDisconnected(Connection connection);
 }

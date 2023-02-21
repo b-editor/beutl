@@ -81,7 +81,7 @@ public class SocketViewModel : NodeItemViewModel
             }
 
             if (groupNode != null && socket != null
-                && groupNode.AddSocket(socket, out IConnection? connection))
+                && groupNode.AddSocket(socket, out Connection? connection))
             {
                 var command = new ConnectGeneratedSocketCommand(connection, groupNode);
                 CommandRecorder.Default.PushOnly(command);
@@ -188,10 +188,10 @@ public class SocketViewModel : NodeItemViewModel
         private readonly ISocket _socket;
         private readonly int _index = -1;
 
-        public ConnectGeneratedSocketCommand(IConnection connection, ISocketsCanBeAdded node)
+        public ConnectGeneratedSocketCommand(Connection connection, ISocketsCanBeAdded node)
         {
             _node = node;
-            if (node is INode node1)
+            if (node is Node node1)
             {
                 _index = node1.Items.IndexOf(connection.Input);
                 _socket = connection.Input;
@@ -215,7 +215,7 @@ public class SocketViewModel : NodeItemViewModel
 
         public void Redo()
         {
-            if (_node is INode node1)
+            if (_node is Node node1)
             {
                 node1.Items.Insert(_index, _socket);
             }
@@ -223,7 +223,7 @@ public class SocketViewModel : NodeItemViewModel
 
         public void Undo()
         {
-            if (_node is INode node1)
+            if (_node is Node node1)
             {
                 node1.Items.Remove(_socket);
             }

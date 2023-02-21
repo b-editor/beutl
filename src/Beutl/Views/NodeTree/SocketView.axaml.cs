@@ -188,7 +188,7 @@ public partial class SocketView : UserControl
         RemoveConnectionLine(e.Connection);
     }
 
-    private void RemoveConnectionLine(IConnection connection)
+    private void RemoveConnectionLine(Connection connection)
     {
         if (_canvas is { })
         {
@@ -204,7 +204,7 @@ public partial class SocketView : UserControl
         }
     }
 
-    private void AddConnectionLine(IConnection connection)
+    private void AddConnectionLine(Connection connection)
     {
         if (_canvas is { DataContext: NodeTreeViewModel treeViewModel }
             && treeViewModel.FindSocketViewModel(connection.Input) is InputSocketViewModel inputViewModel

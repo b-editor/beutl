@@ -1,13 +1,6 @@
 ﻿namespace Beutl.NodeTree;
 
-public interface IConnection
-{
-    IInputSocket Input { get; }
-
-    IOutputSocket Output { get; }
-}
-
-public sealed class Connection : IConnection
+public sealed class Connection
 {
     public Connection(IInputSocket input, IOutputSocket output)
     {
@@ -16,6 +9,6 @@ public sealed class Connection : IConnection
     }
 
     public IInputSocket Input { get; }
-    
+
     public IOutputSocket Output { get; }
 }

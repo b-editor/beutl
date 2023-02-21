@@ -2,13 +2,13 @@
 
 public sealed class SocketConnectionChangedEventArgs
 {
-    public SocketConnectionChangedEventArgs(IConnection connection, bool isConnected)
+    public SocketConnectionChangedEventArgs(Connection connection, bool isConnected)
     {
         Connection = connection;
         IsConnected = isConnected;
     }
 
-    public IConnection Connection { get; }
+    public Connection Connection { get; }
 
     public bool IsConnected { get; }
 }

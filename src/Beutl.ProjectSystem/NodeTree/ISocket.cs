@@ -8,8 +8,6 @@ public interface ISocket : INodeItem
     event EventHandler<SocketConnectionChangedEventArgs>? Disconnected;
 
     Color Color { get; }
-
-    Guid Id { get; }
 }
 
 public class Socket<T> : NodeItem<T>, ISocket
@@ -20,13 +18,13 @@ public class Socket<T> : NodeItem<T>, ISocket
 
     public event EventHandler<SocketConnectionChangedEventArgs>? Disconnected;
 
-    protected void RaiseConnected(IConnection connection)
+    protected void RaiseConnected(Connection connection)
     {
         Connected?.Invoke(this, new SocketConnectionChangedEventArgs(connection, true));
         InvalidateNodeTree();
     }
 
-    protected void RaiseDisconnected(IConnection connection)
+    protected void RaiseDisconnected(Connection connection)
     {
         Disconnected?.Invoke(this, new SocketConnectionChangedEventArgs(connection, false));
         InvalidateNodeTree();

@@ -1,62 +1,7 @@
-﻿using System.Runtime.CompilerServices;
-
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Rendering;
 
 namespace Beutl.NodeTree;
-
-public sealed class NodeEvaluationContext : EvaluationContext
-{
-    public NodeEvaluationContext(Node node, EvaluationContext context)
-        : base(context)
-    {
-        Node = node;
-    }
-
-    public NodeEvaluationContext(Node node)
-    {
-        Node = node;
-    }
-
-    public Node Node { get; }
-
-    public object? State { get; set; }
-
-    public T GetOrSetStateWithFactory<T>(Func<T> factory)
-    {
-        if (State is T t)
-        {
-            return t;
-        }
-
-        T? value = factory();
-        State = value;
-        return value;
-    }
-
-    public T GetOrSetState<T>()
-        where T : new()
-    {
-        if (State is T t)
-        {
-            return t;
-        }
-
-        T? value = new T();
-        State = value;
-        return value;
-    }
-
-    public T? GetOrDefaultState<T>()
-    {
-        if (State is T t)
-        {
-            return t;
-        }
-
-        return default;
-    }
-}
 
 // Todo:
 public class EvaluationContext

@@ -8,11 +8,9 @@ internal interface ISupportSetValueNodeItem
     void SetThrough(INodeItem nodeItem);
 }
 
-public interface INodeItem : ILogicalElement, IAffectsRender
+public interface INodeItem : ICoreObject, ILogicalElement, IAffectsRender
 {
     int LocalId { get; }
-
-    string Name { get; set; }
 
     IAbstractProperty? Property { get; }
 
@@ -31,15 +29,4 @@ public interface INodeItem : ILogicalElement, IAffectsRender
     void NotifyAttachedToNodeTree(NodeTreeSpace nodeTree);
 
     void NotifyDetachedFromNodeTree(NodeTreeSpace nodeTree);
-}
-
-public interface INodeItem<T> : INodeItem
-{
-    new IAbstractProperty<T>? Property { get; }
-
-    new T? Value { get; }
-
-    IAbstractProperty? INodeItem.Property => Property;
-
-    object? INodeItem.Value => Value;
 }
