@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 
+using Beutl.Commands;
 using Beutl.Framework;
 using Beutl.NodeTree;
 
@@ -142,6 +143,12 @@ public class SocketViewModel : NodeItemViewModel
                 .ToCommand()
                 .DoAndRecord(CommandRecorder.Default);
         }
+    }
+
+    public void UpdateName(string? e)
+    {
+        new ChangePropertyCommand<string>((ICoreObject)Model!, CoreObject.NameProperty, e, Model!.Name)
+            .DoAndRecord(CommandRecorder.Default);
     }
 
     protected override void OnDispose()

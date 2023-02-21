@@ -20,6 +20,7 @@ namespace Beutl.ViewModels.NodeTree;
 public sealed class NodeViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
+    private readonly string _defaultName;
 
     public NodeViewModel(Node node)
     {
@@ -27,7 +28,7 @@ public sealed class NodeViewModel : IDisposable
         Type nodeType = node.GetType();
         if (NodeRegistry.FindItem(nodeType) is { } regItem)
         {
-            NodeName = regItem.DisplayName;
+            _defaultName = regItem.DisplayName;
 
             var color = new Color2(regItem.AccentColor.ToAvalonia());
             Color = new ImmutableLinearGradientBrush(
@@ -41,9 +42,14 @@ public sealed class NodeViewModel : IDisposable
         }
         else
         {
-            NodeName = nodeType.Name;
+            _defaultName = nodeType.Name;
             Color = Brushes.Transparent;
         }
+
+        NodeName = node.GetObservable(CoreObject.NameProperty)
+            .Select(x => string.IsNullOrWhiteSpace(x) ? _defaultName : x)
+            .ToReadOnlyReactiveProperty()
+            .DisposeWith(_disposables)!;
 
         IsExpanded = node.GetObservable(Node.IsExpandedProperty)
             .ToReactiveProperty()
@@ -72,7 +78,7 @@ public sealed class NodeViewModel : IDisposable
 
     public Node Node { get; }
 
-    public string NodeName { get; }
+    public ReadOnlyReactiveProperty<string> NodeName { get; }
 
     public IBrush Color { get; }
 
@@ -200,6 +206,12 @@ public sealed class NodeViewModel : IDisposable
             .Append(CreateCommand(this))
             .ToArray()
             .ToCommand()
+            .DoAndRecord(CommandRecorder.Default);
+    }
+
+    public void UpdateName(string? name)
+    {
+        new ChangePropertyCommand<string>(Node, CoreObject.NameProperty, name, Node.Name)
             .DoAndRecord(CommandRecorder.Default);
     }
 }

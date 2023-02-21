@@ -62,8 +62,11 @@ public class GroupInput : Node, ISocketsCanBeAdded
             if (Activator.CreateInstance(type) is IOutputSocket outputSocket)
             {
                 ((NodeItem)outputSocket).LocalId = NextLocalId++;
-                ((CoreObject)outputSocket).Name = NodeDisplayNameHelper.GetDisplayName(inputSocket);
                 ((IGroupSocket)outputSocket).AssociatedProperty = inputSocket.Property?.Property;
+                if(inputSocket.Property?.Property == null)
+                {
+                    ((CoreObject)outputSocket).Name = NodeDisplayNameHelper.GetDisplayName(inputSocket);
+                }
 
                 Items.Add(outputSocket);
                 if (outputSocket.TryConnect(inputSocket))
@@ -125,11 +128,43 @@ public class GroupOutput : Node, ISocketsCanBeAdded
 {
     public SocketLocation PossibleLocation => SocketLocation.Left;
 
-    public class GroupOutputSocket<T> : InputSocket<T>, IAutomaticallyGeneratedSocket
+    public class GroupOutputSocket<T> : InputSocket<T>, IAutomaticallyGeneratedSocket, IGroupSocket
     {
         static GroupOutputSocket()
         {
             NameProperty.OverrideMetadata<GroupOutputSocket<T>>(new CorePropertyMetadata<string>("name"));
+        }
+
+        public CoreProperty? AssociatedProperty { get; set; }
+
+        public override void ReadFromJson(JsonNode json)
+        {
+            base.ReadFromJson(json);
+            JsonNode propertyJson = json["associated-property"]!;
+            string name = (string)propertyJson["name"]!;
+            string owner = (string)propertyJson["owner"]!;
+
+            Type ownerType = TypeFormat.ToType(owner)!;
+
+            AssociatedProperty = PropertyRegistry.GetRegistered(ownerType)
+                .FirstOrDefault(x => x.GetMetadata<CorePropertyMetadata>(ownerType).SerializeName == name || x.Name == name);
+        }
+
+        public override void WriteToJson(ref JsonNode json)
+        {
+            base.WriteToJson(ref json);
+            if (AssociatedProperty is { OwnerType: Type ownerType } property)
+            {
+                CorePropertyMetadata? metadata = property.GetMetadata<CorePropertyMetadata>(ownerType);
+                string name = metadata.SerializeName ?? property.Name;
+                string owner = TypeFormat.ToString(ownerType);
+
+                json["associated-property"] = new JsonObject
+                {
+                    ["name"] = name,
+                    ["owner"] = owner,
+                };
+            }
         }
     }
 
@@ -143,8 +178,11 @@ public class GroupOutput : Node, ISocketsCanBeAdded
             if (Activator.CreateInstance(type) is IInputSocket inputSocket)
             {
                 ((NodeItem)inputSocket).LocalId = NextLocalId++;
-                ((CoreObject)inputSocket).Name = NodeDisplayNameHelper.GetDisplayName(outputSocket);
-                //((IGroupSocket)inputSocket).AssociatedProperty = outputSocket.Property?.Property;
+                ((IGroupSocket)inputSocket).AssociatedProperty = outputSocket.Property?.Property;
+                if (outputSocket.Property?.Property == null)
+                {
+                    ((CoreObject)inputSocket).Name = NodeDisplayNameHelper.GetDisplayName(outputSocket);
+                }
 
                 Items.Add(inputSocket);
                 if (outputSocket.TryConnect(inputSocket))

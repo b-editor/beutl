@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 
 using Beutl.Framework;
 using Beutl.Media;
+using Beutl.NodeTree.Nodes.Group;
 using Beutl.Styling;
 
 namespace Beutl.NodeTree.Nodes;
@@ -20,10 +21,9 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         IAbstractProperty? GetProperty();
     }
 
-    public class LayerInputSocket<T> : OutputSocket<T>, ILayerInputSocket
+    public class LayerInputSocket<T> : OutputSocket<T>, ILayerInputSocket, IGroupSocket
     {
         private SetterPropertyImpl<T>? _property;
-        private CoreProperty? _associatedProperty;
         private IDisposable? _disposable;
         private bool _hasAnimation = false;
 
@@ -32,12 +32,14 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             NameProperty.OverrideMetadata<LayerInputSocket<T>>(new CorePropertyMetadata<string>("name"));
         }
 
+        public CoreProperty? AssociatedProperty { get; set; }
+
         public void SetProperty(SetterPropertyImpl<T> property)
         {
             _disposable?.Dispose();
 
             _property = property;
-            _associatedProperty = property.Property;
+            AssociatedProperty = property.Property;
 
             property.Setter.Invalidated += OnSetterInvalidated;
             _disposable = property.HasAnimation.Subscribe(v => _hasAnimation = v);
@@ -87,18 +89,16 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         public override void ReadFromJson(JsonNode json)
         {
             base.ReadFromJson(json);
-            JsonNode propertyJson = json["associated-property"]!;
-            string name = (string)propertyJson["name"]!;
-            string owner = (string)propertyJson["owner"]!;
-
+            string name = (string)json["property"]!;
+            string owner = (string)json["target"]!;
             Type ownerType = TypeFormat.ToType(owner)!;
 
-            _associatedProperty = PropertyRegistry.GetRegistered(ownerType)
+            AssociatedProperty = PropertyRegistry.GetRegistered(ownerType)
                 .FirstOrDefault(x => x.GetMetadata<CorePropertyMetadata>(ownerType).SerializeName == name || x.Name == name);
 
-            if (_associatedProperty != null)
+            if (AssociatedProperty != null)
             {
-                SetupProperty(_associatedProperty);
+                SetupProperty(AssociatedProperty);
 
                 GetProperty()?.ReadFromJson(json);
             }
@@ -107,19 +107,6 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         public override void WriteToJson(ref JsonNode json)
         {
             base.WriteToJson(ref json);
-            if (_associatedProperty is { OwnerType: Type ownerType } property)
-            {
-                CorePropertyMetadata? metadata = property.GetMetadata<CorePropertyMetadata>(ownerType);
-                string name = metadata.SerializeName ?? property.Name;
-                string owner = TypeFormat.ToString(ownerType);
-
-                json["associated-property"] = new JsonObject
-                {
-                    ["name"] = name,
-                    ["owner"] = owner,
-                };
-            }
-
             GetProperty()?.WriteToJson(ref json);
         }
     }
@@ -134,7 +121,6 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             if (Activator.CreateInstance(type) is ILayerInputSocket outputSocket)
             {
                 ((NodeItem)outputSocket).LocalId = NextLocalId++;
-                ((CoreObject)outputSocket).Name = NodeDisplayNameHelper.GetDisplayName(inputSocket);
                 outputSocket.SetupProperty(property);
                 outputSocket.GetProperty()?.SetValue(inputSocket.Property?.GetValue());
 

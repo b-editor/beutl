@@ -1,6 +1,8 @@
 ﻿using Beutl.Framework;
 using Beutl.NodeTree;
 
+using Reactive.Bindings;
+
 namespace Beutl.ViewModels.NodeTree;
 
 public class NodeItemViewModel : IDisposable
@@ -9,6 +11,19 @@ public class NodeItemViewModel : IDisposable
 
     public NodeItemViewModel(INodeItem? nodeItem, IPropertyEditorContext? propertyEditorContext, Node node)
     {
+        if (nodeItem is CoreObject coreObject)
+        {
+            Name = coreObject.GetPropertyChangedObservable(CoreObject.NameProperty)
+                .Select(e => (INodeItem)e.Sender)
+                .Publish(nodeItem).RefCount()
+                .Select(obj => NodeDisplayNameHelper.GetDisplayName(obj))
+                .ToReadOnlyReactiveProperty()!;
+        }
+        else
+        {
+            Name = Observable.Return(string.Empty).ToReadOnlyReactiveProperty()!;
+        }
+
         Model = nodeItem;
         PropertyEditorContext = propertyEditorContext;
         Node = node;
@@ -22,6 +37,8 @@ public class NodeItemViewModel : IDisposable
             _disposedValue = true;
         }
     }
+
+    public ReadOnlyReactiveProperty<string> Name { get; }
 
     public INodeItem? Model { get; }
 
@@ -42,5 +59,6 @@ public class NodeItemViewModel : IDisposable
     protected virtual void OnDispose()
     {
         PropertyEditorContext?.Dispose();
+        Name.Dispose();
     }
 }

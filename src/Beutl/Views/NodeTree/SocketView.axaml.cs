@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.VisualTree;
 
@@ -7,6 +8,9 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Framework;
 using Beutl.NodeTree;
 using Beutl.ViewModels.NodeTree;
+
+using FluentIcons.Common;
+using FluentIcons.FluentAvalonia;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -86,10 +90,8 @@ public partial class SocketView : UserControl
             new MenuItem()
             {
                 Header = "Disconnect",
-                CommandParameter = obj,
-                Command = new ReactiveCommand<SocketViewModel>()
-                    .WithSubscribe(obj => obj.DisconnectAll())
-                    .DisposeWith(_disposables)
+                Command = new ReactiveCommand()
+                    .WithSubscribe(obj.DisconnectAll)
             }
         };
 
@@ -98,10 +100,18 @@ public partial class SocketView : UserControl
             list.Add(new MenuItem()
             {
                 Header = Strings.Remove,
-                CommandParameter = obj,
-                Command = new ReactiveCommand<SocketViewModel>()
-                    .WithSubscribe(obj => obj.Remove())
-                    .DisposeWith(_disposables)
+                Command = new ReactiveCommand()
+                    .WithSubscribe(obj.Remove)
+            });
+
+            list.Add(new MenuItem()
+            {
+                Header = Strings.Rename,
+                Command = new ReactiveCommand().WithSubscribe(RenameClick),
+                Icon = new SymbolIcon
+                {
+                    Symbol = Symbol.Rename
+                }
             });
         }
 
@@ -113,6 +123,31 @@ public partial class SocketView : UserControl
         grid.Children.Add(_socketPt);
     }
 
+    private void RenameClick()
+    {
+        if (DataContext is SocketViewModel viewModel)
+        {
+            var flyout = new RenameFlyout()
+            {
+                Text = viewModel.Model?.Name
+            };
+
+            flyout.Confirmed += OnNameConfirmed;
+
+            flyout.ShowAt(this);
+        }
+    }
+
+    private void OnNameConfirmed(object? sender, string? e)
+    {
+        if (sender is RenameFlyout flyout
+            && DataContext is SocketViewModel viewModel)
+        {
+            flyout.Confirmed -= OnNameConfirmed;
+            viewModel.UpdateName(e);
+        }
+    }
+
     private void InitEditor(NodeItemViewModel obj)
     {
         if (obj.PropertyEditorContext is { } propContext)
@@ -122,6 +157,7 @@ public partial class SocketView : UserControl
             if (control1 is PropertyEditor pe)
             {
                 pe.UseCompact = true;
+                pe.Bind(PropertyEditor.HeaderProperty, obj.Name.ToBinding()).DisposeWith(_disposables);
             }
             if (control1 != null)
             {
@@ -136,11 +172,11 @@ public partial class SocketView : UserControl
         {
             _label = new TextBlock
             {
-                Text = NodeDisplayNameHelper.GetDisplayName(obj.Model),
                 HorizontalAlignment = obj is OutputSocketViewModel
                     ? HorizontalAlignment.Right
                     : HorizontalAlignment.Left
             };
+            _label.Bind(TextBlock.TextProperty, obj.Name.ToBinding()).DisposeWith(_disposables);
 
             Grid.SetColumn(_label, 1);
         }

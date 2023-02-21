@@ -12,6 +12,8 @@ public interface INodeItem : ILogicalElement, IAffectsRender
 {
     int LocalId { get; }
 
+    string Name { get; set; }
+
     IAbstractProperty? Property { get; }
 
     Type? AssociatedType { get; }

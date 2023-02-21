@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using System.ComponentModel;
+
+using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Generators;
@@ -11,6 +13,10 @@ using Avalonia.VisualTree;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes.Group;
 using Beutl.ViewModels.NodeTree;
+
+using FluentAvalonia.Core;
+using FluentAvalonia.UI.Controls;
+using FluentAvalonia.UI.Controls.Primitives;
 
 namespace Beutl.Views.NodeTree;
 
@@ -309,5 +315,96 @@ public partial class NodeView : UserControl
         {
             tabViewModel.NavigateTo(groupNode.Group);
         }
+    }
+
+    private void RenameClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is NodeViewModel viewModel)
+        {
+            var flyout = new RenameFlyout()
+            {
+                Text = viewModel.Node.Name
+            };
+
+            flyout.Confirmed += OnNameConfirmed;
+
+            flyout.ShowAt(handle);
+        }
+    }
+
+    private void OnNameConfirmed(object? sender, string? e)
+    {
+        if (sender is RenameFlyout flyout
+            && DataContext is NodeViewModel viewModel)
+        {
+            flyout.Confirmed -= OnNameConfirmed;
+            viewModel.UpdateName(e);
+        }
+    }
+}
+
+public sealed class RenameFlyout : PickerFlyoutBase
+{
+    public static readonly DirectProperty<RenameFlyout, string?> TextProperty
+        = TextBox.TextProperty.AddOwner<RenameFlyout>(o => o.Text, (o, v) => o.Text = v);
+
+    private TextBox? _textBox;
+    private string? _text;
+
+    public string? Text
+    {
+        get => _text;
+        set => SetAndRaise(TextProperty, ref _text, value);
+    }
+
+    public event EventHandler<string?>? Confirmed;
+
+    protected override Control CreatePresenter()
+    {
+        _textBox ??= new TextBox();
+        var pfp = new PickerFlyoutPresenter()
+        {
+            Width = 240,
+            Padding = new(8, 4),
+            Content = new StackPanel
+            {
+                Spacing = 4,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = Strings.Rename
+                    },
+                    _textBox
+                }
+            }
+        };
+        pfp.Confirmed += OnFlyoutConfirmed;
+        pfp.Dismissed += OnFlyoutDismissed;
+
+        return pfp;
+    }
+
+    protected override void OnConfirmed()
+    {
+        Confirmed?.Invoke(this, _textBox?.Text);
+        Hide();
+    }
+
+    protected override void OnOpening(CancelEventArgs args)
+    {
+        base.OnOpening(args);
+        _textBox ??= new TextBox();
+        _textBox.Text = _text;
+    }
+
+    private void OnFlyoutDismissed(PickerFlyoutPresenter sender, object args)
+    {
+        Hide();
+    }
+
+    private void OnFlyoutConfirmed(PickerFlyoutPresenter sender, object args)
+    {
+        OnConfirmed();
     }
 }

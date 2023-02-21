@@ -19,11 +19,37 @@ public partial class NodeInputView : UserControl
             DragControl = dragBorder
         });
     }
+
     public void Remove_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is NodeInputViewModel viewModel2)
         {
             viewModel2.Remove();
+        }
+    }
+
+    private void RenameClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is NodeInputViewModel viewModel)
+        {
+            var flyout = new RenameFlyout()
+            {
+                Text = viewModel.Node.Name
+            };
+
+            flyout.Confirmed += OnNameConfirmed;
+
+            flyout.ShowAt(this);
+        }
+    }
+
+    private void OnNameConfirmed(object? sender, string? e)
+    {
+        if (sender is RenameFlyout flyout
+            && DataContext is NodeInputViewModel viewModel)
+        {
+            flyout.Confirmed -= OnNameConfirmed;
+            viewModel.UpdateName(e);
         }
     }
 

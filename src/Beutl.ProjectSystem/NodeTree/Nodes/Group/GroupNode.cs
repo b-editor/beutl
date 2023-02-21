@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 
 namespace Beutl.NodeTree.Nodes.Group;
@@ -9,6 +10,8 @@ namespace Beutl.NodeTree.Nodes.Group;
 public class GroupNode : Node
 {
     private readonly CompositeDisposable _disposables = new();
+    private readonly List<IDisposable> _outputSocketDisposable = new();
+    private readonly List<IDisposable> _inputSocketDisposable = new();
     private int _outputSocketCount = 0;
     private int _inputSocketCount = 0;
 
@@ -20,6 +23,29 @@ public class GroupNode : Node
         };
         (Group as ILogicalElement).NotifyAttachedToLogicalTree(new(this));
         Group.Invalidated += OnGroupInvalidated;
+
+        this.GetObservable(NameProperty).Subscribe(v => Group.Name = string.IsNullOrWhiteSpace(v) ? "Group" : v);
+        Group.GetObservable(NameProperty).Subscribe(v => Name = v == "Group" ? "" : v);
+    }
+
+    private void DisposeOutput()
+    {
+        foreach (IDisposable item in _outputSocketDisposable)
+        {
+            item.Dispose();
+        }
+
+        _outputSocketDisposable.Clear();
+    }
+
+    private void DisposeInput()
+    {
+        foreach (IDisposable item in _inputSocketDisposable)
+        {
+            item.Dispose();
+        }
+
+        _inputSocketDisposable.Clear();
     }
 
     private void OnGroupInvalidated(object? sender, Media.RenderInvalidatedEventArgs e)
@@ -107,6 +133,7 @@ public class GroupNode : Node
         {
             oldObj.Items.CollectionChanged -= OutputItemsCollectionChanged;
             Items.RemoveRange(0, _outputSocketCount);
+            DisposeOutput();
             _outputSocketCount = 0;
         }
 
@@ -132,6 +159,8 @@ public class GroupNode : Node
             supportSetValue.SetThrough(item);
         }
 
+        _outputSocketDisposable.Insert(index, ((CoreObject)item).GetObservable(NameProperty)
+            .Subscribe(v => outputSocket.Name = v));
         Items.Insert(index, outputSocket);
     }
 
@@ -148,6 +177,13 @@ public class GroupNode : Node
 
         void Remove(int index, IList items)
         {
+            for (int i = index; i < items.Count; i++)
+            {
+                _outputSocketDisposable[i].Dispose();
+            }
+
+            _outputSocketDisposable.RemoveRange(index, items.Count);
+
             Items.RemoveRange(index, items.Count);
             _outputSocketCount -= items.Count;
         }
@@ -181,6 +217,7 @@ public class GroupNode : Node
         {
             oldObj.Items.CollectionChanged -= InputItemsCollectionChanged;
             Items.RemoveRange(_outputSocketCount, _inputSocketCount);
+            DisposeInput();
             _inputSocketCount = 0;
         }
 
@@ -205,12 +242,15 @@ public class GroupNode : Node
         {
             inputSocket = CreateInput(item.AssociatedProperty);
             inputSocket.Property?.SetValue(item.Property?.GetValue());
+            inputSocket.Name = item.Name;
         }
         else
         {
             inputSocket = CreateInput(NodeDisplayNameHelper.GetDisplayName(item), item.AssociatedType!);
         }
 
+        _inputSocketDisposable.Insert(index, ((CoreObject)item).GetObservable(NameProperty)
+            .Subscribe(v => inputSocket.Name = v));
         Items.Insert(_outputSocketCount + index, inputSocket);
     }
 
@@ -227,6 +267,13 @@ public class GroupNode : Node
 
         void Remove(int index, IList items)
         {
+            for (int i = index; i < items.Count; i++)
+            {
+                _inputSocketDisposable[i].Dispose();
+            }
+
+            _inputSocketDisposable.RemoveRange(index, items.Count);
+
             Items.RemoveRange(_outputSocketCount + index, items.Count);
             _inputSocketCount -= items.Count;
         }

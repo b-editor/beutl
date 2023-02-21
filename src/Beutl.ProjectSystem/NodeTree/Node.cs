@@ -101,7 +101,8 @@ public sealed class SetterPropertyImpl<T> : IAbstractAnimatableProperty<T>
 
     public void WriteToJson(ref JsonNode json)
     {
-        json["property"] = Property.Name;
+        CorePropertyMetadata? metadata = Property.GetMetadata<CorePropertyMetadata>(ImplementedType);
+        json["property"] = metadata.SerializeName ?? Property.Name;
         json["target"] = TypeFormat.ToString(ImplementedType);
 
         json["setter"] = StyleSerializer.ToJson(Setter, ImplementedType).Item2;
@@ -140,6 +141,8 @@ public sealed class SetterPropertyImpl<T> : IAbstractAnimatableProperty<T>
 internal interface IInputSocketForSetter : ICoreObject, IInputSocket
 {
     new int LocalId { get; set; }
+
+    new string Name { get; set; }
 
     void SetProperty(object property);
 }
@@ -234,6 +237,8 @@ public abstract class Node : Element, INode
             .DefaultValue((0, 0))
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
+
+        NameProperty.OverrideMetadata<Node>(new CorePropertyMetadata<string>("name"));
     }
 
     public Node()

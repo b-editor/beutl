@@ -11,6 +11,7 @@
              Canvas.Left="{Binding Position.Value.X}"
              Canvas.Top="{Binding Position.Value.Y}"
              Width="215"
+             x:CompileBindings="True"
              x:DataType="viewModels:NodeViewModel"
              Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
              BorderBrush="{DynamicResource ControlElevationBorderBrush}"
@@ -40,6 +41,11 @@
                             <icons:SymbolIcon Symbol="Delete" />
                         </ui:MenuFlyoutItem.Icon>
                     </ui:MenuFlyoutItem>
+                    <ui:MenuFlyoutItem Click="RenameClick" Text="{x:Static lang:Strings.Rename}">
+                        <ui:MenuFlyoutItem.Icon>
+                            <icons:SymbolIcon Symbol="Rename" />
+                        </ui:MenuFlyoutItem.Icon>
+                    </ui:MenuFlyoutItem>
                 </ui:FAMenuFlyout>
             </Border.ContextFlyout>
             <Border.KeyBindings>
@@ -57,7 +63,7 @@
                            Margin="8,0,0,0"
                            VerticalAlignment="Center"
                            IsHitTestVisible="False"
-                           Text="{Binding NodeName}" />
+                           Text="{Binding NodeName.Value}" />
 
                 <Button Grid.Column="2"
                         Click="OpenNodeClick"

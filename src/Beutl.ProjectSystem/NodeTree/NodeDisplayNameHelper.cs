@@ -16,13 +16,13 @@ internal class NodeDisplayNameHelper
         {
             CorePropertyMetadata metadata = property.Property.GetMetadata<CorePropertyMetadata>(property.ImplementedType);
 
-            return metadata.DisplayAttribute?.GetName() ?? name ?? property.Property.Name;
+            return name ?? metadata.DisplayAttribute?.GetName() ?? property.Property.Name;
         }
         else if (item is IGroupSocket { AssociatedProperty: { } asProperty })
         {
             CorePropertyMetadata metadata = asProperty.GetMetadata<CorePropertyMetadata>(asProperty.OwnerType);
 
-            return metadata.DisplayAttribute?.GetName() ?? name ?? asProperty.Name;
+            return name ?? metadata.DisplayAttribute?.GetName() ?? asProperty.Name;
         }
         else
         {

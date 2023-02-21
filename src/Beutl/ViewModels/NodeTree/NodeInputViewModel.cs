@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 
+using Beutl.Commands;
 using Beutl.Framework;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes;
@@ -15,6 +16,7 @@ public sealed class NodeInputViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly NodeTreeSpace _nodeTree;
+    private readonly string _defaultName;
 
     public NodeInputViewModel(LayerInputNode node, int originalIndex, NodeTreeSpace nodeTree)
     {
@@ -25,12 +27,17 @@ public sealed class NodeInputViewModel : IDisposable
         Type nodeType = node.GetType();
         if (NodeRegistry.FindItem(nodeType) is { } regItem)
         {
-            NodeName = regItem.DisplayName;
+            _defaultName = regItem.DisplayName;
         }
         else
         {
-            NodeName = nodeType.Name;
+            _defaultName = nodeType.Name;
         }
+
+        NodeName = node.GetObservable(CoreObject.NameProperty)
+            .Select(x => string.IsNullOrWhiteSpace(x) ? _defaultName : x)
+            .ToReadOnlyReactiveProperty()
+            .DisposeWith(_disposables)!;
 
         IsExpanded = node.GetObservable(Beutl.NodeTree.Node.IsExpandedProperty)
             .ToReactiveProperty()
@@ -42,7 +49,7 @@ public sealed class NodeInputViewModel : IDisposable
         InitializeProperties();
     }
 
-    public string NodeName { get; }
+    public ReadOnlyReactiveProperty<string> NodeName { get; }
 
     public LayerInputNode Node { get; }
 
@@ -57,6 +64,12 @@ public sealed class NodeInputViewModel : IDisposable
         _nodeTree.Nodes.BeginRecord<Node>()
             .Remove(Node)
             .ToCommand()
+            .DoAndRecord(CommandRecorder.Default);
+    }
+
+    public void UpdateName(string? name)
+    {
+        new ChangePropertyCommand<string>(Node, CoreObject.NameProperty, name, Node.Name)
             .DoAndRecord(CommandRecorder.Default);
     }
 

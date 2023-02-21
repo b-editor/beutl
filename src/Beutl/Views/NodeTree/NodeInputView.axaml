@@ -24,6 +24,11 @@
                                 <icons:SymbolIcon Symbol="Delete" />
                             </MenuItem.Icon>
                         </MenuItem>
+                        <MenuItem Click="RenameClick" Header="{x:Static lang:Strings.Rename}">
+                            <MenuItem.Icon>
+                                <icons:SymbolIcon Symbol="Rename" />
+                            </MenuItem.Icon>
+                        </MenuItem>
                     </ContextMenu>
                 </StackPanel.ContextMenu>
                 <Border x:Name="dragBorder"
@@ -39,7 +44,7 @@
 
                 <TextBlock x:Name="headerText"
                            VerticalAlignment="Center"
-                           Text="{Binding NodeName}" />
+                           Text="{Binding NodeName.Value}" />
             </StackPanel>
         </Expander.Header>
 
