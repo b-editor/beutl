@@ -1,12 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Text;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
-using System.Threading.Tasks;
-
-using Beutl.Collections;
 
 namespace Beutl.NodeTree.Nodes.Group;
 
@@ -59,38 +52,33 @@ public class GroupInput : Node, ISocketsCanBeAdded
         }
     }
 
-    public bool AddSocket(ISocket socket, out IConnection? connection)
+    public bool AddSocket(ISocket socket, [NotNullWhen(true)] out IConnection? connection)
     {
         connection = null;
-        if (socket is not IInputSocket inputSocket)
-            return false;
-        if (inputSocket.AssociatedType == null)
-            return false;
-
-        Type type = typeof(GroupInputSocket<>).MakeGenericType(inputSocket.AssociatedType);
-
-        if (Activator.CreateInstance(type) is IOutputSocket outputSocket)
+        if (socket is IInputSocket { AssociatedType: { } valueType } inputSocket)
         {
-            ((NodeItem)outputSocket).LocalId = NextLocalId++;
-            ((CoreObject)outputSocket).Name = NodeDisplayNameHelper.GetDisplayName(inputSocket);
-            ((IGroupSocket)outputSocket).AssociatedProperty = inputSocket.Property?.Property;
+            Type type = typeof(GroupInputSocket<>).MakeGenericType(valueType);
 
-            Items.Add(outputSocket);
-            if (outputSocket.TryConnect(inputSocket))
+            if (Activator.CreateInstance(type) is IOutputSocket outputSocket)
             {
-                connection = inputSocket.Connection;
-                return true;
-            }
-            else
-            {
-                Items.Remove(outputSocket);
-                return false;
+                ((NodeItem)outputSocket).LocalId = NextLocalId++;
+                ((CoreObject)outputSocket).Name = NodeDisplayNameHelper.GetDisplayName(inputSocket);
+                ((IGroupSocket)outputSocket).AssociatedProperty = inputSocket.Property?.Property;
+
+                Items.Add(outputSocket);
+                if (outputSocket.TryConnect(inputSocket))
+                {
+                    connection = inputSocket.Connection!;
+                    return true;
+                }
+                else
+                {
+                    Items.Remove(outputSocket);
+                }
             }
         }
-        else
-        {
-            return false;
-        }
+
+        return false;
     }
 
     public override void ReadFromJson(JsonNode json)
@@ -145,38 +133,33 @@ public class GroupOutput : Node, ISocketsCanBeAdded
         }
     }
 
-    public bool AddSocket(ISocket socket, out IConnection? connection)
+    public bool AddSocket(ISocket socket, [NotNullWhen(true)] out IConnection? connection)
     {
         connection = null;
-        if (socket is not IOutputSocket outputSocket)
-            return false;
-        if (outputSocket.AssociatedType == null)
-            return false;
-
-        Type type = typeof(GroupOutputSocket<>).MakeGenericType(outputSocket.AssociatedType);
-
-        if (Activator.CreateInstance(type) is IInputSocket inputSocket)
+        if (socket is IOutputSocket { AssociatedType: { } valueType } outputSocket)
         {
-            ((NodeItem)inputSocket).LocalId = NextLocalId++;
-            ((CoreObject)inputSocket).Name = NodeDisplayNameHelper.GetDisplayName(outputSocket);
-            //((IGroupSocket)inputSocket).AssociatedProperty = outputSocket.Property?.Property;
+            Type type = typeof(GroupOutputSocket<>).MakeGenericType(valueType);
 
-            Items.Add(inputSocket);
-            if (outputSocket.TryConnect(inputSocket))
+            if (Activator.CreateInstance(type) is IInputSocket inputSocket)
             {
-                connection = inputSocket.Connection;
-                return true;
-            }
-            else
-            {
-                Items.Remove(outputSocket);
-                return false;
+                ((NodeItem)inputSocket).LocalId = NextLocalId++;
+                ((CoreObject)inputSocket).Name = NodeDisplayNameHelper.GetDisplayName(outputSocket);
+                //((IGroupSocket)inputSocket).AssociatedProperty = outputSocket.Property?.Property;
+
+                Items.Add(inputSocket);
+                if (outputSocket.TryConnect(inputSocket))
+                {
+                    connection = inputSocket.Connection!;
+                    return true;
+                }
+                else
+                {
+                    Items.Remove(outputSocket);
+                }
             }
         }
-        else
-        {
-            return false;
-        }
+
+        return false;
     }
 
     public override void ReadFromJson(JsonNode json)

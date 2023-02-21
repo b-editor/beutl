@@ -185,8 +185,21 @@ public sealed class NodeViewModel : IDisposable
         };
     }
 
-    public void NotifyPositionChange()
+    public void UpdatePosition(IEnumerable<NodeViewModel> selection)
     {
-        Node.Position = (Position.Value.X, Position.Value.Y);
+        static IRecordableCommand CreateCommand(NodeViewModel viewModel)
+        {
+            return new ChangePropertyCommand<(double, double)>(
+                viewModel.Node,
+                Node.PositionProperty,
+                (viewModel.Position.Value.X, viewModel.Position.Value.Y),
+                viewModel.Node.Position);
+        }
+
+        selection.Select(CreateCommand)
+            .Append(CreateCommand(this))
+            .ToArray()
+            .ToCommand()
+            .DoAndRecord(CommandRecorder.Default);
     }
 }

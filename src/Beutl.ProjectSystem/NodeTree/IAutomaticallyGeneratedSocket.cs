@@ -1,6 +1,5 @@
 ﻿namespace Beutl.NodeTree;
 
-public interface IAutomaticallyGeneratedSocket
+public interface IAutomaticallyGeneratedSocket : ISocket
 {
-    bool TryRemove();
 }

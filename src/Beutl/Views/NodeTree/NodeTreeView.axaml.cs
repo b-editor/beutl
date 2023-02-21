@@ -8,7 +8,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 
 using Beutl.NodeTree;
-using Beutl.NodeTree.Nodes.Group;
 using Beutl.ViewModels.NodeTree;
 
 namespace Beutl.Views.NodeTree;
@@ -158,32 +157,10 @@ public partial class NodeTreeView : UserControl
 
     private void AddNodeClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem { DataContext: NodeRegistry.RegistryItem item })
+        if (DataContext is NodeTreeViewModel viewModel
+            && sender is MenuItem { DataContext: NodeRegistry.RegistryItem item })
         {
-            AddNode((Node)Activator.CreateInstance(item.Type)!);
-        }
-    }
-
-    private void AddNode(Node node)
-    {
-        if (DataContext is NodeTreeViewModel viewModel)
-        {
-            node.Position = (_rightClickedPosition.X, _rightClickedPosition.Y);
-            if (viewModel.NodeTree is NodeGroup nodeGroup)
-            {
-                if (node is GroupInput groupInput)
-                {
-                    nodeGroup.Input ??= groupInput;
-                    return;
-                }
-                else if (node is GroupOutput groupOutput)
-                {
-                    nodeGroup.Output ??= groupOutput;
-                    return;
-                }
-            }
-
-            viewModel.NodeTree.Nodes.Add(node);
+            viewModel.AddSocket(item, _rightClickedPosition);
         }
     }
 

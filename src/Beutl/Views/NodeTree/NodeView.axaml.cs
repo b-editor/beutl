@@ -250,14 +250,10 @@ public partial class NodeView : UserControl
                 }
                 else
                 {
-                    viewModel.NotifyPositionChange();
-                    foreach (NodeView? item in GetSelection())
-                    {
-                        if (item != this && item.DataContext is NodeViewModel itemViewModel)
-                        {
-                            itemViewModel.NotifyPositionChange();
-                        }
-                    }
+                    IEnumerable<NodeViewModel> selection = GetSelection()
+                        .Where(x => x != this && x.DataContext is NodeViewModel)
+                        .Select(x => (NodeViewModel)x.DataContext!);
+                    viewModel.UpdatePosition(selection);
                 }
             }
         }

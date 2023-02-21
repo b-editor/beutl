@@ -1,4 +1,7 @@
-﻿using Beutl.NodeTree;
+﻿using Avalonia;
+
+using Beutl.NodeTree;
+using Beutl.NodeTree.Nodes.Group;
 
 namespace Beutl.ViewModels.NodeTree;
 
@@ -51,6 +54,30 @@ public sealed class NodeTreeViewModel : IDisposable
         }
 
         return null;
+    }
+
+    public void AddSocket(NodeRegistry.RegistryItem item, Point point)
+    {
+        var node = (Node)Activator.CreateInstance(item.Type)!;
+        node.Position = (point.X, point.Y);
+        if (NodeTree is NodeGroup nodeGroup)
+        {
+            if (node is GroupInput
+                && nodeGroup.Nodes.Any(x => x is GroupInput))
+            {
+                return;
+            }
+            else if (node is GroupOutput
+                && nodeGroup.Nodes.Any(x => x is GroupOutput))
+            {
+                return;
+            }
+        }
+
+        NodeTree.Nodes.BeginRecord<Node>()
+            .Add(node)
+            .ToCommand()
+            .DoAndRecord(CommandRecorder.Default);
     }
 
     public void Dispose()

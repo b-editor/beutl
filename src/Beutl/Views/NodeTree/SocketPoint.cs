@@ -94,7 +94,7 @@ public sealed class ConnectionLine : Line
         return InputSocket == socket ? OutputSocket
             : OutputSocket == socket ? InputSocket : null;
     }
-    
+
     public bool Match(ISocket? first, ISocket? second)
     {
         return (InputSocket?.Model == first && OutputSocket?.Model == second)
@@ -220,23 +220,27 @@ public sealed class SocketPoint : Control
         }
         else if (_canvas != null && DataContext is SocketViewModel viewModel)
         {
-            _line = new ConnectionLine();
-            if (viewModel is InputSocketViewModel)
+            PointerPoint point = e.GetCurrentPoint(_canvas);
+            if (point.Properties.IsLeftButtonPressed)
             {
-                _line.EndPoint = e.GetPosition(_canvas);
-                _line.Bind(Line.StartPointProperty, viewModel.SocketPosition.ToBinding());
-            }
-            else
-            {
-                _line.StartPoint = e.GetPosition(_canvas);
-                _line.Bind(Line.EndPointProperty, viewModel.SocketPosition.ToBinding());
-            }
-            _line.SetSocket(viewModel);
-            _canvas.Children.Insert(0, _line);
+                _line = new ConnectionLine();
+                if (viewModel is InputSocketViewModel)
+                {
+                    _line.EndPoint = point.Position;
+                    _line.Bind(Line.StartPointProperty, viewModel.SocketPosition.ToBinding());
+                }
+                else
+                {
+                    _line.StartPoint = point.Position;
+                    _line.Bind(Line.EndPointProperty, viewModel.SocketPosition.ToBinding());
+                }
+                _line.SetSocket(viewModel);
+                _canvas.Children.Insert(0, _line);
 
-            e.Handled = true;
-            _captured = true;
-            e.Pointer.Capture(this);
+                e.Handled = true;
+                _captured = true;
+                e.Pointer.Capture(this);
+            }
         }
     }
 
@@ -257,6 +261,38 @@ public sealed class SocketPoint : Control
         }
     }
 
+    public bool TryConnect(PointerReleasedEventArgs e)
+    {
+        if (_canvas != null)
+        {
+            IInputElement? elm = _canvas!.InputHitTest(e.GetPosition(_canvas));
+            if (elm != this && elm is SocketPoint { DataContext: SocketViewModel endViewModel })
+            {
+                ISocket? socket = endViewModel.Model;
+                var args = new SocketConnectRequestedEventArgs(endViewModel, false);
+                ConnectRequested?.Invoke(this, args);
+                if (args.IsConnected && _line != null)
+                {
+                    if (endViewModel is InputSocketViewModel)
+                    {
+                        _line.Bind(Line.StartPointProperty, endViewModel.SocketPosition.ToBinding());
+                    }
+                    else
+                    {
+                        _line.Bind(Line.EndPointProperty, endViewModel.SocketPosition.ToBinding());
+                    }
+
+                    if (_line.SetSocket(endViewModel))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
@@ -268,39 +304,9 @@ public sealed class SocketPoint : Control
         }
         else if (_captured)
         {
-            if (_canvas != null)
+            if (!TryConnect(e))
             {
-                IInputElement? elm = _canvas!.InputHitTest(e.GetPosition(_canvas));
-                if (elm != this && elm is SocketPoint { DataContext: SocketViewModel endViewModel })
-                {
-                    ISocket? socket = endViewModel.Model;
-                    var args = new SocketConnectRequestedEventArgs(endViewModel, false);
-                    ConnectRequested?.Invoke(this, args);
-                    if (args.IsConnected && _line != null)
-                    {
-                        if (endViewModel is InputSocketViewModel)
-                        {
-                            _line.Bind(Line.StartPointProperty, endViewModel.SocketPosition.ToBinding());
-                        }
-                        else
-                        {
-                            _line.Bind(Line.EndPointProperty, endViewModel.SocketPosition.ToBinding());
-                        }
-
-                        if (!_line.SetSocket(endViewModel))
-                        {
-                            Disconnect();
-                        }
-                    }
-                    else
-                    {
-                        Disconnect();
-                    }
-                }
-                else
-                {
-                    Disconnect();
-                }
+                Disconnect();
             }
 
             _line = null;
@@ -329,17 +335,16 @@ public sealed class SocketPoint : Control
                 if (item is ConnectionLine cline && cline.Match(viewModel))
                 {
                     SocketViewModel? target = cline.GetTarget(viewModel);
-                    if (target == null)
-                        goto RemoveLine;
-
-                    var args = new SocketConnectRequestedEventArgs(target, true);
-                    DisconnectRequested?.Invoke(this, args);
-                    if (args.IsConnected)
+                    if (target != null)
                     {
-                        continue;
+                        var args = new SocketConnectRequestedEventArgs(target, true);
+                        DisconnectRequested?.Invoke(this, args);
+                        if (args.IsConnected)
+                        {
+                            continue;
+                        }
                     }
 
-                RemoveLine:
                     _canvas.Children.Remove(cline);
                 }
             }

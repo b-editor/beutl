@@ -1,6 +1,5 @@
 ﻿using Beutl.Commands;
 using Beutl.NodeTree.Nodes;
-using Beutl.NodeTree.Nodes.Group;
 using Beutl.ProjectSystem;
 
 using Reactive.Bindings;
@@ -32,6 +31,11 @@ public sealed class NodeTreeInputViewModel : IDisposable
                 {
                     int idx = ConvertFromOriginalIndex(originalIdx);
                     Items.Insert(idx, new NodeInputViewModel(layerInput, originalIdx, Model.Space));
+
+                    for (int i = idx; i < Items.Count; i++)
+                    {
+                        Items[i].OriginalIndex = Model.Space.Nodes.IndexOf(Items[i].Node);
+                    }
                 }
             },
             (originalIdx, item) =>
@@ -41,6 +45,11 @@ public sealed class NodeTreeInputViewModel : IDisposable
                     int idx = ConvertFromOriginalIndex(originalIdx);
                     Items[idx].Dispose();
                     Items.RemoveAt(idx);
+
+                    for (int i = idx; i < Items.Count; i++)
+                    {
+                        Items[i].OriginalIndex = Model.Space.Nodes.IndexOf(Items[i].Node);
+                    }
                 }
             },
             () =>

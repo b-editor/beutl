@@ -280,7 +280,18 @@ public abstract class Node : Element, INode
     public (double X, double Y) Position
     {
         get => _position;
-        set => SetAndRaise(PositionProperty, ref _position, value);
+        set
+        {
+            double x = value.X;
+            double y = value.Y;
+
+            if (double.IsNaN(x))
+                x = 0;
+            if (double.IsNaN(y))
+                y = 0;
+
+            SetAndRaise(PositionProperty, ref _position, (x, y));
+        }
     }
 
     protected int NextLocalId { get; set; } = 0;

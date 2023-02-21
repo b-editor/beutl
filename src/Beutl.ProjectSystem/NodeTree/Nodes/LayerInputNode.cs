@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Nodes;
 
 using Beutl.Framework;
 using Beutl.Media;
@@ -10,7 +11,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
 {
     public SocketLocation PossibleLocation => SocketLocation.Right;
 
-    public interface ILayerInputSocket : IOutputSocket
+    public interface ILayerInputSocket : IOutputSocket, IAutomaticallyGeneratedSocket
     {
         void SetProperty(IAbstractProperty property);
 
@@ -19,7 +20,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         IAbstractProperty? GetProperty();
     }
 
-    public class LayerInputSocket<T> : OutputSocket<T>, ILayerInputSocket, IAutomaticallyGeneratedSocket
+    public class LayerInputSocket<T> : OutputSocket<T>, ILayerInputSocket
     {
         private SetterPropertyImpl<T>? _property;
         private CoreProperty? _associatedProperty;
@@ -123,7 +124,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         }
     }
 
-    public bool AddSocket(ISocket socket, out IConnection? connection)
+    public bool AddSocket(ISocket socket, [NotNullWhen(true)] out IConnection? connection)
     {
         connection = null;
         if (socket is IInputSocket { AssociatedType: { } valueType, Property.Property: { } property } inputSocket)
@@ -140,7 +141,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
                 Items.Add(outputSocket);
                 if (outputSocket.TryConnect(inputSocket))
                 {
-                    connection = inputSocket.Connection;
+                    connection = inputSocket.Connection!;
                     return true;
                 }
                 else

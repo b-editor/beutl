@@ -46,7 +46,7 @@ public sealed class NodeInputViewModel : IDisposable
 
     public LayerInputNode Node { get; }
 
-    public int OriginalIndex { get; }
+    public int OriginalIndex { get; set; }
 
     public ReactiveProperty<bool> IsExpanded { get; } = new(true);
 
