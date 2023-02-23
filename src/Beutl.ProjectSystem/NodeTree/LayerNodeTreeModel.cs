@@ -46,9 +46,9 @@ public class LayerNodeTreeModel : NodeTreeSpace
         obj.Invalidated -= OnNodeInvalidated;
     }
 
-    public void Evaluate(IClock clock, Layer layer)
+    public void Evaluate(IRenderer renderer, Layer layer)
     {
-        Build(clock);
+        Build(renderer);
         using var list = new PooledList<Renderable>();
 
         foreach (NodeEvaluationContext[]? item in CollectionsMarshal.AsSpan(_evalContexts))
@@ -79,27 +79,30 @@ public class LayerNodeTreeModel : NodeTreeSpace
         _evalContexts.Clear();
     }
 
-    private void Build(IClock clock)
+    private void Build(IRenderer renderer)
     {
         if (_isDirty)
         {
             Uninitialize();
             int nextId = 0;
+            using var stack = new PooledList<NodeEvaluationContext>();
 
             foreach (Node? lastNode in Nodes.Where(x => !x.Items.Any(x => x is IOutputSocket)))
             {
-                var stack = new Stack<NodeEvaluationContext>();
                 BuildNode(lastNode, stack);
                 NodeEvaluationContext[] array = stack.ToArray();
+                Array.Reverse(array);
 
                 _evalContexts.Add(array);
                 foreach (NodeEvaluationContext item in array)
                 {
-                    item.Clock = clock;
+                    item.Clock = renderer.Clock;
+                    item.Renderer = renderer;
                     item.List = array;
                     item.Node.InitializeForContext(item);
                 }
 
+                stack.Clear();
                 nextId++;
             }
 
@@ -107,12 +110,18 @@ public class LayerNodeTreeModel : NodeTreeSpace
         }
     }
 
-    private void BuildNode(Node node, Stack<NodeEvaluationContext> stack)
+    private void BuildNode(Node node, PooledList<NodeEvaluationContext> stack)
     {
-        if (!stack.Any(x => x.Node == node))
+        if (stack.FirstOrDefault(x => x.Node == node) is { } context)
         {
-            var context = new NodeEvaluationContext(node);
-            stack.Push(context);
+            // 
+            stack.Remove(context);
+            stack.Add(context);
+        }
+        else
+        {
+            context = new NodeEvaluationContext(node);
+            stack.Add(context);
         }
 
         for (int i = 0; i < node.Items.Count; i++)

@@ -110,7 +110,7 @@ public class NodeGroup : NodeTreeSpace
         }
     }
 
-    public object InitializeForState(IClock clock)
+    public object InitializeForState(IRenderer renderer)
     {
         var evalContexts = new List<NodeEvaluationContext[]>();
 
@@ -123,7 +123,8 @@ public class NodeGroup : NodeTreeSpace
             evalContexts.Add(array);
             foreach (NodeEvaluationContext item in array)
             {
-                item.Clock = clock;
+                item.Clock = renderer.Clock;
+                item.Renderer = renderer;
                 item.List = array;
                 item.Node.InitializeForContext(item);
             }

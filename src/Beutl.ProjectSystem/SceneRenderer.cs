@@ -180,7 +180,7 @@ internal sealed class SceneRenderer :
 
     private void InvokeNode(Layer layer)
     {
-        layer.Space.Evaluate(Clock, layer);
+        layer.Space.Evaluate(this, layer);
     }
 
     // Layersを振り分ける

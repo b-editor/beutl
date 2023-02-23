@@ -11,6 +11,7 @@ public class EvaluationContext
     public EvaluationContext(EvaluationContext context)
     {
         Clock = context.Clock;
+        Renderer = context.Renderer;
         List = context.List;
         _renderables = context._renderables;
     }
@@ -22,6 +23,8 @@ public class EvaluationContext
     }
 
     public IClock Clock { get; internal set; }
+
+    public IRenderer Renderer { get; internal set; }
 
     public IReadOnlyList<NodeEvaluationContext> List { get; internal set; }
 
