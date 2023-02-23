@@ -72,7 +72,7 @@ public struct FormattedText : IEquatable<FormattedText>
 
     public bool BeginOnNewLine { get; set; } = false;
 
-    public IBrush Brush { get; set; } = Brushes.Transparent;
+    public IBrush? Brush { get; set; }
 
     public Thickness Margin { get; set; } = new();
 

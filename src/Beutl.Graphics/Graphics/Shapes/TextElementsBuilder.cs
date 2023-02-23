@@ -15,7 +15,7 @@ public class TextElementsBuilder
     private readonly Stack<FontWeight> _fontWeight = new();
     private readonly Stack<FontStyle> _fontStyle = new();
     private readonly Stack<float> _size = new();
-    private readonly Stack<IBrush> _brush = new();
+    private readonly Stack<IBrush?> _brush = new();
     private readonly Stack<float> _spacing = new();
     private readonly Stack<Thickness> _margin = new();
     private readonly FormattedTextInfo _initialOptions;
@@ -23,7 +23,7 @@ public class TextElementsBuilder
     private FontWeight _curFontWeight;
     private FontStyle _curFontStyle;
     private float _curSize;
-    private IBrush _curBrush;
+    private IBrush? _curBrush;
     private float _curSpacing;
     private Thickness _curMargin;
     private bool _singleLine;
@@ -148,7 +148,7 @@ public class TextElementsBuilder
                 TryParseTag(token.Text, out TagInfo tag))
             {
                 // 開始タグ
-                if (tag.TryGetFont(out FontFamily font1))
+                if (tag.TryGetFont(out FontFamily? font1))
                     PushFontFamily(font1);
                 else if (tag.TryGetSize(out float size1))
                     PushSize(size1);
