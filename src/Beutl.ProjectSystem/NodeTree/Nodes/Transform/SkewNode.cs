@@ -20,24 +20,23 @@ public class SkewNode : ConfigureNode
         context.State = new ConfigureNodeEvaluationState(null, new SkewTransform());
     }
 
-    protected override void EvaluateCore(NodeEvaluationContext context)
+    protected override void EvaluateCore(Drawable drawable, object? state)
     {
-        if (context.State is ConfigureNodeEvaluationState { AddtionalState: SkewTransform model })
+        if (state is SkewTransform model
+            && drawable.Transform is SpecializedTransformGroup group)
         {
             model.SkewY = _skewXSocket.Value;
             model.SkewY = _skewYSocket.Value;
+
+            group.AcceptTransform(model);
         }
     }
 
     protected override void Attach(Drawable drawable, object? state)
     {
-        if (state is SkewTransform model)
+        if (state is SkewTransform model
+            && drawable.Transform is SpecializedTransformGroup group)
         {
-            if (drawable.Transform is not TransformGroup group)
-            {
-                drawable.Transform = group = new TransformGroup();
-            }
-
             group.Children.Add(model);
         }
     }
@@ -45,7 +44,7 @@ public class SkewNode : ConfigureNode
     protected override void Detach(Drawable drawable, object? state)
     {
         if (state is SkewTransform model
-            && drawable.Transform is TransformGroup group)
+            && drawable.Transform is SpecializedTransformGroup group)
         {
             group.Children.Remove(model);
         }

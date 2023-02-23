@@ -30,9 +30,10 @@ public class Rotation3DNode : ConfigureNode
         context.State = new ConfigureNodeEvaluationState(null, new Rotation3DTransform());
     }
 
-    protected override void EvaluateCore(NodeEvaluationContext context)
+    protected override void EvaluateCore(Drawable drawable, object? state)
     {
-        if (context.State is ConfigureNodeEvaluationState { AddtionalState: Rotation3DTransform model })
+        if (state is Rotation3DTransform model
+            && drawable.Transform is SpecializedTransformGroup group)
         {
             model.RotationX = _rotationXSocket.Value;
             model.RotationY = _rotationYSocket.Value;
@@ -41,18 +42,15 @@ public class Rotation3DNode : ConfigureNode
             model.CenterY = _centerYSocket.Value;
             model.CenterZ = _centerZSocket.Value;
             model.Depth = _depthSocket.Value;
+            group.AcceptTransform(model);
         }
     }
 
     protected override void Attach(Drawable drawable, object? state)
     {
-        if (state is Rotation3DTransform model)
+        if (state is Rotation3DTransform model
+            && drawable.Transform is SpecializedTransformGroup group)
         {
-            if (drawable.Transform is not TransformGroup group)
-            {
-                drawable.Transform = group = new TransformGroup();
-            }
-
             group.Children.Add(model);
         }
     }
@@ -60,7 +58,7 @@ public class Rotation3DNode : ConfigureNode
     protected override void Detach(Drawable drawable, object? state)
     {
         if (state is Rotation3DTransform model
-            && drawable.Transform is TransformGroup group)
+            && drawable.Transform is SpecializedTransformGroup group)
         {
             group.Children.Remove(model);
         }

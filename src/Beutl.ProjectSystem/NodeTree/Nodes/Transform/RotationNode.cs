@@ -18,23 +18,22 @@ public class RotationNode : ConfigureNode
         context.State = new ConfigureNodeEvaluationState(null, new RotationTransform());
     }
 
-    protected override void EvaluateCore(NodeEvaluationContext context)
+    protected override void EvaluateCore(Drawable drawable, object? state)
     {
-        if (context.State is ConfigureNodeEvaluationState { AddtionalState: RotationTransform model })
+        if (state is RotationTransform model
+            && drawable.Transform is SpecializedTransformGroup group)
         {
             model.Rotation = _rotationSocket.Value;
+
+            group.AcceptTransform(model);
         }
     }
 
     protected override void Attach(Drawable drawable, object? state)
     {
-        if (state is RotationTransform model)
+        if (state is RotationTransform model
+            && drawable.Transform is SpecializedTransformGroup group)
         {
-            if (drawable.Transform is not TransformGroup group)
-            {
-                drawable.Transform = group = new TransformGroup();
-            }
-
             group.Children.Add(model);
         }
     }
@@ -42,7 +41,7 @@ public class RotationNode : ConfigureNode
     protected override void Detach(Drawable drawable, object? state)
     {
         if (state is RotationTransform model
-            && drawable.Transform is TransformGroup group)
+            && drawable.Transform is SpecializedTransformGroup group)
         {
             group.Children.Remove(model);
         }

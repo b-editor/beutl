@@ -20,24 +20,22 @@ public class TranslateNode : ConfigureNode
         context.State = new ConfigureNodeEvaluationState(null, new TranslateTransform());
     }
 
-    protected override void EvaluateCore(NodeEvaluationContext context)
+    protected override void EvaluateCore(Drawable drawable, object? state)
     {
-        if (context.State is ConfigureNodeEvaluationState { AddtionalState: TranslateTransform model })
+        if (state is TranslateTransform model
+            && drawable.Transform is SpecializedTransformGroup group)
         {
             model.X = _xSocket.Value;
             model.Y = _ySocket.Value;
+            group.AcceptTransform(model);
         }
     }
 
     protected override void Attach(Drawable drawable, object? state)
     {
-        if (state is TranslateTransform model)
+        if (state is TranslateTransform model
+            && drawable.Transform is SpecializedTransformGroup group)
         {
-            if (drawable.Transform is not TransformGroup group)
-            {
-                drawable.Transform = group = new TransformGroup();
-            }
-
             group.Children.Add(model);
         }
     }
@@ -45,7 +43,7 @@ public class TranslateNode : ConfigureNode
     protected override void Detach(Drawable drawable, object? state)
     {
         if (state is TranslateTransform model
-            && drawable.Transform is TransformGroup group)
+            && drawable.Transform is SpecializedTransformGroup group)
         {
             group.Children.Remove(model);
         }

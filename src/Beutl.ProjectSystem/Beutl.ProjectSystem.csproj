@@ -7,9 +7,6 @@
     <ProjectReference Include="..\Beutl.Language\Beutl.Language.csproj" />
     <ProjectReference Include="..\Beutl.Framework\Beutl.Framework.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="NodeTree\Nodes\Filters\" />
-  </ItemGroup>
   <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props" />
   <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.FileSystemGlobbing.props" />
 </Project>

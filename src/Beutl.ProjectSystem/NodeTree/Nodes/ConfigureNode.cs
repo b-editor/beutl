@@ -48,7 +48,7 @@ public abstract class ConfigureNode : Node
         }
         else
         {
-            context.State = new ConfigureNodeEvaluationState(value, null);
+            context.State = state = new ConfigureNodeEvaluationState(value, null);
         }
 
         if (value != prevDrawable)
@@ -63,12 +63,15 @@ public abstract class ConfigureNode : Node
             }
         }
 
-        EvaluateCore(context);
+        if (value != null)
+        {
+            EvaluateCore(value, state?.AddtionalState);
+        }
 
         OutputSocket.Value = value;
     }
 
-    protected abstract void EvaluateCore(NodeEvaluationContext context);
+    protected abstract void EvaluateCore(Drawable drawable, object? state);
 
     protected abstract void Attach(Drawable drawable, object? state);
 

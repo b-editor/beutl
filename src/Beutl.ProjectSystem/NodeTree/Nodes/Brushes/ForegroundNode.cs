@@ -21,11 +21,8 @@ public class ForegroundNode : ConfigureNode
         drawable.Foreground = null;
     }
 
-    protected override void EvaluateCore(NodeEvaluationContext context)
+    protected override void EvaluateCore(Drawable drawable, object? state)
     {
-        if (InputSocket.Value is { } drawable)
-        {
-            drawable.Foreground = _brushSocket.Value;
-        }
+        drawable.Foreground = _brushSocket.Value;
     }
 }

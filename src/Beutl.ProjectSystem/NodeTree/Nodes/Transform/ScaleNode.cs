@@ -22,25 +22,24 @@ public class ScaleNode : ConfigureNode
         context.State = new ConfigureNodeEvaluationState(null, new ScaleTransform());
     }
 
-    protected override void EvaluateCore(NodeEvaluationContext context)
+    protected override void EvaluateCore(Drawable drawable, object? state)
     {
-        if (context.State is ConfigureNodeEvaluationState { AddtionalState: ScaleTransform model })
+        if (state is ScaleTransform model
+            && drawable.Transform is SpecializedTransformGroup group)
         {
             model.Scale = _scaleSocket.Value;
             model.ScaleX = _scaleXSocket.Value;
             model.ScaleY = _scaleYSocket.Value;
+
+            group.AcceptTransform(model);
         }
     }
 
     protected override void Attach(Drawable drawable, object? state)
     {
-        if (state is ScaleTransform model)
+        if (state is ScaleTransform model
+            && drawable.Transform is SpecializedTransformGroup group)
         {
-            if (drawable.Transform is not TransformGroup group)
-            {
-                drawable.Transform = group = new TransformGroup();
-            }
-
             group.Children.Add(model);
         }
     }
@@ -48,7 +47,7 @@ public class ScaleNode : ConfigureNode
     protected override void Detach(Drawable drawable, object? state)
     {
         if (state is ScaleTransform model
-            && drawable.Transform is TransformGroup group)
+            && drawable.Transform is SpecializedTransformGroup group)
         {
             group.Children.Remove(model);
         }
