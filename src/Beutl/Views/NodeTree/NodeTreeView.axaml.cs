@@ -29,7 +29,33 @@ public partial class NodeTreeView : UserControl
         AddHandler(PointerPressedEvent, OnNodeTreePointerPressed, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, OnNodeTreePointerReleased, RoutingStrategies.Tunnel);
         AddHandler(PointerMovedEvent, OnNodeTreePointerMoved, RoutingStrategies.Tunnel);
+
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragEnterEvent, OnDragEnter);
+        AddHandler(DragDrop.DropEvent, OnDrop);
         zoomBorder.ZoomChanged += OnZoomChanged;
+    }
+
+    private void OnDrop(object? sender, DragEventArgs e)
+    {
+        if (DataContext is NodeTreeViewModel viewModel
+            && e.Data.Get("Node") is NodeRegistry.RegistryItem item)
+        {
+            Point point = e.GetPosition(canvas) - new Point(215 / 2, 0);
+            viewModel.AddSocket(item, point);
+        }
+    }
+
+    private void OnDragEnter(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Contains("Node"))
+        {
+            e.DragEffects = DragDropEffects.Copy;
+        }
+        else
+        {
+            e.DragEffects = DragDropEffects.None;
+        }
     }
 
     private void OnZoomChanged(object sender, ZoomChangedEventArgs e)

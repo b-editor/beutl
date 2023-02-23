@@ -1,13 +1,9 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 
 using Beutl.Framework;
-using Beutl.Services;
-using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;
 
@@ -23,13 +19,11 @@ public partial class PropertiesEditor : UserControl
     {
         public static readonly ViewModelToViewConverter Instance = new();
 
-        private delegate bool TryCreateControlDelegate(IPropertyEditorContext context, [NotNullWhen(true)] out IControl? control);
-
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             if (value is IPropertyEditorContext viewModel)
             {
-                if(viewModel.Extension.TryCreateControl(viewModel, out var control))
+                if (viewModel.Extension.TryCreateControl(viewModel, out var control))
                 {
                     return control;
                 }

@@ -2,27 +2,43 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              d:DesignHeight="450"
-             d:DesignWidth="800"
+             d:DesignWidth="300"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,*">
-        <TextBox x:Name="SearchBox"
-                 Margin="8"
-                 Classes="clearButton"
-                 InputMethod.IsInputMethodEnabled="True"
-                 Watermark="{x:Static lang:Strings.Search}" />
+        <TabStrip x:Name="tabStrip"
+                  Margin="8,2"
+                  Theme="{StaticResource LiteNavTabStrip}">
+            <TabStripItem Content="{x:Static lang:Strings.SourceOperators}" IsSelected="True" />
+            <TabStripItem Content="{x:Static lang:Strings.NodeTree}" />
+            <!--<TabStripItem>
+                <ui:SymbolIcon FontSize="20" Symbol="MoreHorizontal" />
+            </TabStripItem>-->
 
-        <!--<ProgressBar
-            Grid.Row="1"
-            IsIndeterminate="True"
-            VerticalAlignment="Top"
-            Margin="8,0"
-            HorizontalAlignment="Stretch" />-->
+            <!--<TabStripItem Content="{x:Static lang:Strings.Search}" />-->
+        </TabStrip>
 
-        <TreeView x:Name="Tree"
-                  Grid.Row="1"
-                  SelectionMode="Single" />
+        <Carousel Grid.Row="1"
+                  Padding="8"
+                  SelectedIndex="{Binding #tabStrip.SelectedIndex}">
+            <TreeView x:Name="OperatorTree" SelectionMode="Single" />
+
+            <TreeView x:Name="NodeTreeView" SelectionMode="Single" />
+
+            <StackPanel />
+            <!--<Grid RowDefinitions="Auto,*">
+                <TextBox x:Name="SearchBox"
+                         Classes="clearButton"
+                         InputMethod.IsInputMethodEnabled="True"
+                         Watermark="{x:Static lang:Strings.Search}" />
+
+            </Grid>-->
+        </Carousel>
+
+
     </Grid>
 </UserControl>

@@ -17,6 +17,8 @@
                 <ResourceInclude Source="/Styling/ContextMenu.axaml" />
                 <ResourceInclude Source="/Styling/Separator.axaml" />
                 <ResourceInclude Source="/Styling/ListRadioButton.axaml" />
+                <ResourceInclude Source="/Styling/SegmentedControl.axaml" />
+                <ResourceInclude Source="/Styling/LiteNav.axaml" />
 
                 <ResourceInclude Source="/Styling/PropertyEditors/PropertyEditorResources.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/StringEditor.axaml" />
