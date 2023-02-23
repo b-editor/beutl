@@ -32,7 +32,7 @@
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="OpenTK.OpenAL" Version="4.7.5" />
+    <PackageReference Include="OpenTK.OpenAL" Version="4.7.7" />
     <PackageReference Include="Vortice.XAudio2" Version="2.3.0" />
   </ItemGroup>
   <Import Project="$(RootDirectory)\build\props\OpenCvSharp4.props" />
