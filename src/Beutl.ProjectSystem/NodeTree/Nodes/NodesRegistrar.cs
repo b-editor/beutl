@@ -9,13 +9,15 @@ public static class NodesRegistrar
 {
     public static void RegisterAll()
     {
-        NodeRegistry.RegisterNode<GroupInput>("Group Input");
-        NodeRegistry.RegisterNode<GroupOutput>("Group Output");
-        NodeRegistry.RegisterNode<GroupNode>("Group Node");
-
         NodeRegistry.RegisterNode<LayerInputNode>("Layer input");
         NodeRegistry.RegisterNode<LayerOutputNode>("Layer output");
         NodeRegistry.RegisterNode<RectNode>(Strings.Rectangle);
+
+        NodeRegistry.RegisterNodes("Group")
+            .Add<GroupInput>("Group Input")
+            .Add<GroupOutput>("Group Output")
+            .Add<GroupNode>("Group Node")
+            .Register();
 
         NodeRegistry.RegisterNodes("Brush")
             .Add<ForegroundNode>("Set Foreground")
@@ -25,7 +27,7 @@ public static class NodesRegistrar
             .Add<ConicGradientBrushNode>("Conic Gradient Brush")
             .Add<DrawableBrushNode>("Drawable Gradient Brush")
             .Register();
-        
+
         NodeRegistry.RegisterNodes("Transform")
             .Add<TransformNode>(Strings.Transform)
             .Add<TranslateNode>(Strings.Translate)
@@ -37,6 +39,7 @@ public static class NodesRegistrar
 
         NodeRegistry.RegisterNodes("Utilities")
             .Add<Utilities.SwitchNode>("Switch")
+            .Add<Utilities.MeasureNode>("Measure")
             .AddGroup("Matrix", o => o
                 .Add<Utilities.TranslateMatrixNode>("Translate")
                 .Add<Utilities.RotationMatrixNode>("Rotation")
