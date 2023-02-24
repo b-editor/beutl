@@ -1,5 +1,6 @@
 ﻿using Beutl.Language;
 using Beutl.NodeTree.Nodes.Brushes;
+using Beutl.NodeTree.Nodes.Filters;
 using Beutl.NodeTree.Nodes.Group;
 using Beutl.NodeTree.Nodes.Transform;
 
@@ -19,6 +20,10 @@ public static class NodesRegistrar
             .Add<GroupNode>("Group Node")
             .Register();
 
+        NodeRegistry.RegisterNodes(Strings.ImageFilter)
+            .Add<DropShadowNode>(Strings.DropShadow)
+            .Register();
+        
         NodeRegistry.RegisterNodes("Brush")
             .Add<ForegroundNode>("Set Foreground")
             .Add<SolidColorBrushNode>("Solid Color Brush")
@@ -28,7 +33,7 @@ public static class NodesRegistrar
             .Add<DrawableBrushNode>("Drawable Gradient Brush")
             .Register();
 
-        NodeRegistry.RegisterNodes("Transform")
+        NodeRegistry.RegisterNodes(Strings.Transform)
             .Add<TransformNode>(Strings.Transform)
             .Add<TranslateNode>(Strings.Translate)
             .Add<RotationNode>(Strings.Rotation)

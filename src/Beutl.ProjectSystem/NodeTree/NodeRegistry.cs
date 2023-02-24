@@ -7,6 +7,7 @@ namespace Beutl.NodeTree;
 public class NodeRegistry
 {
     private static readonly List<BaseRegistryItem> s_nodes = new();
+    internal static int s_totalCount;
 
     public static void RegisterNode<T>(string displayName)
         where T : Node, new()
@@ -86,13 +87,22 @@ public class NodeRegistry
 
     private static void Register(BaseRegistryItem item)
     {
-        if (item is GroupableRegistryItem groupable
-            && s_nodes.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupableRegistryItem registered)
+        if (item is GroupableRegistryItem groupable)
         {
-            registered.Merge(groupable.Items);
+            s_totalCount += groupable.Count();
+
+            if (s_nodes.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupableRegistryItem registered)
+            {
+                registered.Merge(groupable.Items);
+            }
+            else
+            {
+                s_nodes.Add(groupable);
+            }
         }
         else
         {
+            s_totalCount++;
             s_nodes.Add(item);
         }
     }
@@ -121,6 +131,24 @@ public class NodeRegistry
                     Items.Add(item);
                 }
             }
+        }
+
+        internal int Count()
+        {
+            int count = 1;
+            foreach (BaseRegistryItem item in Items)
+            {
+                if (item is GroupableRegistryItem groupable1)
+                {
+                    count += groupable1.Count();
+                }
+                else
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
     }
 

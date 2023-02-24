@@ -6,37 +6,85 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.ViewModels"
              d:DesignHeight="450"
              d:DesignWidth="300"
+             x:DataType="viewModel:LibraryViewModel"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,*">
         <TabStrip x:Name="tabStrip"
-                  Margin="8,2"
+                  Margin="0,2"
+                  SelectedIndex="1"
                   Theme="{StaticResource LiteNavTabStrip}">
+            <TabStripItem>
+                <ui:SymbolIcon FontSize="20" Symbol="Find" />
+            </TabStripItem>
             <TabStripItem Content="{x:Static lang:Strings.SourceOperators}" IsSelected="True" />
             <TabStripItem Content="{x:Static lang:Strings.NodeTree}" />
             <!--<TabStripItem>
                 <ui:SymbolIcon FontSize="20" Symbol="MoreHorizontal" />
             </TabStripItem>-->
-
-            <!--<TabStripItem Content="{x:Static lang:Strings.Search}" />-->
         </TabStrip>
 
         <Carousel Grid.Row="1"
                   Padding="8"
                   SelectedIndex="{Binding #tabStrip.SelectedIndex}">
-            <TreeView x:Name="OperatorTree" SelectionMode="Single" />
-
-            <TreeView x:Name="NodeTreeView" SelectionMode="Single" />
-
-            <StackPanel />
-            <!--<Grid RowDefinitions="Auto,*">
+            <Grid RowDefinitions="Auto,8,*">
                 <TextBox x:Name="SearchBox"
                          Classes="clearButton"
                          InputMethod.IsInputMethodEnabled="True"
                          Watermark="{x:Static lang:Strings.Search}" />
 
-            </Grid>-->
+                <ListBox x:Name="searchResult"
+                         Grid.Row="2"
+                         Items="{Binding AllItems}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel DataContext="{Binding Value}" Spacing="2">
+                                <TextBlock Text="{Binding FullDisplayName}" TextTrimming="{x:Static TextTrimming.LeadingCharacterEllipsis}" />
+                                <WrapPanel Orientation="Horizontal">
+                                    <WrapPanel.Styles>
+                                        <Style Selector="TextBlock">
+                                            <Setter Property="Theme" Value="{StaticResource LabelTextBlockStyle}" />
+                                            <Setter Property="FontSize" Value="12" />
+                                        </Style>
+                                    </WrapPanel.Styles>
+                                    <TextBlock IsVisible="{Binding !!Description}" Text="{Binding Description}" />
+                                    <TextBlock Text=" | ">
+                                        <TextBlock.IsVisible>
+                                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                                <Binding Converter="{x:Static StringConverters.IsNotNullOrEmpty}" Path="Description" />
+                                                <Binding Converter="{x:Static StringConverters.IsNotNullOrEmpty}" Path="Type" />
+                                            </MultiBinding>
+                                        </TextBlock.IsVisible>
+                                    </TextBlock>
+                                    <TextBlock IsVisible="{Binding !!Type}" Text="{Binding Type}" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+
+            <TreeView x:Name="OperatorTree"
+                      Items="{Binding Operators}"
+                      SelectionMode="Single">
+                <TreeView.ItemTemplate>
+                    <TreeDataTemplate ItemsSource="{Binding Children}">
+                        <TextBlock Text="{Binding DisplayName}" />
+                    </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+
+            <TreeView x:Name="NodeTreeView"
+                      Items="{Binding Nodes}"
+                      SelectionMode="Single">
+                <TreeView.ItemTemplate>
+                    <TreeDataTemplate ItemsSource="{Binding Children}">
+                        <TextBlock Text="{Binding DisplayName}" />
+                    </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
         </Carousel>
 
 
