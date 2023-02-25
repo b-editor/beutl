@@ -73,7 +73,11 @@ public abstract class ConfigureNode : Node
 
     protected abstract void EvaluateCore(Drawable drawable, object? state);
 
-    protected abstract void Attach(Drawable drawable, object? state);
+    protected virtual void Attach(Drawable drawable, object? state)
+    {
+    }
 
-    protected abstract void Detach(Drawable drawable, object? state);
+    protected virtual void Detach(Drawable drawable, object? state)
+    {
+    }
 }

@@ -32,7 +32,7 @@ public class LayerOutputNode : OutputNode
 
     protected override void EvaluateCore(NodeEvaluationContext context)
     {
-        if (InputSocket.Value is { } value)
+        if (InputSocket is { Value: { } value, Connection: { } })
         {
             value.BlendMode = _blendModeSocket.Value;
             value.AlignmentX = _alignmentXSocket.Value;

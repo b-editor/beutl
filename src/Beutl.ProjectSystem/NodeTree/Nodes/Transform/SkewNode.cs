@@ -23,30 +23,12 @@ public class SkewNode : ConfigureNode
     protected override void EvaluateCore(Drawable drawable, object? state)
     {
         if (state is SkewTransform model
-            && drawable.Transform is SpecializedTransformGroup group)
+            && drawable.Transform is TransformGroup group)
         {
             model.SkewY = _skewXSocket.Value;
             model.SkewY = _skewYSocket.Value;
 
-            group.AcceptTransform(model);
-        }
-    }
-
-    protected override void Attach(Drawable drawable, object? state)
-    {
-        if (state is SkewTransform model
-            && drawable.Transform is SpecializedTransformGroup group)
-        {
             group.Children.Add(model);
-        }
-    }
-
-    protected override void Detach(Drawable drawable, object? state)
-    {
-        if (state is SkewTransform model
-            && drawable.Transform is SpecializedTransformGroup group)
-        {
-            group.Children.Remove(model);
         }
     }
 }

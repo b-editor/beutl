@@ -23,29 +23,11 @@ public class TranslateNode : ConfigureNode
     protected override void EvaluateCore(Drawable drawable, object? state)
     {
         if (state is TranslateTransform model
-            && drawable.Transform is SpecializedTransformGroup group)
+            && drawable.Transform is TransformGroup group)
         {
             model.X = _xSocket.Value;
             model.Y = _ySocket.Value;
-            group.AcceptTransform(model);
-        }
-    }
-
-    protected override void Attach(Drawable drawable, object? state)
-    {
-        if (state is TranslateTransform model
-            && drawable.Transform is SpecializedTransformGroup group)
-        {
             group.Children.Add(model);
-        }
-    }
-
-    protected override void Detach(Drawable drawable, object? state)
-    {
-        if (state is TranslateTransform model
-            && drawable.Transform is SpecializedTransformGroup group)
-        {
-            group.Children.Remove(model);
         }
     }
 }

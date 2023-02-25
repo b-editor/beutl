@@ -25,31 +25,13 @@ public class ScaleNode : ConfigureNode
     protected override void EvaluateCore(Drawable drawable, object? state)
     {
         if (state is ScaleTransform model
-            && drawable.Transform is SpecializedTransformGroup group)
+            && drawable.Transform is TransformGroup group)
         {
             model.Scale = _scaleSocket.Value;
             model.ScaleX = _scaleXSocket.Value;
             model.ScaleY = _scaleYSocket.Value;
 
-            group.AcceptTransform(model);
-        }
-    }
-
-    protected override void Attach(Drawable drawable, object? state)
-    {
-        if (state is ScaleTransform model
-            && drawable.Transform is SpecializedTransformGroup group)
-        {
             group.Children.Add(model);
-        }
-    }
-
-    protected override void Detach(Drawable drawable, object? state)
-    {
-        if (state is ScaleTransform model
-            && drawable.Transform is SpecializedTransformGroup group)
-        {
-            group.Children.Remove(model);
         }
     }
 }
