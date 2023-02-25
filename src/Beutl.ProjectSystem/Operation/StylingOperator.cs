@@ -125,7 +125,7 @@ public abstract class StylingOperator : SourceOperator
     {
         Style = OnInitializeStyle(() =>
         {
-            var list = new PooledList<ISetter>();
+            var list = new List<ISetter>();
             OnInitializeSetters(list);
             return list;
         });

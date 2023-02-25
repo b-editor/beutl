@@ -26,6 +26,11 @@ public static class RecordableCommandExtensions
         return new ConnectedCommand(command1, command2);
     }
 
+    public static IRecordableCommand ToCommand(this IRecordableCommand[] commands)
+    {
+        return new MultipleCommand(commands);
+    }
+
     private sealed class ConnectedCommand : IRecordableCommand
     {
         private readonly IRecordableCommand _command1;
@@ -53,6 +58,43 @@ public static class RecordableCommandExtensions
         {
             _command1.Undo();
             _command2.Undo();
+        }
+    }
+
+    private sealed class MultipleCommand : IRecordableCommand
+    {
+        private readonly IRecordableCommand[] _commands;
+
+        public MultipleCommand(IRecordableCommand[] commands)
+        {
+            _commands = commands;
+        }
+
+        public void Do()
+        {
+            for (int i = 0; i < _commands.Length; i++)
+            {
+                IRecordableCommand? item = _commands[i];
+                item.Do();
+            }
+        }
+
+        public void Redo()
+        {
+            for (int i = 0; i < _commands.Length; i++)
+            {
+                IRecordableCommand? item = _commands[i];
+                item.Redo();
+            }
+        }
+
+        public void Undo()
+        {
+            for (int i = _commands.Length - 1; i >= 0; i--)
+            {
+                IRecordableCommand? item = _commands[i];
+                item.Undo();
+            }
         }
     }
 }

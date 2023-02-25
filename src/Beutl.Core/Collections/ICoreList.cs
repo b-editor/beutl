@@ -36,6 +36,8 @@ public interface ICoreList<T> : IObservableList<T>, ICoreReadOnlyList<T>, ICoreL
 
     void InsertRange(int index, IEnumerable<T> items);
 
+    void Replace(IList<T> source);
+
     new void Move(int oldIndex, int newIndex);
 
     new void MoveRange(int oldIndex, int count, int newIndex);

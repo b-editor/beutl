@@ -157,4 +157,18 @@ public static class ObservableExtensions
     {
         return source.Select(x => !x);
     }
+
+    public static IObservable<(TSource? OldValue, TSource? NewValue)> CombineWithPrevious<TSource>(this IObservable<TSource> source)
+    {
+        return source.Scan((default(TSource), default(TSource)), (previous, current) => (previous.Item2, current))
+            .Select(t => (t.Item1, t.Item2));
+    }
+
+    public static IObservable<TResult> CombineWithPrevious<TSource, TResult>(
+        this IObservable<TSource> source,
+        Func<TSource?, TSource?, TResult> resultSelector)
+    {
+        return source.Scan((default(TSource), default(TSource)), (previous, current) => (previous.Item2, current))
+            .Select(t => resultSelector(t.Item1, t.Item2));
+    }
 }

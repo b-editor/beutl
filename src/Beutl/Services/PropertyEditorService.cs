@@ -279,5 +279,103 @@ public static class PropertyEditorService
                 }
             }
         }
+
+        public bool TryCreateContextForNode(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
+        {
+            BaseEditorViewModel? viewModel = null;
+            bool result = false;
+
+            if (properties.Count > 0 && properties[0] is { } property)
+            {
+                if (s_editorsOverride.TryGetValue(property.Property.Id, out Editor editorOverrided))
+                {
+                    viewModel = editorOverrided.CreateViewModel(property);
+                    if (viewModel != null)
+                    {
+                        viewModel.Extension = extension;
+                        result = true;
+                        goto Return;
+                    }
+                }
+
+                if (s_editors.TryGetValue(property.Property.PropertyType, out Editor editor))
+                {
+                    viewModel = editor.CreateViewModel(property);
+                    if (viewModel != null)
+                    {
+                        viewModel.Extension = extension;
+                        result = true;
+                        goto Return;
+                    }
+                }
+
+                foreach (KeyValuePair<Type, Editor> item in s_editors)
+                {
+                    if (property.Property.PropertyType.IsAssignableTo(item.Key))
+                    {
+                        viewModel = item.Value.CreateViewModel(property);
+                        if (viewModel != null)
+                        {
+                            viewModel.Extension = extension;
+                            result = true;
+                            goto Return;
+                        }
+                    }
+                }
+            }
+
+        Return:
+            context = viewModel;
+            return result;
+        }
+
+        public bool TryCreateControlForNode(IPropertyEditorContext context, [NotNullWhen(true)] out IControl? control)
+        {
+            control = null;
+            try
+            {
+                if (context is BaseEditorViewModel { WrappedProperty: { } property })
+                {
+                    if (s_editorsOverride.TryGetValue(property.Property.Id, out Editor editorOverrided))
+                    {
+                        control = editorOverrided.CreateEditor(property);
+                        if (control != null)
+                        {
+                            return true;
+                        }
+                    }
+
+                    if (s_editors.TryGetValue(property.Property.PropertyType, out Editor editor))
+                    {
+                        control = editor.CreateEditor(property);
+                        if (control != null)
+                        {
+                            return true;
+                        }
+                    }
+
+                    foreach (KeyValuePair<Type, Editor> item in s_editors)
+                    {
+                        if (property.Property.PropertyType.IsAssignableTo(item.Key))
+                        {
+                            control = item.Value.CreateEditor(property);
+                            if (control != null)
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                return false;
+            }
+            finally
+            {
+                if (control is IPropertyEditorContextVisitor visitor)
+                {
+                    context.Accept(visitor);
+                }
+            }
+        }
     }
 }

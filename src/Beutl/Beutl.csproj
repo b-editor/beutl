@@ -13,6 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Avalonia.Controls.PanAndZoom" Version="11.0.0-preview4" />
+    <PackageReference Include="FluentAvalonia.BreadcrumbBar" Version="2.0.0-preview4.1" />
     <PackageReference Include="PanelExtension" Version="1.0.0-preview2" />
     <PackageReference Include="Roslynator.Analyzers" Version="4.2.0">
       <PrivateAssets>all</PrivateAssets>
@@ -43,6 +45,12 @@
     </Compile>
     <Compile Update="Views\Editors\PropertyEditorMenu.axaml.cs">
       <DependentUpon>PropertyEditorMenu.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\NodeTree\SocketView.axaml.cs">
+      <DependentUpon>SocketView.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\NodeTree\NodeTreeInputTab.axaml.cs">
+      <DependentUpon>NodeTreeInputTab.axaml</DependentUpon>
     </Compile>
   </ItemGroup>
 

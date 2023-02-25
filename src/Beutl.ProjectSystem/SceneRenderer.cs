@@ -50,7 +50,14 @@ internal sealed class SceneRenderer :
 
         foreach (Layer layer in layers)
         {
-            EvaluateLayer(layer);
+            if (layer.UseNode)
+            {
+                InvokeNode(layer);
+            }
+            else
+            {
+                EvaluateLayer(layer);
+            }
         }
 
         base.RenderGraphicsCore();
@@ -89,22 +96,25 @@ internal sealed class SceneRenderer :
 
         void DefaultHandler(IList<Renderable> renderables)
         {
-            RenderLayerSpan span = layer.Span;
-            Detach(renderables);
-
-            span.Value.Replace(renderables);
-
-            foreach (Renderable item in span.Value.GetMarshal().Value)
+            if (renderables.Count > 0)
             {
-                item.ApplyStyling(Clock);
-                item.ApplyAnimations(Clock);
-                item.IsVisible = layer.IsEnabled;
-                while (!item.EndBatchUpdate())
-                {
-                }
-            }
+                RenderLayerSpan span = layer.Span;
+                Detach(renderables);
 
-            renderables.Clear();
+                span.Value.Replace(renderables);
+
+                foreach (Renderable item in span.Value.GetMarshal().Value)
+                {
+                    item.ApplyStyling(Clock);
+                    item.ApplyAnimations(Clock);
+                    item.IsVisible = layer.IsEnabled;
+                    while (!item.EndBatchUpdate())
+                    {
+                    }
+                }
+
+                renderables.Clear();
+            }
         }
 
         void EvaluateSourceOperators(List<Renderable> unhandleds)
@@ -166,6 +176,11 @@ internal sealed class SceneRenderer :
         //    prevResult.IsVisible = layer.IsEnabled;
         //}
         //span.Value?.EndBatchUpdate();
+    }
+
+    private void InvokeNode(Layer layer)
+    {
+        layer.Space.Evaluate(this, layer);
     }
 
     // Layersを振り分ける

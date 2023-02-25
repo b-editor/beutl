@@ -1,0 +1,29 @@
+<UserControl x:Class="Beutl.Views.NodeTree.NodeTreeTab"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="using:Beutl.Views.NodeTree"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:nodeTree="using:Beutl.NodeTree"
+             xmlns:paz="using:Avalonia.Controls.PanAndZoom"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.ViewModels.NodeTree"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="viewModel:NodeTreeTabViewModel"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,*">
+        <local:NodeTreeView Grid.RowSpan="2" DataContext="{Binding NodeTree.Value}" />
+
+        <ui:BreadcrumbBar Margin="8"
+                          ItemClicked="BreadcrumbBarItemClicked"
+                          Items="{Binding Items}">
+            <ui:BreadcrumbBar.ItemTemplate>
+                <DataTemplate x:DataType="viewModel:NodeTreeNavigationItem">
+                    <TextBlock Text="{Binding Name.Value}" />
+                </DataTemplate>
+            </ui:BreadcrumbBar.ItemTemplate>
+        </ui:BreadcrumbBar>
+    </Grid>
+</UserControl>

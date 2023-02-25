@@ -7,6 +7,7 @@ namespace Beutl.Operation;
 public class OperatorRegistry
 {
     private static readonly List<BaseRegistryItem> s_operations = new();
+    internal static int s_totalCount;
 
     public static void RegisterOperation<T>(string displayName)
         where T : SourceOperator, new()
@@ -103,13 +104,22 @@ public class OperatorRegistry
 
     private static void Register(BaseRegistryItem item)
     {
-        if (item is GroupableRegistryItem groupable
-            && s_operations.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupableRegistryItem registered)
+        if (item is GroupableRegistryItem groupable)
         {
-            registered.Merge(groupable.Items);
+            s_totalCount += groupable.Count();
+
+            if (s_operations.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupableRegistryItem registered)
+            {
+                registered.Merge(groupable.Items);
+            }
+            else
+            {
+                s_operations.Add(groupable);
+            }
         }
         else
         {
+            s_totalCount++;
             s_operations.Add(item);
         }
     }
@@ -134,7 +144,7 @@ public class OperatorRegistry
             foreach (BaseRegistryItem item in items)
             {
                 if (item is GroupableRegistryItem groupable1
-                    && Items.FirstOrDefault(x => x.DisplayName==item.DisplayName) is GroupableRegistryItem groupable2)
+                    && Items.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupableRegistryItem groupable2)
                 {
                     groupable2.Merge(groupable1.Items);
                 }
@@ -143,6 +153,24 @@ public class OperatorRegistry
                     Items.Add(item);
                 }
             }
+        }
+
+        internal int Count()
+        {
+            int count = 1;
+            foreach (BaseRegistryItem item in Items)
+            {
+                if (item is GroupableRegistryItem groupable1)
+                {
+                    count += groupable1.Count();
+                }
+                else
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
     }
 

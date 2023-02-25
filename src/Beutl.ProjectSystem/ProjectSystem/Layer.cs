@@ -7,6 +7,7 @@ using System.Text.Json.Nodes;
 
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.NodeTree;
 using Beutl.Operation;
 using Beutl.Rendering;
 
@@ -22,6 +23,9 @@ public class Layer : Element, IStorable, ILogicalElement
     public static readonly CoreProperty<bool> AllowOutflowProperty;
     public static readonly CoreProperty<RenderLayerSpan> SpanProperty;
     public static readonly CoreProperty<SourceOperators> OperatorsProperty;
+    public static readonly CoreProperty<LayerNodeTreeModel> SpaceProperty;
+    public static readonly CoreProperty<bool> UseNodeProperty;
+    public static readonly CoreProperty<string> FileNameProperty;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
@@ -31,6 +35,7 @@ public class Layer : Element, IStorable, ILogicalElement
     private EventHandler? _saved;
     private EventHandler? _restored;
     private IDisposable? _disposable;
+    private bool _useNode;
 
     static Layer()
     {
@@ -83,6 +88,22 @@ public class Layer : Element, IStorable, ILogicalElement
             .Accessor(o => o.Operators, null)
             .Register();
 
+        SpaceProperty = ConfigureProperty<LayerNodeTreeModel, Layer>(nameof(Space))
+            .Accessor(o => o.Space, null)
+            .Register();
+
+        UseNodeProperty = ConfigureProperty<bool, Layer>(nameof(UseNode))
+            .Accessor(o => o.UseNode, (o, v) => o.UseNode = v)
+            .DefaultValue(false)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
+            .SerializeName("useNode")
+            .Register();
+
+        FileNameProperty = ConfigureProperty<string, Layer>(nameof(FileName))
+            .Accessor(o => o.FileName, (o, v) => o.FileName = v)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
+            .Register();
+
         NameProperty.OverrideMetadata<Layer>(new CorePropertyMetadata<string>("name"));
 
         ZIndexProperty.Changed.Subscribe(args =>
@@ -125,6 +146,13 @@ public class Layer : Element, IStorable, ILogicalElement
                 layer.ForceRender();
             }
         });
+        UseNodeProperty.Changed.Subscribe(args =>
+        {
+            if (args.Sender is Layer layer)
+            {
+                layer.ForceRender();
+            }
+        });
 
         StartProperty.Changed.Subscribe(e =>
         {
@@ -151,6 +179,9 @@ public class Layer : Element, IStorable, ILogicalElement
         Operators.CollectionChanged += OnOperatorsCollectionChanged;
 
         (Span as ILogicalElement).NotifyAttachedToLogicalTree(new(this));
+
+        Space = new LayerNodeTreeModel();
+        Space.Invalidated += (_, _) => ForceRender();
     }
 
     private void OnOperatorsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -235,17 +266,21 @@ public class Layer : Element, IStorable, ILogicalElement
 
     public string FileName
     {
-        get => _fileName ?? throw new Exception("The file name is not set.");
-        set
-        {
-            ArgumentNullException.ThrowIfNull(value);
-            _fileName = value;
-        }
+        get => _fileName!;
+        set => SetAndRaise(FileNameProperty, ref _fileName!, value);
     }
 
     public DateTime LastSavedTime { get; private set; }
 
     public SourceOperators Operators { get; }
+
+    public LayerNodeTreeModel Space { get; }
+
+    public bool UseNode
+    {
+        get => _useNode;
+        set => SetAndRaise(UseNodeProperty, ref _useNode, value);
+    }
 
     public void Save(string filename)
     {
@@ -317,6 +352,12 @@ public class Layer : Element, IStorable, ILogicalElement
                     }
                 }
             }
+
+            if (jobject.TryGetPropertyValue("space", out JsonNode? spaceNode)
+                && spaceNode != null)
+            {
+                Space.ReadFromJson(spaceNode);
+            }
         }
     }
 
@@ -350,6 +391,10 @@ public class Layer : Element, IStorable, ILogicalElement
 
                 jobject["operators"] = array;
             }
+
+            JsonNode spaceNode = new JsonObject();
+            Space.WriteToJson(ref spaceNode);
+            jobject["space"] = spaceNode;
         }
     }
 

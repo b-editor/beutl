@@ -33,6 +33,19 @@ public sealed partial class GradientStopsEditor : UserControl
         InitializeComponent();
 
         colorPicker.FlyoutConfirmed += ColorPicker_FlyoutConfirmed;
+        //this.SubscribeDataContextChange<GradientStopsEditorViewModel>(
+        //    obj =>
+        //    {
+        //        border.Background = new AM.LinearGradientBrush
+        //        {
+        //            GradientStops = obj.Stops,
+        //            StartPoint = new(0.0, 0.5, Avalonia.RelativeUnit.Relative),
+        //            EndPoint = new(1.0, 0.5, Avalonia.RelativeUnit.Relative),
+        //        };
+        //    },
+        //    _ => border.Background = null);
+        border.AddHandler(PointerPressedEvent, Items_PointerPressed, RoutingStrategies.Tunnel);
+        border.AddHandler(PointerReleasedEvent, Items_PointerReleased, RoutingStrategies.Tunnel);
     }
 
     private void Delete_Click(object? sender, RoutedEventArgs e)

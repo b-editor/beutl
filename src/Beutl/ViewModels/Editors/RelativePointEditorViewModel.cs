@@ -22,11 +22,18 @@ public sealed class RelativePointEditorViewModel : BaseEditorViewModel<Graphics.
             .Select(x => x.Point.Y)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
+
+        UnitValue = property.GetObservable()
+            .Select(x => x.Unit)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<float> FirstValue { get; }
 
     public ReadOnlyReactivePropertySlim<float> SecondValue { get; }
+    
+    public ReadOnlyReactivePropertySlim<Graphics.RelativeUnit> UnitValue { get; }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -35,6 +42,7 @@ public sealed class RelativePointEditorViewModel : BaseEditorViewModel<Graphics.
         {
             editor[!RelativePointEditor.FirstValueProperty] = FirstValue.ToBinding();
             editor[!RelativePointEditor.SecondValueProperty] = SecondValue.ToBinding();
+            editor[!RelativePointEditor.UnitProperty] = UnitValue.ToBinding();
             editor.ValueChanged += OnValueChanged;
             editor.ValueChanging += OnValueChanging;
         }

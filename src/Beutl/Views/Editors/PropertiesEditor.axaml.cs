@@ -4,8 +4,6 @@ using Avalonia.Data;
 using Avalonia.Data.Converters;
 
 using Beutl.Framework;
-using Beutl.Services;
-using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;
 
@@ -25,7 +23,7 @@ public partial class PropertiesEditor : UserControl
         {
             if (value is IPropertyEditorContext viewModel)
             {
-                if(viewModel.Extension.TryCreateControl(viewModel, out var control))
+                if (viewModel.Extension.TryCreateControl(viewModel, out var control))
                 {
                     return control;
                 }

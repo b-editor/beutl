@@ -1,0 +1,94 @@
+<UserControl x:Class="Beutl.Views.NodeTree.NodeView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModels="using:Beutl.ViewModels.NodeTree"
+             xmlns:views="using:Beutl.Views.NodeTree"
+             Canvas.Left="{Binding Position.Value.X}"
+             Canvas.Top="{Binding Position.Value.Y}"
+             Width="215"
+             x:CompileBindings="True"
+             x:DataType="viewModels:NodeViewModel"
+             Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
+             BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+             BorderThickness="1"
+             Classes.selected="{Binding IsSelected.Value}"
+             ClipToBounds="False"
+             CornerRadius="{DynamicResource ControlCornerRadius}"
+             mc:Ignorable="d">
+    <UserControl.Styles>
+        <Style Selector="views|NodeView.selected /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuterBrush}" />
+        </Style>
+    </UserControl.Styles>
+    <!--  BoxShadow="0 32 64 #47000000, 0 2 21 #38000000">  -->
+    <!--  BoxShadow="0 32 64 #8E000000, 0 2 21 #8C000000">  -->
+    <Grid Background="{Binding Color}" RowDefinitions="Auto,Auto">
+        <Border x:Name="handle"
+                Padding="4"
+                Background="Transparent"
+                Focusable="True">
+            <Border.ContextFlyout>
+                <ui:FAMenuFlyout>
+                    <ui:MenuFlyoutItem Command="{Binding Delete}"
+                                       InputGesture="Delete"
+                                       Text="{x:Static lang:Strings.Delete}">
+                        <ui:MenuFlyoutItem.Icon>
+                            <icons:SymbolIcon Symbol="Delete" />
+                        </ui:MenuFlyoutItem.Icon>
+                    </ui:MenuFlyoutItem>
+                    <ui:MenuFlyoutItem Click="RenameClick" Text="{x:Static lang:Strings.Rename}">
+                        <ui:MenuFlyoutItem.Icon>
+                            <icons:SymbolIcon Symbol="Rename" />
+                        </ui:MenuFlyoutItem.Icon>
+                    </ui:MenuFlyoutItem>
+                </ui:FAMenuFlyout>
+            </Border.ContextFlyout>
+            <Border.KeyBindings>
+                <KeyBinding Command="{Binding Delete}" Gesture="Delete" />
+            </Border.KeyBindings>
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <ToggleButton x:Name="expandToggle"
+                              Width="30"
+                              Padding="5"
+                              VerticalAlignment="Stretch"
+                              IsChecked="{Binding IsExpanded.Value}"
+                              Theme="{StaticResource ExpandCollapseToggleButtonStyle}" />
+
+                <TextBlock Grid.Column="1"
+                           Margin="8,0,0,0"
+                           VerticalAlignment="Center"
+                           IsHitTestVisible="False"
+                           Text="{Binding NodeName.Value}" />
+
+                <Button Grid.Column="2"
+                        Click="OpenNodeClick"
+                        IsVisible="{Binding IsGroupNode}"
+                        Theme="{StaticResource TransparentButton}">
+                    <icons:SymbolIcon Symbol="Open" />
+                </Button>
+            </Grid>
+        </Border>
+        <Border x:Name="nodeContent"
+                Grid.Row="1"
+                Padding="0,0,0,8"
+                Background="Transparent"
+                ClipToBounds="False">
+            <StackPanel x:Name="stackPanel">
+                <ItemsControl x:Name="itemsControl"
+                              ClipToBounds="False"
+                              Items="{Binding Items}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <views:SocketView />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

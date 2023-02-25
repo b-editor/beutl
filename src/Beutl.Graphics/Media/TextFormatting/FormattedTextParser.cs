@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 
 using Beutl.Graphics;
 
@@ -192,7 +193,7 @@ public static class FormattedTextParser
             return false;
         }
 
-        public bool TryGetFont(out FontFamily font)
+        public bool TryGetFont([NotNullWhen(true)] out FontFamily? font)
         {
             if (Type == TagType.Font)
             {
@@ -204,7 +205,7 @@ public static class FormattedTextParser
                 }
             }
 
-            font = default;
+            font = null;
             return false;
         }
 

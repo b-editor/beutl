@@ -25,8 +25,6 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
             .Select(x => x as Layer)
             .ToReactiveProperty();
 
-        Header = new ReactivePropertySlim<string>(Strings.SourceOperators);
-
         _disposable0 = Layer.Subscribe(layer =>
         {
             if (_oldLayer != null)
@@ -107,6 +105,8 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
         });
     }
 
+    public string Header => Strings.SourceOperators;
+
     public Action<SourceOperator>? RequestScroll { get; set; }
 
     public ReactiveProperty<Layer?> Layer { get; }
@@ -116,8 +116,6 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
     public ToolTabExtension Extension => SourceOperatorsTabExtension.Instance;
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
-
-    public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Right;
 
@@ -137,7 +135,6 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
         ClearItems();
 
         Layer.Dispose();
-        Header.Dispose();
     }
 
     private static string ViewStateDirectory(Layer layer)

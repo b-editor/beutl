@@ -13,6 +13,7 @@ using Beutl.Configuration;
 using Beutl.Framework;
 using Beutl.Framework.Service;
 using Beutl.Framework.Services;
+using Beutl.NodeTree.Nodes;
 using Beutl.Operators;
 using Beutl.Rendering;
 using Beutl.Services;
@@ -98,6 +99,7 @@ public sealed class App : Application
         GetMainViewModel().RegisterServices();
 
         OperatorsRegistrar.RegisterAll();
+        NodesRegistrar.RegisterAll();
         ReactivePropertyScheduler.SetDefault(AvaloniaScheduler.Instance);
     }
 

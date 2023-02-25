@@ -9,7 +9,7 @@ namespace Beutl.Graphics.Transformation;
 public abstract class Transform : Animatable, IMutableTransform
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
-    private bool _isEnabled;
+    private bool _isEnabled = true;
 
     static Transform()
     {

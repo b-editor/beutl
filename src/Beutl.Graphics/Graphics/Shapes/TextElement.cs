@@ -19,7 +19,7 @@ public class TextElement : Drawable
     public static readonly CoreProperty<bool> IgnoreLineBreaksProperty;
     private FontWeight _fontWeight;
     private FontStyle _fontStyle;
-    private FontFamily _fontFamily;
+    private FontFamily _fontFamily = FontFamily.Default;
     private float _size;
     private float _spacing;
     private string _text = string.Empty;
@@ -228,7 +228,7 @@ public class TextElement : Drawable
         _formattedText.Size = _size;
         _formattedText.Spacing = _spacing;
         _formattedText.Text = s;
-        _formattedText.Brush = Foreground ?? Brushes.Transparent;
+        _formattedText.Brush = Foreground;
 
         text = _formattedText;
     }

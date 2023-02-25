@@ -50,6 +50,7 @@
     <Application.Styles>
         <sty:FluentAvaloniaTheme />
         <StyleInclude Source="avares://Beutl.Controls/Styles.axaml" />
+        <StyleInclude Source="avares://FluentAvalonia.BreadcrumbBar/Styling/Styles.axaml" />
 
         <Style Selector="TextBlock.ErrorTextBlockStyle">
             <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />

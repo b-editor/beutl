@@ -94,6 +94,19 @@
                     <ui:MenuFlyoutItem Command="{CompiledBinding FinishEditingAnimation}" Text="{x:Static lang:Strings.FinishEditing}" />
                     <ui:MenuFlyoutItem Command="{CompiledBinding BringAnimationToTop}" Text="{x:Static lang:Strings.BringToTop}" />
                 </ui:MenuFlyoutSubItem>
+                <ui:MenuFlyoutSeparator />
+                <ui:ToggleMenuFlyoutItem IsChecked="{Binding Model.UseNode}" Text="ノードを使う">
+                    <ui:ToggleMenuFlyoutItem.Styles>
+                        <Style Selector="ui|ToggleMenuFlyoutItem /template/ Viewbox#IconRoot">
+                            <Setter Property="Width" Value="0" />
+                        </Style>
+                    </ui:ToggleMenuFlyoutItem.Styles>
+                </ui:ToggleMenuFlyoutItem>
+                <ui:MenuFlyoutItem Click="OpenNodeTree_Click" Text="ノードツリーを開く">
+                    <ui:MenuFlyoutItem.Icon>
+                        <icons:SymbolIcon Symbol="Open" />
+                    </ui:MenuFlyoutItem.Icon>
+                </ui:MenuFlyoutItem>
             </ui:FAMenuFlyout>
         </Border.ContextFlyout>
         <Panel>

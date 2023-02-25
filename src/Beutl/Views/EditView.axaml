@@ -85,21 +85,20 @@
 
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition />
+                    <ColumnDefinition Width="270" MinWidth="270" />
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" MinWidth="270" />
+                    <ColumnDefinition />
                 </Grid.ColumnDefinitions>
-                <Border Grid.Column="2"
-                        Margin="0,4,0,0"
+                <Border Margin="4,4,0,0"
                         Classes="CardStyle"
                         CornerRadius="{DynamicResource OverlayCornerRadius}">
-                    <local:Library />
+                    <local:Library DataContext="{Binding Library}" />
                 </Border>
 
                 <GridSplitter Grid.Column="1" Classes="EditViewSplitter" />
 
                 <Player x:Name="Player"
-                        Margin="4,0"
+                        Grid.Column="2"
                         CurrentTime="{Binding Scene.CurrentFrame, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
                         EndButtonCommand="{CompiledBinding Player.End}"
                         IsPlaying="{CompiledBinding Player.IsPlaying.Value, Mode=TwoWay}"

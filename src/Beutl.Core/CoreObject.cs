@@ -92,7 +92,7 @@ public abstract class CoreObject : ICoreObject
         set => SetValue(NameProperty, value);
     }
 
-    private bool BatchUpdate => _batchUpdateCount > 0;
+    public bool BatchUpdate => _batchUpdateCount > 0;
 
     private Dictionary<int, IEntry> Values => _values ??= new();
 

@@ -224,7 +224,7 @@ public class TextBlock : Drawable
                             canvas.Translate(new(prevRight, 0));
                             Size elementBounds = item.Bounds;
 
-                            using (canvas.PushForeground(item.Brush))
+                            using (item.Brush != null ? canvas.PushForeground(item.Brush) : default)
                                 canvas.DrawText(item);
 
                             prevRight = elementBounds.Width + item.Margin.Right;
@@ -269,7 +269,7 @@ public class TextBlock : Drawable
         var options = new FormattedTextInfo(
             Typeface: new Typeface(_fontFamily, _fontStyle, _fontWeight),
             Size: _size,
-            Brush: (Foreground as IMutableBrush)?.ToImmutable() ?? Foreground ?? Brushes.Transparent,
+            Brush: (Foreground as IMutableBrush)?.ToImmutable(),
             Space: _spacing,
             Margin: _margin);
 

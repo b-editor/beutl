@@ -39,6 +39,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
     public EditViewModel(Scene scene)
     {
         Scene = scene;
+        Library = new LibraryViewModel(this);
         Player = new PlayerViewModel(scene, IsEnabled);
         Commands = new KnownCommandsImpl(scene);
         SelectedObject = new ReactiveProperty<CoreObject?>()
@@ -54,6 +55,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
     }
 
     public Scene Scene { get; set; }
+
+    public LibraryViewModel Library { get; }
 
     public CoreList<ToolTabViewModel> BottomTabItems { get; }
 
