@@ -24,6 +24,8 @@ public sealed partial class Library : UserControl
 
         searchResult.ItemContainerGenerator.Materialized += OnItemMaterialized;
         searchResult.ItemContainerGenerator.Dematerialized += OnItemDematerialized;
+
+        itemsControl.AddHandler(PointerPressedEvent, OnEasingsPointerPressed, RoutingStrategies.Tunnel);
     }
 
     private void OnItemMaterialized(object? sender, ItemContainerEventArgs e)
@@ -105,6 +107,28 @@ public sealed partial class Library : UserControl
                 var dataObject = new DataObject();
                 dataObject.Set(format, data);
                 await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
+            }
+        }
+    }
+
+    private async void OnEasingsPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (itemsControl.Items is { } items)
+        {
+            int index = 0;
+            foreach (object? item in items)
+            {
+                IControl? control = itemsControl.ItemContainerGenerator.ContainerFromIndex(index);
+
+                if (control?.IsPointerOver == true)
+                {
+                    var data = new DataObject();
+                    data.Set("Easing", item);
+                    await DragDrop.DoDragDrop(e, data, DragDropEffects.Copy | DragDropEffects.Link);
+                    return;
+                }
+
+                index++;
             }
         }
     }

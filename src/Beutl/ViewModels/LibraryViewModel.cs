@@ -12,6 +12,7 @@ using Avalonia.Collections;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 
+using Beutl.Animation.Easings;
 using Beutl.NodeTree;
 using Beutl.Operation;
 
@@ -189,6 +190,41 @@ public class LibraryViewModel
         AddAllItems(Operators);
         AddAllItems(Nodes);
     }
+
+    public ReactiveCollection<Easing> Easings { get; } = new()
+    {
+        new BackEaseIn(),
+        new BackEaseInOut(),
+        new BackEaseOut(),
+        new BounceEaseIn(),
+        new BounceEaseInOut(),
+        new BounceEaseOut(),
+        new CircularEaseIn(),
+        new CircularEaseInOut(),
+        new CircularEaseOut(),
+        new CubicEaseIn(),
+        new CubicEaseInOut(),
+        new CubicEaseOut(),
+        new ElasticEaseIn(),
+        new ElasticEaseInOut(),
+        new ElasticEaseOut(),
+        new ExponentialEaseIn(),
+        new ExponentialEaseInOut(),
+        new ExponentialEaseOut(),
+        new QuadraticEaseIn(),
+        new QuadraticEaseInOut(),
+        new QuadraticEaseOut(),
+        new QuarticEaseIn(),
+        new QuarticEaseInOut(),
+        new QuarticEaseOut(),
+        new QuinticEaseIn(),
+        new QuinticEaseInOut(),
+        new QuinticEaseOut(),
+        new SineEaseIn(),
+        new SineEaseInOut(),
+        new SineEaseOut(),
+        new LinearEasing(),
+    };
 
     public List<LibraryItemViewModel> Operators { get; }
 
