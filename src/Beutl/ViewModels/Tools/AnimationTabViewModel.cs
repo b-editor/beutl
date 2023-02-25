@@ -3,9 +3,7 @@ using System.Text.Json.Nodes;
 
 using Beutl.Animation;
 using Beutl.Animation.Easings;
-using Beutl.Commands;
 using Beutl.Framework;
-using Beutl.Services.Editors.Wrappers;
 using Beutl.Services.PrimitiveImpls;
 
 using Reactive.Bindings;

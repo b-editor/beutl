@@ -5,8 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
 
-using Beutl.Commands;
-using Beutl.Services.Editors.Wrappers;
+using Beutl.Operation;
 using Beutl.Styling;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
@@ -149,7 +148,7 @@ public sealed class NavigateButton<T> : NavigateButton
         if (DataContext is NavigationButtonViewModel<T> viewModel)
         {
             if (this.FindLogicalAncestorOfType<StyleEditor>()?.DataContext is StyleEditorViewModel parentViewModel
-                && viewModel.WrappedProperty is IStylingSetterWrapper wrapper
+                && viewModel.WrappedProperty is IStylingSetterPropertyImpl wrapper
                 && parentViewModel.Style.Value is Style style)
             {
                 style.Setters.BeginRecord<ISetter>()

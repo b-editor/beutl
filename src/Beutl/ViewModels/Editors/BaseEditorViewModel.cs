@@ -5,8 +5,7 @@ using Avalonia;
 
 using Beutl.Controls.PropertyEditors;
 using Beutl.Framework;
-using Beutl.Services;
-using Beutl.Services.Editors.Wrappers;
+using Beutl.Operation;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -73,7 +72,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext
 
     public bool IsAnimatable => WrappedProperty.Property.GetMetadata<CorePropertyMetadata>(WrappedProperty.ImplementedType).PropertyFlags.HasFlag(PropertyFlags.Animatable);
 
-    public bool IsStylingSetter => WrappedProperty is IStylingSetterWrapper;
+    public bool IsStylingSetter => WrappedProperty is IStylingSetterPropertyImpl;
 
     [AllowNull]
     public PropertyEditorExtension Extension { get; set; }

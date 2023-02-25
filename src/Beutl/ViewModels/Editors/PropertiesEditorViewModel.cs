@@ -1,7 +1,7 @@
 ﻿using Beutl.Animation;
 using Beutl.Framework;
+using Beutl.Operators.Configure;
 using Beutl.Services;
-using Beutl.Services.Editors.Wrappers;
 
 using DynamicData;
 
@@ -30,8 +30,8 @@ public sealed class PropertiesEditorViewModel : IDisposable
     private void InitializeCoreObject(ICoreObject obj, Predicate<CorePropertyMetadata>? predicate = null)
     {
         Type objType = obj.GetType();
-        Type wrapperType = typeof(CorePropertyClientImpl<>);
-        Type animatableWrapperType = typeof(AnimatableCorePropertyClientImpl<>);
+        Type wrapperType = typeof(CorePropertyImpl<>);
+        Type animatableWrapperType = typeof(AnimatableCorePropertyImpl<>);
         bool isAnimatable = obj is IAnimatable;
 
         List<CoreProperty> props = PropertyRegistry.GetRegistered(objType).ToList();

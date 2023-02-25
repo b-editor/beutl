@@ -5,8 +5,7 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Commands;
 using Beutl.Framework;
-using Beutl.Services.Editors.Wrappers;
-using Beutl.ViewModels.Editors;
+using Beutl.Operators.Configure;
 
 using Reactive.Bindings;
 
@@ -32,10 +31,10 @@ public sealed class AnimationSpanEditorViewModel : IDisposable
         tmp[0] = next;
         Properties.Add(CreateContext(tmp));
 
-        tmp[0] = new CorePropertyClientImpl<TimeSpan>(AnimationSpan.DurationProperty, model);
+        tmp[0] = new CorePropertyImpl<TimeSpan>(AnimationSpan.DurationProperty, model);
         Properties.Add(CreateContext(tmp));
 
-        tmp[0] = new CorePropertyClientImpl<Easing>(AnimationSpan.EasingProperty, model);
+        tmp[0] = new CorePropertyImpl<Easing>(AnimationSpan.EasingProperty, model);
         Properties.Add(CreateContext(tmp));
 
         Header = model.GetObservable(AnimationSpan.EasingProperty)

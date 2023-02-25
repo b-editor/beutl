@@ -5,9 +5,6 @@ using Beutl.Animation.Easings;
 using Beutl.Commands;
 using Beutl.Framework;
 using Beutl.ProjectSystem;
-using Beutl.Services;
-using Beutl.Services.Editors.Wrappers;
-using Beutl.ViewModels.Editors;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;

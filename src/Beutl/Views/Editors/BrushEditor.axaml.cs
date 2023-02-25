@@ -5,9 +5,8 @@ using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
-using Beutl.Commands;
 using Beutl.Media;
-using Beutl.Services.Editors.Wrappers;
+using Beutl.Operation;
 using Beutl.Styling;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
@@ -96,7 +95,7 @@ public sealed partial class BrushEditor : UserControl
         if (DataContext is BrushEditorViewModel viewModel)
         {
             if (this.FindLogicalAncestorOfType<StyleEditor>()?.DataContext is StyleEditorViewModel parentViewModel
-                && viewModel.WrappedProperty is IStylingSetterWrapper wrapper
+                && viewModel.WrappedProperty is IStylingSetterPropertyImpl wrapper
                 && parentViewModel.Style.Value is Style style)
             {
                 style.Setters.BeginRecord<ISetter>()

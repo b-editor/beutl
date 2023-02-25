@@ -2,11 +2,10 @@
 using System.Text.Json.Nodes;
 
 using Beutl.Framework;
+using Beutl.Operation;
 using Beutl.Services;
-using Beutl.Services.Editors.Wrappers;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Styling;
-using Beutl.ViewModels.Editors;
 
 using Reactive.Bindings;
 
@@ -58,7 +57,7 @@ public sealed class StyleEditorViewModel : IToolContext
                 _disposable1 = style.Setters.ForEachItem(
                     (idx, item) =>
                     {
-                        Type wrapperType = typeof(StylingSetterClientImpl<>);
+                        Type wrapperType = typeof(StylingSetterPropertyImpl<>);
                         wrapperType = wrapperType.MakeGenericType(item.Property.PropertyType);
                         var wrapper = (IAbstractProperty)Activator.CreateInstance(wrapperType, item)!;
                         CoreProperty[] tmp1 = ArrayPool<CoreProperty>.Shared.Rent(1);
