@@ -11,7 +11,7 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
 {
     private CoreProperty<T>? _property;
     private T? _value;
-    private Animation<T>? _animation;
+    private IAnimation<T>? _animation;
     private bool _isDefault;
 
     public Setter()
@@ -80,7 +80,7 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
         }
     }
 
-    public Animation<T>? Animation
+    public IAnimation<T>? Animation
     {
         get => _animation;
         set

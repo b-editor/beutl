@@ -1,5 +1,4 @@
-﻿
-using Beutl.Animation;
+﻿using Beutl.Animation;
 
 namespace Beutl.Styling;
 
@@ -29,9 +28,9 @@ public class SetterInstance<T> : ISetterInstance
     public void Apply(IClock clock)
     {
         if (Setter.Animation is { } animation
-            && animation.Children.Count > 0)
+            && Target is Animatable animatable)
         {
-            animation.ApplyTo(Target, clock.CurrentTime);
+            animation.ApplyAnimation(animatable, clock);
         }
         else
         {

@@ -23,7 +23,7 @@ public abstract class Animatable : CoreObject, IAnimatable
     {
         foreach (IAnimation? item in Animations.GetMarshal().Value)
         {
-            item.ApplyTo(this, clock.CurrentTime);
+            item.ApplyAnimation(this, clock);
         }
     }
 

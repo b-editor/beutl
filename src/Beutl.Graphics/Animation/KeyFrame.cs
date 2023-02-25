@@ -2,36 +2,34 @@
 
 using Beutl.Animation.Easings;
 using Beutl.Language;
-using Beutl.Styling;
 
 namespace Beutl.Animation;
 
-public abstract class AnimationSpan : CoreObject
+public class KeyFrame : CoreObject
 {
     public static readonly CoreProperty<Easing> EasingProperty;
-    public static readonly CoreProperty<TimeSpan> DurationProperty;
+    public static readonly CoreProperty<TimeSpan> KeyTimeProperty;
     private Easing _easing;
-    private TimeSpan _duration;
+    private TimeSpan _keyTime;
 
-    protected AnimationSpan()
+    protected KeyFrame()
     {
-        _easing = (EasingProperty.GetMetadata<CorePropertyMetadata<Easing>>(GetType()).DefaultValue) ?? new LinearEasing();
+        _easing = EasingProperty.GetMetadata<CorePropertyMetadata<Easing>>(GetType()).DefaultValue ?? new LinearEasing();
     }
 
-    static AnimationSpan()
+    static KeyFrame()
     {
-        EasingProperty = ConfigureProperty<Easing, AnimationSpan>(nameof(Easing))
+        EasingProperty = ConfigureProperty<Easing, KeyFrame>(nameof(Easing))
             .Accessor(o => o.Easing, (o, v) => o.Easing = v)
             .Display(Strings.Easing)
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .DefaultValue(new LinearEasing())
             .Register();
 
-        DurationProperty = ConfigureProperty<TimeSpan, AnimationSpan>(nameof(Duration))
-            .Accessor(o => o.Duration, (o, v) => o.Duration = v)
-            .Display(Strings.DurationTime)
+        KeyTimeProperty = ConfigureProperty<TimeSpan, KeyFrame>(nameof(KeyTime))
+            .Accessor(o => o.KeyTime, (o, v) => o.KeyTime = v)
             .PropertyFlags(PropertyFlags.NotifyChanged)
-            .SerializeName("duration")
+            .SerializeName("key-time")
             .Register();
     }
 
@@ -41,10 +39,10 @@ public abstract class AnimationSpan : CoreObject
         set => SetAndRaise(EasingProperty, ref _easing, value);
     }
 
-    public TimeSpan Duration
+    public TimeSpan KeyTime
     {
-        get => _duration;
-        set => SetAndRaise(DurationProperty, ref _duration, value);
+        get => _keyTime;
+        set => SetAndRaise(KeyTimeProperty, ref _keyTime, value);
     }
 
     public override void WriteToJson(ref JsonNode json)
