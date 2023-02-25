@@ -6,12 +6,12 @@ namespace Beutl.Views.AnimationVisualizer;
 
 public abstract class AnimationVisualizer<T> : Control
 {
-    protected AnimationVisualizer(Animation<T> animation)
+    protected AnimationVisualizer(IAnimation<T> animation)
     {
         Animation = animation;
     }
 
-    protected Animation<T> Animation { get; }
+    protected IAnimation<T> Animation { get; }
 
     protected TimeSpan CalculateDuration()
     {
@@ -21,18 +21,36 @@ public abstract class AnimationVisualizer<T> : Control
 
 public abstract class AnimationSpanVisualizer<T> : Control
 {
-    protected AnimationSpanVisualizer(Animation<T> animation, AnimationSpan<T> animationSpan)
+    protected AnimationSpanVisualizer(KeyFrameAnimation<T> animation, KeyFrame<T> keyframe)
     {
         Animation = animation;
-        AnimationSpan = animationSpan;
+        KeyFrame = keyframe;
     }
 
-    protected Animation<T> Animation { get; }
+    protected KeyFrameAnimation<T> Animation { get; }
 
-    protected AnimationSpan<T> AnimationSpan { get; }
+    protected KeyFrame<T> KeyFrame { get; }
+
+    protected T Interpolate(float progress)
+    {
+        IKeyFrame? prev = Animation.GetPreviousAndNextKeyFrame(KeyFrame).Previous;
+
+        T prevValue = prev is KeyFrame<T> prev2 ? prev2.Value : KeyFrame<T>.s_animator.DefaultValue();
+        T nextValue = KeyFrame.Value;
+
+        float ease = KeyFrame.Easing.Ease(progress);
+        return KeyFrame<T>.s_animator.Interpolate(ease, prevValue, nextValue);
+    }
 
     protected TimeSpan CalculateDuration()
     {
         return Animation.CalculateDuration();
+    }
+
+    protected TimeSpan CalculateKeyFrameLength()
+    {
+        IKeyFrame? prev = Animation.GetPreviousAndNextKeyFrame(KeyFrame).Previous;
+        TimeSpan prevTime = prev?.KeyTime ?? TimeSpan.Zero;
+        return KeyFrame.KeyTime - prevTime;
     }
 }

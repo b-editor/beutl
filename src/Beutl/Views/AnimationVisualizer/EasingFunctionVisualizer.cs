@@ -20,7 +20,7 @@ public class EasingFunctionVisualizer<T> : AnimationVisualizer<T>
         Thickness = 2.5,
     };
 
-    public EasingFunctionVisualizer(Animation<T> animation)
+    public EasingFunctionVisualizer(IAnimation<T> animation)
         : base(animation)
     {
     }
@@ -60,57 +60,62 @@ public class EasingFunctionVisualizer<T> : AnimationVisualizer<T>
 
     private void InvalidatePoints()
     {
-        TimeSpan duration = CalculateDuration();
-        Span<AnimationSpan<T>> span = Animation.Children.GetMarshal().Value;
-        _points ??= new(span.Length);
-        EnsureCapacity(_points, span.Length);
-
-        int index = 0;
-        float right = 0;
-        int totaldiv = (int)duration.TotalMilliseconds / 100;
-
-        foreach (AnimationSpan<T> item in span)
+        if (Animation is KeyFrameAnimation<T> kfAnimation)
         {
-            float p = (float)(item.Duration / duration);
-            int div = (int)(totaldiv * p);
+            TimeSpan duration = CalculateDuration();
+            Span<IKeyFrame> span = kfAnimation.KeyFrames.GetMarshal().Value;
+            _points ??= new(span.Length);
+            EnsureCapacity(_points, span.Length);
 
-            PooledList<Vector2>? inner;
-            if (index < _points.Count)
+            int index = 0;
+            float right = 0;
+            int totaldiv = (int)duration.TotalMilliseconds / 100;
+            TimeSpan prevTime = default;
+
+            foreach (IKeyFrame item in span)
             {
-                inner = _points[index];
+                float p = (float)((item.KeyTime - prevTime) / duration);
+                int div = (int)(totaldiv * p);
+
+                PooledList<Vector2>? inner;
+                if (index < _points.Count)
+                {
+                    inner = _points[index];
+                }
+                else
+                {
+                    inner = new PooledList<Vector2>();
+                    _points.Add(inner);
+                }
+
+                inner.Clear();
+                EnsureCapacity(inner, div);
+                for (int i = 0; i <= div; i++)
+                {
+                    float value = item.Easing.Ease(i / (float)div);
+
+                    value = Math.Abs(value - 1);
+
+                    inner.Add(new Vector2((i / (float)div * p) + right, value));
+                }
+
+                right += p;
+                index++;
+                prevTime = item.KeyTime;
             }
-            else
+
+            for (int i = index; i < _points.Count; i++)
             {
-                inner = new PooledList<Vector2>();
-                _points.Add(inner);
+                _points[i].Dispose();
             }
 
-            inner.Clear();
-            EnsureCapacity(inner, div);
-            for (int i = 0; i <= div; i++)
-            {
-                float value = item.Easing.Ease(i / (float)div);
-
-                value = Math.Abs(value - 1);
-
-                inner.Add(new Vector2((i / (float)div * p) + right, value));
-            }
-
-            right += p;
-            index++;
+            _points.RemoveRange(index, _points.Count - index);
         }
-
-        for (int i = index; i < _points.Count; i++)
-        {
-            _points[i].Dispose();
-        }
-
-        _points.RemoveRange(index, _points.Count - index);
     }
 
     public override void Render(DrawingContext context)
     {
-        if (_points == null || _points.Count <= 0)
+        if (_points == null || _points.Count == 0)
         {
             InvalidatePoints();
         }
@@ -134,7 +139,7 @@ public class EasingFunctionVisualizer<T> : AnimationVisualizer<T>
                     }
                     else
                     {
-                        var actual = point * m;
+                        Vector2 actual = point * m;
                         context.DrawLine(
                             _pen,
                             new Point(prev.X, prev.Y),
@@ -159,8 +164,8 @@ public class EasingFunctionSpanVisualizer<T> : AnimationSpanVisualizer<T>
         Thickness = 2.5,
     };
 
-    public EasingFunctionSpanVisualizer(Animation<T> animation, AnimationSpan<T> animationSpan)
-        : base(animation, animationSpan)
+    public EasingFunctionSpanVisualizer(KeyFrameAnimation<T> animation, KeyFrame<T> keyframe)
+        : base(animation, keyframe)
     {
     }
 
@@ -168,14 +173,14 @@ public class EasingFunctionSpanVisualizer<T> : AnimationSpanVisualizer<T>
     {
         base.OnAttachedToLogicalTree(e);
         Animation.Invalidated += OnAnimationInvalidated;
-        AnimationSpan.Invalidated += OnAnimationInvalidated;
+        KeyFrame.Invalidated += OnAnimationInvalidated;
     }
 
     protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromLogicalTree(e);
         Animation.Invalidated -= OnAnimationInvalidated;
-        AnimationSpan.Invalidated -= OnAnimationInvalidated;
+        KeyFrame.Invalidated -= OnAnimationInvalidated;
         _points?.Dispose();
         _points = null;
     }
@@ -203,7 +208,7 @@ public class EasingFunctionSpanVisualizer<T> : AnimationSpanVisualizer<T>
     {
         TimeSpan duration = CalculateDuration();
         int totaldiv = (int)duration.TotalMilliseconds / 100;
-        float p = (float)(AnimationSpan.Duration / duration);
+        float p = (float)(CalculateKeyFrameLength() / duration);
         int div = (int)(totaldiv * p);
 
         if (_points == null)
@@ -219,7 +224,7 @@ public class EasingFunctionSpanVisualizer<T> : AnimationSpanVisualizer<T>
         for (int i = 0; i <= div; i++)
         {
             float progress = i / (float)div;
-            float value = AnimationSpan.Easing.Ease(progress);
+            float value = KeyFrame.Easing.Ease(progress);
 
             value = Math.Abs(value - 1);
 
@@ -229,7 +234,7 @@ public class EasingFunctionSpanVisualizer<T> : AnimationSpanVisualizer<T>
 
     public override void Render(DrawingContext context)
     {
-        if (_points == null || _points.Count <= 0)
+        if (_points == null || _points.Count == 0)
         {
             InvalidatePoints();
         }

@@ -23,7 +23,7 @@ public abstract class NumberAnimationVisualizer<T> : AnimationVisualizer<T>
     };
     private IDisposable? _disposable;
 
-    protected NumberAnimationVisualizer(Animation<T> animation)
+    protected NumberAnimationVisualizer(IAnimation<T> animation)
         : base(animation)
     {
     }
@@ -124,8 +124,8 @@ public abstract class NumberAnimationSpanVisualizer<T> : AnimationSpanVisualizer
     };
     private IDisposable? _disposable;
 
-    protected NumberAnimationSpanVisualizer(Animation<T> animation, AnimationSpan<T> animationSpan)
-        : base(animation, animationSpan)
+    protected NumberAnimationSpanVisualizer(KeyFrameAnimation<T> animation, KeyFrame<T> keyframe)
+        : base(animation, keyframe)
     {
     }
 
@@ -133,7 +133,7 @@ public abstract class NumberAnimationSpanVisualizer<T> : AnimationSpanVisualizer
     {
         base.OnAttachedToLogicalTree(e);
         Animation.Invalidated += OnAnimationInvalidated;
-        AnimationSpan.Invalidated += OnAnimationInvalidated;
+        KeyFrame.Invalidated += OnAnimationInvalidated;
         _disposable = this.GetResourceObservable("TextControlForeground").Subscribe(b =>
         {
             if (b is IBrush brush)
@@ -148,7 +148,7 @@ public abstract class NumberAnimationSpanVisualizer<T> : AnimationSpanVisualizer
     {
         base.OnDetachedFromLogicalTree(e);
         Animation.Invalidated -= OnAnimationInvalidated;
-        AnimationSpan.Invalidated -= OnAnimationInvalidated;
+        KeyFrame.Invalidated -= OnAnimationInvalidated;
         _disposable?.Dispose();
         _disposable = null;
     }

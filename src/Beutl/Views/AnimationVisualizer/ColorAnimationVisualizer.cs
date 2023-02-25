@@ -13,7 +13,7 @@ public sealed class ColorAnimationVisualizer : AnimationVisualizer<Media.Color>
     private const int BitmapHeight = 25;
     private WriteableBitmap? _tempBitmap;
 
-    public ColorAnimationVisualizer(Animation<Media.Color> animation)
+    public ColorAnimationVisualizer(IAnimation<Media.Color> animation)
         : base(animation)
     {
     }
@@ -91,8 +91,8 @@ public sealed class ColorAnimationSpanVisualizer : AnimationSpanVisualizer<Media
         AffectsRender<ColorAnimationSpanVisualizer>(IsPointerOverProperty);
     }
 
-    public ColorAnimationSpanVisualizer(Animation<Media.Color> animation, AnimationSpan<Media.Color> animationSpan)
-        : base(animation, animationSpan)
+    public ColorAnimationSpanVisualizer(KeyFrameAnimation<Media.Color> animation, KeyFrame<Media.Color> keyframe)
+        : base(animation, keyframe)
     {
     }
 
@@ -100,7 +100,7 @@ public sealed class ColorAnimationSpanVisualizer : AnimationSpanVisualizer<Media
     {
         base.OnAttachedToLogicalTree(e);
         Animation.Invalidated += OnAnimationInvalidated;
-        AnimationSpan.Invalidated += OnAnimationInvalidated;
+        KeyFrame.Invalidated += OnAnimationInvalidated;
         _tempBitmap = new WriteableBitmap(new PixelSize(BitmapWidth, BitmapHeight), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
         RenderBitmap();
     }
@@ -109,7 +109,7 @@ public sealed class ColorAnimationSpanVisualizer : AnimationSpanVisualizer<Media
     {
         base.OnDetachedFromLogicalTree(e);
         Animation.Invalidated -= OnAnimationInvalidated;
-        AnimationSpan.Invalidated -= OnAnimationInvalidated;
+        KeyFrame.Invalidated -= OnAnimationInvalidated;
         _tempBitmap?.Dispose();
         _tempBitmap = null;
     }
@@ -133,7 +133,8 @@ public sealed class ColorAnimationSpanVisualizer : AnimationSpanVisualizer<Media
                     Parallel.For(0, BitmapWidth, x =>
                     {
                         float p = x / (float)BitmapWidth;
-                        Media.Color color = AnimationSpan.Interpolate(p);
+
+                        Media.Color color = Interpolate(p);
                         for (int y = 0; y < BitmapHeight; y++)
                         {
                             int pos = (y * BitmapWidth) + x;

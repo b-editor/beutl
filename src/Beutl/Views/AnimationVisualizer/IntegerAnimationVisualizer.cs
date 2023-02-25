@@ -9,7 +9,7 @@ namespace Beutl.Views.AnimationVisualizer;
 public class IntegerAnimationVisualizer<T> : NumberAnimationVisualizer<T>
     where T : INumber<T>, IMinMaxValue<T>, IBinaryInteger<T>
 {
-    public IntegerAnimationVisualizer(Animation<T> animation)
+    public IntegerAnimationVisualizer(IAnimation<T> animation)
         : base(animation)
     {
     }
@@ -31,19 +31,16 @@ public class IntegerAnimationVisualizer<T> : NumberAnimationVisualizer<T>
             points.Capacity = newCapacity;
         }
 
-        if (Animation.Children.Count > 0)
+        float sub = float.CreateTruncating(max - min);
+        for (int i = 0; i <= div; i++)
         {
-            float sub = float.CreateTruncating(max - min);
-            for (int i = 0; i <= div; i++)
-            {
-                float progress = i / (float)div;
-                TimeSpan ts = duration * progress;
+            float progress = i / (float)div;
+            TimeSpan ts = duration * progress;
 
-                float value = float.CreateTruncating(Animation.Interpolate(ts) - min) / sub;
-                value = Math.Abs(value - 1);
+            float value = float.CreateTruncating(Animation.Interpolate(ts) - min) / sub;
+            value = Math.Abs(value - 1);
 
-                points.Add(new Vector2(progress, value));
-            }
+            points.Add(new Vector2(progress, value));
         }
     }
 }
@@ -51,8 +48,8 @@ public class IntegerAnimationVisualizer<T> : NumberAnimationVisualizer<T>
 public class IntegerAnimationSpanVisualizer<T> : NumberAnimationSpanVisualizer<T>
     where T : INumber<T>, IMinMaxValue<T>, IBinaryInteger<T>
 {
-    public IntegerAnimationSpanVisualizer(Animation<T> animation, AnimationSpan<T> animationSpan)
-        : base(animation, animationSpan)
+    public IntegerAnimationSpanVisualizer(KeyFrameAnimation<T> animation, KeyFrame<T> keyframe)
+        : base(animation, keyframe)
     {
     }
 
@@ -61,7 +58,7 @@ public class IntegerAnimationSpanVisualizer<T> : NumberAnimationSpanVisualizer<T
         points.Clear();
         TimeSpan duration = CalculateDuration();
         (T min, T max) = CalculateRange(duration);
-        int div = (int)AnimationSpan.Duration.TotalMilliseconds / 100;
+        int div = (int)CalculateKeyFrameLength().TotalMilliseconds / 100;
         // EnsureCapacity
         if (points.Capacity < div)
         {
@@ -78,7 +75,7 @@ public class IntegerAnimationSpanVisualizer<T> : NumberAnimationSpanVisualizer<T
         {
             float progress = i / (float)div;
 
-            float value = float.CreateTruncating(AnimationSpan.Interpolate(progress) - min) / sub;
+            float value = float.CreateTruncating(Interpolate(progress) - min) / sub;
             value = Math.Abs(value - 1);
 
             points.Add(new Vector2(progress, value));
