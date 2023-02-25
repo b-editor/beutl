@@ -1,4 +1,6 @@
 ﻿
+using System.ComponentModel;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
@@ -7,6 +9,7 @@ using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 
 using Beutl.Configuration;
+using Beutl.ViewModels;
 
 using FluentAvalonia.Styling;
 using FluentAvalonia.UI.Media;
@@ -50,6 +53,15 @@ public sealed partial class MainWindow : AppWindow
             thm.UseSystemFontOnWindows = false;
 
             thm.ForceWin32WindowToTheme(this);
+        }
+    }
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        base.OnClosing(e);
+        if (DataContext is MainViewModel viewModel)
+        {
+            viewModel.CloseProject.Execute();
         }
     }
 

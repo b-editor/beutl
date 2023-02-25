@@ -189,9 +189,20 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
     public void ReadFromJson(JsonNode json)
     {
+        if (Layer.Value == null
+            && (json as JsonObject)?.TryGetPropertyValue("layer-filename", out JsonNode? filenameNode) == true
+            && (filenameNode as JsonValue)?.TryGetValue(out string? filename) == true
+            && filename != null)
+        {
+            Layer.Value = _editViewModel.Scene.Children.FirstOrDefault(x => x.FileName == filename);
+        }
     }
 
     public void WriteToJson(ref JsonNode json)
     {
+        if (Layer.Value is { FileName: { } filename })
+        {
+            json["layer-filename"] = filename;
+        }
     }
 }
