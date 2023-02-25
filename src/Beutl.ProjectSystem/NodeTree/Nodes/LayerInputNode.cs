@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
+using Beutl.Animation;
 using Beutl.Framework;
 using Beutl.Media;
 using Beutl.NodeTree.Nodes.Group;
@@ -24,8 +25,6 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
     public class LayerInputSocket<T> : OutputSocket<T>, ILayerInputSocket, IGroupSocket
     {
         private SetterPropertyImpl<T>? _property;
-        private IDisposable? _disposable;
-        private bool _hasAnimation = false;
 
         static LayerInputSocket()
         {
@@ -36,13 +35,10 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
 
         public void SetProperty(SetterPropertyImpl<T> property)
         {
-            _disposable?.Dispose();
-
             _property = property;
             AssociatedProperty = property.Property;
 
             property.Setter.Invalidated += OnSetterInvalidated;
-            _disposable = property.HasAnimation.Subscribe(v => _hasAnimation = v);
         }
 
         void ILayerInputSocket.SetProperty(IAbstractProperty property)
@@ -75,9 +71,9 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         {
             if (GetProperty() is { } property)
             {
-                if (_hasAnimation && property is IAbstractAnimatableProperty<T> animatableProperty)
+                if (property is IAbstractAnimatableProperty<T> { Animation: IAnimation<T> animation })
                 {
-                    Value = animatableProperty.Animation.Interpolate(context.Clock.CurrentTime);
+                    Value = animation.Interpolate(context.Clock.CurrentTime);
                 }
                 else
                 {
@@ -145,7 +141,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         base.ReadFromJson(json);
         if (json is JsonObject obj)
         {
-            if (obj.TryGetPropertyValue("items", out var itemsNode)
+            if (obj.TryGetPropertyValue("items", out JsonNode? itemsNode)
                 && itemsNode is JsonArray itemsArray)
             {
                 int index = 0;

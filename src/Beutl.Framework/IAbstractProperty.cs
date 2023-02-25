@@ -55,94 +55,61 @@ public interface IAbstractProperty<T> : IAbstractProperty
 
 public interface IAbstractAnimatableProperty : IAbstractProperty
 {
-    IAnimation Animation { get; }
+    IAnimation? Animation { get; }
 
-    IObservable<bool> HasAnimation { get; }
+    IObservable<IAnimation?> ObserveAnimation { get; }
 
-    IAnimationSpan CreateSpan(Easing easing);
-
-    internal (IAbstractProperty Previous, IAbstractProperty Next) CreateSpanWrapper(IAnimationSpan animationSpan);
+    internal IAbstractProperty CreateKeyFrameProperty(IKeyFrameAnimation animation, IKeyFrame keyFrame);
 }
 
 public interface IAbstractAnimatableProperty<T> : IAbstractProperty<T>, IAbstractAnimatableProperty
 {
-    new Animation<T> Animation { get; }
+    new IAnimation<T>? Animation { get; }
 
-    IAnimation IAbstractAnimatableProperty.Animation => Animation;
+    new IObservable<IAnimation<T>?> ObserveAnimation { get; }
 
-    IAnimationSpan IAbstractAnimatableProperty.CreateSpan(Easing easing)
+    IAnimation? IAbstractAnimatableProperty.Animation => Animation;
+
+    IObservable<IAnimation?> IAbstractAnimatableProperty.ObserveAnimation => ObserveAnimation;
+
+    IAbstractProperty IAbstractAnimatableProperty.CreateKeyFrameProperty(IKeyFrameAnimation animation, IKeyFrame keyFrame)
     {
-        CoreProperty<T> property = Property;
-        Type ownerType = ImplementedType;
-        T? defaultValue = GetValue();
-        bool hasDefaultValue = true;
-        if (defaultValue == null)
-        {
-            // メタデータをOverrideしている可能性があるので、owner.GetType()をする必要がある。
-            CorePropertyMetadata<T> metadata = property.GetMetadata<CorePropertyMetadata<T>>(ownerType);
-            defaultValue = metadata.DefaultValue;
-            hasDefaultValue = metadata.HasDefaultValue;
-        }
-
-        var span = new AnimationSpan<T>
-        {
-            Easing = easing,
-            Duration = TimeSpan.FromSeconds(2)
-        };
-
-        if (hasDefaultValue && defaultValue != null)
-        {
-            span.Previous = defaultValue;
-            span.Next = defaultValue;
-        }
-
-        return span;
-    }
-
-    (IAbstractProperty Previous, IAbstractProperty Next) IAbstractAnimatableProperty.CreateSpanWrapper(IAnimationSpan animationSpan)
-    {
-        return (new AnimationSpanPropertyWrapper<T>((AnimationSpan<T>)animationSpan, Animation, true),
-            new AnimationSpanPropertyWrapper<T>((AnimationSpan<T>)animationSpan, Animation, false));
+        return new KeyFramePropertyWrapper<T>((KeyFrame<T>)keyFrame, (KeyFrameAnimation<T>)animation);
     }
 }
 
-internal sealed class AnimationSpanPropertyWrapper<T> : IAbstractProperty<T>
+internal sealed class KeyFramePropertyWrapper<T> : IAbstractProperty<T>
 {
-    private readonly AnimationSpan<T> _animationSpan;
-    private readonly Animation<T> _animation;
+    private readonly KeyFrame<T> _keyFrame;
+    private readonly KeyFrameAnimation<T> _animation;
 
-    public AnimationSpanPropertyWrapper(AnimationSpan<T> animationSpan, Animation<T> animation, bool previous)
+    public KeyFramePropertyWrapper(KeyFrame<T> keyFrame, KeyFrameAnimation<T> animation)
     {
-        _animationSpan = animationSpan;
+        _keyFrame = keyFrame;
         _animation = animation;
-        Previous = previous;
     }
 
     public CoreProperty<T> Property => _animation.Property;
 
     public Type ImplementedType => Property.OwnerType;
 
-    public bool Previous { get; }
-
     public IObservable<T?> GetObservable()
     {
-        return _animationSpan.GetObservable(GetProperty());
+        return _keyFrame.GetObservable(GetProperty());
     }
 
     public T? GetValue()
     {
-        return Previous ? _animationSpan.Previous : _animationSpan.Next;
+        return _keyFrame.Value;
     }
 
     public void SetValue(T? value)
     {
-        _animationSpan.SetValue(GetProperty(), value);
+        _keyFrame.SetValue(GetProperty(), value);
     }
 
     private CoreProperty<T> GetProperty()
     {
-        return Previous
-            ? AnimationSpan<T>.PreviousProperty
-            : AnimationSpan<T>.NextProperty;
+        return KeyFrame<T>.ValueProperty;
     }
 }

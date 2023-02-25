@@ -1,4 +1,5 @@
-﻿using Beutl.Framework;
+﻿using Beutl.Animation;
+using Beutl.Framework;
 using Beutl.Media;
 
 namespace Beutl.NodeTree;
@@ -54,26 +55,10 @@ public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
 {
     private IAbstractProperty<T>? _property;
 
-    // HasAnimationの変更通知を取り消す
-    private IDisposable? _disposable;
-    private bool _hasAnimation = false;
-
     public IAbstractProperty<T>? Property
     {
         get => _property;
-        protected set
-        {
-            if (_property != value)
-            {
-                _disposable?.Dispose();
-                _property = value;
-                _hasAnimation = false;
-                if (value is IAbstractAnimatableProperty<T> animatableProperty)
-                {
-                    _disposable = animatableProperty.HasAnimation.Subscribe(v => _hasAnimation = v);
-                }
-            }
-        }
+        protected set => _property = value;
     }
 
     // レンダリング時に変更されるので、変更通知は必要ない
@@ -89,9 +74,9 @@ public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
     {
         if (Property is { } property)
         {
-            if (_hasAnimation && property is IAbstractAnimatableProperty<T> animatableProperty)
+            if (property is IAbstractAnimatableProperty<T> { Animation: IAnimation<T> animation })
             {
-                Value = animatableProperty.Animation.Interpolate(context.Clock.CurrentTime);
+                Value = animation.Interpolate(context.Clock.CurrentTime);
             }
             else
             {

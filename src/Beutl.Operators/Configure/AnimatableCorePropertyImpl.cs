@@ -1,50 +1,44 @@
-﻿using System.Reactive.Linq;
-
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Framework;
 using Beutl.Reactive;
-
-using Reactive.Bindings.Extensions;
 
 namespace Beutl.Operators.Configure;
 
 public sealed class AnimatableCorePropertyImpl<T> : CorePropertyImpl<T>, IAbstractAnimatableProperty<T>
 {
-    private sealed class HasAnimationObservable : LightweightObservableBase<bool>
+    private sealed class AnimationObservable : LightweightObservableBase<IAnimation<T>?>
     {
         private readonly CoreProperty<T> _property;
         private readonly Animatable _obj;
         private IDisposable? _disposable0;
-        private IDisposable? _disposable1;
 
-        public HasAnimationObservable(CoreProperty<T> property, Animatable obj)
+        public AnimationObservable(CoreProperty<T> property, Animatable obj)
         {
             _property = property;
             _obj = obj;
         }
 
-        protected override void Subscribed(IObserver<bool> observer, bool first)
+        protected override void Subscribed(IObserver<IAnimation<T>?> observer, bool first)
         {
             base.Subscribed(observer, first);
             foreach (IAnimation item in _obj.Animations.GetMarshal().Value)
             {
                 if (item.Property.Id == _property.Id
-                    && item is Animation<T> { Children.Count: > 0 })
+                    && item is IAnimation<T> animation)
                 {
-                    observer.OnNext(true);
+                    observer.OnNext(animation);
                     return;
                 }
             }
 
-            observer.OnNext(false);
+            observer.OnNext(null);
         }
 
         protected override void Deinitialize()
         {
             _disposable0?.Dispose();
-            _disposable1?.Dispose();
-            (_disposable0, _disposable1) = (null, null);
+            _disposable0 = null;
         }
 
         protected override void Initialize()
@@ -53,26 +47,21 @@ public sealed class AnimatableCorePropertyImpl<T> : CorePropertyImpl<T>, IAbstra
             _disposable0 = _obj.Animations.ForEachItem(
                 item =>
                 {
-                    if (item.Property.Id == _property.Id)
+                    if (item.Property.Id == _property.Id
+                        && item is IAnimation<T> animation)
                     {
-                        _disposable1?.Dispose();
-                        _disposable1 = item.Children.ObserveProperty(x => x.Count)
-                            .Select(x => x > 0)
-                            .Subscribe(x => PublishNext(x));
+                        PublishNext(animation);
                     }
                 },
                 item =>
                 {
                     if (item.Property.Id == _property.Id)
                     {
-                        _disposable1?.Dispose();
-                        _disposable1 = null;
+                        PublishNext(null);
                     }
                 },
                 () =>
                 {
-                    _disposable1?.Dispose();
-                    _disposable1 = null;
                 });
         }
     }
@@ -80,28 +69,26 @@ public sealed class AnimatableCorePropertyImpl<T> : CorePropertyImpl<T>, IAbstra
     public AnimatableCorePropertyImpl(CoreProperty<T> property, Animatable obj)
         : base(property, obj)
     {
-        HasAnimation = new HasAnimationObservable(property, obj);
+        ObserveAnimation = new AnimationObservable(property, obj);
     }
 
-    public Animation<T> Animation => GetAnimation();
+    public IAnimation<T>? Animation => GetAnimation();
 
-    public IObservable<bool> HasAnimation { get; }
+    public IObservable<IAnimation<T>?> ObserveAnimation { get; }
 
-    private Animation<T> GetAnimation()
+    private IAnimation<T>? GetAnimation()
     {
         var animatable = (Animatable)Object;
 
         foreach (IAnimation item in animatable.Animations.GetMarshal().Value)
         {
             if (item.Property.Id == Property.Id
-                && item is Animation<T> animation1)
+                && item is IAnimation<T> animation1)
             {
                 return animation1;
             }
         }
 
-        var animation2 = new Animation<T>(Property);
-        animatable.Animations.Add(animation2);
-        return animation2;
+        return null;
     }
 }
