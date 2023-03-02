@@ -44,23 +44,23 @@ public partial class InlineAnimationLayerHeader : UserControl
 
     private void OpenAnimationTimelineClick(object? sender, RoutedEventArgs e)
     {
-        if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
-            && DataContext is InlineAnimationLayerViewModel viewModel)
-        {
-            // タイムラインのタブを開く
-            AnimationTimelineViewModel? anmTimelineViewModel =
-                editViewModel.FindToolTab<AnimationTimelineViewModel>(x => ReferenceEquals(x.WrappedProperty, viewModel.Property));
+        //if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
+        //    && DataContext is InlineAnimationLayerViewModel viewModel)
+        //{
+        //    // タイムラインのタブを開く
+        //    AnimationTimelineViewModel? anmTimelineViewModel =
+        //        editViewModel.FindToolTab<AnimationTimelineViewModel>(x => ReferenceEquals(x.WrappedProperty, viewModel.Property));
 
-            anmTimelineViewModel ??= new AnimationTimelineViewModel(viewModel.Property, editViewModel)
-            {
-                IsSelected =
-                {
-                    Value = true
-                }
-            };
+        //    anmTimelineViewModel ??= new AnimationTimelineViewModel(viewModel.Property, editViewModel)
+        //    {
+        //        IsSelected =
+        //        {
+        //            Value = true
+        //        }
+        //    };
 
-            editViewModel.OpenToolTab(anmTimelineViewModel);
-        }
+        //    editViewModel.OpenToolTab(anmTimelineViewModel);
+        //}
     }
 
     private sealed class _DragBehavior : GenericDragBehavior
