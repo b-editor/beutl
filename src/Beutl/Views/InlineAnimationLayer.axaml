@@ -1,35 +1,20 @@
 <UserControl x:Class="Beutl.Views.InlineAnimationLayer"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:convert="using:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:editors="using:Beutl.Views.AnimationEditors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Beutl.ViewModels"
-             Height="{Binding ObserveHeight.Value}"
+             Height="{DynamicResource LayerHeight}"
              Margin="{Binding Margin.Value}"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Top"
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="vm:InlineAnimationLayerViewModel"
+             Background="Transparent"
              mc:Ignorable="d">
     <Panel>
-        <ItemsControl x:Name="items"
-                      HorizontalAlignment="Left"
-                      VerticalAlignment="Stretch"
-                      Items="{CompiledBinding Items}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <StackPanel Orientation="Horizontal" />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <editors:InlineAnimationEditor />
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
-
         <Border x:Name="border"
                 Width="{CompiledBinding Layer.Width.Value, Mode=OneWay}"
                 Margin="{CompiledBinding Layer.BorderMargin.Value, Mode=OneWay}"
@@ -37,5 +22,34 @@
                 VerticalAlignment="Stretch"
                 BorderBrush="{CompiledBinding Layer.Color.Value, Converter={StaticResource ColorToBrushConverter}}"
                 BorderThickness="1,0" />
+
+        <ItemsControl x:Name="items"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Stretch"
+                      Items="{CompiledBinding Items}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <Panel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Path Margin="{Binding Left.Value, ConverterParameter='Left', Converter={x:Static convert:ThicknessConverter.Instance}}"
+                          HorizontalAlignment="Left"
+                          VerticalAlignment="Center"
+                          Fill="Yellow">
+                        <Path.Data>
+                            <PathGeometry>
+                                <PathFigure StartPoint="0,0">
+                                    <LineSegment Point="6,6" />
+                                    <LineSegment Point="0,12" />
+                                    <LineSegment Point="-6,6" />
+                                </PathFigure>
+                            </PathGeometry>
+                        </Path.Data>
+                    </Path>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
     </Panel>
 </UserControl>

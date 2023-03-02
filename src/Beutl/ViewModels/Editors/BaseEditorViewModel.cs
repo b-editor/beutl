@@ -25,7 +25,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext
         Header = metadata.DisplayAttribute?.GetName() ?? property.Property.Name;
 
         IObservable<bool> hasAnimation = property is IAbstractAnimatableProperty anm
-            ? anm.HasAnimation
+            ? anm.ObserveAnimation.Select(x => x != null)
             : Observable.Return(false);
 
         IObservable<bool>? observable;

@@ -22,7 +22,7 @@ public sealed class LayerHeaderViewModel : IDisposable
 
         HasItems = ItemsCount.Select(i => i > 0)
             .ToReadOnlyReactivePropertySlim()
-            .AddTo(_disposables);
+            .DisposeWith(_disposables);
 
         IsEnabled.Subscribe(b =>
         {
@@ -44,9 +44,9 @@ public sealed class LayerHeaderViewModel : IDisposable
             }
 
             command?.DoAndRecord(CommandRecorder.Default);
-        }).AddTo(_disposables);
+        }).DisposeWith(_disposables);
 
-        Height.Subscribe(_ => Timeline.RaiseLayerHeightChanged(this)).AddTo(_disposables);
+        Height.Subscribe(_ => Timeline.RaiseLayerHeightChanged(this)).DisposeWith(_disposables);
 
 #if DEBUG
         Name = Number.Select(x => x.ToString()).ToReactiveProperty()!;
@@ -54,21 +54,20 @@ public sealed class LayerHeaderViewModel : IDisposable
         Inlines.ForEachItem(
             (idx, x) =>
             {
-                x.HeightChanged += OnInlineItemHeightChanged;
-                Height.Value += x.Height;
+                Height.Value += Helper.LayerHeight;
                 x.Index.Value = idx;
             },
             (_, x) =>
             {
-                x.HeightChanged -= OnInlineItemHeightChanged;
-                Height.Value -= x.Height;
+                Height.Value -= Helper.LayerHeight;
                 x.Index.Value = -1;
             },
-            () => { }).AddTo(_disposables);
+            () => { })
+            .DisposeWith(_disposables);
 
         Inlines.CollectionChangedAsObservable()
-            .Subscribe(OnInlinesCollectionChanged)
-            .AddTo(_disposables);
+                .Subscribe(OnInlinesCollectionChanged)
+                .AddTo(_disposables);
     }
 
     private void OnInlinesCollectionChanged(NotifyCollectionChangedEventArgs e)
@@ -112,11 +111,6 @@ public sealed class LayerHeaderViewModel : IDisposable
         }
     }
 
-    private void OnInlineItemHeightChanged(object? sender, (double OldHeight, double NewHeight) e)
-    {
-        Height.Value += e.NewHeight - e.OldHeight;
-    }
-
     public ReactiveProperty<int> Number { get; }
 
     public TimelineViewModel Timeline { get; }
@@ -153,17 +147,6 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public double CalculateInlineTop(int index)
     {
-        if (index >= Inlines.Count)
-        {
-
-        }
-
-        double sum = 0;
-        for (int i = 0; i < index; i++)
-        {
-            sum += Inlines[i].Height;
-        }
-
-        return sum;
+        return Helper.LayerHeight * index;
     }
 }
