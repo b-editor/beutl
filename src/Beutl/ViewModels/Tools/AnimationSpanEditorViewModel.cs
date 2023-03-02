@@ -13,7 +13,9 @@ namespace Beutl.ViewModels.Tools;
 
 public sealed class AnimationSpanEditorViewModel : IDisposable
 {
-    public AnimationSpanEditorViewModel(IAnimationSpan model, IAbstractAnimatableProperty property)
+    private readonly IKeyFrameAnimation _animation;
+
+    public AnimationSpanEditorViewModel(IKeyFrame model, IKeyFrameAnimation animation, IAbstractAnimatableProperty property)
     {
         static IPropertyEditorContext? CreateContext(IAbstractProperty[] property)
         {
@@ -21,23 +23,21 @@ public sealed class AnimationSpanEditorViewModel : IDisposable
         }
 
         Model = model;
+        _animation = animation;
         WrappedProperty = property;
 
         var tmp = new IAbstractProperty[1];
-        (IAbstractProperty prev, IAbstractProperty next) = property.CreateSpanWrapper(model);
 
-        tmp[0] = prev;
-        Properties.Add(CreateContext(tmp));
-        tmp[0] = next;
+        tmp[0] = property.CreateKeyFrameProperty(animation, model);
         Properties.Add(CreateContext(tmp));
 
-        tmp[0] = new CorePropertyImpl<TimeSpan>(AnimationSpan.DurationProperty, model);
+        tmp[0] = new CorePropertyImpl<TimeSpan>(KeyFrame.KeyTimeProperty, model);
         Properties.Add(CreateContext(tmp));
 
-        tmp[0] = new CorePropertyImpl<Easing>(AnimationSpan.EasingProperty, model);
+        tmp[0] = new CorePropertyImpl<Easing>(KeyFrame.EasingProperty, model);
         Properties.Add(CreateContext(tmp));
 
-        Header = model.GetObservable(AnimationSpan.EasingProperty)
+        Header = model.GetObservable(KeyFrame.EasingProperty)
             .Select(x => x.GetType().Name)
             .ToReadOnlyReactivePropertySlim(model.Easing.GetType().Name);
     }
@@ -46,7 +46,7 @@ public sealed class AnimationSpanEditorViewModel : IDisposable
 
     public IAbstractAnimatableProperty WrappedProperty { get; }
 
-    public IAnimationSpan Model { get; }
+    public IKeyFrame Model { get; }
 
     public ReactiveProperty<bool> IsExpanded { get; } = new(true);
 
@@ -83,57 +83,15 @@ public sealed class AnimationSpanEditorViewModel : IDisposable
 
     public void RemoveItem()
     {
-        if (WrappedProperty.Animation.Children is IList list)
-        {
-            list.BeginRecord()
-                .Remove(Model)
-                .ToCommand()
-                .DoAndRecord(CommandRecorder.Default);
-        }
-    }
-
-    public void Move(int newIndex, int oldIndex)
-    {
-        if (WrappedProperty.Animation.Children is IList list)
-        {
-            list.BeginRecord()
-                .Move(oldIndex, newIndex)
-                .ToCommand()
-                .DoAndRecord(CommandRecorder.Default);
-        }
-    }
-
-    public void InsertForward(Easing easing)
-    {
-        if (WrappedProperty.Animation.Children is IList list)
-        {
-            int index = list.IndexOf(Model);
-
-            IAnimationSpan item = WrappedProperty.CreateSpan(easing);
-            list.BeginRecord()
-                .Insert(index, item)
-                .ToCommand()
-                .DoAndRecord(CommandRecorder.Default);
-        }
-    }
-
-    public void InsertBackward(Easing easing)
-    {
-        if (WrappedProperty.Animation.Children is IList list)
-        {
-            int index = list.IndexOf(Model);
-
-            IAnimationSpan item = WrappedProperty.CreateSpan(easing);
-            list.BeginRecord()
-                .Insert(index + 1, item)
-                .ToCommand()
-                .DoAndRecord(CommandRecorder.Default);
-        }
+        _animation.KeyFrames.BeginRecord<IKeyFrame>()
+            .Remove(Model)
+            .ToCommand()
+            .DoAndRecord(CommandRecorder.Default);
     }
 
     public void SetEasing(Easing old, Easing @new)
     {
-        new ChangePropertyCommand<Easing>(Model, AnimationSpan.EasingProperty, @new, old)
+        new ChangePropertyCommand<Easing>(Model, KeyFrame.EasingProperty, @new, old)
             .DoAndRecord(CommandRecorder.Default);
     }
 }

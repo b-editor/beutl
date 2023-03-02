@@ -48,26 +48,7 @@
         <Border x:Name="backgroundBorder"
                 Background="Transparent"
                 DragDrop.AllowDrop="True">
-            <Panel>
-                <Panel.Styles>
-                    <Style Selector="Border.droparea">
-                        <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
-                    </Style>
-                </Panel.Styles>
-                <editors:PropertiesEditor />
-
-                <Border x:Name="topBorder"
-                        Height="32"
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Top"
-                        DragDrop.AllowDrop="True" />
-
-                <Border x:Name="bottomBorder"
-                        Height="32"
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Bottom"
-                        DragDrop.AllowDrop="True" />
-            </Panel>
+            <editors:PropertiesEditor />
         </Border>
     </Expander>
 </UserControl>

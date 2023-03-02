@@ -21,12 +21,12 @@ public sealed class AnimationTabViewModel : IToolContext
 
         _disposable0 = Animation.Subscribe(animation =>
         {
+            _disposable1?.Dispose();
             ClearItems();
-            if (animation != null)
+            if (animation is { Animation: IKeyFrameAnimation kfAnimation })
             {
-                _disposable1?.Dispose();
-                _disposable1 = animation.Animation.Children.ForEachItem(
-                    (idx, item) => Items.Insert(idx, new AnimationSpanEditorViewModel(item, animation)),
+                _disposable1 = kfAnimation.KeyFrames.ForEachItem(
+                    (idx, item) => Items.Insert(idx, new AnimationSpanEditorViewModel(item, kfAnimation, animation)),
                     (idx, _) =>
                     {
                         Items[idx]?.Dispose();
@@ -37,7 +37,7 @@ public sealed class AnimationTabViewModel : IToolContext
         });
     }
 
-    public Action<IAnimationSpan>? RequestScroll { get; set; }
+    public Action<IKeyFrame>? RequestScroll { get; set; }
 
     public ReactiveProperty<IAbstractAnimatableProperty?> Animation { get; } = new();
 
@@ -51,7 +51,7 @@ public sealed class AnimationTabViewModel : IToolContext
 
     public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Right;
 
-    public void ScrollTo(IAnimationSpan obj)
+    public void ScrollTo(IKeyFrame obj)
     {
         RequestScroll?.Invoke(obj);
     }
@@ -85,15 +85,16 @@ public sealed class AnimationTabViewModel : IToolContext
 
     public void AddAnimation(Easing easing)
     {
-        if (Animation.Value?.Animation is not IAnimation animation
-            || animation.Children is not IList list)
+        if (Animation.Value?.Animation is IKeyFrameAnimation animation
+            && Activator.CreateInstance(typeof(KeyFrame<>).MakeGenericType(Animation.Value.Property.PropertyType)) is IKeyFrame keyframe)
         {
-            return;
+            keyframe.Easing = easing;
+            // Todo: new-animation/現在のフレームから
+            keyframe.KeyTime = animation.Duration + TimeSpan.FromSeconds(2);
+            animation.KeyFrames.BeginRecord<IKeyFrame>()
+                .Add(keyframe)
+                .ToCommand()
+                .DoAndRecord(CommandRecorder.Default);
         }
-
-        list.BeginRecord()
-            .Add(Animation.Value.CreateSpan(easing))
-            .ToCommand()
-            .DoAndRecord(CommandRecorder.Default);
     }
 }
