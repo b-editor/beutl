@@ -3,7 +3,7 @@ using Beutl.Media;
 
 namespace Beutl.Animation;
 
-public interface IKeyFrame : IJsonSerializable, IAffectsRender
+public interface IKeyFrame : ICoreObject, IAffectsRender
 {
     event EventHandler? KeyTimeChanged;
 
