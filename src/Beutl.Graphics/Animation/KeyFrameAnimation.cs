@@ -1,6 +1,4 @@
-﻿using System.Text.Json.Nodes;
-
-using Beutl.Media;
+﻿using Beutl.Media;
 
 namespace Beutl.Animation;
 
@@ -37,25 +35,20 @@ public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
                 if (KeyFrames.Count > 1)
                 {
                     IKeyFrame first = KeyFrames[0];
-                    if (first.KeyTime > keyframe.KeyTime)
+                    if (keyframe.KeyTime < first.KeyTime)
                     {
                         KeyFrames.Move(index, 0);
                         return;
                     }
                 }
 
-                for (int i = 1; i < KeyFrames.Count; i++)
+                for (int i = 0; i < KeyFrames.Count; i++)
                 {
-                    prev = KeyFrames[i - 1];
-                    next = KeyFrames[i];
-                    if (prev != keyframe)
+                    IKeyFrame item = KeyFrames[i];
+                    if (item.KeyTime < keyframe.KeyTime)
                     {
-                        if (prev.KeyTime <= keyframe.KeyTime
-                            && keyframe.KeyTime <= next.KeyTime)
-                        {
-                            KeyFrames.Move(index, i);
-                            return;
-                        }
+                        KeyFrames.Move(index, i);
+                        return;
                     }
                 }
             }

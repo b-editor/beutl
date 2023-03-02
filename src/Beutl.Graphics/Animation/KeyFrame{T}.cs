@@ -49,7 +49,7 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args is CorePropertyChangedEventArgs<T> args1
+        if (args is CorePropertyChangedEventArgs args1
             && args.PropertyName is nameof(Value) or nameof(Easing) or nameof(KeyTime))
         {
             Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(this, args1.Property.Name));
