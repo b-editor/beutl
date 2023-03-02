@@ -72,7 +72,11 @@ public sealed class AnimatableCorePropertyImpl<T> : CorePropertyImpl<T>, IAbstra
         ObserveAnimation = new AnimationObservable(property, obj);
     }
 
-    public IAnimation<T>? Animation => GetAnimation();
+    public IAnimation<T>? Animation
+    {
+        get => GetAnimation();
+        set => SetAnimation(value);
+    }
 
     public IObservable<IAnimation<T>?> ObserveAnimation { get; }
 
@@ -90,5 +94,24 @@ public sealed class AnimatableCorePropertyImpl<T> : CorePropertyImpl<T>, IAbstra
         }
 
         return null;
+    }
+
+    private void SetAnimation(IAnimation<T>? animation)
+    {
+        var animatable = (Animatable)Object;
+
+        for (int i = animatable.Animations.Count - 1; i >= 0; i--)
+        {
+            IAnimation item = animatable.Animations[i];
+            if (item.Property.Id == Property.Id)
+            {
+                animatable.Animations.RemoveAt(i);
+            }
+        }
+
+        if (animation != null)
+        {
+            animatable.Animations.Add(animation);
+        }
     }
 }

@@ -71,7 +71,11 @@ public sealed class StylingSetterPropertyImpl<T> : IAbstractAnimatableProperty<T
 
     public Style Style { get; }
 
-    public IAnimation<T>? Animation => Setter.Animation;
+    public IAnimation<T>? Animation
+    {
+        get => Setter.Animation;
+        set => Setter.Animation = value;
+    }
 
     public IObservable<IAnimation<T>?> ObserveAnimation { get; }
 

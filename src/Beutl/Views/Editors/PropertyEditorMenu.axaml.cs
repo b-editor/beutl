@@ -2,6 +2,7 @@
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
+using Beutl.Animation;
 using Beutl.Framework;
 using Beutl.Operation;
 using Beutl.Styling;
@@ -66,6 +67,12 @@ public sealed partial class PropertyEditorMenu : UserControl
             && this.FindLogicalAncestorOfType<SourceOperatorsTab>()?.DataContext is SourceOperatorsTabViewModel { Layer.Value: { } layer }
             && editViewModel.FindToolTab<TimelineViewModel>() is { } timeline)
         {
+            if (animatableProperty.Animation is not IKeyFrameAnimation)
+            {
+                Type type = typeof(KeyFrameAnimation<>).MakeGenericType(animatableProperty.Property.PropertyType);
+                animatableProperty.Animation = Activator.CreateInstance(type, animatableProperty.Property) as IAnimation;
+            }
+
             // 右側のタブを開く
             AnimationTabViewModel anmViewModel
                 = editViewModel.FindToolTab<AnimationTabViewModel>()

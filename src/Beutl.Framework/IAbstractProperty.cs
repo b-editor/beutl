@@ -55,7 +55,7 @@ public interface IAbstractProperty<T> : IAbstractProperty
 
 public interface IAbstractAnimatableProperty : IAbstractProperty
 {
-    IAnimation? Animation { get; }
+    IAnimation? Animation { get; set; }
 
     IObservable<IAnimation?> ObserveAnimation { get; }
 
@@ -64,11 +64,15 @@ public interface IAbstractAnimatableProperty : IAbstractProperty
 
 public interface IAbstractAnimatableProperty<T> : IAbstractProperty<T>, IAbstractAnimatableProperty
 {
-    new IAnimation<T>? Animation { get; }
+    new IAnimation<T>? Animation { get; set; }
 
     new IObservable<IAnimation<T>?> ObserveAnimation { get; }
 
-    IAnimation? IAbstractAnimatableProperty.Animation => Animation;
+    IAnimation? IAbstractAnimatableProperty.Animation
+    {
+        get => Animation;
+        set => Animation = value as IAnimation<T>;
+    }
 
     IObservable<IAnimation?> IAbstractAnimatableProperty.ObserveAnimation => ObserveAnimation;
 

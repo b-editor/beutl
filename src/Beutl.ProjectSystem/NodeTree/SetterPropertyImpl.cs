@@ -57,7 +57,11 @@ public sealed class SetterPropertyImpl<T> : IAbstractAnimatableProperty<T>
 
     public Setter<T> Setter { get; }
 
-    public IAnimation<T>? Animation => Setter.Animation;
+    public IAnimation<T>? Animation
+    {
+        get => Setter.Animation;
+        set => Setter.Animation = value;
+    }
 
     public IObservable<IAnimation<T>?> ObserveAnimation { get; }
 
