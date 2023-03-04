@@ -1,0 +1,84 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls">
+    <Design.PreviewWith>
+        <StackPanel Margin="8" Spacing="8">
+            <Button Classes="left" Theme="{DynamicResource FlipButton}" />
+            <Button Classes="right" Theme="{DynamicResource FlipButton}" />
+            <Button Classes="up" Theme="{DynamicResource FlipButton}" />
+            <Button Classes="down" Theme="{DynamicResource FlipButton}" />
+        </StackPanel>
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="FlipButton" TargetType="Button">
+        <Setter Property="Background" Value="{DynamicResource AcrylicBackgroundFillColorDefaultBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource ControlStrongFillColorDefaultBrush}" />
+        <Setter Property="Padding" Value="5,16,5,16" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="CornerRadius" Value="3" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel>
+                    <Border Name="PART_Background"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Opacity="0.8" />
+                    <ui:FontIcon Name="PART_Icon"
+                                 Margin="{TemplateBinding Padding}"
+                                 HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                 VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                 FontFamily="{DynamicResource SymbolThemeFontFamily}"
+                                 Foreground="{TemplateBinding Foreground}"
+                                 Glyph="&#xEDD9;"
+                                 RenderTransformOrigin="50%,50%" />
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^.left /template/ ui|FontIcon#PART_Icon">
+            <Setter Property="Glyph" Value="&#xEDD9;" />
+        </Style>
+        <Style Selector="^.right /template/ ui|FontIcon#PART_Icon">
+            <Setter Property="Glyph" Value="&#xEDDA;" />
+        </Style>
+        <Style Selector="^.up,^.down">
+            <Setter Property="Padding" Value="16,5,16,5" />
+        </Style>
+        <Style Selector="^.up /template/ ui|FontIcon#PART_Icon">
+            <Setter Property="Glyph" Value="&#xEDDB;" />
+        </Style>
+        <Style Selector="^.down /template/ ui|FontIcon#PART_Icon">
+            <Setter Property="Glyph" Value="&#xEDDC;" />
+        </Style>
+
+        <Style Selector="^ /template/ ui|FontIcon#PART_Icon">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Foreground" Duration="00:00:00.083" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1" />
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <Style Selector="^:pointerover /template/ ui|FontIcon#PART_Icon">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+
+        <Style Selector="^:pressed /template/ ui|FontIcon#PART_Icon">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="RenderTransform" Value="scale(0.9)" />
+        </Style>
+
+        <Style Selector="^:disabled /template/ Border#PART_Background">
+            <Setter Property="Opacity" Value="0.5" />
+        </Style>
+        <Style Selector="^:disabled /template/ ui|FontIcon#PART_Icon">
+            <Setter Property="Opacity" Value="0.5" />
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>

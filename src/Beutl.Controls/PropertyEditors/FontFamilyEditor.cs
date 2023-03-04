@@ -182,7 +182,8 @@ public class FontFamilyEditor : PropertyEditor
             }
             else
             {
-                PseudoClasses.Remove(":compact");
+                if (!UseCompact)
+                    PseudoClasses.Remove(":compact");
             }
         }
 

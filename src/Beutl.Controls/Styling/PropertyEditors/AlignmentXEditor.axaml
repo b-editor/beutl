@@ -4,10 +4,10 @@
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
     <Design.PreviewWith>
-        <Border Width="300">
+        <Border Width="300" Height="200">
             <StackPanel>
-                <local:AlignmentXEditor />
-                <local:AlignmentYEditor />
+                <local:AlignmentXEditor Header="Property1" KeyFrameCount="3" />
+                <local:AlignmentYEditor Header="Property2" KeyFrameCount="3" />
             </StackPanel>
         </Border>
     </Design.PreviewWith>
@@ -21,7 +21,7 @@
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}">
-                    <Grid ColumnDefinitions="2*,3*,Auto">
+                    <Grid ColumnDefinitions="2*,3*,Auto,Auto">
                         <TextBlock Name="PART_HeaderTextBlock"
                                    Margin="4,0,0,0"
                                    HorizontalAlignment="Left"
@@ -29,21 +29,33 @@
                                    ClipToBounds="False"
                                    Text="{TemplateBinding Header}" />
 
-                        <StackPanel Name="PART_StackPanel"
-                                    Grid.Column="1"
+                        <StackPanel Grid.Column="1"
                                     Margin="4,2"
                                     HorizontalAlignment="Right"
                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                     Orientation="Horizontal">
-                            <RadioButton Name="PART_LeftButton" CornerRadius="4,0,0,4">
+                            <RadioButton Name="PART_LeftRadioButton">
                                 <icons:SymbolIcon Symbol="AlignLeft" />
                             </RadioButton>
-                            <RadioButton Name="PART_CenterButton" CornerRadius="0">
+                            <RadioButton Name="PART_CenterRadioButton">
                                 <icons:SymbolIcon Symbol="AlignCenterVertical" />
                             </RadioButton>
-                            <RadioButton Name="PART_RightButton" CornerRadius="0,4,4,0">
+                            <RadioButton Name="PART_RightRadioButton">
                                 <icons:SymbolIcon Symbol="AlignRight" />
                             </RadioButton>
+                        </StackPanel>
+
+                        <StackPanel Name="LeftRightButtons"
+                                    Grid.Column="2"
+                                    Margin="0,0,4,0"
+                                    Orientation="Horizontal">
+                            <Button Name="PART_LeftButton"
+                                    Classes="left"
+                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                            <Button Name="PART_RightButton"
+                                    Classes="right"
+                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
                         </StackPanel>
 
                         <ContentPresenter Name="PART_MenuContentPresenter"
@@ -70,22 +82,33 @@
                                        ClipToBounds="False"
                                        Text="{TemplateBinding Header}" />
 
-                            <StackPanel Name="PART_StackPanel"
-                                        Grid.Row="1"
-                                        Margin="4,2"
-                                        HorizontalAlignment="Left"
-                                        IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                            <StackPanel Name="LeftRightButtons"
+                                        Margin="0,0,4,0"
+                                        HorizontalAlignment="Right"
                                         Orientation="Horizontal">
-                                <RadioButton Name="PART_LeftButton" CornerRadius="4,0,0,4">
+                                <Button Name="PART_LeftButton"
+                                        Classes="left"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                                <Button Name="PART_RightButton"
+                                        Classes="right"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                            </StackPanel>
+
+                            <Grid Grid.Row="1"
+                                  Margin="4,2"
+                                  ColumnDefinitions="*,*,*"
+                                  IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}">
+                                <RadioButton Name="PART_LeftRadioButton" Grid.Column="0">
                                     <icons:SymbolIcon Symbol="AlignLeft" />
                                 </RadioButton>
-                                <RadioButton Name="PART_CenterButton" CornerRadius="0">
+                                <RadioButton Name="PART_CenterRadioButton" Grid.Column="1">
                                     <icons:SymbolIcon Symbol="AlignCenterVertical" />
                                 </RadioButton>
-                                <RadioButton Name="PART_RightButton" CornerRadius="0,4,4,0">
+                                <RadioButton Name="PART_RightRadioButton" Grid.Column="2">
                                     <icons:SymbolIcon Symbol="AlignRight" />
                                 </RadioButton>
-                            </StackPanel>
+                            </Grid>
 
                             <ContentPresenter Name="PART_MenuContentPresenter"
                                               Grid.Row="1"
@@ -100,19 +123,31 @@
 
         <Style Selector="^ /template/ RadioButton">
             <Setter Property="Padding" Value="12,4" />
-            <Setter Property="Theme" Value="{StaticResource HorizontalRadioButton}" />
-            <Setter Property="MinHeight" Value="{DynamicResource TextControlThemeMinHeight}" />
+            <Setter Property="Theme" Value="{StaticResource LiteNavRadioButton}" />
             <Setter Property="FontSize" Value="18" />
         </Style>
 
-        <Style Selector="^:left-selected /template/ RadioButton#PART_LeftButton">
+        <Style Selector="^:left-selected /template/ RadioButton#PART_LeftRadioButton">
             <Setter Property="IsChecked" Value="True" />
         </Style>
-        <Style Selector="^:center-selected /template/ RadioButton#PART_CenterButton">
+        <Style Selector="^:center-selected /template/ RadioButton#PART_CenterRadioButton">
             <Setter Property="IsChecked" Value="True" />
         </Style>
-        <Style Selector="^:right-selected /template/ RadioButton#PART_RightButton">
+        <Style Selector="^:right-selected /template/ RadioButton#PART_RightRadioButton">
             <Setter Property="IsChecked" Value="True" />
+        </Style>
+
+        <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^:not(:visible-right-button) /template/ Button#PART_RightButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+
+        <Style Selector="^[KeyFrameCount=0]">
+            <Style Selector="^ /template/ StackPanel#LeftRightButtons">
+                <Setter Property="Opacity" Value="0" />
+            </Style>
         </Style>
     </ControlTheme>
 
@@ -125,7 +160,7 @@
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}">
-                    <Grid ColumnDefinitions="2*,3*,Auto">
+                    <Grid ColumnDefinitions="2*,3*,Auto,Auto">
                         <TextBlock Name="PART_HeaderTextBlock"
                                    Margin="4,0,0,0"
                                    HorizontalAlignment="Left"
@@ -133,25 +168,37 @@
                                    ClipToBounds="False"
                                    Text="{TemplateBinding Header}" />
 
-                        <StackPanel Name="PART_StackPanel"
-                                    Grid.Column="1"
+                        <StackPanel Grid.Column="1"
                                     Margin="4,2"
                                     HorizontalAlignment="Right"
                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                     Orientation="Horizontal">
-                            <RadioButton Name="PART_TopButton" CornerRadius="4,0,0,4">
+                            <RadioButton Name="PART_TopRadioButton">
                                 <icons:SymbolIcon Symbol="AlignTop" />
                             </RadioButton>
-                            <RadioButton Name="PART_CenterButton" CornerRadius="0">
+                            <RadioButton Name="PART_CenterRadioButton">
                                 <icons:SymbolIcon Symbol="AlignCenterHorizontal" />
                             </RadioButton>
-                            <RadioButton Name="PART_BottomButton" CornerRadius="0,4,4,0">
+                            <RadioButton Name="PART_BottomRadioButton">
                                 <icons:SymbolIcon Symbol="AlignBottom" />
                             </RadioButton>
                         </StackPanel>
 
+                        <StackPanel Name="LeftRightButtons"
+                                    Grid.Column="2"
+                                    Margin="0,0,4,0"
+                                    Orientation="Horizontal">
+                            <Button Name="PART_LeftButton"
+                                    Classes="left"
+                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                            <Button Name="PART_RightButton"
+                                    Classes="right"
+                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                        </StackPanel>
+
                         <ContentPresenter Name="PART_MenuContentPresenter"
-                                          Grid.Column="2"
+                                          Grid.Column="3"
                                           Content="{TemplateBinding MenuContent}"
                                           ContentTemplate="{TemplateBinding MenuContentTemplate}" />
                     </Grid>
@@ -174,22 +221,33 @@
                                        ClipToBounds="False"
                                        Text="{TemplateBinding Header}" />
 
-                            <StackPanel Name="PART_StackPanel"
-                                        Grid.Row="1"
-                                        Margin="4,2"
-                                        HorizontalAlignment="Left"
-                                        IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                            <StackPanel Name="LeftRightButtons"
+                                        Margin="0,0,4,0"
+                                        HorizontalAlignment="Right"
                                         Orientation="Horizontal">
-                                <RadioButton Name="PART_TopButton" CornerRadius="4,0,0,4">
+                                <Button Name="PART_LeftButton"
+                                        Classes="left"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                                <Button Name="PART_RightButton"
+                                        Classes="right"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                            </StackPanel>
+
+                            <Grid Grid.Row="1"
+                                  Margin="4,2"
+                                  ColumnDefinitions="*,*,*"
+                                  IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}">
+                                <RadioButton Name="PART_TopRadioButton" Grid.Column="0">
                                     <icons:SymbolIcon Symbol="AlignTop" />
                                 </RadioButton>
-                                <RadioButton Name="PART_CenterButton" CornerRadius="0">
+                                <RadioButton Name="PART_CenterRadioButton" Grid.Column="1">
                                     <icons:SymbolIcon Symbol="AlignCenterHorizontal" />
                                 </RadioButton>
-                                <RadioButton Name="PART_BottomButton" CornerRadius="0,4,4,0">
+                                <RadioButton Name="PART_BottomRadioButton" Grid.Column="2">
                                     <icons:SymbolIcon Symbol="AlignBottom" />
                                 </RadioButton>
-                            </StackPanel>
+                            </Grid>
 
                             <ContentPresenter Name="PART_MenuContentPresenter"
                                               Grid.Row="1"
@@ -204,19 +262,31 @@
 
         <Style Selector="^ /template/ RadioButton">
             <Setter Property="Padding" Value="12,4" />
-            <Setter Property="Theme" Value="{StaticResource HorizontalRadioButton}" />
-            <Setter Property="MinHeight" Value="{DynamicResource TextControlThemeMinHeight}" />
+            <Setter Property="Theme" Value="{StaticResource LiteNavRadioButton}" />
             <Setter Property="FontSize" Value="18" />
         </Style>
 
-        <Style Selector="^:top-selected /template/ RadioButton#PART_TopButton">
+        <Style Selector="^:top-selected /template/ RadioButton#PART_TopRadioButton">
             <Setter Property="IsChecked" Value="True" />
         </Style>
-        <Style Selector="^:center-selected /template/ RadioButton#PART_CenterButton">
+        <Style Selector="^:center-selected /template/ RadioButton#PART_CenterRadioButton">
             <Setter Property="IsChecked" Value="True" />
         </Style>
-        <Style Selector="^:bottom-selected /template/ RadioButton#PART_BottomButton">
+        <Style Selector="^:bottom-selected /template/ RadioButton#PART_BottomRadioButton">
             <Setter Property="IsChecked" Value="True" />
+        </Style>
+
+        <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^:not(:visible-right-button) /template/ Button#PART_RightButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+
+        <Style Selector="^[KeyFrameCount=0]">
+            <Style Selector="^ /template/ StackPanel#LeftRightButtons">
+                <Setter Property="Opacity" Value="0" />
+            </Style>
         </Style>
     </ControlTheme>
 

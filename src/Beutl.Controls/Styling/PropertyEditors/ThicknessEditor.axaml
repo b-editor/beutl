@@ -77,6 +77,19 @@
                             </Grid>
                         </DataValidationErrors>
 
+                        <StackPanel Name="LeftRightButtons"
+                                    Margin="0,0,4,0"
+                                    HorizontalAlignment="Right"
+                                    Orientation="Horizontal">
+                            <Button Name="PART_LeftButton"
+                                    Classes="left"
+                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                            <Button Name="PART_RightButton"
+                                    Classes="right"
+                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                        </StackPanel>
+
                         <ContentPresenter Grid.Row="2"
                                           Grid.Column="1"
                                           Content="{TemplateBinding MenuContent}"
@@ -117,6 +130,18 @@
 
         <Style Selector="^:error /template/ Border#PART_BackgroundBorder">
             <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        </Style>
+
+        <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^:not(:visible-right-button) /template/ Button#PART_RightButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^[KeyFrameCount=0]">
+            <Style Selector="^ /template/ StackPanel#LeftRightButtons">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
         </Style>
 
     </ControlTheme>

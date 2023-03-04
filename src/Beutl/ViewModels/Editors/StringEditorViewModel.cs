@@ -35,8 +35,7 @@ public sealed class StringEditorViewModel : ValueEditorViewModel<string>
     {
         if (sender is StringEditor editor)
         {
-            WrappedProperty.SetValue(editor.Text);
-            editor.Text = WrappedProperty.GetValue();
+            editor.Text = SetCurrentValueAndGetCoerced(editor.Text);
         }
     }
 }

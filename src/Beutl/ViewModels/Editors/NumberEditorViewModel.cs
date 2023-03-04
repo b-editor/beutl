@@ -38,8 +38,7 @@ public sealed class NumberEditorViewModel<T> : ValueEditorViewModel<T>
     {
         if (sender is NumberEditor<T> editor)
         {
-            WrappedProperty.SetValue(editor.Value);
-            editor.Value = WrappedProperty.GetValue();
+            editor.Value = SetCurrentValueAndGetCoerced(editor.Value);
         }
     }
 }

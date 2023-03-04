@@ -6,7 +6,7 @@
     <Design.PreviewWith>
         <Border Width="300">
             <StackPanel>
-                <local:BooleanEditor Header="Property 1" />
+                <local:BooleanEditor Header="Property 1" KeyFrameCount="3" />
             </StackPanel>
         </Border>
     </Design.PreviewWith>
@@ -19,20 +19,45 @@
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}">
-                    <Grid ColumnDefinitions="*,Auto">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
                         <CheckBox Name="PART_CheckBox"
                                   Margin="4,0,0,0"
                                   Content="{TemplateBinding Header}"
                                   IsChecked="{TemplateBinding Value, Mode=TwoWay}"
                                   IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}" />
 
+                        <StackPanel Name="LeftRightButtons"
+                                    Grid.Column="2"
+                                    Margin="0,0,4,0"
+                                    Orientation="Horizontal">
+                            <Button Name="PART_LeftButton"
+                                    Classes="left"
+                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                            <Button Name="PART_RightButton"
+                                    Classes="right"
+                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                        </StackPanel>
+
                         <ContentPresenter Name="PART_MenuContentPresenter"
-                                          Grid.Column="1"
+                                          Grid.Column="32"
                                           Content="{TemplateBinding MenuContent}"
                                           ContentTemplate="{TemplateBinding MenuContentTemplate}" />
                     </Grid>
                 </Border>
             </ControlTemplate>
         </Setter>
+
+        <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^:not(:visible-right-button) /template/ Button#PART_RightButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^[KeyFrameCount=0]">
+            <Style Selector="^ /template/ StackPanel#LeftRightButtons">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+        </Style>
     </ControlTheme>
 </ResourceDictionary>

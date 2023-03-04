@@ -98,6 +98,8 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
                 {
                     value.Invalidated += Animation_Invalidated;
                 }
+
+                Invalidated?.Invoke(this, EventArgs.Empty);
             }
         }
     }

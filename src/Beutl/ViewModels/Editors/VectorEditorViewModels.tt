@@ -39,17 +39,17 @@ namespace Beutl.ViewModels.Editors
     // Vector2
 <# foreach(var t in vec2Types) { #>
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
-    public sealed class <#= t.Name #>EditorViewModel : BaseEditorViewModel<<#= fullName #>>
+    public sealed class <#= t.Name #>EditorViewModel : ValueEditorViewModel<<#= fullName #>>
     {
         public <#= t.Name #>EditorViewModel(IAbstractProperty<<#= fullName #>> property)
             : base(property)
         {
-            FirstValue = property.GetObservable()
+            FirstValue = Value
                 .Select(x => x.<#= t.FieldX #>)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            SecondValue = property.GetObservable()
+            SecondValue = Value
                 .Select(x => x.<#= t.FieldY #>)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
@@ -91,8 +91,8 @@ namespace Beutl.ViewModels.Editors
         {
             if (sender is Vector2Editor<<#= t.Element #>> editor)
             {
-                WrappedProperty.SetValue(new <#= fullName #>(editor.FirstValue, editor.SecondValue));
-                <#= fullName #> coerced = WrappedProperty.GetValue();
+                <#= fullName #> coerced = SetCurrentValueAndGetCoerced(
+                    new <#= fullName #>(editor.FirstValue, editor.SecondValue));
                 editor.FirstValue = coerced.<#= t.FieldX #>;
                 editor.SecondValue = coerced.<#= t.FieldY #>;
             }
@@ -103,22 +103,22 @@ namespace Beutl.ViewModels.Editors
     // Vector3
 <# foreach(var t in vec3Types) { #>
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
-    public sealed class <#= t.Name #>EditorViewModel : BaseEditorViewModel<<#= fullName #>>
+    public sealed class <#= t.Name #>EditorViewModel : ValueEditorViewModel<<#= fullName #>>
     {
         public <#= t.Name #>EditorViewModel(IAbstractProperty<<#= fullName #>> property)
             : base(property)
         {
-            FirstValue = property.GetObservable()
+            FirstValue = Value
                 .Select(x => x.<#= t.FieldX #>)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            SecondValue = property.GetObservable()
+            SecondValue = Value
                 .Select(x => x.<#= t.FieldY #>)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            ThirdValue = property.GetObservable()
+            ThirdValue = Value
                 .Select(x => x.<#= t.FieldZ #>)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
@@ -160,8 +160,8 @@ namespace Beutl.ViewModels.Editors
         {
             if (sender is Vector3Editor<<#= t.Element #>> editor)
             {
-                WrappedProperty.SetValue(new <#= fullName #>(editor.FirstValue, editor.SecondValue, editor.ThirdValue));
-                <#= fullName #> coerced = WrappedProperty.GetValue();
+                <#= fullName #> coerced = SetCurrentValueAndGetCoerced(
+                    new <#= fullName #>(editor.FirstValue, editor.SecondValue, editor.ThirdValue));
                 editor.FirstValue = coerced.<#= t.FieldX #>;
                 editor.SecondValue = coerced.<#= t.FieldY #>;
                 editor.ThirdValue = coerced.<#= t.FieldZ #>;
@@ -173,27 +173,27 @@ namespace Beutl.ViewModels.Editors
     // Vector4
 <# foreach(var t in vec4Types) { #>
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
-    public sealed class <#= t.Name #>EditorViewModel : BaseEditorViewModel<<#= fullName #>>
+    public sealed class <#= t.Name #>EditorViewModel : ValueEditorViewModel<<#= fullName #>>
     {
         public <#= t.Name #>EditorViewModel(IAbstractProperty<<#= fullName #>> property)
             : base(property)
         {
-            FirstValue = property.GetObservable()
+            FirstValue = Value
                 .Select(x => x.<#= t.FieldX #>)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            SecondValue = property.GetObservable()
+            SecondValue = Value
                 .Select(x => x.<#= t.FieldY #>)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            ThirdValue = property.GetObservable()
+            ThirdValue = Value
                 .Select(x => x.<#= t.FieldZ #>)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            FourthValue = property.GetObservable()
+            FourthValue = Value
                 .Select(x => x.<#= t.FieldW #>)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
@@ -244,8 +244,8 @@ namespace Beutl.ViewModels.Editors
         {
             if (sender is Vector4Editor<<#= t.Element #>> editor)
             {
-                WrappedProperty.SetValue(new <#= fullName #>(editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue));
-                <#= fullName #> coerced = WrappedProperty.GetValue();
+                <#= fullName #> coerced = SetCurrentValueAndGetCoerced(
+                    new <#= fullName #>(editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue));
                 editor.FirstValue = coerced.<#= t.FieldX #>;
                 editor.SecondValue = coerced.<#= t.FieldY #>;
                 editor.ThirdValue = coerced.<#= t.FieldZ #>;

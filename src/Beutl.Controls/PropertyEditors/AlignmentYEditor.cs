@@ -27,9 +27,6 @@ public class AlignmentYEditor : PropertyEditor
     private const string BottomSelected = ":bottom-selected";
     private readonly CompositeDisposable _disposables = new();
     private AlignmentY _value;
-    private TextBlock _headerTextBlock;
-    private StackPanel _stackPanel;
-    private ContentPresenter _menuPresenter;
 
     public AlignmentYEditor()
     {
@@ -53,19 +50,15 @@ public class AlignmentYEditor : PropertyEditor
         _disposables.Clear();
 
         base.OnApplyTemplate(e);
-        Button topBtn = e.NameScope.Get<Button>("PART_TopButton");
-        Button centerBtn = e.NameScope.Get<Button>("PART_CenterButton");
-        Button bottomBtn = e.NameScope.Get<Button>("PART_BottomButton");
+        Button topBtn = e.NameScope.Get<Button>("PART_TopRadioButton");
+        Button centerBtn = e.NameScope.Get<Button>("PART_CenterRadioButton");
+        Button bottomBtn = e.NameScope.Get<Button>("PART_BottomRadioButton");
         topBtn.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
             .DisposeWith(_disposables);
         centerBtn.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
             .DisposeWith(_disposables);
         bottomBtn.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
             .DisposeWith(_disposables);
-
-        _headerTextBlock = e.NameScope.Get<TextBlock>("PART_HeaderTextBlock");
-        _stackPanel = e.NameScope.Get<StackPanel>("PART_StackPanel");
-        _menuPresenter = e.NameScope.Get<ContentPresenter>("PART_MenuContentPresenter");
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -73,25 +66,17 @@ public class AlignmentYEditor : PropertyEditor
         Size measured = base.MeasureOverride(availableSize);
         if (!double.IsInfinity(availableSize.Width))
         {
-            _headerTextBlock.Measure(Size.Infinity);
-            _stackPanel.Measure(Size.Infinity);
-            _menuPresenter.Measure(Size.Infinity);
-
-            Size headerSize = _headerTextBlock.DesiredSize;
-            Size menuSize = _menuPresenter.DesiredSize;
-            Size stackSize = _stackPanel.DesiredSize;
-
-            double w = headerSize.Width + stackSize.Width + menuSize.Width;
-            if (PseudoClasses.Contains(":compact"))
+            if (availableSize.Width <= 224)
             {
-                if (w < availableSize.Width)
+                if (!PseudoClasses.Contains(":compact"))
                 {
-                    PseudoClasses.Remove(":compact");
+                    PseudoClasses.Add(":compact");
                 }
             }
-            else if (w > availableSize.Width)
+            else
             {
-                PseudoClasses.Add(":compact");
+                if (!UseCompact)
+                    PseudoClasses.Remove(":compact");
             }
         }
 
@@ -104,9 +89,9 @@ public class AlignmentYEditor : PropertyEditor
         {
             AlignmentY? value = button.Name switch
             {
-                "PART_TopButton" => AlignmentY.Top,
-                "PART_CenterButton" => AlignmentY.Center,
-                "PART_BottomButton" => AlignmentY.Bottom,
+                "PART_TopRadioButton" => AlignmentY.Top,
+                "PART_CenterRadioButton" => AlignmentY.Center,
+                "PART_BottomRadioButton" => AlignmentY.Bottom,
                 _ => null,
             };
 

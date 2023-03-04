@@ -45,6 +45,8 @@ public class KeyFrame : CoreObject
         set => SetAndRaise(KeyTimeProperty, ref _keyTime, value);
     }
 
+    internal virtual CoreProperty? Property { get; set; }
+
     public override void WriteToJson(ref JsonNode json)
     {
         base.WriteToJson(ref json);

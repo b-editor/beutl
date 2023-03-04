@@ -6,7 +6,10 @@
         <Border Width="300">
             <StackPanel>
                 <local:StorageFileEditor Header="Property 1" />
-                <local:StorageFileEditor Header="Property 2" />
+                <local:StorageFileEditor Header="Property 2" KeyFrameCount="3" />
+                <local:StorageFileEditor Header="Property 2"
+                                         KeyFrameCount="3"
+                                         UseCompact="True" />
             </StackPanel>
         </Border>
     </Design.PreviewWith>
@@ -81,21 +84,36 @@
                                    ClipToBounds="False"
                                    Text="{TemplateBinding Header}" />
 
-                        <TextBox x:Name="PART_InnerTextBox"
-                                 Grid.Column="1"
-                                 MinWidth="120"
-                                 Margin="4"
-                                 IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                 Text="{TemplateBinding Text, Mode=TwoWay}">
-                            <TextBox.InnerRightContent>
-                                <Button Name="PART_Button"
-                                        FontSize="{TemplateBinding FontSize}"
-                                        Theme="{StaticResource TextBoxOpenButtonStyle}" />
-                            </TextBox.InnerRightContent>
-                        </TextBox>
+                        <Grid Grid.Column="1"
+                              MinWidth="120"
+                              Margin="4"
+                              ColumnDefinitions="*,Auto">
+                            <TextBox x:Name="PART_InnerTextBox"
+                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                     Text="{TemplateBinding Text, Mode=TwoWay}">
+                                <TextBox.InnerRightContent>
+                                    <Button Name="PART_Button"
+                                            FontSize="{TemplateBinding FontSize}"
+                                            Theme="{StaticResource TextBoxOpenButtonStyle}" />
+                                </TextBox.InnerRightContent>
+                            </TextBox>
+
+                            <StackPanel Name="LeftRightButtons"
+                                        Grid.Column="1"
+                                        Margin="4,0,0,0"
+                                        Orientation="Horizontal">
+                                <Button Name="PART_LeftButton"
+                                        Classes="left"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                                <Button Name="PART_RightButton"
+                                        Classes="right"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                            </StackPanel>
+                        </Grid>
 
                         <ContentPresenter Name="PART_MenuContentPresenter"
-                                          Grid.Column="2"
+                                          Grid.Column="3"
                                           Content="{TemplateBinding MenuContent}"
                                           ContentTemplate="{TemplateBinding MenuContentTemplate}" />
                     </Grid>
@@ -131,6 +149,18 @@
                                 </TextBox.InnerRightContent>
                             </TextBox>
 
+                            <StackPanel Name="LeftRightButtons"
+                                        Margin="0,0,4,0"
+                                        HorizontalAlignment="Right"
+                                        Orientation="Horizontal">
+                                <Button Name="PART_LeftButton"
+                                        Classes="left"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                                <Button Name="PART_RightButton"
+                                        Classes="right"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                            </StackPanel>
 
                             <ContentPresenter Name="PART_MenuContentPresenter"
                                               Grid.Row="1"
@@ -143,6 +173,18 @@
             </Setter>
         </Style>
 
+
+        <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^:not(:visible-right-button) /template/ Button#PART_RightButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^[KeyFrameCount=0]">
+            <Style Selector="^ /template/ StackPanel#LeftRightButtons">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+        </Style>
     </ControlTheme>
 
 </ResourceDictionary>

@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 
 using Beutl.Media;
+using Beutl.Validation;
 
 namespace Beutl.Animation;
 
@@ -9,6 +10,7 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
     public static readonly CoreProperty<T> ValueProperty;
     internal static readonly Animator<T> s_animator;
     private T _value;
+    private IValidator<T>? _validator;
 
     public KeyFrame()
     {
@@ -29,7 +31,19 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
     public T Value
     {
         get => _value;
-        set => SetAndRaise(ValueProperty, ref _value, value);
+        set
+        {
+            if (_validator != null)
+            {
+                T? coerced = value;
+                if (_validator.TryCoerce(new ValidationContext(null, Property), ref coerced))
+                {
+                    value = coerced!;
+                }
+            }
+
+            SetAndRaise(ValueProperty, ref _value, value);
+        }
     }
 
     object? IKeyFrame.Value
@@ -39,6 +53,24 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
         {
             if (value is T t)
                 Value = t;
+        }
+    }
+
+    internal override CoreProperty? Property
+    {
+        get => base.Property;
+        set
+        {
+            if (value is CoreProperty<T> t)
+            {
+                _validator = t.GetMetadata<CorePropertyMetadata<T>>(t.OwnerType).Validator;
+                base.Property = t;
+            }
+            else
+            {
+                _validator = null;
+                base.Property = null;
+            }
         }
     }
 

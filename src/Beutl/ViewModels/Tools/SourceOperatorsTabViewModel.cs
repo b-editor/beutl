@@ -16,11 +16,13 @@ namespace Beutl.ViewModels.Tools;
 public sealed class SourceOperatorsTabViewModel : IToolContext
 {
     private readonly IDisposable _disposable0;
+    private readonly EditViewModel _editViewModel;
     private IDisposable? _disposable1;
     private Layer? _oldLayer;
 
     public SourceOperatorsTabViewModel(EditViewModel editViewModel)
     {
+        _editViewModel = editViewModel;
         Layer = editViewModel.SelectedObject
             .Select(x => x as Layer)
             .ToReactiveProperty();
@@ -38,7 +40,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
             {
                 _disposable1?.Dispose();
 
-                Items.AddRange(layer.Operators.Select(x => new SourceOperatorViewModel(x)));
+                Items.AddRange(layer.Operators.Select(x => new SourceOperatorViewModel(x, _editViewModel)));
                 _disposable1 = layer.Operators.CollectionChangedAsObservable()
                     .Subscribe(e =>
                     {
@@ -56,7 +58,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
                             case NotifyCollectionChangedAction.Add:
                                 Items.InsertRange(e.NewStartingIndex, e.NewItems!
                                     .Cast<SourceOperator>()
-                                    .Select(x => new SourceOperatorViewModel(x)));
+                                    .Select(x => new SourceOperatorViewModel(x, _editViewModel)));
                                 break;
 
                             case NotifyCollectionChangedAction.Move:
@@ -79,7 +81,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
 
                                 Items.InsertRange(newIndex, e.NewItems!
                                     .Cast<SourceOperator>()
-                                    .Select(x => new SourceOperatorViewModel(x)));
+                                    .Select(x => new SourceOperatorViewModel(x, _editViewModel)));
                                 break;
 
                             case NotifyCollectionChangedAction.Remove:

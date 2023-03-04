@@ -4,9 +4,11 @@ namespace Beutl.Animation;
 
 public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
 {
+    private CoreProperty _property;
+
     public KeyFrameAnimation(CoreProperty property)
     {
-        Property = property;
+        _property = property;
         KeyFrames.Attached += OnKeyFrameAttached;
         KeyFrames.Detached += OnKeyFrameDetached;
     }
@@ -32,22 +34,26 @@ public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
 
             if (invalid)
             {
-                if (KeyFrames.Count > 1)
+                for (int i = 0; i < KeyFrames.Count; i++)
                 {
-                    IKeyFrame first = KeyFrames[0];
-                    if (keyframe.KeyTime < first.KeyTime)
+                    IKeyFrame item = KeyFrames[i];
+                    if (keyframe != item && keyframe.KeyTime < item.KeyTime)
                     {
-                        KeyFrames.Move(index, 0);
+                        if (index < i)
+                        {
+                            i--;
+                        }
+                        KeyFrames.Move(index, i);
                         return;
                     }
                 }
 
-                for (int i = 0; i < KeyFrames.Count; i++)
+                if (KeyFrames.Count > 1)
                 {
-                    IKeyFrame item = KeyFrames[i];
-                    if (item.KeyTime < keyframe.KeyTime)
+                    IKeyFrame last = KeyFrames[^1];
+                    if (last.KeyTime < keyframe.KeyTime)
                     {
-                        KeyFrames.Move(index, i);
+                        KeyFrames.Move(index, KeyFrames.Count - 1);
                         return;
                     }
                 }
@@ -62,19 +68,43 @@ public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
 
     private void OnKeyFrameAttached(IKeyFrame obj)
     {
+        if (obj is KeyFrame keyFrame)
+        {
+            keyFrame.Property = Property;
+        }
+
         obj.KeyTimeChanged += OnKeyTimeChanged;
         obj.Invalidated += OnKeyFrameInvalidated;
     }
 
     private void OnKeyFrameDetached(IKeyFrame obj)
     {
+        if (obj is KeyFrame keyFrame)
+        {
+            keyFrame.Property = null;
+        }
+
         obj.KeyTimeChanged -= OnKeyTimeChanged;
         obj.Invalidated -= OnKeyFrameInvalidated;
     }
 
     public KeyFrames KeyFrames { get; } = new();
 
-    public CoreProperty Property { get; set; }
+    public CoreProperty Property
+    {
+        get => _property;
+        set
+        {
+            _property = value;
+            foreach (IKeyFrame item in KeyFrames)
+            {
+                if(item is KeyFrame keyFrame)
+                {
+                    keyFrame.Property = _property;
+                }
+            }
+        }
+    }
 
     public TimeSpan Duration
         => KeyFrames.Count > 0
@@ -85,58 +115,11 @@ public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
 
     public (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(IKeyFrame keyframe)
     {
-        int index = KeyFrames.IndexOf(keyframe);
-        IKeyFrame? prev = null;
-        IKeyFrame? next = null;
-
-        if (index >= 0)
-        {
-            int prevIndex = index - 1;
-            int nextIndex = index + 1;
-            if (0 <= prevIndex && prevIndex < KeyFrames.Count)
-            {
-                prev = KeyFrames[prevIndex];
-            }
-            if (0 <= nextIndex && nextIndex < KeyFrames.Count)
-            {
-                next = KeyFrames[nextIndex];
-            }
-        }
-
-        return (prev, next);
+        return KeyFrames.GetPreviousAndNextKeyFrame(keyframe);
     }
 
     public (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(TimeSpan timeSpan)
     {
-        if (KeyFrames.Count >= 1)
-        {
-            IKeyFrame first = KeyFrames[0];
-            if (timeSpan <= first.KeyTime)
-            {
-                return (null, first);
-            }
-        }
-
-        for (int i = 1; i < KeyFrames.Count; i++)
-        {
-            IKeyFrame prev = KeyFrames[i - 1];
-            IKeyFrame next = KeyFrames[i];
-            if (prev.KeyTime <= timeSpan
-                && timeSpan <= next.KeyTime)
-            {
-                return (prev, next);
-            }
-        }
-
-        if (KeyFrames.Count >= 1)
-        {
-            IKeyFrame last = KeyFrames[^1];
-            if (last.KeyTime <= timeSpan)
-            {
-                return (null, last);
-            }
-        }
-
-        return (null, null);
+        return KeyFrames.GetPreviousAndNextKeyFrame(timeSpan);
     }
 }

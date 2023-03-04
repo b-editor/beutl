@@ -72,7 +72,8 @@ public class StringEditor : PropertyEditor, IStyleable
             }
             else
             {
-                PseudoClasses.Remove(":compact");
+                if (!UseCompact)
+                    PseudoClasses.Remove(":compact");
             }
         }
 

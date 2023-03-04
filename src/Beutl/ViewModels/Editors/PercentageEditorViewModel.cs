@@ -35,8 +35,7 @@ public sealed class PercentageEditorViewModel : ValueEditorViewModel<float>
     {
         if (sender is PercentageEditor editor)
         {
-            WrappedProperty.SetValue(editor.Value);
-            editor.Value = WrappedProperty.GetValue();
+            editor.Value = SetCurrentValueAndGetCoerced(editor.Value);
         }
     }
 }

@@ -22,9 +22,23 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void Button_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button button)
+        if (DataContext is BaseEditorViewModel viewModel)
         {
-            button.ContextMenu?.Open();
+            if (!viewModel.HasAnimation.Value && sender is Button button)
+            {
+                button.ContextMenu?.Open();
+            }
+            else if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel)
+            {
+                if (symbolIcon.IsFilled)
+                {
+                    viewModel.RemoveKeyFrame(editViewModel.Scene.CurrentFrame);
+                }
+                else
+                {
+                    viewModel.InsertKeyFrame(editViewModel.Scene.CurrentFrame);
+                }
+            }
         }
     }
 
@@ -73,14 +87,14 @@ public sealed partial class PropertyEditorMenu : UserControl
                 animatableProperty.Animation = Activator.CreateInstance(type, animatableProperty.Property) as IAnimation;
             }
 
-            // 右側のタブを開く
-            AnimationTabViewModel anmViewModel
-                = editViewModel.FindToolTab<AnimationTabViewModel>()
-                    ?? new AnimationTabViewModel();
+            //// 右側のタブを開く
+            //AnimationTabViewModel anmViewModel
+            //    = editViewModel.FindToolTab<AnimationTabViewModel>()
+            //        ?? new AnimationTabViewModel();
 
-            anmViewModel.Animation.Value = animatableProperty;
+            //anmViewModel.Animation.Value = animatableProperty;
 
-            editViewModel.OpenToolTab(anmViewModel);
+            //editViewModel.OpenToolTab(anmViewModel);
 
             // タイムラインのタブを開く
             timeline.AttachInline(animatableProperty, layer);

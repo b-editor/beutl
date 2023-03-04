@@ -138,7 +138,8 @@ public class EnumEditor : PropertyEditor
             }
             else
             {
-                PseudoClasses.Remove(":compact");
+                if (!UseCompact)
+                    PseudoClasses.Remove(":compact");
             }
         }
 

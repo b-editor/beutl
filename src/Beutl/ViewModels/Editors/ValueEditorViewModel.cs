@@ -1,4 +1,5 @@
-﻿using Beutl.Framework;
+﻿using Beutl.Animation;
+using Beutl.Framework;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -10,7 +11,8 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
     public ValueEditorViewModel(IAbstractProperty<T> property)
         : base(property)
     {
-        Value = property.GetObservable()
+        Value = EditingKeyFrame
+            .SelectMany(x => x != null ? x.GetObservable(KeyFrame<T>.ValueProperty) : WrappedProperty.GetObservable())
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables)!;
     }

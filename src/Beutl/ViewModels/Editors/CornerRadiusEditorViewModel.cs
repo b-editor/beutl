@@ -8,27 +8,27 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class CornerRadiusEditorViewModel : BaseEditorViewModel<Media.CornerRadius>
+public sealed class CornerRadiusEditorViewModel : ValueEditorViewModel<Media.CornerRadius>
 {
     public CornerRadiusEditorViewModel(IAbstractProperty<Media.CornerRadius> property)
         : base(property)
     {
-        FirstValue = property.GetObservable()
+        FirstValue = Value
             .Select(x => x.TopLeft)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
-        SecondValue = property.GetObservable()
+        SecondValue = Value
             .Select(x => x.TopRight)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
-        ThirdValue = property.GetObservable()
+        ThirdValue = Value
             .Select(x => x.BottomRight)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
-        FourthValue = property.GetObservable()
+        FourthValue = Value
             .Select(x => x.BottomLeft)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
@@ -69,8 +69,8 @@ public sealed class CornerRadiusEditorViewModel : BaseEditorViewModel<Media.Corn
     {
         if (sender is Vector4Editor<float> editor)
         {
-            WrappedProperty.SetValue(new Media.CornerRadius(editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue));
-            Media.CornerRadius coerced = WrappedProperty.GetValue();
+            Media.CornerRadius coerced = SetCurrentValueAndGetCoerced(
+                new Media.CornerRadius(editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue));
             editor.FirstValue = coerced.TopLeft;
             editor.SecondValue = coerced.TopRight;
             editor.ThirdValue = coerced.BottomRight;
