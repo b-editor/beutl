@@ -59,7 +59,7 @@
                         </StackPanel>
 
                         <ContentPresenter Name="PART_MenuContentPresenter"
-                                          Grid.Column="2"
+                                          Grid.Column="3"
                                           Content="{TemplateBinding MenuContent}"
                                           ContentTemplate="{TemplateBinding MenuContentTemplate}" />
                     </Grid>
