@@ -142,7 +142,7 @@ public sealed class EaseLine : Line
                 context.CubicBezierTo(
                     new Point((splineEasing.X1 * width) + startX, -(splineEasing.Y1 * height) + baseY),
                     new Point((splineEasing.X2 * width) + startX, -(splineEasing.Y2 * height) + baseY),
-                    new Point(endX, -endY));
+                    new Point(endX, -endY + baseline));
             }
             else if (easing is Animation.Easings.LinearEasing)
             {

@@ -95,7 +95,7 @@ public sealed class GraphEditorBackground : Control
         base.Render(context);
         var viewport = new Rect((Point)_offset, _viewport);
 
-        double PixelsPer1 = 1 * Math.Max(1, _scale);
+        double PixelsPer1 = 1 * Math.Clamp(_scale, 1, 1.75);
         double PixelsPer5 = PixelsPer1 * 5;
         double PixelsPer100 = PixelsPer5 * 20;
 

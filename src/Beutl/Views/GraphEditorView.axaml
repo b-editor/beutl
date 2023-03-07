@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:convert="using:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:local="using:Beutl.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:paz="using:Avalonia.Controls.PanAndZoom"
@@ -13,6 +14,22 @@
              x:CompileBindings="True"
              x:DataType="viewModel:GraphEditorViewModel"
              mc:Ignorable="d">
+    <UserControl.Resources>
+        <PathGeometry x:Key="ControlPointGeometry">
+            <PathFigure IsClosed="True" StartPoint="0.0,-4.5">
+                <ArcSegment Point=" 4.5, 0.0" Size="4.5, 4.5" />
+                <ArcSegment Point=" 0.0, 4.5" Size="4.5, 4.5" />
+                <ArcSegment Point="-4.5, 0.0" Size="4.5, 4.5" />
+                <ArcSegment Point=" 0.0,-4.5" Size="4.5, 4.5" />
+            </PathFigure>
+            <!--<PathFigure StartPoint="0,-6" IsClosed="True">
+                <ArcSegment Point="6,0" Size="6,6" />
+                <ArcSegment Point="0,6" Size="6,6" />
+                <ArcSegment Point="-6,0" Size="6,6" />
+            </PathFigure>-->
+        </PathGeometry>
+    </UserControl.Resources>
+
     <Grid x:Name="grid"
           ColumnDefinitions="Auto,*"
           RowDefinitions="Auto,*">
@@ -45,6 +62,29 @@
                    HorizontalAlignment="Left"
                    VerticalAlignment="Stretch"
                    Background="Transparent">
+                <Panel.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="拡大率" MenuItem.Click="ZoomClick">
+                            <MenuItem.Icon>
+                                <icons:SymbolIcon Symbol="ZoomIn" />
+                            </MenuItem.Icon>
+                            <MenuItem CommandParameter="8.75" Header="875%" />
+                            <MenuItem CommandParameter="7.0" Header="700%" />
+                            <MenuItem CommandParameter="3.5" Header="350%" />
+                            <MenuItem CommandParameter="2.0" Header="200%" />
+                            <MenuItem CommandParameter="1.7" Header="170%" />
+                            <MenuItem CommandParameter="1.5" Header="150%" />
+                            <MenuItem CommandParameter="1.2" Header="120%" />
+                            <MenuItem CommandParameter="1.0" Header="100%" />
+                            <MenuItem CommandParameter="0.7" Header="70%" />
+                            <MenuItem CommandParameter="0.5" Header="50%" />
+                            <MenuItem CommandParameter="0.2" Header="20%" />
+                            <MenuItem CommandParameter="0.1" Header="10%" />
+                            <MenuItem CommandParameter="0.05" Header="5%" />
+                            <MenuItem CommandParameter="0.01" Header="1%" />
+                        </MenuItem>
+                    </ContextMenu>
+                </Panel.ContextMenu>
 
                 <local:GraphEditorBackground HorizontalAlignment="Stretch"
                                              VerticalAlignment="Stretch"
@@ -56,7 +96,6 @@
                 <ItemsControl x:Name="items"
                               HorizontalAlignment="Left"
                               VerticalAlignment="Stretch"
-                              ClipToBounds="False"
                               Items="{Binding KeyFrames}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -108,6 +147,94 @@
                                                     StrokeThickness="2" />
                                 </Panel>
                             </Border>-->
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <ItemsControl x:Name="points"
+                              HorizontalAlignment="Left"
+                              VerticalAlignment="Stretch"
+                              ClipToBounds="False"
+                              Items="{Binding KeyFrames}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <Panel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Width="{Binding Width.Value}"
+                                    Height="{Binding Height.Value}"
+                                    Margin="{Binding BoundsMargin.Value}"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    Background="Transparent">
+                                <Border.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Click="SetSplineEasingClick" Header="SplineEasing" />
+                                    </ContextMenu>
+                                </Border.ContextMenu>
+                                <Panel>
+                                    <Path Fill="Yellow">
+                                        <Path.RenderTransform>
+                                            <TranslateTransform X="{Binding Width.Value}" Y="-6" />
+                                        </Path.RenderTransform>
+                                        <Path.Data>
+                                            <PathGeometry>
+                                                <PathFigure StartPoint="0,0">
+                                                    <LineSegment Point="6,6" />
+                                                    <LineSegment Point="0,12" />
+                                                    <LineSegment Point="-6,6" />
+                                                </PathFigure>
+                                            </PathGeometry>
+                                        </Path.Data>
+                                    </Path>
+
+                                    <Path HorizontalAlignment="Left"
+                                          VerticalAlignment="Top"
+                                          Data="{StaticResource ControlPointGeometry}"
+                                          Fill="Transparent"
+                                          IsVisible="{Binding IsSplineEasing.Value}"
+                                          PointerMoved="OnControlPointPointerMoved"
+                                          PointerPressed="OnControlPointPointerPressed"
+                                          PointerReleased="OnControlPointPointerReleased"
+                                          Stroke="Green"
+                                          StrokeThickness="3"
+                                          Tag="ControlPoint1">
+                                        <Path.RenderTransform>
+                                            <TranslateTransform X="{Binding ControlPoint1.Value.X}" Y="{Binding ControlPoint1.Value.Y}" />
+                                        </Path.RenderTransform>
+                                    </Path>
+
+                                    <Path HorizontalAlignment="Left"
+                                          VerticalAlignment="Top"
+                                          Data="{StaticResource ControlPointGeometry}"
+                                          Fill="Transparent"
+                                          IsVisible="{Binding IsSplineEasing.Value}"
+                                          PointerMoved="OnControlPointPointerMoved"
+                                          PointerPressed="OnControlPointPointerPressed"
+                                          PointerReleased="OnControlPointPointerReleased"
+                                          Stroke="Green"
+                                          StrokeThickness="3"
+                                          Tag="ControlPoint2">
+                                        <Path.RenderTransform>
+                                            <TranslateTransform X="{Binding ControlPoint2.Value.X}" Y="{Binding ControlPoint2.Value.Y}" />
+                                        </Path.RenderTransform>
+                                    </Path>
+
+                                    <Line IsVisible="{Binding IsSplineEasing.Value}"
+                                          Stroke="{DynamicResource TextControlForeground}"
+                                          StrokeThickness="2"
+                                          StartPoint="{Binding ControlPoint1.Value}"
+                                          EndPoint="{Binding LeftBottom.Value}" />
+
+                                    <Line IsVisible="{Binding IsSplineEasing.Value}"
+                                          Stroke="{DynamicResource TextControlForeground}"
+                                          StrokeThickness="2"
+                                          StartPoint="{Binding ControlPoint2.Value}"
+                                          EndPoint="{Binding RightTop.Value}" />
+                                </Panel>
+                            </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

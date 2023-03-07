@@ -38,7 +38,7 @@ public sealed class TimelineOverlay : Control
 
     static TimelineOverlay()
     {
-        AffectsRender<TimelineOverlay>(OffsetProperty, SelectionRangeProperty, EndingBarMarginProperty, SeekBarMarginProperty);
+        AffectsRender<TimelineOverlay>(OffsetProperty, ViewportProperty, SelectionRangeProperty, EndingBarMarginProperty, SeekBarMarginProperty);
     }
 
     public TimelineOverlay()
