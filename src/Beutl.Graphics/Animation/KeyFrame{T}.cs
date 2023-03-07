@@ -10,7 +10,8 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
     public static readonly CoreProperty<T> ValueProperty;
     internal static readonly Animator<T> s_animator;
     private T _value;
-    private IValidator<T>? _validator;
+    internal IValidator<T>? _validator;
+    private IKeyFrameAnimation? _parent;
 
     public KeyFrame()
     {
@@ -112,4 +113,19 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
     {
         Invalidated?.Invoke(this, e);
     }
+
+    void IKeyFrame.SetParent(IKeyFrameAnimation? parent)
+    {
+        _parent = parent;
+    }
+
+    IKeyFrameAnimation? IKeyFrame.GetParent()
+    {
+        return _parent;
+    }
+
+    //void IKeyFrame.SetDuration(TimeSpan timeSpan)
+    //{
+    //    Duration = timeSpan;
+    //}
 }

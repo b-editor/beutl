@@ -9,8 +9,10 @@ public class KeyFrame : CoreObject
 {
     public static readonly CoreProperty<Easing> EasingProperty;
     public static readonly CoreProperty<TimeSpan> KeyTimeProperty;
+    public static readonly CoreProperty<TimeSpan> DurationProperty;
     private Easing _easing;
     private TimeSpan _keyTime;
+    private TimeSpan _duration;
 
     protected KeyFrame()
     {
@@ -31,6 +33,11 @@ public class KeyFrame : CoreObject
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("key-time")
             .Register();
+
+        //DurationProperty = ConfigureProperty<TimeSpan, KeyFrame>(nameof(Duration))
+        //    .Accessor(o => o.Duration, (o, v) => o.Duration = v)
+        //    .PropertyFlags(PropertyFlags.NotifyChanged)
+        //    .Register();
     }
 
     public Easing Easing
@@ -44,6 +51,12 @@ public class KeyFrame : CoreObject
         get => _keyTime;
         set => SetAndRaise(KeyTimeProperty, ref _keyTime, value);
     }
+
+    //public TimeSpan Duration
+    //{
+    //    get => _duration;
+    //    protected set => SetAndRaise(DurationProperty, ref _duration, value);
+    //}
 
     internal virtual CoreProperty? Property { get; set; }
 

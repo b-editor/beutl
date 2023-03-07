@@ -340,6 +340,7 @@ public sealed class MainViewModel : BasePageViewModel
                 PropertyEditorExtension.Instance,
                 NodeTreeTabExtension.Instance,
                 NodeTreeInputTabExtension.Instance,
+                GraphEditorTabExtension.Instance,
             });
 
             foreach (LocalPackage item in await manager.GetPackages())

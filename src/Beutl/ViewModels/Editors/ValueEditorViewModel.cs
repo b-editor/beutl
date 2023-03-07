@@ -12,7 +12,10 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
         : base(property)
     {
         Value = EditingKeyFrame
-            .SelectMany(x => x != null ? x.GetObservable(KeyFrame<T>.ValueProperty) : WrappedProperty.GetObservable())
+            .Select(x => x?.GetObservable(KeyFrame<T>.ValueProperty))
+            .Select(x => x ?? WrappedProperty.GetObservable())
+            //https://qiita.com/hiki_neet_p/items/4a8873920b566568d63b
+            .Switch()
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables)!;
     }

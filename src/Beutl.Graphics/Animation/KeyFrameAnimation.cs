@@ -73,6 +73,7 @@ public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
             keyFrame.Property = Property;
         }
 
+        obj.SetParent(this);
         obj.KeyTimeChanged += OnKeyTimeChanged;
         obj.Invalidated += OnKeyFrameInvalidated;
     }
@@ -84,6 +85,7 @@ public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
             keyFrame.Property = null;
         }
 
+        obj.SetParent(null);
         obj.KeyTimeChanged -= OnKeyTimeChanged;
         obj.Invalidated -= OnKeyFrameInvalidated;
     }

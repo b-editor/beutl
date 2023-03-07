@@ -145,16 +145,32 @@ public partial class MainWindow : Window
         {
             Size size = _panel.Bounds.Size;
 
-            for (int i = 0; i < 100; i++)
+            var geometry = new StreamGeometry();
+            using (StreamGeometryContext ctxt = geometry.Open())
             {
-                double value = Math.Abs(_keySpline.GetSplineProgress(i / 100d) - 1);
-                double after = Math.Abs(_keySpline.GetSplineProgress((i + 1) / 100d) - 1);
+                double width = size.Width;
+                double height = size.Height;
+                ctxt.BeginFigure(new Point(0, height), false);
 
-                context.DrawLine(
-                    _pen,
-                    new Point(i / 100d * size.Width, value * size.Height),
-                    new Point((i + 1) / 100d * size.Width, after * size.Height));
+                ctxt.CubicBezierTo(
+                    new Point(_keySpline.ControlPointX1 * width, (1 - _keySpline.ControlPointY1) * height),
+                    new Point(_keySpline.ControlPointX2 * width, (1 - _keySpline.ControlPointY2) * height),
+                    new Point(width, 0));
+
+                ctxt.EndFigure(false);
             }
+
+            context.DrawGeometry(Brushes.White, _pen, geometry);
+            //for (int i = 0; i < 100; i++)
+            //{
+            //    double value = Math.Abs(_keySpline.GetSplineProgress(i / 100d) - 1);
+            //    double after = Math.Abs(_keySpline.GetSplineProgress((i + 1) / 100d) - 1);
+
+            //    context.DrawLine(
+            //        _pen,
+            //        new Point(i / 100d * size.Width, value * size.Height),
+            //        new Point((i + 1) / 100d * size.Width, after * size.Height));
+            //}
         }
     }
 }

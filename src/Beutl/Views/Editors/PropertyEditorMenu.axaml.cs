@@ -44,33 +44,24 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        //if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
-        //    && DataContext is BaseEditorViewModel viewModel
-        //    && viewModel.WrappedProperty is IAbstractAnimatableProperty animatableProperty)
-        //{
-        //    // 右側のタブを開く
-        //    AnimationTabViewModel anmViewModel
-        //        = editViewModel.FindToolTab<AnimationTabViewModel>()
-        //            ?? new AnimationTabViewModel();
+        if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
+            && DataContext is BaseEditorViewModel viewModel
+            && viewModel.WrappedProperty is IAbstractAnimatableProperty { Animation: IKeyFrameAnimation kfAnimation })
+        {
+            // 右側のタブを開く
+            //AnimationTabViewModel anmViewModel
+            //    = editViewModel.FindToolTab<AnimationTabViewModel>()
+            //        ?? new AnimationTabViewModel();
 
-        //    anmViewModel.Animation.Value = animatableProperty;
+            //anmViewModel.Animation.Value = animatableProperty;
 
-        //    editViewModel.OpenToolTab(anmViewModel);
+            //editViewModel.OpenToolTab(anmViewModel);
 
-        //    // タイムラインのタブを開く
-        //    AnimationTimelineViewModel? anmTimelineViewModel =
-        //        editViewModel.FindToolTab<AnimationTimelineViewModel>(x => ReferenceEquals(x.WrappedProperty, animatableProperty));
-
-        //    anmTimelineViewModel ??= new AnimationTimelineViewModel(animatableProperty, editViewModel)
-        //    {
-        //        IsSelected =
-        //        {
-        //            Value = true
-        //        }
-        //    };
-
-        //    editViewModel.OpenToolTab(anmTimelineViewModel);
-        //}
+            // タイムラインのタブを開く
+            var anmTimelineViewModel = new GraphEditorTabViewModel();
+            anmTimelineViewModel.SelectedAnimation.Value = new GraphEditorViewModel(editViewModel, kfAnimation);
+            editViewModel.OpenToolTab(anmTimelineViewModel);
+        }
     }
 
     private void EditInlineAnimation_Click(object? sender, RoutedEventArgs e)
