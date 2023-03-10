@@ -40,7 +40,7 @@ public partial class InlineAnimationLayer : UserControl
             int rate = proj?.GetFrameRate() ?? 30;
 
             TimeSpan time = e.GetPosition(this).X.ToTimeSpan(scale).RoundToRate(rate);
-            viewModel.AddAnimation(easing, time);
+            viewModel.InsertKeyFrame(easing, time);
             e.Handled = true;
         }
     }

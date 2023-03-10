@@ -9,13 +9,65 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public sealed class InlineAnimationLayerViewModel : IDisposable
+public sealed class InlineAnimationLayerViewModel<T> : InlineAnimationLayerViewModel
+{
+    public InlineAnimationLayerViewModel(IAbstractAnimatableProperty<T> property, TimelineViewModel timeline, TimelineLayerViewModel layer)
+        : base(property, timeline, layer)
+    {
+    }
+
+    public override void InsertKeyFrame(Easing easing, TimeSpan keyTime)
+    {
+        if (Property.Animation is KeyFrameAnimation<T> kfAnimation
+            && !kfAnimation.KeyFrames.Any(x => x.KeyTime == keyTime))
+        {
+            var keyframe = new KeyFrame<T>()
+            {
+                Value = kfAnimation.Interpolate(keyTime),
+                Easing = easing,
+                KeyTime = keyTime
+            };
+
+            var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe);
+            command.DoAndRecord(CommandRecorder.Default);
+        }
+    }
+
+    private sealed class AddKeyFrameCommand : IRecordableCommand
+    {
+        private readonly KeyFrames _keyFrames;
+        private readonly IKeyFrame _keyFrame;
+
+        public AddKeyFrameCommand(KeyFrames keyFrames, IKeyFrame keyFrame)
+        {
+            _keyFrames = keyFrames;
+            _keyFrame = keyFrame;
+        }
+
+        public void Do()
+        {
+            _keyFrames.Add(_keyFrame, out _);
+        }
+
+        public void Redo()
+        {
+            Do();
+        }
+
+        public void Undo()
+        {
+            _keyFrames.Remove(_keyFrame);
+        }
+    }
+}
+
+public abstract class InlineAnimationLayerViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
     private LayerHeaderViewModel? _lastLayerHeader;
     private IDisposable? _innerDisposable;
 
-    public InlineAnimationLayerViewModel(
+    protected InlineAnimationLayerViewModel(
         IAbstractAnimatableProperty property,
         TimelineViewModel timeline,
         TimelineLayerViewModel layer)
@@ -96,25 +148,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
 
     public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader => Layer.LayerHeader;
 
-    public void AddAnimation(Easing easing, TimeSpan keyTime)
-    {
-        if (Property.Animation is IKeyFrameAnimation kfAnimation)
-        {
-            CoreProperty? property = Property.Property;
-            Type type = typeof(KeyFrame<>).MakeGenericType(property.PropertyType);
-
-            if (Activator.CreateInstance(type) is IKeyFrame keyframe)
-            {
-                keyframe.Easing = easing;
-                keyframe.KeyTime = keyTime;
-
-                kfAnimation.KeyFrames.BeginRecord<IKeyFrame>()
-                    .Add(keyframe)
-                    .ToCommand()
-                    .DoAndRecord(CommandRecorder.Default);
-            }
-        }
-    }
+    public abstract void InsertKeyFrame(Easing easing, TimeSpan keyTime);
 
     private void OnLayerHeaderChanged(LayerHeaderViewModel? obj)
     {
@@ -164,6 +198,8 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             Property.Animation.Invalidated -= OnAnimationInvalidated;
 
         ClearItems();
+
+        GC.SuppressFinalize(this);
     }
 
     private void ClearItems()

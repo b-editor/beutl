@@ -163,10 +163,11 @@ public sealed class TimelineViewModel : IToolContext
             && Layers.FirstOrDefault(x => x.Model == layer) is { } viewModel)
         {
             // タイムラインのタブを開く
-            var anmTimelineViewModel
-                = new InlineAnimationLayerViewModel(property, this, viewModel);
-
-            Inlines.Add(anmTimelineViewModel);
+            Type type = typeof(InlineAnimationLayerViewModel<>).MakeGenericType(property.Property.PropertyType);
+            if (Activator.CreateInstance(type, property, this, viewModel) is InlineAnimationLayerViewModel anmTimelineViewModel)
+            {
+                Inlines.Add(anmTimelineViewModel);
+            }
         }
     }
 
@@ -243,7 +244,7 @@ public sealed class TimelineViewModel : IToolContext
 
         return false;
     }
-    
+
     public IEnumerable<TimelineLayerViewModel> GetSelected(TimelineLayerViewModel? exclude = null)
     {
         foreach (TimelineLayerViewModel item in Layers)
