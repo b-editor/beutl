@@ -32,6 +32,8 @@ public sealed class EaseLine : Line
 
     static EaseLine()
     {
+        StrokeLineCapProperty.OverrideDefaultValue<EaseLine>(PenLineCap.Round);
+        StrokeJoinProperty.OverrideDefaultValue<EaseLine>(PenLineJoin.Round);
         AffectsGeometry<EaseLine>(EasingProperty, BaselineProperty);
     }
 

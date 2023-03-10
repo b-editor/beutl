@@ -2,6 +2,8 @@
 
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Commands;
+using Beutl.ProjectSystem;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -12,7 +14,8 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly GraphEditorViewModel _parent;
-    private readonly ReactivePropertySlim<GraphEditorKeyFrameViewModel?> _previous = new();
+    internal readonly ReactivePropertySlim<GraphEditorKeyFrameViewModel?> _previous = new();
+    internal GraphEditorKeyFrameViewModel? _next;
 
     public GraphEditorKeyFrameViewModel(IKeyFrame keyframe, IKeyFrameAnimation animation, GraphEditorViewModel parent)
     {
@@ -29,6 +32,11 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
         StartY = _previous.Select(x => x?.EndY ?? EndY)
             .Switch()
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        Decreasing = StartY.CombineLatest(EndY)
+            .Select(x => x.First > x.Second)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -63,16 +71,9 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         BoundsMargin = StartY.CombineLatest(EndY)
             .Select(v => Math.Max(v.First, v.Second))
             .CombineLatest(Baseline)
-            .Select(v => new Thickness(0, v.Second - v.First /*- 16*/, 0, 0))
-            .CombineLatest(Margin)
-            .Select(v => v.First + v.Second)
+            .Select(v => new Thickness(0, v.Second - v.First, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-
-        //BoundsHeight = Height
-        //    .Select(v => v + (16 * 2))
-        //    .ToReadOnlyReactivePropertySlim()
-        //    .DisposeWith(_disposables);
 
         IsSplineEasing = keyframe.GetObservable(KeyFrame.EasingProperty)
             .Select(v => v is Animation.Easings.SplineEasing)
@@ -86,7 +87,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 {
                     (Vector, Vector) ToVector()
                     {
-                        return (new Vector(splineEasing.X1, 1 - splineEasing.Y1), new Vector(splineEasing.X2, 1 - splineEasing.Y2));
+                        return (new Vector(splineEasing.X1, splineEasing.Y1), new Vector(splineEasing.X2, splineEasing.Y2));
                     }
 
                     return Observable.FromEventPattern(splineEasing, nameof(Beutl.Animation.Easings.SplineEasing.Changed))
@@ -103,21 +104,29 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
         ControlPoint1 = controlPointObservable
             .Select(v => v.Item1)
+            .CombineLatest(Decreasing)
+            .Select(v => v.First.WithY(v.Second ? v.First.Y : 1 - v.First.Y))
             .CombineLatest(Width, Height, (pt, w, h) => (Point)Vector.Multiply(pt, new Vector(w, h)))
-            .ToReactiveProperty()
+            .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         ControlPoint2 = controlPointObservable
             .Select(v => v.Item2)
+            .CombineLatest(Decreasing)
+            .Select(v => v.First.WithY(v.Second ? v.First.Y : 1 - v.First.Y))
             .CombineLatest(Width, Height, (pt, w, h) => (Point)Vector.Multiply(pt, new Vector(w, h)))
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-
-        LeftBottom = Height.Select(v => new Point(0, v))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        RightTop = Width.Select(v => new Point(v, 0))
+        LeftBottom = Height
+            .CombineLatest(Decreasing)
+            .Select(v => v.Second ? default : new Point(0, v.First))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        RightTop = Width
+            .CombineLatest(Height, Decreasing)
+            .Select(v => v.Third ? new Point(v.First, v.Second) : new Point(v.First, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
     }
@@ -125,6 +134,8 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     public IKeyFrame Model { get; }
 
     public IKeyFrameAnimation Animation { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> Decreasing { get; }
 
     public ReadOnlyReactivePropertySlim<double> Left { get; }
 
@@ -146,9 +157,9 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<bool> IsSplineEasing { get; }
 
-    public ReactiveProperty<Point> ControlPoint1 { get; }
+    public ReadOnlyReactivePropertySlim<Point> ControlPoint1 { get; }
 
-    public ReactiveProperty<Point> ControlPoint2 { get; }
+    public ReadOnlyReactivePropertySlim<Point> ControlPoint2 { get; }
 
     public ReadOnlyReactivePropertySlim<Point> LeftBottom { get; }
 
@@ -157,6 +168,10 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     public void SetPrevious(GraphEditorKeyFrameViewModel? previous)
     {
         _previous.Value = previous;
+        if (previous != null)
+        {
+            previous._next = this;
+        }
     }
 
     public void Dispose()
@@ -177,34 +192,70 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         }
     }
 
+    public static bool TryConvert(double value, Type type, out object? obj)
+    {
+        try
+        {
+            obj = Convert.ChangeType(value, type);
+            return true;
+        }
+        catch
+        {
+            obj = null;
+            return false;
+        }
+    }
+
     private (double X, double Y) CoerceControlPoint(Point point)
     {
         double x = point.X / Width.Value;
         x = Math.Clamp(x, 0, 1);
+        double y;
 
-        double y = -(point.Y / Height.Value) + 1;
+        if (!Decreasing.Value)
+        {
+            y = -(point.Y / Height.Value) + 1;
+        }
+        else
+        {
+            y = point.Y / Height.Value;
+        }
 
         return (x, y);
     }
 
-    public void UpdateControlPoint1(Point point)
+    public bool UpdateControlPoint1(Point point)
     {
         if (Model.Easing is Animation.Easings.SplineEasing splineEasing)
         {
             (double x, double y) = CoerceControlPoint(point);
-            splineEasing.X1 = (float)x;
-            splineEasing.Y1 = (float)y;
+
+            if (double.IsNormal(x) && double.IsNormal(y))
+            {
+                splineEasing.X1 = (float)x;
+                splineEasing.Y1 = (float)y;
+                return true;
+            }
         }
+
+        return false;
     }
 
-    public void UpdateControlPoint2(Point point)
+    public bool UpdateControlPoint2(Point point)
     {
         if (Model.Easing is SplineEasing splineEasing)
         {
             (double x, double y) = CoerceControlPoint(point);
-            splineEasing.X2 = (float)x;
-            splineEasing.Y2 = (float)y;
+
+            if (double.IsNormal(x) && double.IsNormal(y))
+            {
+                splineEasing.X2 = (float)x;
+                splineEasing.Y2 = (float)y;
+                return true;
+            }
         }
+
+        return false;
     }
 
     public void SubmitControlPoint1(float oldX, float oldY)
@@ -221,6 +272,38 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         if (Model.Easing is SplineEasing splineEasing)
         {
             var command = new SubmitControlPointCommand((oldX, oldY), (splineEasing.X2, splineEasing.Y2), splineEasing, false);
+            command.DoAndRecord(CommandRecorder.Default);
+        }
+    }
+
+    public void SubmitCrossed(TimeSpan timeSpan)
+    {
+        int rate = _parent.Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
+        Model.KeyTime = timeSpan.RoundToRate(rate);
+    }
+
+    public void SubmitKeyTimeAndValue(TimeSpan oldKeyTime)
+    {
+        float scale = _parent.Options.Value.Scale;
+        int rate = _parent.Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
+
+        if (TryConvert(EndY.Value / _parent.ScaleY.Value, Animation.Property.PropertyType, out object? obj))
+        {
+            var command = new SubmitKeyFrameCommand(
+                keyframe: Model,
+                oldTime: oldKeyTime,
+                newTime: Right.Value.ToTimeSpan(scale).RoundToRate(rate),
+                oldValue: Model.Value,
+                newValue: obj);
+            command.DoAndRecord(CommandRecorder.Default);
+        }
+        else
+        {
+            var command = new ChangePropertyCommand<TimeSpan>(
+                obj: Model,
+                property: KeyFrame.KeyTimeProperty,
+                newValue: Right.Value.ToTimeSpan(scale).RoundToRate(rate),
+                oldValue: oldKeyTime);
             command.DoAndRecord(CommandRecorder.Default);
         }
     }
@@ -268,6 +351,38 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 _splineEasing.X2 = _oldValue.Item1;
                 _splineEasing.Y2 = _oldValue.Item2;
             }
+        }
+    }
+
+    private sealed class SubmitKeyFrameCommand : IRecordableCommand
+    {
+        private readonly IKeyFrame _keyframe;
+        private readonly TimeSpan _oldTime;
+        private readonly TimeSpan _newTime;
+        private readonly object? _oldValue;
+        private readonly object? _newValue;
+
+        public SubmitKeyFrameCommand(IKeyFrame keyframe, TimeSpan oldTime, TimeSpan newTime, object? oldValue, object? newValue)
+        {
+            _keyframe = keyframe;
+            _oldTime = oldTime;
+            _newTime = newTime;
+            _oldValue = oldValue;
+            _newValue = newValue;
+        }
+
+        public void Do()
+        {
+            _keyframe.Value = _newValue;
+            _keyframe.KeyTime = _newTime;
+        }
+
+        public void Redo() => Do();
+
+        public void Undo()
+        {
+            _keyframe.Value = _oldValue;
+            _keyframe.KeyTime = _oldTime;
         }
     }
 }

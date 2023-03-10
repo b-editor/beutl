@@ -93,6 +93,7 @@ public sealed class GraphEditorBackground : Control
     public override void Render(DrawingContext context)
     {
         base.Render(context);
+        context.FillRectangle(Brushes.Transparent, new Rect(Bounds.Size));
         var viewport = new Rect((Point)_offset, _viewport);
 
         double PixelsPer1 = 1 * Math.Clamp(_scale, 1, 1.75);
