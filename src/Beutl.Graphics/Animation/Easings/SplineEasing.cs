@@ -9,7 +9,7 @@ public class SplineEasing : Easing
         X1 = x1;
         Y1 = y1;
         X2 = x2;
-        Y1 = y2;
+        Y2 = y2;
     }
 
     public SplineEasing(KeySpline keySpline)

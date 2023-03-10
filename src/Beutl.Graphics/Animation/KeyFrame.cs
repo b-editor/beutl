@@ -9,10 +9,10 @@ public class KeyFrame : CoreObject
 {
     public static readonly CoreProperty<Easing> EasingProperty;
     public static readonly CoreProperty<TimeSpan> KeyTimeProperty;
-    public static readonly CoreProperty<TimeSpan> DurationProperty;
+    //public static readonly CoreProperty<TimeSpan> DurationProperty;
     private Easing _easing;
     private TimeSpan _keyTime;
-    private TimeSpan _duration;
+    //private TimeSpan _duration;
 
     protected KeyFrame()
     {
