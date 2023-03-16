@@ -1,18 +1,18 @@
 ﻿using System.Numerics;
 
 using Avalonia;
-using Avalonia.Controls.Shapes;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
+using Beutl.Animation;
 using Beutl.ProjectSystem;
 using Beutl.Utilities;
 using Beutl.ViewModels;
 
 using Reactive.Bindings.Extensions;
+
 using Path = Avalonia.Controls.Shapes.Path;
-using Beutl.Animation;
 
 namespace Beutl.Views;
 
@@ -51,10 +51,11 @@ public partial class GraphEditorView : UserControl
 
     private void OnDataContextAttached(GraphEditorViewModel obj)
     {
-        //obj.Options
-        //    .Select(options => options.Offset)
-        //    .Subscribe(offset => scroll.Offset = new(offset.X, offset.Y))
-        //    .DisposeWith(_disposables);
+        obj.ScrollOffset.Subscribe(offset => scroll.Offset = offset)
+            .DisposeWith(_disposables);
+        scroll.GetObservable(ScrollViewer.OffsetProperty)
+            .Subscribe(offset => obj.ScrollOffset.Value = offset)
+            .DisposeWith(_disposables);
 
         obj.MinHeight
             .CombineLatest(scroll.GetObservable(BoundsProperty))
@@ -123,9 +124,10 @@ public partial class GraphEditorView : UserControl
                 Scale = scale,
                 Offset = new Vector2(offset.X, originalOffset.Y)
             };
+
             viewModel.ScrollOffset.Value = new(offset.X, offset.Y);
 
-            var delta = aOffset.Y - Math.Max(0, offset.Y);
+            double delta = aOffset.Y - Math.Max(0, offset.Y);
             if (_cPointPressed)
             {
                 _cPointstart += new Point(0, delta);
@@ -250,7 +252,8 @@ public partial class GraphEditorView : UserControl
 
     private void OnControlPointPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is Path
+        if (DataContext is GraphEditorViewModel viewModel
+            && sender is Path
             {
                 Tag: string tag,
                 DataContext: GraphEditorKeyFrameViewModel
@@ -271,6 +274,7 @@ public partial class GraphEditorView : UserControl
                 };
                 _cPointPressed = true;
                 _cPointstart = new(e.GetPosition(points).X, point.Position.Y);
+                viewModel.BeginEditing();
                 e.Handled = true;
             }
         }
@@ -278,18 +282,20 @@ public partial class GraphEditorView : UserControl
 
     private void OnControlPointPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (sender is Path { DataContext: GraphEditorKeyFrameViewModel viewModel, Tag: string tag })
+        if (DataContext is GraphEditorViewModel viewModel
+            && sender is Path { DataContext: GraphEditorKeyFrameViewModel itemViewModel, Tag: string tag })
         {
             switch (tag)
             {
                 case "ControlPoint1":
-                    viewModel.SubmitControlPoint1(_oldValue.Item1, _oldValue.Item2);
+                    itemViewModel.SubmitControlPoint1(_oldValue.Item1, _oldValue.Item2);
                     break;
                 case "ControlPoint2":
-                    viewModel.SubmitControlPoint2(_oldValue.Item1, _oldValue.Item2);
+                    itemViewModel.SubmitControlPoint2(_oldValue.Item1, _oldValue.Item2);
                     break;
             }
 
+            viewModel.EndEditting();
             _cPointPressed = false;
             e.Handled = true;
         }
@@ -374,7 +380,8 @@ public partial class GraphEditorView : UserControl
 
     private void OnGraphPanelPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (_keyTimePressed
+        if (DataContext is GraphEditorViewModel viewModel
+            && _keyTimePressed
             && _keyframeViewModel != null)
         {
             _keyframeViewModel.SubmitKeyTimeAndValue(_oldKeyTime);
@@ -382,12 +389,14 @@ public partial class GraphEditorView : UserControl
             _keyframeViewModel = null;
             _crossed = false;
             _keyTimePressed = false;
+            viewModel.EndEditting();
         }
     }
 
     private void OnKeyTimePointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is Path { DataContext: GraphEditorKeyFrameViewModel itemViewModel })
+        if (DataContext is GraphEditorViewModel viewModel
+            && sender is Path { DataContext: GraphEditorKeyFrameViewModel itemViewModel })
         {
             PointerPoint point = e.GetCurrentPoint(grid);
 
@@ -399,6 +408,7 @@ public partial class GraphEditorView : UserControl
                 _keyframeViewModel = itemViewModel;
                 _oldKeyTime = _keyframe.KeyTime;
                 _crossed = false;
+                viewModel.BeginEditing();
                 e.Handled = true;
             }
         }

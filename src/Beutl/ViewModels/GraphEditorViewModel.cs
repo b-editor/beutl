@@ -14,6 +14,7 @@ public sealed class GraphEditorViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly EditViewModel _editViewModel;
+    private bool _editting;
 
     public GraphEditorViewModel(EditViewModel editViewModel, IKeyFrameAnimation animation)
     {
@@ -38,7 +39,7 @@ public sealed class GraphEditorViewModel : IDisposable
             .DisposeWith(_disposables);
 
         AddKeyFrames();
-        CalculateMaxHeight(true);
+        CalculateMaxHeight();
 
         editViewModel.Offset.Subscribe(v => ScrollOffset.Value = ScrollOffset.Value.WithX(v.X))
             .DisposeWith(_disposables);
@@ -69,15 +70,25 @@ public sealed class GraphEditorViewModel : IDisposable
 
     public CoreList<GraphEditorKeyFrameViewModel> KeyFrames { get; } = new();
 
-    private void CalculateMaxHeight(bool initializing = false)
+    public void BeginEditing()
+    {
+        _editting = true;
+    }
+
+    public void EndEditting()
+    {
+        _editting = false;
+        CalculateMaxHeight();
+    }
+
+    private void CalculateMaxHeight()
     {
         double max = 0d;
-        double absMax = 0d;
+        double min = 0d;
         foreach (GraphEditorKeyFrameViewModel item in KeyFrames)
         {
             max = Math.Max(max, item.EndY.Value);
-
-            absMax = Math.Max(absMax, Math.Abs(item.EndY.Value));
+            min = Math.Min(min, item.EndY.Value);
 
             if (item.IsSplineEasing.Value)
             {
@@ -87,25 +98,22 @@ public sealed class GraphEditorViewModel : IDisposable
                 c2 = -c2 + Math.Max(item.EndY.Value, item.StartY.Value);
 
                 max = Math.Max(max, c1);
+                min = Math.Min(min, c1);
                 max = Math.Max(max, c2);
-
-                absMax = Math.Max(absMax, Math.Abs(c1));
-                absMax = Math.Max(absMax, Math.Abs(c2));
+                min = Math.Min(min, c2);
             }
         }
 
-        if (initializing)
-        {
-            MinHeight.Value = (absMax + Padding) * 2;
-            Baseline.Value = max + Padding;
-        }
-        else
-        {
-            double oldbase = Baseline.Value;
-            double newBase = max + Padding;
-            double delta = newBase - oldbase;
+        double oldbase = Baseline.Value;
+        double newBase = max + Padding;
+        double delta = newBase - oldbase;
 
-            MinHeight.Value = (absMax + Padding) * 2;
+        double oldHeight = MinHeight.Value;
+        double newHeight = max - min + (Padding * 2);
+
+        if (!_editting || newHeight > oldHeight)
+        {
+            MinHeight.Value = newHeight;
             Baseline.Value = newBase;
 
             ScrollOffset.Value = new Vector(ScrollOffset.Value.X, Math.Max(0, ScrollOffset.Value.Y + delta));

@@ -55,8 +55,7 @@
         <ScrollViewer x:Name="scroll"
                       Grid.Row="1"
                       Grid.Column="1"
-                      HorizontalScrollBarVisibility="Visible"
-                      Offset="{Binding ScrollOffset.Value, Mode=TwoWay}">
+                      HorizontalScrollBarVisibility="Visible">
             <Panel x:Name="graphPanel"
                    Width="{Binding PanelWidth.Value}"
                    MinWidth="{Binding #scroll.Bounds.Width}"
