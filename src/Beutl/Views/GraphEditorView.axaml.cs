@@ -51,10 +51,10 @@ public partial class GraphEditorView : UserControl
 
     private void OnDataContextAttached(GraphEditorViewModel obj)
     {
-        obj.Options
-            .Select(options => options.Offset)
-            .Subscribe(offset => scroll.Offset = new(offset.X, offset.Y))
-            .DisposeWith(_disposables);
+        //obj.Options
+        //    .Select(options => options.Offset)
+        //    .Subscribe(offset => scroll.Offset = new(offset.X, offset.Y))
+        //    .DisposeWith(_disposables);
 
         obj.MinHeight
             .CombineLatest(scroll.GetObservable(BoundsProperty))
@@ -117,11 +117,23 @@ public partial class GraphEditorView : UserControl
                 offset.Y -= (float)(e.Delta.Y * 50);
             }
 
+            Vector2 originalOffset = viewModel.Options.Value.Offset;
             viewModel.Options.Value = viewModel.Options.Value with
             {
                 Scale = scale,
-                Offset = offset
+                Offset = new Vector2(offset.X, originalOffset.Y)
             };
+            viewModel.ScrollOffset.Value = new(offset.X, offset.Y);
+
+            var delta = aOffset.Y - Math.Max(0, offset.Y);
+            if (_cPointPressed)
+            {
+                _cPointstart += new Point(0, delta);
+            }
+            else if (_keyTimePressed)
+            {
+                _keyTimeStart += new Point(0, delta);
+            }
 
             e.Handled = true;
         }
@@ -216,7 +228,7 @@ public partial class GraphEditorView : UserControl
         if (_cPointPressed
             && sender is Path { DataContext: GraphEditorKeyFrameViewModel viewModel, Tag: string tag } shape)
         {
-            Point position = e.GetPosition(points);
+            Point position = new(e.GetPosition(points).X, e.GetPosition(grid).Y);
             position = position.WithX(Math.Clamp(position.X, viewModel.Left.Value, viewModel.Right.Value));
             Point delta = position - _cPointstart;
             _cPointstart = position;
@@ -247,7 +259,7 @@ public partial class GraphEditorView : UserControl
                 }
             } shape)
         {
-            PointerPoint point = e.GetCurrentPoint(points);
+            PointerPoint point = e.GetCurrentPoint(grid);
 
             if (point.Properties.IsLeftButtonPressed)
             {
@@ -258,7 +270,7 @@ public partial class GraphEditorView : UserControl
                     _ => default,
                 };
                 _cPointPressed = true;
-                _cPointstart = point.Position;
+                _cPointstart = new(e.GetPosition(points).X, point.Position.Y);
                 e.Handled = true;
             }
         }
@@ -312,7 +324,7 @@ public partial class GraphEditorView : UserControl
 
             if (itemViewModel != null)
             {
-                PointerPoint point = e.GetCurrentPoint(points);
+                PointerPoint point = e.GetCurrentPoint(grid);
                 if (point.Properties.IsLeftButtonPressed)
                 {
                     Point position = point.Position;
@@ -377,7 +389,7 @@ public partial class GraphEditorView : UserControl
     {
         if (sender is Path { DataContext: GraphEditorKeyFrameViewModel itemViewModel })
         {
-            PointerPoint point = e.GetCurrentPoint(points);
+            PointerPoint point = e.GetCurrentPoint(grid);
 
             if (point.Properties.IsLeftButtonPressed)
             {

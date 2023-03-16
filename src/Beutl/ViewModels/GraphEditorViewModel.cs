@@ -38,7 +38,10 @@ public sealed class GraphEditorViewModel : IDisposable
             .DisposeWith(_disposables);
 
         AddKeyFrames();
-        CalculateMaxHeight();
+        CalculateMaxHeight(true);
+
+        editViewModel.Offset.Subscribe(v => ScrollOffset.Value = ScrollOffset.Value.WithX(v.X))
+            .DisposeWith(_disposables);
     }
 
     public IReactiveProperty<TimelineOptions> Options => _editViewModel.Options;
@@ -46,6 +49,8 @@ public sealed class GraphEditorViewModel : IDisposable
     public Scene Scene => _editViewModel.Scene;
 
     public ReactivePropertySlim<double> ScaleY { get; } = new(0.5);
+
+    public ReactivePropertySlim<Vector> ScrollOffset { get; } = new();
 
     public double Padding { get; } = 120;
 
@@ -64,18 +69,47 @@ public sealed class GraphEditorViewModel : IDisposable
 
     public CoreList<GraphEditorKeyFrameViewModel> KeyFrames { get; } = new();
 
-    private void CalculateMaxHeight()
+    private void CalculateMaxHeight(bool initializing = false)
     {
         double max = 0d;
         double absMax = 0d;
         foreach (GraphEditorKeyFrameViewModel item in KeyFrames)
         {
             max = Math.Max(max, item.EndY.Value);
+
             absMax = Math.Max(absMax, Math.Abs(item.EndY.Value));
+
+            if (item.IsSplineEasing.Value)
+            {
+                double c1 = item.ControlPoint1.Value.Y;
+                double c2 = item.ControlPoint2.Value.Y;
+                c1 = -c1 + Math.Max(item.EndY.Value, item.StartY.Value);
+                c2 = -c2 + Math.Max(item.EndY.Value, item.StartY.Value);
+
+                max = Math.Max(max, c1);
+                max = Math.Max(max, c2);
+
+                absMax = Math.Max(absMax, Math.Abs(c1));
+                absMax = Math.Max(absMax, Math.Abs(c2));
+            }
         }
 
-        MinHeight.Value = (absMax + Padding) * 2;
-        Baseline.Value = max + Padding;
+        if (initializing)
+        {
+            MinHeight.Value = (absMax + Padding) * 2;
+            Baseline.Value = max + Padding;
+        }
+        else
+        {
+            double oldbase = Baseline.Value;
+            double newBase = max + Padding;
+            double delta = newBase - oldbase;
+
+            MinHeight.Value = (absMax + Padding) * 2;
+            Baseline.Value = newBase;
+
+            ScrollOffset.Value = new Vector(ScrollOffset.Value.X, Math.Max(0, ScrollOffset.Value.Y + delta));
+        }
     }
 
     private void AddKeyFrames()
@@ -86,6 +120,8 @@ public sealed class GraphEditorViewModel : IDisposable
         {
             var viewModel = new GraphEditorKeyFrameViewModel(item, Animation, this);
             viewModel.EndY.Subscribe(_ => CalculateMaxHeight());
+            viewModel.ControlPoint1.Subscribe(_ => CalculateMaxHeight());
+            viewModel.ControlPoint2.Subscribe(_ => CalculateMaxHeight());
             viewModel.SetPrevious(prev);
             KeyFrames.Insert(index++, viewModel);
             prev = viewModel;
@@ -115,6 +151,8 @@ public sealed class GraphEditorViewModel : IDisposable
             {
                 var viewModel = new GraphEditorKeyFrameViewModel(item, Animation, this);
                 viewModel.EndY.Subscribe(_ => CalculateMaxHeight());
+                viewModel.ControlPoint1.Subscribe(_ => CalculateMaxHeight());
+                viewModel.ControlPoint2.Subscribe(_ => CalculateMaxHeight());
                 viewModel.SetPrevious(TryGet(index - 1));
                 KeyFrames.Insert(index, viewModel);
                 index++;

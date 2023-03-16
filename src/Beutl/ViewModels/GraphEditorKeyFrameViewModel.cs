@@ -230,7 +230,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         {
             (double x, double y) = CoerceControlPoint(point);
 
-            if (double.IsNormal(x) && double.IsNormal(y))
+            if (double.IsFinite(x) && double.IsFinite(y))
             {
                 splineEasing.X1 = (float)x;
                 splineEasing.Y1 = (float)y;
@@ -247,7 +247,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         {
             (double x, double y) = CoerceControlPoint(point);
 
-            if (double.IsNormal(x) && double.IsNormal(y))
+            if (double.IsFinite(x) && double.IsFinite(y))
             {
                 splineEasing.X2 = (float)x;
                 splineEasing.Y2 = (float)y;
@@ -296,6 +296,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 oldValue: Model.Value,
                 newValue: obj);
             command.DoAndRecord(CommandRecorder.Default);
+            EndY.Value = ToDouble(Model.Value) * _parent.ScaleY.Value;
         }
         else
         {
