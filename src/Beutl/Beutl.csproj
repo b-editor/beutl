@@ -33,6 +33,10 @@
       <Generator>TextTemplatingFileGenerator</Generator>
       <LastGenOutput>VectorEditorViewModels.cs</LastGenOutput>
     </None>
+    <None Update="ViewModels\GraphEditorViewViewModelFactory.Impl.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>GraphEditorViewViewModelFactory.Impl.cs</LastGenOutput>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
@@ -42,6 +46,11 @@
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
       <DependentUpon>VectorEditorViewModels.tt</DependentUpon>
+    </Compile>
+    <Compile Update="ViewModels\GraphEditorViewViewModelFactory.Impl.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>GraphEditorViewViewModelFactory.Impl.tt</DependentUpon>
     </Compile>
     <Compile Update="Views\Editors\PropertyEditorMenu.axaml.cs">
       <DependentUpon>PropertyEditorMenu.axaml</DependentUpon>

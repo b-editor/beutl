@@ -2,6 +2,9 @@
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Generators;
+using Avalonia.Controls.Presenters;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
@@ -9,6 +12,8 @@ using Beutl.Animation;
 using Beutl.ProjectSystem;
 using Beutl.Utilities;
 using Beutl.ViewModels;
+
+using FluentAvalonia.UI.Controls;
 
 using Reactive.Bindings.Extensions;
 
@@ -20,7 +25,7 @@ public partial class GraphEditorView : UserControl
 {
     private bool _pressed;
     private TimeSpan _pointerFrame;
-    private CompositeDisposable _disposables = new(2);
+    private CompositeDisposable _disposables = new();
 
     public GraphEditorView()
     {
@@ -42,6 +47,32 @@ public partial class GraphEditorView : UserControl
         this.SubscribeDataContextChange<GraphEditorViewModel>(
             OnDataContextAttached,
             OnDataContextDetached);
+
+        views.ItemContainerGenerator.Materialized += OnViewMaterialized;
+        views.ItemContainerGenerator.Dematerialized += OnViewDematerialized;
+    }
+
+    private void OnViewMaterialized(object? sender, ItemContainerEventArgs e)
+    {
+        foreach (ItemContainerInfo item in e.Containers)
+        {
+            if (item.Item is GraphEditorViewViewModel viewModel
+                && item.ContainerControl is ContentPresenter container)
+            {
+                container.Bind(ZIndexProperty, viewModel.IsSelected.Select(v => v ? 1 : 0));
+            }
+        }
+    }
+
+    private void OnViewDematerialized(object? sender, ItemContainerEventArgs e)
+    {
+        foreach (ItemContainerInfo item in e.Containers)
+        {
+            if (item.ContainerControl is ContentPresenter container)
+            {
+                container.Bind(ZIndexProperty, Observable.Return(BindingValue<int>.Unset));
+            }
+        }
     }
 
     private void OnDataContextDetached(GraphEditorViewModel obj)
@@ -61,6 +92,14 @@ public partial class GraphEditorView : UserControl
             .CombineLatest(scroll.GetObservable(BoundsProperty))
             .ObserveOnUIDispatcher()
             .Subscribe(v => graphPanel.Height = Math.Max(v.First, v.Second.Height))
+            .DisposeWith(_disposables);
+
+        obj.SelectedView
+            .CombineWithPrevious()
+            .Subscribe(t =>
+            {
+
+            })
             .DisposeWith(_disposables);
     }
 
@@ -230,7 +269,7 @@ public partial class GraphEditorView : UserControl
         if (_cPointPressed
             && sender is Path { DataContext: GraphEditorKeyFrameViewModel viewModel, Tag: string tag } shape)
         {
-            Point position = new(e.GetPosition(points).X, e.GetPosition(grid).Y);
+            Point position = new(e.GetPosition(views).X, e.GetPosition(grid).Y);
             position = position.WithX(Math.Clamp(position.X, viewModel.Left.Value, viewModel.Right.Value));
             Point delta = position - _cPointstart;
             _cPointstart = position;
@@ -273,7 +312,7 @@ public partial class GraphEditorView : UserControl
                     _ => default,
                 };
                 _cPointPressed = true;
-                _cPointstart = new(e.GetPosition(points).X, point.Position.Y);
+                _cPointstart = new(e.GetPosition(views).X, point.Position.Y);
                 viewModel.BeginEditing();
                 e.Handled = true;
             }
@@ -311,14 +350,14 @@ public partial class GraphEditorView : UserControl
     private void OnGraphPanelPointerMoved(object? sender, PointerEventArgs e)
     {
         if (_keyTimePressed
-            && DataContext is GraphEditorViewModel viewModel
+            && DataContext is GraphEditorViewModel { SelectedView.Value: { } selectedView } viewModel
             && _keyframe != null)
         {
             GraphEditorKeyFrameViewModel? itemViewModel = _keyframeViewModel;
             if (_crossed)
             {
                 double? y = _keyframeViewModel?.EndY.Value;
-                itemViewModel = _keyframeViewModel = viewModel.KeyFrames.FirstOrDefault(x => x.Model == _keyframe);
+                itemViewModel = _keyframeViewModel = selectedView.KeyFrames.FirstOrDefault(x => x.Model == _keyframe);
 
                 if (y.HasValue && itemViewModel != null)
                 {
@@ -411,6 +450,15 @@ public partial class GraphEditorView : UserControl
                 viewModel.BeginEditing();
                 e.Handled = true;
             }
+        }
+    }
+
+    private void SelectedView_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is GraphEditorViewModel viewModel
+            && e.Source is MenuItem { DataContext: GraphEditorViewViewModel itemViewModel })
+        {
+            viewModel.SelectedView.Value = itemViewModel;
         }
     }
 }

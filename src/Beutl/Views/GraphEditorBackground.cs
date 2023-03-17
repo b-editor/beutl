@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 
 namespace Beutl.Views;
 
@@ -16,6 +17,12 @@ public sealed class GraphEditorBackground : Control
         = AvaloniaProperty.RegisterDirect<GraphEditorBackground, double>(
             nameof(Baseline),
             o => o.Baseline, (o, v) => o.Baseline = v);
+
+    public static readonly StyledProperty<double> MaximumProperty
+        = AvaloniaProperty.Register<GraphEditorBackground, double>(nameof(Maximum), double.MaxValue);
+
+    public static readonly StyledProperty<double> MinimumProperty
+        = AvaloniaProperty.Register<GraphEditorBackground, double>(nameof(Minimum), double.MinValue);
 
     public static readonly DirectProperty<GraphEditorBackground, Vector> OffsetProperty
         = AvaloniaProperty.RegisterDirect<GraphEditorBackground, Vector>(
@@ -68,6 +75,18 @@ public sealed class GraphEditorBackground : Control
     {
         get => _viewport;
         set => SetAndRaise(ViewportProperty, ref _viewport, value);
+    }
+
+    public double Maximum
+    {
+        get => GetValue(MaximumProperty);
+        set => SetValue(MaximumProperty, value);
+    }
+
+    public double Minimum
+    {
+        get => GetValue(MinimumProperty);
+        set => SetValue(MinimumProperty, value);
     }
 
     protected override void OnLoaded()
@@ -123,6 +142,27 @@ public sealed class GraphEditorBackground : Control
         for (double x = originX; x < right; x += PixelsPerSecond)
         {
             context.DrawLine(_pen, new(x, viewport.Top), new(x, viewport.Bottom));
+        }
+
+        using (context.PushOpacity(0.1))
+        {
+            double maxPixel = Maximum * _scale;
+            double maxY = originY - maxPixel;
+            if (double.IsFinite(maxY) && maxY >= 0)
+            {
+                context.FillRectangle(
+                    _brush,
+                    new Rect(viewport.Left, 0, viewport.Width, maxY));
+            }
+
+            double minPixel = Minimum * _scale;
+            double minY = originY - minPixel;
+            if (double.IsFinite(minY))
+            {
+                context.FillRectangle(
+                    _brush,
+                    new Rect(new Point(viewport.Left, minY), new Point(viewport.Right, viewport.Bottom)));
+            }
         }
     }
 }

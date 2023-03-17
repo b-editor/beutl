@@ -32,7 +32,7 @@
                                               HorizontalAlignment="Right"
                                               IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                               UseColorPalette="True"
-                                              Color="{TemplateBinding Value, Mode=TwoWay}" />
+                                              Color="{Binding Value, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
 
                         <StackPanel Name="LeftRightButtons"
                                     Grid.Column="2"

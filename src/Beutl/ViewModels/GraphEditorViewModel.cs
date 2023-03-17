@@ -2,6 +2,7 @@
 using System.Collections.Specialized;
 
 using Avalonia;
+using Avalonia.Threading;
 
 using Beutl.Animation;
 using Beutl.ProjectSystem;
@@ -14,13 +15,13 @@ public sealed class GraphEditorViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly EditViewModel _editViewModel;
+    private readonly GraphEditorViewViewModelFactory[] _factories;
     private bool _editting;
 
     public GraphEditorViewModel(EditViewModel editViewModel, IKeyFrameAnimation animation)
     {
         _editViewModel = editViewModel;
         Animation = animation;
-        Animation.KeyFrames.CollectionChanged += OnKeyFramesCollectionChanged;
 
         PanelWidth = Scene.GetObservable(Scene.DurationProperty)
             .CombineLatest(editViewModel.Scale)
@@ -38,7 +39,16 @@ public sealed class GraphEditorViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        AddKeyFrames();
+        _factories = GraphEditorViewViewModelFactory.GetFactory(this).ToArray();
+        Factory = _factories.FirstOrDefault();
+        Views = GraphEditorViewViewModelFactory.CreateViews(this, Factory);
+        foreach (GraphEditorViewViewModel item in Views)
+        {
+            item.VerticalRangeChanged += OnItemVerticalRangeChanged;
+        }
+
+        SelectedView.Value = Views.FirstOrDefault();
+
         CalculateMaxHeight();
 
         editViewModel.Offset.Subscribe(v => ScrollOffset.Value = ScrollOffset.Value.WithX(v.X))
@@ -66,9 +76,13 @@ public sealed class GraphEditorViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
 
+    public ReactivePropertySlim<GraphEditorViewViewModel?> SelectedView { get; } = new();
+
     public IKeyFrameAnimation Animation { get; }
 
-    public CoreList<GraphEditorKeyFrameViewModel> KeyFrames { get; } = new();
+    public GraphEditorViewViewModel[] Views { get; }
+
+    public GraphEditorViewViewModelFactory? Factory { get; }
 
     public void BeginEditing()
     {
@@ -81,27 +95,18 @@ public sealed class GraphEditorViewModel : IDisposable
         CalculateMaxHeight();
     }
 
+    private void OnItemVerticalRangeChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(CalculateMaxHeight);
+    }
+
     private void CalculateMaxHeight()
     {
         double max = 0d;
         double min = 0d;
-        foreach (GraphEditorKeyFrameViewModel item in KeyFrames)
+        foreach (GraphEditorViewViewModel view in Views)
         {
-            max = Math.Max(max, item.EndY.Value);
-            min = Math.Min(min, item.EndY.Value);
-
-            if (item.IsSplineEasing.Value)
-            {
-                double c1 = item.ControlPoint1.Value.Y;
-                double c2 = item.ControlPoint2.Value.Y;
-                c1 = -c1 + Math.Max(item.EndY.Value, item.StartY.Value);
-                c2 = -c2 + Math.Max(item.EndY.Value, item.StartY.Value);
-
-                max = Math.Max(max, c1);
-                min = Math.Min(min, c1);
-                max = Math.Max(max, c2);
-                min = Math.Min(min, c2);
-            }
+            view.GetVerticalRange(ref min, ref max);
         }
 
         double oldbase = Baseline.Value;
@@ -120,100 +125,12 @@ public sealed class GraphEditorViewModel : IDisposable
         }
     }
 
-    private void AddKeyFrames()
-    {
-        GraphEditorKeyFrameViewModel? prev = null;
-        int index = 0;
-        foreach (IKeyFrame item in Animation.KeyFrames)
-        {
-            var viewModel = new GraphEditorKeyFrameViewModel(item, Animation, this);
-            viewModel.EndY.Subscribe(_ => CalculateMaxHeight());
-            viewModel.ControlPoint1.Subscribe(_ => CalculateMaxHeight());
-            viewModel.ControlPoint2.Subscribe(_ => CalculateMaxHeight());
-            viewModel.SetPrevious(prev);
-            KeyFrames.Insert(index++, viewModel);
-            prev = viewModel;
-        }
-    }
-
-    private void OnKeyFramesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        GraphEditorKeyFrameViewModel? TryGet(int index)
-        {
-            if (0 <= index && index < KeyFrames.Count)
-            {
-                return KeyFrames[index];
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-        // | NewItem 1 | NewItem 2 | NewItem 3 | Existing | ...
-        //          ^     /     ^     /     ^     /
-        //           \---/       \---/       \---/
-        void Add(int index, IList items)
-        {
-            foreach (IKeyFrame item in items)
-            {
-                var viewModel = new GraphEditorKeyFrameViewModel(item, Animation, this);
-                viewModel.EndY.Subscribe(_ => CalculateMaxHeight());
-                viewModel.ControlPoint1.Subscribe(_ => CalculateMaxHeight());
-                viewModel.ControlPoint2.Subscribe(_ => CalculateMaxHeight());
-                viewModel.SetPrevious(TryGet(index - 1));
-                KeyFrames.Insert(index, viewModel);
-                index++;
-            }
-
-            GraphEditorKeyFrameViewModel? existing = TryGet(index);
-            existing?.SetPrevious(TryGet(index - 1));
-        }
-
-        // |  Existing | OldItem 1 | OldItem 2 | Existing | ...
-        //          ^                             /
-        //           \---------------------------/
-        void Remove(int index, int count)
-        {
-            for (int i = 0; i < count; ++i)
-            {
-                KeyFrames[index + i].Dispose();
-            }
-
-            KeyFrames.RemoveRange(index, count);
-
-            GraphEditorKeyFrameViewModel? existing = TryGet(index);
-            existing?.SetPrevious(TryGet(index - 1));
-        }
-
-        switch (e.Action)
-        {
-            case NotifyCollectionChangedAction.Add:
-                Add(e.NewStartingIndex, e.NewItems!);
-                break;
-
-            case NotifyCollectionChangedAction.Move:
-            case NotifyCollectionChangedAction.Replace:
-                Remove(e.OldStartingIndex, e.OldItems!.Count);
-                Add(e.NewStartingIndex, e.NewItems!);
-                break;
-
-            case NotifyCollectionChangedAction.Remove:
-                Remove(e.OldStartingIndex, e.OldItems!.Count);
-                break;
-
-            case NotifyCollectionChangedAction.Reset:
-                Remove(0, KeyFrames.Count);
-                break;
-        }
-    }
-
     public void Dispose()
     {
         _disposables.Dispose();
-        Animation.KeyFrames.CollectionChanged -= OnKeyFramesCollectionChanged;
-        foreach (GraphEditorKeyFrameViewModel item in KeyFrames)
+        foreach (GraphEditorViewViewModel item in Views)
         {
+            item.VerticalRangeChanged -= OnItemVerticalRangeChanged;
             item.Dispose();
         }
     }

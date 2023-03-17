@@ -18,6 +18,8 @@ public sealed class GraphEditorTabViewModel : IToolContext
     {
     }
 
+    public string Header => "Graph Editor";
+
     public ToolTabExtension Extension => GraphEditorTabExtension.Instance;
 
     public ReactivePropertySlim<GraphEditorViewModel?> SelectedAnimation { get; } = new();

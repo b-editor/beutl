@@ -17,7 +17,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
-public abstract class BaseEditorViewModel : IPropertyEditorContext
+public abstract class BaseEditorViewModel : IPropertyEditorContext, IProvideEditViewModel
 {
     protected CompositeDisposable Disposables = new();
     private bool _disposedValue;
@@ -131,6 +131,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext
     [AllowNull]
     public PropertyEditorExtension Extension { get; set; }
 
+    EditViewModel? IProvideEditViewModel.EditViewModel => _editViewModel;
+
     public void Dispose()
     {
         if (!_disposedValue)
@@ -154,13 +156,14 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext
     public virtual void Accept(IPropertyEditorContextVisitor visitor)
     {
         visitor.Visit(this);
-        if (visitor is SourceOperatorViewModel parentViewModel)
+        if (visitor is IProvideEditViewModel parentViewModel)
         {
             _currentFrameRevoker?.Dispose();
             _currentFrameRevoker = null;
 
             _editViewModel = parentViewModel.EditViewModel;
-            if (WrappedProperty is IAbstractAnimatableProperty animatableProperty)
+            if (WrappedProperty is IAbstractAnimatableProperty animatableProperty
+                && _editViewModel != null)
             {
                 _currentFrameRevoker = _editViewModel.Scene.GetObservable(Scene.CurrentFrameProperty)
                     .CombineLatest(animatableProperty.ObserveAnimation

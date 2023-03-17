@@ -11,7 +11,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Tools;
 
-public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContextVisitor
+public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContextVisitor, IProvideEditViewModel
 {
     public SourceOperatorViewModel(SourceOperator model, EditViewModel editViewModel)
     {
