@@ -97,6 +97,16 @@ public abstract partial class GraphEditorViewViewModelFactory
 
     private sealed class ColorFactory : GraphEditorViewViewModelFactory
     {
+        private static double OECF_sRGB(double linear)
+        {
+            return linear <= 0.0031308 ? linear * 12.92 : (Math.Pow(linear, 1.0 / 2.4) * 1.055 - 0.055);
+        }
+
+        private static double EOCF_sRGB(double srgb)
+        {
+            return srgb <= 0.04045 ? srgb / 12.92 : Math.Pow((srgb + 0.055) / 1.055, 2.4);
+        }
+
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
             return new GraphEditorViewViewModel[]
@@ -137,14 +147,19 @@ public abstract partial class GraphEditorViewViewModelFactory
 
         private static double ConvertTo(int fieldIndex, object? obj)
         {
+            static double Cast(byte value)
+            {
+                return EOCF_sRGB(value / 255d) * 255d;
+            }
+
             if (obj is Media.Color typed)
             {
                 return fieldIndex switch
                 {
                     0 => typed.A,
-                    1 => typed.R,
-                    2 => typed.G,
-                    3 => typed.B,
+                    1 => Cast(typed.R),
+                    2 => Cast(typed.G),
+                    3 => Cast(typed.B),
                     _ => 1d
                 };
             }
@@ -159,7 +174,7 @@ public abstract partial class GraphEditorViewViewModelFactory
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             byte Cast()
             {
-                return byte.CreateTruncating(value);
+                return byte.CreateTruncating(Math.Round(OECF_sRGB(value / 255d) * 255d));
             }
 
             if (oldValue is Media.Color old)
@@ -167,7 +182,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                 switch (fieldIndex)
                 {
                     case 0:
-                        obj = new Media.Color(Cast(), old.R, old.G, old.B);
+                        obj = new Media.Color(byte.CreateTruncating(value), old.R, old.G, old.B);
                         return true;
 
                     case 1:
