@@ -44,17 +44,6 @@
                     <Setter Property="Cursor" Value="SizeNorthSouth" />
                 </Style>
             </Border.Styles>
-            <Border.ContextFlyout>
-                <ui:FAMenuFlyout>
-                    <!--<ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding ShowAnimationVisual.Value}" Text="{x:Static lang:Strings.ShowPreview}" />-->
-
-                    <ui:MenuFlyoutItem Click="OpenAnimationTimelineClick" Text="{x:Static lang:Strings.OpenTimeline}">
-                        <ui:MenuFlyoutItem.Icon>
-                            <icons:SymbolIcon Symbol="Open" />
-                        </ui:MenuFlyoutItem.Icon>
-                    </ui:MenuFlyoutItem>
-                </ui:FAMenuFlyout>
-            </Border.ContextFlyout>
             <icons:SymbolIcon FontSize="14" Symbol="ReOrderDotsVertical" />
         </Border>
 

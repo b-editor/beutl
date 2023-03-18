@@ -1,14 +1,12 @@
-﻿using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.LogicalTree;
-using Avalonia.Media;
-using Avalonia.Media.Transformation;
 using Avalonia.Xaml.Interactivity;
 
+using Beutl.Animation;
 using Beutl.Controls.Behaviors;
+using Beutl.Framework;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 
@@ -29,38 +27,14 @@ public partial class InlineAnimationLayerHeader : UserControl
     private void OpenTab_Click(object? sender, RoutedEventArgs e)
     {
         if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
-            && DataContext is InlineAnimationLayerViewModel viewModel)
+            && DataContext is InlineAnimationLayerViewModel viewModel
+            && viewModel.Property is IAbstractAnimatableProperty { Animation: IKeyFrameAnimation kfAnimation })
         {
-            // 右側のタブを開く
-            AnimationTabViewModel anmViewModel
-                = editViewModel.FindToolTab<AnimationTabViewModel>()
-                    ?? new AnimationTabViewModel();
-
-            anmViewModel.Animation.Value = viewModel.Property;
-
-            editViewModel.OpenToolTab(anmViewModel);
+            // タイムラインのタブを開く
+            var anmTimelineViewModel = new GraphEditorTabViewModel();
+            anmTimelineViewModel.SelectedAnimation.Value = new GraphEditorViewModel(editViewModel, kfAnimation);
+            editViewModel.OpenToolTab(anmTimelineViewModel);
         }
-    }
-
-    private void OpenAnimationTimelineClick(object? sender, RoutedEventArgs e)
-    {
-        //if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
-        //    && DataContext is InlineAnimationLayerViewModel viewModel)
-        //{
-        //    // タイムラインのタブを開く
-        //    AnimationTimelineViewModel? anmTimelineViewModel =
-        //        editViewModel.FindToolTab<AnimationTimelineViewModel>(x => ReferenceEquals(x.WrappedProperty, viewModel.Property));
-
-        //    anmTimelineViewModel ??= new AnimationTimelineViewModel(viewModel.Property, editViewModel)
-        //    {
-        //        IsSelected =
-        //        {
-        //            Value = true
-        //        }
-        //    };
-
-        //    editViewModel.OpenToolTab(anmTimelineViewModel);
-        //}
     }
 
     private sealed class _DragBehavior : GenericDragBehavior

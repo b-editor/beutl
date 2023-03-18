@@ -357,11 +357,6 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
             {
                 OpenToolTab(tab2);
             }
-
-            if (EasingsTabExtension.Instance.TryCreateContext(this, out IToolContext? tab3))
-            {
-                OpenToolTab(tab3);
-            }
         }
     }
 

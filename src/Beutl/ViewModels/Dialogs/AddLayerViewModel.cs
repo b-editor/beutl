@@ -84,9 +84,7 @@ public sealed class AddLayerViewModel
 
             if (_layerDescription.InitialOperator != null)
             {
-                sLayer.AddChild((SourceOperator)Activator.CreateInstance(_layerDescription.InitialOperator.Type)!)
-                    .Append(sLayer.AddChild(new DefaultSourceHandler()))
-                    .DoAndRecord(CommandRecorder.Default);
+                sLayer.AddChild((SourceOperator)Activator.CreateInstance(_layerDescription.InitialOperator.Type)!).Do();
             }
 
             sLayer.Save(sLayer.FileName);

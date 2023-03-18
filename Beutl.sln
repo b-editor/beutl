@@ -116,11 +116,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.PackageTools", "src\B
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.WaitingDialog", "src\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj", "{D148B786-2361-4FCD-BD0E-5953CB4C2AF8}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VisualizeAnimationTest", "tests\VisualizeAnimationTest\VisualizeAnimationTest.csproj", "{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Extensions.FFmpeg", "src\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj", "{B969093E-3FCB-4B36-A91F-6C0AA6C8315A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PropertyEditorViewTests", "tests\PropertyEditorViewTests\PropertyEditorViewTests.csproj", "{EED4AB04-13CD-4382-BD1A-64D7A258957F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PropertyEditorViewTests", "tests\PropertyEditorViewTests\PropertyEditorViewTests.csproj", "{EED4AB04-13CD-4382-BD1A-64D7A258957F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -338,14 +336,6 @@ Global
 		{D148B786-2361-4FCD-BD0E-5953CB4C2AF8}.Release|Any CPU.Build.0 = Release|Any CPU
 		{D148B786-2361-4FCD-BD0E-5953CB4C2AF8}.Release|x64.ActiveCfg = Release|Any CPU
 		{D148B786-2361-4FCD-BD0E-5953CB4C2AF8}.Release|x64.Build.0 = Release|Any CPU
-		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Debug|x64.Build.0 = Debug|Any CPU
-		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Release|x64.ActiveCfg = Release|Any CPU
-		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A}.Release|x64.Build.0 = Release|Any CPU
 		{B969093E-3FCB-4B36-A91F-6C0AA6C8315A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B969093E-3FCB-4B36-A91F-6C0AA6C8315A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B969093E-3FCB-4B36-A91F-6C0AA6C8315A}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -382,7 +372,6 @@ Global
 		{ED8EECC3-4BDC-4B29-A17B-1044C7534BB2} = {464CEA08-D77A-4CB8-9B03-BEF0C852B907}
 		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0} = {D6C0F32B-62A6-48BA-867E-BCDD88B71748}
 		{456F3A49-7881-4793-966D-FF647190F5CB} = {D2E28768-5899-48B0-B35C-41BABE9D9536}
-		{1E43218A-08F9-4AF7-B4DB-F941BE862F1A} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 		{EED4AB04-13CD-4382-BD1A-64D7A258957F} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
