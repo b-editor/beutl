@@ -11,7 +11,7 @@ using BitmapEffect = Graphics.Effects.BitmapEffect;
 public abstract class BitmapEffectOperator<T> : ConfigureOperator<Drawable, T>, ISourceTransformer
     where T : BitmapEffect, new()
 {
-    protected override void PreSelect(Drawable target, T value)
+    protected override void PreProcess(Drawable target, T value)
     {
         value.IsEnabled = IsEnabled;
     }

@@ -22,8 +22,8 @@ public class Layer : ProjectItem
     public static readonly CoreProperty<bool> IsEnabledProperty;
     public static readonly CoreProperty<bool> AllowOutflowProperty;
     public static readonly CoreProperty<RenderLayerSpan> SpanProperty;
-    public static readonly CoreProperty<SourceOperators> OperatorsProperty;
-    public static readonly CoreProperty<LayerNodeTreeModel> SpaceProperty;
+    public static readonly CoreProperty<SourceOperation> OperationProperty;
+    public static readonly CoreProperty<LayerNodeTreeModel> NodeTreeProperty;
     public static readonly CoreProperty<bool> UseNodeProperty;
     private TimeSpan _start;
     private TimeSpan _length;
@@ -80,12 +80,12 @@ public class Layer : ProjectItem
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
-        OperatorsProperty = ConfigureProperty<SourceOperators, Layer>(nameof(Operators))
-            .Accessor(o => o.Operators, null)
+        OperationProperty = ConfigureProperty<SourceOperation, Layer>(nameof(Operation))
+            .Accessor(o => o.Operation, null)
             .Register();
 
-        SpaceProperty = ConfigureProperty<LayerNodeTreeModel, Layer>(nameof(Space))
-            .Accessor(o => o.Space, null)
+        NodeTreeProperty = ConfigureProperty<LayerNodeTreeModel, Layer>(nameof(NodeTree))
+            .Accessor(o => o.NodeTree, null)
             .Register();
 
         UseNodeProperty = ConfigureProperty<bool, Layer>(nameof(UseNode))
@@ -114,14 +114,6 @@ public class Layer : ProjectItem
                 }
             }
         });
-
-        //RenderableProperty.Changed.Subscribe(args =>
-        //{
-        //    if (args.Sender is Layer layer && layer.Parent is Scene { Renderer: { IsDisposed: false } renderer } && layer.ZIndex >= 0)
-        //    {
-        //        renderer[layer.ZIndex] = args.NewValue;
-        //    }
-        //});
 
         IsEnabledProperty.Changed.Subscribe(args =>
         {
@@ -164,16 +156,17 @@ public class Layer : ProjectItem
 
     public Layer()
     {
-        Operators = new SourceOperators(this);
-        Operators.Attached += item => item.Invalidated += Operator_Invalidated;
-        Operators.Detached += item => item.Invalidated -= Operator_Invalidated;
-        Operators.CollectionChanged += OnOperatorsCollectionChanged;
+        Operation = new SourceOperation();
+        Operation.Invalidated += (_, _) => ForceRender();
+#if DEBUG
+        Operation.Children.CollectionChanged += OnOperatorsCollectionChanged;
+#endif
+        NodeTree = new LayerNodeTreeModel();
+        NodeTree.Invalidated += (_, _) => ForceRender();
 
-        Space = new LayerNodeTreeModel();
-        Space.Invalidated += (_, _) => ForceRender();
-
+        HierarchicalChildren.Add(Operation);
         HierarchicalChildren.Add(Span);
-        HierarchicalChildren.Add(Space);
+        HierarchicalChildren.Add(NodeTree);
     }
 
     private void OnOperatorsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -185,9 +178,9 @@ public class Layer : ProjectItem
     private void UpdateName()
     {
         var sb = new StringBuilder();
-        for (int i = 0; i < Operators.Count; i++)
+        for (int i = 0; i < Operation.Children.Count; i++)
         {
-            SourceOperator op = Operators[i];
+            SourceOperator op = Operation.Children[i];
             if (op.IsEnabled)
             {
                 Type type = op.GetType();
@@ -241,12 +234,9 @@ public class Layer : ProjectItem
 
     public RenderLayerSpan Span { get; } = new();
 
-    [Obsolete("Use 'Layer.Span'.")]
-    public RenderLayerSpan Node => Span;
+    public SourceOperation Operation { get; }
 
-    public SourceOperators Operators { get; }
-
-    public LayerNodeTreeModel Space { get; }
+    public LayerNodeTreeModel NodeTree { get; }
 
     public bool UseNode
     {
@@ -270,55 +260,16 @@ public class Layer : ProjectItem
 
         if (json is JsonObject jobject)
         {
-            // NOTE: リリース時に削除。互換性を保つためのコードなので
-            if (!jobject.ContainsKey("zIndex") && jobject.TryGetPropertyValue("layer", out JsonNode? layerNode)
-                && layerNode is JsonValue layerValue
-                && layerValue.TryGetValue(out int layer))
+            if (jobject.TryGetPropertyValue("operation", out JsonNode? operationNode)
+                && operationNode != null)
             {
-                ZIndex = layer;
+                Operation.ReadFromJson(operationNode);
             }
 
-            //if (jobject.TryGetPropertyValue("renderable", out JsonNode? renderableNode)
-            //    && renderableNode is JsonObject renderableObj
-            //    && renderableObj.TryGetPropertyValue("@type", out JsonNode? renderableTypeNode)
-            //    && renderableTypeNode is JsonValue renderableTypeValue
-            //    && renderableTypeValue.TryGetValue(out string? renderableTypeStr)
-            //    && TypeFormat.ToType(renderableTypeStr) is Type renderableType
-            //    && renderableType.IsAssignableTo(typeof(Renderable))
-            //    && Activator.CreateInstance(renderableType) is Renderable renderable)
-            //{
-            //    renderable.ReadFromJson(renderableObj);
-            //    Span.Value = renderable;
-            //}
-
-            if (jobject.TryGetPropertyValue("operators", out JsonNode? operatorsNode)
-                && operatorsNode is JsonArray operatorsArray)
+            if (jobject.TryGetPropertyValue("nodeTree", out JsonNode? nodeTreeNode)
+                && nodeTreeNode != null)
             {
-                foreach (JsonObject operatorJson in operatorsArray.OfType<JsonObject>())
-                {
-                    if (operatorJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-                        && atTypeNode is JsonValue atTypeValue
-                        && atTypeValue.TryGetValue(out string? atType))
-                    {
-                        var type = TypeFormat.ToType(atType);
-                        SourceOperator? @operator = null;
-
-                        if (type?.IsAssignableTo(typeof(SourceOperator)) ?? false)
-                        {
-                            @operator = Activator.CreateInstance(type) as SourceOperator;
-                        }
-
-                        @operator ??= new SourceOperator();
-                        @operator.ReadFromJson(operatorJson);
-                        Operators.Add(@operator);
-                    }
-                }
-            }
-
-            if (jobject.TryGetPropertyValue("space", out JsonNode? spaceNode)
-                && spaceNode != null)
-            {
-                Space.ReadFromJson(spaceNode);
+                NodeTree.ReadFromJson(nodeTreeNode);
             }
         }
     }
@@ -329,62 +280,14 @@ public class Layer : ProjectItem
 
         if (json is JsonObject jobject)
         {
-            //if (Span.Value is Renderable renderable)
-            //{
-            //    JsonNode node = new JsonObject();
-            //    renderable.WriteToJson(ref node);
-            //    node["@type"] = TypeFormat.ToString(renderable.GetType());
-            //    jobject["renderable"] = node;
-            //}
+            JsonNode operationNode = new JsonObject();
+            Operation.WriteToJson(ref operationNode);
+            jobject["operation"] = operationNode;
 
-            Span<SourceOperator> operators = Operators.GetMarshal().Value;
-            if (operators.Length > 0)
-            {
-                var array = new JsonArray();
-
-                foreach (SourceOperator item in operators)
-                {
-                    JsonNode node = new JsonObject();
-                    item.WriteToJson(ref node);
-                    node["@type"] = TypeFormat.ToString(item.GetType());
-
-                    array.Add(node);
-                }
-
-                jobject["operators"] = array;
-            }
-
-            JsonNode spaceNode = new JsonObject();
-            Space.WriteToJson(ref spaceNode);
-            jobject["space"] = spaceNode;
+            JsonNode nodeTreeNode = new JsonObject();
+            NodeTree.WriteToJson(ref nodeTreeNode);
+            jobject["nodeTree"] = nodeTreeNode;
         }
-    }
-
-    public IRecordableCommand AddChild(SourceOperator @operator)
-    {
-        ArgumentNullException.ThrowIfNull(@operator);
-
-        return Operators.BeginRecord<SourceOperator>()
-            .Add(@operator)
-            .ToCommand();
-    }
-
-    public IRecordableCommand RemoveChild(SourceOperator @operator)
-    {
-        ArgumentNullException.ThrowIfNull(@operator);
-
-        return Operators.BeginRecord<SourceOperator>()
-            .Remove(@operator)
-            .ToCommand();
-    }
-
-    public IRecordableCommand InsertChild(int index, SourceOperator @operator)
-    {
-        ArgumentNullException.ThrowIfNull(@operator);
-
-        return Operators.BeginRecord<SourceOperator>()
-            .Insert(index, @operator)
-            .ToCommand();
     }
 
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
@@ -415,11 +318,6 @@ public class Layer : ProjectItem
         }
     }
 
-    internal bool InRange(TimeSpan ts)
-    {
-        return Start <= ts && ts < Length + Start;
-    }
-
     private void ForceRender()
     {
         Scene? scene = this.FindHierarchicalParent<Scene>();
@@ -443,11 +341,6 @@ public class Layer : ProjectItem
                     .RefCount()
                 : Observable.Return(Unit.Default))
             .Subscribe(_ => ForceRender());
-    }
-
-    private void Operator_Invalidated(object? sender, EventArgs e)
-    {
-        ForceRender();
     }
 
     internal Layer? GetBefore(int zindex, TimeSpan start)

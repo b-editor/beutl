@@ -27,13 +27,10 @@ public class Scene : ProjectItem, IHierarchicalRoot
     };
     private readonly List<string> _excludeLayers = new();
     private readonly Layers _children;
-    private string? _fileName;
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private TimeSpan _currentFrame;
     private PreviewOptions? _previewOptions;
     private IRenderer _renderer;
-    private EventHandler? _saved;
-    private EventHandler? _restored;
 
     public Scene()
         : this(1920, 1080, string.Empty)

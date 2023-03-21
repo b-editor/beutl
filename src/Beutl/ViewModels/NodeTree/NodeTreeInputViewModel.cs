@@ -24,17 +24,17 @@ public sealed class NodeTreeInputViewModel : IDisposable
                                 .DoAndRecord(CommandRecorder.Default))
             .DisposeWith(_disposables);
 
-        layer.Space.Nodes.ForEachItem(
+        layer.NodeTree.Nodes.ForEachItem(
             (originalIdx, item) =>
             {
                 if (item is LayerInputNode layerInput)
                 {
                     int idx = ConvertFromOriginalIndex(originalIdx);
-                    Items.Insert(idx, new NodeInputViewModel(layerInput, originalIdx, Model.Space));
+                    Items.Insert(idx, new NodeInputViewModel(layerInput, originalIdx, Model.NodeTree));
 
                     for (int i = idx; i < Items.Count; i++)
                     {
-                        Items[i].OriginalIndex = Model.Space.Nodes.IndexOf(Items[i].Node);
+                        Items[i].OriginalIndex = Model.NodeTree.Nodes.IndexOf(Items[i].Node);
                     }
                 }
             },
@@ -48,7 +48,7 @@ public sealed class NodeTreeInputViewModel : IDisposable
 
                     for (int i = idx; i < Items.Count; i++)
                     {
-                        Items[i].OriginalIndex = Model.Space.Nodes.IndexOf(Items[i].Node);
+                        Items[i].OriginalIndex = Model.NodeTree.Nodes.IndexOf(Items[i].Node);
                     }
                 }
             },

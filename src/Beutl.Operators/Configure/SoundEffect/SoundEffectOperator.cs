@@ -16,7 +16,7 @@ using SoundEffect = Audio.Effects.SoundEffect;
 public abstract class SoundEffectOperator<T> : ConfigureOperator<Sound, T>, ISourceTransformer
     where T : SoundEffect, new()
 {
-    protected override void PreSelect(Sound target, T value)
+    protected override void PreProcess(Sound target, T value)
     {
         value.IsEnabled = IsEnabled;
     }

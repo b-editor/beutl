@@ -15,7 +15,6 @@ internal sealed class SceneRenderer :
     private readonly List<Layer> _end = new();
     private readonly List<Layer> _layers = new();
     private readonly List<Renderable> _unhandleds = new();
-    private readonly List<Renderable> _sharedList = new();
     private TimeSpan _recentTime = TimeSpan.MinValue;
 
     public SceneRenderer(Scene scene, int width, int height)
@@ -52,11 +51,11 @@ internal sealed class SceneRenderer :
         {
             if (layer.UseNode)
             {
-                InvokeNode(layer);
+                layer.NodeTree.Evaluate(this, layer);
             }
             else
             {
-                EvaluateLayer(layer);
+                layer.Operation.Evaluate(this, layer, _unhandleds);
             }
         }
 
@@ -66,7 +65,7 @@ internal sealed class SceneRenderer :
 
     private static void EnterSourceOperators(Layer layer)
     {
-        foreach (SourceOperator item in layer.Operators.GetMarshal().Value)
+        foreach (SourceOperator item in layer.Operation.Children.GetMarshal().Value)
         {
             item.Enter();
         }
@@ -74,113 +73,10 @@ internal sealed class SceneRenderer :
 
     private static void ExitSourceOperators(Layer layer)
     {
-        foreach (SourceOperator item in layer.Operators.GetMarshal().Value)
+        foreach (SourceOperator item in layer.Operation.Children.GetMarshal().Value)
         {
             item.Exit();
         }
-    }
-
-    private void EvaluateLayer(Layer layer)
-    {
-        void Detach(IList<Renderable> renderables)
-        {
-            foreach (Renderable item in renderables)
-            {
-                if (item.HierarchicalParent is RenderLayerSpan span
-                    && layer.Span != span)
-                {
-                    span.Value.Remove(item);
-                }
-            }
-        }
-
-        void DefaultHandler(IList<Renderable> renderables)
-        {
-            if (renderables.Count > 0)
-            {
-                RenderLayerSpan span = layer.Span;
-                Detach(renderables);
-
-                span.Value.Replace(renderables);
-
-                foreach (Renderable item in span.Value.GetMarshal().Value)
-                {
-                    item.ApplyStyling(Clock);
-                    item.ApplyAnimations(Clock);
-                    item.IsVisible = layer.IsEnabled;
-                    while (!item.EndBatchUpdate())
-                    {
-                    }
-                }
-
-                renderables.Clear();
-            }
-        }
-
-        void EvaluateSourceOperators(List<Renderable> unhandleds)
-        {
-            foreach (SourceOperator? item in layer.Operators.GetMarshal().Value)
-            {
-                if (item is ISourceTransformer selector)
-                {
-                    selector.Transform(unhandleds, Clock);
-                }
-                else if (item is ISourcePublisher source)
-                {
-                    if (source.Publish(Clock) is Renderable renderable)
-                    {
-                        unhandleds.Add(renderable);
-                        // Todo: Publish内でBeginBatchUpdateするようにする
-                        renderable.BeginBatchUpdate();
-                    }
-                }
-                else if (item is ISourceFilter { IsEnabled: true } filter)
-                {
-                    if (filter.Scope == SourceFilterScope.Local)
-                    {
-                        unhandleds = filter.Filter(unhandleds, Clock);
-                    }
-                    else
-                    {
-                        unhandleds = filter.Filter(unhandleds, Clock);
-                        _unhandleds.Clear();
-                        _unhandleds.AddRange(unhandleds);
-                    }
-                }
-
-                if (item is ISourceHandler handler)
-                {
-                    handler.Handle(unhandleds, Clock);
-                    // 差分を取ってEndBatchUpdateする
-                }
-            }
-        }
-
-        if (layer.AllowOutflow)
-        {
-            EvaluateSourceOperators(_unhandleds);
-        }
-        else
-        {
-            EvaluateSourceOperators(_sharedList);
-
-            DefaultHandler(_sharedList);
-        }
-
-        //span.Value = result;
-        //span.Value?.ApplyStyling(Clock);
-        //span.Value?.ApplyAnimations(Clock);
-
-        //if (prevResult != null)
-        //{
-        //    prevResult.IsVisible = layer.IsEnabled;
-        //}
-        //span.Value?.EndBatchUpdate();
-    }
-
-    private void InvokeNode(Layer layer)
-    {
-        layer.Space.Evaluate(this, layer);
     }
 
     // Layersを振り分ける

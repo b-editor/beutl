@@ -53,27 +53,38 @@ public abstract class ConfigureOperator<TTarget, TValue> : SourceOperator, ISour
 
             if (_snapshot != null)
             {
-                foreach (TTarget item in _snapshot.Take(_snapshotCount).Except(value).OfType<TTarget>())
+                var set = new HashSet<Renderable>(value);
+
+                foreach (Renderable item in _snapshot.AsSpan().Slice(_snapshotCount))
                 {
-                    PreSelect(item, Value);
-                    OnDetached(item, Value);
-                    PostSelect(item, Value);
+                    if (set.Add(item) && item is TTarget target)
+                    {
+                        // valueにない、つまり削除された。
+                        PreProcess(target, Value);
+                        OnDetached(target, Value);
+                        PostProcess(target, Value);
+                    }
                 }
 
-                foreach (TTarget item in value.Except(_snapshot.Take(_snapshotCount)).OfType<TTarget>())
+                set.IntersectWith(_snapshot.Take(_snapshotCount));
+                foreach (Renderable item in value)
                 {
-                    PreSelect(item, Value);
-                    OnAttached(item, Value);
-                    PostSelect(item, Value);
+                    if (set.Add(item) && item is TTarget target)
+                    {
+                        // _snapshotになくてvalueにある。(追加された)
+                        PreProcess(target, Value);
+                        OnAttached(target, Value);
+                        PostProcess(target, Value);
+                    }
                 }
             }
             else
             {
                 foreach (TTarget item in value.OfType<TTarget>())
                 {
-                    PreSelect(item, Value);
+                    PreProcess(item, Value);
                     OnAttached(item, Value);
-                    PostSelect(item, Value);
+                    PostProcess(item, Value);
                 }
             }
         }
@@ -96,6 +107,21 @@ public abstract class ConfigureOperator<TTarget, TValue> : SourceOperator, ISour
 
             _snapshotCount = value.Count;
             value.CopyTo(_snapshot, 0);
+        }
+    }
+
+    public override void UninitializeForContext(OperatorEvaluationContext context)
+    {
+        base.UninitializeForContext(context);
+        if (_snapshot != null)
+        {
+            foreach (TTarget item in _snapshot.Take(_snapshotCount).OfType<TTarget>())
+            {
+                OnDetached(item, Value);
+            }
+
+            ArrayPool<Renderable>.Shared.Return(_snapshot, true);
+            _snapshot = null;
         }
     }
 
@@ -137,33 +163,17 @@ public abstract class ConfigureOperator<TTarget, TValue> : SourceOperator, ISour
         }
     }
 
-    protected virtual void PreSelect(TTarget target, TValue value)
+    protected virtual void PreProcess(TTarget target, TValue value)
     {
     }
 
-    protected virtual void PostSelect(TTarget target, TValue value)
+    protected virtual void PostProcess(TTarget target, TValue value)
     {
     }
 
     protected abstract void OnAttached(TTarget target, TValue value);
 
     protected abstract void OnDetached(TTarget target, TValue value);
-
-    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-        base.OnDetachedFromHierarchy(args);
-
-        if (_snapshot != null)
-        {
-            foreach (TTarget item in _snapshot.Take(_snapshotCount).OfType<TTarget>())
-            {
-                OnDetached(item, Value);
-            }
-
-            ArrayPool<Renderable>.Shared.Return(_snapshot, true);
-            _snapshot = null;
-        }
-    }
 
     protected virtual IEnumerable<CoreProperty> GetProperties()
     {

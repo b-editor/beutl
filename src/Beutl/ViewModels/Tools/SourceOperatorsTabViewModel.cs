@@ -40,8 +40,8 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
             {
                 _disposable1?.Dispose();
 
-                Items.AddRange(layer.Operators.Select(x => new SourceOperatorViewModel(x, _editViewModel)));
-                _disposable1 = layer.Operators.CollectionChangedAsObservable()
+                Items.AddRange(layer.Operation.Children.Select(x => new SourceOperatorViewModel(x, _editViewModel)));
+                _disposable1 = layer.Operation.Children.CollectionChangedAsObservable()
                     .Subscribe(e =>
                     {
                         static void RemoveItems(CoreList<SourceOperatorViewModel> items, int index, int count)

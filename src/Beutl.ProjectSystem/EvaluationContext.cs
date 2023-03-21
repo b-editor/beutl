@@ -1,7 +1,7 @@
 ﻿using Beutl.Animation;
 using Beutl.Rendering;
 
-namespace Beutl.NodeTree;
+namespace Beutl;
 
 // Todo:
 public class EvaluationContext
@@ -26,7 +26,7 @@ public class EvaluationContext
 
     public IRenderer Renderer { get; internal set; }
 
-    public IReadOnlyList<NodeEvaluationContext> List { get; internal set; }
+    public IReadOnlyList<EvaluationContext> List { get; internal set; }
 
     public void AddRenderable(Renderable renderable)
     {

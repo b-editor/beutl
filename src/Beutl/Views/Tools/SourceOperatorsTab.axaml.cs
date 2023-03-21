@@ -57,7 +57,7 @@ public sealed partial class SourceOperatorsTab : UserControl
             && DataContext is SourceOperatorsTabViewModel vm
             && vm.Layer.Value is Layer layer)
         {
-            layer.AddChild((SourceOperator)Activator.CreateInstance(item.Type)!)
+            layer.Operation.AddChild((SourceOperator)Activator.CreateInstance(item.Type)!)
                 .DoAndRecord(CommandRecorder.Default);
 
             e.Handled = true;

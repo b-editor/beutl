@@ -61,7 +61,7 @@ public partial class NodeInputView : UserControl
             {
                 oldIndex = viewModel.ConvertToOriginalIndex(oldIndex);
                 newIndex = viewModel.ConvertToOriginalIndex(newIndex);
-                viewModel.Model.Space.Nodes.BeginRecord<Beutl.NodeTree.Node>()
+                viewModel.Model.NodeTree.Nodes.BeginRecord<Beutl.NodeTree.Node>()
                     .Move(oldIndex, newIndex)
                     .ToCommand()
                     .DoAndRecord(CommandRecorder.Default);

@@ -1,6 +1,9 @@
 ﻿using Beutl.Collections;
 using Beutl.Framework;
 using Beutl.Media;
+using Beutl.Rendering;
+
+using DynamicData;
 
 namespace Beutl.Operation;
 
@@ -41,6 +44,47 @@ public class SourceOperator : Hierarchical, ISourceOperator
     public ICoreList<IAbstractProperty> Properties { get; } = new CoreList<IAbstractProperty>();
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+
+    public virtual void InitializeForContext(OperatorEvaluationContext context)
+    {
+    }
+
+    public virtual void UninitializeForContext(OperatorEvaluationContext context)
+    {
+    }
+
+    public virtual void Evaluate(OperatorEvaluationContext context)
+    {
+        switch (this)
+        {
+            case ISourceTransformer selector:
+                selector.Transform(context._renderables, context.Clock);
+                break;
+            case ISourcePublisher source:
+                if (source.Publish(context.Clock) is Renderable renderable)
+                {
+                    context.AddRenderable(renderable);
+                }
+                break;
+            case ISourceFilter filter:
+                if (filter.Scope == SourceFilterScope.Local)
+                {
+                    context._renderables = filter.Filter((IReadOnlyList<Renderable>)context._renderables, context.Clock);
+                }
+                else
+                {
+                    context._renderables = filter.Filter((IReadOnlyList<Renderable>)context._renderables, context.Clock);
+                    context.GlobalRenderables.Clear();
+                    context.GlobalRenderables.AddRange(context._renderables);
+                }
+                break;
+            case ISourceHandler handler:
+                handler.Handle(context._renderables, context.Clock);
+                break;
+            default:
+                break;
+        }
+    }
 
     public virtual void Enter()
     {

@@ -9,7 +9,7 @@ using ImageFilter = Graphics.Filters.ImageFilter;
 public abstract class ImageFilterOperator<T> : ConfigureOperator<Drawable, T>
     where T : ImageFilter, new()
 {
-    protected override void PreSelect(Drawable target, T value)
+    protected override void PreProcess(Drawable target, T value)
     {
         value.IsEnabled = IsEnabled;
     }

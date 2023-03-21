@@ -68,7 +68,7 @@ public sealed class TimelineViewModel : IToolContext
             if (item.InitialOperator != null)
             {
                 sLayer.AccentColor = item.InitialOperator.AccentColor;
-                sLayer.AddChild((SourceOperator)Activator.CreateInstance(item.InitialOperator.Type)!).Do();
+                sLayer.Operation.AddChild((SourceOperator)Activator.CreateInstance(item.InitialOperator.Type)!).Do();
             }
 
             sLayer.Save(sLayer.FileName);

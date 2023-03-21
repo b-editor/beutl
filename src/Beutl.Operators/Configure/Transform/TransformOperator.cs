@@ -9,7 +9,7 @@ using Transform = Graphics.Transformation.Transform;
 public abstract class TransformOperator<T> : ConfigureOperator<Drawable, T>
     where T : Transform, new()
 {
-    protected override void PreSelect(Drawable target, T value)
+    protected override void PreProcess(Drawable target, T value)
     {
         value.IsEnabled = IsEnabled;
     }
