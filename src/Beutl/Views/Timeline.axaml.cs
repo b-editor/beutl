@@ -214,7 +214,7 @@ public sealed partial class Timeline : UserControl
         TimelineViewModel viewModel = ViewModel;
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
         _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale)
-            .RoundToRate(viewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
+            .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
 
         if (ReferenceEquals(sender, TimelinePanel))
         {
@@ -284,7 +284,7 @@ public sealed partial class Timeline : UserControl
         TimelineViewModel viewModel = ViewModel;
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
         viewModel.ClickedFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale)
-            .RoundToRate(viewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
+            .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
 
         if (ReferenceEquals(sender, TimelinePanel))
         {
@@ -323,7 +323,7 @@ public sealed partial class Timeline : UserControl
         Point pt = e.GetPosition(TimelinePanel);
 
         viewModel.ClickedFrame = pt.X.ToTimeSpan(viewModel.Options.Value.Scale)
-            .RoundToRate(viewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
+            .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
         viewModel.ClickedLayer = viewModel.ToLayerNumber(pt.Y);
 
         if (e.Data.Get("SourceOperator") is OperatorRegistry.RegistryItem item2)

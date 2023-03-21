@@ -4,7 +4,7 @@ using Beutl.Media;
 
 namespace Beutl.NodeTree;
 
-public abstract class NodeItem : Element
+public abstract class NodeItem : Hierarchical
 {
     public static readonly CoreProperty<bool?> IsValidProperty;
     public static readonly CoreProperty<int> LocalIdProperty;

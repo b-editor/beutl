@@ -6,6 +6,8 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
 
+using DynamicData;
+
 namespace Beutl.Graphics.Shapes;
 
 public class TextBlock : Drawable
@@ -92,7 +94,6 @@ public class TextBlock : Drawable
             .Register();
 
         AffectsRender<TextBlock>(ElementsProperty);
-        LogicalChild<TextBlock>(ElementsProperty);
     }
 
     public TextBlock()
@@ -237,25 +238,25 @@ public class TextBlock : Drawable
         }
     }
 
-    protected override IEnumerable<ILogicalElement> OnEnumerateChildren()
-    {
-        foreach (ILogicalElement item in base.OnEnumerateChildren())
-        {
-            yield return item;
-        }
-
-        if (_elements != null)
-        {
-            foreach (TextElement item in _elements)
-            {
-                yield return item;
-            }
-        }
-    }
-
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
+        if (args.PropertyName is nameof(Elements))
+        {
+            if (args is CorePropertyChangedEventArgs<TextElements> typedargs)
+            {
+                if (typedargs.OldValue != null)
+                {
+                    HierarchicalChildren.RemoveMany(typedargs.OldValue);
+                }
+
+                if (typedargs.NewValue != null)
+                {
+                    HierarchicalChildren.AddRange(typedargs.NewValue);
+                }
+            }
+        }
+
         if (args.PropertyName is nameof(Text) or nameof(Size) or nameof(FontFamily) or nameof(FontStyle) or nameof(FontWeight) or nameof(Foreground) or nameof(Spacing) or nameof(Margin))
         {
             OnUpdateText();

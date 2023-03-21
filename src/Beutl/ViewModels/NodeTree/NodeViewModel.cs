@@ -65,7 +65,7 @@ public sealed class NodeViewModel : IDisposable
 
         Delete.Subscribe(() =>
         {
-            NodeTreeSpace? tree = Node.FindLogicalParent<NodeTreeSpace>();
+            NodeTreeSpace? tree = Node.FindHierarchicalParent<NodeTreeSpace>();
             if (tree != null)
             {
                 new RemoveCommand<Node>(tree.Nodes, Node)

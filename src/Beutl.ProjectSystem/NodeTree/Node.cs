@@ -8,11 +8,11 @@ using Beutl.Utilities;
 
 namespace Beutl.NodeTree;
 
-public abstract class Node : Element
+public abstract class Node : Hierarchical
 {
     public static readonly CoreProperty<bool> IsExpandedProperty;
     public static readonly CoreProperty<(double X, double Y)> PositionProperty;
-    private readonly LogicalList<INodeItem> _items;
+    private readonly HierarchicalList<INodeItem> _items;
     private (double X, double Y) _position;
     private NodeTreeSpace? _nodeTree;
 
@@ -478,9 +478,9 @@ public abstract class Node : Element
         json["items"] = array;
     }
 
-    protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnAttachedToLogicalTree(args);
+        base.OnAttachedToHierarchy(args);
         if (args.Parent is NodeTreeSpace nodeTree)
         {
             _nodeTree = nodeTree;
@@ -491,9 +491,9 @@ public abstract class Node : Element
         }
     }
 
-    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnDetachedFromLogicalTree(args);
+        base.OnDetachedFromHierarchy(args);
         if (args.Parent is NodeTreeSpace nodeTree)
         {
             _nodeTree = null;

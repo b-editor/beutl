@@ -2,7 +2,7 @@
 
 namespace Beutl.Framework;
 
-public interface IWorkspace : ITopLevel, IDisposable, IStorable
+public interface IWorkspace : IHierarchicalRoot, IDisposable, IStorable
 {
     ICoreList<IWorkspaceItem> Items { get; }
 
@@ -11,4 +11,6 @@ public interface IWorkspace : ITopLevel, IDisposable, IStorable
     Version AppVersion { get; }
 
     Version MinAppVersion { get; }
+
+    string RootDirectory { get; }
 }

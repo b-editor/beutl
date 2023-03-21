@@ -92,7 +92,7 @@ public sealed class PlayerViewModel : IDisposable
 
     public Scene Scene { get; }
 
-    public Project? Project => Scene.FindLogicalParent<Project>();
+    public Project? Project => Scene.FindHierarchicalParent<Project>();
 
     public ReactivePropertySlim<IImage> PreviewImage { get; } = new();
 

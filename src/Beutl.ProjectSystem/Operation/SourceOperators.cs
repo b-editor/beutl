@@ -19,40 +19,39 @@ public sealed class SourceOperators : CoreList<SourceOperator>
     private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         Span<SourceOperator> span = GetMarshal().Value;
-        var args = new LogicalTreeAttachmentEventArgs(Parent);
         switch (e.Action)
         {
             case NotifyCollectionChangedAction.Add:
                 for (int i = 0; i < e.NewStartingIndex; i++)
                 {
-                    (span[i] as ILogicalElement).NotifyDetachedFromLogicalTree(args);
+                    (span[i] as IModifiableHierarchical).SetParent(null);
                 }
 
                 for (int i = e.NewStartingIndex + e.NewItems!.Count; i < Count; i++)
                 {
-                    (span[i] as ILogicalElement).NotifyDetachedFromLogicalTree(args);
+                    (span[i] as IModifiableHierarchical).SetParent(null);
                 }
 
                 foreach (SourceOperator item in span)
                 {
-                    (item as ILogicalElement).NotifyAttachedToLogicalTree(args);
+                    (item as IModifiableHierarchical).SetParent(Parent);
                 }
                 break;
 
             case NotifyCollectionChangedAction.Remove:
                 for (int i = 0; i < e.OldItems!.Count; i++)
                 {
-                    (e.OldItems![i] as ILogicalElement)?.NotifyDetachedFromLogicalTree(args);
+                    (e.OldItems![i] as IModifiableHierarchical)!.SetParent(null);
                 }
 
                 foreach (SourceOperator item in span)
                 {
-                    (item as ILogicalElement).NotifyDetachedFromLogicalTree(args);
+                    (item as IModifiableHierarchical).SetParent(null);
                 }
 
                 foreach (SourceOperator item in span)
                 {
-                    (item as ILogicalElement).NotifyAttachedToLogicalTree(args);
+                    (item as IModifiableHierarchical).SetParent(Parent);
                 }
                 break;
 
@@ -60,22 +59,22 @@ public sealed class SourceOperators : CoreList<SourceOperator>
             case NotifyCollectionChangedAction.Move:
                 for (int i = 0; i < e.OldItems!.Count; i++)
                 {
-                    (e.OldItems![i] as ILogicalElement)?.NotifyDetachedFromLogicalTree(args);
+                    (e.OldItems![i] as IModifiableHierarchical)!.SetParent(null);
                 }
 
                 for (int i = 0; i < e.NewStartingIndex; i++)
                 {
-                    (span[i] as ILogicalElement).NotifyDetachedFromLogicalTree(args);
+                    (span[i] as IModifiableHierarchical).SetParent(null);
                 }
 
                 for (int i = e.NewStartingIndex + e.NewItems!.Count; i < Count; i++)
                 {
-                    (span[i] as ILogicalElement).NotifyDetachedFromLogicalTree(args);
+                    (span[i] as IModifiableHierarchical).SetParent(null);
                 }
 
                 foreach (SourceOperator item in span)
                 {
-                    (item as ILogicalElement).NotifyAttachedToLogicalTree(args);
+                    (item as IModifiableHierarchical).SetParent(Parent);
                 }
                 break;
 

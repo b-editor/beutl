@@ -141,7 +141,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
     {
         using var stack = new PooledList<NodeTreeSpace>();
 
-        ILogicalElement? current = nodeTree;
+        IHierarchical? current = nodeTree;
 
         while (current != null)
         {
@@ -152,7 +152,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
             try
             {
-                current = current?.LogicalParent;
+                current = current?.HierarchicalParent;
             }
             catch
             {

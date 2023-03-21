@@ -138,15 +138,15 @@ public class VideoFrame : Drawable
         }
     }
 
-    protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnAttachedToLogicalTree(args);
-        _layerNode = args.Parent?.FindLogicalParent<RenderLayerSpan>(true);
+        base.OnAttachedToHierarchy(args);
+        _layerNode = args.Parent?.FindHierarchicalParent<RenderLayerSpan>(true);
     }
 
-    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnDetachedFromLogicalTree(args);
+        base.OnDetachedFromHierarchy(args);
         _layerNode = null;
     }
 

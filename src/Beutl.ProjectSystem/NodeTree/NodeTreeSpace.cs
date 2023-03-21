@@ -162,7 +162,7 @@ public class NodeGroup : NodeTreeSpace
             INodeItem? item = node.Items[i];
             if (item is IInputSocket { Connection.Output: { } outputSocket })
             {
-                Node? node2 = outputSocket.FindLogicalParent<Node>();
+                Node? node2 = outputSocket.FindHierarchicalParent<Node>();
                 if (node2 != null)
                 {
                     BuildNode(node2, stack);
@@ -207,15 +207,15 @@ public class NodeGroup : NodeTreeSpace
 }
 
 // Todo: NodeTreeModel
-public abstract class NodeTreeSpace : Element, IAffectsRender
+public abstract class NodeTreeSpace : Hierarchical, IAffectsRender
 {
-    private readonly LogicalList<Node> _nodes;
+    private readonly HierarchicalList<Node> _nodes;
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
     public NodeTreeSpace()
     {
-        _nodes = new LogicalList<Node>(this);
+        _nodes = new HierarchicalList<Node>(this);
     }
 
     public ICoreList<Node> Nodes => _nodes;

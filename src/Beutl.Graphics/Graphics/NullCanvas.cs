@@ -60,9 +60,6 @@ internal sealed class NullCanvas : ICanvas
 
     public void DrawText(FormattedText text) => throw new NotImplementedException();
 
-    [Obsolete("Use 'DrawText(FormattedText)'.")]
-    public void DrawText(Media.TextFormatting.Compat.TextElement text, Size size) => throw new NotImplementedException();
-
     public void FillCircle(Size size) => throw new NotImplementedException();
 
     public void FillRect(Size size) => throw new NotImplementedException();

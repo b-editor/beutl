@@ -125,15 +125,15 @@ public abstract class Sound : Renderable
 
     protected abstract TimeSpan TimeCore(TimeSpan available);
 
-    protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnAttachedToLogicalTree(args);
+        base.OnAttachedToHierarchy(args);
         _layerSpan = args.Parent as RenderLayerSpan;
     }
 
-    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnDetachedFromLogicalTree(args);
+        base.OnDetachedFromHierarchy(args);
         _layerSpan = null;
     }
 

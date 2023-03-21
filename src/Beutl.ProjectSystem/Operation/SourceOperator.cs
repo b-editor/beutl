@@ -11,7 +11,7 @@ public interface ISourceOperator : IAffectsRender
     ICoreList<IAbstractProperty> Properties { get; }
 }
 
-public class SourceOperator : Element, ISourceOperator
+public class SourceOperator : Hierarchical, ISourceOperator
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
     private bool _isEnabled = true;

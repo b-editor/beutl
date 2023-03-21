@@ -8,7 +8,7 @@ internal interface ISupportSetValueNodeItem
     void SetThrough(INodeItem nodeItem);
 }
 
-public interface INodeItem : ICoreObject, ILogicalElement, IAffectsRender
+public interface INodeItem : ICoreObject, IHierarchical, IAffectsRender
 {
     int LocalId { get; }
 

@@ -436,7 +436,7 @@ public sealed partial class TimelineLayer : UserControl
                     else
                     {
                         float scale = viewModel.Timeline.Options.Value.Scale;
-                        int rate = viewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
+                        int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
                         TimeSpan newStart = viewModel.BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate);
                         int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
                         TimeSpan deltaStart = newStart - viewModel.Model.Start;

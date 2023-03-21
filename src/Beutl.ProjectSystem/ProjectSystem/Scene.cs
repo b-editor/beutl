@@ -12,7 +12,7 @@ using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 
 namespace Beutl.ProjectSystem;
 
-public class Scene : Element, IStorable, IWorkspaceItem
+public class Scene : Hierarchical, IStorable, IWorkspaceItem
 {
     public static readonly CoreProperty<int> WidthProperty;
     public static readonly CoreProperty<int> HeightProperty;
@@ -369,19 +369,6 @@ public class Scene : Element, IStorable, IWorkspaceItem
         LastSavedTime = File.GetLastWriteTimeUtc(filename);
 
         _restored?.Invoke(this, EventArgs.Empty);
-    }
-
-    protected override IEnumerable<ILogicalElement> OnEnumerateChildren()
-    {
-        foreach (ILogicalElement item in base.OnEnumerateChildren())
-        {
-            yield return item;
-        }
-
-        foreach (Layer item in Children)
-        {
-            yield return item;
-        }
     }
 
     private void SyncronizeLayers(IEnumerable<string> pathToLayer)

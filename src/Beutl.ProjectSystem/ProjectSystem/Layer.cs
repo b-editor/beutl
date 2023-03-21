@@ -13,7 +13,7 @@ using Beutl.Rendering;
 
 namespace Beutl.ProjectSystem;
 
-public class Layer : Element, IStorable, ILogicalElement
+public class Layer : Hierarchical, IStorable
 {
     public static readonly CoreProperty<TimeSpan> StartProperty;
     public static readonly CoreProperty<TimeSpan> LengthProperty;
@@ -108,7 +108,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
         ZIndexProperty.Changed.Subscribe(args =>
         {
-            if (args.Sender is Layer layer && layer.Parent is Scene { Renderer: { IsDisposed: false } renderer })
+            if (args.Sender is Layer layer && layer.HierarchicalParent is Scene { Renderer: { IsDisposed: false } renderer })
             {
                 renderer[args.OldValue]?.RemoveSpan(layer.Span);
                 if (args.NewValue >= 0)
@@ -178,10 +178,11 @@ public class Layer : Element, IStorable, ILogicalElement
         Operators.Detached += item => item.Invalidated -= Operator_Invalidated;
         Operators.CollectionChanged += OnOperatorsCollectionChanged;
 
-        (Span as ILogicalElement).NotifyAttachedToLogicalTree(new(this));
-
         Space = new LayerNodeTreeModel();
         Space.Invalidated += (_, _) => ForceRender();
+
+        HierarchicalChildren.Add(Span);
+        HierarchicalChildren.Add(Space);
     }
 
     private void OnOperatorsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -425,9 +426,9 @@ public class Layer : Element, IStorable, ILogicalElement
             .ToCommand();
     }
 
-    protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnAttachedToLogicalTree(args);
+        base.OnAttachedToHierarchy(args);
         if (args.Parent is Scene { Renderer: { IsDisposed: false } renderer } && ZIndex >= 0)
         {
             IRenderLayer? context = renderer[ZIndex];
@@ -442,32 +443,14 @@ public class Layer : Element, IStorable, ILogicalElement
         }
     }
 
-    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnDetachedFromLogicalTree(args);
+        base.OnDetachedFromHierarchy(args);
         if (args.Parent is Scene { Renderer: { IsDisposed: false } renderer } && ZIndex >= 0)
         {
             renderer[ZIndex]?.RemoveSpan(Span);
             _disposable?.Dispose();
             _disposable = null;
-        }
-    }
-
-    protected override IEnumerable<ILogicalElement> OnEnumerateChildren()
-    {
-        foreach (ILogicalElement item in base.OnEnumerateChildren())
-        {
-            yield return item;
-        }
-
-        foreach (SourceOperator item in Operators)
-        {
-            yield return item;
-        }
-
-        if (Span != null)
-        {
-            yield return Span;
         }
     }
 
@@ -478,7 +461,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
     private void ForceRender()
     {
-        Scene? scene = this.FindLogicalParent<Scene>();
+        Scene? scene = this.FindHierarchicalParent<Scene>();
         if (IsEnabled
             && scene != null
             && Start <= scene.CurrentFrame
@@ -508,7 +491,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
     internal Layer? GetBefore(int zindex, TimeSpan start)
     {
-        if (Parent is Scene scene)
+        if (HierarchicalParent is Scene scene)
         {
             Layer? tmp = null;
             foreach (Layer? item in scene.Children.GetMarshal().Value)
@@ -529,7 +512,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
     internal Layer? GetAfter(int zindex, TimeSpan end)
     {
-        if (Parent is Scene scene)
+        if (HierarchicalParent is Scene scene)
         {
             Layer? tmp = null;
             foreach (Layer? item in scene.Children.GetMarshal().Value)
@@ -550,7 +533,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
     internal (Layer? Before, Layer? After, Layer? Cover) GetBeforeAndAfterAndCover(int zindex, TimeSpan start, TimeSpan end)
     {
-        if (Parent is Scene scene)
+        if (HierarchicalParent is Scene scene)
         {
             Layer? beforeTmp = null;
             Layer? afterTmp = null;
@@ -587,7 +570,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
     internal (Layer? Before, Layer? After, Layer? Cover) GetBeforeAndAfterAndCover(int zindex, TimeSpan start, Layer[] excludes)
     {
-        if (Parent is Scene scene)
+        if (HierarchicalParent is Scene scene)
         {
             Layer? beforeTmp = null;
             Layer? afterTmp = null;

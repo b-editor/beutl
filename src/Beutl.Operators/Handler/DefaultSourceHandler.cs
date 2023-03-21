@@ -13,7 +13,7 @@ public sealed class DefaultSourceHandler : SourceOperator, ISourceHandler
     {
         foreach (Renderable item in renderables)
         {
-            if ((item as ILogicalElement).LogicalParent is RenderLayerSpan span
+            if ((item as IHierarchical).HierarchicalParent is RenderLayerSpan span
                 && layer.Span != span)
             {
                 span.Value.Remove(item);
@@ -55,15 +55,15 @@ public sealed class DefaultSourceHandler : SourceOperator, ISourceHandler
         }
     }
 
-    protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnAttachedToLogicalTree(args);
+        base.OnAttachedToHierarchy(args);
         _layer = args.Parent as Layer;
     }
 
-    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnDetachedFromLogicalTree(args);
+        base.OnDetachedFromHierarchy(args);
 
         if (_layer != null)
         {

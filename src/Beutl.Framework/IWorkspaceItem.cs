@@ -1,5 +1,5 @@
 ﻿namespace Beutl.Framework;
 
-public interface IWorkspaceItem : IStorable, ILogicalElement, ICoreObject
+public interface IWorkspaceItem : IStorable, IHierarchicalRoot, ICoreObject
 {
 }

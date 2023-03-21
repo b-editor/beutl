@@ -3,9 +3,9 @@ using Beutl.Collections;
 
 namespace Beutl.ProjectSystem;
 
-public sealed class Layers : LogicalList<Layer>
+public sealed class Layers : HierarchicalList<Layer>
 {
-    public Layers(ILogicalElement parent)
+    public Layers(IModifiableHierarchical parent)
         : base(parent)
     {
     }

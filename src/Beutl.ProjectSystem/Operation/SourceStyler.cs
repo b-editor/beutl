@@ -70,9 +70,9 @@ public abstract class SourceStyler : StylingOperator, ISourceTransformer
         instance.End();
     }
 
-    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnDetachedFromLogicalTree(args);
+        base.OnDetachedFromHierarchy(args);
         foreach (KeyValuePair<Renderable, IStyleInstance> item in _table)
         {
             item.Value.Dispose();

@@ -9,7 +9,7 @@ using Beutl.Rendering;
 
 namespace Beutl.Graphics;
 
-public abstract class Drawable : Renderable, IDrawable, ILogicalElement
+public abstract class Drawable : Renderable, IDrawable, IHierarchical
 {
     public static readonly CoreProperty<float> WidthProperty;
     public static readonly CoreProperty<float> HeightProperty;

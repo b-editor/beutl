@@ -86,7 +86,7 @@ internal sealed class SceneRenderer :
         {
             foreach (Renderable item in renderables)
             {
-                if ((item as ILogicalElement).LogicalParent is RenderLayerSpan span
+                if (item.HierarchicalParent is RenderLayerSpan span
                     && layer.Span != span)
                 {
                     span.Value.Remove(item);

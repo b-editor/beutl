@@ -18,7 +18,7 @@ public static class ProjectVariableKeys
 }
 
 // Todo: IResourceProviderを実装
-public sealed class Project : Element, IStorable, ILogicalElement, IWorkspace
+public sealed class Project : Hierarchical, IStorable, IWorkspace
 {
     public static readonly CoreProperty<Version> AppVersionProperty;
     public static readonly CoreProperty<Version> MinAppVersionProperty;
@@ -26,7 +26,7 @@ public sealed class Project : Element, IStorable, ILogicalElement, IWorkspace
     private string? _fileName;
     private EventHandler? _saved;
     private EventHandler? _restored;
-    private readonly LogicalList<IWorkspaceItem> _items;
+    private readonly HierarchicalList<IWorkspaceItem> _items;
     private readonly Dictionary<string, string> _variables = new();
 
     static Project()
@@ -44,7 +44,7 @@ public sealed class Project : Element, IStorable, ILogicalElement, IWorkspace
     public Project()
     {
         MinAppVersion = new Version(0, 3);
-        _items = new LogicalList<IWorkspaceItem>(this);
+        _items = new HierarchicalList<IWorkspaceItem>(this);
         _items.CollectionChanged += Items_CollectionChanged;
     }
 
@@ -69,8 +69,6 @@ public sealed class Project : Element, IStorable, ILogicalElement, IWorkspace
     public Version MinAppVersion { get; private set; }
 
     public DateTime LastSavedTime { get; private set; }
-
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => _items;
 
     public ICoreList<IWorkspaceItem> Items => _items;
 

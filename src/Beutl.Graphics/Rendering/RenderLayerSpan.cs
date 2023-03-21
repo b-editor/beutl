@@ -3,7 +3,7 @@ using Beutl.Media;
 
 namespace Beutl.Rendering;
 
-public sealed class RenderLayerSpan : Element, IAffectsRender
+public sealed class RenderLayerSpan : Hierarchical, IAffectsRender
 {
     public static readonly CoreProperty<TimeSpan> StartProperty;
     public static readonly CoreProperty<TimeSpan> DurationProperty;

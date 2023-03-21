@@ -39,7 +39,7 @@ public class SourceImage : Drawable
             && fileNode is JsonValue fileValue
             && fileValue.TryGetValue(out string? fileStr))
         {
-            if (Parent != null && _sourceName != fileStr)
+            if (HierarchicalParent != null && _sourceName != fileStr)
             {
                 Close();
                 _sourceName = fileStr;
@@ -66,15 +66,15 @@ public class SourceImage : Drawable
         }
     }
 
-    protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnAttachedToLogicalTree(args);
+        base.OnAttachedToHierarchy(args);
         Open();
     }
 
-    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnDetachedFromLogicalTree(args);
+        base.OnDetachedFromHierarchy(args);
         Close();
     }
 

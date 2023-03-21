@@ -192,7 +192,7 @@ public partial class GraphEditorView : UserControl
             PointerPoint pointerPt = e.GetCurrentPoint(graphPanel);
 
             _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale)
-                .RoundToRate(viewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
+                .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
 
             if (_pressed)
             {
@@ -223,7 +223,7 @@ public partial class GraphEditorView : UserControl
                 _pressed = true;
 
                 viewModel.Scene.CurrentFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale)
-                    .RoundToRate(viewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
+                    .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
 
                 e.Handled = true;
             }
@@ -379,7 +379,7 @@ public partial class GraphEditorView : UserControl
                     itemViewModel.EndY.Value -= delta.Y;
 
                     float scale = viewModel.Options.Value.Scale;
-                    int rate = viewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
+                    int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
 
                     double right = itemViewModel.Right.Value + delta.X;
                     var timeSpan = right.ToTimeSpan(scale);

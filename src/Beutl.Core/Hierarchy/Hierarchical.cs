@@ -1,42 +1,26 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
-using System.Text.Json.Nodes;
 
-using Beutl.Animation;
 using Beutl.Collections;
 
-namespace Beutl.Styling;
+namespace Beutl;
 
-public abstract class Styleable : Animatable, IStyleable, IModifiableHierarchical
+public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHierarchical
 {
-    public static readonly CoreProperty<Styles> StylesProperty;
-    private readonly Styles _styles;
-    private IStyleInstance? _styleInstance;
+    public static readonly CoreProperty<IHierarchical?> HierarchicalParentProperty;
+    private readonly CoreList<IHierarchical> _hierarchicalChildren;
+    private IHierarchical? _parent;
+    private IHierarchicalRoot? _root;
 
-    static Styleable()
+    static Hierarchical()
     {
-        StylesProperty = ConfigureProperty<Styles, Styleable>(nameof(Styles))
-            .Accessor(o => o.Styles, (o, v) => o.Styles = v)
-            .Register();
-
-        HierarchicalParentProperty = ConfigureProperty<IHierarchical?, Styleable>(nameof(HierarchicalParent))
+        HierarchicalParentProperty = ConfigureProperty<IHierarchical?, Hierarchical>(nameof(HierarchicalParent))
             .Accessor(o => o.HierarchicalParent, (o, v) => o.HierarchicalParent = v)
             .Register();
     }
 
-    protected Styleable()
+    public Hierarchical()
     {
-        _styles = new();
-        _styles.Attached += item =>
-        {
-            item.Invalidated += Style_Invalidated;
-        };
-        _styles.Detached += item =>
-        {
-            item.Invalidated -= Style_Invalidated;
-        };
-        _styles.CollectionChanged += Style_Invalidated;
-
         _root = this as IHierarchicalRoot;
         _hierarchicalChildren = new CoreList<IHierarchical>()
         {
@@ -44,116 +28,6 @@ public abstract class Styleable : Animatable, IStyleable, IModifiableHierarchica
         };
         _hierarchicalChildren.CollectionChanged += HierarchicalChildrenCollectionChanged;
     }
-
-    private void Style_Invalidated(object? sender, EventArgs e)
-    {
-        _styleInstance = null;
-    }
-
-    public Styles Styles
-    {
-        get => _styles;
-        set
-        {
-            if (_styles != value)
-            {
-                _styles.Replace(value);
-            }
-        }
-    }
-
-    public void InvalidateStyles()
-    {
-        if (_styleInstance != null)
-        {
-            _styleInstance.Dispose();
-            _styleInstance = null;
-        }
-    }
-
-    public virtual void ApplyStyling(IClock clock)
-    {
-        _styleInstance ??= Styles.Instance(this);
-
-        if (_styleInstance != null)
-        {
-            _styleInstance.Begin();
-            _styleInstance.Apply(clock);
-            _styleInstance.End();
-        }
-    }
-
-    IStyleInstance? IStyleable.GetStyleInstance(IStyle style)
-    {
-        IStyleInstance? styleInstance = _styleInstance;
-        while (styleInstance != null)
-        {
-            if (styleInstance.Source == style)
-            {
-                return styleInstance;
-            }
-            else
-            {
-                styleInstance = styleInstance.BaseStyle;
-            }
-        }
-
-        return null;
-    }
-
-    void IStyleable.StyleApplied(IStyleInstance instance)
-    {
-        _styleInstance = instance;
-    }
-
-    public override void ReadFromJson(JsonNode json)
-    {
-        base.ReadFromJson(json);
-        if (json is JsonObject jobject)
-        {
-            if (jobject.TryGetPropertyValue("styles", out JsonNode? stylesNode)
-                && stylesNode is JsonArray stylesArray)
-            {
-                Styles.Clear();
-                Styles.EnsureCapacity(stylesArray.Count);
-
-                foreach (JsonNode? styleNode in stylesArray)
-                {
-                    if (styleNode is JsonObject styleObject
-                        && styleObject.ToStyle() is Style style)
-                    {
-                        Styles.Add(style);
-                    }
-                }
-            }
-        }
-    }
-
-    public override void WriteToJson(ref JsonNode json)
-    {
-        base.WriteToJson(ref json);
-        if (json is JsonObject jobject)
-        {
-            if (Styles.Count > 0)
-            {
-                var styles = new JsonArray();
-
-                foreach (IStyle style in Styles.GetMarshal().Value)
-                {
-                    styles.Add(style.ToJson());
-                }
-
-                jobject["styles"] = styles;
-            }
-        }
-    }
-
-    #region IHierarchical
-
-    public static readonly CoreProperty<IHierarchical?> HierarchicalParentProperty;
-    private readonly CoreList<IHierarchical> _hierarchicalChildren;
-    private IHierarchical? _parent;
-    private IHierarchicalRoot? _root;
 
     public IHierarchical? HierarchicalParent
     {
@@ -322,5 +196,4 @@ public abstract class Styleable : Animatable, IStyleable, IModifiableHierarchica
     {
         HierarchicalChildren.Remove(child);
     }
-    #endregion
 }

@@ -217,42 +217,6 @@ public class Canvas : ICanvas
         }
     }
 
-    [Obsolete("Use 'DrawText(FormattedText)'.")]
-    public void DrawText(Media.TextFormatting.Compat.TextElement text, Size size)
-    {
-        VerifyAccess();
-        _sharedPaint.Reset();
-        ConfigurePaint(_sharedPaint, size);
-        _sharedPaint.TextSize = text.Size;
-        _sharedPaint.Typeface = text.Typeface.ToSkia();
-        _sharedPaint.Style = SKPaintStyle.Fill;
-        Span<char> sc = stackalloc char[1];
-        float prevRight = 0;
-
-        foreach (char item in text.Text)
-        {
-            sc[0] = item;
-            var bounds = default(SKRect);
-            float w = _sharedPaint.MeasureText(sc, ref bounds);
-
-            _canvas.Save();
-            _canvas.Translate(prevRight + bounds.Left, 0);
-
-            SKPath path = _sharedPaint.GetTextPath(
-                sc,
-                (bounds.Width / 2) - bounds.MidX,
-                0/*-_paint.FontMetrics.Ascent*/);
-
-            _canvas.DrawPath(path, _sharedPaint);
-            path.Dispose();
-
-            prevRight += text.Spacing;
-            prevRight += w;
-
-            _canvas.Restore();
-        }
-    }
-
     public void FillCircle(Size size)
     {
         VerifyAccess();

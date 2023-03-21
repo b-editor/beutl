@@ -129,7 +129,7 @@ public class LayerNodeTreeModel : NodeTreeSpace
             INodeItem? item = node.Items[i];
             if (item is IInputSocket { Connection.Output: { } outputSocket })
             {
-                Node? node2 = outputSocket.FindLogicalParent<Node>();
+                Node? node2 = outputSocket.FindHierarchicalParent<Node>();
                 if (node2 != null)
                 {
                     BuildNode(node2, stack);

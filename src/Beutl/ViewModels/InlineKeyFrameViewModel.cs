@@ -47,7 +47,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
     public void UpdateKeyTime()
     {
         float scale = Timeline.Options.Value.Scale;
-        Project? proj = Timeline.Scene.FindLogicalParent<Project>();
+        Project? proj = Timeline.Scene.FindHierarchicalParent<Project>();
         int rate = proj?.GetFrameRate() ?? 30;
 
         TimeSpan time = Left.Value.ToTimeSpan(scale).RoundToRate(rate);

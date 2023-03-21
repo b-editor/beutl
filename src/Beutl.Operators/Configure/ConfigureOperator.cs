@@ -149,9 +149,9 @@ public abstract class ConfigureOperator<TTarget, TValue> : SourceOperator, ISour
 
     protected abstract void OnDetached(TTarget target, TValue value);
 
-    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnDetachedFromLogicalTree(args);
+        base.OnDetachedFromHierarchy(args);
 
         if (_snapshot != null)
         {

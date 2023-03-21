@@ -21,7 +21,7 @@ public class GroupNode : Node
         {
             Name = "Group"
         };
-        (Group as ILogicalElement).NotifyAttachedToLogicalTree(new(this));
+        HierarchicalChildren.Add(Group);
         Group.Invalidated += OnGroupInvalidated;
 
         this.GetObservable(NameProperty).Subscribe(v => Group.Name = string.IsNullOrWhiteSpace(v) ? "Group" : v);
@@ -108,9 +108,9 @@ public class GroupNode : Node
         base.PostEvaluate(context);
     }
 
-    protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnAttachedToLogicalTree(args);
+        base.OnAttachedToHierarchy(args);
         Group.GetPropertyChangedObservable(NodeGroup.OutputProperty)
             .Subscribe(e => OnOutputChanged(e.NewValue, e.OldValue))
             .DisposeWith(_disposables);
@@ -120,9 +120,9 @@ public class GroupNode : Node
             .DisposeWith(_disposables);
     }
 
-    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnDetachedFromLogicalTree(args);
+        base.OnDetachedFromHierarchy(args);
 
         _disposables.Clear();
     }

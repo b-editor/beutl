@@ -47,7 +47,7 @@ public sealed class TimelineLayerViewModel : IDisposable
 
         Split.Where(func => func != null).Subscribe(func =>
         {
-            int rate = Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
+            int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
             TimeSpan absTime = func!().RoundToRate(rate);
             TimeSpan forwardLength = absTime - Model.Start;
             TimeSpan backwardLength = Model.Length - forwardLength;
@@ -141,7 +141,7 @@ public sealed class TimelineLayerViewModel : IDisposable
 
     public Layer Model { get; }
 
-    public Scene Scene => (Scene)Model.Parent!;
+    public Scene Scene => (Scene)Model.HierarchicalParent!;
 
     public ReactiveProperty<Thickness> Margin { get; }
 
@@ -222,7 +222,7 @@ public sealed class TimelineLayerViewModel : IDisposable
         PrepareAnimationContext context = PrepareAnimation();
 
         float scale = Timeline.Options.Value.Scale;
-        int rate = Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
+        int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
         int zindex = Timeline.ToLayerNumber(Margin.Value);
         TimeSpan start = BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate);
         TimeSpan length = Width.Value.ToTimeSpan(scale).RoundToRate(rate);

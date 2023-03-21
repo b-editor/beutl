@@ -36,7 +36,7 @@ public partial class InlineAnimationLayer : UserControl
         if (e.Data.Get("Easing") is Easing easing
             && DataContext is InlineAnimationLayerViewModel { Timeline: { Options.Value.Scale: { } scale, Scene:{ }scene } } viewModel)
         {
-            Project? proj = scene.FindLogicalParent<Project>();
+            Project? proj = scene.FindHierarchicalParent<Project>();
             int rate = proj?.GetFrameRate() ?? 30;
 
             TimeSpan time = e.GetPosition(this).X.ToTimeSpan(scale).RoundToRate(rate);
