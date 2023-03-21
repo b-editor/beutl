@@ -95,7 +95,7 @@ public sealed partial class MainView : UserControl
     private readonly EditorService _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
     private readonly IProjectService _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
     private readonly INotificationService _notificationService = ServiceLocator.Current.GetRequiredService<INotificationService>();
-    private readonly IWorkspaceItemContainer _workspaceItemContainer = ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>();
+    private readonly IProjectItemContainer _projectItemContainer = ServiceLocator.Current.GetRequiredService<IProjectItemContainer>();
     private readonly Avalonia.Animation.Animation _animation = new()
     {
         Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
@@ -461,14 +461,14 @@ Error:
             if (files.Count > 0)
             {
                 bool? addToProject = null;
-                IWorkspace? project = _projectService.CurrentProject.Value;
+                Project? project = _projectService.CurrentProject.Value;
 
                 foreach (IStorageFile file in files)
                 {
                     if (file.TryGetUri(out Uri? uri) && uri.IsFile)
                     {
                         string path = uri.LocalPath;
-                        if (project != null && _workspaceItemContainer.TryGetOrCreateItem(path, out IWorkspaceItem? item))
+                        if (project != null && _projectItemContainer.TryGetOrCreateItem(path, out ProjectItem? item))
                         {
                             if (!addToProject.HasValue)
                             {
@@ -523,7 +523,7 @@ Error:
 
         viewModel.AddToProject.Subscribe(() =>
         {
-            IWorkspace? project = _projectService.CurrentProject.Value;
+            Project? project = _projectService.CurrentProject.Value;
             EditorTabItem? selectedTabItem = _editorService.SelectedTabItem.Value;
 
             if (project != null && selectedTabItem != null)
@@ -532,7 +532,7 @@ Error:
                 if (project.Items.Any(i => i.FileName == filePath))
                     return;
 
-                if (_workspaceItemContainer.TryGetOrCreateItem(filePath, out IWorkspaceItem? workspaceItem))
+                if (_projectItemContainer.TryGetOrCreateItem(filePath, out ProjectItem? workspaceItem))
                 {
                     project.Items.Add(workspaceItem);
                 }
@@ -541,13 +541,13 @@ Error:
 
         viewModel.RemoveFromProject.Subscribe(async () =>
         {
-            IWorkspace? project = _projectService.CurrentProject.Value;
+            Project? project = _projectService.CurrentProject.Value;
             EditorTabItem? selectedTabItem = _editorService.SelectedTabItem.Value;
 
             if (project != null && selectedTabItem != null)
             {
                 string filePath = selectedTabItem.FilePath.Value;
-                IWorkspaceItem? wsItem = project.Items.FirstOrDefault(i => i.FileName == filePath);
+                ProjectItem? wsItem = project.Items.FirstOrDefault(i => i.FileName == filePath);
                 if (wsItem == null)
                     return;
 

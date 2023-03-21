@@ -74,11 +74,11 @@ public sealed class ExtensionProvider : IBeutlApiResource
         return null;
     }
 
-    public WorkspaceItemExtension? MatchWorkspaceItemExtension(string file)
+    public ProjectItemExtension? MatchProjectItemExtension(string file)
     {
         foreach (Extension extension in AllExtensions)
         {
-            if (extension is WorkspaceItemExtension wsiExtension &&
+            if (extension is ProjectItemExtension wsiExtension &&
                 wsiExtension.IsSupported(file))
             {
                 return wsiExtension;
@@ -88,11 +88,11 @@ public sealed class ExtensionProvider : IBeutlApiResource
         return null;
     }
 
-    public IEnumerable<WorkspaceItemExtension> MatchWorkspaceItemExtensions(string file)
+    public IEnumerable<ProjectItemExtension> MatchProjectItemExtensions(string file)
     {
         foreach (Extension extension in AllExtensions)
         {
-            if (extension is WorkspaceItemExtension wsiExtension &&
+            if (extension is ProjectItemExtension wsiExtension &&
                 wsiExtension.IsSupported(file))
             {
                 yield return wsiExtension;

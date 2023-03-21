@@ -45,8 +45,8 @@ public abstract class EditorExtension : ViewExtension
         string file,
         [NotNullWhen(true)] out IEditor? editor);
 
-    // NOTE: ここからIWorkspaceItemを取得する場合、
-    //       IWorkspaceItemContainerから取得すればいい
+    // NOTE: ここからProjectItemを取得する場合、
+    //       ProjectItemContainerから取得すればいい
     public abstract bool TryCreateContext(
         string file,
         [NotNullWhen(true)] out IEditorContext? context);
@@ -60,7 +60,7 @@ public abstract class EditorExtension : ViewExtension
     public abstract bool MatchFileExtension(string ext);
 
     // 'ServiceLocator'から'IProjectService'を取得し、Projectのインスタンスを取得します。
-    protected static IWorkspace? GetCurrentProject()
+    protected static Project? GetCurrentProject()
     {
         return ServiceLocator.Current.GetRequiredService<IProjectService>().CurrentProject.Value;
     }

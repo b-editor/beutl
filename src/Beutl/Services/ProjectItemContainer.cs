@@ -8,19 +8,19 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services;
 
-public sealed class WorkspaceItemContainer : IWorkspaceItemContainer
+public sealed class ProjectItemContainer : IProjectItemContainer
 {
-    private readonly List<WeakReference<IWorkspaceItem>> _items = new();
+    private readonly List<WeakReference<ProjectItem>> _items = new();
 
     public bool IsCreated(string file)
     {
-        return _items.Any(i => i.TryGetTarget(out IWorkspaceItem? target) && target.FileName == file);
+        return _items.Any(i => i.TryGetTarget(out ProjectItem? target) && target.FileName == file);
     }
 
     public bool Remove(string file)
     {
-        WeakReference<IWorkspaceItem>? item
-            = _items.Find(i => i.TryGetTarget(out IWorkspaceItem? target) && target.FileName == file);
+        WeakReference<ProjectItem>? item
+            = _items.Find(i => i.TryGetTarget(out ProjectItem? target) && target.FileName == file);
         if (item != null)
             return _items.Remove(item);
         else
@@ -28,11 +28,11 @@ public sealed class WorkspaceItemContainer : IWorkspaceItemContainer
     }
 
     public bool TryGetOrCreateItem<T>(string file, [NotNullWhen(true)] out T? item)
-        where T : class, IWorkspaceItem
+        where T : ProjectItem
     {
         item = default;
-        item = _items.Find(i => i.TryGetTarget(out IWorkspaceItem? target) && target.FileName == file && target is T)
-            ?.TryGetTarget(out IWorkspaceItem? target) ?? false
+        item = _items.Find(i => i.TryGetTarget(out ProjectItem? target) && target.FileName == file && target is T)
+            ?.TryGetTarget(out ProjectItem? target) ?? false
             ? target as T
             : null;
 
@@ -49,9 +49,9 @@ public sealed class WorkspaceItemContainer : IWorkspaceItemContainer
         }
 
         var extensionProvider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
-        foreach (WorkspaceItemExtension ext in extensionProvider.MatchWorkspaceItemExtensions(file))
+        foreach (ProjectItemExtension ext in extensionProvider.MatchProjectItemExtensions(file))
         {
-            if (ext.TryCreateItem(file, out IWorkspaceItem? result) && result is T typed)
+            if (ext.TryCreateItem(file, out ProjectItem? result) && result is T typed)
             {
                 Add(typed);
                 item = typed;
@@ -62,11 +62,11 @@ public sealed class WorkspaceItemContainer : IWorkspaceItemContainer
         return false;
     }
 
-    public bool TryGetOrCreateItem(string file, [NotNullWhen(true)] out IWorkspaceItem? item)
+    public bool TryGetOrCreateItem(string file, [NotNullWhen(true)] out ProjectItem? item)
     {
         item = default;
-        item = _items.Find(i => i.TryGetTarget(out IWorkspaceItem? target) && target.FileName == file)
-            ?.TryGetTarget(out IWorkspaceItem? target) ?? false
+        item = _items.Find(i => i.TryGetTarget(out ProjectItem? target) && target.FileName == file)
+            ?.TryGetTarget(out ProjectItem? target) ?? false
             ? target
             : default;
         if (item != null)
@@ -82,9 +82,9 @@ public sealed class WorkspaceItemContainer : IWorkspaceItemContainer
         }
 
         var extensionProvider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
-        foreach (WorkspaceItemExtension ext in extensionProvider.MatchWorkspaceItemExtensions(file))
+        foreach (ProjectItemExtension ext in extensionProvider.MatchProjectItemExtensions(file))
         {
-            if (ext.TryCreateItem(file, out IWorkspaceItem? result))
+            if (ext.TryCreateItem(file, out ProjectItem? result))
             {
                 Add(result);
                 item = result;
@@ -95,9 +95,9 @@ public sealed class WorkspaceItemContainer : IWorkspaceItemContainer
         return false;
     }
 
-    public void Add(IWorkspaceItem item)
+    public void Add(ProjectItem item)
     {
-        foreach (WeakReference<IWorkspaceItem> wref in _items)
+        foreach (WeakReference<ProjectItem> wref in _items)
         {
             if (!wref.TryGetTarget(out _))
             {
@@ -106,6 +106,6 @@ public sealed class WorkspaceItemContainer : IWorkspaceItemContainer
             }
         }
 
-        _items.Add(new WeakReference<IWorkspaceItem>(item));
+        _items.Add(new WeakReference<ProjectItem>(item));
     }
 }

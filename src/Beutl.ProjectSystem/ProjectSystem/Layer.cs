@@ -13,7 +13,7 @@ using Beutl.Rendering;
 
 namespace Beutl.ProjectSystem;
 
-public class Layer : Hierarchical, IStorable
+public class Layer : ProjectItem
 {
     public static readonly CoreProperty<TimeSpan> StartProperty;
     public static readonly CoreProperty<TimeSpan> LengthProperty;
@@ -25,15 +25,11 @@ public class Layer : Hierarchical, IStorable
     public static readonly CoreProperty<SourceOperators> OperatorsProperty;
     public static readonly CoreProperty<LayerNodeTreeModel> SpaceProperty;
     public static readonly CoreProperty<bool> UseNodeProperty;
-    public static readonly CoreProperty<string> FileNameProperty;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
-    private string? _fileName;
     private bool _isEnabled = true;
     private bool _allowOutflow = false;
-    private EventHandler? _saved;
-    private EventHandler? _restored;
     private IDisposable? _disposable;
     private bool _useNode;
 
@@ -97,11 +93,6 @@ public class Layer : Hierarchical, IStorable
             .DefaultValue(false)
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("useNode")
-            .Register();
-
-        FileNameProperty = ConfigureProperty<string, Layer>(nameof(FileName))
-            .Accessor(o => o.FileName, (o, v) => o.FileName = v)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         NameProperty.OverrideMetadata<Layer>(new CorePropertyMetadata<string>("name"));
@@ -209,18 +200,6 @@ public class Layer : Hierarchical, IStorable
         Name = sb.ToString();
     }
 
-    event EventHandler IStorable.Saved
-    {
-        add => _saved += value;
-        remove => _saved -= value;
-    }
-
-    event EventHandler IStorable.Restored
-    {
-        add => _restored += value;
-        remove => _restored -= value;
-    }
-
     // 0以上
     public TimeSpan Start
     {
@@ -265,14 +244,6 @@ public class Layer : Hierarchical, IStorable
     [Obsolete("Use 'Layer.Span'.")]
     public RenderLayerSpan Node => Span;
 
-    public string FileName
-    {
-        get => _fileName!;
-        set => SetAndRaise(FileNameProperty, ref _fileName!, value);
-    }
-
-    public DateTime LastSavedTime { get; private set; }
-
     public SourceOperators Operators { get; }
 
     public LayerNodeTreeModel Space { get; }
@@ -283,24 +254,14 @@ public class Layer : Hierarchical, IStorable
         set => SetAndRaise(UseNodeProperty, ref _useNode, value);
     }
 
-    public void Save(string filename)
+    protected override void SaveCore(string filename)
     {
-        _fileName = filename;
-        LastSavedTime = DateTime.UtcNow;
         this.JsonSave(filename);
-        File.SetLastWriteTimeUtc(filename, LastSavedTime);
-
-        _saved?.Invoke(this, EventArgs.Empty);
     }
 
-    public void Restore(string filename)
+    protected override void RestoreCore(string filename)
     {
-        _fileName = filename;
-
         this.JsonRestore(filename);
-        LastSavedTime = File.GetLastWriteTimeUtc(filename);
-
-        _restored?.Invoke(this, EventArgs.Empty);
     }
 
     public override void ReadFromJson(JsonNode json)

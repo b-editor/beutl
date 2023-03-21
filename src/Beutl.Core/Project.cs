@@ -1,15 +1,12 @@
 ﻿using System.Collections.Specialized;
-using System.ComponentModel;
 using System.Reflection;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using Beutl.Collections;
-using Beutl.Framework;
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Beutl.ProjectSystem;
+namespace Beutl;
 
 public static class ProjectVariableKeys
 {
@@ -18,7 +15,7 @@ public static class ProjectVariableKeys
 }
 
 // Todo: IResourceProviderを実装
-public sealed class Project : Hierarchical, IStorable, IWorkspace
+public sealed class Project : Hierarchical, IStorable, IHierarchicalRoot
 {
     public static readonly CoreProperty<Version> AppVersionProperty;
     public static readonly CoreProperty<Version> MinAppVersionProperty;
@@ -26,7 +23,7 @@ public sealed class Project : Hierarchical, IStorable, IWorkspace
     private string? _fileName;
     private EventHandler? _saved;
     private EventHandler? _restored;
-    private readonly HierarchicalList<IWorkspaceItem> _items;
+    private readonly HierarchicalList<ProjectItem> _items;
     private readonly Dictionary<string, string> _variables = new();
 
     static Project()
@@ -44,7 +41,7 @@ public sealed class Project : Hierarchical, IStorable, IWorkspace
     public Project()
     {
         MinAppVersion = new Version(0, 3);
-        _items = new HierarchicalList<IWorkspaceItem>(this);
+        _items = new HierarchicalList<ProjectItem>(this);
         _items.CollectionChanged += Items_CollectionChanged;
     }
 
@@ -70,7 +67,7 @@ public sealed class Project : Hierarchical, IStorable, IWorkspace
 
     public DateTime LastSavedTime { get; private set; }
 
-    public ICoreList<IWorkspaceItem> Items => _items;
+    public ICoreList<ProjectItem> Items => _items;
 
     public IDictionary<string, string> Variables => _variables;
 
@@ -144,7 +141,7 @@ public sealed class Project : Hierarchical, IStorable, IWorkspace
             jobject["minAppVersion"] = JsonValue.Create(MinAppVersion);
 
             var items = new JsonArray();
-            foreach (IWorkspaceItem item in Items)
+            foreach (ProjectItem item in Items)
             {
                 string path = Path.GetRelativePath(RootDirectory, item.FileName).Replace('\\', '/');
                 var value = JsonValue.Create(path);
@@ -181,21 +178,21 @@ public sealed class Project : Hierarchical, IStorable, IWorkspace
         pathToItem = pathToItem.Select(x => Path.GetFullPath(x, RootDirectory)).ToArray();
 
         // 削除するシーン
-        IEnumerable<IWorkspaceItem> toRemoveItems = _items.ExceptBy(pathToItem, x => x.FileName);
+        IEnumerable<ProjectItem> toRemoveItems = _items.ExceptBy(pathToItem, x => x.FileName);
         // 追加するシーン
         IEnumerable<string> toAddItems = pathToItem.Except(_items.Select(x => x.FileName));
 
-        foreach (IWorkspaceItem? item in toRemoveItems)
+        foreach (ProjectItem? item in toRemoveItems)
         {
             _items.Remove(item);
         }
 
-        IWorkspaceItemContainer resolver = ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>();
+        IProjectItemContainer resolver = ServiceLocator.Current.GetRequiredService<IProjectItemContainer>();
         foreach (string item in toAddItems)
         {
-            if (resolver.TryGetOrCreateItem(item, out IWorkspaceItem? workspaceItem))
+            if (resolver.TryGetOrCreateItem(item, out ProjectItem? projectItem))
             {
-                _items.Add(workspaceItem);
+                _items.Add(projectItem);
             }
         }
 

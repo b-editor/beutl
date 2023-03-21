@@ -14,7 +14,7 @@ namespace Beutl.ViewModels.Dialogs;
 
 public sealed class CreateNewSceneViewModel
 {
-    private readonly IWorkspace? _proj;
+    private readonly Project? _proj;
 
     public CreateNewSceneViewModel()
     {
@@ -63,7 +63,7 @@ public sealed class CreateNewSceneViewModel
         Create = new ReactiveCommand(CanCreate);
         Create.Subscribe(() =>
         {
-            IWorkspaceItemContainer container = ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>();
+            IProjectItemContainer container = ServiceLocator.Current.GetRequiredService<IProjectItemContainer>();
             EditorService editPage = ServiceLocator.Current.GetRequiredService<EditorService>();
             var scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value);
             container.Add(scene);

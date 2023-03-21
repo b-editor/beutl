@@ -302,7 +302,7 @@ public sealed class OutputViewModel : IOutputContext
     private readonly ReactivePropertySlim<double> _progress = new();
     private readonly ReadOnlyObservableCollection<IEncoderInfo> _encoders;
     private readonly IDisposable _disposable1;
-    private readonly IWorkspaceItemContainer _itemContainer = ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>();
+    private readonly IProjectItemContainer _itemContainer = ServiceLocator.Current.GetRequiredService<IProjectItemContainer>();
     private CancellationTokenSource? _lastCts;
 
     public OutputViewModel(SceneFile model)

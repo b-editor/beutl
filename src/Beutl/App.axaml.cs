@@ -92,7 +92,7 @@ public sealed class App : Application
             .BindToSelfSingleton<OutputService>()
             .BindToSelfSingleton<HttpClient>()
             .Bind<IPropertyEditorExtensionImpl>().ToSingleton<PropertyEditorService.PropertyEditorExtensionImpl>()
-            .BindToSelf<IWorkspaceItemContainer>(new WorkspaceItemContainer())
+            .BindToSelf<IProjectItemContainer>(new ProjectItemContainer())
             .BindToSelf<IProjectService>(new ProjectService())
             .BindToSelf<INotificationService>(new NotificationService());
 

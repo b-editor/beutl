@@ -25,7 +25,7 @@ public sealed class EditPageViewModel : IPageContext
         _projectService.ProjectObservable.Subscribe(item => ProjectChanged(item.New, item.Old));
     }
 
-    public IReactiveProperty<IWorkspace?> Project => _projectService.CurrentProject;
+    public IReactiveProperty<Project?> Project => _projectService.CurrentProject;
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened => _projectService.IsOpened;
 
@@ -37,13 +37,13 @@ public sealed class EditPageViewModel : IPageContext
 
     public string Header => Strings.Edit;
 
-    private void ProjectChanged(IWorkspace? @new, IWorkspace? old)
+    private void ProjectChanged(Project? @new, Project? old)
     {
         // プロジェクトが開いた
         if (@new != null)
         {
             @new.Items.CollectionChanged += Project_Items_CollectionChanged;
-            foreach (IWorkspaceItem item in @new.Items)
+            foreach (ProjectItem item in @new.Items)
             {
                 SelectOrAddTabItem(item.FileName, TabOpenMode.FromProject);
             }
@@ -53,7 +53,7 @@ public sealed class EditPageViewModel : IPageContext
         if (old != null)
         {
             old.Items.CollectionChanged -= Project_Items_CollectionChanged;
-            foreach (IWorkspaceItem item in old.Items)
+            foreach (ProjectItem item in old.Items)
             {
                 CloseTabItem(item.FileName, TabOpenMode.FromProject);
             }
@@ -65,7 +65,7 @@ public sealed class EditPageViewModel : IPageContext
         if (e.Action == NotifyCollectionChangedAction.Add &&
             e.NewItems != null)
         {
-            foreach (IWorkspaceItem item in e.NewItems.OfType<IWorkspaceItem>())
+            foreach (ProjectItem item in e.NewItems.OfType<ProjectItem>())
             {
                 SelectOrAddTabItem(item.FileName, TabOpenMode.FromProject);
             }
@@ -73,7 +73,7 @@ public sealed class EditPageViewModel : IPageContext
         else if (e.Action == NotifyCollectionChangedAction.Remove &&
                  e.OldItems != null)
         {
-            foreach (IWorkspaceItem item in e.OldItems.OfType<IWorkspaceItem>())
+            foreach (ProjectItem item in e.OldItems.OfType<ProjectItem>())
             {
                 CloseTabItem(item.FileName, TabOpenMode.FromProject);
             }

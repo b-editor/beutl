@@ -4,15 +4,15 @@ namespace Beutl.Framework.Services;
 
 public interface IProjectService
 {
-    IObservable<(IWorkspace? New, IWorkspace? Old)> ProjectObservable { get; }
+    IObservable<(Project? New, Project? Old)> ProjectObservable { get; }
 
-    IReactiveProperty<IWorkspace?> CurrentProject { get; }
+    IReactiveProperty<Project?> CurrentProject { get; }
 
     IReadOnlyReactiveProperty<bool> IsOpened { get; }
 
-    IWorkspace? OpenProject(string file);
+    Project? OpenProject(string file);
 
     void CloseProject();
 
-    IWorkspace? CreateProject(int width, int height, int framerate, int samplerate, string name, string location);
+    Project? CreateProject(int width, int height, int framerate, int samplerate, string name, string location);
 }

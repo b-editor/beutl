@@ -12,7 +12,7 @@ using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 
 namespace Beutl.ProjectSystem;
 
-public class Scene : Hierarchical, IStorable, IWorkspaceItem
+public class Scene : ProjectItem, IHierarchicalRoot
 {
     public static readonly CoreProperty<int> WidthProperty;
     public static readonly CoreProperty<int> HeightProperty;
@@ -98,18 +98,6 @@ public class Scene : Hierarchical, IStorable, IWorkspaceItem
         });
     }
 
-    event EventHandler IStorable.Saved
-    {
-        add => _saved += value;
-        remove => _saved -= value;
-    }
-
-    event EventHandler IStorable.Restored
-    {
-        add => _restored += value;
-        remove => _restored -= value;
-    }
-
     public int Width => Renderer.Graphics.Size.Width;
 
     public int Height => Renderer.Graphics.Size.Height;
@@ -157,10 +145,6 @@ public class Scene : Hierarchical, IStorable, IWorkspaceItem
         get => _renderer;
         private set => SetAndRaise(RendererProperty, ref _renderer, value);
     }
-
-    public string FileName => _fileName ?? throw new Exception("The file name is not set.");
-
-    public DateTime LastSavedTime { get; private set; }
 
     [MemberNotNull("_renderer")]
     public void Initialize(int width, int height)
@@ -344,11 +328,9 @@ public class Scene : Hierarchical, IStorable, IWorkspaceItem
         json["layers"] = layersNode;
     }
 
-    public void Save(string filename)
+    protected override void SaveCore(string filename)
     {
-        _fileName = filename;
-        LastSavedTime = DateTime.UtcNow;
-        string? directory = Path.GetDirectoryName(_fileName);
+        string? directory = Path.GetDirectoryName(filename);
 
         if (directory != null && !Directory.Exists(directory))
         {
@@ -356,19 +338,11 @@ public class Scene : Hierarchical, IStorable, IWorkspaceItem
         }
 
         this.JsonSave(filename);
-        File.SetLastWriteTimeUtc(filename, LastSavedTime);
-
-        _saved?.Invoke(this, EventArgs.Empty);
     }
 
-    public void Restore(string filename)
+    protected override void RestoreCore(string filename)
     {
-        _fileName = filename;
-
         this.JsonRestore(filename);
-        LastSavedTime = File.GetLastWriteTimeUtc(filename);
-
-        _restored?.Invoke(this, EventArgs.Empty);
     }
 
     private void SyncronizeLayers(IEnumerable<string> pathToLayer)
