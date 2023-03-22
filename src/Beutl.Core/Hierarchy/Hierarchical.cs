@@ -112,7 +112,7 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
         if (_parent == null && this is not IHierarchicalRoot)
         {
             throw new InvalidOperationException(
-                $"AttachedToLogicalTreeCore called for '{GetType().Name}' but element has no logical parent.");
+                $"OnAttachedToHierarchyCore called for '{GetType().Name}' but element has no logical parent.");
         }
 
         if (_root == null)
@@ -122,10 +122,9 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
             AttachedToHierarchy?.Invoke(this, e);
         }
 
-        _ = HierarchicalChildren;
-        foreach (IHierarchical item in _hierarchicalChildren!.GetMarshal().Value)
+        foreach (IHierarchical item in _hierarchicalChildren.GetMarshal().Value)
         {
-            (item as IModifiableHierarchical)?.NotifyAttachedToHierarchy(e);
+            (item as IModifiableHierarchical)?.NotifyAttachedToHierarchy(new(e.Root, this));
         }
     }
 
@@ -137,10 +136,9 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
             OnDetachedFromHierarchy(e);
             DetachedFromHierarchy?.Invoke(this, e);
 
-            _ = HierarchicalChildren;
-            foreach (IHierarchical item in _hierarchicalChildren!.GetMarshal().Value)
+            foreach (IHierarchical item in _hierarchicalChildren.GetMarshal().Value)
             {
-                (item as IModifiableHierarchical)?.NotifyDetachedFromHierarchy(e);
+                (item as IModifiableHierarchical)?.NotifyDetachedFromHierarchy(new(e.Root, this));
             }
         }
     }
@@ -166,24 +164,20 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
                 throw new InvalidOperationException("This logical element already has a parent.");
             }
 
+            IHierarchicalRoot? newRoot = parent?.FindHierarchicalRoot() ?? (this as IHierarchicalRoot);
+            HierarchicalParent = parent;
+
             if (_root != null)
             {
                 var e = new HierarchyAttachmentEventArgs(_root, old);
                 OnDetachedFromHierarchyCore(e);
             }
 
-            _parent = parent;
-            IHierarchicalRoot? newRoot = this.FindHierarchicalRoot();
-
             if (newRoot != null)
             {
                 var e = new HierarchyAttachmentEventArgs(newRoot, parent);
                 OnAttachedToHierarchyCore(e);
             }
-
-            // Raise PropertyChanged
-            _parent = old;
-            HierarchicalParent = parent;
         }
     }
 

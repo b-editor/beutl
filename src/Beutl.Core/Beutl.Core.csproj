@@ -3,7 +3,6 @@
     <RootNameSpace>Beutl</RootNameSpace>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove="Collections\PooledArray.cs" />
     <Compile Remove="Collections\UnmanagedArray.cs" />
     <Compile Remove="Collections\UnmanagedList.cs" />
   </ItemGroup>

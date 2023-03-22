@@ -32,7 +32,7 @@ public class Style : IStyle
 
     public event EventHandler? Invalidated;
 
-    public IStyleInstance Instance(IStyleable target, IStyleInstance? baseStyle = null)
+    public IStyleInstance Instance(ICoreObject target, IStyleInstance? baseStyle = null)
     {
         var array = new ISetterInstance[_setters.Count];
         int index = 0;
@@ -46,7 +46,7 @@ public class Style : IStyle
 }
 
 public sealed class Style<T> : Style
-    where T : Styleable
+    where T : ICoreObject
 {
     public override Type TargetType
     {

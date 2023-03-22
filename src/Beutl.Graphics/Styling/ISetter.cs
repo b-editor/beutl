@@ -15,7 +15,7 @@ public interface ISetter
 
     event EventHandler? Invalidated;
 
-    ISetterInstance Instance(IStyleable target);
+    ISetterInstance Instance(ICoreObject target);
 
     IObservable<Unit> GetObservable();
 }

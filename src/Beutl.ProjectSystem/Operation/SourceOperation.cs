@@ -198,15 +198,12 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
             int index = 0;
             foreach (SourceOperator item in Children.GetMarshal().Value)
             {
-                if (item.IsEnabled)
+                contexts[index++] = new OperatorEvaluationContext(item)
                 {
-                    contexts[index++] = new OperatorEvaluationContext(item)
-                    {
-                        Clock = renderer.Clock,
-                        Renderer = renderer,
-                        List = _contexts
-                    };
-                }
+                    Clock = renderer.Clock,
+                    Renderer = renderer,
+                    List = _contexts
+                };
             }
 
             foreach (OperatorEvaluationContext item in contexts)

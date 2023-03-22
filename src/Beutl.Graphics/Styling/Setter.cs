@@ -112,7 +112,7 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
 
     public event EventHandler? Invalidated;
 
-    public ISetterInstance Instance(IStyleable target)
+    public ISetterInstance Instance(ICoreObject target)
     {
         return new SetterInstance<T>(this, target);
     }

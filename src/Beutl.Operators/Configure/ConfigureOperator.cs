@@ -1,17 +1,16 @@
-﻿using System.Text.Json.Nodes;
-
-using Beutl.Animation;
-using Beutl.Framework;
+﻿using Beutl.Animation;
 using Beutl.Media;
 using Beutl.Operation;
 using Beutl.Rendering;
+using Beutl.Styling;
 
 namespace Beutl.Operators.Configure;
 
-public abstract class ConfigureOperator<TTarget, TValue> : SourceOperator, ISourceTransformer
+public abstract class ConfigureOperator<TTarget, TValue> : StylingOperator, ISourceTransformer
     where TTarget : IRenderable
     where TValue : CoreObject, IAffectsRender, new()
 {
+    private IStyleInstance? _instance;
     private bool _transforming;
 
     public ConfigureOperator()
@@ -24,29 +23,53 @@ public abstract class ConfigureOperator<TTarget, TValue> : SourceOperator, ISour
                 RaiseInvalidated(e);
             }
         };
-
-        Type anmPropType = typeof(AnimatableCorePropertyImpl<>);
-        Type propType = typeof(CorePropertyImpl<>);
-        Type ownerType = typeof(TTarget);
-        bool isAnimatable = Value is IAnimatable;
-
-        Properties.AddRange(GetProperties().Select(x =>
-        {
-            Type propTypeFact = (isAnimatable && x.GetMetadata<CorePropertyMetadata>(ownerType).PropertyFlags.HasFlag(PropertyFlags.Animatable)
-                ? anmPropType
-                : propType).MakeGenericType(x.PropertyType);
-
-            return (IAbstractProperty)Activator.CreateInstance(propTypeFact, x, Value)!;
-        }));
     }
 
     protected TValue Value { get; }
+
+    protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
+    {
+        var style = new Style<TValue>();
+        style.Setters.AddRange(setters());
+        return style;
+    }
+
+    protected override void OnInitializeSetters(IList<ISetter> initializing)
+    {
+        base.OnInitializeSetters(initializing);
+        foreach (CoreProperty item in GetProperties())
+        {
+            Type setterType = typeof(Setter<>).MakeGenericType(item.PropertyType);
+            ICorePropertyMetadata metadata = item.GetMetadata<TValue, ICorePropertyMetadata>();
+            object? defaultValue = metadata.GetDefaultValue();
+            object? setter = defaultValue != null
+                ? Activator.CreateInstance(setterType, item, defaultValue)
+                : Activator.CreateInstance(setterType, item);
+
+            if (setter is ISetter setter1)
+            {
+                initializing.Add(setter1);
+            }
+        }
+    }
 
     public void Transform(IList<Renderable> value, IClock clock)
     {
         try
         {
             _transforming = true;
+            if (!ReferenceEquals(Style, _instance?.Source) || _instance == null)
+            {
+                _instance?.Dispose();
+                _instance = Style.Instance(Value);
+            }
+
+            if (_instance != null && IsEnabled)
+            {
+                _instance.Begin();
+                _instance.Apply(clock);
+                _instance.End();
+            }
 
             foreach (TTarget item in value.OfType<TTarget>())
             {
@@ -58,28 +81,6 @@ public abstract class ConfigureOperator<TTarget, TValue> : SourceOperator, ISour
         finally
         {
             _transforming = false;
-        }
-    }
-
-    public override void ReadFromJson(JsonNode json)
-    {
-        base.ReadFromJson(json);
-        if (json is JsonObject jobj
-            && jobj.TryGetPropertyValue("value", out JsonNode? node)
-            && node != null)
-        {
-            Value.ReadFromJson(node);
-        }
-    }
-
-    public override void WriteToJson(ref JsonNode json)
-    {
-        base.WriteToJson(ref json);
-        if (json is JsonObject jobj)
-        {
-            JsonNode node = new JsonObject();
-            Value.WriteToJson(ref node);
-            jobj["value"] = node;
         }
     }
 

@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 
 using Beutl.Animation;
+using Beutl.Collections;
 using Beutl.Rendering;
 using Beutl.Styling;
 
@@ -12,18 +13,21 @@ public abstract class SourceStyler : StylingOperator, ISourceTransformer
 
     public virtual void Transform(IList<Renderable> value, IClock clock)
     {
-        for (int i = 0; i < value.Count; i++)
+        if (IsEnabled)
         {
-            Renderable renderable = value[i];
-            OnPreSelect(renderable);
-            IStyleInstance? instance = GetInstance(value[i]);
-
-            if (instance != null)
+            for (int i = 0; i < value.Count; i++)
             {
-                ApplyStyle(instance, renderable, clock);
-            }
+                Renderable renderable = value[i];
+                OnPreSelect(renderable);
+                IStyleInstance? instance = GetInstance(value[i]);
 
-            OnPostSelect(renderable);
+                if (instance != null)
+                {
+                    ApplyStyle(instance, renderable, clock);
+                }
+
+                OnPostSelect(renderable);
+            }
         }
     }
 
@@ -44,9 +48,9 @@ public abstract class SourceStyler : StylingOperator, ISourceTransformer
         }
         else
         {
-            if (type.IsAssignableTo(Style.TargetType) && value is IStyleable styleable)
+            if (type.IsAssignableTo(Style.TargetType) && value is ICoreObject coreObj)
             {
-                IStyleInstance instance = Style.Instance(styleable);
+                IStyleInstance instance = Style.Instance(coreObj);
                 _table.AddOrUpdate(value, instance);
                 return instance;
             }
@@ -59,20 +63,25 @@ public abstract class SourceStyler : StylingOperator, ISourceTransformer
 
     protected virtual void ApplyStyle(IStyleInstance instance, IRenderable value, IClock clock)
     {
-        instance.IsEnabled = IsEnabled;
         instance.Begin();
         instance.Apply(clock);
         instance.End();
     }
 
+    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
+    {
+        base.OnAttachedToHierarchy(args);
+    }
+
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnDetachedFromHierarchy(args);
-        foreach (KeyValuePair<Renderable, IStyleInstance> item in _table)
-        {
-            item.Value.Dispose();
-        }
-
+        using var instances = _table.Select(x => x.Value).ToPooledArray();
         _table.Clear();
+
+        foreach (IStyleInstance item in instances)
+        {
+            item.Dispose();
+        }
     }
 }

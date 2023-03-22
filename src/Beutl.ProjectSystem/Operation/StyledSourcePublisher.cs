@@ -16,10 +16,10 @@ public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
         if (!ReferenceEquals(Style, Instance?.Source) || Instance?.Target == null)
         {
             renderable = Activator.CreateInstance(Style.TargetType) as IRenderable;
-            if (renderable is IStyleable styleable)
+            if (renderable is ICoreObject coreObj)
             {
                 Instance?.Dispose();
-                Instance = Style.Instance(styleable);
+                Instance = Style.Instance(coreObj);
             }
             else
             {

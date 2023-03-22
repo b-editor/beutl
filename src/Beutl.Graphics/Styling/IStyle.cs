@@ -10,5 +10,5 @@ public interface IStyle
 
     event EventHandler? Invalidated;
 
-    IStyleInstance Instance(IStyleable target, IStyleInstance? baseStyle = null);
+    IStyleInstance Instance(ICoreObject target, IStyleInstance? baseStyle = null);
 }

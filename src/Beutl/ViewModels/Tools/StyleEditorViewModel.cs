@@ -32,7 +32,7 @@ public sealed class StyleEditorViewModel : IToolContext
             {
                 StyleableTypes.Value = s_cache = AppDomain.CurrentDomain.GetAssemblies()
                     .SelectMany(x => x.GetTypes())
-                    .Where(x => x.IsPublic && x.IsAssignableTo(typeof(IStyleable)))
+                    .Where(x => x.IsPublic && x.IsAssignableTo(typeof(ICoreObject)))
                     .ToArray();
             });
         }
@@ -43,7 +43,7 @@ public sealed class StyleEditorViewModel : IToolContext
         {
             if (Style.Value != null)
             {
-                Style.Value.TargetType = v ?? typeof(Styleable);
+                Style.Value.TargetType = v ?? typeof(ICoreObject);
             }
         });
 
