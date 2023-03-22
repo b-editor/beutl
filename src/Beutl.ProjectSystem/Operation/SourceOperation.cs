@@ -91,13 +91,6 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
         }
     }
 
-    // NodeTreeとSourceOperationの違い
-
-    // NodeTreeは評価コンテキストにAddRenderableしたらすべて、レイヤーに追加される。
-    // SourceOperationは編集者がハンドラ（自動ハンドラもある）を指定して、それが受け取ったRenderableをレイヤーに追加する。
-
-    // NodeTreeは流れるオブジェクトが何でもあり
-    // SourceOperationはRenderableのみ
     public void Evaluate(IRenderer renderer, Layer layer, IList<Renderable> unhandled)
     {
         void Detach(IList<Renderable> renderables)
@@ -112,35 +105,46 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
             }
         }
 
+        layer.Span.Value.Clear();
+
         Initialize(renderer);
         if (_contexts != null)
         {
-            PooledList<Renderable>? pooled = null;
-            IList<Renderable> list = layer.AllowOutflow ? unhandled : (pooled = new PooledList<Renderable>());
-
-            foreach (OperatorEvaluationContext? item in _contexts.AsSpan().Slice(0, _contextsLength))
-            {
-                item._renderables = list;
-                item.GlobalRenderables = unhandled;
-                item.Operator.Evaluate(item);
-            }
-
             if (!layer.AllowOutflow)
             {
-                Detach(list);
-                layer.Span.Value.Replace(list);
-
-                foreach (Renderable item in layer.Span.Value.GetMarshal().Value)
+                using var flow = new PooledList<Renderable>();
+                foreach (OperatorEvaluationContext? item in _contexts.AsSpan().Slice(0, _contextsLength))
                 {
-                    item.ApplyStyling(renderer.Clock);
-                    item.ApplyAnimations(renderer.Clock);
-                    item.IsVisible = layer.IsEnabled;
-                    while (!item.EndBatchUpdate())
-                    {
-                    }
+                    item.FlowRenderables = flow;
+                    item.Operator.Evaluate(item);
                 }
 
-                pooled?.Dispose();
+                Detach(flow);
+                layer.Span.Value.AddRange(flow);
+            }
+            else
+            {
+                using var pooled = new PooledList<Renderable>();
+                foreach (OperatorEvaluationContext? item in _contexts.AsSpan().Slice(0, _contextsLength))
+                {
+                    item._renderables = pooled;
+                    item.FlowRenderables = unhandled;
+                    item.Operator.Evaluate(item);
+                }
+
+                Detach(pooled);
+                layer.Span.Value.AddRange(pooled);
+            }
+
+            foreach (Renderable item in layer.Span.Value.GetMarshal().Value)
+            {
+                item.ApplyStyling(renderer.Clock);
+                item.ApplyAnimations(renderer.Clock);
+                item.IsVisible = layer.IsEnabled;
+                while (item.BatchUpdate)
+                {
+                    item.EndBatchUpdate();
+                }
             }
         }
         else

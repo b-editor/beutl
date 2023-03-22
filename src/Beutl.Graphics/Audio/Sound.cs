@@ -128,7 +128,7 @@ public abstract class Sound : Renderable
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnAttachedToHierarchy(args);
-        _layerSpan = args.Parent as RenderLayerSpan;
+        _layerSpan = this.FindHierarchicalParent<RenderLayerSpan>();
     }
 
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)

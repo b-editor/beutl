@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 
+using Beutl.Media;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;
@@ -11,8 +12,8 @@ internal sealed class SceneRenderer :
 //DeferredRenderer
 {
     private readonly Scene _scene;
-    private readonly List<Layer> _begin = new();
-    private readonly List<Layer> _end = new();
+    private readonly List<Layer> _entered = new();
+    private readonly List<Layer> _exited = new();
     private readonly List<Layer> _layers = new();
     private readonly List<Renderable> _unhandleds = new();
     private TimeSpan _recentTime = TimeSpan.MinValue;
@@ -31,18 +32,18 @@ internal sealed class SceneRenderer :
     {
         var timeSpan = Clock.CurrentTime;
         CurrentTime = timeSpan;
-        SortLayers(timeSpan);
+        SortLayers(timeSpan, out _);
         Span<Layer> layers = CollectionsMarshal.AsSpan(_layers);
-        Span<Layer> begin = CollectionsMarshal.AsSpan(_begin);
-        Span<Layer> end = CollectionsMarshal.AsSpan(_end);
+        Span<Layer> entered = CollectionsMarshal.AsSpan(_entered);
+        Span<Layer> exited = CollectionsMarshal.AsSpan(_exited);
         _unhandleds.Clear();
 
-        foreach (Layer item in end)
+        foreach (Layer item in exited)
         {
             ExitSourceOperators(item);
         }
 
-        foreach (Layer item in begin)
+        foreach (Layer item in entered)
         {
             EnterSourceOperators(item);
         }
@@ -80,12 +81,14 @@ internal sealed class SceneRenderer :
     }
 
     // Layersを振り分ける
-    private void SortLayers(TimeSpan timeSpan)
+    private void SortLayers(TimeSpan timeSpan, out TimeRange enterAffectsRange)
     {
-        _begin.Clear();
-        _end.Clear();
+        _entered.Clear();
+        _exited.Clear();
         _layers.Clear();
-        // Todo: 'public Layers Children'はソート済みにしたい
+        TimeSpan enterStart = TimeSpan.MaxValue;
+        TimeSpan enterEnd = TimeSpan.Zero;
+
         foreach (Layer? item in _scene.Children)
         {
             bool recent = InRange(item, _recentTime);
@@ -99,14 +102,22 @@ internal sealed class SceneRenderer :
             if (!recent && current)
             {
                 // _recentTimeの範囲外でcurrntTimeの範囲内
-                _begin.OrderedAdd(item, x => x.ZIndex);
+                _entered.OrderedAdd(item, x => x.ZIndex);
+                if (item.Start < enterStart)
+                    enterStart = item.Start;
+
+                TimeSpan end = item.Range.End;
+                if (enterEnd < end)
+                    enterEnd = end;
             }
             else if (recent && !current)
             {
                 // _recentTimeの範囲内でcurrntTimeの範囲外
-                _end.OrderedAdd(item, x => x.ZIndex);
+                _exited.OrderedAdd(item, x => x.ZIndex);
             }
         }
+
+        enterAffectsRange = TimeRange.FromRange(enterStart, enterEnd);
     }
 
 

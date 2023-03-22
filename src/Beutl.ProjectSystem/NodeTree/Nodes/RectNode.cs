@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Filters;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
@@ -58,6 +59,11 @@ public class RectNode : Node
             filterGroup.Children.Clear();
         else
             rectangle.Filter = new ImageFilterGroup();
+
+        if (rectangle.Effect is BitmapEffectGroup effectGroup)
+            effectGroup.Children.Clear();
+        else
+            rectangle.Effect = new BitmapEffectGroup();
 
         _outputSocket.Value = rectangle;
     }

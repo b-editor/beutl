@@ -6,15 +6,8 @@ using Beutl.Styling;
 
 namespace Beutl.Operators.Source;
 
-public sealed class RectOperator : StyledSourcePublisher
+public sealed class RectOperator : DrawablePublishOperator<Rectangle>
 {
-    protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
-    {
-        var style = new Style<Rectangle>();
-        style.Setters.AddRange(setters());
-        return style;
-    }
-
     protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
         initializing.Add(new Setter<float>(Drawable.WidthProperty, 100));

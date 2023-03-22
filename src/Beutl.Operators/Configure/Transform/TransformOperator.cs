@@ -14,21 +14,8 @@ public abstract class TransformOperator<T> : ConfigureOperator<Drawable, T>
         value.IsEnabled = IsEnabled;
     }
 
-    protected override void OnAttached(Drawable target, T value)
+    protected override void Process(Drawable target, T value)
     {
-        if (target.Transform is not TransformGroup group)
-        {
-            target.Transform = group = new TransformGroup();
-        }
-
-        group.Children.Add(value);
-    }
-
-    protected override void OnDetached(Drawable target, T value)
-    {
-        if (target.Transform is TransformGroup group)
-        {
-            group.Children.Remove(value);
-        }
+        (target.Transform as TransformGroup)?.Children.Add(value);
     }
 }

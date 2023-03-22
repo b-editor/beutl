@@ -30,6 +30,6 @@ public class EvaluationContext
 
     public void AddRenderable(Renderable renderable)
     {
-        _renderables.Add(renderable);
+        _renderables?.Add(renderable);
     }
 }

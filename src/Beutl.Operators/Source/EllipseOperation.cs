@@ -1,20 +1,16 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Effects;
+using Beutl.Graphics.Filters;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Operation;
 using Beutl.Styling;
 
 namespace Beutl.Operators.Source;
 
-public sealed class EllipseOperator : StyledSourcePublisher
+public sealed class EllipseOperator : DrawablePublishOperator<Ellipse>
 {
-    protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
-    {
-        var style = new Style<Ellipse>();
-        style.Setters.AddRange(setters());
-        return style;
-    }
-
     protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
         initializing.Add(new Setter<float>(Drawable.WidthProperty, 100));

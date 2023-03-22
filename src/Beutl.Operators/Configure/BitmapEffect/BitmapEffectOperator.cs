@@ -1,7 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Operation;
-using Beutl.Styling;
 
 namespace Beutl.Operators.Configure.BitmapEffect;
 
@@ -16,21 +15,8 @@ public abstract class BitmapEffectOperator<T> : ConfigureOperator<Drawable, T>, 
         value.IsEnabled = IsEnabled;
     }
 
-    protected override void OnAttached(Drawable target, T value)
+    protected override void Process(Drawable target, T value)
     {
-        if (target.Effect is not BitmapEffectGroup group)
-        {
-            target.Effect = group = new BitmapEffectGroup();
-        }
-
-        group.Children.Add(value);
-    }
-
-    protected override void OnDetached(Drawable target, T value)
-    {
-        if (target.Effect is BitmapEffectGroup group)
-        {
-            group.Children.Remove(value);
-        }
+        (target.Effect as BitmapEffectGroup)?.Children.Add(value);
     }
 }

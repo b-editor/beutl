@@ -27,11 +27,6 @@ public abstract class SourceStyler : StylingOperator, ISourceTransformer
         }
     }
 
-    public override void Exit()
-    {
-        base.Exit();
-    }
-
     protected virtual void OnPreSelect(IRenderable? value)
     {
     }
@@ -51,7 +46,7 @@ public abstract class SourceStyler : StylingOperator, ISourceTransformer
         {
             if (type.IsAssignableTo(Style.TargetType) && value is IStyleable styleable)
             {
-                var instance = Style.Instance(styleable);
+                IStyleInstance instance = Style.Instance(styleable);
                 _table.AddOrUpdate(value, instance);
                 return instance;
             }

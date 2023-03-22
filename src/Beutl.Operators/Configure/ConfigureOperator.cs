@@ -3,9 +3,8 @@
 using Beutl.Animation;
 using Beutl.Framework;
 using Beutl.Media;
-using Beutl.Rendering;
 using Beutl.Operation;
-using System.Buffers;
+using Beutl.Rendering;
 
 namespace Beutl.Operators.Configure;
 
@@ -14,8 +13,6 @@ public abstract class ConfigureOperator<TTarget, TValue> : SourceOperator, ISour
     where TValue : CoreObject, IAffectsRender, new()
 {
     private bool _transforming;
-    private Renderable[]? _snapshot;
-    private int _snapshotCount;
 
     public ConfigureOperator()
     {
@@ -51,77 +48,16 @@ public abstract class ConfigureOperator<TTarget, TValue> : SourceOperator, ISour
         {
             _transforming = true;
 
-            if (_snapshot != null)
+            foreach (TTarget item in value.OfType<TTarget>())
             {
-                var set = new HashSet<Renderable>(value);
-
-                foreach (Renderable item in _snapshot.AsSpan().Slice(_snapshotCount))
-                {
-                    if (set.Add(item) && item is TTarget target)
-                    {
-                        // valueにない、つまり削除された。
-                        PreProcess(target, Value);
-                        OnDetached(target, Value);
-                        PostProcess(target, Value);
-                    }
-                }
-
-                set.IntersectWith(_snapshot.Take(_snapshotCount));
-                foreach (Renderable item in value)
-                {
-                    if (set.Add(item) && item is TTarget target)
-                    {
-                        // _snapshotになくてvalueにある。(追加された)
-                        PreProcess(target, Value);
-                        OnAttached(target, Value);
-                        PostProcess(target, Value);
-                    }
-                }
-            }
-            else
-            {
-                foreach (TTarget item in value.OfType<TTarget>())
-                {
-                    PreProcess(item, Value);
-                    OnAttached(item, Value);
-                    PostProcess(item, Value);
-                }
+                PreProcess(item, Value);
+                Process(item, Value);
+                PostProcess(item, Value);
             }
         }
         finally
         {
             _transforming = false;
-
-            if (_snapshot != null)
-            {
-                if (_snapshot.Length < value.Count)
-                {
-                    ArrayPool<Renderable>.Shared.Return(_snapshot, true);
-                    _snapshot = ArrayPool<Renderable>.Shared.Rent(value.Count);
-                }
-            }
-            else
-            {
-                _snapshot = ArrayPool<Renderable>.Shared.Rent(value.Count);
-            }
-
-            _snapshotCount = value.Count;
-            value.CopyTo(_snapshot, 0);
-        }
-    }
-
-    public override void UninitializeForContext(OperatorEvaluationContext context)
-    {
-        base.UninitializeForContext(context);
-        if (_snapshot != null)
-        {
-            foreach (TTarget item in _snapshot.Take(_snapshotCount).OfType<TTarget>())
-            {
-                OnDetached(item, Value);
-            }
-
-            ArrayPool<Renderable>.Shared.Return(_snapshot, true);
-            _snapshot = null;
         }
     }
 
@@ -147,22 +83,6 @@ public abstract class ConfigureOperator<TTarget, TValue> : SourceOperator, ISour
         }
     }
 
-    public override void Exit()
-    {
-        base.Exit();
-
-        if (_snapshot != null)
-        {
-            foreach (TTarget item in _snapshot.Take(_snapshotCount).OfType<TTarget>())
-            {
-                OnDetached(item, Value);
-            }
-
-            ArrayPool<Renderable>.Shared.Return(_snapshot, true);
-            _snapshot = null;
-        }
-    }
-
     protected virtual void PreProcess(TTarget target, TValue value)
     {
     }
@@ -171,9 +91,7 @@ public abstract class ConfigureOperator<TTarget, TValue> : SourceOperator, ISour
     {
     }
 
-    protected abstract void OnAttached(TTarget target, TValue value);
-
-    protected abstract void OnDetached(TTarget target, TValue value);
+    protected abstract void Process(TTarget target, TValue value);
 
     protected virtual IEnumerable<CoreProperty> GetProperties()
     {

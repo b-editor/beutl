@@ -141,7 +141,7 @@ public class VideoFrame : Drawable
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnAttachedToHierarchy(args);
-        _layerNode = args.Parent?.FindHierarchicalParent<RenderLayerSpan>(true);
+        _layerNode = this.FindHierarchicalParent<RenderLayerSpan>();
     }
 
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)

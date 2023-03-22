@@ -3,8 +3,6 @@ using Beutl.Framework;
 using Beutl.Media;
 using Beutl.Rendering;
 
-using DynamicData;
-
 namespace Beutl.Operation;
 
 public interface ISourceOperator : IAffectsRender
@@ -58,28 +56,16 @@ public class SourceOperator : Hierarchical, ISourceOperator
         switch (this)
         {
             case ISourceTransformer selector:
-                selector.Transform(context._renderables, context.Clock);
+                selector.Transform(context.FlowRenderables, context.Clock);
                 break;
             case ISourcePublisher source:
                 if (source.Publish(context.Clock) is Renderable renderable)
                 {
-                    context.AddRenderable(renderable);
-                }
-                break;
-            case ISourceFilter filter:
-                if (filter.Scope == SourceFilterScope.Local)
-                {
-                    context._renderables = filter.Filter((IReadOnlyList<Renderable>)context._renderables, context.Clock);
-                }
-                else
-                {
-                    context._renderables = filter.Filter((IReadOnlyList<Renderable>)context._renderables, context.Clock);
-                    context.GlobalRenderables.Clear();
-                    context.GlobalRenderables.AddRange(context._renderables);
+                    context.AddFlowRenderable(renderable);
                 }
                 break;
             case ISourceHandler handler:
-                handler.Handle(context._renderables, context.Clock);
+                handler.Handle(context.FlowRenderables, context.Clock);
                 break;
             default:
                 break;
@@ -89,7 +75,7 @@ public class SourceOperator : Hierarchical, ISourceOperator
     public virtual void Enter()
     {
     }
-    
+
     public virtual void Exit()
     {
     }

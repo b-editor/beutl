@@ -14,21 +14,8 @@ public abstract class ImageFilterOperator<T> : ConfigureOperator<Drawable, T>
         value.IsEnabled = IsEnabled;
     }
 
-    protected override void OnAttached(Drawable target, T value)
+    protected override void Process(Drawable target, T value)
     {
-        if (target.Filter is not ImageFilterGroup group)
-        {
-            target.Filter = group = new ImageFilterGroup();
-        }
-
-        group.Children.Add(value);
-    }
-
-    protected override void OnDetached(Drawable target, T value)
-    {
-        if (target.Filter is ImageFilterGroup group)
-        {
-            group.Children.Remove(value);
-        }
+        (target.Filter as ImageFilterGroup)?.Children.Add(value);
     }
 }

@@ -15,14 +15,12 @@ public sealed class OperatorEvaluationContext : EvaluationContext
         Operator = sourceOperator;
     }
 
-    public IList<Renderable> GlobalRenderables { get; internal set; } = null!;
+    public IList<Renderable> FlowRenderables { get; internal set; } = null!;
 
     public SourceOperator Operator { get; }
 
-    // AllowOutflowがfalseでもOutflowができる
-    public void AddGlobalRenderable(Renderable renderable)
+    public void AddFlowRenderable(Renderable renderable)
     {
-        AddRenderable(renderable);
-        GlobalRenderables.Add(renderable);
+        FlowRenderables?.Add(renderable);
     }
 }

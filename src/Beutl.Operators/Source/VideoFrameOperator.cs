@@ -4,15 +4,8 @@ using Beutl.Styling;
 
 namespace Beutl.Operators.Source;
 
-public sealed class VideoFrameOperator : StyledSourcePublisher
+public sealed class VideoFrameOperator : DrawablePublishOperator<VideoFrame>
 {
-    protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
-    {
-        var style = new Style<VideoFrame>();
-        style.Setters.AddRange(setters());
-        return style;
-    }
-
     protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
         initializing.Add(new Setter<TimeSpan>(VideoFrame.OffsetPositionProperty, TimeSpan.Zero));
