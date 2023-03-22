@@ -22,8 +22,6 @@ public class SourceOperator : Hierarchical, ISourceOperator
         IsEnabledProperty = ConfigureProperty<bool, SourceOperator>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
-            .SerializeName("is-enabled")
             .Register();
     }
 

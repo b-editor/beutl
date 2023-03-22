@@ -28,7 +28,6 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
 
         static LayerInputSocket()
         {
-            NameProperty.OverrideMetadata<LayerInputSocket<T>>(new CorePropertyMetadata<string>("name"));
         }
 
         public CoreProperty? AssociatedProperty { get; set; }
@@ -85,12 +84,12 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         public override void ReadFromJson(JsonNode json)
         {
             base.ReadFromJson(json);
-            string name = (string)json["property"]!;
-            string owner = (string)json["target"]!;
+            string name = (string)json["Property"]!;
+            string owner = (string)json["Target"]!;
             Type ownerType = TypeFormat.ToType(owner)!;
 
             AssociatedProperty = PropertyRegistry.GetRegistered(ownerType)
-                .FirstOrDefault(x => x.GetMetadata<CorePropertyMetadata>(ownerType).SerializeName == name || x.Name == name);
+                .FirstOrDefault(x => x.Name == name);
 
             if (AssociatedProperty != null)
             {
@@ -141,7 +140,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         base.ReadFromJson(json);
         if (json is JsonObject obj)
         {
-            if (obj.TryGetPropertyValue("items", out JsonNode? itemsNode)
+            if (obj.TryGetPropertyValue("Items", out JsonNode? itemsNode)
                 && itemsNode is JsonArray itemsArray)
             {
                 int index = 0;

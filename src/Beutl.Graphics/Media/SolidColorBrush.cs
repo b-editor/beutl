@@ -1,4 +1,7 @@
-﻿using Beutl.Graphics;
+﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+
+using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media.Immutable;
@@ -17,16 +20,13 @@ public class SolidColorBrush : Brush, ISolidColorBrush
     {
         ColorProperty = ConfigureProperty<Color, SolidColorBrush>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
-            .Display(Strings.Color)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("color")
             .Register();
 
         TransformOriginProperty.OverrideMetadata<SolidColorBrush>(
-            new CorePropertyMetadata<RelativePoint>(propertyFlags: PropertyFlags.Styleable | PropertyFlags.NotifyChanged));
+            new CorePropertyMetadata<RelativePoint>(attributes: new BrowsableAttribute(false)));
 
         TransformProperty.OverrideMetadata<SolidColorBrush>(
-            new CorePropertyMetadata<ITransform>(propertyFlags: PropertyFlags.Styleable | PropertyFlags.NotifyChanged));
+            new CorePropertyMetadata<ITransform>(attributes: new BrowsableAttribute(false)));
 
         AffectsRender<SolidColorBrush>(ColorProperty);
     }
@@ -61,6 +61,7 @@ public class SolidColorBrush : Brush, ISolidColorBrush
     /// <summary>
     /// Gets or sets the color of the brush.
     /// </summary>
+    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
     public Color Color
     {
         get => _color;

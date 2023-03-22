@@ -16,7 +16,6 @@ namespace Beutl.Media;
 /// Represents a point in device pixels.
 /// </summary>
 [JsonConverter(typeof(PixelPointJsonConverter))]
-[RangeValidatable(typeof(PixelPointRangeValidator))]
 public readonly struct PixelPoint
     : IEquatable<PixelPoint>,
       IParsable<PixelPoint>,

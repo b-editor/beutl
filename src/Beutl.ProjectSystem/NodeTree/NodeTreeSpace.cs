@@ -24,15 +24,10 @@ public class NodeGroup : NodeTreeSpace
     static NodeGroup()
     {
         InputProperty = ConfigureProperty<GroupInput?, NodeGroup>(o => o.Input)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         OutputProperty = ConfigureProperty<GroupOutput?, NodeGroup>(o => o.Output)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
-
-        IdProperty.OverrideMetadata<NodeGroup>(new CorePropertyMetadata<Guid>("id"));
-        NameProperty.OverrideMetadata<NodeGroup>(new CorePropertyMetadata<string>("name"));
     }
 
     public NodeGroup()
@@ -42,12 +37,14 @@ public class NodeGroup : NodeTreeSpace
         Nodes.Detached += OnNodeDetached;
     }
 
+    [ShouldSerialize(false)]
     public GroupInput? Input
     {
         get => _input;
         set => SetAndRaise(InputProperty, ref _input, value);
     }
 
+    [ShouldSerialize(false)]
     public GroupOutput? Output
     {
         get => _output;
@@ -248,7 +245,7 @@ public abstract class NodeTreeSpace : Hierarchical, IAffectsRender
 
         if (json is JsonObject jobject)
         {
-            if (jobject.TryGetPropertyValue("nodes", out JsonNode? nodesNode)
+            if (jobject.TryGetPropertyValue(nameof(Nodes), out JsonNode? nodesNode)
                 && nodesNode is JsonArray nodesArray)
             {
                 foreach (JsonObject nodeJson in nodesArray.OfType<JsonObject>())
@@ -297,7 +294,7 @@ public abstract class NodeTreeSpace : Hierarchical, IAffectsRender
                     array.Add(jsonNode);
                 }
 
-                jobject["nodes"] = array;
+                jobject[nameof(Nodes)] = array;
             }
         }
     }

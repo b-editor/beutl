@@ -13,7 +13,6 @@ namespace Beutl.Graphics;
 /// Defines a point.
 /// </summary>
 [JsonConverter(typeof(PointJsonConverter))]
-[RangeValidatable(typeof(PointRangeValidator))]
 public readonly struct Point
     : IEquatable<Point>,
       IParsable<Point>,

@@ -7,7 +7,7 @@ internal static class AnimationSerializer
     public static (string?, JsonNode?) ToJson(this IAnimation animation, Type targetType)
     {
         JsonNode? node = animation.ToJson();
-        string name = animation.Property.GetMetadata<CorePropertyMetadata>(targetType).SerializeName ?? animation.Property.Name;
+        string name = animation.Property.Name;
         if (node != null)
         {
             return (name, node);
@@ -44,9 +44,7 @@ internal static class AnimationSerializer
 
     public static IAnimation? ToAnimation(this JsonNode json, string name, Type targetType)
     {
-        CoreProperty? property
-            = PropertyRegistry.GetRegistered(targetType).FirstOrDefault(
-                x => x.GetMetadata<CorePropertyMetadata>(targetType).SerializeName == name || x.Name == name);
+        CoreProperty? property = PropertyRegistry.GetRegistered(targetType).FirstOrDefault(x => x.Name == name);
 
         if (property == null)
             return null;

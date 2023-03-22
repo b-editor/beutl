@@ -11,7 +11,6 @@ namespace Beutl.Graphics;
 /// Defines a vector.
 /// </summary>
 [JsonConverter(typeof(VectorJsonConverter))]
-[RangeValidatable(typeof(VectorRangeValidator))]
 public readonly struct Vector : IEquatable<Vector>
 {
     /// <summary>

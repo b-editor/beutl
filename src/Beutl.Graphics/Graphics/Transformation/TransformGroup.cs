@@ -13,7 +13,6 @@ public sealed class TransformGroup : Transform
     {
         ChildrenProperty = ConfigureProperty<Transforms, TransformGroup>(nameof(Children))
             .Accessor(o => o.Children, (o, v) => o.Children = v)
-            .PropertyFlags(PropertyFlags.All)
             .Register();
     }
 
@@ -23,6 +22,7 @@ public sealed class TransformGroup : Transform
         _children.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 
+    [ShouldSerialize(false)]
     public Transforms Children
     {
         get => _children;
@@ -50,7 +50,7 @@ public sealed class TransformGroup : Transform
         base.ReadFromJson(json);
         if (json is JsonObject jobject)
         {
-            if (jobject.TryGetPropertyValue("children", out JsonNode? childrenNode)
+            if (jobject.TryGetPropertyValue(nameof(Children), out JsonNode? childrenNode)
                 && childrenNode is JsonArray childrenArray)
             {
                 _children.Clear();
@@ -93,7 +93,7 @@ public sealed class TransformGroup : Transform
                 }
             }
 
-            jobject["children"] = array;
+            jobject[nameof(Children)] = array;
         }
     }
 

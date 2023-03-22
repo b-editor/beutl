@@ -1,4 +1,7 @@
-﻿using Beutl.Language;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Numerics;
+
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 
@@ -17,19 +20,12 @@ public class Blur : BitmapEffect
     {
         KernelSizeProperty = ConfigureProperty<PixelSize, Blur>(nameof(KernelSize))
             .Accessor(o => o.KernelSize, (o, v) => o.KernelSize = v)
-            .Display(Strings.KernelSize)
             .DefaultValue(PixelSize.Empty)
-            .Minimum(new PixelSize(1, 1))
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("kernel-size")
             .Register();
 
         FixImageSizeProperty = ConfigureProperty<bool, Blur>(nameof(FixImageSize))
             .Accessor(o => o.FixImageSize, (o, v) => o.FixImageSize = v)
-            .Display(Strings.FixImageSize)
             .DefaultValue(false)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("fix-image-size")
             .Register();
 
         AffectsRender<Blur>(KernelSizeProperty, FixImageSizeProperty);
@@ -40,12 +36,14 @@ public class Blur : BitmapEffect
         Processor = new _(this);
     }
 
+    [Display(Name = nameof(Strings.KernelSize), ResourceType = typeof(Strings))]
     public PixelSize KernelSize
     {
         get => _kernelSize;
         set => SetAndRaise(KernelSizeProperty, ref _kernelSize, value);
     }
 
+    [Display(Name = nameof(Strings.FixImageSize), ResourceType = typeof(Strings))]
     public bool FixImageSize
     {
         get => _fixImageSize;
@@ -80,7 +78,7 @@ public class Blur : BitmapEffect
             Bitmap<Bgra8888>? image;
             if (_blur.FixImageSize)
             {
-                image = (Bitmap<Bgra8888>)src.Clone();
+                image = src.Clone();
             }
             else
             {

@@ -19,12 +19,12 @@ public class SourceImage : Drawable
     {
         SourceProperty = ConfigureProperty<IImageSource?, SourceImage>(nameof(Source))
             .Accessor(o => o.Source, (o, v) => o.Source = v)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .Register();
 
         AffectsRender<SourceImage>(SourceProperty);
     }
 
+    [ShouldSerialize(false)]
     public IImageSource? Source
     {
         get => _source;

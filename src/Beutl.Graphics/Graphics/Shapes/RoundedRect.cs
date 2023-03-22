@@ -1,4 +1,7 @@
-﻿using Beutl.Language;
+﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 
@@ -15,31 +18,26 @@ public sealed class RoundedRect : Drawable
     {
         StrokeWidthProperty = ConfigureProperty<float, RoundedRect>(nameof(StrokeWidth))
             .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
-            .Display(Strings.StrokeWidth)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(4000)
-            .Minimum(0)
-            .SerializeName("stroke-width")
             .Register();
 
         CornerRadiusProperty = ConfigureProperty<CornerRadius, RoundedRect>(nameof(CornerRadius))
             .Accessor(o => o.CornerRadius, (o, v) => o.CornerRadius = v)
-            .Display(Strings.CornerRadius)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(new CornerRadius())
-            .Minimum(new CornerRadius())
-            .SerializeName("corner-radius")
             .Register();
 
         AffectsRender<RoundedRect>(StrokeWidthProperty, CornerRadiusProperty);
     }
 
+    [Display(Name = nameof(Strings.StrokeWidth), ResourceType = typeof(Strings))]
+    [Range(0, float.MaxValue)]
     public float StrokeWidth
     {
         get => _strokeWidth;
         set => SetAndRaise(StrokeWidthProperty, ref _strokeWidth, value);
     }
 
+    [Display(Name = nameof(Strings.CornerRadius), ResourceType = typeof(Strings))]
     public CornerRadius CornerRadius
     {
         get => _cornerRadius;

@@ -5,12 +5,10 @@ public class RandomSingleNode : Node
     private static readonly CoreProperty<float> MaximumProperty
         = ConfigureProperty<float, RandomSingleNode>(o => o.Maximum)
             .DefaultValue(1)
-            .SerializeName("maximum")
             .Register();
     private static readonly CoreProperty<float> MinimumProperty
         = ConfigureProperty<float, RandomSingleNode>(o => o.Minimum)
             .DefaultValue(0)
-            .SerializeName("minimum")
             .Register();
     private readonly OutputSocket<float> _valueSocket;
     private readonly InputSocket<float> _maximumSocket;
@@ -42,12 +40,10 @@ public class RandomDoubleNode : Node
     private static readonly CoreProperty<double> MaximumProperty
         = ConfigureProperty<double, RandomDoubleNode>(o => o.Maximum)
             .DefaultValue(1)
-            .SerializeName("maximum")
             .Register();
     private static readonly CoreProperty<double> MinimumProperty
         = ConfigureProperty<double, RandomDoubleNode>(o => o.Minimum)
             .DefaultValue(0)
-            .SerializeName("minimum")
             .Register();
     private readonly OutputSocket<double> _valueSocket;
     private readonly InputSocket<double> _maximumSocket;
@@ -79,12 +75,10 @@ public class RandomInt32Node : Node
     private static readonly CoreProperty<int> MaximumProperty
         = ConfigureProperty<int, RandomInt32Node>(o => o.Maximum)
             .DefaultValue(100)
-            .SerializeName("maximum")
             .Register();
     private static readonly CoreProperty<int> MinimumProperty
         = ConfigureProperty<int, RandomInt32Node>(o => o.Minimum)
             .DefaultValue(0)
-            .SerializeName("minimum")
             .Register();
     private readonly OutputSocket<int> _valueSocket;
     private readonly InputSocket<int> _maximumSocket;
@@ -97,7 +91,7 @@ public class RandomInt32Node : Node
         _minimumSocket = AsInput(MinimumProperty).AcceptNumber();
     }
 
-    private int Maximum { get; set; } = 1;
+    private int Maximum { get; set; } = 100;
 
     private int Minimum { get; set; }
 
@@ -114,12 +108,10 @@ public class RandomInt64Node : Node
     private static readonly CoreProperty<long> MaximumProperty
         = ConfigureProperty<long, RandomInt64Node>(o => o.Maximum)
             .DefaultValue(100)
-            .SerializeName("maximum")
             .Register();
     private static readonly CoreProperty<long> MinimumProperty
         = ConfigureProperty<long, RandomInt64Node>(o => o.Minimum)
             .DefaultValue(0)
-            .SerializeName("minimum")
             .Register();
     private readonly OutputSocket<long> _valueSocket;
     private readonly InputSocket<long> _maximumSocket;
@@ -132,7 +124,7 @@ public class RandomInt64Node : Node
         _minimumSocket = AsInput(MinimumProperty).AcceptNumber();
     }
 
-    private long Maximum { get; set; } = 1;
+    private long Maximum { get; set; } = 100;
 
     private long Minimum { get; set; }
 

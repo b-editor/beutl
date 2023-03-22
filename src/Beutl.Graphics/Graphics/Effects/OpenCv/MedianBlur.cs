@@ -1,4 +1,6 @@
-﻿using Beutl.Language;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 
@@ -17,18 +19,12 @@ public class MedianBlur : BitmapEffect
     {
         KernelSizeProperty = ConfigureProperty<int, MedianBlur>(nameof(KernelSize))
             .Accessor(o => o.KernelSize, (o, v) => o.KernelSize = v)
-            .Display(Strings.KernelSize)
             .DefaultValue(0)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("kernel-size")
             .Register();
 
         FixImageSizeProperty = ConfigureProperty<bool, MedianBlur>(nameof(FixImageSize))
             .Accessor(o => o.FixImageSize, (o, v) => o.FixImageSize = v)
-            .Display(Strings.FixImageSize)
             .DefaultValue(false)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("fix-image-size")
             .Register();
 
         AffectsRender<MedianBlur>(KernelSizeProperty, FixImageSizeProperty);
@@ -39,12 +35,14 @@ public class MedianBlur : BitmapEffect
         Processor = new _(this);
     }
 
+    [Display(Name = nameof(Strings.KernelSize), ResourceType = typeof(Strings))]
     public int KernelSize
     {
         get => _kernelSize;
         set => SetAndRaise(KernelSizeProperty, ref _kernelSize, value);
     }
 
+    [Display(Name = nameof(Strings.FixImageSize), ResourceType = typeof(Strings))]
     public bool FixImageSize
     {
         get => _fixImageSize;

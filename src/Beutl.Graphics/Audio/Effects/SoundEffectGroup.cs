@@ -11,7 +11,6 @@ public sealed class SoundEffectGroup : SoundEffect
     {
         ChildrenProperty = ConfigureProperty<SoundEffects, SoundEffectGroup>(nameof(Children))
             .Accessor(o => o.Children, (o, v) => o.Children = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .Register();
         AffectsRender<SoundEffectGroup>(ChildrenProperty);
     }
@@ -22,6 +21,7 @@ public sealed class SoundEffectGroup : SoundEffect
         _children.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 
+    [ShouldSerialize(false)]
     public SoundEffects Children
     {
         get => _children;

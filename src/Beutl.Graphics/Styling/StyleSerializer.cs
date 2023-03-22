@@ -10,7 +10,7 @@ public static class StyleSerializer
     {
         var styleJson = new JsonObject
         {
-            ["target"] = TypeFormat.ToString(style.TargetType)
+            ["Target"] = TypeFormat.ToString(style.TargetType)
         };
 
         var setters = new JsonObject();
@@ -19,7 +19,7 @@ public static class StyleSerializer
             (string name, JsonNode? node) = item.ToJson(style.TargetType);
             setters[name] = node;
         }
-        styleJson["setters"] = setters;
+        styleJson["Setters"] = setters;
 
         return styleJson;
     }
@@ -29,14 +29,14 @@ public static class StyleSerializer
         string? owner = null;
         JsonNode? animationNode = null;
         CorePropertyMetadata? metadata = setter.Property.GetMetadata<CorePropertyMetadata>(targetType);
-        string? name = metadata.SerializeName ?? setter.Property.Name;
+        string? name = setter.Property.Name;
 
         if (!targetType.IsAssignableTo(setter.Property.OwnerType))
         {
             owner = TypeFormat.ToString(setter.Property.OwnerType);
         }
 
-        JsonNode? value = setter.Property.RouteWriteToJson(metadata, setter.Value, out bool isDefault);
+        JsonNode? value = setter.Property.RouteWriteToJson(metadata, setter.Value, out _);
 
         if (setter.Animation is { } animation)
         {
@@ -62,11 +62,11 @@ public static class StyleSerializer
         {
             var json = new JsonObject();
             if (value != null)
-                json["value"] = value;
+                json["Value"] = value;
             if (owner != null)
-                json["owner"] = owner;
+                json["Owner"] = owner;
             if (animationNode != null)
-                json["animation"] = animationNode;
+                json["Animation"] = animationNode;
 
             return (name, json);
         }
@@ -74,7 +74,7 @@ public static class StyleSerializer
 
     public static Style? ToStyle(this JsonObject json)
     {
-        if (json.TryGetPropertyValue("target", out JsonNode? targetNode)
+        if (json.TryGetPropertyValue("Target", out JsonNode? targetNode)
             && targetNode is JsonValue targetValue
             && targetValue.TryGetValue(out string? targetStr)
             && TypeFormat.ToType(targetStr) is Type targetType)
@@ -84,7 +84,7 @@ public static class StyleSerializer
                 TargetType = targetType
             };
 
-            if (json.TryGetPropertyValue("setters", out JsonNode? settersNode)
+            if (json.TryGetPropertyValue("Setters", out JsonNode? settersNode)
                 && settersNode is JsonObject settersObj)
             {
                 foreach (KeyValuePair<string, JsonNode?> item in settersObj)
@@ -115,7 +115,7 @@ public static class StyleSerializer
         }
         else if (json is JsonObject jobj)
         {
-            if (jobj.TryGetPropertyValue("owner", out JsonNode? ownerNode)
+            if (jobj.TryGetPropertyValue("Owner", out JsonNode? ownerNode)
                 && ownerNode is JsonValue ownerValue
                 && ownerValue.TryGetValue(out string? ownerStr))
             {
@@ -129,14 +129,12 @@ public static class StyleSerializer
                 }
             }
 
-            valueNode = jobj["value"];
+            valueNode = jobj["Value"];
 
-            animationNode = jobj["animation"];
+            animationNode = jobj["Animation"];
         }
 
-        CoreProperty? property
-            = PropertyRegistry.GetRegistered(ownerType).FirstOrDefault(
-                x => x.GetMetadata<CorePropertyMetadata>(ownerType).SerializeName == name || x.Name == name);
+        CoreProperty? property = PropertyRegistry.GetRegistered(ownerType).FirstOrDefault(x => x.Name == name);
 
         if (property == null)
             return null;

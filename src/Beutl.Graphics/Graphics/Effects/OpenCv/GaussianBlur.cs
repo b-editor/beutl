@@ -1,4 +1,6 @@
-﻿using Beutl.Language;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 
@@ -19,26 +21,17 @@ public class GaussianBlur : BitmapEffect
     {
         KernelSizeProperty = ConfigureProperty<PixelSize, GaussianBlur>(nameof(KernelSize))
             .Accessor(o => o.KernelSize, (o, v) => o.KernelSize = v)
-            .Display(Strings.KernelSize)
             .DefaultValue(PixelSize.Empty)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("kernel-size")
             .Register();
 
         SigmaProperty = ConfigureProperty<Vector, GaussianBlur>(nameof(Sigma))
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
-            .Display(Strings.Sigma)
             .DefaultValue(Vector.Zero)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("sigma")
             .Register();
 
         FixImageSizeProperty = ConfigureProperty<bool, GaussianBlur>(nameof(FixImageSize))
             .Accessor(o => o.FixImageSize, (o, v) => o.FixImageSize = v)
-            .Display(Strings.FixImageSize)
             .DefaultValue(false)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("fix-image-size")
             .Register();
 
         AffectsRender<GaussianBlur>(KernelSizeProperty, SigmaProperty, FixImageSizeProperty);
@@ -49,18 +42,21 @@ public class GaussianBlur : BitmapEffect
         Processor = new _(this);
     }
 
+    [Display(Name = nameof(Strings.KernelSize), ResourceType = typeof(Strings))]
     public PixelSize KernelSize
     {
         get => _kernelSize;
         set => SetAndRaise(KernelSizeProperty, ref _kernelSize, value);
     }
 
+    [Display(Name = nameof(Strings.Sigma), ResourceType = typeof(Strings))]
     public Vector Sigma
     {
         get => _sigma;
         set => SetAndRaise(SigmaProperty, ref _sigma, value);
     }
 
+    [Display(Name = nameof(Strings.FixImageSize), ResourceType = typeof(Strings))]
     public bool FixImageSize
     {
         get => _fixImageSize;

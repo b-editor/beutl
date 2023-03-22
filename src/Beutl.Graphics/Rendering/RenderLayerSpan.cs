@@ -1,4 +1,6 @@
-﻿using Beutl.Language;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Language;
 using Beutl.Media;
 
 namespace Beutl.Rendering;
@@ -18,14 +20,10 @@ public sealed class RenderLayerSpan : Hierarchical, IAffectsRender
     {
         StartProperty = ConfigureProperty<TimeSpan, RenderLayerSpan>(nameof(Start))
             .Accessor(o => o.Start, (o, v) => o.Start = v)
-            .Display(Strings.StartTime)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         DurationProperty = ConfigureProperty<TimeSpan, RenderLayerSpan>(nameof(Duration))
             .Accessor(o => o.Duration, (o, v) => o.Duration = v)
-            .Display(Strings.DurationTime)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         ValueProperty = ConfigureProperty<Renderables, RenderLayerSpan>(nameof(Value))
@@ -34,7 +32,6 @@ public sealed class RenderLayerSpan : Hierarchical, IAffectsRender
 
         RenderLayerProperty = ConfigureProperty<RenderLayer?, RenderLayerSpan>(nameof(RenderLayer))
             .Accessor(o => o.RenderLayer)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
     }
 
@@ -44,12 +41,14 @@ public sealed class RenderLayerSpan : Hierarchical, IAffectsRender
         _value.Invalidated += OnValueInvalidated;
     }
 
+    [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
     public TimeSpan Start
     {
         get => _start;
         set => SetAndRaise(StartProperty, ref _start, value);
     }
 
+    [Display(Name = nameof(Strings.DurationTime), ResourceType = typeof(Strings))]
     public TimeSpan Duration
     {
         get => _duration;

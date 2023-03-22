@@ -1,4 +1,6 @@
-﻿using Beutl.Language;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Immutable;
 using Beutl.Media.Pixel;
@@ -56,43 +58,27 @@ public class Border : BitmapEffect
     {
         OffsetProperty = ConfigureProperty<Point, Border>(nameof(Offset))
             .Accessor(o => o.Offset, (o, v) => o.Offset = v)
-            .Display(Strings.Offset)
             .DefaultValue(default)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("offset")
             .Register();
 
         ThicknessProperty = ConfigureProperty<int, Border>(nameof(Thickness))
             .Accessor(o => o.Thickness, (o, v) => o.Thickness = v)
-            .Display(Strings.Thickness)
             .DefaultValue(0)
-            .Minimum(0)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("thickness")
             .Register();
 
         ColorProperty = ConfigureProperty<Color, Border>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
-            .Display(Strings.Color)
             .DefaultValue(Colors.White)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("color")
             .Register();
 
         MaskTypeProperty = ConfigureProperty<MaskTypes, Border>(nameof(MaskType))
             .Accessor(o => o.MaskType, (o, v) => o.MaskType = v)
-            .Display(Strings.MaskType)
             .DefaultValue(MaskTypes.None)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("mask-type")
             .Register();
 
         StyleProperty = ConfigureProperty<BorderStyles, Border>(nameof(Style))
             .Accessor(o => o.Style, (o, v) => o.Style = v)
-            .Display(Strings.BorderStyle)
             .DefaultValue(BorderStyles.Background)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("border-style")
             .Register();
 
         AffectsRender<Border>(
@@ -108,30 +94,37 @@ public class Border : BitmapEffect
         Processor = new _(this);
     }
 
+
+    [Display(Name = nameof(Strings.Offset), ResourceType = typeof(Strings))]
     public Point Offset
     {
         get => _offset;
         set => SetAndRaise(OffsetProperty, ref _offset, value);
     }
 
+    [Display(Name = nameof(Strings.Thickness), ResourceType = typeof(Strings))]
+    [Range(0, int.MaxValue)]
     public int Thickness
     {
         get => _thickness;
         set => SetAndRaise(ThicknessProperty, ref _thickness, value);
     }
 
+    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
     public Color Color
     {
         get => _color;
         set => SetAndRaise(ColorProperty, ref _color, value);
     }
 
+    [Display(Name = nameof(Strings.MaskType), ResourceType = typeof(Strings))]
     public MaskTypes MaskType
     {
         get => _maskType;
         set => SetAndRaise(MaskTypeProperty, ref _maskType, value);
     }
 
+    [Display(Name = nameof(Strings.BorderStyle), ResourceType = typeof(Strings))]
     public BorderStyles Style
     {
         get => _style;

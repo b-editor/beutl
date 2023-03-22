@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Graphics;
 using Beutl.Language;
 using Beutl.Media.Immutable;
 
@@ -20,26 +22,17 @@ public sealed class RadialGradientBrush : GradientBrush, IRadialGradientBrush
     {
         CenterProperty = ConfigureProperty<RelativePoint, RadialGradientBrush>(nameof(Center))
             .Accessor(o => o.Center, (o, v) => o.Center = v)
-            .Display(Strings.Center)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(RelativePoint.Center)
-            .SerializeName("center")
             .Register();
 
         GradientOriginProperty = ConfigureProperty<RelativePoint, RadialGradientBrush>(nameof(GradientOrigin))
             .Accessor(o => o.GradientOrigin, (o, v) => o.GradientOrigin = v)
-            .Display(Strings.GradientOrigin)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(RelativePoint.Center)
-            .SerializeName("gradient-origin")
             .Register();
 
         RadiusProperty = ConfigureProperty<float, RadialGradientBrush>(nameof(Radius))
             .Accessor(o => o.Radius, (o, v) => o.Radius = v)
-            .Display(Strings.Radius)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(0.5f)
-            .SerializeName("radius")
             .Register();
 
         AffectsRender<RadialGradientBrush>(CenterProperty, GradientOriginProperty, RadiusProperty);
@@ -48,6 +41,7 @@ public sealed class RadialGradientBrush : GradientBrush, IRadialGradientBrush
     /// <summary>
     /// Gets or sets the start point for the gradient.
     /// </summary>
+    [Display(Name = nameof(Strings.Center), ResourceType = typeof(Strings))]
     public RelativePoint Center
     {
         get => _center;
@@ -58,6 +52,7 @@ public sealed class RadialGradientBrush : GradientBrush, IRadialGradientBrush
     /// Gets or sets the location of the two-dimensional focal point that defines the beginning
     /// of the gradient.
     /// </summary>
+    [Display(Name = nameof(Strings.GradientOrigin), ResourceType = typeof(Strings))]
     public RelativePoint GradientOrigin
     {
         get => _gradientOrigin;
@@ -68,6 +63,7 @@ public sealed class RadialGradientBrush : GradientBrush, IRadialGradientBrush
     /// Gets or sets the horizontal and vertical radius of the outermost circle of the radial
     /// gradient.
     /// </summary>
+    [Display(Name = nameof(Strings.Radius), ResourceType = typeof(Strings))]
     public float Radius
     {
         get => _radius;

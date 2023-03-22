@@ -23,15 +23,11 @@ public class KeyFrame : CoreObject
     {
         EasingProperty = ConfigureProperty<Easing, KeyFrame>(nameof(Easing))
             .Accessor(o => o.Easing, (o, v) => o.Easing = v)
-            .Display(Strings.Easing)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .DefaultValue(new LinearEasing())
             .Register();
 
         KeyTimeProperty = ConfigureProperty<TimeSpan, KeyFrame>(nameof(KeyTime))
             .Accessor(o => o.KeyTime, (o, v) => o.KeyTime = v)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
-            .SerializeName("key-time")
             .Register();
 
         //DurationProperty = ConfigureProperty<TimeSpan, KeyFrame>(nameof(Duration))
@@ -40,6 +36,7 @@ public class KeyFrame : CoreObject
         //    .Register();
     }
 
+    [ShouldSerialize(false)]
     public Easing Easing
     {
         get => _easing;

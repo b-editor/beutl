@@ -15,7 +15,6 @@ public sealed class ImageFilterGroup : ImageFilter
     {
         ChildrenProperty = ConfigureProperty<ImageFilters, ImageFilterGroup>(nameof(Children))
             .Accessor(o => o.Children, (o, v) => o.Children = v)
-            .PropertyFlags(PropertyFlags.Designable | PropertyFlags.Styleable)
             .Register();
     }
 
@@ -25,6 +24,7 @@ public sealed class ImageFilterGroup : ImageFilter
         _children.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 
+    [ShouldSerialize(false)]
     public ImageFilters Children
     {
         get => _children;
@@ -49,7 +49,7 @@ public sealed class ImageFilterGroup : ImageFilter
         base.ReadFromJson(json);
         if (json is JsonObject jobject)
         {
-            if (jobject.TryGetPropertyValue("children", out JsonNode? childrenNode)
+            if (jobject.TryGetPropertyValue(nameof(Children), out JsonNode? childrenNode)
                 && childrenNode is JsonArray childrenArray)
             {
                 _children.Clear();
@@ -92,7 +92,7 @@ public sealed class ImageFilterGroup : ImageFilter
                 }
             }
 
-            jobject["children"] = array;
+            jobject[nameof(Children)] = array;
         }
     }
 

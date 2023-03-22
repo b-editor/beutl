@@ -20,21 +20,15 @@ public sealed class ViewConfig : ConfigurationBase
     static ViewConfig()
     {
         ThemeProperty = ConfigureProperty<ViewTheme, ViewConfig>("Theme")
-            .SerializeName("theme")
             .DefaultValue(ViewTheme.Dark)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         UICultureProperty = ConfigureProperty<CultureInfo, ViewConfig>("UICulture")
-            .SerializeName("ui-culture")
             .DefaultValue(CultureInfo.InstalledUICulture)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         IsMicaEffectEnabledProperty = ConfigureProperty<bool, ViewConfig>("IsMicaEffectEnabled")
-            .SerializeName("is-mica-enabled")
             .DefaultValue(false)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         RecentFilesProperty = ConfigureProperty<CoreList<string>, ViewConfig>("RecentFiles")
@@ -70,12 +64,14 @@ public sealed class ViewConfig : ConfigurationBase
         set => SetValue(IsMicaEffectEnabledProperty, value);
     }
 
+    [ShouldSerialize(false)]
     public CoreList<string> RecentFiles
     {
         get => _recentFiles;
         set => _recentFiles.Replace(value);
     }
 
+    [ShouldSerialize(false)]
     public CoreList<string> RecentProjects
     {
         get => _recentProjects;

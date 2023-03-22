@@ -1,4 +1,6 @@
-﻿using Beutl.Language;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Language;
 
 namespace Beutl.Graphics.Shapes;
 
@@ -11,16 +13,14 @@ public sealed class Ellipse : Drawable
     {
         StrokeWidthProperty = ConfigureProperty<float, Ellipse>(nameof(StrokeWidth))
             .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
-            .Display(Strings.StrokeWidth)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(4000)
-            .Minimum(0)
-            .SerializeName("stroke-width")
             .Register();
 
         AffectsRender<Ellipse>(StrokeWidthProperty);
     }
 
+    [Display(Name = nameof(Strings.StrokeWidth), ResourceType = typeof(Strings))]
+    [Range(0, float.MaxValue)]
     public float StrokeWidth
     {
         get => _strokeWidth;

@@ -9,10 +9,10 @@ public abstract class ProjectItem : Hierarchical, IStorable
     {
         FileNameProperty = ConfigureProperty<string, ProjectItem>(nameof(FileName))
             .Accessor(o => o.FileName, (o, v) => o.FileName = v)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
     }
 
+    [ShouldSerialize(false)]
     public string FileName
     {
         get => _fileName!;

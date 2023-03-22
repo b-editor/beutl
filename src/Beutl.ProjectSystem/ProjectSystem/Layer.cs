@@ -1,4 +1,5 @@
 ﻿using System.Collections.Specialized;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Reactive;
 using System.Reactive.Linq;
@@ -37,47 +38,32 @@ public class Layer : ProjectItem
     {
         StartProperty = ConfigureProperty<TimeSpan, Layer>(nameof(Start))
             .Accessor(o => o.Start, (o, v) => o.Start = v)
-            .Display(Strings.StartTime)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
-            .SerializeName("start")
             .Register();
 
         LengthProperty = ConfigureProperty<TimeSpan, Layer>(nameof(Length))
             .Accessor(o => o.Length, (o, v) => o.Length = v)
-            .Display(Strings.DurationTime)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
-            .SerializeName("length")
             .Register();
 
         ZIndexProperty = ConfigureProperty<int, Layer>(nameof(ZIndex))
             .Accessor(o => o.ZIndex, (o, v) => o.ZIndex = v)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
-            .SerializeName("zIndex")
             .Register();
 
         AccentColorProperty = ConfigureProperty<Color, Layer>(nameof(AccentColor))
             .DefaultValue(Colors.Teal)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
-            .SerializeName("accentColor")
             .Register();
 
         IsEnabledProperty = ConfigureProperty<bool, Layer>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
-            .SerializeName("isEnabled")
             .Register();
 
         AllowOutflowProperty = ConfigureProperty<bool, Layer>(nameof(AllowOutflow))
             .Accessor(o => o.AllowOutflow, (o, v) => o.AllowOutflow = v)
             .DefaultValue(false)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
-            .SerializeName("allowOutflow")
             .Register();
 
         SpanProperty = ConfigureProperty<RenderLayerSpan, Layer>(nameof(Span))
             .Accessor(o => o.Span, null)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         OperationProperty = ConfigureProperty<SourceOperation, Layer>(nameof(Operation))
@@ -91,11 +77,7 @@ public class Layer : ProjectItem
         UseNodeProperty = ConfigureProperty<bool, Layer>(nameof(UseNode))
             .Accessor(o => o.UseNode, (o, v) => o.UseNode = v)
             .DefaultValue(false)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
-            .SerializeName("useNode")
             .Register();
-
-        NameProperty.OverrideMetadata<Layer>(new CorePropertyMetadata<string>("name"));
 
         ZIndexProperty.Changed.Subscribe(args =>
         {
@@ -194,12 +176,14 @@ public class Layer : ProjectItem
     }
 
     // 0以上
+    [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
     public TimeSpan Start
     {
         get => _start;
         set => SetAndRaise(StartProperty, ref _start, value);
     }
 
+    [Display(Name = nameof(Strings.DurationTime), ResourceType = typeof(Strings))]
     public TimeSpan Length
     {
         get => _length;
@@ -260,13 +244,13 @@ public class Layer : ProjectItem
 
         if (json is JsonObject jobject)
         {
-            if (jobject.TryGetPropertyValue("operation", out JsonNode? operationNode)
+            if (jobject.TryGetPropertyValue(nameof(Operation), out JsonNode? operationNode)
                 && operationNode != null)
             {
                 Operation.ReadFromJson(operationNode);
             }
 
-            if (jobject.TryGetPropertyValue("nodeTree", out JsonNode? nodeTreeNode)
+            if (jobject.TryGetPropertyValue(nameof(NodeTree), out JsonNode? nodeTreeNode)
                 && nodeTreeNode != null)
             {
                 NodeTree.ReadFromJson(nodeTreeNode);
@@ -282,11 +266,11 @@ public class Layer : ProjectItem
         {
             JsonNode operationNode = new JsonObject();
             Operation.WriteToJson(ref operationNode);
-            jobject["operation"] = operationNode;
+            jobject[nameof(Operation)] = operationNode;
 
             JsonNode nodeTreeNode = new JsonObject();
             NodeTree.WriteToJson(ref nodeTreeNode);
-            jobject["nodeTree"] = nodeTreeNode;
+            jobject[nameof(NodeTree)] = nodeTreeNode;
         }
     }
 

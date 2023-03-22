@@ -13,7 +13,6 @@ namespace Beutl.Graphics;
 /// Defines a size.
 /// </summary>
 [JsonConverter(typeof(SizeJsonConverter))]
-[RangeValidatable(typeof(SizeRangeValidator))]
 public readonly struct Size
     : IEquatable<Size>,
       IParsable<Size>,

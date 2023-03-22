@@ -41,9 +41,7 @@ public sealed partial class StyleEditor : UserControl
                     var mismatches = new List<Styling.ISetter>(style.Setters.Count);
                     foreach (Styling.ISetter item in style.Setters)
                     {
-                        if (!item.Property.OwnerType.IsAssignableTo(type)
-                            || (item.Property.TryGetMetadata(type, out CorePropertyMetadata? metadata)
-                            && !metadata.PropertyFlags.HasFlag(PropertyFlags.Styleable)))
+                        if (!item.Property.OwnerType.IsAssignableTo(type))
                         {
                             mismatches.Add(item);
                         }
@@ -87,9 +85,7 @@ public sealed partial class StyleEditor : UserControl
     {
         if (DataContext is StyleEditorViewModel viewModel && viewModel.Style.Value is Styling.Style style)
         {
-            CoreProperty[] props = PropertyRegistry.GetRegistered(style.TargetType)
-                .Where(x => x.GetMetadata<CorePropertyMetadata>(style.TargetType).PropertyFlags.HasFlag(PropertyFlags.Styleable))
-                .ToArray();
+            CoreProperty[] props = PropertyRegistry.GetRegistered(style.TargetType).ToArray();
 
             var selectedItem = new ReactivePropertySlim<CoreProperty?>();
             var listBox = new ListBox

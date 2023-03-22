@@ -13,7 +13,6 @@ public abstract class SoundEffect : Animatable, IMutableSoundEffect
         IsEnabledProperty = ConfigureProperty<bool, SoundEffect>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
-            .SerializeName("is-enabled")
             .Register();
 
         AffectsRender<SoundEffect>(IsEnabledProperty);

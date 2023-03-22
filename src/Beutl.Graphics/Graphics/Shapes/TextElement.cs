@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
 
 using Beutl.Language;
 using Beutl.Media;
@@ -31,66 +32,42 @@ public class TextElement : Drawable
     {
         FontWeightProperty = ConfigureProperty<FontWeight, TextElement>(nameof(FontWeight))
             .Accessor(o => o.FontWeight, (o, v) => o.FontWeight = v)
-            .Display(Strings.FontWeight)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(FontWeight.Regular)
-            .SerializeName("font-weight")
             .Register();
 
         FontStyleProperty = ConfigureProperty<FontStyle, TextElement>(nameof(FontStyle))
             .Accessor(o => o.FontStyle, (o, v) => o.FontStyle = v)
-            .Display(Strings.FontStyle)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(FontStyle.Normal)
-            .SerializeName("font-style")
             .Register();
 
         FontFamilyProperty = ConfigureProperty<FontFamily, TextElement>(nameof(FontFamily))
             .Accessor(o => o.FontFamily, (o, v) => o.FontFamily = v)
-            .Display(Strings.FontFamily)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(FontFamily.Default)
-            .SerializeName("font-family")
             .Register();
 
         SizeProperty = ConfigureProperty<float, TextElement>(nameof(Size))
             .Accessor(o => o.Size, (o, v) => o.Size = v)
-            .Display(Strings.Size)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(0)
-            .Minimum(0)
-            .SerializeName("size")
             .Register();
 
         SpacingProperty = ConfigureProperty<float, TextElement>(nameof(Spacing))
             .Accessor(o => o.Spacing, (o, v) => o.Spacing = v)
-            .Display(Strings.CharactorSpacing)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(0)
-            .SerializeName("spacing")
             .Register();
 
         TextProperty = ConfigureProperty<string, TextElement>(nameof(Text))
             .Accessor(o => o.Text, (o, v) => o.Text = v)
-            .Display(Strings.Text)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(string.Empty)
-            .SerializeName("text")
             .Register();
 
         MarginProperty = ConfigureProperty<Thickness, TextElement>(nameof(Margin))
             .Accessor(o => o.Margin, (o, v) => o.Margin = v)
-            .Display(Strings.Margin)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(new Thickness())
-            .SerializeName("margin")
             .Register();
 
         IgnoreLineBreaksProperty = ConfigureProperty<bool, TextElement>(nameof(IgnoreLineBreaks))
             .Accessor(o => o.IgnoreLineBreaks, (o, v) => o.IgnoreLineBreaks = v)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(false)
-            .SerializeName("ignore-line-breaks")
             .Register();
 
         AffectsRender<TextElement>(
@@ -104,42 +81,50 @@ public class TextElement : Drawable
             IgnoreLineBreaksProperty);
     }
 
+    [Display(Name = nameof(Strings.FontWeight), ResourceType = typeof(Strings))]
     public FontWeight FontWeight
     {
         get => _fontWeight;
         set => SetAndRaise(FontWeightProperty, ref _fontWeight, value);
     }
 
+    [Display(Name = nameof(Strings.FontStyle), ResourceType = typeof(Strings))]
     public FontStyle FontStyle
     {
         get => _fontStyle;
         set => SetAndRaise(FontStyleProperty, ref _fontStyle, value);
     }
 
+    [Display(Name = nameof(Strings.FontFamily), ResourceType = typeof(Strings))]
     public FontFamily FontFamily
     {
         get => _fontFamily;
         set => SetAndRaise(FontFamilyProperty, ref _fontFamily, value);
     }
 
+    [Display(Name = nameof(Strings.Size), ResourceType = typeof(Strings))]
+    [Range(0, float.MaxValue)]
     public float Size
     {
         get => _size;
         set => SetAndRaise(SizeProperty, ref _size, value);
     }
 
+    [Display(Name = nameof(Strings.CharactorSpacing), ResourceType = typeof(Strings))]
     public float Spacing
     {
         get => _spacing;
         set => SetAndRaise(SpacingProperty, ref _spacing, value);
     }
 
+    [Display(Name = nameof(Strings.Text), ResourceType = typeof(Strings))]
     public string Text
     {
         get => _text;
         set => SetAndRaise(TextProperty, ref _text, value);
     }
 
+    [Display(Name = nameof(Strings.Margin), ResourceType = typeof(Strings))]
     public Thickness Margin
     {
         get => _margin;

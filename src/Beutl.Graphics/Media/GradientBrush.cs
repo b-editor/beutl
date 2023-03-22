@@ -1,4 +1,6 @@
-﻿using Beutl.Language;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Language;
 
 namespace Beutl.Media;
 
@@ -16,16 +18,11 @@ public abstract class GradientBrush : Brush, IGradientBrush
     {
         SpreadMethodProperty = ConfigureProperty<GradientSpreadMethod, GradientBrush>(nameof(SpreadMethod))
             .Accessor(o => o.SpreadMethod, (o, v) => o.SpreadMethod = v)
-            .Display(Strings.SpreadMethod)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(GradientSpreadMethod.Pad)
-            .SerializeName("spread-method")
             .Register();
 
         GradientStopsProperty = ConfigureProperty<GradientStops, GradientBrush>(nameof(GradientStops))
             .Accessor(o => o.GradientStops, (o, v) => o.GradientStops = v)
-            .Display(Strings.GradientStops)
-            .PropertyFlags(PropertyFlags.All)
             .Register();
 
         AffectsRender<GradientBrush>(SpreadMethodProperty, GradientStopsProperty);
@@ -41,6 +38,7 @@ public abstract class GradientBrush : Brush, IGradientBrush
     }
 
     /// <inheritdoc/>
+    [Display(Name = nameof(Strings.SpreadMethod), ResourceType = typeof(Strings))]
     public GradientSpreadMethod SpreadMethod
     {
         get => _spreadMethod;
@@ -48,6 +46,7 @@ public abstract class GradientBrush : Brush, IGradientBrush
     }
 
     /// <inheritdoc/>
+    [Display(Name = nameof(Strings.GradientStops), ResourceType = typeof(Strings))]
     public GradientStops GradientStops
     {
         get => _gradientStops;

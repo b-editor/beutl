@@ -7,17 +7,14 @@ public class RelativePointNode : Node
     private static readonly CoreProperty<RelativeUnit> UnitProperty
         = ConfigureProperty<RelativeUnit, RelativePointNode>(o => o.Unit)
             .DefaultValue(RelativeUnit.Relative)
-            .SerializeName("unit")
             .Register();
     private static readonly CoreProperty<float> XProperty
         = ConfigureProperty<float, RelativePointNode>(o => o.X)
             .DefaultValue(0)
-            .SerializeName("x")
             .Register();
     private static readonly CoreProperty<float> YProperty
         = ConfigureProperty<float, RelativePointNode>(o => o.Y)
             .DefaultValue(0)
-            .SerializeName("y")
             .Register();
     private readonly OutputSocket<RelativePoint> _valueSocket;
     private readonly NodeItem<RelativeUnit> _unitSocket;

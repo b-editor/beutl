@@ -9,24 +9,19 @@ public class GroupOutput : Node, ISocketsCanBeAdded
 
     public class GroupOutputSocket<T> : InputSocket<T>, IAutomaticallyGeneratedSocket, IGroupSocket
     {
-        static GroupOutputSocket()
-        {
-            NameProperty.OverrideMetadata<GroupOutputSocket<T>>(new CorePropertyMetadata<string>("name"));
-        }
-
         public CoreProperty? AssociatedProperty { get; set; }
 
         public override void ReadFromJson(JsonNode json)
         {
             base.ReadFromJson(json);
-            JsonNode propertyJson = json["associated-property"]!;
-            string name = (string)propertyJson["name"]!;
-            string owner = (string)propertyJson["owner"]!;
+            JsonNode propertyJson = json[nameof(AssociatedProperty)]!;
+            string name = (string)propertyJson["Name"]!;
+            string owner = (string)propertyJson["Owner"]!;
 
             Type ownerType = TypeFormat.ToType(owner)!;
 
             AssociatedProperty = PropertyRegistry.GetRegistered(ownerType)
-                .FirstOrDefault(x => x.GetMetadata<CorePropertyMetadata>(ownerType).SerializeName == name || x.Name == name);
+                .FirstOrDefault(x => x.Name == name);
         }
 
         public override void WriteToJson(ref JsonNode json)
@@ -34,14 +29,13 @@ public class GroupOutput : Node, ISocketsCanBeAdded
             base.WriteToJson(ref json);
             if (AssociatedProperty is { OwnerType: Type ownerType } property)
             {
-                CorePropertyMetadata? metadata = property.GetMetadata<CorePropertyMetadata>(ownerType);
-                string name = metadata.SerializeName ?? property.Name;
+                string name = property.Name;
                 string owner = TypeFormat.ToString(ownerType);
 
-                json["associated-property"] = new JsonObject
+                json["AssociatedProperty"] = new JsonObject
                 {
-                    ["name"] = name,
-                    ["owner"] = owner,
+                    ["Name"] = name,
+                    ["Owner"] = owner,
                 };
             }
         }
@@ -84,7 +78,7 @@ public class GroupOutput : Node, ISocketsCanBeAdded
         base.ReadFromJson(json);
         if (json is JsonObject obj)
         {
-            if (obj.TryGetPropertyValue("items", out var itemsNode)
+            if (obj.TryGetPropertyValue("Items", out var itemsNode)
                 && itemsNode is JsonArray itemsArray)
             {
                 int index = 0;

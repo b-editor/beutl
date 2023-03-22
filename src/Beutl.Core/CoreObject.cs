@@ -70,12 +70,10 @@ public abstract class CoreObject : ICoreObject
     static CoreObject()
     {
         IdProperty = ConfigureProperty<Guid, CoreObject>(nameof(Id))
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .DefaultValue(Guid.Empty)
             .Register();
 
         NameProperty = ConfigureProperty<string, CoreObject>(nameof(Name))
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .DefaultValue(string.Empty)
             .Register();
     }
@@ -360,13 +358,12 @@ public abstract class CoreObject : ICoreObject
             {
                 CoreProperty item = list[i];
                 CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(ownerType);
-                string? jsonName = metadata.SerializeName;
-                if (jsonName != null)
+                if (metadata.ShouldSerialize)
                 {
-                    JsonNode? valueNode = item.RouteWriteToJson(metadata, GetValue(item), out var isDefault);
+                    JsonNode? valueNode = item.RouteWriteToJson(metadata, GetValue(item), out bool isDefault);
                     if (!isDefault)
                     {
-                        jsonObject[jsonName] = valueNode;
+                        jsonObject[item.Name] = valueNode;
                     }
                 }
             }
@@ -384,10 +381,8 @@ public abstract class CoreObject : ICoreObject
             {
                 CoreProperty item = list[i];
                 CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(ownerType);
-                string? jsonName = metadata.SerializeName;
-
-                if (jsonName != null
-                    && obj.TryGetPropertyValue(jsonName, out JsonNode? jsonNode)
+                if (metadata.ShouldSerialize
+                    && obj.TryGetPropertyValue(item.Name, out JsonNode? jsonNode)
                     && jsonNode != null)
                 {
                     if (item.RouteReadFromJson(metadata, jsonNode) is { } value)
@@ -403,13 +398,12 @@ public abstract class CoreObject : ICoreObject
     {
         if (args is CorePropertyChangedEventArgs coreArgs)
         {
-            bool hasChangedFlag = coreArgs.PropertyMetadata.PropertyFlags.HasFlag(PropertyFlags.NotifyChanged);
             if (coreArgs.Property.HasObservers)
             {
                 coreArgs.Property.NotifyChanged(coreArgs);
             }
 
-            if (hasChangedFlag)
+            if (coreArgs.PropertyMetadata.Notifiable)
             {
                 PropertyChanged?.Invoke(this, args);
             }

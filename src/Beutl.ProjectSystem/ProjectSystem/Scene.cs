@@ -1,4 +1,5 @@
 ﻿using System.Collections.Specialized;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
@@ -49,12 +50,10 @@ public class Scene : ProjectItem, IHierarchicalRoot
     {
         WidthProperty = ConfigureProperty<int, Scene>(nameof(Width))
             .Accessor(o => o.Width)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         HeightProperty = ConfigureProperty<int, Scene>(nameof(Height))
             .Accessor(o => o.Height)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         ChildrenProperty = ConfigureProperty<Layers, Scene>(nameof(Children))
@@ -63,28 +62,19 @@ public class Scene : ProjectItem, IHierarchicalRoot
 
         DurationProperty = ConfigureProperty<TimeSpan, Scene>(nameof(Duration))
             .Accessor(o => o.Duration, (o, v) => o.Duration = v)
-            .Display(Strings.DurationTime)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
-            .SerializeName("duration")
             .Register();
 
         CurrentFrameProperty = ConfigureProperty<TimeSpan, Scene>(nameof(CurrentFrame))
             .Accessor(o => o.CurrentFrame, (o, v) => o.CurrentFrame = v)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
-            .SerializeName("currentFrame")
             .Register();
 
         PreviewOptionsProperty = ConfigureProperty<PreviewOptions?, Scene>(nameof(PreviewOptions))
             .Accessor(o => o.PreviewOptions, (o, v) => o.PreviewOptions = v)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         RendererProperty = ConfigureProperty<IRenderer, Scene>(nameof(Renderer))
             .Accessor(o => o.Renderer, (o, v) => o.Renderer = v)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
-
-        NameProperty.OverrideMetadata<Scene>(new CorePropertyMetadata<string>(serializeName: "name"));
 
         CurrentFrameProperty.Changed.Subscribe(e =>
         {
@@ -99,6 +89,7 @@ public class Scene : ProjectItem, IHierarchicalRoot
 
     public int Height => Renderer.Graphics.Size.Height;
 
+    [Display(Name = nameof(Strings.DurationTime), ResourceType = typeof(Strings))]
     public TimeSpan Duration
     {
         get => _duration;
@@ -125,18 +116,21 @@ public class Scene : ProjectItem, IHierarchicalRoot
         }
     }
 
+    [ShouldSerialize(false)]
     public Layers Children
     {
         get => _children;
         set => _children.Replace(value);
     }
 
+    [ShouldSerialize(false)]
     public PreviewOptions? PreviewOptions
     {
         get => _previewOptions;
         set => SetAndRaise(PreviewOptionsProperty, ref _previewOptions, value);
     }
 
+    [ShouldSerialize(false)]
     public IRenderer Renderer
     {
         get => _renderer;
@@ -246,8 +240,8 @@ public class Scene : ProjectItem, IHierarchicalRoot
 
         if (json is JsonObject jobject)
         {
-            if (jobject.TryGetPropertyValue("width", out JsonNode? widthNode)
-                && jobject.TryGetPropertyValue("height", out JsonNode? heightNode)
+            if (jobject.TryGetPropertyValue(nameof(Width), out JsonNode? widthNode)
+                && jobject.TryGetPropertyValue(nameof(Height), out JsonNode? heightNode)
                 && widthNode != null
                 && heightNode != null
                 && widthNode.AsValue().TryGetValue(out int width)
@@ -256,20 +250,20 @@ public class Scene : ProjectItem, IHierarchicalRoot
                 Initialize(width, height);
             }
 
-            if (jobject.TryGetPropertyValue("layers", out JsonNode? layersNode)
+            if (jobject.TryGetPropertyValue(nameof(Layers), out JsonNode? layersNode)
                 && layersNode is JsonObject layersJson)
             {
                 var matcher = new Matcher();
                 var directory = new DirectoryInfoWrapper(new DirectoryInfo(Path.GetDirectoryName(FileName)!));
 
                 // 含めるクリップ
-                if (layersJson.TryGetPropertyValue("include", out JsonNode? includeNode))
+                if (layersJson.TryGetPropertyValue("Include", out JsonNode? includeNode))
                 {
                     Process(matcher.AddInclude, includeNode!, _includeLayers);
                 }
 
                 // 除外するクリップ
-                if (layersJson.TryGetPropertyValue("exclude", out JsonNode? excludeNode))
+                if (layersJson.TryGetPropertyValue("Exclude", out JsonNode? excludeNode))
                 {
                     Process(matcher.AddExclude, excludeNode!, _excludeLayers);
                 }
@@ -311,18 +305,18 @@ public class Scene : ProjectItem, IHierarchicalRoot
         base.WriteToJson(ref json);
         if (_renderer != null)
         {
-            json["width"] = _renderer.Graphics.Size.Width;
-            json["height"] = _renderer.Graphics.Size.Height;
+            json[nameof(Width)] = _renderer.Graphics.Size.Width;
+            json[nameof(Height)] = _renderer.Graphics.Size.Height;
         }
 
         var layersNode = new JsonObject();
 
         UpdateInclude();
 
-        Process(layersNode, "include", _includeLayers);
-        Process(layersNode, "exclude", _excludeLayers);
+        Process(layersNode, "Include", _includeLayers);
+        Process(layersNode, "Exclude", _excludeLayers);
 
-        json["layers"] = layersNode;
+        json["Layers"] = layersNode;
     }
 
     protected override void SaveCore(string filename)

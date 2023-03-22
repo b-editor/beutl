@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics.Transformation;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
@@ -21,26 +23,17 @@ public class InnerShadow : BitmapEffect
     {
         PositionProperty = ConfigureProperty<Point, InnerShadow>(nameof(Position))
             .Accessor(o => o.Position, (o, v) => o.Position = v)
-            .Display(Strings.Position)
             .DefaultValue(new Point())
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("position")
             .Register();
 
         KernelSizeProperty = ConfigureProperty<PixelSize, InnerShadow>(nameof(KernelSize))
             .Accessor(o => o.KernelSize, (o, v) => o.KernelSize = v)
-            .Display(Strings.KernelSize)
-            .PropertyFlags(PropertyFlags.All)
-            .Minimum(new PixelSize(1, 1))
-            .SerializeName("kernel-size")
+            .DefaultValue(new PixelSize())
             .Register();
 
         ColorProperty = ConfigureProperty<Color, InnerShadow>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
-            .Display(Strings.Color)
             .DefaultValue(Colors.Transparent)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("color")
             .Register();
 
         AffectsRender<InnerShadow>(PositionProperty, KernelSizeProperty, ColorProperty);
@@ -51,18 +44,21 @@ public class InnerShadow : BitmapEffect
         Processor = new _(this);
     }
 
+    [Display(Name = nameof(Strings.Position), ResourceType = typeof(Strings))]
     public Point Position
     {
         get => _position;
         set => SetAndRaise(PositionProperty, ref _position, value);
     }
 
+    [Display(Name = nameof(Strings.KernelSize), ResourceType = typeof(Strings))]
     public PixelSize KernelSize
     {
         get => _kernelSize;
         set => SetAndRaise(KernelSizeProperty, ref _kernelSize, value);
     }
 
+    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
     public Color Color
     {
         get => _color;

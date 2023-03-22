@@ -24,8 +24,6 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
 
         ValueProperty = ConfigureProperty<T, KeyFrame<T>>(nameof(Value))
             .Accessor(o => o.Value, (o, v) => o.Value = v)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
-            .SerializeName("value")
             .Register();
     }
 

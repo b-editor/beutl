@@ -38,7 +38,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
             .DisposeWith(Disposables);
 
         ChildContext = Value.Select(v => v as ICoreObject)
-            .Select(x => x != null ? new PropertiesEditorViewModel(x, m => m.PropertyFlags.HasFlag(PropertyFlags.Designable)) : null)
+            .Select(x => x != null ? new PropertiesEditorViewModel(x, m => m.Browsable) : null)
             .Do(AcceptChildren)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);

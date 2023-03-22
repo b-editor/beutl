@@ -1,4 +1,6 @@
-﻿using Beutl.Language;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Language;
 
 using SkiaSharp;
 
@@ -13,16 +15,13 @@ public sealed class Blur : ImageFilter
     {
         SigmaProperty = ConfigureProperty<Vector, Blur>(nameof(Sigma))
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
-            .Display(Strings.Sigma)
             .DefaultValue(Vector.Zero)
-            .Minimum(Vector.Zero)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("sigma")
             .Register();
 
         AffectsRender<Blur>(SigmaProperty);
     }
 
+    [Display(Name = nameof(Strings.Sigma), ResourceType = typeof(Strings))]
     public Vector Sigma
     {
         get => _sigma;

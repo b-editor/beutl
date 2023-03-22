@@ -15,7 +15,6 @@ public class ImageBrush : TileBrush, IImageBrush
     {
         SourceProperty = ConfigureProperty<IImageSource?, ImageBrush>(nameof(Source))
             .Accessor(o => o.Source, (o, v) => o.Source = v)
-            .PropertyFlags(PropertyFlags.All)
             .Register();
 
         AffectsRender<ImageBrush>(SourceProperty);

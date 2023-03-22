@@ -1,4 +1,6 @@
-﻿using Beutl.Animation;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Animation;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Filters;
 using Beutl.Graphics.Transformation;
@@ -38,90 +40,55 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
     {
         WidthProperty = ConfigureProperty<float, Drawable>(nameof(Width))
             .Accessor(o => o.Width, (o, v) => o.Width = v)
-            .Display(Strings.Width)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(0)
-            .Minimum(0)
-            .SerializeName("width")
             .Register();
 
         HeightProperty = ConfigureProperty<float, Drawable>(nameof(Height))
             .Accessor(o => o.Height, (o, v) => o.Height = v)
-            .Display(Strings.Height)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(0)
-            .Minimum(0)
-            .SerializeName("height")
             .Register();
 
         TransformProperty = ConfigureProperty<ITransform?, Drawable>(nameof(Transform))
             .Accessor(o => o.Transform, (o, v) => o.Transform = v)
-            .Display(Strings.Transform)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .DefaultValue(null)
-            .SerializeName("transform")
             .Register();
 
         FilterProperty = ConfigureProperty<IImageFilter?, Drawable>(nameof(Filter))
             .Accessor(o => o.Filter, (o, v) => o.Filter = v)
-            .Display(Strings.ImageFilter)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .DefaultValue(null)
-            .SerializeName("filter")
             .Register();
 
         EffectProperty = ConfigureProperty<IBitmapEffect?, Drawable>(nameof(Effect))
             .Accessor(o => o.Effect, (o, v) => o.Effect = v)
-            .Display(Strings.BitmapEffect)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .DefaultValue(null)
-            .SerializeName("effect")
             .Register();
 
         AlignmentXProperty = ConfigureProperty<AlignmentX, Drawable>(nameof(AlignmentX))
             .Accessor(o => o.AlignmentX, (o, v) => o.AlignmentX = v)
-            .Display(Strings.AlignmentX)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(AlignmentX.Left)
-            .SerializeName("align-x")
             .Register();
 
         AlignmentYProperty = ConfigureProperty<AlignmentY, Drawable>(nameof(AlignmentY))
             .Accessor(o => o.AlignmentY, (o, v) => o.AlignmentY = v)
-            .Display(Strings.AlignmentY)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(AlignmentY.Top)
-            .SerializeName("align-y")
             .Register();
 
         TransformOriginProperty = ConfigureProperty<RelativePoint, Drawable>(nameof(TransformOrigin))
             .Accessor(o => o.TransformOrigin, (o, v) => o.TransformOrigin = v)
-            .Display(Strings.TransformOrigin)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("transform-origin")
             .Register();
 
         ForegroundProperty = ConfigureProperty<IBrush?, Drawable>(nameof(Foreground))
             .Accessor(o => o.Foreground, (o, v) => o.Foreground = v)
-            .Display(Strings.Foreground)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
-            .SerializeName("foreground")
             .Register();
 
         OpacityMaskProperty = ConfigureProperty<IBrush?, Drawable>(nameof(OpacityMask))
             .Accessor(o => o.OpacityMask, (o, v) => o.OpacityMask = v)
-            .Display(Strings.OpacityMask)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .DefaultValue(null)
-            .SerializeName("opacity-mask")
             .Register();
 
         BlendModeProperty = ConfigureProperty<BlendMode, Drawable>(nameof(BlendMode))
             .Accessor(o => o.BlendMode, (o, v) => o.BlendMode = v)
-            .Display(Strings.BlendMode)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(BlendMode.SrcOver)
-            .SerializeName("blend-mode")
             .Register();
 
         AffectsRender<Drawable>(
@@ -133,12 +100,16 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
             BlendModeProperty);
     }
 
+    [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
+    [Range(0, float.MaxValue)]
     public float Width
     {
         get => _width;
         set => SetAndRaise(WidthProperty, ref _width, value);
     }
 
+    [Display(Name = nameof(Strings.Height), ResourceType = typeof(Strings))]
+    [Range(0, float.MaxValue)]
     public float Height
     {
         get => _height;
@@ -147,54 +118,63 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
 
     public Rect Bounds { get; private set; }
 
+    [Display(Name = nameof(Strings.Transform), ResourceType = typeof(Strings))]
     public ITransform? Transform
     {
         get => _transform;
         set => SetAndRaise(TransformProperty, ref _transform, value);
     }
 
+    [Display(Name = nameof(Strings.ImageFilter), ResourceType = typeof(Strings))]
     public IImageFilter? Filter
     {
         get => _filter;
         set => SetAndRaise(FilterProperty, ref _filter, value);
     }
 
+    [Display(Name = nameof(Strings.BitmapEffect), ResourceType = typeof(Strings))]
     public IBitmapEffect? Effect
     {
         get => _effect;
         set => SetAndRaise(EffectProperty, ref _effect, value);
     }
 
+    [Display(Name = nameof(Strings.AlignmentX), ResourceType = typeof(Strings))]
     public AlignmentX AlignmentX
     {
         get => _alignX;
         set => SetAndRaise(AlignmentXProperty, ref _alignX, value);
     }
 
+    [Display(Name = nameof(Strings.AlignmentY), ResourceType = typeof(Strings))]
     public AlignmentY AlignmentY
     {
         get => _alignY;
         set => SetAndRaise(AlignmentYProperty, ref _alignY, value);
     }
 
+    [Display(Name = nameof(Strings.TransformOrigin), ResourceType = typeof(Strings))]
     public RelativePoint TransformOrigin
     {
         get => _transformOrigin;
         set => SetAndRaise(TransformOriginProperty, ref _transformOrigin, value);
     }
 
+    [Display(Name = nameof(Strings.Foreground), ResourceType = typeof(Strings))]
     public IBrush? Foreground
     {
         get => _foreground;
         set => SetAndRaise(ForegroundProperty, ref _foreground, value);
     }
 
+    [Display(Name = nameof(Strings.OpacityMask), ResourceType = typeof(Strings))]
     public IBrush? OpacityMask
     {
         get => _opacityMask;
         set => SetAndRaise(OpacityMaskProperty, ref _opacityMask, value);
     }
 
+    [Display(Name = nameof(Strings.BlendMode), ResourceType = typeof(Strings))]
     public BlendMode BlendMode
     {
         get => _blendMode;

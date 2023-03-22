@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Graphics;
 using Beutl.Language;
 
 namespace Beutl.Media;
@@ -27,58 +29,37 @@ public abstract class TileBrush : Brush, ITileBrush
     {
         AlignmentXProperty = ConfigureProperty<AlignmentX, TileBrush>(nameof(AlignmentX))
             .Accessor(o => o.AlignmentX, (o, v) => o.AlignmentX = v)
-            .Display(Strings.AlignmentX)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(AlignmentX.Center)
-            .SerializeName("alignment-x")
             .Register();
 
         AlignmentYProperty = ConfigureProperty<AlignmentY, TileBrush>(nameof(AlignmentY))
             .Accessor(o => o.AlignmentY, (o, v) => o.AlignmentY = v)
-            .Display(Strings.AlignmentY)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(AlignmentY.Center)
-            .SerializeName("alignment-y")
             .Register();
 
         DestinationRectProperty = ConfigureProperty<RelativeRect, TileBrush>(nameof(DestinationRect))
             .Accessor(o => o.DestinationRect, (o, v) => o.DestinationRect = v)
-            .Display(Strings.DestinationRect)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(RelativeRect.Fill)
-            .SerializeName("destination-rect")
             .Register();
 
         SourceRectProperty = ConfigureProperty<RelativeRect, TileBrush>(nameof(SourceRect))
             .Accessor(o => o.SourceRect, (o, v) => o.SourceRect = v)
-            .Display(Strings.SourceRect)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(RelativeRect.Fill)
-            .SerializeName("source-rect")
             .Register();
 
         StretchProperty = ConfigureProperty<Stretch, TileBrush>(nameof(Stretch))
             .Accessor(o => o.Stretch, (o, v) => o.Stretch = v)
-            .Display(Strings.Stretch)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(Stretch.Uniform)
-            .SerializeName("stretch")
             .Register();
 
         TileModeProperty = ConfigureProperty<TileMode, TileBrush>(nameof(TileMode))
             .Accessor(o => o.TileMode, (o, v) => o.TileMode = v)
-            .Display(Strings.TileMode)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(TileMode.None)
-            .SerializeName("tile-mode")
             .Register();
 
         BitmapInterpolationModeProperty = ConfigureProperty<BitmapInterpolationMode, TileBrush>(nameof(BitmapInterpolationMode))
             .Accessor(o => o.BitmapInterpolationMode, (o, v) => o.BitmapInterpolationMode = v)
-            .Display(Strings.BitmapInterpolationMode)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(BitmapInterpolationMode.Default)
-            .SerializeName("interpolation-mode")
             .Register();
 
         AffectsRender<TileBrush>(
@@ -92,6 +73,7 @@ public abstract class TileBrush : Brush, ITileBrush
     /// <summary>
     /// Gets or sets the horizontal alignment of a tile in the destination.
     /// </summary>
+    [Display(Name = nameof(Strings.AlignmentX), ResourceType = typeof(Strings))]
     public AlignmentX AlignmentX
     {
         get => _alignmentX;
@@ -101,6 +83,7 @@ public abstract class TileBrush : Brush, ITileBrush
     /// <summary>
     /// Gets or sets the horizontal alignment of a tile in the destination.
     /// </summary>
+    [Display(Name = nameof(Strings.AlignmentY), ResourceType = typeof(Strings))]
     public AlignmentY AlignmentY
     {
         get => _alignmentY;
@@ -110,6 +93,7 @@ public abstract class TileBrush : Brush, ITileBrush
     /// <summary>
     /// Gets or sets the rectangle on the destination in which to paint a tile.
     /// </summary>
+    [Display(Name = nameof(Strings.DestinationRect), ResourceType = typeof(Strings))]
     public RelativeRect DestinationRect
     {
         get => _destinationRect;
@@ -119,6 +103,7 @@ public abstract class TileBrush : Brush, ITileBrush
     /// <summary>
     /// Gets or sets the rectangle of the source image that will be displayed.
     /// </summary>
+    [Display(Name = nameof(Strings.SourceRect), ResourceType = typeof(Strings))]
     public RelativeRect SourceRect
     {
         get => _sourceRect;
@@ -129,6 +114,7 @@ public abstract class TileBrush : Brush, ITileBrush
     /// Gets or sets a value controlling how the source rectangle will be stretched to fill
     /// the destination rect.
     /// </summary>
+    [Display(Name = nameof(Strings.Stretch), ResourceType = typeof(Strings))]
     public Stretch Stretch
     {
         get => _stretch;
@@ -138,6 +124,7 @@ public abstract class TileBrush : Brush, ITileBrush
     /// <summary>
     /// Gets or sets the brush's tile mode.
     /// </summary>
+    [Display(Name = nameof(Strings.TileMode), ResourceType = typeof(Strings))]
     public TileMode TileMode
     {
         get => _tileMode;
@@ -150,6 +137,7 @@ public abstract class TileBrush : Brush, ITileBrush
     /// <value>
     /// The bitmap interpolation mode.
     /// </value>
+    [Display(Name = nameof(Strings.BitmapInterpolationMode), ResourceType = typeof(Strings))]
     public BitmapInterpolationMode BitmapInterpolationMode
     {
         get => _bitmapInterpolationMode;

@@ -124,7 +124,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IProvideEdit
 
     public ReactivePropertySlim<int> KeyFrameIndex { get; } = new();
 
-    public bool IsAnimatable => WrappedProperty.Property.GetMetadata<CorePropertyMetadata>(WrappedProperty.ImplementedType).PropertyFlags.HasFlag(PropertyFlags.Animatable);
+    public bool IsAnimatable => WrappedProperty is IAbstractAnimatableProperty;
 
     public bool IsStylingSetter => WrappedProperty is IStylingSetterPropertyImpl;
 

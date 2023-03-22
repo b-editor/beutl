@@ -50,7 +50,7 @@ public sealed class PropertiesEditorViewModel : IDisposable
                 {
                     CoreProperty item = foundItems[i];
                     CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(objType);
-                    Type wtype = isAnimatable && metadata.PropertyFlags.HasFlag(PropertyFlags.Animatable) ? animatableWrapperType : wrapperType;
+                    Type wtype = isAnimatable ? animatableWrapperType : wrapperType;
                     Type wrapperGType = wtype.MakeGenericType(item.PropertyType);
                     tmp[i] = (IAbstractProperty)Activator.CreateInstance(wrapperGType, item, obj)!;
                 }

@@ -23,16 +23,12 @@ public abstract class Sound : Renderable
     {
         GainProperty = ConfigureProperty<float, Sound>(nameof(Gain))
             .Accessor(o => o.Gain, (o, v) => o.Gain = v)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .DefaultValue(1)
-            .SerializeName("gain")
             .Register();
 
         EffectProperty = ConfigureProperty<ISoundEffect?, Sound>(nameof(Effect))
             .Accessor(o => o.Effect, (o, v) => o.Effect = v)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .DefaultValue(null)
-            .SerializeName("effect")
             .Register();
 
         AffectsRender<Sound>(GainProperty, EffectProperty);

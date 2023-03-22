@@ -16,7 +16,6 @@ namespace Beutl.Media;
 /// Represents a rectangle in device pixels.
 /// </summary>
 [JsonConverter(typeof(PixelRectJsonConverter))]
-[RangeValidatable(typeof(PixelRectRangeValidator))]
 public readonly struct PixelRect
     : IEquatable<PixelRect>,
       IParsable<PixelRect>,

@@ -11,7 +11,6 @@ namespace Beutl.Media;
 /// Represents the radii of a rectangle's corners.
 /// </summary>
 [JsonConverter(typeof(CornerRadiusJsonConverter))]
-[RangeValidatable(typeof(CornerRadiusRangeValidator))]
 public readonly struct CornerRadius : IEquatable<CornerRadius>
 {
     public CornerRadius(float uniformRadius)

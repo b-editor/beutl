@@ -1,4 +1,6 @@
-﻿using Beutl.Language;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Language;
 using Beutl.Media;
 
 using SkiaSharp;
@@ -20,58 +22,50 @@ public sealed class DropShadow : ImageFilter
     {
         PositionProperty = ConfigureProperty<Point, DropShadow>(nameof(Position))
             .Accessor(o => o.Position, (o, v) => o.Position = v)
-            .Display(Strings.Position)
             .DefaultValue(new Point())
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("position")
             .Register();
 
         SigmaProperty = ConfigureProperty<Vector, DropShadow>(nameof(Sigma))
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
-            .Display(Strings.Sigma)
             .DefaultValue(Vector.Zero)
-            .Minimum(Vector.Zero)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("sigma")
             .Register();
 
         ColorProperty = ConfigureProperty<Color, DropShadow>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
-            .Display(Strings.Color)
             .DefaultValue(Colors.Transparent)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("color")
             .Register();
 
         ShadowOnlyProperty = ConfigureProperty<bool, DropShadow>(nameof(ShadowOnly))
             .Accessor(o => o.ShadowOnly, (o, v) => o.ShadowOnly = v)
-            .Display(Strings.ShadowOnly)
             .DefaultValue(false)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("shadow-only")
             .Register();
 
         AffectsRender<DropShadow>(PositionProperty, SigmaProperty, ColorProperty, ShadowOnlyProperty);
     }
 
+
+    [Display(Name = nameof(Strings.Position), ResourceType = typeof(Strings))]
     public Point Position
     {
         get => _position;
         set => SetAndRaise(PositionProperty, ref _position, value);
     }
 
+    [Display(Name = nameof(Strings.Sigma), ResourceType = typeof(Strings))]
     public Vector Sigma
     {
         get => _sigma;
         set => SetAndRaise(SigmaProperty, ref _sigma, value);
     }
 
+    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
     public Color Color
     {
         get => _color;
         set => SetAndRaise(ColorProperty, ref _color, value);
     }
 
+    [Display(Name = nameof(Strings.ShadowOnly), ResourceType = typeof(Strings))]
     public bool ShadowOnly
     {
         get => _shadowOnly;

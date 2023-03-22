@@ -16,10 +16,7 @@ public sealed class SourceSound : Sound
     {
         SourceProperty = ConfigureProperty<ISoundSource?, SourceSound>(nameof(Source))
             .Accessor(o => o.Source, (o, v) => o.Source = v)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .DefaultValue(null)
-            .SerializeName("source")
-            .JsonConverter(new SoundSourceJsonConverter())
             .Register();
 
         AffectsRender<SourceSound>(SourceProperty);

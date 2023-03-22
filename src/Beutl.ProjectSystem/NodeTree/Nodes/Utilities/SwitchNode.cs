@@ -4,7 +4,6 @@ public class SwitchNode : Node
 {
     private static readonly CoreProperty<bool> SwitchProperty = ConfigureProperty<bool, SwitchNode>(o => o.Switch)
         .DefaultValue(false)
-        .SerializeName("switch")
         .Register();
     private readonly OutputSocket<object?> _outputSocket;
     private readonly InputSocket<bool> _switchSocket;

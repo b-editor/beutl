@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Graphics;
 using Beutl.Language;
 using Beutl.Media.Immutable;
 
@@ -17,19 +19,13 @@ public sealed class LinearGradientBrush : GradientBrush, ILinearGradientBrush
     static LinearGradientBrush()
     {
         StartPointProperty = ConfigureProperty<RelativePoint, LinearGradientBrush>(nameof(StartPoint))
-            .DefaultValue(RelativePoint.TopLeft)
-            .Display(Strings.StartPoint)
             .Accessor(o => o.StartPoint, (o, v) => o.StartPoint = v)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("start-point")
+            .DefaultValue(RelativePoint.TopLeft)
             .Register();
 
         EndPointProperty = ConfigureProperty<RelativePoint, LinearGradientBrush>(nameof(EndPoint))
-            .DefaultValue(RelativePoint.BottomRight)
-            .Display(Strings.EndPoint)
             .Accessor(o => o.EndPoint, (o, v) => o.EndPoint = v)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("end-point")
+            .DefaultValue(RelativePoint.BottomRight)
             .Register();
 
         AffectsRender<LinearGradientBrush>(StartPointProperty, EndPointProperty);
@@ -38,6 +34,7 @@ public sealed class LinearGradientBrush : GradientBrush, ILinearGradientBrush
     /// <summary>
     /// Gets or sets the start point for the gradient.
     /// </summary>
+    [Display(Name = nameof(Strings.StartPoint), ResourceType = typeof(Strings))]
     public RelativePoint StartPoint
     {
         get => _startPoint;
@@ -47,6 +44,7 @@ public sealed class LinearGradientBrush : GradientBrush, ILinearGradientBrush
     /// <summary>
     /// Gets or sets the end point for the gradient.
     /// </summary>
+    [Display(Name = nameof(Strings.EndPoint), ResourceType = typeof(Strings))]
     public RelativePoint EndPoint
     {
         get => _endPoint;

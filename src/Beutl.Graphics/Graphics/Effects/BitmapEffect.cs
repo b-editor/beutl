@@ -13,7 +13,6 @@ public abstract class BitmapEffect : Animatable, IMutableBitmapEffect
         IsEnabledProperty = ConfigureProperty<bool, BitmapEffect>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
-            .SerializeName("is-enabled")
             .Register();
 
         AffectsRender<BitmapEffect>(IsEnabledProperty);

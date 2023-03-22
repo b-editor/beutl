@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
@@ -19,17 +20,12 @@ public class ImageFile : Drawable
     {
         SourceFileProperty = ConfigureProperty<FileInfo?, ImageFile>(nameof(SourceFile))
             .Accessor(o => o.SourceFile, (o, v) => o.SourceFile = v)
-            .Display(Strings.SourceFile)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
-            .Validator(new FileInfoExtensionValidator()
-            {
-                FileExtensions = new[] { "bmp", "gif", "ico", "jpg", "jpeg", "png", "wbmp", "webp", "pkm", "ktx", "astc", "dng", "heif" }
-            })
             .Register();
 
         AffectsRender<ImageFile>(SourceFileProperty);
     }
 
+    [Display(Name = nameof(Strings.SourceFile), ResourceType = typeof(Strings))]
     public FileInfo? SourceFile
     {
         get => _sourceFile;

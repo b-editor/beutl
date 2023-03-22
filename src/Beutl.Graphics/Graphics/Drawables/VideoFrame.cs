@@ -37,34 +37,26 @@ public class VideoFrame : Drawable
     {
         OffsetPositionProperty = ConfigureProperty<TimeSpan, VideoFrame>(nameof(OffsetPosition))
             .Accessor(o => o.OffsetPosition, (o, v) => o.OffsetPosition = v)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(TimeSpan.Zero)
-            .SerializeName("offset-position")
             .Register();
 
         PlaybackPositionProperty = ConfigureProperty<TimeSpan, VideoFrame>(nameof(PlaybackPosition))
             .Accessor(o => o.PlaybackPosition, (o, v) => o.PlaybackPosition = v)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(TimeSpan.Zero)
-            .Minimum(TimeSpan.Zero)
-            .SerializeName("playback-position")
             .Register();
 
         PositionModeProperty = ConfigureProperty<VideoPositionMode, VideoFrame>(nameof(PositionMode))
             .Accessor(o => o.PositionMode, (o, v) => o.PositionMode = v)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(VideoPositionMode.Automatic)
-            .SerializeName("position-mode")
             .Register();
 
         SourceFileProperty = ConfigureProperty<FileInfo?, VideoFrame>(nameof(SourceFile))
             .Accessor(o => o.SourceFile, (o, v) => o.SourceFile = v)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
 #if DEBUG
-            .Validator(new FileInfoExtensionValidator()
-            {
-                FileExtensions = new[] { "mp4" }
-            })
+            //.Validator(new FileInfoExtensionValidator()
+            //{
+            //    FileExtensions = new[] { "mp4" }
+            //})
 #else
 #warning Todo: DecoderRegistryからファイル拡張子を取得してセットする。
 #endif
@@ -95,6 +87,7 @@ public class VideoFrame : Drawable
         set => SetAndRaise(PositionModeProperty, ref _positionMode, value);
     }
 
+    [ShouldSerialize(false)]
     public FileInfo? SourceFile
     {
         get => _sourceFile;

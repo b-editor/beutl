@@ -1,6 +1,7 @@
 ﻿using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using System.Text.Unicode;
 
 using Beutl.JsonConverters;
@@ -9,6 +10,8 @@ namespace Beutl;
 
 public static class JsonHelper
 {
+    private static readonly Dictionary<Type, JsonConverter> s_converters = new();
+
     public static JsonWriterOptions WriterOptions { get; } = new()
     {
         Indented = true,
@@ -25,6 +28,20 @@ public static class JsonHelper
             new FileInfoConverter()
         }
     };
+
+    public static JsonConverter GetOrCreateConverterInstance(Type converterType)
+    {
+        if (s_converters.TryGetValue(converterType, out var converter))
+        {
+            return converter;
+        }
+        else
+        {
+            converter = (JsonConverter)Activator.CreateInstance(converterType)!;
+            s_converters.Add(converterType, converter);
+            return converter;
+        }
+    }
 
     public static void JsonSave(this IJsonSerializable serializable, string filename)
     {
@@ -61,7 +78,6 @@ public static class JsonHelper
         using var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
         return JsonNode.Parse(stream);
     }
-
 
     private static Dictionary<string, object> ParseJson(string json)
     {

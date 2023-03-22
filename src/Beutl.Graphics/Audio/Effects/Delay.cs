@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -91,31 +92,19 @@ public sealed class Delay : SoundEffect
     static Delay()
     {
         DelayTimeProperty = ConfigureProperty<float, Delay>(o => o.DelayTime)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
-            .SerializeName("delay-time")
             .DefaultValue(0.2f)
-            .Maximum(MaxDelayTime)
             .Register();
 
         FeedbackProperty = ConfigureProperty<float, Delay>(o => o.Feedback)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
-            .SerializeName("feedback")
             .DefaultValue(0.5f)
-            .Minimum(0)
             .Register();
 
         DryMixProperty = ConfigureProperty<float, Delay>(o => o.DryMix)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
-            .SerializeName("dry-mix")
             .DefaultValue(0.6f)
-            .Minimum(0)
             .Register();
 
         WetMixProperty = ConfigureProperty<float, Delay>(o => o.WetMix)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
-            .SerializeName("wet-mix")
             .DefaultValue(0.4f)
-            .Minimum(0)
             .Register();
 
         AffectsRender<Delay>(
@@ -123,24 +112,28 @@ public sealed class Delay : SoundEffect
             DryMixProperty, WetMixProperty);
     }
 
+    [Range(0, MaxDelayTime)]
     public float DelayTime
     {
         get => _delayTime;
         set => SetAndRaise(DelayTimeProperty, ref _delayTime, value);
     }
 
+    [Range(0, float.MaxValue)]
     public float Feedback
     {
         get => _feedback;
         set => SetAndRaise(FeedbackProperty, ref _feedback, value);
     }
 
+    [Range(0, float.MaxValue)]
     public float DryMix
     {
         get => _dryMix;
         set => SetAndRaise(DryMixProperty, ref _dryMix, value);
     }
 
+    [Range(0, float.MaxValue)]
     public float WetMix
     {
         get => _wetMix;

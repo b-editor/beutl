@@ -14,16 +14,11 @@ public abstract class NodeItem : Hierarchical
     static NodeItem()
     {
         IsValidProperty = ConfigureProperty<bool?, NodeItem>(o => o.IsValid)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         LocalIdProperty = ConfigureProperty<int, NodeItem>(o => o.LocalId)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
-            .SerializeName("local-id")
             .DefaultValue(-1)
             .Register();
-
-        IdProperty.OverrideMetadata<NodeItem>(new CorePropertyMetadata<Guid>("id"));
     }
 
     public NodeItem()
@@ -31,6 +26,7 @@ public abstract class NodeItem : Hierarchical
         Id = Guid.NewGuid();
     }
 
+    [ShouldSerialize(false)]
     public bool? IsValid
     {
         get => _isValid;

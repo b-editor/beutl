@@ -13,7 +13,6 @@ namespace Beutl.Graphics;
 /// Defines a rectangle.
 /// </summary>
 [JsonConverter(typeof(RectJsonConverter))]
-[RangeValidatable(typeof(RectRangeValidator))]
 public readonly struct Rect
     : IEquatable<Rect>,
       IParsable<Rect>,

@@ -1,8 +1,9 @@
-﻿using Beutl.Animation;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Animation;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
-using Beutl.Styling;
 
 namespace Beutl.Media;
 
@@ -22,24 +23,15 @@ public abstract class Brush : Animatable, IMutableBrush
     {
         OpacityProperty = ConfigureProperty<float, Brush>(nameof(Opacity))
             .Accessor(o => o.Opacity, (o, v) => o.Opacity = v)
-            .Display(Strings.Opacity)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(1f)
-            .SerializeName("opacity")
             .Register();
 
         TransformProperty = ConfigureProperty<ITransform?, Brush>(nameof(Transform))
             .Accessor(o => o.Transform, (o, v) => o.Transform = v)
-            .Display(Strings.Transform)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
-            .SerializeName("transform")
             .Register();
 
         TransformOriginProperty = ConfigureProperty<RelativePoint, Brush>(nameof(TransformOrigin))
             .Accessor(o => o.TransformOrigin, (o, v) => o.TransformOrigin = v)
-            .Display(Strings.TransformOrigin)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("transform-origin")
             .Register();
 
         AffectsRender<Brush>(OpacityProperty, TransformProperty, TransformOriginProperty);
@@ -55,6 +47,7 @@ public abstract class Brush : Animatable, IMutableBrush
     /// <summary>
     /// Gets or sets the opacity of the brush.
     /// </summary>
+    [Display(Name = nameof(Strings.Opacity), ResourceType = typeof(Strings))]
     public float Opacity
     {
         get => _opacity;
@@ -64,6 +57,7 @@ public abstract class Brush : Animatable, IMutableBrush
     /// <summary>
     /// Gets or sets the transform of the brush.
     /// </summary>
+    [Display(Name = nameof(Strings.Transform), ResourceType = typeof(Strings))]
     public ITransform? Transform
     {
         get => _transform;
@@ -73,6 +67,7 @@ public abstract class Brush : Animatable, IMutableBrush
     /// <summary>
     /// Gets or sets the origin of the brush <see cref="Transform"/>
     /// </summary>
+    [Display(Name = nameof(Strings.TransformOrigin), ResourceType = typeof(Strings))]
     public RelativePoint TransformOrigin
     {
         get => _transformOrigin;

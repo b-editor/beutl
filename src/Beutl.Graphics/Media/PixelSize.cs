@@ -16,7 +16,6 @@ namespace Beutl.Media;
 /// Represents a size in device pixels.
 /// </summary>
 [JsonConverter(typeof(PixelSizeJsonConverter))]
-[RangeValidatable(typeof(PixelSizeRangeValidator))]
 public readonly struct PixelSize
     : IEquatable<PixelSize>,
       IParsable<PixelSize>,

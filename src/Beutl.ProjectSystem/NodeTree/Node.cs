@@ -20,17 +20,12 @@ public abstract class Node : Hierarchical
     {
         IsExpandedProperty = ConfigureProperty<bool, Node>(nameof(Position))
             .DefaultValue(true)
-            .SerializeName("is-expanded")
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         PositionProperty = ConfigureProperty<(double X, double Y), Node>(nameof(Position))
             .Accessor(o => o.Position, (o, v) => o.Position = v)
             .DefaultValue((0, 0))
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
-
-        NameProperty.OverrideMetadata<Node>(new CorePropertyMetadata<string>("name"));
     }
 
     public Node()
@@ -74,6 +69,7 @@ public abstract class Node : Hierarchical
         set => SetValue(IsExpandedProperty, value);
     }
 
+    [ShouldSerialize(false)]
     public (double X, double Y) Position
     {
         get => _position;
@@ -412,7 +408,7 @@ public abstract class Node : Hierarchical
         base.ReadFromJson(json);
         if (json is JsonObject obj)
         {
-            if (obj.TryGetPropertyValue("position", out JsonNode? posNode)
+            if (obj.TryGetPropertyValue(nameof(Position), out JsonNode? posNode)
                 && posNode is JsonValue posVal
                 && posVal.TryGetValue(out string? posStr))
             {
@@ -424,7 +420,7 @@ public abstract class Node : Hierarchical
                 }
             }
 
-            if (obj.TryGetPropertyValue("items", out var itemsNode)
+            if (obj.TryGetPropertyValue(nameof(Items), out var itemsNode)
                 && itemsNode is JsonArray itemsArray)
             {
                 int index = 0;
@@ -433,7 +429,7 @@ public abstract class Node : Hierarchical
                     if (item is JsonObject itemObj)
                     {
                         int localId;
-                        if (itemObj.TryGetPropertyValue("local-id", out var localIdNode)
+                        if (itemObj.TryGetPropertyValue("LocalId", out var localIdNode)
                             && localIdNode is JsonValue localIdValue
                             && localIdValue.TryGetValue(out int actualLId))
                         {
@@ -461,7 +457,7 @@ public abstract class Node : Hierarchical
     public override void WriteToJson(ref JsonNode json)
     {
         base.WriteToJson(ref json);
-        json["position"] = $"{Position.X},{Position.Y}";
+        json[nameof(Position)] = $"{Position.X},{Position.Y}";
 
         var array = new JsonArray();
         foreach (INodeItem item in Items)
@@ -475,7 +471,7 @@ public abstract class Node : Hierarchical
             array.Add(itemJson);
         }
 
-        json["items"] = array;
+        json[nameof(Items)] = array;
     }
 
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
