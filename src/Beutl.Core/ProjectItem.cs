@@ -26,8 +26,8 @@ public abstract class ProjectItem : Hierarchical, IStorable
 
     public virtual void Restore(string filename)
     {
-        RestoreCore(filename);
         FileName = filename;
+        RestoreCore(filename);
         LastSavedTime = File.GetLastWriteTimeUtc(filename);
 
         Restored?.Invoke(this, EventArgs.Empty);
