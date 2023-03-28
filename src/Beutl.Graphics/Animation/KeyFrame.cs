@@ -65,17 +65,17 @@ public class KeyFrame : CoreObject
         {
             if (Easing is SplineEasing splineEasing)
             {
-                jsonObject["easing"] = new JsonObject
+                jsonObject[nameof(Easing)] = new JsonObject
                 {
-                    ["x1"] = splineEasing.X1,
-                    ["y1"] = splineEasing.Y1,
-                    ["x2"] = splineEasing.X2,
-                    ["y2"] = splineEasing.Y2,
+                    ["X1"] = splineEasing.X1,
+                    ["Y1"] = splineEasing.Y1,
+                    ["X2"] = splineEasing.X2,
+                    ["Y2"] = splineEasing.Y2,
                 };
             }
             else
             {
-                jsonObject["easing"] = JsonValue.Create(TypeFormat.ToString(Easing.GetType()));
+                jsonObject[nameof(Easing)] = TypeFormat.ToString(Easing.GetType());
             }
         }
     }
@@ -86,7 +86,7 @@ public class KeyFrame : CoreObject
 
         if (json is JsonObject jsonObject)
         {
-            if (jsonObject.TryGetPropertyValue("easing", out JsonNode? easingNode))
+            if (jsonObject.TryGetPropertyValue(nameof(Easing), out JsonNode? easingNode))
             {
                 if (easingNode is JsonValue easingTypeValue
                     && easingTypeValue.TryGetValue(out string? easingType))
@@ -100,10 +100,10 @@ public class KeyFrame : CoreObject
                 }
                 else if (easingNode is JsonObject easingObject)
                 {
-                    float x1 = (float?)easingObject["x1"] ?? 0;
-                    float y1 = (float?)easingObject["y1"] ?? 0;
-                    float x2 = (float?)easingObject["x2"] ?? 1;
-                    float y2 = (float?)easingObject["y2"] ?? 1;
+                    float x1 = (float?)easingObject["X1"] ?? 0;
+                    float y1 = (float?)easingObject["Y1"] ?? 0;
+                    float x2 = (float?)easingObject["X2"] ?? 1;
+                    float y2 = (float?)easingObject["Y2"] ?? 1;
 
                     Easing = new SplineEasing(x1, y1, x2, y2);
                 }

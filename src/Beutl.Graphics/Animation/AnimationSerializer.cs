@@ -26,7 +26,7 @@ internal static class AnimationSerializer
             if (keyFrameAnimation.KeyFrames.Count > 0)
             {
                 keyFrameAnimation.WriteToJson(ref node);
-                node["@type"] = TypeFormat.ToString(animation.GetType());
+                node.WriteDiscriminator(animation.GetType());
                 return node;
             }
             else
@@ -37,7 +37,7 @@ internal static class AnimationSerializer
         else
         {
             animation.WriteToJson(ref node);
-            node["@type"] = TypeFormat.ToString(animation.GetType());
+            node.WriteDiscriminator(animation.GetType());
             return node;
         }
     }
@@ -56,11 +56,7 @@ internal static class AnimationSerializer
     {
         if (json is JsonObject obj)
         {
-            if (obj.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-                && atTypeNode is JsonValue atTypeValue
-                && atTypeValue.TryGetValue(out string? atType)
-                && atType != null
-                && TypeFormat.ToType(atType) is Type type
+            if (obj.TryGetDiscriminator(out Type? type)
                 && Activator.CreateInstance(type, property) is IAnimation animation)
             {
                 animation.ReadFromJson(json);

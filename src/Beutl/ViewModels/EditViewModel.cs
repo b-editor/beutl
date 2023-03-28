@@ -218,7 +218,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
             JsonNode itemJson = new JsonObject();
             item.Context.WriteToJson(ref itemJson);
 
-            itemJson["@type"] = TypeFormat.ToString(item.Context.Extension.GetType());
+            itemJson.WriteDiscriminator(item.Context.Extension.GetType());
             bottomItems.Add(itemJson);
         }
 
@@ -230,7 +230,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
             JsonNode itemJson = new JsonObject();
             item.Context.WriteToJson(ref itemJson);
 
-            itemJson["@type"] = TypeFormat.ToString(item.Context.Extension.GetType());
+            itemJson.WriteDiscriminator(item.Context.Extension.GetType());
             rightItems.Add(itemJson);
         }
 
@@ -316,11 +316,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
                 foreach (JsonNode? item in source)
                 {
                     if (item is JsonObject itemObject
-                        && itemObject.TryGetPropertyValue("@type", out JsonNode? typeNode)
-                        && typeNode is JsonValue typeValue
-                        && typeValue.TryGetValue(out string? typeStr)
-                        && typeStr != null
-                        && TypeFormat.ToType(typeStr) is Type type
+                        && itemObject.TryGetDiscriminator(out Type? type)
                         && _extensionProvider.AllExtensions.FirstOrDefault(x => x.GetType() == type) is ToolTabExtension extension
                         && extension.TryCreateContext(this, out IToolContext? context))
                     {

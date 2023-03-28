@@ -1,4 +1,5 @@
-﻿using System.Text.Encodings.Web;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -78,6 +79,36 @@ public static class JsonHelper
         if (!File.Exists(filename)) return null;
         using var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
         return JsonNode.Parse(stream);
+    }
+
+    public static Type? GetDiscriminator(this JsonNode node)
+    {
+        return node.TryGetDiscriminator(out Type? type) ? type : null;
+    }
+
+    public static bool TryGetDiscriminator(this JsonNode node, [NotNullWhen(true)] out Type? type)
+    {
+        type = null;
+        if (node is JsonObject obj)
+        {
+            JsonNode? typeNode = obj.TryGetPropertyValue("$type", out JsonNode? typeNode1) ? typeNode1
+                               : obj.TryGetPropertyValue("@type", out JsonNode? typeNode2) ? typeNode2
+                               : null;
+
+            if (typeNode is JsonValue typeValue
+                && typeValue.TryGetValue(out string? typeStr)
+                && !string.IsNullOrWhiteSpace(typeStr))
+            {
+                type = TypeFormat.ToType(typeStr);
+            }
+        }
+
+        return type != null;
+    }
+
+    public static void WriteDiscriminator(this JsonNode obj, Type type)
+    {
+        obj["$type"] = TypeFormat.ToString(type);
     }
 
     private static Dictionary<string, object> ParseJson(string json)

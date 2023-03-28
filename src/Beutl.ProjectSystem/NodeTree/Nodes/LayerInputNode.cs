@@ -146,24 +146,12 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
                 int index = 0;
                 foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
                 {
-                    if (itemJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-                        && atTypeNode is JsonValue atTypeValue
-                        && atTypeValue.TryGetValue(out string? atType))
+                    if (itemJson.TryGetDiscriminator(out Type? type)
+                        && Activator.CreateInstance(type) is ILayerInputSocket socket)
                     {
-                        var type = TypeFormat.ToType(atType);
-                        ILayerInputSocket? socket = null;
-
-                        if (type?.IsAssignableTo(typeof(ILayerInputSocket)) ?? false)
-                        {
-                            socket = Activator.CreateInstance(type) as ILayerInputSocket;
-                        }
-
-                        if (socket != null)
-                        {
-                            (socket as IJsonSerializable)?.ReadFromJson(itemJson);
-                            Items.Add(socket);
-                            ((NodeItem)socket).LocalId = index;
-                        }
+                        (socket as IJsonSerializable)?.ReadFromJson(itemJson);
+                        Items.Add(socket);
+                        ((NodeItem)socket).LocalId = index;
                     }
 
                     index++;

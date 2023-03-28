@@ -53,7 +53,7 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
         base.ReadFromJson(json);
         if (json is JsonObject obj)
         {
-            if (obj.TryGetPropertyValue("keyframes", out JsonNode? keyframesNode)
+            if (obj.TryGetPropertyValue(nameof(KeyFrames), out JsonNode? keyframesNode)
                 && keyframesNode is JsonArray keyframesArray)
             {
                 KeyFrames.Clear();
@@ -83,6 +83,6 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
             array.Add(node);
         }
 
-        json["keyframes"] = array;
+        json[nameof(KeyFrames)] = array;
     }
 }

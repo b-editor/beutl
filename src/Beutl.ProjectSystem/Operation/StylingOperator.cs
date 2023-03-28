@@ -171,7 +171,7 @@ public abstract class StylingOperator : SourceOperator
     {
         base.ReadFromJson(json);
         if (json is JsonObject obj
-            && obj.TryGetPropertyValue("style", out JsonNode? styleNode)
+            && obj.TryGetPropertyValue(nameof(Style), out JsonNode? styleNode)
             && styleNode is JsonObject styleObj)
         {
             var style = StyleSerializer.ToStyle(styleObj);
@@ -189,7 +189,7 @@ public abstract class StylingOperator : SourceOperator
         base.WriteToJson(ref json);
         if (json is JsonObject obj)
         {
-            obj["style"] = StyleSerializer.ToJson(Style);
+            obj[nameof(Style)] = StyleSerializer.ToJson(Style);
         }
     }
 

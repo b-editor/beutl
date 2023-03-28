@@ -247,7 +247,7 @@ public class CoreProperty<T> : CoreProperty
             Type objType = value.GetType();
             if (objType != PropertyType && jsonNode is JsonObject)
             {
-                jsonNode["@type"] = TypeFormat.ToString(objType);
+                jsonNode.WriteDiscriminator(objType);
             }
 
             return jsonNode;
@@ -272,10 +272,7 @@ public class CoreProperty<T> : CoreProperty
             return JsonSerializer.Deserialize(node, type, options);
         }
         else if (node is JsonObject jsonObject
-            && jsonObject.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-            && atTypeNode is JsonValue atTypeValue
-            && atTypeValue.TryGetValue(out string? atTypeStr)
-            && TypeFormat.ToType(atTypeStr) is Type realType
+            && jsonObject.TryGetDiscriminator(out Type? realType)
             && realType.IsAssignableTo(typeof(IJsonSerializable)))
         {
             var sobj = (IJsonSerializable?)Activator.CreateInstance(realType);
@@ -286,10 +283,7 @@ public class CoreProperty<T> : CoreProperty
         else if (type.IsAssignableTo(typeof(IJsonSerializable)))
         {
             var sobj = (IJsonSerializable?)Activator.CreateInstance(type);
-            if (sobj != null)
-            {
-                sobj.ReadFromJson(node!);
-            }
+            sobj?.ReadFromJson(node!);
 
             return sobj;
         }

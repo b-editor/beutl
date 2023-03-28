@@ -57,10 +57,7 @@ public sealed class ImageFilterGroup : ImageFilter
 
                 foreach (JsonObject childJson in childrenArray.OfType<JsonObject>())
                 {
-                    if (childJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-                        && atTypeNode is JsonValue atTypeValue
-                        && atTypeValue.TryGetValue(out string? atType)
-                        && TypeFormat.ToType(atType) is Type type
+                    if (childJson.TryGetDiscriminator(out Type? type)
                         && type.IsAssignableTo(typeof(ImageFilter))
                         && Activator.CreateInstance(type) is IMutableImageFilter imageFilter)
                     {
@@ -86,7 +83,7 @@ public sealed class ImageFilterGroup : ImageFilter
                 {
                     JsonNode node = new JsonObject();
                     obj.WriteToJson(ref node);
-                    node["@type"] = TypeFormat.ToString(item.GetType());
+                    node.WriteDiscriminator(item.GetType());
 
                     array.Add(node);
                 }

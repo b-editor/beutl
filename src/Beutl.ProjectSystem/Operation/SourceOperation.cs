@@ -38,27 +38,21 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
 
         if (json is JsonObject jobject)
         {
-            if (jobject.TryGetPropertyValue("children", out JsonNode? childrenNode)
+            if (jobject.TryGetPropertyValue(nameof(Children), out JsonNode? childrenNode)
                 && childrenNode is JsonArray childrenArray)
             {
                 foreach (JsonObject operatorJson in childrenArray.OfType<JsonObject>())
                 {
-                    if (operatorJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-                        && atTypeNode is JsonValue atTypeValue
-                        && atTypeValue.TryGetValue(out string? atType))
+                    Type? type = operatorJson.GetDiscriminator();
+                    SourceOperator? @operator = null;
+                    if (type?.IsAssignableTo(typeof(SourceOperator)) ?? false)
                     {
-                        var type = TypeFormat.ToType(atType);
-                        SourceOperator? @operator = null;
-
-                        if (type?.IsAssignableTo(typeof(SourceOperator)) ?? false)
-                        {
-                            @operator = Activator.CreateInstance(type) as SourceOperator;
-                        }
-
-                        @operator ??= new SourceOperator();
-                        @operator.ReadFromJson(operatorJson);
-                        Children.Add(@operator);
+                        @operator = Activator.CreateInstance(type) as SourceOperator;
                     }
+
+                    @operator ??= new SourceOperator();
+                    @operator.ReadFromJson(operatorJson);
+                    Children.Add(@operator);
                 }
             }
 
@@ -80,12 +74,12 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
                 {
                     JsonNode node = new JsonObject();
                     item.WriteToJson(ref node);
-                    node["@type"] = TypeFormat.ToString(item.GetType());
+                    node.WriteDiscriminator(item.GetType());
 
                     array.Add(node);
                 }
 
-                jobject["children"] = array;
+                jobject[nameof(Children)] = array;
             }
 
         }

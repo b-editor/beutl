@@ -466,7 +466,7 @@ public abstract class Node : Hierarchical
             if (item is IJsonSerializable serializable)
             {
                 serializable.WriteToJson(ref itemJson);
-                itemJson["@type"] = TypeFormat.ToString(item.GetType());
+                itemJson.WriteDiscriminator(item.GetType());
             }
             array.Add(itemJson);
         }

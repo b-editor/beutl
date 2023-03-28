@@ -250,24 +250,12 @@ public abstract class NodeTreeSpace : Hierarchical, IAffectsRender
             {
                 foreach (JsonObject nodeJson in nodesArray.OfType<JsonObject>())
                 {
-                    if (nodeJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-                        && atTypeNode is JsonValue atTypeValue
-                        && atTypeValue.TryGetValue(out string? atType))
+                    if (nodeJson.TryGetDiscriminator(out Type? type)
+                        && Activator.CreateInstance(type) is Node node)
                     {
-                        var type = TypeFormat.ToType(atType);
-                        Node? node = null;
-
-                        if (type?.IsAssignableTo(typeof(Node)) ?? false)
-                        {
-                            node = Activator.CreateInstance(type) as Node;
-                        }
-
                         // Todo: 型が見つからない場合、SourceOperatorと同じようにする
-                        if (node != null)
-                        {
-                            node.ReadFromJson(nodeJson);
-                            Nodes.Add(node);
-                        }
+                        node.ReadFromJson(nodeJson);
+                        Nodes.Add(node);
                     }
                 }
             }
@@ -289,7 +277,7 @@ public abstract class NodeTreeSpace : Hierarchical, IAffectsRender
                 {
                     JsonNode jsonNode = new JsonObject();
                     item.WriteToJson(ref jsonNode);
-                    jsonNode["@type"] = TypeFormat.ToString(item.GetType());
+                    jsonNode.WriteDiscriminator(item.GetType());
 
                     array.Add(jsonNode);
                 }

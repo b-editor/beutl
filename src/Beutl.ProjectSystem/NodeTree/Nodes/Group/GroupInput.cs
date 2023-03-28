@@ -52,7 +52,7 @@ public class GroupInput : Node, ISocketsCanBeAdded
             {
                 ((NodeItem)outputSocket).LocalId = NextLocalId++;
                 ((IGroupSocket)outputSocket).AssociatedProperty = inputSocket.Property?.Property;
-                if(inputSocket.Property?.Property == null)
+                if (inputSocket.Property?.Property == null)
                 {
                     ((CoreObject)outputSocket).Name = NodeDisplayNameHelper.GetDisplayName(inputSocket);
                 }
@@ -84,24 +84,12 @@ public class GroupInput : Node, ISocketsCanBeAdded
                 int index = 0;
                 foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
                 {
-                    if (itemJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-                        && atTypeNode is JsonValue atTypeValue
-                        && atTypeValue.TryGetValue(out string? atType))
+                    if (itemJson.TryGetDiscriminator(out Type? type)
+                        && Activator.CreateInstance(type) is IOutputSocket socket)
                     {
-                        var type = TypeFormat.ToType(atType);
-                        IOutputSocket? socket = null;
-
-                        if (type?.IsAssignableTo(typeof(IOutputSocket)) ?? false)
-                        {
-                            socket = Activator.CreateInstance(type) as IOutputSocket;
-                        }
-
-                        if (socket != null)
-                        {
-                            (socket as IJsonSerializable)?.ReadFromJson(itemJson);
-                            Items.Add(socket);
-                            ((NodeItem)socket).LocalId = index;
-                        }
+                        (socket as IJsonSerializable)?.ReadFromJson(itemJson);
+                        Items.Add(socket);
+                        ((NodeItem)socket).LocalId = index;
                     }
 
                     index++;
