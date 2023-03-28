@@ -14,13 +14,14 @@ public static class JsonHelper
 
     public static JsonWriterOptions WriterOptions { get; } = new()
     {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         Indented = true,
     };
 
     public static JsonSerializerOptions SerializerOptions { get; } = new()
     {
         WriteIndented = true,
-        Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         Converters =
         {
             new CultureInfoConverter(),
