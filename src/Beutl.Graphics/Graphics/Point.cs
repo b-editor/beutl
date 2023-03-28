@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
@@ -13,6 +14,7 @@ namespace Beutl.Graphics;
 /// Defines a point.
 /// </summary>
 [JsonConverter(typeof(PointJsonConverter))]
+[TypeConverter(typeof(PointConverter))]
 public readonly struct Point
     : IEquatable<Point>,
       IParsable<Point>,
@@ -25,7 +27,8 @@ public readonly struct Point
       ISubtractionOperators<Point, Vector, Point>,
       IMultiplyOperators<Point, float, Point>,
       IDivisionOperators<Point, float, Point>,
-      IMultiplyOperators<Point, Matrix, Point>
+      IMultiplyOperators<Point, Matrix, Point>,
+      ITupleConvertible<Point, float>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="Point"/> structure.
@@ -52,6 +55,8 @@ public readonly struct Point
     /// Gets a value indicating whether the X and Y coordinates are zero.
     /// </summary>
     public bool IsDefault => (X == 0) && (Y == 0);
+
+    static int ITupleConvertible<Point, float>.TupleLength => 2;
 
     /// <summary>
     /// Converts the <see cref="Point"/> to a <see cref="Vector"/>.
@@ -335,5 +340,16 @@ public readonly struct Point
     static bool ISpanParsable<Point>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Point result)
     {
         return TryParse(s, out result);
+    }
+
+    static void ITupleConvertible<Point, float>.ConvertTo(Point self, Span<float> tuple)
+    {
+        tuple[0] = self.X;
+        tuple[1] = self.Y;
+    }
+
+    static void ITupleConvertible<Point, float>.ConvertFrom(Span<float> tuple, out Point self)
+    {
+        self = new Point(tuple[0], tuple[1]);
     }
 }

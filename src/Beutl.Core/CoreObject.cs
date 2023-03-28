@@ -78,12 +78,14 @@ public abstract class CoreObject : ICoreObject
             .Register();
     }
 
+    [Browsable(false)]
     public Guid Id
     {
         get => GetValue(IdProperty);
         set => SetValue(IdProperty, value);
     }
 
+    [Browsable(false)]
     public string Name
     {
         get => GetValue(NameProperty);

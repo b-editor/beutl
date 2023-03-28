@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.Design;
+﻿using System.ComponentModel;
+using System.ComponentModel.Design;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Text.Json.Serialization;
@@ -21,12 +22,14 @@ namespace Beutl.Graphics;
 /// Note: Skia.SkMatrix uses a transposed layout (where for example skewX/skewY and perspp0/tranX are swapped).
 /// </remakrs>
 [JsonConverter(typeof(MatrixJsonConverter))]
+[TypeConverter(typeof(MatrixConverter))]
 public readonly struct Matrix
     : IEquatable<Matrix>,
       IParsable<Matrix>,
       ISpanParsable<Matrix>,
       IMultiplyOperators<Matrix, Matrix, Matrix>,
-      IUnaryNegationOperators<Matrix, Matrix>
+      IUnaryNegationOperators<Matrix, Matrix>,
+      ITupleConvertible<Matrix, float>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="Matrix"/> struct (equivalent to a 2x3 Matrix without perspective).
@@ -143,6 +146,8 @@ public readonly struct Matrix
     /// The third element of the third row (persZ: perspective scale factor).
     /// </summary>
     public float M33 { get; }
+
+    static int ITupleConvertible<Matrix, float>.TupleLength => 9;
 
     /// <summary>
     /// Multiplies two matrices together and returns the resulting matrix.
@@ -604,5 +609,28 @@ public readonly struct Matrix
             .Prepend(CreateRotation(angle))
             .Prepend(CreateSkew(skew.X, skew.Y))
             .Prepend(CreateScale(scale));
+    }
+
+    static void ITupleConvertible<Matrix, float>.ConvertTo(Matrix self, Span<float> tuple)
+    {
+        tuple[0] = self.M11;
+        tuple[1] = self.M12;
+        tuple[2] = self.M13;
+        tuple[3] = self.M21;
+        tuple[4] = self.M22;
+        tuple[5] = self.M23;
+        tuple[6] = self.M31;
+        tuple[7] = self.M32;
+        tuple[8] = self.M33;
+    }
+
+    static void ITupleConvertible<Matrix, float>.ConvertFrom(Span<float> tuple, out Matrix self)
+    {
+        self = new Matrix
+        (
+            tuple[0], tuple[1], tuple[2],
+            tuple[3], tuple[4], tuple[5],
+            tuple[6], tuple[7], tuple[8]
+        );
     }
 }

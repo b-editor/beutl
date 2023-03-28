@@ -6,9 +6,9 @@ using Beutl.Utilities;
 
 namespace Beutl.Converters;
 
-public sealed class ThicknessConverter : IValueConverter
+public sealed class AvaloniaThicknessConverter : IValueConverter
 {
-    public static readonly ThicknessConverter Instance = new();
+    public static readonly AvaloniaThicknessConverter Instance = new();
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {

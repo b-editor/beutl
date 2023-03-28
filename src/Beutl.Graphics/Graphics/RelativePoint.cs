@@ -1,11 +1,11 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
 using Beutl.Utilities;
-using Beutl.Validation;
 
 namespace Beutl.Graphics;
 
@@ -13,6 +13,7 @@ namespace Beutl.Graphics;
 /// Defines a point that may be defined relative to a containing element.
 /// </summary>
 [JsonConverter(typeof(RelativePointJsonConverter))]
+[TypeConverter(typeof(RelativePointConverter))]
 public readonly struct RelativePoint
     : IEquatable<RelativePoint>,
       IParsable<RelativePoint>,

@@ -34,7 +34,7 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <Path Margin="{Binding Left.Value, ConverterParameter='Left', Converter={x:Static convert:ThicknessConverter.Instance}}"
+                    <Path Margin="{Binding Left.Value, ConverterParameter='Left', Converter={x:Static convert:AvaloniaThicknessConverter.Instance}}"
                           HorizontalAlignment="Left"
                           VerticalAlignment="Center"
                           Fill="Yellow">

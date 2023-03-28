@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
@@ -13,6 +14,7 @@ namespace Beutl.Graphics;
 /// Defines a rectangle.
 /// </summary>
 [JsonConverter(typeof(RectJsonConverter))]
+[TypeConverter(typeof(RectConverter))]
 public readonly struct Rect
     : IEquatable<Rect>,
       IParsable<Rect>,
@@ -20,7 +22,8 @@ public readonly struct Rect
       IEqualityOperators<Rect, Rect, bool>,
       IMultiplyOperators<Rect, Vector, Rect>,
       IMultiplyOperators<Rect, float, Rect>,
-      IDivisionOperators<Rect, Vector, Rect>
+      IDivisionOperators<Rect, Vector, Rect>,
+      ITupleConvertible<Rect, float>
 {
     /// <summary>
     /// An empty rectangle.
@@ -159,6 +162,8 @@ public readonly struct Rect
     /// Gets a value that indicates whether the rectangle is empty.
     /// </summary>
     public bool IsEmpty => Width == 0 && Height == 0;
+
+    static int ITupleConvertible<Rect, float>.TupleLength => 4;
 
     /// <summary>
     /// Checks for equality between two <see cref="Rect"/>s.
@@ -602,5 +607,18 @@ public readonly struct Rect
     static bool ISpanParsable<Rect>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Rect result)
     {
         return TryParse(s, out result);
+    }
+
+    static void ITupleConvertible<Rect, float>.ConvertTo(Rect self, Span<float> tuple)
+    {
+        tuple[0] = self.X;
+        tuple[1] = self.Y;
+        tuple[2] = self.Width;
+        tuple[3] = self.Height;
+    }
+
+    static void ITupleConvertible<Rect, float>.ConvertFrom(Span<float> tuple, out Rect self)
+    {
+        self = new Rect(tuple[0], tuple[1], tuple[2], tuple[3]);
     }
 }

@@ -52,6 +52,7 @@ public class InnerShadow : BitmapEffect
     }
 
     [Display(Name = nameof(Strings.KernelSize), ResourceType = typeof(Strings))]
+    [Range(typeof(PixelSize), "1,1", "max,max")]
     public PixelSize KernelSize
     {
         get => _kernelSize;

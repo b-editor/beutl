@@ -50,6 +50,7 @@ public abstract class Styleable : Animatable, IStyleable, IModifiableHierarchica
         _styleInstance = null;
     }
 
+    [ShouldSerialize(false)]
     public Styles Styles
     {
         get => _styles;
@@ -155,6 +156,7 @@ public abstract class Styleable : Animatable, IStyleable, IModifiableHierarchica
     private IHierarchical? _parent;
     private IHierarchicalRoot? _root;
 
+    [ShouldSerialize(false)]
     public IHierarchical? HierarchicalParent
     {
         get => _parent;

@@ -50,16 +50,30 @@ public ref struct RefStringTokenizer
 
     public bool TryReadInt32(out int result, char? separator = null)
     {
-        if (TryReadString(out ReadOnlySpan<char> stringResult, separator) &&
-            int.TryParse(stringResult, NumberStyles.Integer, _formatProvider, out result))
-        {
-            return true;
-        }
-        else
+        if (!TryReadString(out ReadOnlySpan<char> stringResult, separator))
         {
             result = default;
             return false;
         }
+        else
+        {
+            if (stringResult.Equals("max", StringComparison.OrdinalIgnoreCase))
+            {
+                result = int.MaxValue;
+                return true;
+            }
+            else if (stringResult.Equals("min", StringComparison.OrdinalIgnoreCase))
+            {
+                result = int.MinValue;
+                return true;
+            }
+            else if (int.TryParse(stringResult, NumberStyles.Integer, _formatProvider, out result))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public int ReadInt32(char? separator = null)
@@ -74,16 +88,30 @@ public ref struct RefStringTokenizer
 
     public bool TryReadDouble(out double result, char? separator = null)
     {
-        if (TryReadString(out ReadOnlySpan<char> stringResult, separator) &&
-            double.TryParse(stringResult, NumberStyles.Float, _formatProvider, out result))
-        {
-            return true;
-        }
-        else
+        if (!TryReadString(out ReadOnlySpan<char> stringResult, separator))
         {
             result = default;
             return false;
         }
+        else
+        {
+            if (stringResult.Equals("max", StringComparison.OrdinalIgnoreCase))
+            {
+                result = double.MaxValue;
+                return true;
+            }
+            else if (stringResult.Equals("min", StringComparison.OrdinalIgnoreCase))
+            {
+                result = double.MinValue;
+                return true;
+            }
+            else if (double.TryParse(stringResult, NumberStyles.Float, _formatProvider, out result))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public double ReadDouble(char? separator = null)
@@ -98,16 +126,30 @@ public ref struct RefStringTokenizer
 
     public bool TryReadSingle(out float result, char? separator = null)
     {
-        if (TryReadString(out ReadOnlySpan<char> stringResult, separator) &&
-            float.TryParse(stringResult, NumberStyles.Float, _formatProvider, out result))
-        {
-            return true;
-        }
-        else
+        if (!TryReadString(out ReadOnlySpan<char> stringResult, separator))
         {
             result = default;
             return false;
         }
+        else
+        {
+            if (stringResult.Equals("max", StringComparison.OrdinalIgnoreCase))
+            {
+                result = float.MaxValue;
+                return true;
+            }
+            else if (stringResult.Equals("min", StringComparison.OrdinalIgnoreCase))
+            {
+                result = float.MinValue;
+                return true;
+            }
+            else if (float.TryParse(stringResult, NumberStyles.Float, _formatProvider, out result))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public float ReadSingle(char? separator = null)

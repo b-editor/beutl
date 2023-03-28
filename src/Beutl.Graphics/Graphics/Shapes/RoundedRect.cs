@@ -38,6 +38,7 @@ public sealed class RoundedRect : Drawable
     }
 
     [Display(Name = nameof(Strings.CornerRadius), ResourceType = typeof(Strings))]
+    [Range(typeof(CornerRadius), "0", "max")]
     public CornerRadius CornerRadius
     {
         get => _cornerRadius;

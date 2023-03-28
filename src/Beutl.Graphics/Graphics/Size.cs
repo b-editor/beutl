@@ -1,11 +1,11 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
 using Beutl.Utilities;
-using Beutl.Validation;
 
 namespace Beutl.Graphics;
 
@@ -13,6 +13,7 @@ namespace Beutl.Graphics;
 /// Defines a size.
 /// </summary>
 [JsonConverter(typeof(SizeJsonConverter))]
+[TypeConverter(typeof(SizeConverter))]
 public readonly struct Size
     : IEquatable<Size>,
       IParsable<Size>,
@@ -26,7 +27,8 @@ public readonly struct Size
       IAdditionOperators<Size, Size, Size>,
       ISubtractionOperators<Size, Size, Size>,
       IAdditionOperators<Size, Thickness, Size>,
-      ISubtractionOperators<Size, Thickness, Size>
+      ISubtractionOperators<Size, Thickness, Size>,
+      ITupleConvertible<Size, float>
 {
     /// <summary>
     /// A size representing infinity.
@@ -68,6 +70,8 @@ public readonly struct Size
     /// Gets a value indicating whether the Width and Height values are zero.
     /// </summary>
     public bool IsDefault => (Width == 0) && (Height == 0);
+
+    static int ITupleConvertible<Size, float>.TupleLength => 2;
 
     /// <summary>
     /// Checks for equality between two <see cref="Size"/>s.
@@ -375,5 +379,16 @@ public readonly struct Size
     static bool ISpanParsable<Size>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Size result)
     {
         return TryParse(s, out result);
+    }
+
+    static void ITupleConvertible<Size, float>.ConvertTo(Size self, Span<float> tuple)
+    {
+        tuple[0] = self.Width;
+        tuple[1] = self.Height;
+    }
+
+    static void ITupleConvertible<Size, float>.ConvertFrom(Span<float> tuple, out Size self)
+    {
+        self = new Size(tuple[0], tuple[1]);
     }
 }

@@ -22,6 +22,7 @@ public sealed class Blur : ImageFilter
     }
 
     [Display(Name = nameof(Strings.Sigma), ResourceType = typeof(Strings))]
+    [Range(typeof(Vector), "0,0", "max,max")]
     public Vector Sigma
     {
         get => _sigma;

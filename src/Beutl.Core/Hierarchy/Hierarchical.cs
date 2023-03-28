@@ -29,6 +29,7 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
         _hierarchicalChildren.CollectionChanged += HierarchicalChildrenCollectionChanged;
     }
 
+    [ShouldSerialize(false)]
     public IHierarchical? HierarchicalParent
     {
         get => _parent;

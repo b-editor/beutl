@@ -39,24 +39,29 @@ public class CorePropertyMetadata<T> : CorePropertyMetadata
             case RangeAttribute rangeAttribute:
                 Type propType = typeof(T);
                 Type[] interfaces = propType.GetInterfaces();
-                if (propType.IsValueType
-                    && interfaces.Any(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(INumber<>))
-                    && interfaces.Any(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IMinMaxValue<>)))
+                if (propType.IsValueType)
                 {
-                    Type validatorType = typeof(RangeDataAnnotationValidater<>);
-                    if (Activator.CreateInstance(validatorType, rangeAttribute) is IValidator<T> validator)
+                    if (interfaces.Any(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(INumber<>))
+                        && interfaces.Any(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IMinMaxValue<>)))
                     {
-                        return validator;
+                        Type validatorType = typeof(RangeDataAnnotationValidater<>).MakeGenericType(propType);
+                        if (Activator.CreateInstance(validatorType, rangeAttribute) is IValidator<T> validator)
+                        {
+                            return validator;
+                        }
                     }
-                    else
+                    else if (interfaces.FirstOrDefault(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(ITupleConvertible<,>)) is { } interfaceType)
                     {
-                        goto default;
+                        Type validatorType = typeof(TupleRangeDataAnnotationValidater<,>);
+                        validatorType = validatorType.MakeGenericType(interfaceType.GetGenericArguments());
+                        if (Activator.CreateInstance(validatorType, rangeAttribute) is IValidator<T> validator)
+                        {
+                            return validator;
+                        }
                     }
                 }
-                else
-                {
-                    goto default;
-                }
+
+                goto default;
 
             default:
                 return new DataAnnotationValidater<T>(att);

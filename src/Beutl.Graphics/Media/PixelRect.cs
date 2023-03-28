@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
@@ -16,11 +17,13 @@ namespace Beutl.Media;
 /// Represents a rectangle in device pixels.
 /// </summary>
 [JsonConverter(typeof(PixelRectJsonConverter))]
+[TypeConverter(typeof(PixelRectConverter))]
 public readonly struct PixelRect
     : IEquatable<PixelRect>,
       IParsable<PixelRect>,
       ISpanParsable<PixelRect>,
-      IEqualityOperators<PixelRect, PixelRect, bool>
+      IEqualityOperators<PixelRect, PixelRect, bool>,
+      ITupleConvertible<PixelRect, int>
 {
     /// <summary>
     /// An empty rectangle.
@@ -149,6 +152,8 @@ public readonly struct PixelRect
     /// Gets a value that indicates whether the rectangle is empty.
     /// </summary>
     public bool IsEmpty => Width == 0 && Height == 0;
+
+    static int ITupleConvertible<PixelRect, int>.TupleLength => 4;
 
     /// <summary>
     /// Checks for equality between two <see cref="PixelRect"/>s.
@@ -485,5 +490,18 @@ public readonly struct PixelRect
         return new PixelPoint(
             (int)Math.Ceiling(point.X * scale.X),
             (int)Math.Ceiling(point.Y * scale.Y));
+    }
+
+    static void ITupleConvertible<PixelRect, int>.ConvertTo(PixelRect self, Span<int> tuple)
+    {
+        tuple[0] = self.X;
+        tuple[1] = self.Y;
+        tuple[2] = self.Width;
+        tuple[3] = self.Height;
+    }
+
+    static void ITupleConvertible<PixelRect, int>.ConvertFrom(Span<int> tuple, out PixelRect self)
+    {
+        self = new PixelRect(tuple[0], tuple[1], tuple[2], tuple[3]);
     }
 }

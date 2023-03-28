@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.ComponentModel;
+using System.Diagnostics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
@@ -8,6 +9,7 @@ using SkiaSharp;
 namespace Beutl.Media;
 
 [JsonConverter(typeof(FontFamilyJsonConverter))]
+[TypeConverter(typeof(FontFamilyConverter))]
 public class FontFamily : IEquatable<FontFamily>
 {
     public static readonly FontFamily Default = new(GetDefaultFontFamily());

@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+﻿using System.ComponentModel;
+using System.Globalization;
+using System.Numerics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
@@ -11,7 +13,8 @@ namespace Beutl.Graphics;
 /// Defines a vector.
 /// </summary>
 [JsonConverter(typeof(VectorJsonConverter))]
-public readonly struct Vector : IEquatable<Vector>
+[TypeConverter(typeof(VectorConverter))]
+public readonly struct Vector : IEquatable<Vector>, ITupleConvertible<Vector, float>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="Vector"/> structure.
@@ -152,7 +155,7 @@ public readonly struct Vector : IEquatable<Vector>
     {
         return Parse(s.AsSpan());
     }
-    
+
     /// <summary>
     /// Parses a <see cref="Vector"/> string.
     /// </summary>
@@ -178,6 +181,8 @@ public readonly struct Vector : IEquatable<Vector>
     /// Squared Length of the vector.
     /// </summary>
     public float SquaredLength => X * X + Y * Y;
+
+    static int ITupleConvertible<Vector, float>.TupleLength => 2;
 
     /// <summary>
     /// Negates a vector.
@@ -419,5 +424,16 @@ public readonly struct Vector : IEquatable<Vector>
     {
         x = X;
         y = Y;
+    }
+
+    static void ITupleConvertible<Vector, float>.ConvertTo(Vector self, Span<float> tuple)
+    {
+        tuple[0] = self.X;
+        tuple[1] = self.Y;
+    }
+
+    static void ITupleConvertible<Vector, float>.ConvertFrom(Span<float> tuple, out Vector self)
+    {
+        self = new Vector(tuple[0], tuple[1]);
     }
 }

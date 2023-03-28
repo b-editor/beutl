@@ -184,11 +184,20 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
     public IBitmap ToBitmap()
     {
         Size size = MeasureCore(Size.Infinity);
-        using (var canvas = new Canvas((int)size.Width, (int)size.Height))
-        using (Foreground == null ? new() : canvas.PushForeground(Foreground))
+        int width = (int)size.Width;
+        int height = (int)size.Height;
+        if (width > 0 && height > 0)
         {
-            OnDraw(canvas);
-            return canvas.GetBitmap();
+            using (var canvas = new Canvas(width, height))
+            using (Foreground == null ? new() : canvas.PushForeground(Foreground))
+            {
+                OnDraw(canvas);
+                return canvas.GetBitmap();
+            }
+        }
+        else
+        {
+            return new Bitmap<Bgra8888>(0, 0);
         }
     }
 
