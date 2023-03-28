@@ -64,6 +64,14 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
             {
                 _validator = t.GetMetadata<CorePropertyMetadata<T>>(t.OwnerType).Validator;
                 base.Property = t;
+                if (_validator != null)
+                {
+                    T? coerced = Value;
+                    if (_validator.TryCoerce(new ValidationContext(null, Property), ref coerced))
+                    {
+                        Value = coerced!;
+                    }
+                }
             }
             else
             {

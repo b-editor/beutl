@@ -8,6 +8,8 @@ namespace Beutl.Styling;
 public interface ISetter
 {
     CoreProperty Property { get; }
+    
+    CorePropertyMetadata Metadata { get; }
 
     object? Value { get; }
 
