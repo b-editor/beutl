@@ -80,7 +80,7 @@ public class Scene : ProjectItem, IHierarchicalRoot
         {
             if (e.Sender is Scene scene)
             {
-                scene._renderer.Invalidate(e.NewValue);
+                scene._renderer.RaiseInvalidated(e.NewValue);
             }
         });
     }

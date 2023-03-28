@@ -59,7 +59,7 @@ public class ImmediateRenderer : IRenderer
         }
     }
 
-    public event EventHandler<IRenderer.RenderResult>? RenderInvalidated;
+    public event EventHandler<TimeSpan>? RenderInvalidated;
 
     public virtual void Dispose()
     {
@@ -71,14 +71,11 @@ public class ImmediateRenderer : IRenderer
         IsDisposed = true;
     }
 
-    public async void Invalidate(TimeSpan timeSpan)
+    public void RaiseInvalidated(TimeSpan timeSpan)
     {
-        if (RenderInvalidated != null && !IsGraphicsRendering)
+        if (!IsGraphicsRendering)
         {
-            IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => RenderGraphics(timeSpan));
-            RenderInvalidated?.Invoke(this, result);
-            result.Bitmap?.Dispose();
-            result.Audio?.Dispose();
+            RenderInvalidated?.Invoke(this, timeSpan);
         }
     }
 

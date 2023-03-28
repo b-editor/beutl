@@ -9,8 +9,6 @@ using Beutl.Threading;
 
 namespace Beutl.Rendering;
 
-// RenderingのApiで時間を考慮する
-// Renderable内で持続時間と開始時間のプロパティを追加
 public interface IRenderer : IDisposable
 {
     IRenderLayer? this[int index] { get; set; }
@@ -31,7 +29,7 @@ public interface IRenderer : IDisposable
     
     bool IsAudioRendering { get; }
 
-    event EventHandler<RenderResult> RenderInvalidated;
+    event EventHandler<TimeSpan> RenderInvalidated;
 
     RenderResult RenderGraphics(TimeSpan timeSpan);
 
@@ -39,7 +37,7 @@ public interface IRenderer : IDisposable
 
     RenderResult Render(TimeSpan timeSpan);
 
-    void Invalidate(TimeSpan timeSpan);
+    void RaiseInvalidated(TimeSpan timeSpan);
 
     //void AddDirty(IRenderable renderable);
     

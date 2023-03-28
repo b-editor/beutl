@@ -311,7 +311,7 @@ public class Layer : ProjectItem
             && scene.CurrentFrame < Start + Length
             && scene.Renderer is { IsDisposed: false, IsGraphicsRendering: false })
         {
-            scene.Renderer.Invalidate(scene.CurrentFrame);
+            scene.Renderer.RaiseInvalidated(scene.CurrentFrame);
         }
     }
 

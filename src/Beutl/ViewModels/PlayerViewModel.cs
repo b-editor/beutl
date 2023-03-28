@@ -2,7 +2,6 @@
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 
-using Beutl.Audio;
 using Beutl.Audio.Platforms.OpenAL;
 using Beutl.Audio.Platforms.XAudio2;
 using Beutl.Media;
@@ -348,11 +347,19 @@ public sealed class PlayerViewModel : IDisposable
         PreviewInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
-    private unsafe void Renderer_RenderInvalidated(object? sender, IRenderer.RenderResult e)
+    private async void Renderer_RenderInvalidated(object? sender, TimeSpan e)
     {
-        if (e.Bitmap is { } bitmap)
+        if (sender is IRenderer renderer)
         {
-            UpdateImage(bitmap);
+            await renderer.Dispatcher.InvokeAsync(() =>
+            {
+                IRenderer.RenderResult result = renderer.RenderGraphics(e);
+                if (result.Bitmap is { } bitmap)
+                {
+                    UpdateImage(bitmap);
+                    bitmap.Dispose();
+                }
+            });
         }
     }
 
