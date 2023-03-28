@@ -37,14 +37,14 @@ public class NodeGroup : NodeTreeSpace
         Nodes.Detached += OnNodeDetached;
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized]
     public GroupInput? Input
     {
         get => _input;
         set => SetAndRaise(InputProperty, ref _input, value);
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized]
     public GroupOutput? Output
     {
         get => _output;

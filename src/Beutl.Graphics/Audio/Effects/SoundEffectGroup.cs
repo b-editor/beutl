@@ -21,7 +21,7 @@ public sealed class SoundEffectGroup : SoundEffect
         _children.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized]
     public SoundEffects Children
     {
         get => _children;

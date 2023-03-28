@@ -38,7 +38,7 @@ public sealed class BitmapEffectGroup : BitmapEffect
         };
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized]
     public BitmapEffects Children
     {
         get => _children;

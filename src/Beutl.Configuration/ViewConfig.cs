@@ -64,14 +64,14 @@ public sealed class ViewConfig : ConfigurationBase
         set => SetValue(IsMicaEffectEnabledProperty, value);
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized()]
     public CoreList<string> RecentFiles
     {
         get => _recentFiles;
         set => _recentFiles.Replace(value);
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized()]
     public CoreList<string> RecentProjects
     {
         get => _recentProjects;

@@ -360,7 +360,7 @@ public abstract class CoreObject : ICoreObject
             {
                 CoreProperty item = list[i];
                 CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(ownerType);
-                if (metadata.ShouldSerialize)
+                if (metadata.ShouldSerialize && (item is not IStaticProperty sprop || sprop.CanWrite))
                 {
                     JsonNode? valueNode = item.RouteWriteToJson(metadata, GetValue(item), out bool isDefault);
                     if (!isDefault)
@@ -384,6 +384,7 @@ public abstract class CoreObject : ICoreObject
                 CoreProperty item = list[i];
                 CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(ownerType);
                 if (metadata.ShouldSerialize
+                    && (item is not IStaticProperty sprop || sprop.CanWrite)
                     && obj.TryGetPropertyValue(item.Name, out JsonNode? jsonNode)
                     && jsonNode != null)
                 {

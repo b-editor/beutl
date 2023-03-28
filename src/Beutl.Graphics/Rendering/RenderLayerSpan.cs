@@ -59,7 +59,7 @@ public sealed class RenderLayerSpan : Hierarchical, IAffectsRender
 
     public Renderables Value => _value;
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized]
     public RenderLayer? RenderLayer
     {
         get => _renderLayer;

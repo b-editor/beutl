@@ -128,7 +128,7 @@ public class TextBlock : Drawable
         set => SetAndRaise(MarginProperty, ref _margin, value);
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized]
     public TextElements? Elements
     {
         get => _elements;

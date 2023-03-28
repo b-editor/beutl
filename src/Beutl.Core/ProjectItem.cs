@@ -12,7 +12,7 @@ public abstract class ProjectItem : Hierarchical, IStorable
             .Register();
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized]
     public string FileName
     {
         get => _fileName!;

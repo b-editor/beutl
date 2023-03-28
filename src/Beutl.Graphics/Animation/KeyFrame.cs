@@ -36,7 +36,7 @@ public class KeyFrame : CoreObject
         //    .Register();
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized]
     public Easing Easing
     {
         get => _easing;

@@ -26,7 +26,7 @@ public abstract class NodeItem : Hierarchical
         Id = Guid.NewGuid();
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized]
     public bool? IsValid
     {
         get => _isValid;

@@ -1,12 +1,9 @@
 ﻿namespace Beutl;
 
 [AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
-public sealed class ShouldSerializeAttribute : Attribute
+public sealed class NotAutoSerializedAttribute : Attribute
 {
-    public ShouldSerializeAttribute(bool shouldSerialize)
+    public NotAutoSerializedAttribute()
     {
-        ShouldSerialize = shouldSerialize;
     }
-
-    public bool ShouldSerialize { get; }
 }

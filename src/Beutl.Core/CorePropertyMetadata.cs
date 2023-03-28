@@ -30,6 +30,7 @@ public abstract class CorePropertyMetadata : ICorePropertyMetadata
     {
         if (Attributes != null)
         {
+            ShouldSerialize = !Attributes.Any(x => x is NotAutoSerializedAttribute);
             foreach (Attribute item in Attributes)
             {
                 switch (item)
@@ -40,10 +41,6 @@ public abstract class CorePropertyMetadata : ICorePropertyMetadata
 
                     case NotifiableAttribute notifiable:
                         Notifiable = notifiable.Notifiable;
-                        break;
-
-                    case ShouldSerializeAttribute shouldSerialize:
-                        ShouldSerialize = shouldSerialize.ShouldSerialize;
                         break;
 
                     case BrowsableAttribute browsableAttribute:

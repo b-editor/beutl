@@ -24,7 +24,7 @@ public sealed class ImageFilterGroup : ImageFilter
         _children.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized]
     public ImageFilters Children
     {
         get => _children;

@@ -69,7 +69,7 @@ public abstract class Node : Hierarchical
         set => SetValue(IsExpandedProperty, value);
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized]
     public (double X, double Y) Position
     {
         get => _position;

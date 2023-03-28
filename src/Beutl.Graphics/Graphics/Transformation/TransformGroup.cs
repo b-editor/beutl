@@ -22,7 +22,7 @@ public sealed class TransformGroup : Transform
         _children.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized]
     public Transforms Children
     {
         get => _children;

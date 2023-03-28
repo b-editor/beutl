@@ -87,7 +87,7 @@ public class VideoFrame : Drawable
         set => SetAndRaise(PositionModeProperty, ref _positionMode, value);
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized]
     public FileInfo? SourceFile
     {
         get => _sourceFile;

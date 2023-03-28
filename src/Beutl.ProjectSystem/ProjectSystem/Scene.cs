@@ -116,21 +116,21 @@ public class Scene : ProjectItem, IHierarchicalRoot
         }
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized]
     public Layers Children
     {
         get => _children;
         set => _children.Replace(value);
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized]
     public PreviewOptions? PreviewOptions
     {
         get => _previewOptions;
         set => SetAndRaise(PreviewOptionsProperty, ref _previewOptions, value);
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized]
     public IRenderer Renderer
     {
         get => _renderer;

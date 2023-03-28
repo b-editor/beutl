@@ -24,7 +24,7 @@ public class SourceImage : Drawable
         AffectsRender<SourceImage>(SourceProperty);
     }
 
-    [ShouldSerialize(false)]
+    [NotAutoSerialized]
     public IImageSource? Source
     {
         get => _source;
