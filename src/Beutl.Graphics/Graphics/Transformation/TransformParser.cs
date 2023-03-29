@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 using Beutl.Utilities;
@@ -464,7 +465,7 @@ internal static class TransformParser
             _ => value.Value
         };
     }
-    
+
     private static float ToScale(in UnitValue value)
     {
         return value.Unit switch
@@ -529,73 +530,58 @@ internal static class TransformParser
 
         public void AppendTranslate(float x, float y)
         {
-            _data.Add(new DataLayout
-            {
-                Type = DataType.Translate,
-                Translate =
-                {
-                    X = x,
-                    Y = y
-                }
-            });
+            Unsafe.SkipInit(out DataLayout value);
+            value.Type = DataType.Translate;
+            value.Translate.X = x;
+            value.Translate.Y = y;
+
+            _data.Add(value);
         }
 
         public void AppendRotate(float angle)
         {
-            _data.Add(new DataLayout
-            {
-                Type = DataType.Rotate,
-                Rotate =
-                {
-                    Angle = angle
-                }
-            });
+            Unsafe.SkipInit(out DataLayout value);
+            value.Type = DataType.Rotate;
+            value.Rotate.Angle = angle;
+
+            _data.Add(value);
         }
 
         public void AppendScale(float x, float y)
         {
-            _data.Add(new DataLayout
-            {
-                Type = DataType.Scale,
-                Scale =
-                {
-                    X = x,
-                    Y = y
-                }
-            });
+            Unsafe.SkipInit(out DataLayout value);
+            value.Type = DataType.Scale;
+            value.Scale.X = x;
+            value.Scale.Y = y;
+
+            _data.Add(value);
         }
 
         public void AppendSkew(float x, float y)
         {
-            _data.Add(new DataLayout
-            {
-                Type = DataType.Skew,
-                Scale =
-                {
-                    X = x,
-                    Y = y
-                }
-            });
+            Unsafe.SkipInit(out DataLayout value);
+            value.Type = DataType.Skew;
+            value.Skew.X = x;
+            value.Skew.Y = y;
+
+            _data.Add(value);
         }
 
         public void AppendMatrix(Matrix matrix)
         {
-            _data.Add(new DataLayout
-            {
-                Type = DataType.Matrix,
-                Matrix =
-                {
-                    Value = matrix
-                }
-            });
+            Unsafe.SkipInit(out DataLayout value);
+            value.Type = DataType.Matrix;
+            value.Matrix.Value = matrix;
+
+            _data.Add(value);
         }
 
         public void AppendIdentity()
         {
-            _data.Add(new DataLayout
-            {
-                Type = DataType.Identity
-            });
+            Unsafe.SkipInit(out DataLayout value);
+            value.Type = DataType.Identity;
+
+            _data.Add(value);
         }
 
         public void Append(DataLayout toAdd)
