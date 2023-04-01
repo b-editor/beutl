@@ -12,7 +12,6 @@ public class OperatorsRegistrar
             .Add<Source.RectOperator>(Strings.Rectangle)
             .Add<Source.RoundedRectOperator>(Strings.RoundedRect)
             .Add<Source.TextBlockOperator>(Strings.Text)
-            .Add<Source.ImageFileOperator>(Strings.ImageFile)
             .Add<Source.VideoFrameOperator>("Video")
             .Add<Source.SourceImageOperator>("SourceImage")
             .Add<Source.SourceSoundOperator>("SourceSound")
