@@ -6,16 +6,11 @@ namespace Beutl.NodeTree;
 
 public abstract class NodeItem : Hierarchical
 {
-    public static readonly CoreProperty<bool?> IsValidProperty;
     public static readonly CoreProperty<int> LocalIdProperty;
-    private bool? _isValid;
     private int _localId = -1;
 
     static NodeItem()
     {
-        IsValidProperty = ConfigureProperty<bool?, NodeItem>(o => o.IsValid)
-            .Register();
-
         LocalIdProperty = ConfigureProperty<int, NodeItem>(o => o.LocalId)
             .DefaultValue(-1)
             .Register();
@@ -24,13 +19,6 @@ public abstract class NodeItem : Hierarchical
     public NodeItem()
     {
         Id = Guid.NewGuid();
-    }
-
-    [NotAutoSerialized]
-    public bool? IsValid
-    {
-        get => _isValid;
-        protected set => SetAndRaise(IsValidProperty, ref _isValid, value);
     }
 
     public int LocalId

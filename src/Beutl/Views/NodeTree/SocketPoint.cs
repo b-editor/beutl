@@ -3,10 +3,13 @@ using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.VisualTree;
 
 using Beutl.NodeTree;
 using Beutl.ViewModels.NodeTree;
+
+using FluentAvalonia.UI.Media;
 
 using Reactive.Bindings.Extensions;
 
@@ -55,19 +58,30 @@ public sealed class ConnectionLine : Line
         base.OnAttachedToVisualTree(e);
         _strokeBinding = this.GetResourceObservable("TextControlForeground")
             .CombineLatest(
+                this.GetResourceObservable("SystemFillColorSuccessBrush"),
+                this.GetResourceObservable("SystemFillColorCautionBrush"),
                 this.GetResourceObservable("SystemFillColorCriticalBrush"),
                 this.GetObservable(InputSocketProperty)
-                    .SelectMany(o => (o?.Model as CoreObject)?.GetObservable(NodeItem.IsValidProperty) ?? Observable.Return<bool?>(null)))
+                    .Select(o => o?.Status ?? Observable.Return(ConnectionStatus.Disconnected))
+                    .Switch())
             .ObserveOnUIDispatcher()
             .Subscribe(x =>
             {
-                if (x.Third == false)
+                switch (x.Fifth)
                 {
-                    Stroke = x.Second as IBrush;
-                }
-                else
-                {
-                    Stroke = x.First as IBrush;
+                    case ConnectionStatus.Disconnected:
+                        Stroke = x.First as IBrush;
+                        break;
+                    case ConnectionStatus.Connected:
+                    case ConnectionStatus.Success:
+                        Stroke = x.Second as IBrush;
+                        break;
+                    case ConnectionStatus.Convert:
+                        Stroke = x.Third as IBrush;
+                        break;
+                    case ConnectionStatus.Error:
+                        Stroke = x.Fourth as IBrush;
+                        break;
                 }
             });
     }
@@ -354,13 +368,23 @@ public sealed class SocketPoint : Control
     public override void Render(DrawingContext context)
     {
         base.Render(context);
+        IBrush brush = Brush ?? Brushes.Teal;
         if (IsConnected)
         {
-            context.FillRectangle(Brush ?? Brushes.Teal, new Rect(0, 0, 10, 10), 5);
+            context.FillRectangle(brush, new Rect(0, 0, 10, 10), 5);
         }
         else
         {
-            context.FillRectangle(Brushes.Gray, new Rect(0, 0, 10, 10), 5);
+            if (brush is ISolidColorBrush solidColorBrush)
+            {
+                var color = (Color2)solidColorBrush.Color;
+                color = color.WithSatf(color.Saturationf * 0.2f);
+                context.FillRectangle(new ImmutableSolidColorBrush(color), new Rect(0, 0, 10, 10), 5);
+            }
+            else
+            {
+                context.FillRectangle(Brushes.Gray, new Rect(0, 0, 10, 10), 5);
+            }
         }
     }
 }

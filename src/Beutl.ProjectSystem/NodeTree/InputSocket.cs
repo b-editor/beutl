@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel;
 using System.Text.Json.Nodes;
 
 namespace Beutl.NodeTree;
@@ -10,6 +10,14 @@ public class InputSocket<T> : Socket<T>, IInputSocket
     private Guid _outputId;
     private InputSocketReceiver<T>? _onReceive;
     private bool _force;
+    private TypeConverter? _dstTypeConverter;
+    private TypeConverter? _srcTypeConverter;
+    private Type? _srcType;
+
+    public InputSocket()
+    {
+        _dstTypeConverter = TypeDescriptor.GetConverter(typeof(T));
+    }
 
     public Connection? Connection { get; private set; }
 
@@ -20,8 +28,8 @@ public class InputSocket<T> : Socket<T>, IInputSocket
             _outputId = Guid.Empty;
         }
 
-        IsValid = null;
         Connection = connection;
+        UpdateStatus(ConnectionStatus.Connected);
         RaiseConnected(connection);
     }
 
@@ -29,27 +37,94 @@ public class InputSocket<T> : Socket<T>, IInputSocket
     {
         if (Connection == connection)
         {
-            IsValid = null;
             Connection = null;
             RaiseDisconnected(connection);
         }
     }
 
+    private void UpdateStatus(ConnectionStatus status)
+    {
+        Connection!.SetValue(Connection.StatusProperty, status);
+    }
+
     public virtual void Receive(T? value)
     {
-        if (_force && _onReceive != null)
+        if (Connection != null)
         {
-            IsValid = _onReceive(value, out T? received);
-            if (IsValid.Value)
+            if (_force && _onReceive != null)
             {
-                Value = received;
+                if (_onReceive(value, out T? received))
+                {
+                    Value = received;
+                    UpdateStatus(ConnectionStatus.Convert);
+                }
+                else
+                {
+                    UpdateStatus(ConnectionStatus.Error);
+                }
+            }
+            else
+            {
+                Value = value;
+                UpdateStatus(ConnectionStatus.Success);
             }
         }
-        else
+    }
+
+    private void ReceiveWithConverter(object value)
+    {
+        ConnectionStatus status = ConnectionStatus.Error;
+        try
         {
-            Value = value;
-            IsValid = true;
+            Type srcType = value.GetType();
+
+            if (_dstTypeConverter?.CanConvertFrom(value.GetType()) == true)
+            {
+                Value = (T?)_dstTypeConverter.ConvertFrom(value);
+                status = ConnectionStatus.Convert;
+            }
+            else
+            {
+                if (_srcType != srcType
+                    || _srcTypeConverter == null)
+                {
+                    _srcTypeConverter = TypeDescriptor.GetConverter(srcType);
+                    _srcType = srcType;
+                }
+
+                if (_srcTypeConverter.CanConvertTo(typeof(T)))
+                {
+                    Value = (T?)_srcTypeConverter.ConvertTo(value, typeof(T));
+                    status = ConnectionStatus.Convert;
+                }
+            }
         }
+        catch
+        {
+            status = ConnectionStatus.Error;
+        }
+        finally
+        {
+            UpdateStatus(status);
+        }
+    }
+
+    private void ReceiveInvalidValue()
+    {
+        T? value1 = default;
+        if (Property != null)
+        {
+            value1 = Property.GetValue();
+            if (value1 == null
+                && Property?.Property.GetMetadata<CorePropertyMetadata<T>>(Property.ImplementedType) is { } metadata
+                && metadata.HasDefaultValue)
+            {
+                value1 = metadata.DefaultValue;
+            }
+        }
+
+        Receive(value1);
+        UpdateStatus(ConnectionStatus.Error);
     }
 
     public void Receive(object? value)
@@ -57,35 +132,27 @@ public class InputSocket<T> : Socket<T>, IInputSocket
         if (value is T t)
         {
             Receive(t);
-            IsValid = true;
         }
         else
         {
-            if (_onReceive != null)
+            //if (_onReceive != null)
+            //{
+            //    IsValid = _onReceive(value, out T? received);
+            //    if (IsValid.Value)
+            //    {
+            //        Value = received;
+            //    }
+            //}
+            //else
             {
-                IsValid = _onReceive(value, out T? received);
-                if (IsValid.Value)
+                if (value != null)
                 {
-                    Value = received;
+                    ReceiveWithConverter(value);
                 }
-            }
-            else
-            {
-                T? value1 = default;
-                if (Property != null)
+                else
                 {
-                    value1 = Property.GetValue();
-                    if (value1 == null
-                        && Property?.Property.GetMetadata<CorePropertyMetadata<T>>(Property.ImplementedType) is { } metadata
-                        && metadata.HasDefaultValue)
-                    {
-                        value1 = metadata.DefaultValue;
-                    }
+                    ReceiveInvalidValue();
                 }
-
-                Receive(value1);
-
-                IsValid = false;
             }
         }
     }
@@ -95,6 +162,11 @@ public class InputSocket<T> : Socket<T>, IInputSocket
     {
         _onReceive = onReceive;
         _force = force;
+    }
+
+    public void RegisterConverter(TypeConverter typeConverter)
+    {
+        _dstTypeConverter = typeConverter;
     }
 
     public override void PreEvaluate(EvaluationContext context)

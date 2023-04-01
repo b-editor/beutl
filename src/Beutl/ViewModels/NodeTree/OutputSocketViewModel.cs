@@ -12,7 +12,7 @@ public class OutputSocketViewModel : SocketViewModel
 
     public new IOutputSocket? Model => base.Model as IOutputSocket;
 
-    protected override void OnIsConnectedChanged(bool? isValid)
+    protected override void OnIsConnectedChanged()
     {
         if (Model != null)
         {

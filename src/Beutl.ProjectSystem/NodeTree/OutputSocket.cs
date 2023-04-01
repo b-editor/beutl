@@ -1,8 +1,45 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Text.Json.Nodes;
 
 using Beutl.Collections;
 
 namespace Beutl.NodeTree;
+
+file struct UnsafeBox<T> : IDisposable
+{
+    public object? Object;
+    private GCHandle _handle;
+    private nint _ptr;
+
+    public unsafe void Update(T? value)
+    {
+        bool managedType = RuntimeHelpers.IsReferenceOrContainsReferences<T>();
+        if (!managedType)
+        {
+            if (Object != null && _handle.IsAllocated)
+            {
+                Unsafe.Write((void*)_ptr, value);
+            }
+            else
+            {
+                Object = value;
+                _handle = GCHandle.Alloc(Object, GCHandleType.Pinned);
+                _ptr = _handle.AddrOfPinnedObject();
+            }
+        }
+        else
+        {
+            Object = value;
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_handle.IsAllocated)
+            _handle.Free();
+    }
+}
 
 public class OutputSocket<T> : Socket<T>, IOutputSocket
 {
@@ -10,6 +47,12 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
     private List<Guid>? _inputIds = null;
     // 型が一致していない、ソケットの数
     private int _unmatchSockets;
+    private UnsafeBox<T> _box;
+
+    ~OutputSocket()
+    {
+        _box.Dispose();
+    }
 
     public ICoreReadOnlyList<Connection> Connections => _connections;
 
@@ -72,10 +115,9 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
     public override void PostEvaluate(EvaluationContext context)
     {
         base.PostEvaluate(context);
-        object? boxed = null;
         if (_unmatchSockets > 0)
         {
-            boxed = Value;
+            _box.Update(Value);
         }
 
         foreach (Connection item in _connections.GetMarshal().Value)
@@ -86,7 +128,7 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
             }
             else
             {
-                item.Input.Receive(boxed);
+                item.Input.Receive(_box.Object);
             }
         }
     }
