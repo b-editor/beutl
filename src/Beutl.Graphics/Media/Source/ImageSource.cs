@@ -15,6 +15,11 @@ public sealed class ImageSource : IImageSource
         FrameSize = new PixelSize(_bitmap.Value.Width, _bitmap.Value.Height);
     }
 
+    ~ImageSource()
+    {
+        Dispose();
+    }
+
     public PixelSize FrameSize { get; }
 
     public bool IsDisposed { get; private set; }
