@@ -60,7 +60,6 @@ public class TestElement : Hierarchical, IHierarchical
     {
         StringProperty = ConfigureProperty<string, TestElement>("String")
             .DefaultValue(string.Empty)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
     }
 
@@ -72,5 +71,5 @@ public class TestElement : Hierarchical, IHierarchical
 
     public HierarchicalList<Hierarchical> Children { get; set; }
 
-    IEnumerable<IHierarchical> IHierarchical.HierarchicalChildren => Children;
+    ICoreReadOnlyList<IHierarchical> IHierarchical.HierarchicalChildren => Children;
 }

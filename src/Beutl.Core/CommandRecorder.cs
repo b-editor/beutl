@@ -18,8 +18,8 @@ public class CommandRecorder : INotifyPropertyChanged
     private static readonly PropertyChangedEventArgs s_canUndoArgs = new(nameof(CanUndo));
     private static readonly PropertyChangedEventArgs s_canRedoArgs = new(nameof(CanRedo));
     private static readonly PropertyChangedEventArgs s_lastExecutedTimeArgs = new(nameof(LastExecutedTime));
-    private readonly Stack<IRecordableCommand> _undoStack = new();
-    private readonly Stack<IRecordableCommand> _redoStack = new();
+    private readonly RingStack<IRecordableCommand> _undoStack = new(20000);
+    private readonly RingStack<IRecordableCommand> _redoStack = new(20000);
     private bool _isExecuting;
     private bool _canUndo;
     private bool _canRedo;
