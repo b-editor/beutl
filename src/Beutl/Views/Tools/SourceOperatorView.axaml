@@ -38,7 +38,7 @@
                     <icons:SymbolIcon FontSize="16" Symbol="ReOrderDotsVertical" />
                 </Border>
 
-                <ToggleButton IsChecked="{Binding Model.IsEnabled}" Theme="{StaticResource VisibilityToggleButtonStyle}" />
+                <ToggleButton IsChecked="{Binding IsEnabled.Value}" Theme="{StaticResource VisibilityToggleButtonStyle}" />
 
                 <TextBlock x:Name="headerText" VerticalAlignment="Center" />
             </StackPanel>

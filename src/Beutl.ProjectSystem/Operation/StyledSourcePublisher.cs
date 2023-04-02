@@ -42,8 +42,9 @@ public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnDetachedFromHierarchy(args);
-        Instance?.Dispose();
+        IStyleInstance? tmp = Instance;
         Instance = null;
+        tmp?.Dispose();
     }
 
     protected virtual void OnPrePublish()

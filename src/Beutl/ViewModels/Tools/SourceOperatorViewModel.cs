@@ -17,6 +17,10 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
     {
         Model = model;
         EditViewModel = editViewModel;
+        IsEnabled = model.GetObservable(SourceOperator.IsEnabledProperty)
+            .ToReactiveProperty();
+        IsEnabled.Subscribe(v => Model.IsEnabled = v);
+
         Init();
 
         model.Properties.CollectionChanged += Properties_CollectionChanged;
@@ -33,11 +37,13 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
         Init();
     }
 
-    public SourceOperator Model { get; }
+    public SourceOperator Model { get; private set; }
 
-    public EditViewModel EditViewModel { get; }
+    public EditViewModel EditViewModel { get; private set; }
 
     public ReactiveProperty<bool> IsExpanded { get; } = new(true);
+
+    public ReactiveProperty<bool> IsEnabled { get; }
 
     public CoreList<IPropertyEditorContext?> Properties { get; } = new();
 
@@ -98,6 +104,11 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
         {
             item?.Dispose();
         }
+        Properties.Clear();
+        IsEnabled.Dispose();
+
+        Model = null!;
+        EditViewModel = null!;
     }
 
     private void Init()

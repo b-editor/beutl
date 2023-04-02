@@ -1,8 +1,6 @@
-﻿using System.Buffers;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 
 using Avalonia.Collections.Pooled;
-using Avalonia.Layout;
 
 using Beutl.Framework;
 using Beutl.NodeTree;
@@ -13,9 +11,9 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.NodeTree;
 
-public class NodeTreeNavigationItem : IDisposable
+public sealed class NodeTreeNavigationItem : IDisposable
 {
-    internal readonly Lazy<NodeTreeViewModel> _lazyViewModel;
+    internal Lazy<NodeTreeViewModel> _lazyViewModel;
 
     public NodeTreeNavigationItem(NodeTreeViewModel viewModel, ReadOnlyReactivePropertySlim<string> name, NodeTreeSpace nodeTree)
     {
@@ -35,7 +33,7 @@ public class NodeTreeNavigationItem : IDisposable
 
     public ReadOnlyReactivePropertySlim<string> Name { get; }
 
-    public NodeTreeSpace NodeTree { get; }
+    public NodeTreeSpace NodeTree { get; private set; }
 
     public void Dispose()
     {
@@ -45,14 +43,16 @@ public class NodeTreeNavigationItem : IDisposable
         }
 
         Name.Dispose();
+        _lazyViewModel = null!;
+        NodeTree = null!;
     }
 }
 
 public sealed class NodeTreeTabViewModel : IToolContext
 {
     private readonly ReactiveProperty<bool> _isSelected = new(true);
-    private readonly EditViewModel _editViewModel;
     private readonly CompositeDisposable _disposables = new();
+    private EditViewModel _editViewModel;
 
     public NodeTreeTabViewModel(EditViewModel editViewModel)
     {
@@ -102,8 +102,18 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
     public void Dispose()
     {
-        NodeTree.Value?.Dispose();
         _disposables.Dispose();
+        foreach (NodeTreeNavigationItem item in Items)
+        {
+            item.Dispose();
+        }
+
+        Items.Clear();
+        NodeTree.Dispose();
+        NodeTree.Value?.Dispose();
+        NodeTree.Value = null;
+        Layer.Value = null;
+        _editViewModel = null!;
     }
 
     public void NavigateTo(int index)

@@ -16,7 +16,7 @@ namespace Beutl.ViewModels.Tools;
 public sealed class SourceOperatorsTabViewModel : IToolContext
 {
     private readonly IDisposable _disposable0;
-    private readonly EditViewModel _editViewModel;
+    private EditViewModel _editViewModel;
     private IDisposable? _disposable1;
     private Layer? _oldLayer;
 
@@ -131,12 +131,14 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
         if (Layer.Value != null)
         {
             SaveState(Layer.Value);
+            Layer.Value = null;
         }
         _disposable0.Dispose();
         _disposable1?.Dispose();
-        ClearItems();
 
         Layer.Dispose();
+        _editViewModel = null!;
+        RequestScroll = null;
     }
 
     private static string ViewStateDirectory(Layer layer)

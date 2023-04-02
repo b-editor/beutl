@@ -25,7 +25,7 @@ public sealed partial class MainWindow : AppWindow
 
         NotificationManager = new WindowNotificationManager(this)
         {
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+            Position = NotificationPosition.TopRight,
             Margin = new Thickness(64, 40, 0, 0)
         };
         TitleBar.Height = 40;

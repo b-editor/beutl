@@ -26,7 +26,8 @@ public sealed class NodeTreeInputTabViewModel : IToolContext
     {
         Layer = editViewModel.SelectedObject
             .Select(x => x as Layer)
-            .ToReactiveProperty();
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
 
         Layer.CombineWithPrevious()
             .Subscribe(obj =>
@@ -55,7 +56,11 @@ public sealed class NodeTreeInputTabViewModel : IToolContext
 
     public void Dispose()
     {
+        _disposables.Dispose();
 
+        InnerViewModel.Value?.Dispose();
+        InnerViewModel.Value = null;
+        Layer.Value = null;
     }
 
     public void ReadFromJson(JsonNode json)

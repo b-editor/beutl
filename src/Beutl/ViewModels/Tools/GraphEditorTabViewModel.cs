@@ -30,6 +30,9 @@ public sealed class GraphEditorTabViewModel : IToolContext
 
     public void Dispose()
     {
+        SelectedAnimation.Dispose();
+        SelectedAnimation.Value?.Dispose();
+        SelectedAnimation.Value = null;
     }
 
     public void ReadFromJson(JsonNode json)

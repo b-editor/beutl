@@ -104,7 +104,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IProvideEdit
             Dispose(false);
     }
 
-    public IAbstractProperty WrappedProperty { get; }
+    public IAbstractProperty WrappedProperty { get; private set; }
 
     public bool CanReset => GetDefaultValue() != null;
 
@@ -208,6 +208,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IProvideEdit
         Disposables.Dispose();
         _currentFrameRevoker?.Dispose();
         _currentFrameRevoker = null;
+        _editViewModel = null!;
+        WrappedProperty = null!;
     }
 
     public virtual void InsertKeyFrame(TimeSpan keyTime)

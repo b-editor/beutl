@@ -102,11 +102,11 @@ public sealed class TimelineViewModel : IToolContext
         Header = new ReactivePropertySlim<string>(Strings.Timeline);
     }
 
-    public Scene Scene { get; }
+    public Scene Scene { get; private set; }
 
-    public PlayerViewModel Player { get; }
+    public PlayerViewModel Player { get; private set; }
 
-    public EditViewModel EditorContext { get; }
+    public EditViewModel EditorContext { get; private set; }
 
     public ReadOnlyReactivePropertySlim<double> PanelWidth { get; }
 
@@ -147,6 +147,23 @@ public sealed class TimelineViewModel : IToolContext
         {
             item.Dispose();
         }
+        foreach (LayerHeaderViewModel item in LayerHeaders)
+        {
+            item.Dispose();
+        }
+        foreach (InlineAnimationLayerViewModel item in Inlines)
+        {
+            item.Dispose();
+        }
+
+        _layerHeightChanged.Dispose();
+
+        Inlines.Clear();
+        LayerHeaders.Clear();
+        Layers.Clear();
+        Scene = null!;
+        Player = null!;
+        EditorContext = null!;
     }
 
     public void ReadFromJson(JsonNode json)

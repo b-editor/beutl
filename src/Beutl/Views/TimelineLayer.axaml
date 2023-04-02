@@ -18,7 +18,7 @@
              x:DataType="vm:TimelineLayerViewModel"
              ClipToBounds="True"
              Focusable="True"
-             IsEnabled="{Binding Model.IsEnabled}"
+             IsEnabled="{CompiledBinding IsEnabled.Value}"
              mc:Ignorable="d">
     <UserControl.KeyBindings>
         <KeyBinding Command="{CompiledBinding Cut}" Gesture="{DynamicResource CutKeyGesture}" />
@@ -81,7 +81,7 @@
                     </ui:MenuFlyoutItem.Icon>
                 </ui:MenuFlyoutItem>
                 <ui:ToggleMenuFlyoutItem Click="AllowOutflowClick"
-                                         IsChecked="{Binding Model.AllowOutflow, Mode=OneWay}"
+                                         IsChecked="{CompiledBinding AllowOutflow.Value, Mode=OneWay}"
                                          Text="流入出を許可">
                     <ui:ToggleMenuFlyoutItem.Styles>
                         <Style Selector="ui|ToggleMenuFlyoutItem /template/ Viewbox#IconRoot">
@@ -95,7 +95,9 @@
                     <ui:MenuFlyoutItem Command="{CompiledBinding BringAnimationToTop}" Text="{x:Static lang:Strings.BringToTop}" />
                 </ui:MenuFlyoutSubItem>
                 <ui:MenuFlyoutSeparator />
-                <ui:ToggleMenuFlyoutItem IsChecked="{Binding Model.UseNode}" Text="ノードを使う">
+                <ui:ToggleMenuFlyoutItem Click="UseNodeClick"
+                                         IsChecked="{CompiledBinding UseNode.Value}"
+                                         Text="ノードを使う">
                     <ui:ToggleMenuFlyoutItem.Styles>
                         <Style Selector="ui|ToggleMenuFlyoutItem /template/ Viewbox#IconRoot">
                             <Setter Property="Width" Value="0" />
@@ -110,11 +112,11 @@
             </ui:FAMenuFlyout>
         </Border.ContextFlyout>
         <Panel>
-            <TextBlock x:Name="textBlock" Text="{Binding Model.Name}" />
+            <TextBlock x:Name="textBlock" Text="{CompiledBinding Name.Value}" />
             <TextBox x:Name="textBox"
                      HorizontalAlignment="Stretch"
                      IsVisible="False"
-                     Text="{Binding Model.Name}" />
+                     Text="{CompiledBinding Name.Value}" />
         </Panel>
     </Border>
 

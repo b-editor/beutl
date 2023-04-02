@@ -172,7 +172,11 @@
                 <!--  オブジェクト  -->
                 <MenuItem Header="{x:Static lang:Strings.Object}" />
                 <!--  ヘルプ  -->
-                <MenuItem Header="{x:Static lang:Strings.Help}" />
+                <MenuItem Header="{x:Static lang:Strings.Help}">
+                    <MenuItem Click="GC_Collect_Click"
+                              Header="GC.Collect"
+                              IsVisible="{Binding IsDebuggerAttached}" />
+                </MenuItem>
             </Menu>
 
             <TextBlock Grid.Column="2"

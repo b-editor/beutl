@@ -33,6 +33,7 @@ public sealed class ProjectService : IProjectService
     {
         try
         {
+            CommandRecorder.Default.Clear();
             var project = new Project();
             project.Restore(file);
 
@@ -56,6 +57,7 @@ public sealed class ProjectService : IProjectService
     {
         if (CurrentProject.Value is { } project)
         {
+            CommandRecorder.Default.Clear();
             // 値を発行
             _projectObservable.OnNext((New: null, project));
             CurrentProject.Value = null;
@@ -67,6 +69,7 @@ public sealed class ProjectService : IProjectService
     {
         try
         {
+            CommandRecorder.Default.Clear();
             location = Path.Combine(location, name);
             IProjectItemContainer container = ServiceLocator.Current.GetRequiredService<IProjectItemContainer>();
             var scene = new Scene(width, height, name);

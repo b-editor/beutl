@@ -21,13 +21,14 @@ public sealed class ToolTabViewModel : IDisposable
         Context = context;
     }
 
-    public IToolContext Context { get; }
+    public IToolContext Context { get; private set; }
 
     public int Order { get; set; } = -1;
 
     public void Dispose()
     {
         Context.Dispose();
+        Context = null!;
     }
 }
 
@@ -39,8 +40,10 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
     public EditViewModel(Scene scene)
     {
         Scene = scene;
-        Library = new LibraryViewModel(this);
-        Player = new PlayerViewModel(scene, IsEnabled);
+        Library = new LibraryViewModel(this)
+            .DisposeWith(_disposables);
+        Player = new PlayerViewModel(scene, IsEnabled)
+            .DisposeWith(_disposables);
         Commands = new KnownCommandsImpl(scene);
         SelectedObject = new ReactiveProperty<CoreObject?>()
             .DisposeWith(_disposables);
@@ -54,9 +57,9 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         RestoreState();
     }
 
-    public Scene Scene { get; set; }
+    public Scene Scene { get; private set; }
 
-    public LibraryViewModel Library { get; }
+    public LibraryViewModel Library { get; private set; }
 
     public CoreList<ToolTabViewModel> BottomTabItems { get; }
 
@@ -66,17 +69,13 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
 
     public ReactivePropertySlim<bool> IsEnabled { get; } = new(true);
 
-    public PlayerViewModel Player { get; }
-
-    //public EasingsViewModel Easings { get; }
-
-    //public ReadOnlyReactivePropertySlim<PropertiesEditorViewModel?> Property { get; }
+    public PlayerViewModel Player { get; private set; }
 
     public EditorExtension Extension => SceneEditorExtension.Instance;
 
     public string EdittingFile => Scene.FileName;
 
-    public IKnownEditorCommands? Commands { get; }
+    public IKnownEditorCommands? Commands { get; private set; }
 
     public IReactiveProperty<TimelineOptions> Options { get; } = new ReactiveProperty<TimelineOptions>(new TimelineOptions());
 
@@ -90,7 +89,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
     {
         SaveState();
         _disposables.Dispose();
-        Player.Dispose();
+        Library = null!;
+        Player = null!;
 
         foreach (ToolTabViewModel item in BottomTabItems.GetMarshal().Value)
         {
@@ -100,6 +100,13 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         {
             item.Dispose();
         }
+        BottomTabItems.Clear();
+        RightTabItems.Clear();
+
+        SelectedObject.Value = null;
+
+        Scene = null!;
+        Commands = null!;
     }
 
     public T? FindToolTab<T>(Func<T, bool> condition)

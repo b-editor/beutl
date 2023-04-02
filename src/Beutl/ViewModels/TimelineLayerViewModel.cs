@@ -22,6 +22,24 @@ public sealed class TimelineLayerViewModel : IDisposable
         Model = sceneLayer;
         Timeline = timeline;
 
+        IsEnabled = sceneLayer.GetObservable(Layer.IsEnabledProperty)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+        
+        AllowOutflow = sceneLayer.GetObservable(Layer.AllowOutflowProperty)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
+        UseNode = sceneLayer.GetObservable(Layer.UseNodeProperty)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
+        Name = sceneLayer.GetObservable(CoreObject.NameProperty)
+            .ToReactiveProperty()
+            .AddTo(_disposables)!;
+        Name.Subscribe(v => Model.Name = v)
+            .AddTo(_disposables);
+
         IObservable<int> zIndexSubject = sceneLayer.GetObservable(Layer.ZIndexProperty);
         Margin = Timeline.GetTrackedLayerTopObservable(zIndexSubject)
             .Select(item => new Thickness(0, item, 0, 0))
@@ -45,7 +63,8 @@ public sealed class TimelineLayerViewModel : IDisposable
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        Split.Where(func => func != null).Subscribe(func =>
+        Split.Where(func => func != null)
+            .Subscribe(func =>
         {
             int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
             TimeSpan absTime = func!().RoundToRate(rate);
@@ -64,7 +83,8 @@ public sealed class TimelineLayerViewModel : IDisposable
 
             backwardLayer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, Constants.LayerFileExtension));
             Scene.AddChild(backwardLayer).DoAndRecord(CommandRecorder.Default);
-        });
+        })
+            .AddTo(_disposables);
 
         Cut.Subscribe(async () =>
         {
@@ -72,11 +92,14 @@ public sealed class TimelineLayerViewModel : IDisposable
             {
                 Exclude.Execute();
             }
-        });
+        })
+            .AddTo(_disposables);
 
-        Copy.Subscribe(async () => await SetClipboard());
+        Copy.Subscribe(async () => await SetClipboard())
+            .AddTo(_disposables);
 
-        Exclude.Subscribe(() => Scene.RemoveChild(Model).DoAndRecord(CommandRecorder.Default));
+        Exclude.Subscribe(() => Scene.RemoveChild(Model).DoAndRecord(CommandRecorder.Default))
+            .AddTo(_disposables);
 
         Delete.Subscribe(() =>
         {
@@ -85,7 +108,8 @@ public sealed class TimelineLayerViewModel : IDisposable
             {
                 File.Delete(Model.FileName);
             }
-        });
+        })
+            .AddTo(_disposables);
 
         Color.Subscribe(c => Model.AccentColor = Media.Color.FromArgb(c.A, c.R, c.G, c.B))
             .AddTo(_disposables);
@@ -96,7 +120,8 @@ public sealed class TimelineLayerViewModel : IDisposable
             {
                 Timeline.DetachInline(item);
             }
-        });
+        })
+            .AddTo(_disposables);
 
         BringAnimationToTop.Subscribe(() =>
         {
@@ -115,7 +140,8 @@ public sealed class TimelineLayerViewModel : IDisposable
                     }
                 }
             }
-        });
+        })
+            .AddTo(_disposables);
 
         zIndexSubject.Subscribe(number =>
         {
@@ -127,7 +153,8 @@ public sealed class TimelineLayerViewModel : IDisposable
             if (newLH != null)
                 newLH.ItemsCount.Value++;
             LayerHeader.Value = newLH;
-        }).AddTo(_disposables);
+        })
+            .AddTo(_disposables);
     }
 
     ~TimelineLayerViewModel()
@@ -137,11 +164,19 @@ public sealed class TimelineLayerViewModel : IDisposable
 
     public Func<(Thickness Margin, Thickness BorderMargin, double Width), CancellationToken, Task> AnimationRequested { get; set; } = (_, _) => Task.CompletedTask;
 
-    public TimelineViewModel Timeline { get; }
+    public TimelineViewModel Timeline { get; private set; }
 
-    public Layer Model { get; }
+    public Layer Model { get; private set; }
 
     public Scene Scene => (Scene)Model.HierarchicalParent!;
+
+    public ReadOnlyReactivePropertySlim<bool> IsEnabled { get; }
+    
+    public ReadOnlyReactivePropertySlim<bool> AllowOutflow { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> UseNode { get; }
+
+    public ReactiveProperty<string> Name { get; }
 
     public ReactiveProperty<Thickness> Margin { get; }
 
@@ -172,6 +207,12 @@ public sealed class TimelineLayerViewModel : IDisposable
     public void Dispose()
     {
         _disposables.Dispose();
+        LayerHeader.Dispose();
+
+        LayerHeader.Value = null!;
+        Timeline = null!;
+        Model = null!;
+        AnimationRequested = (_, _) => Task.CompletedTask;
         GC.SuppressFinalize(this);
     }
 

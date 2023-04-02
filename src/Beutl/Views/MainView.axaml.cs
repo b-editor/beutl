@@ -28,6 +28,7 @@ using Beutl.Models;
 using Beutl.Pages;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Beutl.Utilities;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
@@ -821,5 +822,28 @@ Error:
             item => RemoveItem(_rawRecentProjItems, item),
             _rawRecentProjItems.Clear)
             .AddTo(_disposables);
+    }
+
+    [Conditional("DEBUG")]
+    private void GC_Collect_Click(object? sender, RoutedEventArgs e)
+    {
+        DateTime dateTime = DateTime.UtcNow;
+        long totalBytes = GC.GetTotalMemory(false);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        TimeSpan elapsed = DateTime.UtcNow - dateTime;
+
+        long deltaBytes = GC.GetTotalMemory(false) - totalBytes;
+        string str = StringFormats.ToHumanReadableSize(Math.Abs(deltaBytes));
+        str = (deltaBytes >= 0 ? "+" : "-") + str;
+
+        _notificationService.Show(new Notification(
+            "結果",
+            $"""
+                    経過時間: {elapsed.TotalMilliseconds}ms
+                    差: {str}
+                    """));
     }
 }

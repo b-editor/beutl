@@ -148,6 +148,13 @@ public sealed partial class TimelineLayer : UserControl
         _pointerPosition = point.X.ToTimeSpan(scale);
     }
 
+    private void UseNodeClick(object? sender, RoutedEventArgs e)
+    {
+        var layer = ViewModel.Model;
+        var command = new ChangePropertyCommand<bool>(layer, Layer.UseNodeProperty, !layer.UseNode, layer.UseNode);
+        command.DoAndRecord(CommandRecorder.Default);
+    }
+
     private void AllowOutflowClick(object? sender, RoutedEventArgs e)
     {
         var layer = ViewModel.Model;

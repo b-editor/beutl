@@ -169,10 +169,10 @@ public class LibraryItemViewModel
     }
 }
 
-public class LibraryViewModel
+public sealed class LibraryViewModel : IDisposable
 {
-    private readonly EditViewModel _editViewModel;
     private readonly Nito.AsyncEx.AsyncLock _asyncLock = new();
+    private EditViewModel _editViewModel;
 
     public LibraryViewModel(EditViewModel editViewModel)
     {
@@ -271,5 +271,15 @@ public class LibraryViewModel
                 SearchResult.ClearOnScheduler();
             }
         }
+    }
+
+    public void Dispose()
+    {
+        Easings.Clear();
+        Operators.Clear();
+        Nodes.Clear();
+        AllItems.Clear();
+        SearchResult.Clear();
+        _editViewModel = null!;
     }
 }
