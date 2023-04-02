@@ -42,11 +42,88 @@ public sealed partial class TimelineLayer : UserControl
         InitializeComponent();
 
         textBox.LostFocus += OnTextBoxLostFocus;
+        this.SubscribeDataContextChange<TimelineLayerViewModel>(OnDataContextAttached, OnDataContextDetached);
     }
 
     public Func<TimeSpan> GetClickedTime => () => _pointerPosition;
 
     private TimelineLayerViewModel ViewModel => (TimelineLayerViewModel)DataContext!;
+
+    private void OnDataContextDetached(TimelineLayerViewModel obj)
+    {
+        obj.AnimationRequested = (_, _) => Task.CompletedTask;
+        _disposable1?.Dispose();
+        _disposable1 = null;
+    }
+
+    private void OnDataContextAttached(TimelineLayerViewModel obj)
+    {
+        obj.AnimationRequested = async (args, token) =>
+        {
+            await Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                var animation1 = new Avalonia.Animation.Animation
+                {
+                    Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
+                    Duration = TimeSpan.FromSeconds(0.25),
+                    FillMode = FillMode.Forward,
+                    Children =
+                    {
+                        new KeyFrame()
+                        {
+                            Cue = new Cue(0),
+                            Setters =
+                            {
+                                new Setter(MarginProperty, border.Margin),
+                                new Setter(WidthProperty, border.Width),
+                            }
+                        },
+                        new KeyFrame()
+                        {
+                            Cue = new Cue(1),
+                            Setters =
+                            {
+                                new Setter(MarginProperty, args.BorderMargin),
+                                new Setter(WidthProperty, args.Width)
+                            }
+                        }
+                    }
+                };
+                var animation2 = new Avalonia.Animation.Animation
+                {
+                    Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
+                    Duration = TimeSpan.FromSeconds(0.25),
+                    FillMode = FillMode.Forward,
+                    Children =
+                        {
+                            new KeyFrame()
+                            {
+                                Cue = new Cue(0),
+                                Setters =
+                                {
+                                    new Setter(MarginProperty, obj.Margin.Value)
+                                }
+                            },
+                            new KeyFrame()
+                            {
+                                Cue = new Cue(1),
+                                Setters =
+                                {
+                                    new Setter(MarginProperty, args.Margin)
+                                }
+                            }
+                        }
+                };
+
+                Task task1 = animation1.RunAsync(border, null, token);
+                Task task2 = animation2.RunAsync(this, null, token);
+                await Task.WhenAll(task1, task2);
+            });
+        };
+
+        _disposable1 = obj.Model.GetObservable(Layer.IsEnabledProperty)
+            .Subscribe(b => Dispatcher.UIThread.InvokeAsync(() => border.Opacity = b ? 1 : 0.5));
+    }
 
     protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
@@ -63,81 +140,9 @@ public sealed partial class TimelineLayer : UserControl
     protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromLogicalTree(e);
+        _timeline = null;
         BehaviorCollection behaviors = Interaction.GetBehaviors(this);
         behaviors.Clear();
-    }
-
-    protected override void OnDataContextChanged(EventArgs e)
-    {
-        base.OnDataContextChanged(e);
-        if (DataContext is TimelineLayerViewModel viewModel)
-        {
-            _disposable1?.Dispose();
-            viewModel.AnimationRequested = async (args, token) =>
-            {
-                await Dispatcher.UIThread.InvokeAsync(async () =>
-                {
-                    var animation1 = new Avalonia.Animation.Animation
-                    {
-                        Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
-                        Duration = TimeSpan.FromSeconds(0.25),
-                        FillMode = FillMode.Forward,
-                        Children =
-                        {
-                            new KeyFrame()
-                            {
-                                Cue = new Cue(0),
-                                Setters =
-                                {
-                                    new Setter(MarginProperty, border.Margin),
-                                    new Setter(WidthProperty, border.Width),
-                                }
-                            },
-                            new KeyFrame()
-                            {
-                                Cue = new Cue(1),
-                                Setters =
-                                {
-                                    new Setter(MarginProperty, args.BorderMargin),
-                                    new Setter(WidthProperty, args.Width)
-                                }
-                            }
-                        }
-                    };
-                    var animation2 = new Avalonia.Animation.Animation
-                    {
-                        Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
-                        Duration = TimeSpan.FromSeconds(0.25),
-                        FillMode = FillMode.Forward,
-                        Children =
-                        {
-                            new KeyFrame()
-                            {
-                                Cue = new Cue(0),
-                                Setters =
-                                {
-                                    new Setter(MarginProperty, viewModel.Margin.Value)
-                                }
-                            },
-                            new KeyFrame()
-                            {
-                                Cue = new Cue(1),
-                                Setters =
-                                {
-                                    new Setter(MarginProperty, args.Margin)
-                                }
-                            }
-                        }
-                    };
-
-                    Task task1 = animation1.RunAsync(border, null, token);
-                    Task task2 = animation2.RunAsync(this, null, token);
-                    await Task.WhenAll(task1, task2);
-                });
-            };
-            _disposable1 = viewModel.Model.GetObservable(Layer.IsEnabledProperty)
-                .Subscribe(b => Dispatcher.UIThread.InvokeAsync(() => border.Opacity = b ? 1 : 0.5));
-        }
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)

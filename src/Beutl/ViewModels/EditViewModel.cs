@@ -89,6 +89,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
     {
         SaveState();
         _disposables.Dispose();
+        Options.Dispose();
+        IsEnabled.Dispose();
         Library = null!;
         Player = null!;
 

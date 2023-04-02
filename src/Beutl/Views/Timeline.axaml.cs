@@ -34,11 +34,7 @@ public sealed partial class Timeline : UserControl
     internal TimeSpan _pointerFrame;
     internal int _pointerLayer;
     private TimelineViewModel? _viewModel;
-    private IDisposable? _disposable0;
-    private IDisposable? _disposable1;
-    private IDisposable? _disposable2;
-    private IDisposable? _disposable3;
-    private IDisposable? _disposable4;
+    private readonly CompositeDisposable _disposables = new();
     private TimelineLayer? _selectedLayer;
     private List<(TimelineLayerViewModel Layer, bool IsSelectedOriginal)> _rangeSelection = new();
 
@@ -54,65 +50,45 @@ public sealed partial class Timeline : UserControl
         TimelinePanel.AddHandler(DragDrop.DragOverEvent, TimelinePanel_DragOver);
         TimelinePanel.AddHandler(DragDrop.DropEvent, TimelinePanel_Drop);
         DragDrop.SetAllowDrop(TimelinePanel, true);
+
+        this.SubscribeDataContextChange<TimelineViewModel>(OnDataContextAttached, OnDataContextDetached);
     }
 
-    internal TimelineViewModel ViewModel => _viewModel!;
-
-    private void GridSplitter_DragDelta(object? sender, VectorEventArgs e)
+    private void OnDataContextDetached(TimelineViewModel obj)
     {
-        ColumnDefinition def = grid.ColumnDefinitions[0];
-        double last = def.ActualWidth + e.Vector.X;
+        _viewModel = null;
 
-        if (last is < 395 and > 385)
-        {
-            def.MaxWidth = 390;
-            def.MinWidth = 390;
-        }
-        else
-        {
-            def.MaxWidth = double.PositiveInfinity;
-            def.MinWidth = 200;
-        }
+        TimelinePanel.Children.RemoveRange(2, TimelinePanel.Children.Count - 2);
+        _selectedLayer = null;
+        _rangeSelection.Clear();
+
+        _disposables.Clear();
     }
 
-    // DataContextが変更された
-    protected override void OnDataContextChanged(EventArgs e)
+    private void OnDataContextAttached(TimelineViewModel vm)
     {
-        base.OnDataContextChanged(e);
-        if (DataContext is TimelineViewModel vm && vm != _viewModel)
+        _viewModel = vm;
+
+        var minHeightBinding = new Binding("Options.Value")
         {
-            if (_viewModel != null)
-            {
-                TimelinePanel.Children.RemoveRange(2, TimelinePanel.Children.Count - 2);
+            Converter = new FuncValueConverter<TimelineOptions, double>(x => x.MaxLayerCount * Helper.LayerHeight)
+        };
+        TimelinePanel[!MinHeightProperty] = minHeightBinding;
+        LeftPanel[!MinHeightProperty] = minHeightBinding;
 
-                _disposable0?.Dispose();
-                _disposable1?.Dispose();
-                _disposable2?.Dispose();
-                _disposable3?.Dispose();
-                _disposable4?.Dispose();
-            }
+        vm.Layers.ForEachItem(
+            AddLayer,
+            RemoveLayer,
+            () => { })
+            .DisposeWith(_disposables);
 
-            _viewModel = vm;
+        vm.Inlines.ForEachItem(
+            OnAddedInline,
+            OnRemovedInline,
+            () => { })
+            .DisposeWith(_disposables);
 
-            var minHeightBinding = new Binding("Options.Value")
-            {
-                Source = ViewModel,
-                Converter = new FuncValueConverter<TimelineOptions, double>(x => x.MaxLayerCount * Helper.LayerHeight)
-            };
-            TimelinePanel[!MinHeightProperty] = minHeightBinding;
-            LeftPanel[!MinHeightProperty] = minHeightBinding;
-
-            _disposable0 = vm.Layers.ForEachItem(
-                AddLayer,
-                RemoveLayer,
-                () => { });
-
-            _disposable4 = vm.Inlines.ForEachItem(
-                OnAddedInline,
-                OnRemovedInline,
-                () => { });
-
-            _disposable1 = ViewModel.Paste.Subscribe(async () =>
+        ViewModel.Paste.Subscribe(async () =>
             {
                 if (Application.Current?.Clipboard is IClipboard clipboard)
                 {
@@ -131,9 +107,10 @@ public sealed partial class Timeline : UserControl
                         ViewModel.Scene.AddChild(layer).DoAndRecord(CommandRecorder.Default);
                     }
                 }
-            });
+            })
+            .DisposeWith(_disposables);
 
-            _disposable2 = ViewModel.EditorContext.SelectedObject.Subscribe(e =>
+        ViewModel.EditorContext.SelectedObject.Subscribe(e =>
             {
                 if (_selectedLayer != null)
                 {
@@ -150,9 +127,10 @@ public sealed partial class Timeline : UserControl
                     viewModel.IsSelected.Value = true;
                     _selectedLayer = newView;
                 }
-            });
+            })
+            .DisposeWith(_disposables);
 
-            _disposable3 = ViewModel.EditorContext.Options.Subscribe(options =>
+        ViewModel.EditorContext.Options.Subscribe(options =>
             {
                 Dispatcher.UIThread.InvokeAsync(() =>
                 {
@@ -160,7 +138,26 @@ public sealed partial class Timeline : UserControl
                     ContentScroll.Offset = new(offset.X, offset.Y);
                     PaneScroll.Offset = new(0, offset.Y);
                 });
-            });
+            })
+            .DisposeWith(_disposables);
+    }
+
+    internal TimelineViewModel ViewModel => _viewModel!;
+
+    private void GridSplitter_DragDelta(object? sender, VectorEventArgs e)
+    {
+        ColumnDefinition def = grid.ColumnDefinitions[0];
+        double last = def.ActualWidth + e.Vector.X;
+
+        if (last is < 395 and > 385)
+        {
+            def.MaxWidth = 390;
+            def.MinWidth = 390;
+        }
+        else
+        {
+            def.MaxWidth = double.PositiveInfinity;
+            def.MinWidth = 200;
         }
     }
 
