@@ -841,34 +841,6 @@ Error:
         string str = StringFormats.ToHumanReadableSize(Math.Abs(deltaBytes));
         str = (deltaBytes >= 0 ? "+" : "-") + str;
 
-        var ev = Avalonia.Utilities.WeakEvents.PropertyChanged;
-        var fi = ev.GetType().GetField("_subscriptions", BindingFlags.NonPublic | BindingFlags.GetField | BindingFlags.Instance);
-        var list = fi?.GetValue(ev) as IEnumerable;
-        foreach (object item in list!)
-        {
-            try
-            {
-                var kpi = item.GetType().GetProperty("Key");
-                if (kpi?.GetValue(item) is IReadOnlyReactiveProperty property)
-                {
-                    if (((dynamic)property).IsDisposed)
-                    {
-                    }
-                    else
-                    {
-
-                    }
-                }
-                else
-                {
-
-                }
-            }
-            catch
-            {
-            }
-        }
-
         _notificationService.Show(new Notification(
             "結果",
             $"""
