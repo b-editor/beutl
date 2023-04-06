@@ -4,9 +4,11 @@ namespace Beutl.Framework.Services;
 
 public interface IProjectService
 {
+    BeutlApplication Application { get; }
+
     IObservable<(Project? New, Project? Old)> ProjectObservable { get; }
 
-    IReactiveProperty<Project?> CurrentProject { get; }
+    IReadOnlyReactiveProperty<Project?> CurrentProject { get; }
 
     IReadOnlyReactiveProperty<bool> IsOpened { get; }
 

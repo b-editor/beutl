@@ -13,7 +13,7 @@ using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 
 namespace Beutl.ProjectSystem;
 
-public class Scene : ProjectItem, IHierarchicalRoot
+public class Scene : ProjectItem
 {
     public static readonly CoreProperty<int> WidthProperty;
     public static readonly CoreProperty<int> HeightProperty;

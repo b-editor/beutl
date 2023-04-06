@@ -15,7 +15,7 @@ public static class ProjectVariableKeys
 }
 
 // Todo: IResourceProviderを実装
-public sealed class Project : Hierarchical, IStorable, IHierarchicalRoot
+public sealed class Project : Hierarchical, IStorable
 {
     public static readonly CoreProperty<Version> AppVersionProperty;
     public static readonly CoreProperty<Version> MinAppVersionProperty;

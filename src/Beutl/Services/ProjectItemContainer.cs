@@ -11,6 +11,7 @@ namespace Beutl.Services;
 public sealed class ProjectItemContainer : IProjectItemContainer
 {
     private readonly List<WeakReference<ProjectItem>> _items = new();
+    private readonly BeutlApplication _application = ServiceLocator.Current.GetRequiredService<BeutlApplication>();
 
     public bool IsCreated(string file)
     {
@@ -97,6 +98,7 @@ public sealed class ProjectItemContainer : IProjectItemContainer
 
     public void Add(ProjectItem item)
     {
+        _application.Items.Add(item);
         foreach (WeakReference<ProjectItem> wref in _items)
         {
             if (!wref.TryGetTarget(out _))

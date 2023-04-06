@@ -394,6 +394,8 @@ public sealed class MainViewModel : BasePageViewModel
 
     public override void Dispose()
     {
+        _projectService.CloseProject();
+        _projectService.Application.Items.Clear();
     }
 
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)

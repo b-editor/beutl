@@ -61,7 +61,7 @@ public sealed partial class MainWindow : AppWindow
         base.OnClosing(e);
         if (DataContext is MainViewModel viewModel)
         {
-            viewModel.CloseProject.Execute();
+            viewModel.Dispose();
         }
     }
 

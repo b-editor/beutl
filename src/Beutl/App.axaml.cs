@@ -91,6 +91,7 @@ public sealed class App : Application
             .BindToSelfSingleton<EditorService>()
             .BindToSelfSingleton<OutputService>()
             .BindToSelfSingleton<HttpClient>()
+            .BindToSelfSingleton<BeutlApplication>()
             .Bind<IPropertyEditorExtensionImpl>().ToSingleton<PropertyEditorService.PropertyEditorExtensionImpl>()
             .BindToSelf<IProjectItemContainer>(new ProjectItemContainer())
             .BindToSelf<IProjectService>(new ProjectService())

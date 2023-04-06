@@ -5,6 +5,7 @@ public class HierarchicalList<T> : CoreList<T>
 {
     public HierarchicalList(IModifiableHierarchical parent)
     {
+        ResetBehavior = ResetBehavior.Remove;
         Parent = parent;
         Attached += item => parent.AddChild(item);
         Detached += item => parent.RemoveChild(item);
