@@ -34,7 +34,7 @@ public partial class InlineAnimationLayer : UserControl
     private void OnDrap(object? sender, DragEventArgs e)
     {
         if (e.Data.Get("Easing") is Easing easing
-            && DataContext is InlineAnimationLayerViewModel { Timeline: { Options.Value.Scale: { } scale, Scene:{ }scene } } viewModel)
+            && DataContext is InlineAnimationLayerViewModel { Timeline: { Options.Value.Scale: { } scale, Scene: { } scene } } viewModel)
         {
             Project? proj = scene.FindHierarchicalParent<Project>();
             int rate = proj?.GetFrameRate() ?? 30;
@@ -81,11 +81,11 @@ public partial class InlineAnimationLayer : UserControl
 
     private void OnDataContextAttached(InlineAnimationLayerViewModel obj)
     {
-        obj.AnimationRequested = async (margin, token) =>
+        obj.AnimationRequested = async (margin, leftMargin, token) =>
         {
             await Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                var animation = new Avalonia.Animation.Animation
+                var animation1 = new Avalonia.Animation.Animation
                 {
                     Easing = new Avalonia.Animation.Easings.SplineEasing(0.1, 0.9, 0.2, 1.0),
                     Duration = TimeSpan.FromSeconds(0.25),
@@ -110,8 +110,35 @@ public partial class InlineAnimationLayer : UserControl
                         }
                     }
                 };
+                var animation2 = new Avalonia.Animation.Animation
+                {
+                    Easing = new Avalonia.Animation.Easings.SplineEasing(0.1, 0.9, 0.2, 1.0),
+                    Duration = TimeSpan.FromSeconds(0.25),
+                    FillMode = FillMode.Forward,
+                    Children =
+                    {
+                        new KeyFrame()
+                        {
+                            Cue = new Cue(0),
+                            Setters =
+                            {
+                                new Setter(MarginProperty, items.Margin)
+                            }
+                        },
+                        new KeyFrame()
+                        {
+                            Cue = new Cue(1),
+                            Setters =
+                            {
+                                new Setter(MarginProperty, leftMargin)
+                            }
+                        }
+                    }
+                };
 
-                await animation.RunAsync(this, null, token);
+                Task task1 = animation1.RunAsync(this, null, token);
+                Task task2 = animation2.RunAsync(items, null, token);
+                await Task.WhenAll(task1, task2);
             });
         };
     }

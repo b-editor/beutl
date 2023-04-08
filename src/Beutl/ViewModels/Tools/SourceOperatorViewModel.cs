@@ -11,12 +11,14 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Tools;
 
-public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContextVisitor, IProvideEditViewModel
+public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider
 {
-    public SourceOperatorViewModel(SourceOperator model, EditViewModel editViewModel)
+    private SourceOperatorsTabViewModel _parent;
+
+    public SourceOperatorViewModel(SourceOperator model, SourceOperatorsTabViewModel parent)
     {
         Model = model;
-        EditViewModel = editViewModel;
+        _parent = parent;
         IsEnabled = model.GetObservable(SourceOperator.IsEnabledProperty)
             .ToReactiveProperty();
         IsEnabled.Subscribe(v => Model.IsEnabled = v);
@@ -38,8 +40,6 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
     }
 
     public SourceOperator Model { get; private set; }
-
-    public EditViewModel EditViewModel { get; private set; }
 
     public ReactiveProperty<bool> IsExpanded { get; } = new(true);
 
@@ -108,7 +108,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
         IsEnabled.Dispose();
 
         Model = null!;
-        EditViewModel = null!;
+        _parent = null!;
     }
 
     private void Init()
@@ -143,5 +143,13 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
     public void Visit(IPropertyEditorContext context)
     {
+    }
+
+    public object? GetService(Type serviceType)
+    {
+        if (serviceType == typeof(SourceOperator))
+            return Model;
+
+        return _parent.GetService(serviceType);
     }
 }

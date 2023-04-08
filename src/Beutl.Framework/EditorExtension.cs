@@ -13,7 +13,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Framework;
 
-public interface IEditorContext : IDisposable
+public interface IEditorContext : IDisposable, IServiceProvider
 {
     EditorExtension Extension { get; }
 

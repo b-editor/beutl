@@ -1,4 +1,5 @@
 ﻿using Beutl.Commands;
+using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes;
 using Beutl.ProjectSystem;
 
@@ -6,13 +7,15 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.NodeTree;
 
-public sealed class NodeTreeInputViewModel : IDisposable
+public sealed class NodeTreeInputViewModel : IDisposable, IServiceProvider
 {
     private readonly CompositeDisposable _disposables = new();
+    private NodeTreeInputTabViewModel _parent;
 
-    public NodeTreeInputViewModel(Layer layer)
+    public NodeTreeInputViewModel(Layer layer, NodeTreeInputTabViewModel parent)
     {
         Model = layer;
+        _parent = parent;
 
         UseNode = layer.GetObservable(Layer.UseNodeProperty)
             .ToReactiveProperty()
@@ -30,7 +33,7 @@ public sealed class NodeTreeInputViewModel : IDisposable
                 if (item is LayerInputNode layerInput)
                 {
                     int idx = ConvertFromOriginalIndex(originalIdx);
-                    Items.Insert(idx, new NodeInputViewModel(layerInput, originalIdx, Model.NodeTree));
+                    Items.Insert(idx, new NodeInputViewModel(layerInput, originalIdx, this));
 
                     for (int i = idx; i < Items.Count; i++)
                     {
@@ -120,5 +123,14 @@ public sealed class NodeTreeInputViewModel : IDisposable
 
         Items.Clear();
         _disposables.Dispose();
+        _parent = null!;
+    }
+
+    public object? GetService(Type serviceType)
+    {
+        if (serviceType.IsAssignableTo(typeof(NodeTreeSpace)))
+            return Model.NodeTree;
+
+        return _parent.GetService(serviceType);
     }
 }

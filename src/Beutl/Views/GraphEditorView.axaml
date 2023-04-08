@@ -106,6 +106,19 @@
                                 </DataTemplate>
                             </MenuItem.DataTemplates>
                         </MenuItem>
+                        <MenuItem Classes.checked="{Binding UseGlobalClock.Value}"
+                                  Click="UseGlobalClock_Click"
+                                  Header="グローバル時計を使う">
+                            <MenuItem.Styles>
+                                <Style Selector="MenuItem.checked">
+                                    <Setter Property="Icon">
+                                        <Template>
+                                            <ui:SymbolIcon Symbol="Checkmark" />
+                                        </Template>
+                                    </Setter>
+                                </Style>
+                            </MenuItem.Styles>
+                        </MenuItem>
                     </ContextMenu>
                 </Panel.ContextMenu>
 
@@ -121,8 +134,10 @@
 
                 <!--  Vector, Pointなど複数の値を持つ型のためにビューを分ける  -->
                 <ItemsControl x:Name="views"
+                              Margin="{Binding Margin.Value}"
                               HorizontalAlignment="Stretch"
                               VerticalAlignment="Stretch"
+                              ClipToBounds="False"
                               Items="{Binding Views}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -141,6 +156,7 @@
                                 <!--  イージングの線  -->
                                 <ItemsControl HorizontalAlignment="Left"
                                               VerticalAlignment="Stretch"
+                                              ClipToBounds="False"
                                               Items="{Binding KeyFrames}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>

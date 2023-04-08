@@ -32,7 +32,7 @@ public partial class InlineAnimationLayerHeader : UserControl
         {
             // タイムラインのタブを開く
             var anmTimelineViewModel = new GraphEditorTabViewModel();
-            anmTimelineViewModel.SelectedAnimation.Value = new GraphEditorViewModel(editViewModel, kfAnimation);
+            anmTimelineViewModel.SelectedAnimation.Value = new GraphEditorViewModel(editViewModel, kfAnimation, viewModel.Layer.Model);
             editViewModel.OpenToolTab(anmTimelineViewModel);
         }
     }

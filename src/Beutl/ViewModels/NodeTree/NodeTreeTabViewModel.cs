@@ -73,7 +73,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
             {
                 NodeTree.Value = new NodeTreeViewModel(v.NodeTree);
                 IObservable<string> name = v.GetObservable(CoreObject.NameProperty);
-                IObservable<string> fileName = v.GetObservable(ProjectSystem.Layer.FileNameProperty)
+                IObservable<string> fileName = v.GetObservable(ProjectItem.FileNameProperty)
                     .Select(x => Path.GetFileNameWithoutExtension(x));
 
                 Items.Add(new NodeTreeNavigationItem(
@@ -214,5 +214,13 @@ public sealed class NodeTreeTabViewModel : IToolContext
         {
             json["layer-filename"] = filename;
         }
+    }
+
+    public object? GetService(Type serviceType)
+    {
+        if (serviceType == typeof(Layer))
+            return Layer.Value;
+
+        return _editViewModel.GetService(serviceType);
     }
 }

@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Threading;
 
 using Beutl.Animation;
+using Beutl.Commands;
 using Beutl.ProjectSystem;
 
 using Reactive.Bindings;
@@ -16,12 +17,28 @@ public sealed class GraphEditorViewModel : IDisposable
     private readonly CompositeDisposable _disposables = new();
     private readonly EditViewModel _editViewModel;
     private readonly GraphEditorViewViewModelFactory[] _factories;
+    private Layer? _layer;
     private bool _editting;
 
-    public GraphEditorViewModel(EditViewModel editViewModel, IKeyFrameAnimation animation)
+    public GraphEditorViewModel(EditViewModel editViewModel, IKeyFrameAnimation animation, Layer? layer)
     {
         _editViewModel = editViewModel;
+        _layer = layer;
         Animation = animation;
+
+        UseGlobalClock = ((CoreObject)animation).GetObservable(KeyFrameAnimation.UseGlobalClockProperty)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        Margin = UseGlobalClock.Select(v => !v
+            ? _layer?.GetObservable(Layer.StartProperty)
+                .CombineLatest(Options)
+                .Select(item => new Thickness(item.First.ToPixel(item.Second.Scale), 0, 0, 0))
+            : null)
+            .Select(v => v ?? Observable.Return<Thickness>(default))
+            .Switch()
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
 
         PanelWidth = Scene.GetObservable(Scene.DurationProperty)
             .CombineLatest(editViewModel.Scale)
@@ -70,6 +87,10 @@ public sealed class GraphEditorViewModel : IDisposable
     // Zeroの位置
     public ReactivePropertySlim<double> Baseline { get; } = new();
 
+    public ReadOnlyReactivePropertySlim<bool> UseGlobalClock { get; }
+
+    public ReadOnlyReactivePropertySlim<Thickness> Margin { get; }
+
     public ReadOnlyReactivePropertySlim<double> PanelWidth { get; }
 
     public ReadOnlyReactivePropertySlim<Thickness> SeekBarMargin { get; }
@@ -93,6 +114,14 @@ public sealed class GraphEditorViewModel : IDisposable
     {
         _editting = false;
         CalculateMaxHeight();
+    }
+
+    public void UpdateUseGlobalClock(bool value)
+    {
+        var command = new ChangePropertyCommand<bool>(
+            (ICoreObject)Animation, KeyFrameAnimation.UseGlobalClockProperty, value, UseGlobalClock.Value);
+
+        command.DoAndRecord(CommandRecorder.Default);
     }
 
     private void OnItemVerticalRangeChanged(object? sender, EventArgs e)
@@ -133,5 +162,7 @@ public sealed class GraphEditorViewModel : IDisposable
             item.VerticalRangeChanged -= OnItemVerticalRangeChanged;
             item.Dispose();
         }
+
+        _layer = null;
     }
 }

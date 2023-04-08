@@ -48,10 +48,9 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     {
         _accepted = false;
 
-        EditViewModel? editViewModel = GetEditViewModel();
-        if (obj != null && editViewModel != null)
+        if (obj != null)
         {
-            var visitor = new Visitor(editViewModel);
+            var visitor = new Visitor(this);
             foreach (IPropertyEditorContext item in obj.Properties)
             {
                 item.Accept(visitor);
@@ -92,19 +91,19 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
-        if (visitor is IProvideEditViewModel && !_accepted)
+        if (visitor is IServiceProvider && !_accepted)
         {
             AcceptChildren(ChildContext.Value);
         }
     }
 
-    private EditViewModel? GetEditViewModel()
+    private sealed record Visitor(BrushEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
     {
-        return ((IProvideEditViewModel)this).EditViewModel;
-    }
+        public object? GetService(Type serviceType)
+        {
+            return Obj.GetService(serviceType);
+        }
 
-    private sealed record Visitor(EditViewModel EditViewModel) : IProvideEditViewModel, IPropertyEditorContextVisitor
-    {
         public void Visit(IPropertyEditorContext context)
         {
         }

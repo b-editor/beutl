@@ -24,8 +24,10 @@
                 BorderThickness="1,0" />
 
         <ItemsControl x:Name="items"
+                      Margin="{Binding LeftMargin.Value}"
                       HorizontalAlignment="Left"
                       VerticalAlignment="Stretch"
+                      ClipToBounds="False"
                       Items="{CompiledBinding Items}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>

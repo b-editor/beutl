@@ -231,7 +231,7 @@ public sealed class TimelineLayerViewModel : IDisposable
         Margin.Value = oldMargin;
 
         foreach (var (item, context) in inlines)
-            item.AnimationRequest(context, newMargin, cancellationToken);
+            item.AnimationRequest(context, newMargin, BorderMargin.Value, cancellationToken);
 
         await AnimationRequested((newMargin, BorderMargin.Value, Width.Value), cancellationToken);
         Margin.Value = newMargin;
@@ -249,7 +249,7 @@ public sealed class TimelineLayerViewModel : IDisposable
 
         foreach (var (item, inlineContext) in context.Inlines)
         {
-            item.AnimationRequest(inlineContext, margin, cancellationToken);
+            item.AnimationRequest(inlineContext, margin, borderMargin, cancellationToken);
         }
 
         await AnimationRequested((margin, borderMargin, width), cancellationToken);

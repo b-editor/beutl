@@ -88,7 +88,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                 new GraphEditorViewViewModel(
                     parent,
                     "<#= t.FieldY #>",
-                    obj => ConvertTo(0, obj),
+                    obj => ConvertTo(1, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj))
             };
         }

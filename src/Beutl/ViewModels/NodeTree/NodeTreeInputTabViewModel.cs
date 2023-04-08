@@ -1,29 +1,21 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.Json.Nodes;
-using System.Threading.Tasks;
+﻿using System.Text.Json.Nodes;
 
-using Beutl.Collections;
 using Beutl.Framework;
-using Beutl.NodeTree;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
-
-using ReactiveUI;
 
 namespace Beutl.ViewModels.NodeTree;
 
 public sealed class NodeTreeInputTabViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposables = new();
+    private EditViewModel _editViewModel;
 
     public NodeTreeInputTabViewModel(EditViewModel editViewModel)
     {
+        _editViewModel = editViewModel;
         Layer = editViewModel.SelectedObject
             .Select(x => x as Layer)
             .ToReactiveProperty()
@@ -36,7 +28,7 @@ public sealed class NodeTreeInputTabViewModel : IToolContext
                 InnerViewModel.Value = null;
                 if (obj.NewValue is Layer newValue)
                 {
-                    InnerViewModel.Value = new NodeTreeInputViewModel(newValue);
+                    InnerViewModel.Value = new NodeTreeInputViewModel(newValue, this);
                 }
             })
             .DisposeWith(_disposables);
@@ -61,6 +53,15 @@ public sealed class NodeTreeInputTabViewModel : IToolContext
         InnerViewModel.Value?.Dispose();
         InnerViewModel.Value = null;
         Layer.Value = null;
+        _editViewModel = null!;
+    }
+
+    public object? GetService(Type serviceType)
+    {
+        if (serviceType == typeof(Layer))
+            return Layer.Value;
+
+        return _editViewModel.GetService(serviceType);
     }
 
     public void ReadFromJson(JsonNode json)

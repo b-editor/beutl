@@ -12,17 +12,19 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.NodeTree;
 
-public sealed class NodeInputViewModel : IDisposable
+public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider
 {
     private readonly CompositeDisposable _disposables = new();
-    private readonly NodeTreeSpace _nodeTree;
     private readonly string _defaultName;
+    private NodeTreeSpace _nodeTree;
+    private NodeTreeInputViewModel _parent;
 
-    public NodeInputViewModel(LayerInputNode node, int originalIndex, NodeTreeSpace nodeTree)
+    public NodeInputViewModel(LayerInputNode node, int originalIndex, NodeTreeInputViewModel parent)
     {
         Node = node;
         OriginalIndex = originalIndex;
-        _nodeTree = nodeTree;
+        _parent = parent;
+        _nodeTree = parent.Model.NodeTree;
 
         Type nodeType = node.GetType();
         if (NodeRegistry.FindItem(nodeType) is { } regItem)
@@ -82,6 +84,9 @@ public sealed class NodeInputViewModel : IDisposable
         }
         Properties.Clear();
         _disposables.Dispose();
+
+        _parent = null!;
+        _nodeTree = null!;
     }
 
     private void InitializeProperties()
@@ -144,7 +149,7 @@ public sealed class NodeInputViewModel : IDisposable
         }
     }
 
-    private static IPropertyEditorContext? CreatePropertyContext(CoreProperty[] ctmp, IAbstractProperty[] atmp, INodeItem item)
+    private IPropertyEditorContext? CreatePropertyContext(CoreProperty[] ctmp, IAbstractProperty[] atmp, INodeItem item)
     {
         IPropertyEditorContext? context = null;
         if (item is LayerInputNode.ILayerInputSocket socket)
@@ -156,9 +161,23 @@ public sealed class NodeInputViewModel : IDisposable
                 atmp[0] = aproperty;
                 (_, PropertyEditorExtension ext) = PropertyEditorService.MatchProperty(ctmp);
                 ext?.TryCreateContext(atmp, out context);
+
+                context?.Accept(this);
             }
         }
 
         return context;
+    }
+
+    public object? GetService(Type serviceType)
+    {
+        if (serviceType.IsAssignableTo(typeof(LayerInputNode)))
+            return Node;
+
+        return _parent.GetService(serviceType);
+    }
+
+    public void Visit(IPropertyEditorContext context)
+    {
     }
 }

@@ -7,14 +7,13 @@ using Avalonia;
 
 using Beutl.Framework;
 using Beutl.Models;
+using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Reactive;
 using Beutl.Services.PrimitiveImpls;
-using Beutl.Operation;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-using Beutl.Operators.Handler;
 
 namespace Beutl.ViewModels;
 
@@ -276,6 +275,11 @@ public sealed class TimelineViewModel : IToolContext
     internal void RaiseLayerHeightChanged(LayerHeaderViewModel value)
     {
         _layerHeightChanged.OnNext(value);
+    }
+
+    public object? GetService(Type serviceType)
+    {
+        return EditorContext.GetService(serviceType);
     }
 
     private sealed class TrackedLayerTopObservable : LightweightObservableBase<double>

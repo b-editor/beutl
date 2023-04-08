@@ -50,7 +50,8 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Left = _previous.Select(x => x?.Right ?? Observable.Return(0d))
+        Left = _previous
+            .Select(x => x?.Right ?? _parent.Parent.Margin.Select(x => -x.Left))
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);

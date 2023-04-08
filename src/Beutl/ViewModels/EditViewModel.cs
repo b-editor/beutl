@@ -365,6 +365,17 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         }
     }
 
+    public object? GetService(Type serviceType)
+    {
+        if (serviceType == typeof(Scene))
+            return Scene;
+
+        if (serviceType.IsAssignableTo(typeof(IEditorContext)))
+            return this;
+
+        return null;
+    }
+
     private sealed class KnownCommandsImpl : IKnownEditorCommands
     {
         private readonly Scene _scene;

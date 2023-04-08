@@ -40,7 +40,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
             {
                 _disposable1?.Dispose();
 
-                Items.AddRange(layer.Operation.Children.Select(x => new SourceOperatorViewModel(x, _editViewModel)));
+                Items.AddRange(layer.Operation.Children.Select(x => new SourceOperatorViewModel(x, this)));
                 _disposable1 = layer.Operation.Children.CollectionChangedAsObservable()
                     .Subscribe(e =>
                     {
@@ -58,7 +58,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
                             case NotifyCollectionChangedAction.Add:
                                 Items.InsertRange(e.NewStartingIndex, e.NewItems!
                                     .Cast<SourceOperator>()
-                                    .Select(x => new SourceOperatorViewModel(x, _editViewModel)));
+                                    .Select(x => new SourceOperatorViewModel(x, this)));
                                 break;
 
                             case NotifyCollectionChangedAction.Move:
@@ -81,7 +81,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
 
                                 Items.InsertRange(newIndex, e.NewItems!
                                     .Cast<SourceOperator>()
-                                    .Select(x => new SourceOperatorViewModel(x, _editViewModel)));
+                                    .Select(x => new SourceOperatorViewModel(x, this)));
                                 break;
 
                             case NotifyCollectionChangedAction.Remove:
@@ -203,5 +203,13 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
 
     public void WriteToJson(ref JsonNode json)
     {
+    }
+
+    public object? GetService(Type serviceType)
+    {
+        if (serviceType == typeof(Layer))
+            return Layer.Value;
+
+        return _editViewModel.GetService(serviceType);
     }
 }

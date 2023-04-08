@@ -6,7 +6,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Framework;
 
-public interface IToolContext : IDisposable, IJsonSerializable
+public interface IToolContext : IDisposable, IJsonSerializable, IServiceProvider
 {
     ToolTabExtension Extension { get; }
 

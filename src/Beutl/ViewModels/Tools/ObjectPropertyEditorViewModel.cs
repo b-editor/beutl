@@ -134,4 +134,9 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
     public void WriteToJson(ref JsonNode json)
     {
     }
+
+    public object? GetService(Type serviceType)
+    {
+        return _viewModel.GetService(serviceType);
+    }
 }

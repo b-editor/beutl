@@ -133,4 +133,12 @@ public sealed class StyleEditorViewModel : IToolContext
     public void WriteToJson(ref JsonNode json)
     {
     }
+
+    public object? GetService(Type serviceType)
+    {
+        if (serviceType == typeof(Style))
+            return Style.Value;
+
+        return EditorContext.GetService(serviceType);
+    }
 }

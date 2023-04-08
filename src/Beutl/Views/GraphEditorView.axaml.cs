@@ -461,4 +461,12 @@ public partial class GraphEditorView : UserControl
             viewModel.SelectedView.Value = itemViewModel;
         }
     }
+
+    private void UseGlobalClock_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is GraphEditorViewModel viewModel)
+        {
+            viewModel.UpdateUseGlobalClock(!viewModel.UseGlobalClock.Value);
+        }
+    }
 }
