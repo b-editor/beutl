@@ -50,14 +50,7 @@ internal sealed class SceneRenderer :
 
         foreach (Layer layer in layers)
         {
-            if (layer.UseNode)
-            {
-                layer.NodeTree.Evaluate(this, layer);
-            }
-            else
-            {
-                layer.Operation.Evaluate(this, layer, _unhandleds);
-            }
+            layer.Evaluate(this, _unhandleds);
         }
 
         base.RenderGraphicsCore();

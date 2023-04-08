@@ -17,7 +17,19 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
 
     public override void ApplyAnimation(Animatable target, IClock clock)
     {
-        target.SetValue(Property, Interpolate(clock.CurrentTime));
+        if (UseGlobalClock)
+        {
+            target.SetValue(Property, Interpolate(clock.GlobalClock.CurrentTime));
+        }
+        else
+        {
+            target.SetValue(Property, Interpolate(clock.CurrentTime));
+        }
+    }
+
+    public T GetAnimatedValue(IClock clock)
+    {
+        return Interpolate(UseGlobalClock ? clock.GlobalClock.CurrentTime : clock.CurrentTime);
     }
 
     public T Interpolate(TimeSpan timeSpan)

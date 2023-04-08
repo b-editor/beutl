@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 
 using Avalonia.Collections.Pooled;
 
+using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -100,7 +101,7 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
 
         layer.Span.Value.Clear();
 
-        Initialize(renderer);
+        Initialize(renderer, layer.Clock);
         if (_contexts != null)
         {
             if (!layer.AllowOutflow)
@@ -131,8 +132,8 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
 
             foreach (Renderable item in layer.Span.Value.GetMarshal().Value)
             {
-                item.ApplyStyling(renderer.Clock);
-                item.ApplyAnimations(renderer.Clock);
+                item.ApplyStyling(layer.Clock);
+                item.ApplyAnimations(layer.Clock);
                 item.IsVisible = layer.IsEnabled;
                 while (item.BatchUpdate)
                 {
@@ -181,7 +182,7 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
         }
     }
 
-    private void Initialize(IRenderer renderer)
+    private void Initialize(IRenderer renderer, IClock clock)
     {
         if (_isDirty)
         {
@@ -193,7 +194,7 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
             {
                 contexts[index++] = new OperatorEvaluationContext(item)
                 {
-                    Clock = renderer.Clock,
+                    Clock = clock,
                     Renderer = renderer,
                     List = _contexts
                 };

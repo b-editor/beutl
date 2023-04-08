@@ -48,7 +48,7 @@ public class LayerNodeTreeModel : NodeTreeSpace
 
     public void Evaluate(IRenderer renderer, Layer layer)
     {
-        Build(renderer);
+        Build(renderer, layer.Clock);
         using var list = new PooledList<Renderable>();
 
         foreach (NodeEvaluationContext[]? item in CollectionsMarshal.AsSpan(_evalContexts))
@@ -79,7 +79,7 @@ public class LayerNodeTreeModel : NodeTreeSpace
         _evalContexts.Clear();
     }
 
-    private void Build(IRenderer renderer)
+    private void Build(IRenderer renderer, IClock clock)
     {
         if (_isDirty)
         {
@@ -96,7 +96,7 @@ public class LayerNodeTreeModel : NodeTreeSpace
                 _evalContexts.Add(array);
                 foreach (NodeEvaluationContext item in array)
                 {
-                    item.Clock = renderer.Clock;
+                    item.Clock = clock;
                     item.Renderer = renderer;
                     item.List = array;
                     item.Node.InitializeForContext(item);

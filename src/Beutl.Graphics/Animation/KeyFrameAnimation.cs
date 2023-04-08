@@ -1,10 +1,21 @@
-﻿using Beutl.Media;
+﻿using System.ComponentModel;
+
+using Beutl.Media;
 
 namespace Beutl.Animation;
 
 public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
 {
+    public static readonly CoreProperty<bool> UseGlobalClockProperty;
     private CoreProperty _property;
+    private bool _useGlobalClock;
+
+    static KeyFrameAnimation()
+    {
+        UseGlobalClockProperty = ConfigureProperty<bool, KeyFrameAnimation>(nameof(UseGlobalClock))
+            .Accessor(o => o.UseGlobalClock, (o, v) => o.UseGlobalClock = v)
+            .Register();
+    }
 
     public KeyFrameAnimation(CoreProperty property)
     {
@@ -90,6 +101,12 @@ public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
         obj.Invalidated -= OnKeyFrameInvalidated;
     }
 
+    public bool UseGlobalClock
+    {
+        get => _useGlobalClock;
+        set => SetAndRaise(UseGlobalClockProperty, ref _useGlobalClock, value);
+    }
+
     public KeyFrames KeyFrames { get; } = new();
 
     public CoreProperty Property
@@ -100,7 +117,7 @@ public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
             _property = value;
             foreach (IKeyFrame item in KeyFrames)
             {
-                if(item is KeyFrame keyFrame)
+                if (item is KeyFrame keyFrame)
                 {
                     keyFrame.Property = _property;
                 }
@@ -123,5 +140,14 @@ public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
     public (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(TimeSpan timeSpan)
     {
         return KeyFrames.GetPreviousAndNextKeyFrame(timeSpan);
+    }
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        base.OnPropertyChanged(args);
+        if (args.PropertyName is nameof(UseGlobalClock))
+        {
+            Invalidated?.Invoke(this, new(this));
+        }
     }
 }

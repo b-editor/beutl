@@ -12,7 +12,6 @@ public abstract class Sound : Renderable
     public static readonly CoreProperty<float> GainProperty;
     public static readonly CoreProperty<ISoundEffect?> EffectProperty;
     private float _gain = 1;
-    private RenderLayerSpan? _layerSpan;
     private TimeRange _range;
     private TimeSpan _offset;
     private ISoundEffect? _effect;
@@ -81,7 +80,6 @@ public abstract class Sound : Renderable
 
     public override void Render(IRenderer renderer)
     {
-        UpdateTime(renderer.Clock);
         Record(renderer.Audio);
     }
 
@@ -121,50 +119,33 @@ public abstract class Sound : Renderable
 
     protected abstract TimeSpan TimeCore(TimeSpan available);
 
-    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-        base.OnAttachedToHierarchy(args);
-        _layerSpan = this.FindHierarchicalParent<RenderLayerSpan>();
-    }
-
-    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-        base.OnDetachedFromHierarchy(args);
-        _layerSpan = null;
-    }
-
     private void UpdateTime(IClock clock)
     {
-        if (_layerSpan != null)
+        TimeSpan start = clock.AudioStartTime;
+        TimeSpan length;
+
+        if (start < TimeSpan.Zero)
         {
-            TimeSpan currentTime = clock.AudioStartTime;
-
-            TimeSpan start = currentTime - _layerSpan.Start;
-            TimeSpan length;
-
-            if (start < TimeSpan.Zero)
-            {
-                _offset = start.Negate();
-                length = s_second + start;
-                start = TimeSpan.Zero;
-            }
-            else
-            {
-                _offset = TimeSpan.Zero;
-                length = _layerSpan.Range.End - start;
-                if (length > s_second)
-                {
-                    length = s_second;
-                }
-            }
-
-            if (_range.Start > start)
-            {
-                InvalidateEffectProcessor();
-            }
-
-            _range = new TimeRange(start, length);
+            _offset = start.Negate();
+            length = s_second + start;
+            start = TimeSpan.Zero;
         }
+        else
+        {
+            _offset = TimeSpan.Zero;
+            length = clock.BeginTime + clock.DurationTime - start;
+            if (length > s_second)
+            {
+                length = s_second;
+            }
+        }
+
+        if (_range.Start > start)
+        {
+            InvalidateEffectProcessor();
+        }
+
+        _range = new TimeRange(start, length);
     }
 
     public override void ApplyAnimations(IClock clock)

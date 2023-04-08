@@ -72,7 +72,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             {
                 if (property is IAbstractAnimatableProperty<T> { Animation: IAnimation<T> animation })
                 {
-                    Value = animation.Interpolate(context.Clock.CurrentTime);
+                    Value = animation.GetAnimatedValue(context.Clock);
                 }
                 else
                 {

@@ -6,6 +6,7 @@ using System.Reactive.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
 
+using Beutl.Animation;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeTree;
@@ -26,6 +27,7 @@ public class Layer : ProjectItem
     public static readonly CoreProperty<SourceOperation> OperationProperty;
     public static readonly CoreProperty<LayerNodeTreeModel> NodeTreeProperty;
     public static readonly CoreProperty<bool> UseNodeProperty;
+    private readonly InstanceClock _instanceClock = new();
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
@@ -228,6 +230,8 @@ public class Layer : ProjectItem
         set => SetAndRaise(UseNodeProperty, ref _useNode, value);
     }
 
+    public IClock Clock => _instanceClock;
+
     protected override void SaveCore(string filename)
     {
         this.JsonSave(filename);
@@ -271,6 +275,23 @@ public class Layer : ProjectItem
             JsonNode nodeTreeNode = new JsonObject();
             NodeTree.WriteToJson(ref nodeTreeNode);
             jobject[nameof(NodeTree)] = nodeTreeNode;
+        }
+    }
+
+    public void Evaluate(IRenderer renderer, List<Renderable> unhandleds)
+    {
+        _instanceClock.GlobalClock = renderer.Clock;
+        _instanceClock.BeginTime = Start;
+        _instanceClock.DurationTime = Length;
+        _instanceClock.CurrentTime = renderer.Clock.CurrentTime - Start;
+        _instanceClock.AudioStartTime = renderer.Clock.AudioStartTime - Start;
+        if (UseNode)
+        {
+            NodeTree.Evaluate(renderer, this);
+        }
+        else
+        {
+            Operation.Evaluate(renderer, this, unhandleds);
         }
     }
 

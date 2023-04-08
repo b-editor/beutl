@@ -60,7 +60,7 @@ public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
         {
             if (property is IAbstractAnimatableProperty<T> { Animation: IAnimation<T> animation })
             {
-                Value = animation.Interpolate(context.Clock.CurrentTime);
+                Value = animation.GetAnimatedValue(context.Clock);
             }
             else
             {
