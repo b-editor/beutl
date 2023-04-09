@@ -82,7 +82,7 @@ public sealed class SetterPropertyImpl<T> : IAbstractAnimatableProperty<T>
         Setter.Value = value;
     }
 
-    public void WriteToJson(ref JsonNode json)
+    public void WriteToJson(JsonObject json)
     {
         json[nameof(Property)] = Property.Name;
         json["Target"] = TypeFormat.ToString(ImplementedType);
@@ -90,22 +90,19 @@ public sealed class SetterPropertyImpl<T> : IAbstractAnimatableProperty<T>
         json[nameof(Setter)] = StyleSerializer.ToJson(Setter, ImplementedType).Item2;
     }
 
-    public void ReadFromJson(JsonNode json)
+    public void ReadFromJson(JsonObject json)
     {
-        if (json is JsonObject obj)
+        if (json.TryGetPropertyValue(nameof(Setter), out JsonNode? setterNode)
+            && setterNode != null)
         {
-            if (obj.TryGetPropertyValue(nameof(Setter), out JsonNode? setterNode)
-                && setterNode != null)
+            if (StyleSerializer.ToSetter(setterNode, Property.Name, ImplementedType) is Setter<T> setter)
             {
-                if (StyleSerializer.ToSetter(setterNode, Property.Name, ImplementedType) is Setter<T> setter)
+                if (setter.Animation != null)
                 {
-                    if (setter.Animation != null)
-                    {
-                        Setter.Animation = setter.Animation;
-                    }
-
-                    Setter.Value = setter.Value;
+                    Setter.Animation = setter.Animation;
                 }
+
+                Setter.Value = setter.Value;
             }
         }
     }

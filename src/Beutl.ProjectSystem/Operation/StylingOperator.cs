@@ -167,11 +167,10 @@ public abstract class StylingOperator : SourceOperator
         RaiseInvalidated(new RenderInvalidatedEventArgs(this, nameof(Style)));
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject obj
-            && obj.TryGetPropertyValue(nameof(Style), out JsonNode? styleNode)
+        if (json.TryGetPropertyValue(nameof(Style), out JsonNode? styleNode)
             && styleNode is JsonObject styleObj)
         {
             var style = StyleSerializer.ToStyle(styleObj);
@@ -184,13 +183,10 @@ public abstract class StylingOperator : SourceOperator
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
-        if (json is JsonObject obj)
-        {
-            obj[nameof(Style)] = StyleSerializer.ToJson(Style);
-        }
+        base.WriteToJson(json);
+        json[nameof(Style)] = StyleSerializer.ToJson(Style);
     }
 
     private void Properties_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

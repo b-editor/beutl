@@ -4,7 +4,7 @@ namespace Beutl;
 
 public interface IJsonSerializable
 {
-    void WriteToJson(ref JsonNode json);
+    void WriteToJson(JsonObject json);
 
-    void ReadFromJson(JsonNode json);
+    void ReadFromJson(JsonObject json);
 }

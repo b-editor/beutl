@@ -403,69 +403,66 @@ public abstract class Node : Hierarchical
         return requestedLocalId;
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject obj)
+        if (json.TryGetPropertyValue(nameof(Position), out JsonNode? posNode)
+            && posNode is JsonValue posVal
+            && posVal.TryGetValue(out string? posStr))
         {
-            if (obj.TryGetPropertyValue(nameof(Position), out JsonNode? posNode)
-                && posNode is JsonValue posVal
-                && posVal.TryGetValue(out string? posStr))
+            var tokenizer = new RefStringTokenizer(posStr);
+            if (tokenizer.TryReadDouble(out double x)
+                && tokenizer.TryReadDouble(out double y))
             {
-                var tokenizer = new RefStringTokenizer(posStr);
-                if (tokenizer.TryReadDouble(out double x)
-                    && tokenizer.TryReadDouble(out double y))
-                {
-                    Position = (x, y);
-                }
+                Position = (x, y);
             }
+        }
 
-            if (obj.TryGetPropertyValue(nameof(Items), out var itemsNode)
-                && itemsNode is JsonArray itemsArray)
+        if (json.TryGetPropertyValue(nameof(Items), out var itemsNode)
+            && itemsNode is JsonArray itemsArray)
+        {
+            int index = 0;
+            foreach (JsonNode? item in itemsArray)
             {
-                int index = 0;
-                foreach (JsonNode? item in itemsArray)
+                if (item is JsonObject itemObj)
                 {
-                    if (item is JsonObject itemObj)
+                    int localId;
+                    if (itemObj.TryGetPropertyValue("LocalId", out var localIdNode)
+                        && localIdNode is JsonValue localIdValue
+                        && localIdValue.TryGetValue(out int actualLId))
                     {
-                        int localId;
-                        if (itemObj.TryGetPropertyValue("LocalId", out var localIdNode)
-                            && localIdNode is JsonValue localIdValue
-                            && localIdValue.TryGetValue(out int actualLId))
-                        {
-                            localId = actualLId;
-                        }
-                        else
-                        {
-                            localId = index;
-                        }
-
-                        INodeItem? nodeItem = Items.FirstOrDefault(x => x.LocalId == localId);
-
-                        if (nodeItem is IJsonSerializable serializable)
-                        {
-                            serializable.ReadFromJson(itemObj);
-                        }
+                        localId = actualLId;
+                    }
+                    else
+                    {
+                        localId = index;
                     }
 
-                    index++;
+                    INodeItem? nodeItem = Items.FirstOrDefault(x => x.LocalId == localId);
+
+                    if (nodeItem is IJsonSerializable serializable)
+                    {
+                        serializable.ReadFromJson(itemObj);
+                    }
                 }
+
+                index++;
             }
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
+        base.WriteToJson(json);
         json[nameof(Position)] = $"{Position.X},{Position.Y}";
 
         var array = new JsonArray();
         foreach (INodeItem item in Items)
         {
-            JsonNode itemJson = new JsonObject();
+            var itemJson = new JsonObject();
             if (item is IJsonSerializable serializable)
             {
-                serializable.WriteToJson(ref itemJson);
+                serializable.WriteToJson(itemJson);
                 itemJson.WriteDiscriminator(item.GetType());
             }
             array.Add(itemJson);

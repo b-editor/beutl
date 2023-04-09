@@ -32,56 +32,48 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
 
     public ICoreList<SourceOperator> Children => _children;
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
 
-        if (json is JsonObject jobject)
+        if (json.TryGetPropertyValue(nameof(Children), out JsonNode? childrenNode)
+            && childrenNode is JsonArray childrenArray)
         {
-            if (jobject.TryGetPropertyValue(nameof(Children), out JsonNode? childrenNode)
-                && childrenNode is JsonArray childrenArray)
+            foreach (JsonObject operatorJson in childrenArray.OfType<JsonObject>())
             {
-                foreach (JsonObject operatorJson in childrenArray.OfType<JsonObject>())
+                Type? type = operatorJson.GetDiscriminator();
+                SourceOperator? @operator = null;
+                if (type?.IsAssignableTo(typeof(SourceOperator)) ?? false)
                 {
-                    Type? type = operatorJson.GetDiscriminator();
-                    SourceOperator? @operator = null;
-                    if (type?.IsAssignableTo(typeof(SourceOperator)) ?? false)
-                    {
-                        @operator = Activator.CreateInstance(type) as SourceOperator;
-                    }
-
-                    @operator ??= new SourceOperator();
-                    @operator.ReadFromJson(operatorJson);
-                    Children.Add(@operator);
+                    @operator = Activator.CreateInstance(type) as SourceOperator;
                 }
-            }
 
+                @operator ??= new SourceOperator();
+                @operator.ReadFromJson(operatorJson);
+                Children.Add(@operator);
+            }
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
+        base.WriteToJson(json);
 
-        if (json is JsonObject jobject)
+        Span<SourceOperator> children = _children.GetMarshal().Value;
+        if (children.Length > 0)
         {
-            Span<SourceOperator> children = _children.GetMarshal().Value;
-            if (children.Length > 0)
+            var array = new JsonArray();
+
+            foreach (SourceOperator item in children)
             {
-                var array = new JsonArray();
+                var itemJson = new JsonObject();
+                item.WriteToJson(itemJson);
+                itemJson.WriteDiscriminator(item.GetType());
 
-                foreach (SourceOperator item in children)
-                {
-                    JsonNode node = new JsonObject();
-                    item.WriteToJson(ref node);
-                    node.WriteDiscriminator(item.GetType());
-
-                    array.Add(node);
-                }
-
-                jobject[nameof(Children)] = array;
+                array.Add(itemJson);
             }
 
+            json[nameof(Children)] = array;
         }
     }
 

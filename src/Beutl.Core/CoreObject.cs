@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Linq.Expressions;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 using Beutl.Validation;
 
@@ -349,49 +350,43 @@ public abstract class CoreObject : ICoreObject
         SetValue(property, property.GetMetadata<CorePropertyMetadata>(GetType()).GetDefaultValue());
     }
 
-    public virtual void WriteToJson(ref JsonNode json)
+    public virtual void WriteToJson(JsonObject json)
     {
-        if (json is JsonObject jsonObject)
-        {
-            Type ownerType = GetType();
+        Type ownerType = GetType();
 
-            IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(ownerType);
-            for (int i = 0; i < list.Count; i++)
+        IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(ownerType);
+        for (int i = 0; i < list.Count; i++)
+        {
+            CoreProperty item = list[i];
+            CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(ownerType);
+            if (metadata.ShouldSerialize && (item is not IStaticProperty sprop || sprop.CanWrite))
             {
-                CoreProperty item = list[i];
-                CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(ownerType);
-                if (metadata.ShouldSerialize && (item is not IStaticProperty sprop || sprop.CanWrite))
+                JsonNode? valueNode = item.RouteWriteToJson(metadata, GetValue(item), out bool isDefault);
+                if (!isDefault)
                 {
-                    JsonNode? valueNode = item.RouteWriteToJson(metadata, GetValue(item), out bool isDefault);
-                    if (!isDefault)
-                    {
-                        jsonObject[item.Name] = valueNode;
-                    }
+                    json[item.Name] = valueNode;
                 }
             }
         }
     }
 
-    public virtual void ReadFromJson(JsonNode json)
+    public virtual void ReadFromJson(JsonObject json)
     {
         Type ownerType = GetType();
 
-        if (json is JsonObject obj)
+        IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(ownerType);
+        for (int i = 0; i < list.Count; i++)
         {
-            IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(ownerType);
-            for (int i = 0; i < list.Count; i++)
+            CoreProperty item = list[i];
+            CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(ownerType);
+            if (metadata.ShouldSerialize
+                && (item is not IStaticProperty sprop || sprop.CanWrite)
+                && json.TryGetPropertyValue(item.Name, out JsonNode? jsonNode)
+                && jsonNode != null)
             {
-                CoreProperty item = list[i];
-                CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(ownerType);
-                if (metadata.ShouldSerialize
-                    && (item is not IStaticProperty sprop || sprop.CanWrite)
-                    && obj.TryGetPropertyValue(item.Name, out JsonNode? jsonNode)
-                    && jsonNode != null)
+                if (item.RouteReadFromJson(metadata, jsonNode) is { } value)
                 {
-                    if (item.RouteReadFromJson(metadata, jsonNode) is { } value)
-                    {
-                        SetValue(item, value);
-                    }
+                    SetValue(item, value);
                 }
             }
         }

@@ -178,24 +178,21 @@ public class InputSocket<T> : Socket<T>, IInputSocket
         }
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject obj)
+        if (json.TryGetPropertyValue("connection-output", out var destNode)
+            && destNode is JsonValue destValue
+            && destValue.TryGetValue(out Guid outputId))
         {
-            if (obj.TryGetPropertyValue("connection-output", out var destNode)
-                && destNode is JsonValue destValue
-                && destValue.TryGetValue(out Guid outputId))
-            {
-                _outputId = outputId;
-                TryRestoreConnection();
-            }
+            _outputId = outputId;
+            TryRestoreConnection();
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
+        base.WriteToJson(json);
         if (Connection != null)
         {
             json["connection-output"] = Connection.Output.Id;

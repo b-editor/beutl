@@ -197,10 +197,10 @@ public sealed class NodeTreeTabViewModel : IToolContext
         }
     }
 
-    public void ReadFromJson(JsonNode json)
+    public void ReadFromJson(JsonObject json)
     {
         if (Layer.Value == null
-            && (json as JsonObject)?.TryGetPropertyValue("layer-filename", out JsonNode? filenameNode) == true
+            && json?.TryGetPropertyValue("layer-filename", out JsonNode? filenameNode) == true
             && (filenameNode as JsonValue)?.TryGetValue(out string? filename) == true
             && filename != null)
         {
@@ -208,7 +208,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
         }
     }
 
-    public void WriteToJson(ref JsonNode json)
+    public void WriteToJson(JsonObject json)
     {
         if (Layer.Value is { FileName: { } filename })
         {

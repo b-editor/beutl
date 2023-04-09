@@ -135,17 +135,16 @@ public class TextBlock : Drawable
         set => SetAndRaise(ElementsProperty, ref _elements, value);
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject jobj
-            && jobj.TryGetPropertyValue("elements", out JsonNode? elmsNode)
+        if (json.TryGetPropertyValue("elements", out JsonNode? elmsNode)
             && elmsNode is JsonArray elnsArray)
         {
             var array = new TextElement[elnsArray.Count];
             for (int i = 0; i < elnsArray.Count; i++)
             {
-                if (elnsArray[i] is JsonNode elmNode)
+                if (elnsArray[i] is JsonObject elmNode)
                 {
                     var elm = new TextElement();
                     elm.ReadFromJson(elmNode);
@@ -157,20 +156,20 @@ public class TextBlock : Drawable
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
-        if (json is JsonObject jobj && _elements != null)
+        base.WriteToJson(json);
+        if (_elements != null)
         {
             var array = new JsonArray(_elements.Count);
             for (int i = 0; i < _elements.Count; i++)
             {
-                JsonNode node = new JsonObject();
-                _elements[i].WriteToJson(ref node);
+                var node = new JsonObject();
+                _elements[i].WriteToJson(node);
                 array[i] = node;
             }
 
-            jobj["elements"] = array;
+            json["elements"] = array;
         }
     }
 

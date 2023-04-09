@@ -212,7 +212,7 @@ public class Scene : ProjectItem
         return new MultipleMoveCommand(this, layers, deltaIndex, deltaStart);
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         static void Process(Func<string, Matcher> add, JsonNode node, List<string> list)
         {
@@ -238,47 +238,44 @@ public class Scene : ProjectItem
 
         base.ReadFromJson(json);
 
-        if (json is JsonObject jobject)
+        if (json.TryGetPropertyValue(nameof(Width), out JsonNode? widthNode)
+            && json.TryGetPropertyValue(nameof(Height), out JsonNode? heightNode)
+            && widthNode != null
+            && heightNode != null
+            && widthNode.AsValue().TryGetValue(out int width)
+            && heightNode.AsValue().TryGetValue(out int height))
         {
-            if (jobject.TryGetPropertyValue(nameof(Width), out JsonNode? widthNode)
-                && jobject.TryGetPropertyValue(nameof(Height), out JsonNode? heightNode)
-                && widthNode != null
-                && heightNode != null
-                && widthNode.AsValue().TryGetValue(out int width)
-                && heightNode.AsValue().TryGetValue(out int height))
+            Initialize(width, height);
+        }
+
+        if (json.TryGetPropertyValue(nameof(Layers), out JsonNode? layersNode)
+            && layersNode is JsonObject layersJson)
+        {
+            var matcher = new Matcher();
+            var directory = new DirectoryInfoWrapper(new DirectoryInfo(Path.GetDirectoryName(FileName)!));
+
+            // 含めるクリップ
+            if (layersJson.TryGetPropertyValue("Include", out JsonNode? includeNode))
             {
-                Initialize(width, height);
+                Process(matcher.AddInclude, includeNode!, _includeLayers);
             }
 
-            if (jobject.TryGetPropertyValue(nameof(Layers), out JsonNode? layersNode)
-                && layersNode is JsonObject layersJson)
+            // 除外するクリップ
+            if (layersJson.TryGetPropertyValue("Exclude", out JsonNode? excludeNode))
             {
-                var matcher = new Matcher();
-                var directory = new DirectoryInfoWrapper(new DirectoryInfo(Path.GetDirectoryName(FileName)!));
-
-                // 含めるクリップ
-                if (layersJson.TryGetPropertyValue("Include", out JsonNode? includeNode))
-                {
-                    Process(matcher.AddInclude, includeNode!, _includeLayers);
-                }
-
-                // 除外するクリップ
-                if (layersJson.TryGetPropertyValue("Exclude", out JsonNode? excludeNode))
-                {
-                    Process(matcher.AddExclude, excludeNode!, _excludeLayers);
-                }
-
-                PatternMatchingResult result = matcher.Execute(directory);
-                SyncronizeLayers(result.Files.Select(x => x.Path));
+                Process(matcher.AddExclude, excludeNode!, _excludeLayers);
             }
-            else
-            {
-                Children.Clear();
-            }
+
+            PatternMatchingResult result = matcher.Execute(directory);
+            SyncronizeLayers(result.Files.Select(x => x.Path));
+        }
+        else
+        {
+            Children.Clear();
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
         static void Process(JsonObject jobject, string jsonName, List<string> list)
         {
@@ -302,7 +299,7 @@ public class Scene : ProjectItem
             }
         }
 
-        base.WriteToJson(ref json);
+        base.WriteToJson(json);
         if (_renderer != null)
         {
             json[nameof(Width)] = _renderer.Graphics.Size.Width;

@@ -57,56 +57,50 @@ public class KeyFrame : CoreObject
 
     internal virtual CoreProperty? Property { get; set; }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
+        base.WriteToJson(json);
 
-        if (json is JsonObject jsonObject)
+        if (Easing is SplineEasing splineEasing)
         {
-            if (Easing is SplineEasing splineEasing)
+            json[nameof(Easing)] = new JsonObject
             {
-                jsonObject[nameof(Easing)] = new JsonObject
-                {
-                    ["X1"] = splineEasing.X1,
-                    ["Y1"] = splineEasing.Y1,
-                    ["X2"] = splineEasing.X2,
-                    ["Y2"] = splineEasing.Y2,
-                };
-            }
-            else
-            {
-                jsonObject[nameof(Easing)] = TypeFormat.ToString(Easing.GetType());
-            }
+                ["X1"] = splineEasing.X1,
+                ["Y1"] = splineEasing.Y1,
+                ["X2"] = splineEasing.X2,
+                ["Y2"] = splineEasing.Y2,
+            };
+        }
+        else
+        {
+            json[nameof(Easing)] = TypeFormat.ToString(Easing.GetType());
         }
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
 
-        if (json is JsonObject jsonObject)
+        if (json.TryGetPropertyValue(nameof(Easing), out JsonNode? easingNode))
         {
-            if (jsonObject.TryGetPropertyValue(nameof(Easing), out JsonNode? easingNode))
+            if (easingNode is JsonValue easingTypeValue
+                && easingTypeValue.TryGetValue(out string? easingType))
             {
-                if (easingNode is JsonValue easingTypeValue
-                    && easingTypeValue.TryGetValue(out string? easingType))
-                {
-                    Type type = TypeFormat.ToType(easingType) ?? typeof(LinearEasing);
+                Type type = TypeFormat.ToType(easingType) ?? typeof(LinearEasing);
 
-                    if (Activator.CreateInstance(type) is Easing easing)
-                    {
-                        Easing = easing;
-                    }
-                }
-                else if (easingNode is JsonObject easingObject)
+                if (Activator.CreateInstance(type) is Easing easing)
                 {
-                    float x1 = (float?)easingObject["X1"] ?? 0;
-                    float y1 = (float?)easingObject["Y1"] ?? 0;
-                    float x2 = (float?)easingObject["X2"] ?? 1;
-                    float y2 = (float?)easingObject["Y2"] ?? 1;
-
-                    Easing = new SplineEasing(x1, y1, x2, y2);
+                    Easing = easing;
                 }
+            }
+            else if (easingNode is JsonObject easingObject)
+            {
+                float x1 = (float?)easingObject["X1"] ?? 0;
+                float y1 = (float?)easingObject["Y1"] ?? 0;
+                float x2 = (float?)easingObject["X2"] ?? 1;
+                float y2 = (float?)easingObject["Y2"] ?? 1;
+
+                Easing = new SplineEasing(x1, y1, x2, y2);
             }
         }
     }

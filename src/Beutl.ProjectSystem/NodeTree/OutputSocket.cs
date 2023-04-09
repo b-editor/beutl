@@ -133,41 +133,38 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
         }
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject obj)
+        if (json.TryGetPropertyValue("connection-inputs", out var srcNode)
+            && srcNode is JsonArray srcArray)
         {
-            if (obj.TryGetPropertyValue("connection-inputs", out var srcNode)
-                && srcNode is JsonArray srcArray)
+            if (_inputIds != null)
             {
-                if (_inputIds != null)
-                {
-                    _inputIds.Clear();
-                    _inputIds.EnsureCapacity(srcArray.Count);
-                }
-                else
-                {
-                    _inputIds = new(srcArray.Count);
-                }
-
-                foreach (JsonNode? item in srcArray)
-                {
-                    if (item is JsonValue itemv
-                        && itemv.TryGetValue(out Guid id))
-                    {
-                        _inputIds.Add(id);
-                    }
-                }
-
-                TryRestoreConnection();
+                _inputIds.Clear();
+                _inputIds.EnsureCapacity(srcArray.Count);
             }
+            else
+            {
+                _inputIds = new(srcArray.Count);
+            }
+
+            foreach (JsonNode? item in srcArray)
+            {
+                if (item is JsonValue itemv
+                    && itemv.TryGetValue(out Guid id))
+                {
+                    _inputIds.Add(id);
+                }
+            }
+
+            TryRestoreConnection();
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
+        base.WriteToJson(json);
 
         if (_connections.Count > 0)
         {

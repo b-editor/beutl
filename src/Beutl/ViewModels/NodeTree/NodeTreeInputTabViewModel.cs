@@ -64,12 +64,12 @@ public sealed class NodeTreeInputTabViewModel : IToolContext
         return _editViewModel.GetService(serviceType);
     }
 
-    public void ReadFromJson(JsonNode json)
+    public void ReadFromJson(JsonObject json)
     {
 
     }
 
-    public void WriteToJson(ref JsonNode json)
+    public void WriteToJson(JsonObject json)
     {
 
     }

@@ -27,7 +27,8 @@ public static class JsonHelper
         {
             new CultureInfoConverter(),
             new DirectoryInfoConverter(),
-            new FileInfoConverter()
+            new FileInfoConverter(),
+            new CoreObjectJsonConverter()
         }
     };
 
@@ -49,9 +50,9 @@ public static class JsonHelper
     {
         using var stream = new FileStream(filename, FileMode.Create, FileAccess.Write, FileShare.Write);
         using var writer = new Utf8JsonWriter(stream, WriterOptions);
-        JsonNode json = new JsonObject();
+        var json = new JsonObject();
 
-        serializable.WriteToJson(ref json);
+        serializable.WriteToJson(json);
         json.WriteTo(writer, SerializerOptions);
     }
 
@@ -60,9 +61,9 @@ public static class JsonHelper
         using var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
         var node = JsonNode.Parse(stream);
 
-        if (node != null)
+        if (node is JsonObject obj)
         {
-            serializable.ReadFromJson(node);
+            serializable.ReadFromJson(obj);
         }
     }
 

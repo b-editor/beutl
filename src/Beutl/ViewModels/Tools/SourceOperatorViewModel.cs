@@ -65,7 +65,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
                 {
                     if (context != null && node != null)
                     {
-                        context.ReadFromJson(node);
+                        context.ReadFromJson(node.AsObject());
                     }
                 }
             }
@@ -84,8 +84,8 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
             }
             else
             {
-                JsonNode node = new JsonObject();
-                item.WriteToJson(ref node);
+                var node = new JsonObject();
+                item.WriteToJson(node);
                 array.Add(node);
             }
         }

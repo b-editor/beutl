@@ -301,54 +301,51 @@ public class GroupNode : Node
         }
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject obj)
+        if (json.TryGetPropertyValue("node-tree", out JsonNode? nodeTreeNode)
+            && nodeTreeNode is JsonObject nodeTreeJson)
         {
-            if (obj.TryGetPropertyValue("node-tree", out var nodeTreeNode)
-                && nodeTreeNode is JsonObject)
-            {
-                Group.ReadFromJson(nodeTreeNode);
-            }
+            Group.ReadFromJson(nodeTreeJson);
+        }
 
-            OnOutputChanged(Group.Output, null);
-            OnInputChanged(Group.Input, null);
+        OnOutputChanged(Group.Output, null);
+        OnInputChanged(Group.Input, null);
 
-            if (obj.TryGetPropertyValue("items", out var itemsNode)
-                && itemsNode is JsonArray itemsArray)
+        if (json.TryGetPropertyValue("items", out var itemsNode)
+            && itemsNode is JsonArray itemsArray)
+        {
+            int index = 0;
+            foreach (JsonNode? item in itemsArray)
             {
-                int index = 0;
-                foreach (JsonNode? item in itemsArray)
+                if (item is JsonObject itemObj)
                 {
-                    if (item is JsonObject itemObj)
+                    if (index < Items.Count)
                     {
-                        if (index < Items.Count)
+                        INodeItem? nodeItem = Items[index];
+                        if (nodeItem is IJsonSerializable serializable)
                         {
-                            INodeItem? nodeItem = Items[index];
-                            if (nodeItem is IJsonSerializable serializable)
-                            {
-                                serializable.ReadFromJson(itemObj);
-                            }
-
-                            ((NodeItem)nodeItem).LocalId = index;
+                            serializable.ReadFromJson(itemObj);
                         }
-                    }
 
-                    index++;
+                        ((NodeItem)nodeItem).LocalId = index;
+                    }
                 }
 
-                NextLocalId = index;
+                index++;
             }
+
+            NextLocalId = index;
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
-        JsonNode node = new JsonObject();
-        Group.WriteToJson(ref node);
+        base.WriteToJson(json);
+        var groupJson = new JsonObject();
+        Group.WriteToJson(groupJson);
 
-        json["node-tree"] = node;
+        json["node-tree"] = groupJson;
     }
 }

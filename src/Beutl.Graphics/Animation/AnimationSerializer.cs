@@ -4,30 +4,16 @@ namespace Beutl.Animation;
 
 internal static class AnimationSerializer
 {
-    public static (string?, JsonNode?) ToJson(this IAnimation animation, Type targetType)
-    {
-        JsonNode? node = animation.ToJson();
-        string name = animation.Property.Name;
-        if (node != null)
-        {
-            return (name, node);
-        }
-        else
-        {
-            return default;
-        }
-    }
-
     public static JsonNode? ToJson(this IAnimation animation)
     {
-        JsonNode node = new JsonObject();
+        var json = new JsonObject();
         if (animation is IKeyFrameAnimation keyFrameAnimation)
         {
             if (keyFrameAnimation.KeyFrames.Count > 0)
             {
-                keyFrameAnimation.WriteToJson(ref node);
-                node.WriteDiscriminator(animation.GetType());
-                return node;
+                keyFrameAnimation.WriteToJson(json);
+                json.WriteDiscriminator(animation.GetType());
+                return json;
             }
             else
             {
@@ -36,9 +22,9 @@ internal static class AnimationSerializer
         }
         else
         {
-            animation.WriteToJson(ref node);
-            node.WriteDiscriminator(animation.GetType());
-            return node;
+            animation.WriteToJson(json);
+            json.WriteDiscriminator(animation.GetType());
+            return json;
         }
     }
 
@@ -59,7 +45,7 @@ internal static class AnimationSerializer
             if (obj.TryGetDiscriminator(out Type? type)
                 && Activator.CreateInstance(type, property) is IAnimation animation)
             {
-                animation.ReadFromJson(json);
+                animation.ReadFromJson(obj);
                 return animation;
             }
         }

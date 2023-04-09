@@ -11,7 +11,7 @@ public class GroupOutput : Node, ISocketsCanBeAdded
     {
         public CoreProperty? AssociatedProperty { get; set; }
 
-        public override void ReadFromJson(JsonNode json)
+        public override void ReadFromJson(JsonObject json)
         {
             base.ReadFromJson(json);
             JsonNode propertyJson = json[nameof(AssociatedProperty)]!;
@@ -24,9 +24,9 @@ public class GroupOutput : Node, ISocketsCanBeAdded
                 .FirstOrDefault(x => x.Name == name);
         }
 
-        public override void WriteToJson(ref JsonNode json)
+        public override void WriteToJson(JsonObject json)
         {
-            base.WriteToJson(ref json);
+            base.WriteToJson(json);
             if (AssociatedProperty is { OwnerType: Type ownerType } property)
             {
                 string name = property.Name;
@@ -73,30 +73,27 @@ public class GroupOutput : Node, ISocketsCanBeAdded
         return false;
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject obj)
+        if (json.TryGetPropertyValue("Items", out var itemsNode)
+            && itemsNode is JsonArray itemsArray)
         {
-            if (obj.TryGetPropertyValue("Items", out var itemsNode)
-                && itemsNode is JsonArray itemsArray)
+            int index = 0;
+            foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
             {
-                int index = 0;
-                foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
+                if (itemJson.TryGetDiscriminator(out Type? type)
+                    && Activator.CreateInstance(type) is IInputSocket socket)
                 {
-                    if (itemJson.TryGetDiscriminator(out Type? type)
-                        && Activator.CreateInstance(type) is IInputSocket socket)
-                    {
-                        (socket as IJsonSerializable)?.ReadFromJson(itemJson);
-                        Items.Add(socket);
-                        ((NodeItem)socket).LocalId = index;
-                    }
-
-                    index++;
+                    (socket as IJsonSerializable)?.ReadFromJson(itemJson);
+                    Items.Add(socket);
+                    ((NodeItem)socket).LocalId = index;
                 }
 
-                NextLocalId = index;
+                index++;
             }
+
+            NextLocalId = index;
         }
     }
 }

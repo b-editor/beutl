@@ -513,67 +513,59 @@ public sealed class OutputViewModel : IOutputContext
         _disposable1.Dispose();
     }
 
-    public void WriteToJson(ref JsonNode json)
+    public void WriteToJson(JsonObject json)
     {
-        if (json is not JsonObject obj)
-        {
-            obj = new JsonObject();
-        }
-
-        obj[nameof(DestinationFile)] = DestinationFile.Value;
+        json[nameof(DestinationFile)] = DestinationFile.Value;
         if (SelectedEncoder.Value != null)
         {
-            obj[nameof(SelectedEncoder)] = TypeFormat.ToString(SelectedEncoder.Value.GetType());
+            json[nameof(SelectedEncoder)] = TypeFormat.ToString(SelectedEncoder.Value.GetType());
         }
 
-        obj[nameof(IsEncodersExpanded)] = IsEncodersExpanded.Value;
-        obj[nameof(ScrollOffset)] = ScrollOffset.Value.ToString();
-        obj[nameof(VideoSettings)] = VideoSettings.WriteToJson();
-        obj[nameof(AudioSettings)] = AudioSettings.WriteToJson();
-
-        json = obj;
+        json[nameof(IsEncodersExpanded)] = IsEncodersExpanded.Value;
+        json[nameof(ScrollOffset)] = ScrollOffset.Value.ToString();
+        json[nameof(VideoSettings)] = VideoSettings.WriteToJson();
+        json[nameof(AudioSettings)] = AudioSettings.WriteToJson();
     }
 
-    public void ReadFromJson(JsonNode json)
+    public void ReadFromJson(JsonObject json)
     {
-        if (json is JsonObject jobj)
+        if (json.TryGetPropertyValue(nameof(DestinationFile), out JsonNode? dstFileNode)
+            && dstFileNode is JsonValue dstFileValue
+            && dstFileValue.TryGetValue(out string? dstFile))
         {
-            if (jobj.TryGetPropertyValue(nameof(DestinationFile), out JsonNode? dstFileNode)
-                && dstFileNode is JsonValue dstFileValue
-                && dstFileValue.TryGetValue(out string? dstFile))
-            {
-                DestinationFile.Value = dstFile;
-            }
-
-            if (jobj.TryGetPropertyValue(nameof(SelectedEncoder), out JsonNode? encoderNode)
-                && encoderNode is JsonValue encoderValue
-                && encoderValue.TryGetValue(out string? encoderStr)
-                && TypeFormat.ToType(encoderStr) is Type encoderType
-                && EncoderRegistry.EnumerateEncoders().FirstOrDefault(x => x.GetType() == encoderType) is { } encoder)
-            {
-                SelectedEncoder.Value = encoder;
-            }
-
-            if (jobj.TryGetPropertyValue(nameof(IsEncodersExpanded), out JsonNode? isExpandedNode)
-                && isExpandedNode is JsonValue isExpandedValue
-                && isExpandedValue.TryGetValue(out bool isExpanded))
-            {
-                IsEncodersExpanded.Value = isExpanded;
-            }
-
-            if (jobj.TryGetPropertyValue(nameof(ScrollOffset), out JsonNode? scrollOfstNode)
-                && scrollOfstNode is JsonValue scrollOfstValue
-                && scrollOfstValue.TryGetValue(out string? scrollOfstStr)
-                && Graphics.Vector.TryParse(scrollOfstStr, out Graphics.Vector vec))
-            {
-                ScrollOffset.Value = new Avalonia.Vector(vec.X, vec.Y);
-            }
-
-            if (jobj.TryGetPropertyValue(nameof(VideoSettings), out JsonNode? videoNode) && videoNode != null)
-                VideoSettings.ReadFromJson(videoNode);
-
-            if (jobj.TryGetPropertyValue(nameof(AudioSettings), out JsonNode? audioNode) && audioNode != null)
-                AudioSettings.ReadFromJson(audioNode);
+            DestinationFile.Value = dstFile;
         }
+
+        if (json.TryGetPropertyValue(nameof(SelectedEncoder), out JsonNode? encoderNode)
+            && encoderNode is JsonValue encoderValue
+            && encoderValue.TryGetValue(out string? encoderStr)
+            && TypeFormat.ToType(encoderStr) is Type encoderType
+            && EncoderRegistry.EnumerateEncoders().FirstOrDefault(x => x.GetType() == encoderType) is { } encoder)
+        {
+            SelectedEncoder.Value = encoder;
+        }
+
+        if (json.TryGetPropertyValue(nameof(IsEncodersExpanded), out JsonNode? isExpandedNode)
+            && isExpandedNode is JsonValue isExpandedValue
+            && isExpandedValue.TryGetValue(out bool isExpanded))
+        {
+            IsEncodersExpanded.Value = isExpanded;
+        }
+
+        if (json.TryGetPropertyValue(nameof(ScrollOffset), out JsonNode? scrollOfstNode)
+            && scrollOfstNode is JsonValue scrollOfstValue
+            && scrollOfstValue.TryGetValue(out string? scrollOfstStr)
+            && Graphics.Vector.TryParse(scrollOfstStr, out Graphics.Vector vec))
+        {
+            ScrollOffset.Value = new Avalonia.Vector(vec.X, vec.Y);
+        }
+
+        if (json.TryGetPropertyValue(nameof(VideoSettings), out JsonNode? videoNode)
+            && videoNode is JsonObject videoObj)
+            VideoSettings.ReadFromJson(videoObj);
+
+        if (json.TryGetPropertyValue(nameof(AudioSettings), out JsonNode? audioNode)
+            && audioNode is JsonObject audioObj)
+            AudioSettings.ReadFromJson(audioObj);
     }
 }

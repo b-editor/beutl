@@ -197,11 +197,11 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
         Items.Clear();
     }
 
-    public void ReadFromJson(JsonNode json)
+    public void ReadFromJson(JsonObject json)
     {
     }
 
-    public void WriteToJson(ref JsonNode json)
+    public void WriteToJson(JsonObject json)
     {
     }
 

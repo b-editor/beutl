@@ -242,40 +242,34 @@ public class Layer : ProjectItem
         this.JsonRestore(filename);
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
 
-        if (json is JsonObject jobject)
+        if (json.TryGetPropertyValue(nameof(Operation), out JsonNode? operationNode)
+            && operationNode is JsonObject operationObj)
         {
-            if (jobject.TryGetPropertyValue(nameof(Operation), out JsonNode? operationNode)
-                && operationNode != null)
-            {
-                Operation.ReadFromJson(operationNode);
-            }
+            Operation.ReadFromJson(operationObj);
+        }
 
-            if (jobject.TryGetPropertyValue(nameof(NodeTree), out JsonNode? nodeTreeNode)
-                && nodeTreeNode != null)
-            {
-                NodeTree.ReadFromJson(nodeTreeNode);
-            }
+        if (json.TryGetPropertyValue(nameof(NodeTree), out JsonNode? nodeTreeNode)
+            && nodeTreeNode is JsonObject nodeTreeObj)
+        {
+            NodeTree.ReadFromJson(nodeTreeObj);
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
+        base.WriteToJson(json);
 
-        if (json is JsonObject jobject)
-        {
-            JsonNode operationNode = new JsonObject();
-            Operation.WriteToJson(ref operationNode);
-            jobject[nameof(Operation)] = operationNode;
+        var operationJson = new JsonObject();
+        Operation.WriteToJson(operationJson);
+        json[nameof(Operation)] = operationJson;
 
-            JsonNode nodeTreeNode = new JsonObject();
-            NodeTree.WriteToJson(ref nodeTreeNode);
-            jobject[nameof(NodeTree)] = nodeTreeNode;
-        }
+        var nodeTreeJson = new JsonObject();
+        NodeTree.WriteToJson(nodeTreeJson);
+        json[nameof(NodeTree)] = nodeTreeJson;
     }
 
     public void Evaluate(IRenderer renderer, List<Renderable> unhandleds)

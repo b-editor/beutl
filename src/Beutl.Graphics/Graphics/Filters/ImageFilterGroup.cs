@@ -44,53 +44,47 @@ public sealed class ImageFilterGroup : ImageFilter
         return rect;
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject jobject)
+        if (json.TryGetPropertyValue(nameof(Children), out JsonNode? childrenNode)
+            && childrenNode is JsonArray childrenArray)
         {
-            if (jobject.TryGetPropertyValue(nameof(Children), out JsonNode? childrenNode)
-                && childrenNode is JsonArray childrenArray)
-            {
-                _children.Clear();
-                _children.EnsureCapacity(childrenArray.Count);
+            _children.Clear();
+            _children.EnsureCapacity(childrenArray.Count);
 
-                foreach (JsonObject childJson in childrenArray.OfType<JsonObject>())
+            foreach (JsonObject childJson in childrenArray.OfType<JsonObject>())
+            {
+                if (childJson.TryGetDiscriminator(out Type? type)
+                    && type.IsAssignableTo(typeof(ImageFilter))
+                    && Activator.CreateInstance(type) is IMutableImageFilter imageFilter)
                 {
-                    if (childJson.TryGetDiscriminator(out Type? type)
-                        && type.IsAssignableTo(typeof(ImageFilter))
-                        && Activator.CreateInstance(type) is IMutableImageFilter imageFilter)
-                    {
-                        imageFilter.ReadFromJson(childJson);
-                        _children.Add(imageFilter);
-                    }
+                    imageFilter.ReadFromJson(childJson);
+                    _children.Add(imageFilter);
                 }
             }
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
+        base.WriteToJson(json);
 
-        if (json is JsonObject jobject)
+        var array = new JsonArray();
+
+        foreach (IImageFilter item in _children.GetMarshal().Value)
         {
-            var array = new JsonArray();
-
-            foreach (IImageFilter item in _children.GetMarshal().Value)
+            if (item is IMutableImageFilter obj)
             {
-                if (item is IMutableImageFilter obj)
-                {
-                    JsonNode node = new JsonObject();
-                    obj.WriteToJson(ref node);
-                    node.WriteDiscriminator(item.GetType());
+                var itemJson = new JsonObject();
+                obj.WriteToJson(itemJson);
+                itemJson.WriteDiscriminator(item.GetType());
 
-                    array.Add(node);
-                }
+                array.Add(itemJson);
             }
-
-            jobject[nameof(Children)] = array;
         }
+
+        json[nameof(Children)] = array;
     }
 
     public override void ApplyAnimations(IClock clock)

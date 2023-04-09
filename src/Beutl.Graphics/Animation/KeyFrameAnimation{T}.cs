@@ -60,39 +60,36 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
         }
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject obj)
+        if (json.TryGetPropertyValue(nameof(KeyFrames), out JsonNode? keyframesNode)
+            && keyframesNode is JsonArray keyframesArray)
         {
-            if (obj.TryGetPropertyValue(nameof(KeyFrames), out JsonNode? keyframesNode)
-                && keyframesNode is JsonArray keyframesArray)
-            {
-                KeyFrames.Clear();
-                KeyFrames.EnsureCapacity(keyframesArray.Count);
+            KeyFrames.Clear();
+            KeyFrames.EnsureCapacity(keyframesArray.Count);
 
-                foreach (JsonObject childJson in keyframesArray.OfType<JsonObject>())
-                {
-                    var item = new KeyFrame<T>();
-                    item.ReadFromJson(childJson);
-                    KeyFrames.Add(item);
-                }
+            foreach (JsonObject childJson in keyframesArray.OfType<JsonObject>())
+            {
+                var item = new KeyFrame<T>();
+                item.ReadFromJson(childJson);
+                KeyFrames.Add(item);
             }
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
+        base.WriteToJson(json);
 
         var array = new JsonArray();
 
         foreach (KeyFrame<T> item in KeyFrames.GetMarshal().Value)
         {
-            JsonNode node = new JsonObject();
-            item.WriteToJson(ref node);
+            var itemJson = new JsonObject();
+            item.WriteToJson(itemJson);
 
-            array.Add(node);
+            array.Add(itemJson);
         }
 
         json[nameof(KeyFrames)] = array;

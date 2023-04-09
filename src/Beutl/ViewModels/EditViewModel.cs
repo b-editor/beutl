@@ -224,8 +224,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         var bottomItems = new JsonArray();
         foreach (ToolTabViewModel? item in BottomTabItems.OrderBy(x => x.Order))
         {
-            JsonNode itemJson = new JsonObject();
-            item.Context.WriteToJson(ref itemJson);
+            var itemJson = new JsonObject();
+            item.Context.WriteToJson(itemJson);
 
             itemJson.WriteDiscriminator(item.Context.Extension.GetType());
             bottomItems.Add(itemJson);
@@ -236,8 +236,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         var rightItems = new JsonArray();
         foreach (ToolTabViewModel? item in RightTabItems.OrderBy(x => x.Order))
         {
-            JsonNode itemJson = new JsonObject();
-            item.Context.WriteToJson(ref itemJson);
+            var itemJson = new JsonObject();
+            item.Context.WriteToJson(itemJson);
 
             itemJson.WriteDiscriminator(item.Context.Extension.GetType());
             rightItems.Add(itemJson);
@@ -329,7 +329,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
                         && _extensionProvider.AllExtensions.FirstOrDefault(x => x.GetType() == type) is ToolTabExtension extension
                         && extension.TryCreateContext(this, out IToolContext? context))
                     {
-                        context.ReadFromJson(item);
+                        context.ReadFromJson(itemObject);
                         destination.Add(new ToolTabViewModel(context)
                         {
                             Order = count

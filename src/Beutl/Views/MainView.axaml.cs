@@ -634,8 +634,8 @@ Error:
                 IClipboard? clipboard = Application.Current?.Clipboard;
                 if (clipboard != null)
                 {
-                    JsonNode jsonNode = new JsonObject();
-                    layer.WriteToJson(ref jsonNode);
+                    var jsonNode = new JsonObject();
+                    layer.WriteToJson(jsonNode);
                     string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
                     var data = new DataObject();
                     data.Set(DataFormats.Text, json);
@@ -656,8 +656,8 @@ Error:
                 IClipboard? clipboard = Application.Current?.Clipboard;
                 if (clipboard != null)
                 {
-                    JsonNode jsonNode = new JsonObject();
-                    layer.WriteToJson(ref jsonNode);
+                    var jsonNode = new JsonObject();
+                    layer.WriteToJson(jsonNode);
                     string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
                     var data = new DataObject();
                     data.Set(DataFormats.Text, json);

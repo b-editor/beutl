@@ -239,51 +239,45 @@ public abstract class NodeTreeSpace : Hierarchical, IAffectsRender
         return null;
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
 
-        if (json is JsonObject jobject)
+        if (json.TryGetPropertyValue(nameof(Nodes), out JsonNode? nodesNode)
+            && nodesNode is JsonArray nodesArray)
         {
-            if (jobject.TryGetPropertyValue(nameof(Nodes), out JsonNode? nodesNode)
-                && nodesNode is JsonArray nodesArray)
+            foreach (JsonObject nodeJson in nodesArray.OfType<JsonObject>())
             {
-                foreach (JsonObject nodeJson in nodesArray.OfType<JsonObject>())
+                if (nodeJson.TryGetDiscriminator(out Type? type)
+                    && Activator.CreateInstance(type) is Node node)
                 {
-                    if (nodeJson.TryGetDiscriminator(out Type? type)
-                        && Activator.CreateInstance(type) is Node node)
-                    {
-                        // Todo: 型が見つからない場合、SourceOperatorと同じようにする
-                        node.ReadFromJson(nodeJson);
-                        Nodes.Add(node);
-                    }
+                    // Todo: 型が見つからない場合、SourceOperatorと同じようにする
+                    node.ReadFromJson(nodeJson);
+                    Nodes.Add(node);
                 }
             }
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
+        base.WriteToJson(json);
 
-        if (json is JsonObject jobject)
+        Span<Node> nodes = _nodes.GetMarshal().Value;
+        if (nodes.Length > 0)
         {
-            Span<Node> nodes = _nodes.GetMarshal().Value;
-            if (nodes.Length > 0)
+            var array = new JsonArray();
+
+            foreach (Node item in nodes)
             {
-                var array = new JsonArray();
+                var itemJson = new JsonObject();
+                item.WriteToJson(itemJson);
+                itemJson.WriteDiscriminator(item.GetType());
 
-                foreach (Node item in nodes)
-                {
-                    JsonNode jsonNode = new JsonObject();
-                    item.WriteToJson(ref jsonNode);
-                    jsonNode.WriteDiscriminator(item.GetType());
-
-                    array.Add(jsonNode);
-                }
-
-                jobject[nameof(Nodes)] = array;
+                array.Add(itemJson);
             }
+
+            json[nameof(Nodes)] = array;
         }
     }
 }

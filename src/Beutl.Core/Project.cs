@@ -94,70 +94,64 @@ public sealed class Project : Hierarchical, IStorable
         _saved?.Invoke(this, EventArgs.Empty);
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
 
-        if (json is JsonObject jobject)
+        if (json.TryGetPropertyValue("appVersion", out JsonNode? versionNode)
+            && versionNode!.AsValue().TryGetValue(out Version? version))
         {
-            if (jobject.TryGetPropertyValue("appVersion", out JsonNode? versionNode)
-                && versionNode!.AsValue().TryGetValue(out Version? version))
-            {
-                AppVersion = version;
-            }
+            AppVersion = version;
+        }
 
-            if (jobject.TryGetPropertyValue("minAppVersion", out JsonNode? minVersionNode)
-                && minVersionNode!.AsValue().TryGetValue(out Version? minVersion))
-            {
-                MinAppVersion = minVersion;
-            }
+        if (json.TryGetPropertyValue("minAppVersion", out JsonNode? minVersionNode)
+            && minVersionNode!.AsValue().TryGetValue(out Version? minVersion))
+        {
+            MinAppVersion = minVersion;
+        }
 
-            if (jobject.TryGetPropertyValue("items", out JsonNode? itemsNode))
-            {
-                SyncronizeScenes(itemsNode!.AsArray()
-                    .Select(i => (string)i!));
-            }
+        if (json.TryGetPropertyValue("items", out JsonNode? itemsNode))
+        {
+            SyncronizeScenes(itemsNode!.AsArray()
+                .Select(i => (string)i!));
+        }
 
-            if (jobject.TryGetPropertyValue("variables", out JsonNode? variablesNode)
-                && variablesNode is JsonObject variablesObj)
+        if (json.TryGetPropertyValue("variables", out JsonNode? variablesNode)
+            && variablesNode is JsonObject variablesObj)
+        {
+            Variables.Clear();
+            foreach (KeyValuePair<string, JsonNode?> item in variablesObj)
             {
-                Variables.Clear();
-                foreach (KeyValuePair<string, JsonNode?> item in variablesObj)
-                {
-                    if (item.Value != null)
-                        Variables[item.Key] = item.Value.AsValue().ToString();
-                }
+                if (item.Value != null)
+                    Variables[item.Key] = item.Value.AsValue().ToString();
             }
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
+        base.WriteToJson(json);
 
-        if (json is JsonObject jobject)
+        json["appVersion"] = JsonValue.Create(AppVersion);
+        json["minAppVersion"] = JsonValue.Create(MinAppVersion);
+
+        var items = new JsonArray();
+        foreach (ProjectItem item in Items)
         {
-            jobject["appVersion"] = JsonValue.Create(AppVersion);
-            jobject["minAppVersion"] = JsonValue.Create(MinAppVersion);
-
-            var items = new JsonArray();
-            foreach (ProjectItem item in Items)
-            {
-                string path = Path.GetRelativePath(RootDirectory, item.FileName).Replace('\\', '/');
-                var value = JsonValue.Create(path);
-                items.Add(value);
-            }
-
-            jobject["items"] = items;
-
-            var variables = new JsonObject();
-            foreach (KeyValuePair<string, string> item in Variables)
-            {
-                variables.Add(item.Key, JsonValue.Create(item.Value));
-            }
-
-            jobject["variables"] = variables;
+            string path = Path.GetRelativePath(RootDirectory, item.FileName).Replace('\\', '/');
+            var value = JsonValue.Create(path);
+            items.Add(value);
         }
+
+        json["items"] = items;
+
+        var variables = new JsonObject();
+        foreach (KeyValuePair<string, string> item in Variables)
+        {
+            variables.Add(item.Key, JsonValue.Create(item.Value));
+        }
+
+        json["variables"] = variables;
     }
 
     public void Dispose()

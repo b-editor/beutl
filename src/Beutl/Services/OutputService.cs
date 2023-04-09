@@ -52,8 +52,8 @@ public sealed class OutputQueueItem : IDisposable
 
     public static JsonNode ToJson(OutputQueueItem item)
     {
-        JsonNode ctxJson = new JsonObject();
-        item.Context.WriteToJson(ref ctxJson);
+        var ctxJson = new JsonObject();
+        item.Context.WriteToJson(ctxJson);
         return new JsonObject
         {
             ["Extension"] = TypeFormat.ToString(item.Context.Extension.GetType()),
@@ -81,7 +81,7 @@ public sealed class OutputQueueItem : IDisposable
                 && File.Exists(file)
                 && extension.TryCreateContext(file, out IOutputContext? context))
             {
-                context.ReadFromJson(contextJson);
+                context.ReadFromJson(contextJson.AsObject());
                 return new OutputQueueItem(context);
             }
             else

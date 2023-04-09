@@ -107,45 +107,39 @@ public abstract class Styleable : Animatable, IStyleable, IModifiableHierarchica
         _styleInstance = instance;
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject jobject)
+        if (json.TryGetPropertyValue("styles", out JsonNode? stylesNode)
+            && stylesNode is JsonArray stylesArray)
         {
-            if (jobject.TryGetPropertyValue("styles", out JsonNode? stylesNode)
-                && stylesNode is JsonArray stylesArray)
-            {
-                Styles.Clear();
-                Styles.EnsureCapacity(stylesArray.Count);
+            Styles.Clear();
+            Styles.EnsureCapacity(stylesArray.Count);
 
-                foreach (JsonNode? styleNode in stylesArray)
+            foreach (JsonNode? styleNode in stylesArray)
+            {
+                if (styleNode is JsonObject styleObject
+                    && styleObject.ToStyle() is Style style)
                 {
-                    if (styleNode is JsonObject styleObject
-                        && styleObject.ToStyle() is Style style)
-                    {
-                        Styles.Add(style);
-                    }
+                    Styles.Add(style);
                 }
             }
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
-        if (json is JsonObject jobject)
+        base.WriteToJson(json);
+        if (Styles.Count > 0)
         {
-            if (Styles.Count > 0)
+            var styles = new JsonArray();
+
+            foreach (IStyle style in Styles.GetMarshal().Value)
             {
-                var styles = new JsonArray();
-
-                foreach (IStyle style in Styles.GetMarshal().Value)
-                {
-                    styles.Add(style.ToJson());
-                }
-
-                jobject["styles"] = styles;
+                styles.Add(style.ToJson());
             }
+
+            json["styles"] = styles;
         }
     }
 

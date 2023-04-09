@@ -71,11 +71,11 @@ public sealed class TimelineLayerViewModel : IDisposable
             TimeSpan forwardLength = absTime - Model.Start;
             TimeSpan backwardLength = Model.Length - forwardLength;
 
-            JsonNode jsonNode = new JsonObject();
-            Model.WriteToJson(ref jsonNode);
+            var jsonNode = new JsonObject();
+            Model.WriteToJson(jsonNode);
             string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
             var backwardLayer = new Layer();
-            backwardLayer.ReadFromJson(JsonNode.Parse(json)!);
+            backwardLayer.ReadFromJson(JsonNode.Parse(json)!.AsObject());
 
             Scene.MoveChild(Model.ZIndex, Model.Start, forwardLength, Model).DoAndRecord(CommandRecorder.Default);
             backwardLayer.Start = absTime;
@@ -289,8 +289,8 @@ public sealed class TimelineLayerViewModel : IDisposable
         IClipboard? clipboard = Application.Current?.Clipboard;
         if (clipboard != null)
         {
-            JsonNode jsonNode = new JsonObject();
-            Model.WriteToJson(ref jsonNode);
+            var jsonNode = new JsonObject();
+            Model.WriteToJson(jsonNode);
             string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
             var data = new DataObject();
             data.Set(DataFormats.Text, json);

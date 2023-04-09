@@ -94,11 +94,10 @@ public class VideoFrame : Drawable
         set => SetAndRaise(SourceFileProperty, ref _sourceFile, value);
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject jobj
-            && jobj.TryGetPropertyValue("source-file", out JsonNode? fileNode)
+        if (json.TryGetPropertyValue("source-file", out JsonNode? fileNode)
             && fileNode is JsonValue fileValue
             && fileValue.TryGetValue(out string? fileStr)
             && File.Exists(fileStr))
@@ -107,13 +106,12 @@ public class VideoFrame : Drawable
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
-        if (json is JsonObject jobj
-            && _sourceFile != null)
+        base.WriteToJson(json);
+        if (_sourceFile != null)
         {
-            jobj["source-file"] = _sourceFile.FullName;
+            json["source-file"] = _sourceFile.FullName;
         }
     }
 

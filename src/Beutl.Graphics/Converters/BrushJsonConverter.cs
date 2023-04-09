@@ -21,7 +21,7 @@ internal sealed class BrushJsonConverter : JsonConverter<IBrush>
                 && Activator.CreateInstance(type) is IJsonSerializable jsonSerializable
                 && jsonSerializable is IBrush brush)
             {
-                jsonSerializable.ReadFromJson(node);
+                jsonSerializable.ReadFromJson(node.AsObject());
                 return brush;
             }
         }
@@ -35,10 +35,10 @@ internal sealed class BrushJsonConverter : JsonConverter<IBrush>
         {
             writer.WriteStringValue(solidColorBrush.Color.ToString());
         }
-        else if(value is IJsonSerializable jsonSerializable)
+        else if (value is IJsonSerializable jsonSerializable)
         {
-            JsonNode json = new JsonObject();
-            jsonSerializable.WriteToJson(ref json);
+            var json = new JsonObject();
+            jsonSerializable.WriteToJson(json);
             json.WriteDiscriminator(value.GetType());
 
             json.WriteTo(writer);
