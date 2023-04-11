@@ -35,7 +35,7 @@ public sealed partial class SourceOperatorView : UserControl
         if (DataContext is SourceOperatorViewModel viewModel2)
         {
             SourceOperator operation = viewModel2.Model;
-            Layer layer = operation.FindRequiredHierarchicalParent<Layer>();
+            Element layer = operation.FindRequiredHierarchicalParent<Element>();
             layer.Operation.RemoveChild(operation)
                 .DoAndRecord(CommandRecorder.Default);
         }
@@ -47,7 +47,7 @@ public sealed partial class SourceOperatorView : UserControl
             && DataContext is SourceOperatorViewModel viewModel2)
         {
             SourceOperator operation = viewModel2.Model;
-            Layer layer = operation.FindRequiredHierarchicalParent<Layer>();
+            Element layer = operation.FindRequiredHierarchicalParent<Element>();
             Rect bounds = Bounds;
             Point position = e.GetPosition(this);
             double half = bounds.Height / 2;

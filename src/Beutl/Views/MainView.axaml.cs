@@ -580,10 +580,10 @@ Error:
             if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
                 && viewModel.FindToolTab<TimelineViewModel>() is TimelineViewModel timeline)
             {
-                var dialog = new AddLayer
+                var dialog = new AddElementDialog
                 {
-                    DataContext = new AddLayerViewModel(viewModel.Scene,
-                        new LayerDescription(timeline.ClickedFrame, TimeSpan.FromSeconds(5), timeline.ClickedLayer))
+                    DataContext = new AddElementDialogViewModel(viewModel.Scene,
+                        new ElementDescription(timeline.ClickedFrame, TimeSpan.FromSeconds(5), timeline.ClickedLayer))
                 };
                 await dialog.ShowAsync();
             }
@@ -593,7 +593,7 @@ Error:
         {
             if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
                 && viewModel.Scene is Scene scene
-                && viewModel.SelectedObject.Value is Layer layer)
+                && viewModel.SelectedObject.Value is Element layer)
             {
                 string name = Path.GetFileName(layer.FileName);
                 var dialog = new ContentDialog
@@ -619,7 +619,7 @@ Error:
         {
             if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
                 && viewModel.Scene is Scene scene
-                && viewModel.SelectedObject.Value is Layer layer)
+                && viewModel.SelectedObject.Value is Element layer)
             {
                 scene.RemoveChild(layer).DoAndRecord(CommandRecorder.Default);
             }
@@ -629,7 +629,7 @@ Error:
         {
             if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
                 && viewModel.Scene is Scene scene
-                && viewModel.SelectedObject.Value is Layer layer)
+                && viewModel.SelectedObject.Value is Element layer)
             {
                 IClipboard? clipboard = Application.Current?.Clipboard;
                 if (clipboard != null)
@@ -639,7 +639,7 @@ Error:
                     string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
                     var data = new DataObject();
                     data.Set(DataFormats.Text, json);
-                    data.Set(Constants.Layer, json);
+                    data.Set(Constants.Element, json);
 
                     await clipboard.SetDataObjectAsync(data);
                     scene.RemoveChild(layer).DoAndRecord(CommandRecorder.Default);
@@ -651,7 +651,7 @@ Error:
         {
             if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
                 && viewModel.Scene is Scene scene
-                && viewModel.SelectedObject.Value is Layer layer)
+                && viewModel.SelectedObject.Value is Element layer)
             {
                 IClipboard? clipboard = Application.Current?.Clipboard;
                 if (clipboard != null)
@@ -661,7 +661,7 @@ Error:
                     string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
                     var data = new DataObject();
                     data.Set(DataFormats.Text, json);
-                    data.Set(Constants.Layer, json);
+                    data.Set(Constants.Element, json);
 
                     await clipboard.SetDataObjectAsync(data);
                 }

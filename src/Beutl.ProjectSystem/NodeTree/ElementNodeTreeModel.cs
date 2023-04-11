@@ -9,13 +9,13 @@ using Beutl.Rendering;
 
 namespace Beutl.NodeTree;
 
-public class LayerNodeTreeModel : NodeTreeModel
+public class ElementNodeTreeModel : NodeTreeModel
 {
     // 評価する順番
     private readonly List<NodeEvaluationContext[]> _evalContexts = new();
     private bool _isDirty = true;
 
-    public LayerNodeTreeModel()
+    public ElementNodeTreeModel()
     {
         Nodes.Attached += OnNodeAttached;
         Nodes.Detached += OnNodeDetached;
@@ -46,7 +46,7 @@ public class LayerNodeTreeModel : NodeTreeModel
         obj.Invalidated -= OnNodeInvalidated;
     }
 
-    public void Evaluate(IRenderer renderer, Layer layer)
+    public void Evaluate(IRenderer renderer, Element layer)
     {
         Build(renderer, layer.Clock);
         using var list = new PooledList<Renderable>();

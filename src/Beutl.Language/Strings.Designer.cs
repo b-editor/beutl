@@ -79,20 +79,20 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Add Element に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AddElement {
+            get {
+                return ResourceManager.GetString("AddElement", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Additional Options に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string AdditionalOptions {
             get {
                 return ResourceManager.GetString("AdditionalOptions", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Add Layer に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string AddLayer {
-            get {
-                return ResourceManager.GetString("AddLayer", resourceCulture);
             }
         }
         
@@ -665,6 +665,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Element に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Element {
+            get {
+                return ResourceManager.GetString("Element", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ellipse に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Ellipse {
@@ -1012,15 +1021,6 @@ namespace Beutl.Language {
         public static string Language {
             get {
                 return ResourceManager.GetString("Language", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Layer に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Layer {
-            get {
-                return ResourceManager.GetString("Layer", resourceCulture);
             }
         }
         

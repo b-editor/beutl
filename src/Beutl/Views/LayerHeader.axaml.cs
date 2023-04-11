@@ -10,7 +10,7 @@ using Beutl.ViewModels;
 
 using static Beutl.Views.Timeline;
 
-using TLVM = Beutl.ViewModels.TimelineLayerViewModel;
+using TLVM = Beutl.ViewModels.ElementViewModel;
 
 namespace Beutl.Views;
 

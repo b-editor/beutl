@@ -25,7 +25,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     private bool _disposedValue;
     private IDisposable? _currentFrameRevoker;
     private bool _skipKeyFrameIndexSubscription;
-    private Layer? _layer;
+    private Element? _layer;
     private EditViewModel? _editViewModel;
     private IServiceProvider? _parentServices;
 
@@ -175,7 +175,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         if (visitor is IServiceProvider serviceProvider)
         {
             _parentServices = serviceProvider;
-            _layer = serviceProvider.GetService<Layer>();
+            _layer = serviceProvider.GetService<Element>();
             _editViewModel = serviceProvider.GetService<EditViewModel>();
 
             if (_editViewModel != null)
@@ -317,7 +317,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     private TimeSpan ConvertKeyTime(TimeSpan globalkeyTime, IAnimation animation)
     {
-        Layer? layer = this.GetService<Layer>();
+        Element? layer = this.GetService<Element>();
         TimeSpan localKeyTime = layer != null ? globalkeyTime - layer.Start : globalkeyTime;
         TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
 

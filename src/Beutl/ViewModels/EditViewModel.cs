@@ -211,7 +211,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         string viewStateDir = ViewStateDirectory();
         var json = new JsonObject
         {
-            ["selected-layer"] = (SelectedObject.Value as Layer)?.ZIndex ?? -1,
+            ["selected-layer"] = (SelectedObject.Value as Element)?.ZIndex ?? -1,
             ["max-layer-count"] = Options.Value.MaxLayerCount,
             ["scale"] = Options.Value.Scale,
             ["offset"] = new JsonObject
@@ -265,7 +265,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
                 int layer = (int?)json["selected-layer"] ?? -1;
                 if (layer >= 0)
                 {
-                    foreach (Layer item in Scene.Children.GetMarshal().Value)
+                    foreach (Element item in Scene.Children.GetMarshal().Value)
                     {
                         if (item.ZIndex == layer)
                         {
@@ -388,7 +388,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         public ValueTask<bool> OnSave()
         {
             _scene.Save(_scene.FileName);
-            foreach (Layer layer in _scene.Children)
+            foreach (Element layer in _scene.Children)
             {
                 layer.Save(layer.FileName);
             }

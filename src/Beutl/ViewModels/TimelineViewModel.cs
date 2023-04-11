@@ -56,12 +56,12 @@ public sealed class TimelineViewModel : IToolContext
 
         AddLayer.Subscribe(item =>
         {
-            var sLayer = new Layer()
+            var sLayer = new Element()
             {
                 Start = item.Start,
                 Length = item.Length,
                 ZIndex = item.Layer,
-                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, Constants.LayerFileExtension)
+                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension)
             };
 
             if (item.InitialOperator != null)
@@ -76,10 +76,10 @@ public sealed class TimelineViewModel : IToolContext
 
         LayerHeaders.AddRange(Enumerable.Range(0, 100).Select(num => new LayerHeaderViewModel(num, this)));
         Scene.Children.ForEachItem(
-            (idx, item) => Layers.Insert(idx, new TimelineLayerViewModel(item, this)),
+            (idx, item) => Layers.Insert(idx, new ElementViewModel(item, this)),
             (idx, _) =>
             {
-                TimelineLayerViewModel layer = Layers[idx];
+                ElementViewModel layer = Layers[idx];
                 foreach (InlineAnimationLayerViewModel item in Inlines.Where(x => x.Layer == layer).ToArray())
                 {
                     DetachInline(item);
@@ -90,7 +90,7 @@ public sealed class TimelineViewModel : IToolContext
             },
             () =>
             {
-                foreach (TimelineLayerViewModel? item in Layers.GetMarshal().Value)
+                foreach (ElementViewModel? item in Layers.GetMarshal().Value)
                 {
                     item.Dispose();
                 }
@@ -113,9 +113,9 @@ public sealed class TimelineViewModel : IToolContext
 
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
 
-    public ReactiveCommand<LayerDescription> AddLayer { get; } = new();
+    public ReactiveCommand<ElementDescription> AddLayer { get; } = new();
 
-    public CoreList<TimelineLayerViewModel> Layers { get; } = new();
+    public CoreList<ElementViewModel> Layers { get; } = new();
 
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = new();
 
@@ -142,7 +142,7 @@ public sealed class TimelineViewModel : IToolContext
     public void Dispose()
     {
         _disposables.Dispose();
-        foreach (TimelineLayerViewModel? item in Layers.GetMarshal().Value)
+        foreach (ElementViewModel? item in Layers.GetMarshal().Value)
         {
             item.Dispose();
         }
@@ -173,7 +173,7 @@ public sealed class TimelineViewModel : IToolContext
     {
     }
 
-    public void AttachInline(IAbstractAnimatableProperty property, Layer layer)
+    public void AttachInline(IAbstractAnimatableProperty property, Element layer)
     {
         if (!Inlines.Any(x => x.Layer.Model == layer && x.Property == property)
             && Layers.FirstOrDefault(x => x.Model == layer) is { } viewModel)
@@ -248,9 +248,9 @@ public sealed class TimelineViewModel : IToolContext
         return -1;
     }
 
-    public bool AnySelected(TimelineLayerViewModel? exclude = null)
+    public bool AnySelected(ElementViewModel? exclude = null)
     {
-        foreach (TimelineLayerViewModel item in Layers)
+        foreach (ElementViewModel item in Layers)
         {
             if ((exclude == null || exclude != item) && item.IsSelected.Value)
             {
@@ -261,9 +261,9 @@ public sealed class TimelineViewModel : IToolContext
         return false;
     }
 
-    public IEnumerable<TimelineLayerViewModel> GetSelected(TimelineLayerViewModel? exclude = null)
+    public IEnumerable<ElementViewModel> GetSelected(ElementViewModel? exclude = null)
     {
-        foreach (TimelineLayerViewModel item in Layers)
+        foreach (ElementViewModel item in Layers)
         {
             if ((exclude == null || exclude != item) && item.IsSelected.Value)
             {

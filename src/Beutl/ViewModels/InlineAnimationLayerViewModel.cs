@@ -11,7 +11,7 @@ namespace Beutl.ViewModels;
 
 public sealed class InlineAnimationLayerViewModel<T> : InlineAnimationLayerViewModel
 {
-    public InlineAnimationLayerViewModel(IAbstractAnimatableProperty<T> property, TimelineViewModel timeline, TimelineLayerViewModel layer)
+    public InlineAnimationLayerViewModel(IAbstractAnimatableProperty<T> property, TimelineViewModel timeline, ElementViewModel layer)
         : base(property, timeline, layer)
     {
     }
@@ -84,7 +84,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
     protected InlineAnimationLayerViewModel(
         IAbstractAnimatableProperty property,
         TimelineViewModel timeline,
-        TimelineLayerViewModel layer)
+        ElementViewModel layer)
     {
         Property = property;
         Timeline = timeline;
@@ -155,7 +155,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public TimelineViewModel Timeline { get; }
 
-    public TimelineLayerViewModel Layer { get; }
+    public ElementViewModel Layer { get; }
 
     public CoreList<InlineKeyFrameViewModel> Items { get; } = new();
 

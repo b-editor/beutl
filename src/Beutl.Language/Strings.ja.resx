@@ -129,8 +129,8 @@
   <data name="Add" xml:space="preserve">
     <value>追加</value>
   </data>
-  <data name="AddLayer" xml:space="preserve">
-    <value>レイヤーを追加</value>
+  <data name="AddElement" xml:space="preserve">
+    <value>要素を追加</value>
   </data>
   <data name="Apply" xml:space="preserve">
     <value>適用</value>
@@ -237,8 +237,8 @@
   <data name="Info" xml:space="preserve">
     <value>情報</value>
   </data>
-  <data name="Layer" xml:space="preserve">
-    <value>レイヤー</value>
+  <data name="Element" xml:space="preserve">
+    <value>要素</value>
   </data>
   <data name="Left" xml:space="preserve">
     <value>左</value>

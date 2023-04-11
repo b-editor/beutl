@@ -159,8 +159,8 @@
                     <MenuItem Click="SceneSettings_Click"
                               Header="{x:Static lang:Strings.SceneSettings}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
-                    <!--  レイヤー  -->
-                    <MenuItem Header="{x:Static lang:Strings.Layer}">
+                    <!--  要素  -->
+                    <MenuItem Header="{x:Static lang:Strings.Element}">
                         <MenuItem Command="{CompiledBinding AddLayer}" Header="{x:Static lang:Strings.Add}" />
                         <MenuItem Command="{CompiledBinding DeleteLayer}" Header="{x:Static lang:Strings.Delete}" />
                         <MenuItem Command="{CompiledBinding ExcludeLayer}" Header="{x:Static lang:Strings.Exclude}" />

@@ -18,13 +18,13 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
     private readonly IDisposable _disposable0;
     private EditViewModel _editViewModel;
     private IDisposable? _disposable1;
-    private Layer? _oldLayer;
+    private Element? _oldLayer;
 
     public SourceOperatorsTabViewModel(EditViewModel editViewModel)
     {
         _editViewModel = editViewModel;
         Layer = editViewModel.SelectedObject
-            .Select(x => x as Layer)
+            .Select(x => x as Element)
             .ToReactiveProperty();
 
         _disposable0 = Layer.Subscribe(layer =>
@@ -111,7 +111,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
 
     public Action<SourceOperator>? RequestScroll { get; set; }
 
-    public ReactiveProperty<Layer?> Layer { get; }
+    public ReactiveProperty<Element?> Layer { get; }
 
     public CoreList<SourceOperatorViewModel> Items { get; } = new();
 
@@ -141,7 +141,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
         RequestScroll = null;
     }
 
-    private static string ViewStateDirectory(Layer layer)
+    private static string ViewStateDirectory(Element layer)
     {
         string directory = Path.GetDirectoryName(layer.FileName)!;
 
@@ -154,7 +154,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
         return directory;
     }
 
-    private void SaveState(Layer layer)
+    private void SaveState(Element layer)
     {
         string viewStateDir = ViewStateDirectory(layer);
         var json = new JsonArray();
@@ -166,7 +166,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
         json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.operators.config"));
     }
 
-    private void RestoreState(Layer layer)
+    private void RestoreState(Element layer)
     {
         string viewStateDir = ViewStateDirectory(layer);
         string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.operators.config");
@@ -207,7 +207,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
 
     public object? GetService(Type serviceType)
     {
-        if (serviceType == typeof(Layer))
+        if (serviceType == typeof(Element))
             return Layer.Value;
 
         return _editViewModel.GetService(serviceType);

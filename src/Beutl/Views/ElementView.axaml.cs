@@ -31,32 +31,32 @@ namespace Beutl.Views;
  * Undo/Redoがされた場合アニメーションをキャンセルする必要がある。
  */
 
-public sealed partial class TimelineLayer : UserControl
+public sealed partial class ElementView : UserControl
 {
     private Timeline? _timeline;
     private TimeSpan _pointerPosition;
     private IDisposable? _disposable1;
 
-    public TimelineLayer()
+    public ElementView()
     {
         InitializeComponent();
 
         textBox.LostFocus += OnTextBoxLostFocus;
-        this.SubscribeDataContextChange<TimelineLayerViewModel>(OnDataContextAttached, OnDataContextDetached);
+        this.SubscribeDataContextChange<ElementViewModel>(OnDataContextAttached, OnDataContextDetached);
     }
 
     public Func<TimeSpan> GetClickedTime => () => _pointerPosition;
 
-    private TimelineLayerViewModel ViewModel => (TimelineLayerViewModel)DataContext!;
+    private ElementViewModel ViewModel => (ElementViewModel)DataContext!;
 
-    private void OnDataContextDetached(TimelineLayerViewModel obj)
+    private void OnDataContextDetached(ElementViewModel obj)
     {
         obj.AnimationRequested = (_, _) => Task.CompletedTask;
         _disposable1?.Dispose();
         _disposable1 = null;
     }
 
-    private void OnDataContextAttached(TimelineLayerViewModel obj)
+    private void OnDataContextAttached(ElementViewModel obj)
     {
         obj.AnimationRequested = async (args, token) =>
         {
@@ -121,11 +121,11 @@ public sealed partial class TimelineLayer : UserControl
             });
         };
 
-        _disposable1 = obj.Model.GetObservable(Layer.IsEnabledProperty)
+        _disposable1 = obj.Model.GetObservable(Element.IsEnabledProperty)
             .Subscribe(b => Dispatcher.UIThread.InvokeAsync(() => border.Opacity = b ? 1 : 0.5));
     }
 
-    protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
+    protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
     {
         base.OnAttachedToLogicalTree(e);
         _timeline = this.FindLogicalAncestorOfType<Timeline>();
@@ -137,7 +137,7 @@ public sealed partial class TimelineLayer : UserControl
         behaviors.Add(new _MoveBehavior());
     }
 
-    protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
+    protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromLogicalTree(e);
         _timeline = null;
@@ -155,15 +155,15 @@ public sealed partial class TimelineLayer : UserControl
 
     private void UseNodeClick(object? sender, RoutedEventArgs e)
     {
-        var layer = ViewModel.Model;
-        var command = new ChangePropertyCommand<bool>(layer, Layer.UseNodeProperty, !layer.UseNode, layer.UseNode);
+        var model = ViewModel.Model;
+        var command = new ChangePropertyCommand<bool>(model, Element.UseNodeProperty, !model.UseNode, model.UseNode);
         command.DoAndRecord(CommandRecorder.Default);
     }
 
     private void AllowOutflowClick(object? sender, RoutedEventArgs e)
     {
-        var layer = ViewModel.Model;
-        var command = new ChangePropertyCommand<bool>(layer, Layer.AllowOutflowProperty, !layer.AllowOutflow, layer.AllowOutflow);
+        var model = ViewModel.Model;
+        var command = new ChangePropertyCommand<bool>(model, Element.AllowOutflowProperty, !model.AllowOutflow, model.AllowOutflow);
         command.DoAndRecord(CommandRecorder.Default);
     }
 
@@ -175,25 +175,25 @@ public sealed partial class TimelineLayer : UserControl
 
     private void OpenNodeTree_Click(object? sender, RoutedEventArgs e)
     {
-        Layer layer = ViewModel.Model;
+        Element model = ViewModel.Model;
         EditViewModel context = ViewModel.Timeline.EditorContext;
         NodeTreeTabViewModel? nodeTree = context.FindToolTab<NodeTreeTabViewModel>(
-            v => v.Layer.Value == layer || v.Layer.Value == null);
+            v => v.Layer.Value == model || v.Layer.Value == null);
         nodeTree ??= new NodeTreeTabViewModel(context);
-        nodeTree.Layer.Value = layer;
+        nodeTree.Layer.Value = model;
 
         context.OpenToolTab(nodeTree);
     }
 
     private TimeSpan RoundStartTime(TimeSpan time, float scale, bool flag)
     {
-        Layer layer = ViewModel.Model;
+        Element model = ViewModel.Model;
 
         if (!flag)
         {
-            foreach (Layer item in ViewModel.Scene.Children.GetMarshal().Value)
+            foreach (Element item in ViewModel.Scene.Children.GetMarshal().Value)
             {
-                if (item != layer)
+                if (item != model)
                 {
                     const double ThreadholdPixel = 10;
                     TimeSpan threadhold = ThreadholdPixel.ToTimeSpan(scale);
@@ -217,10 +217,10 @@ public sealed partial class TimelineLayer : UserControl
         return time;
     }
 
-    private sealed class _ResizeBehavior : Behavior<TimelineLayer>
+    private sealed class _ResizeBehavior : Behavior<ElementView>
     {
-        private Layer? _before;
-        private Layer? _after;
+        private Element? _before;
+        private Element? _after;
         private bool _pressed;
         private AlignmentX _resizeType;
 
@@ -249,18 +249,18 @@ public sealed partial class TimelineLayer : UserControl
 
         private void OnPointerMoved(object? sender, PointerEventArgs e)
         {
-            if (AssociatedObject is { ViewModel: { } viewModel } layer)
+            if (AssociatedObject is { ViewModel: { } viewModel } view)
             {
-                Point point = e.GetPosition(layer);
+                Point point = e.GetPosition(view);
                 float scale = viewModel.Timeline.Options.Value.Scale;
                 TimeSpan pointerFrame = point.X.ToTimeSpan(scale);
 
-                if (layer._timeline is { } timeline && _pressed)
+                if (view._timeline is { } timeline && _pressed)
                 {
-                    pointerFrame = layer.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
+                    pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
                     point = point.WithX(pointerFrame.ToPixel(scale));
 
-                    if (layer.Cursor != Cursors.Arrow && layer.Cursor is { })
+                    if (view.Cursor != Cursors.Arrow && view.Cursor is { })
                     {
                         double left = viewModel.BorderMargin.Value.Left;
 
@@ -287,11 +287,11 @@ public sealed partial class TimelineLayer : UserControl
 
         private void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (AssociatedObject is { _timeline: { }, border: { } border, ViewModel: { } viewModel } layer)
+            if (AssociatedObject is { _timeline: { }, border: { } border, ViewModel: { } viewModel } view)
             {
-                PointerPoint point = e.GetCurrentPoint(layer.border);
+                PointerPoint point = e.GetCurrentPoint(view.border);
                 if (point.Properties.IsLeftButtonPressed && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt
-                    && layer.Cursor != Cursors.Arrow && layer.Cursor is { })
+                    && view.Cursor != Cursors.Arrow && view.Cursor is { })
                 {
                     _before = viewModel.Model.GetBefore(viewModel.Model.ZIndex, viewModel.Model.Start);
                     _after = viewModel.Model.GetAfter(viewModel.Model.ZIndex, viewModel.Model.Range.End);
@@ -320,11 +320,11 @@ public sealed partial class TimelineLayer : UserControl
 
         private void OnBorderPointerMoved(object? sender, PointerEventArgs e)
         {
-            if (AssociatedObject is { border: { } border } layer)
+            if (AssociatedObject is { border: { } border } view)
             {
                 if (e.KeyModifiers is not (KeyModifiers.None or KeyModifiers.Alt))
                 {
-                    layer.Cursor = null;
+                    view.Cursor = null;
                     _resizeType = AlignmentX.Center;
                 }
                 else if (!_pressed)
@@ -335,17 +335,17 @@ public sealed partial class TimelineLayer : UserControl
                     // 左右 10px内 なら左右矢印
                     if (horizon < 10)
                     {
-                        layer.Cursor = Cursors.SizeWestEast;
+                        view.Cursor = Cursors.SizeWestEast;
                         _resizeType = AlignmentX.Left;
                     }
                     else if (horizon > border.Bounds.Width - 10)
                     {
-                        layer.Cursor = Cursors.SizeWestEast;
+                        view.Cursor = Cursors.SizeWestEast;
                         _resizeType = AlignmentX.Right;
                     }
                     else
                     {
-                        layer.Cursor = null;
+                        view.Cursor = null;
                         _resizeType = AlignmentX.Center;
                     }
                 }
@@ -353,7 +353,7 @@ public sealed partial class TimelineLayer : UserControl
         }
     }
 
-    private sealed class _MoveBehavior : Behavior<TimelineLayer>
+    private sealed class _MoveBehavior : Behavior<ElementView>
     {
         private bool _pressed;
         private Point _start;
@@ -382,15 +382,15 @@ public sealed partial class TimelineLayer : UserControl
 
         private void OnPointerMoved(object? sender, PointerEventArgs e)
         {
-            if (AssociatedObject is { ViewModel: { } viewModel } layer
-                && layer._timeline is { } timeline && _pressed)
+            if (AssociatedObject is { ViewModel: { } viewModel } view
+                && view._timeline is { } timeline && _pressed)
             {
                 Scene scene = viewModel.Scene;
-                Point point = e.GetPosition(layer);
+                Point point = e.GetPosition(view);
                 float scale = viewModel.Timeline.Options.Value.Scale;
                 TimeSpan pointerFrame = point.X.ToTimeSpan(scale);
 
-                pointerFrame = layer.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
+                pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
 
                 TimeSpan newframe = pointerFrame - _start.X.ToTimeSpan(scale);
 
@@ -404,7 +404,7 @@ public sealed partial class TimelineLayer : UserControl
                 viewModel.Margin.Value = new(0, newTop, 0, 0);
                 viewModel.BorderMargin.Value = new Thickness(newLeft, 0, 0, 0);
 
-                foreach (TimelineLayerViewModel item in viewModel.Timeline.GetSelected(viewModel))
+                foreach (ElementViewModel item in viewModel.Timeline.GetSelected(viewModel))
                 {
                     item.Margin.Value = new(0, item.Margin.Value.Top + deltaTop, 0, 0);
                     item.BorderMargin.Value = new(item.BorderMargin.Value.Left + deltaLeft, 0, 0, 0);
@@ -416,11 +416,11 @@ public sealed partial class TimelineLayer : UserControl
 
         private void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (AssociatedObject is { _timeline: { }, border: { } border } layer)
+            if (AssociatedObject is { _timeline: { }, border: { } border } view)
             {
-                PointerPoint point = e.GetCurrentPoint(layer.border);
+                PointerPoint point = e.GetCurrentPoint(view.border);
                 if (point.Properties.IsLeftButtonPressed
-                    && (layer.Cursor == Cursors.Arrow || layer.Cursor == null))
+                    && (view.Cursor == Cursors.Arrow || view.Cursor == null))
                 {
                     _pressed = true;
                     _start = point.Position;
@@ -438,10 +438,10 @@ public sealed partial class TimelineLayer : UserControl
                 if (AssociatedObject is { ViewModel: { } viewModel })
                 {
                     e.Handled = true;
-                    var layers = new List<Layer>() { viewModel.Model };
-                    layers.AddRange(viewModel.Timeline.GetSelected(viewModel).Select(x => x.Model));
+                    var elems = new List<Element>() { viewModel.Model };
+                    elems.AddRange(viewModel.Timeline.GetSelected(viewModel).Select(x => x.Model));
 
-                    if (layers.Count == 1)
+                    if (elems.Count == 1)
                     {
                         await viewModel.SubmitViewModelChanges();
                     }
@@ -458,7 +458,7 @@ public sealed partial class TimelineLayer : UserControl
                             .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
                             .ToArray();
 
-                        viewModel.Scene.MoveChildren(deltaIndex, deltaStart, layers.ToArray())
+                        viewModel.Scene.MoveChildren(deltaIndex, deltaStart, elems.ToArray())
                             .DoAndRecord(CommandRecorder.Default);
 
                         foreach (var (item, context) in animations)
@@ -471,7 +471,7 @@ public sealed partial class TimelineLayer : UserControl
         }
     }
 
-    private sealed class _SelectBehavior : Behavior<TimelineLayer>
+    private sealed class _SelectBehavior : Behavior<ElementView>
     {
         private bool _pressedWithModifier;
         private Thickness _snapshot;

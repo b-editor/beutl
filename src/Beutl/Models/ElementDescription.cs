@@ -2,7 +2,7 @@
 
 namespace Beutl.Models;
 
-public record struct LayerDescription(
+public record struct ElementDescription(
     TimeSpan Start,
     TimeSpan Length,
     int Layer,

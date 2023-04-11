@@ -55,7 +55,7 @@ public sealed partial class SourceOperatorsTab : UserControl
     {
         if (e.Data.Get("SourceOperator") is OperatorRegistry.RegistryItem item
             && DataContext is SourceOperatorsTabViewModel vm
-            && vm.Layer.Value is Layer layer)
+            && vm.Layer.Value is Element layer)
         {
             layer.Operation.AddChild((SourceOperator)Activator.CreateInstance(item.Type)!)
                 .DoAndRecord(CommandRecorder.Default);

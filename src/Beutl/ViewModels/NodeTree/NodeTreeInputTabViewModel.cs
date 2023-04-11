@@ -17,7 +17,7 @@ public sealed class NodeTreeInputTabViewModel : IToolContext
     {
         _editViewModel = editViewModel;
         Layer = editViewModel.SelectedObject
-            .Select(x => x as Layer)
+            .Select(x => x as Element)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
@@ -26,7 +26,7 @@ public sealed class NodeTreeInputTabViewModel : IToolContext
             {
                 InnerViewModel.Value?.Dispose();
                 InnerViewModel.Value = null;
-                if (obj.NewValue is Layer newValue)
+                if (obj.NewValue is Element newValue)
                 {
                     InnerViewModel.Value = new NodeTreeInputViewModel(newValue, this);
                 }
@@ -42,7 +42,7 @@ public sealed class NodeTreeInputTabViewModel : IToolContext
 
     public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Right;
 
-    public ReactiveProperty<Layer?> Layer { get; }
+    public ReactiveProperty<Element?> Layer { get; }
 
     public ReactivePropertySlim<NodeTreeInputViewModel?> InnerViewModel { get; } = new();
 
@@ -58,7 +58,7 @@ public sealed class NodeTreeInputTabViewModel : IToolContext
 
     public object? GetService(Type serviceType)
     {
-        if (serviceType == typeof(Layer))
+        if (serviceType == typeof(Element))
             return Layer.Value;
 
         return _editViewModel.GetService(serviceType);

@@ -12,53 +12,53 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels;
 
-public sealed class TimelineLayerViewModel : IDisposable
+public sealed class ElementViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
 
-    public TimelineLayerViewModel(Layer sceneLayer, TimelineViewModel timeline)
+    public ElementViewModel(Element element, TimelineViewModel timeline)
     {
-        Model = sceneLayer;
+        Model = element;
         Timeline = timeline;
 
         // プロパティを構成
-        IsEnabled = sceneLayer.GetObservable(Layer.IsEnabledProperty)
+        IsEnabled = element.GetObservable(Element.IsEnabledProperty)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        AllowOutflow = sceneLayer.GetObservable(Layer.AllowOutflowProperty)
+        AllowOutflow = element.GetObservable(Element.AllowOutflowProperty)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        UseNode = sceneLayer.GetObservable(Layer.UseNodeProperty)
+        UseNode = element.GetObservable(Element.UseNodeProperty)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        Name = sceneLayer.GetObservable(CoreObject.NameProperty)
+        Name = element.GetObservable(CoreObject.NameProperty)
             .ToReactiveProperty()
             .AddTo(_disposables)!;
         Name.Subscribe(v => Model.Name = v)
             .AddTo(_disposables);
 
-        IObservable<int> zIndexSubject = sceneLayer.GetObservable(Layer.ZIndexProperty);
+        IObservable<int> zIndexSubject = element.GetObservable(Element.ZIndexProperty);
         Margin = Timeline.GetTrackedLayerTopObservable(zIndexSubject)
             .Select(item => new Thickness(0, item, 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        BorderMargin = sceneLayer.GetObservable(Layer.StartProperty)
+        BorderMargin = element.GetObservable(Element.StartProperty)
             .CombineLatest(timeline.EditorContext.Scale)
             .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        Width = sceneLayer.GetObservable(Layer.LengthProperty)
+        Width = element.GetObservable(Element.LengthProperty)
             .CombineLatest(timeline.EditorContext.Scale)
             .Select(item => item.First.ToPixel(item.Second))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        Color = sceneLayer.GetObservable(Layer.AccentColorProperty)
+        Color = element.GetObservable(Element.AccentColorProperty)
             .Select(c => c.ToAvalonia())
             .ToReactiveProperty()
             .AddTo(_disposables);
@@ -104,7 +104,7 @@ public sealed class TimelineLayerViewModel : IDisposable
             .AddTo(_disposables);
     }
 
-    ~TimelineLayerViewModel()
+    ~ElementViewModel()
     {
         _disposables.Dispose();
     }
@@ -113,7 +113,7 @@ public sealed class TimelineLayerViewModel : IDisposable
 
     public TimelineViewModel Timeline { get; private set; }
 
-    public Layer Model { get; private set; }
+    public Element Model { get; private set; }
 
     public Scene Scene => (Scene)Model.HierarchicalParent!;
 
@@ -230,7 +230,7 @@ public sealed class TimelineLayerViewModel : IDisposable
             string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
             var data = new DataObject();
             data.Set(DataFormats.Text, json);
-            data.Set(Constants.Layer, json);
+            data.Set(Constants.Element, json);
 
             await clipboard.SetDataObjectAsync(data);
             return true;
@@ -308,14 +308,14 @@ public sealed class TimelineLayerViewModel : IDisposable
         var jsonNode = new JsonObject();
         Model.WriteToJson(jsonNode);
         string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
-        var backwardLayer = new Layer();
+        var backwardLayer = new Element();
         backwardLayer.ReadFromJson(JsonNode.Parse(json)!.AsObject());
 
         Scene.MoveChild(Model.ZIndex, Model.Start, forwardLength, Model).DoAndRecord(CommandRecorder.Default);
         backwardLayer.Start = absTime;
         backwardLayer.Length = backwardLength;
 
-        backwardLayer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, Constants.LayerFileExtension));
+        backwardLayer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension));
         Scene.AddChild(backwardLayer).DoAndRecord(CommandRecorder.Default);
     }
 

@@ -12,18 +12,18 @@ public sealed class NodeTreeInputViewModel : IDisposable, IServiceProvider
     private readonly CompositeDisposable _disposables = new();
     private NodeTreeInputTabViewModel _parent;
 
-    public NodeTreeInputViewModel(Layer layer, NodeTreeInputTabViewModel parent)
+    public NodeTreeInputViewModel(Element layer, NodeTreeInputTabViewModel parent)
     {
         Model = layer;
         _parent = parent;
 
-        UseNode = layer.GetObservable(Layer.UseNodeProperty)
+        UseNode = layer.GetObservable(Element.UseNodeProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
         UseNode.Skip(1)
             //.ObserveOnRendererThread()
-            .Subscribe(v => new ChangePropertyCommand<bool>(Model, Layer.UseNodeProperty, v, !v)
+            .Subscribe(v => new ChangePropertyCommand<bool>(Model, Element.UseNodeProperty, v, !v)
                                 .DoAndRecord(CommandRecorder.Default))
             .DisposeWith(_disposables);
 
@@ -68,7 +68,7 @@ public sealed class NodeTreeInputViewModel : IDisposable, IServiceProvider
             .DisposeWith(_disposables);
     }
 
-    public Layer Model { get; }
+    public Element Model { get; }
 
     public ReactiveProperty<bool> UseNode { get; }
 

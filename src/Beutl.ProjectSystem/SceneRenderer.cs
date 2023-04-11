@@ -12,9 +12,9 @@ internal sealed class SceneRenderer :
 //DeferredRenderer
 {
     private readonly Scene _scene;
-    private readonly List<Layer> _entered = new();
-    private readonly List<Layer> _exited = new();
-    private readonly List<Layer> _layers = new();
+    private readonly List<Element> _entered = new();
+    private readonly List<Element> _exited = new();
+    private readonly List<Element> _layers = new();
     private readonly List<Renderable> _unhandleds = new();
     private TimeSpan _recentTime = TimeSpan.MinValue;
 
@@ -33,22 +33,22 @@ internal sealed class SceneRenderer :
         var timeSpan = Clock.CurrentTime;
         CurrentTime = timeSpan;
         SortLayers(timeSpan, out _);
-        Span<Layer> layers = CollectionsMarshal.AsSpan(_layers);
-        Span<Layer> entered = CollectionsMarshal.AsSpan(_entered);
-        Span<Layer> exited = CollectionsMarshal.AsSpan(_exited);
+        Span<Element> layers = CollectionsMarshal.AsSpan(_layers);
+        Span<Element> entered = CollectionsMarshal.AsSpan(_entered);
+        Span<Element> exited = CollectionsMarshal.AsSpan(_exited);
         _unhandleds.Clear();
 
-        foreach (Layer item in exited)
+        foreach (Element item in exited)
         {
             ExitSourceOperators(item);
         }
 
-        foreach (Layer item in entered)
+        foreach (Element item in entered)
         {
             EnterSourceOperators(item);
         }
 
-        foreach (Layer layer in layers)
+        foreach (Element layer in layers)
         {
             layer.Evaluate(this, _unhandleds);
         }
@@ -57,7 +57,7 @@ internal sealed class SceneRenderer :
         _recentTime = timeSpan;
     }
 
-    private static void EnterSourceOperators(Layer layer)
+    private static void EnterSourceOperators(Element layer)
     {
         foreach (SourceOperator item in layer.Operation.Children.GetMarshal().Value)
         {
@@ -65,7 +65,7 @@ internal sealed class SceneRenderer :
         }
     }
 
-    private static void ExitSourceOperators(Layer layer)
+    private static void ExitSourceOperators(Element layer)
     {
         foreach (SourceOperator item in layer.Operation.Children.GetMarshal().Value)
         {
@@ -82,7 +82,7 @@ internal sealed class SceneRenderer :
         TimeSpan enterStart = TimeSpan.MaxValue;
         TimeSpan enterEnd = TimeSpan.Zero;
 
-        foreach (Layer? item in _scene.Children)
+        foreach (Element? item in _scene.Children)
         {
             bool recent = InRange(item, _recentTime);
             bool current = InRange(item, timeSpan);
@@ -115,7 +115,7 @@ internal sealed class SceneRenderer :
 
 
     // itemがtsの範囲内かを確かめます
-    private static bool InRange(Layer item, TimeSpan ts)
+    private static bool InRange(Element item, TimeSpan ts)
     {
         return item.Start <= ts && ts < item.Length + item.Start;
     }

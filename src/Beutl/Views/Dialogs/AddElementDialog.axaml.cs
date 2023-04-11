@@ -7,11 +7,11 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Dialogs;
 
-public sealed partial class AddLayer : ContentDialog, IStyleable
+public sealed partial class AddElementDialog : ContentDialog, IStyleable
 {
     private IDisposable? _sBtnBinding;
 
-    public AddLayer()
+    public AddElementDialog()
     {
         InitializeComponent();
     }
@@ -41,7 +41,7 @@ public sealed partial class AddLayer : ContentDialog, IStyleable
     protected override void OnSecondaryButtonClick(ContentDialogButtonClickEventArgs args)
     {
         base.OnSecondaryButtonClick(args);
-        if (DataContext is not AddLayerViewModel vm) return;
+        if (DataContext is not AddElementDialogViewModel vm) return;
 
         if (carousel.SelectedIndex == 1)
         {

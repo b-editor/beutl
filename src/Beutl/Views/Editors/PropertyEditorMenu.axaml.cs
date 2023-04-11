@@ -54,7 +54,7 @@ public sealed partial class PropertyEditorMenu : UserControl
         {
             // タイムラインのタブを開く
             var anmTimelineViewModel = new GraphEditorTabViewModel();
-            anmTimelineViewModel.SelectedAnimation.Value = new GraphEditorViewModel(editViewModel, kfAnimation, viewModel.GetService<Layer>());
+            anmTimelineViewModel.SelectedAnimation.Value = new GraphEditorViewModel(editViewModel, kfAnimation, viewModel.GetService<Element>());
             editViewModel.OpenToolTab(anmTimelineViewModel);
         }
     }
@@ -64,7 +64,7 @@ public sealed partial class PropertyEditorMenu : UserControl
         if (DataContext is BaseEditorViewModel viewModel
             && viewModel.WrappedProperty is IAbstractAnimatableProperty animatableProperty
             && viewModel.GetService<EditViewModel>() is { } editViewModel
-            && viewModel.GetService<Layer>() is { } layer
+            && viewModel.GetService<Element>() is { } layer
             && editViewModel.FindToolTab<TimelineViewModel>() is { } timeline)
         {
             if (animatableProperty.Animation is not IKeyFrameAnimation)

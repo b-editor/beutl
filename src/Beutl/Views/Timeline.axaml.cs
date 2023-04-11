@@ -35,8 +35,8 @@ public sealed partial class Timeline : UserControl
     internal int _pointerLayer;
     private TimelineViewModel? _viewModel;
     private readonly CompositeDisposable _disposables = new();
-    private TimelineLayer? _selectedLayer;
-    private List<(TimelineLayerViewModel Layer, bool IsSelectedOriginal)> _rangeSelection = new();
+    private ElementView? _selectedLayer;
+    private readonly List<(ElementViewModel Layer, bool IsSelectedOriginal)> _rangeSelection = new();
 
     public Timeline()
     {
@@ -77,8 +77,8 @@ public sealed partial class Timeline : UserControl
         LeftPanel[!MinHeightProperty] = minHeightBinding;
 
         vm.Layers.ForEachItem(
-            AddLayer,
-            RemoveLayer,
+            AddElement,
+            RemoveElement,
             () => { })
             .DisposeWith(_disposables);
 
@@ -94,15 +94,15 @@ public sealed partial class Timeline : UserControl
                 {
                     string[] formats = await clipboard.GetFormatsAsync();
 
-                    if (formats.AsSpan().Contains(Constants.Layer))
+                    if (formats.AsSpan().Contains(Constants.Element))
                     {
                         string json = await clipboard.GetTextAsync();
-                        var layer = new Layer();
+                        var layer = new Element();
                         layer.ReadFromJson(JsonNode.Parse(json)!.AsObject());
                         layer.Start = ViewModel.ClickedFrame;
                         layer.ZIndex = ViewModel.ClickedLayer;
 
-                        layer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.LayerFileExtension));
+                        layer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.ElementFileExtension));
 
                         ViewModel.Scene.AddChild(layer).DoAndRecord(CommandRecorder.Default);
                     }
@@ -114,7 +114,7 @@ public sealed partial class Timeline : UserControl
             {
                 if (_selectedLayer != null)
                 {
-                    foreach (TimelineLayerViewModel item in ViewModel.Layers.GetMarshal().Value)
+                    foreach (ElementViewModel item in ViewModel.Layers.GetMarshal().Value)
                     {
                         item.IsSelected.Value = false;
                     }
@@ -122,7 +122,7 @@ public sealed partial class Timeline : UserControl
                     _selectedLayer = null;
                 }
 
-                if (e is Layer layer && FindLayerView(layer) is TimelineLayer { DataContext: TimelineLayerViewModel viewModel } newView)
+                if (e is Element layer && FindLayerView(layer) is ElementView { DataContext: ElementViewModel viewModel } newView)
                 {
                     viewModel.IsSelected.Value = true;
                     _selectedLayer = newView;
@@ -250,7 +250,7 @@ public sealed partial class Timeline : UserControl
     private void UpdateRangeSelection()
     {
         TimelineViewModel viewModel = ViewModel;
-        foreach ((TimelineLayerViewModel layer, bool isSelectedOriginal) in _rangeSelection)
+        foreach ((ElementViewModel layer, bool isSelectedOriginal) in _rangeSelection)
         {
             layer.IsSelected.Value = isSelectedOriginal;
         }
@@ -264,7 +264,7 @@ public sealed partial class Timeline : UserControl
         int startLayer = viewModel.ToLayerNumber(rect.Top);
         int endLayer = viewModel.ToLayerNumber(rect.Bottom);
 
-        foreach (TimelineLayerViewModel item in viewModel.Layers)
+        foreach (ElementViewModel item in viewModel.Layers)
         {
             if (timeRange.Intersects(item.Model.Range)
                 && startLayer <= item.Model.ZIndex && item.Model.ZIndex <= endLayer)
@@ -327,15 +327,15 @@ public sealed partial class Timeline : UserControl
         {
             if (e.KeyModifiers == KeyModifiers.Control)
             {
-                var dialog = new AddLayer
+                var dialog = new AddElementDialog
                 {
-                    DataContext = new AddLayerViewModel(scene, new LayerDescription(viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.ClickedLayer, InitialOperator: item2))
+                    DataContext = new AddElementDialogViewModel(scene, new ElementDescription(viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.ClickedLayer, InitialOperator: item2))
                 };
                 await dialog.ShowAsync();
             }
             else
             {
-                viewModel.AddLayer.Execute(new LayerDescription(
+                viewModel.AddLayer.Execute(new ElementDescription(
                     viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.ClickedLayer, InitialOperator: item2));
             }
         }
@@ -354,13 +354,13 @@ public sealed partial class Timeline : UserControl
         }
     }
 
-    // レイヤーを追加
-    private async void AddLayerClick(object? sender, RoutedEventArgs e)
+    // 要素を追加
+    private async void AddElementClick(object? sender, RoutedEventArgs e)
     {
-        var dialog = new AddLayer
+        var dialog = new AddElementDialog
         {
-            DataContext = new AddLayerViewModel(ViewModel.Scene,
-                new LayerDescription(ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.ClickedLayer))
+            DataContext = new AddElementDialogViewModel(ViewModel.Scene,
+                new ElementDescription(ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.ClickedLayer))
         };
         await dialog.ShowAsync();
     }
@@ -374,10 +374,10 @@ public sealed partial class Timeline : UserControl
         await dialog.ShowAsync();
     }
 
-    // レイヤーを追加
-    private void AddLayer(int index, TimelineLayerViewModel viewModel)
+    // 要素を追加
+    private void AddElement(int index, ElementViewModel viewModel)
     {
-        var view = new TimelineLayer
+        var view = new ElementView
         {
             DataContext = viewModel
         };
@@ -385,15 +385,15 @@ public sealed partial class Timeline : UserControl
         TimelinePanel.Children.Add(view);
     }
 
-    // レイヤーを削除
-    private void RemoveLayer(int index, TimelineLayerViewModel viewModel)
+    // 要素を削除
+    private void RemoveElement(int index, ElementViewModel viewModel)
     {
-        Layer layer = viewModel.Model;
+        Element elm = viewModel.Model;
 
         for (int i = 0; i < TimelinePanel.Children.Count; i++)
         {
             IControl item = TimelinePanel.Children[i];
-            if (item.DataContext is TimelineLayerViewModel vm && vm.Model == layer)
+            if (item.DataContext is ElementViewModel vm && vm.Model == elm)
             {
                 TimelinePanel.Children.RemoveAt(i);
                 break;
@@ -425,9 +425,9 @@ public sealed partial class Timeline : UserControl
         }
     }
 
-    private TimelineLayer? FindLayerView(Layer layer)
+    private ElementView? FindLayerView(Element layer)
     {
-        return TimelinePanel.Children.FirstOrDefault(ctr => ctr.DataContext is TimelineLayerViewModel vm && vm.Model == layer) as TimelineLayer;
+        return TimelinePanel.Children.FirstOrDefault(ctr => ctr.DataContext is ElementViewModel vm && vm.Model == layer) as ElementView;
     }
 
     private void ZoomClick(object? sender, RoutedEventArgs e)

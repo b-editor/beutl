@@ -10,15 +10,15 @@ using Beutl.Operators.Handler;
 
 namespace Beutl.ViewModels.Dialogs;
 
-public sealed class AddLayerViewModel
+public sealed class AddElementDialogViewModel
 {
     private readonly Scene _scene;
-    private readonly LayerDescription _layerDescription;
+    private readonly ElementDescription _description;
 
-    public AddLayerViewModel(Scene scene, LayerDescription desc)
+    public AddElementDialogViewModel(Scene scene, ElementDescription desc)
     {
         _scene = scene;
-        _layerDescription = desc;
+        _description = desc;
 
         Color.Value = (desc.InitialOperator == null ? Colors.Teal : desc.InitialOperator.AccentColor).ToAvalonia();
         Layer.Value = desc.Layer;
@@ -72,19 +72,19 @@ public sealed class AddLayerViewModel
 
         Add.Subscribe(() =>
         {
-            var sLayer = new Layer()
+            var sLayer = new Element()
             {
                 Name = Name.Value,
                 Start = Start.Value,
                 Length = Duration.Value,
                 ZIndex = Layer.Value,
                 AccentColor = new(Color.Value.A, Color.Value.R, Color.Value.G, Color.Value.B),
-                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(_scene.FileName)!, Constants.LayerFileExtension)
+                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(_scene.FileName)!, Constants.ElementFileExtension)
             };
 
-            if (_layerDescription.InitialOperator != null)
+            if (_description.InitialOperator != null)
             {
-                sLayer.Operation.AddChild((SourceOperator)Activator.CreateInstance(_layerDescription.InitialOperator.Type)!).Do();
+                sLayer.Operation.AddChild((SourceOperator)Activator.CreateInstance(_description.InitialOperator.Type)!).Do();
             }
 
             sLayer.Save(sLayer.FileName);

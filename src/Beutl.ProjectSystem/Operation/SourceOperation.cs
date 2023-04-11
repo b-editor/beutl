@@ -77,7 +77,7 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
         }
     }
 
-    public void Evaluate(IRenderer renderer, Layer layer, IList<Renderable> unhandled)
+    public void Evaluate(IRenderer renderer, Element layer, IList<Renderable> unhandled)
     {
         void Detach(IList<Renderable> renderables)
         {

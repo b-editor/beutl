@@ -41,27 +41,6 @@
   <ItemGroup>
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
-  <ItemGroup>
-    <Compile Update="ViewModels\Editors\VectorEditorViewModels.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>VectorEditorViewModels.tt</DependentUpon>
-    </Compile>
-    <Compile Update="ViewModels\GraphEditorViewViewModelFactory.Impl.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>GraphEditorViewViewModelFactory.Impl.tt</DependentUpon>
-    </Compile>
-    <Compile Update="Views\Editors\PropertyEditorMenu.axaml.cs">
-      <DependentUpon>PropertyEditorMenu.axaml</DependentUpon>
-    </Compile>
-    <Compile Update="Views\NodeTree\SocketView.axaml.cs">
-      <DependentUpon>SocketView.axaml</DependentUpon>
-    </Compile>
-    <Compile Update="Views\NodeTree\NodeTreeInputTab.axaml.cs">
-      <DependentUpon>NodeTreeInputTab.axaml</DependentUpon>
-    </Compile>
-  </ItemGroup>
 
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.props" />
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.targets" />

@@ -102,7 +102,7 @@
 
                 <Panel.ContextMenu>
                     <ContextMenu>
-                        <MenuItem Click="AddLayerClick" Header="{x:Static lang:Strings.AddLayer}" />
+                        <MenuItem Click="AddElementClick" Header="{x:Static lang:Strings.AddElement}" />
                         <MenuItem Command="{CompiledBinding Paste}"
                                   Header="{x:Static lang:Strings.Paste}"
                                   InputGesture="{DynamicResource PasteKeyGesture}">

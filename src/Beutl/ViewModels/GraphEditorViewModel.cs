@@ -17,10 +17,10 @@ public sealed class GraphEditorViewModel : IDisposable
     private readonly CompositeDisposable _disposables = new();
     private readonly EditViewModel _editViewModel;
     private readonly GraphEditorViewViewModelFactory[] _factories;
-    private Layer? _layer;
+    private Element? _layer;
     private bool _editting;
 
-    public GraphEditorViewModel(EditViewModel editViewModel, IKeyFrameAnimation animation, Layer? layer)
+    public GraphEditorViewModel(EditViewModel editViewModel, IKeyFrameAnimation animation, Element? layer)
     {
         _editViewModel = editViewModel;
         _layer = layer;
@@ -31,7 +31,7 @@ public sealed class GraphEditorViewModel : IDisposable
             .DisposeWith(_disposables);
 
         Margin = UseGlobalClock.Select(v => !v
-            ? _layer?.GetObservable(Layer.StartProperty)
+            ? _layer?.GetObservable(Element.StartProperty)
                 .CombineLatest(Options)
                 .Select(item => new Thickness(item.First.ToPixel(item.Second.Scale), 0, 0, 0))
             : null)

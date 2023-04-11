@@ -94,7 +94,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
     public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Bottom;
 
-    public ReactivePropertySlim<Layer?> Layer { get; } = new();
+    public ReactivePropertySlim<Element?> Layer { get; } = new();
 
     public ReactivePropertySlim<NodeTreeViewModel?> NodeTree { get; } = new();
 
@@ -218,7 +218,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
     public object? GetService(Type serviceType)
     {
-        if (serviceType == typeof(Layer))
+        if (serviceType == typeof(Element))
             return Layer.Value;
 
         return _editViewModel.GetService(serviceType);
