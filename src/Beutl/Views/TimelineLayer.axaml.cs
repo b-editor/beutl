@@ -312,7 +312,7 @@ public sealed partial class TimelineLayer : UserControl
 
                 if (AssociatedObject is { ViewModel: { } viewModel })
                 {
-                    await viewModel.SyncModelToViewModel();
+                    await viewModel.SubmitViewModelChanges();
                     e.Handled = true;
                 }
             }
@@ -443,7 +443,7 @@ public sealed partial class TimelineLayer : UserControl
 
                     if (layers.Count == 1)
                     {
-                        await viewModel.SyncModelToViewModel();
+                        await viewModel.SubmitViewModelChanges();
                     }
                     else
                     {

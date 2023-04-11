@@ -4,7 +4,6 @@ using Avalonia;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 
-using Beutl.Media;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 
@@ -22,10 +21,11 @@ public sealed class TimelineLayerViewModel : IDisposable
         Model = sceneLayer;
         Timeline = timeline;
 
+        // プロパティを構成
         IsEnabled = sceneLayer.GetObservable(Layer.IsEnabledProperty)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
-        
+
         AllowOutflow = sceneLayer.GetObservable(Layer.AllowOutflowProperty)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
@@ -63,36 +63,12 @@ public sealed class TimelineLayerViewModel : IDisposable
             .ToReactiveProperty()
             .AddTo(_disposables);
 
+        // コマンドを構成
         Split.Where(func => func != null)
-            .Subscribe(func =>
-        {
-            int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-            TimeSpan absTime = func!().RoundToRate(rate);
-            TimeSpan forwardLength = absTime - Model.Start;
-            TimeSpan backwardLength = Model.Length - forwardLength;
-
-            var jsonNode = new JsonObject();
-            Model.WriteToJson(jsonNode);
-            string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
-            var backwardLayer = new Layer();
-            backwardLayer.ReadFromJson(JsonNode.Parse(json)!.AsObject());
-
-            Scene.MoveChild(Model.ZIndex, Model.Start, forwardLength, Model).DoAndRecord(CommandRecorder.Default);
-            backwardLayer.Start = absTime;
-            backwardLayer.Length = backwardLength;
-
-            backwardLayer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, Constants.LayerFileExtension));
-            Scene.AddChild(backwardLayer).DoAndRecord(CommandRecorder.Default);
-        })
+            .Subscribe(func => OnSplit(func!()))
             .AddTo(_disposables);
 
-        Cut.Subscribe(async () =>
-        {
-            if (await SetClipboard())
-            {
-                Exclude.Execute();
-            }
-        })
+        Cut.Subscribe(OnCut)
             .AddTo(_disposables);
 
         Copy.Subscribe(async () => await SetClipboard())
@@ -101,59 +77,30 @@ public sealed class TimelineLayerViewModel : IDisposable
         Exclude.Subscribe(() => Scene.RemoveChild(Model).DoAndRecord(CommandRecorder.Default))
             .AddTo(_disposables);
 
-        Delete.Subscribe(() =>
-        {
-            Scene.RemoveChild(Model).Do();
-            if (File.Exists(Model.FileName))
-            {
-                File.Delete(Model.FileName);
-            }
-        })
+        Delete.Subscribe(OnDelete)
             .AddTo(_disposables);
 
         Color.Subscribe(c => Model.AccentColor = Media.Color.FromArgb(c.A, c.R, c.G, c.B))
             .AddTo(_disposables);
 
-        FinishEditingAnimation.Subscribe(() =>
-        {
-            foreach (InlineAnimationLayerViewModel item in Timeline.Inlines.Where(x => x.Layer == this).ToArray())
-            {
-                Timeline.DetachInline(item);
-            }
-        })
+        FinishEditingAnimation.Subscribe(OnFinishEditingAnimation)
             .AddTo(_disposables);
 
-        BringAnimationToTop.Subscribe(() =>
-        {
-            if (LayerHeader.Value is { } layerHeader)
-            {
-                var inlines = Timeline.Inlines.Where(x => x.Layer == this).ToArray();
-                Array.Sort(inlines, (x, y) => x.Index.Value - y.Index.Value);
-
-                for (int i = 0; i < inlines.Length; i++)
-                {
-                    InlineAnimationLayerViewModel? item = inlines[i];
-                    int oldIndex = layerHeader.Inlines.IndexOf(item);
-                    if (oldIndex >= 0)
-                    {
-                        layerHeader.Inlines.Move(oldIndex, i);
-                    }
-                }
-            }
-        })
+        BringAnimationToTop.Subscribe(OnBringAnimationToTop)
             .AddTo(_disposables);
 
+        // ZIndexが変更されたら、LayerHeaderのカウントを増減して、新しいLayerHeaderを設定する。
         zIndexSubject.Subscribe(number =>
-        {
-            LayerHeaderViewModel? newLH = Timeline.LayerHeaders.FirstOrDefault(i => i.Number.Value == number);
+            {
+                LayerHeaderViewModel? newLH = Timeline.LayerHeaders.FirstOrDefault(i => i.Number.Value == number);
 
-            if (LayerHeader.Value != null)
-                LayerHeader.Value.ItemsCount.Value--;
+                if (LayerHeader.Value != null)
+                    LayerHeader.Value.ItemsCount.Value--;
 
-            if (newLH != null)
-                newLH.ItemsCount.Value++;
-            LayerHeader.Value = newLH;
-        })
+                if (newLH != null)
+                    newLH.ItemsCount.Value++;
+                LayerHeader.Value = newLH;
+            })
             .AddTo(_disposables);
     }
 
@@ -171,7 +118,7 @@ public sealed class TimelineLayerViewModel : IDisposable
     public Scene Scene => (Scene)Model.HierarchicalParent!;
 
     public ReadOnlyReactivePropertySlim<bool> IsEnabled { get; }
-    
+
     public ReadOnlyReactivePropertySlim<bool> AllowOutflow { get; }
 
     public ReadOnlyReactivePropertySlim<bool> UseNode { get; }
@@ -192,7 +139,7 @@ public sealed class TimelineLayerViewModel : IDisposable
 
     public ReactiveCommand<Func<TimeSpan>?> Split { get; } = new();
 
-    public ReactiveCommand Cut { get; } = new();
+    public AsyncReactiveCommand Cut { get; } = new();
 
     public ReactiveCommand Copy { get; } = new();
 
@@ -258,7 +205,7 @@ public sealed class TimelineLayerViewModel : IDisposable
         Width.Value = width;
     }
 
-    public async Task SyncModelToViewModel()
+    public async Task SubmitViewModelChanges()
     {
         PrepareAnimationContext context = PrepareAnimation();
 
@@ -271,17 +218,6 @@ public sealed class TimelineLayerViewModel : IDisposable
             .DoAndRecord(CommandRecorder.Default);
 
         await AnimationRequest(context);
-    }
-
-    public void PullFromModel()
-    {
-        var margin = new Thickness(0, Timeline.CalculateLayerTop(Model.ZIndex), 0, 0);
-        var borderMargin = new Thickness(Model.Start.ToPixel(Timeline.Options.Value.Scale), 0, 0, 0);
-        double width = Model.Length.ToPixel(Timeline.Options.Value.Scale);
-
-        BorderMargin.Value = borderMargin;
-        Margin.Value = margin;
-        Width.Value = width;
     }
 
     private async ValueTask<bool> SetClipboard()
@@ -315,6 +251,72 @@ public sealed class TimelineLayerViewModel : IDisposable
                 .Where(x => x.Layer == this)
                 .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
                 .ToArray());
+    }
+
+    private void OnDelete()
+    {
+        string fileName = Model.FileName;
+        Scene.RemoveChild(Model).Do();
+        if (File.Exists(fileName))
+        {
+            File.Delete(fileName);
+        }
+    }
+
+    private void OnBringAnimationToTop()
+    {
+        if (LayerHeader.Value is { } layerHeader)
+        {
+            InlineAnimationLayerViewModel[] inlines = Timeline.Inlines.Where(x => x.Layer == this).ToArray();
+            Array.Sort(inlines, (x, y) => x.Index.Value - y.Index.Value);
+
+            for (int i = 0; i < inlines.Length; i++)
+            {
+                InlineAnimationLayerViewModel? item = inlines[i];
+                int oldIndex = layerHeader.Inlines.IndexOf(item);
+                if (oldIndex >= 0)
+                {
+                    layerHeader.Inlines.Move(oldIndex, i);
+                }
+            }
+        }
+    }
+
+    private void OnFinishEditingAnimation()
+    {
+        foreach (InlineAnimationLayerViewModel item in Timeline.Inlines.Where(x => x.Layer == this).ToArray())
+        {
+            Timeline.DetachInline(item);
+        }
+    }
+
+    private async Task OnCut()
+    {
+        if (await SetClipboard())
+        {
+            Exclude.Execute();
+        }
+    }
+
+    private void OnSplit(TimeSpan timeSpan)
+    {
+        int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+        TimeSpan absTime = timeSpan.RoundToRate(rate);
+        TimeSpan forwardLength = absTime - Model.Start;
+        TimeSpan backwardLength = Model.Length - forwardLength;
+
+        var jsonNode = new JsonObject();
+        Model.WriteToJson(jsonNode);
+        string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
+        var backwardLayer = new Layer();
+        backwardLayer.ReadFromJson(JsonNode.Parse(json)!.AsObject());
+
+        Scene.MoveChild(Model.ZIndex, Model.Start, forwardLength, Model).DoAndRecord(CommandRecorder.Default);
+        backwardLayer.Start = absTime;
+        backwardLayer.Length = backwardLength;
+
+        backwardLayer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, Constants.LayerFileExtension));
+        Scene.AddChild(backwardLayer).DoAndRecord(CommandRecorder.Default);
     }
 
     public record struct PrepareAnimationContext(
