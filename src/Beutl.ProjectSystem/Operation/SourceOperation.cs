@@ -91,8 +91,6 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
             }
         }
 
-        layer.Span.Value.Clear();
-
         Initialize(renderer, layer.Clock);
         if (_contexts != null)
         {
@@ -106,7 +104,7 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
                 }
 
                 Detach(flow);
-                layer.Span.Value.AddRange(flow);
+                layer.Span.Value.Replace(flow);
             }
             else
             {
@@ -119,7 +117,7 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
                 }
 
                 Detach(pooled);
-                layer.Span.Value.AddRange(pooled);
+                layer.Span.Value.Replace(pooled);
             }
 
             foreach (Renderable item in layer.Span.Value.GetMarshal().Value)
