@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
+using System.Text.Json.Nodes;
 
 using Avalonia;
 using Avalonia.Media;
@@ -17,7 +18,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.NodeTree;
 
-public sealed class NodeViewModel : IDisposable
+public sealed class NodeViewModel : IDisposable, IJsonSerializable
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly string _defaultName;
@@ -213,5 +214,41 @@ public sealed class NodeViewModel : IDisposable
     {
         new ChangePropertyCommand<string>(Node, CoreObject.NameProperty, name, Node.Name)
             .DoAndRecord(CommandRecorder.Default);
+    }
+
+    public void WriteToJson(JsonObject json)
+    {
+        json[nameof(IsExpanded)] = IsExpanded.Value;
+
+        var itemsJson = new JsonObject();
+        foreach (NodeItemViewModel item in Items)
+        {
+            if (item.Model != null
+                && item.PropertyEditorContext != null)
+            {
+                var itemJson = new JsonObject();
+                item.PropertyEditorContext.WriteToJson(itemJson);
+
+                itemsJson[item.Model.Id.ToString()] = itemJson;
+            }
+        }
+
+        json[nameof(Items)] = itemsJson;
+    }
+
+    public void ReadFromJson(JsonObject json)
+    {
+        IsExpanded.Value = (bool)json[nameof(IsExpanded)]!;
+
+        JsonObject itemsJson = json[nameof(Items)]!.AsObject();
+        foreach (NodeItemViewModel item in Items)
+        {
+            if (item.Model != null
+                && item.PropertyEditorContext != null
+                && itemsJson.TryGetPropertyValue(item.Model.Id.ToString(), out JsonNode? itemJson))
+            {
+                item.PropertyEditorContext.ReadFromJson(itemJson!.AsObject());
+            }
+        }
     }
 }

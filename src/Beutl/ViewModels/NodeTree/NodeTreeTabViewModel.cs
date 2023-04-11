@@ -3,6 +3,7 @@
 using Avalonia.Collections.Pooled;
 
 using Beutl.Framework;
+using Beutl.Models;
 using Beutl.NodeTree;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
@@ -11,7 +12,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.NodeTree;
 
-public sealed class NodeTreeNavigationItem : IDisposable
+public sealed class NodeTreeNavigationItem : IDisposable, IJsonSerializable
 {
     internal Lazy<NodeTreeViewModel> _lazyViewModel;
 
@@ -46,6 +47,16 @@ public sealed class NodeTreeNavigationItem : IDisposable
         _lazyViewModel = null!;
         NodeTree = null!;
     }
+
+    public void WriteToJson(JsonObject json)
+    {
+        ViewModel.WriteToJson(json);
+    }
+
+    public void ReadFromJson(JsonObject json)
+    {
+        ViewModel.ReadFromJson(json);
+    }
 }
 
 public sealed class NodeTreeTabViewModel : IToolContext
@@ -53,6 +64,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
     private readonly ReactiveProperty<bool> _isSelected = new(true);
     private readonly CompositeDisposable _disposables = new();
     private EditViewModel _editViewModel;
+    private Element? _oldLayer;
 
     public NodeTreeTabViewModel(EditViewModel editViewModel)
     {
@@ -60,6 +72,12 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
         Layer.Subscribe(v =>
         {
+            if (_oldLayer != null)
+            {
+                SaveState(_oldLayer);
+            }
+            _oldLayer = v;
+
             foreach (NodeTreeNavigationItem item in Items)
             {
                 item.Dispose();
@@ -82,6 +100,8 @@ public sealed class NodeTreeTabViewModel : IToolContext
                     name: name.CombineLatest(fileName)
                         .Select(x => string.IsNullOrWhiteSpace(x.First) ? x.Second : x.First)
                         .ToReadOnlyReactivePropertySlim()!));
+
+                RestoreState(v);
             }
         }).DisposeWith(_disposables);
     }
@@ -102,6 +122,8 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
     public void Dispose()
     {
+        Layer.Value = null;
+
         _disposables.Dispose();
         foreach (NodeTreeNavigationItem item in Items)
         {
@@ -112,7 +134,6 @@ public sealed class NodeTreeTabViewModel : IToolContext
         NodeTree.Dispose();
         NodeTree.Value?.Dispose();
         NodeTree.Value = null;
-        Layer.Value = null;
         _editViewModel = null!;
     }
 
@@ -194,6 +215,71 @@ public sealed class NodeTreeTabViewModel : IToolContext
         if (Items.Count > 0)
         {
             NodeTree.Value = Items[^1].ViewModel;
+        }
+    }
+
+    private static string ViewStateDirectory(Element layer)
+    {
+        string directory = Path.GetDirectoryName(layer.FileName)!;
+
+        directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
+        if (!Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        return directory;
+    }
+
+    private void SaveState(Element layer)
+    {
+        string viewStateDir = ViewStateDirectory(layer);
+
+        var itemsJson = new JsonObject();
+        foreach (NodeTreeNavigationItem item in Items.GetMarshal().Value)
+        {
+            var itemJson = new JsonObject();
+            item.WriteToJson(itemJson);
+            itemsJson[item.NodeTree.Id.ToString()] = itemJson;
+        }
+
+        var json = new JsonObject
+        {
+            [nameof(Items)] = itemsJson
+        };
+        if (NodeTree.Value != null)
+        {
+            json["Selected"] = NodeTree.Value.NodeTree.Id;
+        }
+
+        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.nodetree.config"));
+    }
+
+    private void RestoreState(Element layer)
+    {
+        string viewStateDir = ViewStateDirectory(layer);
+        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.nodetree.config");
+
+        if (File.Exists(viewStateFile))
+        {
+            using var stream = new FileStream(viewStateFile, FileMode.Open, FileAccess.Read, FileShare.Read);
+            JsonObject json = JsonNode.Parse(stream)!.AsObject();
+            Guid? selected = (Guid?)json["Selected"];
+            if (selected.HasValue
+                && layer.FindById(selected.Value) is NodeTreeModel selectedModel)
+            {
+                NavigateTo(selectedModel);
+            }
+
+            JsonObject itemsJson = json[nameof(Items)]!.AsObject();
+
+            foreach (NodeTreeNavigationItem item in Items)
+            {
+                if (itemsJson.TryGetPropertyValue(item.NodeTree.Id.ToString(), out JsonNode? itemJson))
+                {
+                    item.ReadFromJson(itemJson!.AsObject());
+                }
+            }
         }
     }
 

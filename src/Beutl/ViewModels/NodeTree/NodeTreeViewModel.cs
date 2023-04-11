@@ -1,11 +1,15 @@
-﻿using Avalonia;
+﻿using System.Text.Json.Nodes;
+
+using Avalonia;
 
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes.Group;
 
+using Reactive.Bindings;
+
 namespace Beutl.ViewModels.NodeTree;
 
-public sealed class NodeTreeViewModel : IDisposable
+public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
 {
     private readonly CompositeDisposable _disposables = new();
 
@@ -37,6 +41,8 @@ public sealed class NodeTreeViewModel : IDisposable
     }
 
     public CoreList<NodeViewModel> Nodes { get; } = new();
+
+    public ReactiveProperty<Matrix> Matrix { get; } = new(Avalonia.Matrix.Identity);
 
     public NodeTreeModel NodeTree { get; }
 
@@ -89,5 +95,39 @@ public sealed class NodeTreeViewModel : IDisposable
         Nodes.Clear();
 
         _disposables.Dispose();
+    }
+
+    public void WriteToJson(JsonObject json)
+    {
+        var nodesJson = new JsonObject();
+        foreach (NodeViewModel item in Nodes)
+        {
+            var nodeJson = new JsonObject();
+            item.WriteToJson(nodeJson);
+            nodesJson[item.Node.Id.ToString()] = nodeJson;
+        }
+
+        json[nameof(Nodes)] = nodesJson;
+
+        Matrix m = Matrix.Value;
+        json[nameof(Matrix)] = $"{m.M11},{m.M12},{m.M21},{m.M22},{m.M31},{m.M32}";
+    }
+
+    public void ReadFromJson(JsonObject json)
+    {
+        JsonObject nodesJson = json[nameof(Nodes)]!.AsObject();
+        foreach (NodeViewModel item in Nodes)
+        {
+            if (nodesJson.TryGetPropertyValue(item.Node.Id.ToString(), out JsonNode? nodeJson))
+            {
+                item.ReadFromJson(nodeJson!.AsObject());
+            }
+        }
+
+        if (json.TryGetPropertyValue(nameof(Matrix), out var mJson))
+        {
+            string m = (string)mJson!;
+            Matrix.Value = Avalonia.Matrix.Parse(m);
+        }
     }
 }
