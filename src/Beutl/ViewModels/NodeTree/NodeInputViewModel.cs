@@ -16,7 +16,7 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly string _defaultName;
-    private NodeTreeSpace _nodeTree;
+    private NodeTreeModel _nodeTree;
     private NodeTreeInputViewModel _parent;
 
     public NodeInputViewModel(LayerInputNode node, int originalIndex, NodeTreeInputViewModel parent)

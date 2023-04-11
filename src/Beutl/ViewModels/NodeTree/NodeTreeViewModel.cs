@@ -9,7 +9,7 @@ public sealed class NodeTreeViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
 
-    public NodeTreeViewModel(NodeTreeSpace nodeTree)
+    public NodeTreeViewModel(NodeTreeModel nodeTree)
     {
         NodeTree = nodeTree;
 
@@ -38,7 +38,7 @@ public sealed class NodeTreeViewModel : IDisposable
 
     public CoreList<NodeViewModel> Nodes { get; } = new();
 
-    public NodeTreeSpace NodeTree { get; }
+    public NodeTreeModel NodeTree { get; }
 
     public SocketViewModel? FindSocketViewModel(ISocket socket)
     {

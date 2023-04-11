@@ -15,14 +15,14 @@ public sealed class NodeTreeNavigationItem : IDisposable
 {
     internal Lazy<NodeTreeViewModel> _lazyViewModel;
 
-    public NodeTreeNavigationItem(NodeTreeViewModel viewModel, ReadOnlyReactivePropertySlim<string> name, NodeTreeSpace nodeTree)
+    public NodeTreeNavigationItem(NodeTreeViewModel viewModel, ReadOnlyReactivePropertySlim<string> name, NodeTreeModel nodeTree)
     {
         _lazyViewModel = new Lazy<NodeTreeViewModel>(viewModel);
         Name = name;
         NodeTree = nodeTree;
     }
 
-    public NodeTreeNavigationItem(ReadOnlyReactivePropertySlim<string> name, NodeTreeSpace nodeTree)
+    public NodeTreeNavigationItem(ReadOnlyReactivePropertySlim<string> name, NodeTreeModel nodeTree)
     {
         NodeTree = nodeTree;
         _lazyViewModel = new Lazy<NodeTreeViewModel>(() => new NodeTreeViewModel(NodeTree));
@@ -33,7 +33,7 @@ public sealed class NodeTreeNavigationItem : IDisposable
 
     public ReadOnlyReactivePropertySlim<string> Name { get; }
 
-    public NodeTreeSpace NodeTree { get; private set; }
+    public NodeTreeModel NodeTree { get; private set; }
 
     public void Dispose()
     {
@@ -134,7 +134,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
         }
     }
 
-    public NodeTreeNavigationItem? FindItem(NodeTreeSpace nodeTree)
+    public NodeTreeNavigationItem? FindItem(NodeTreeModel nodeTree)
     {
         foreach (NodeTreeNavigationItem navItem in Items)
         {
@@ -147,15 +147,15 @@ public sealed class NodeTreeTabViewModel : IToolContext
         return null;
     }
 
-    public void NavigateTo(NodeTreeSpace nodeTree)
+    public void NavigateTo(NodeTreeModel nodeTree)
     {
-        using var stack = new PooledList<NodeTreeSpace>();
+        using var stack = new PooledList<NodeTreeModel>();
 
         IHierarchical? current = nodeTree;
 
         while (current != null)
         {
-            if (current is NodeTreeSpace curNodeTree)
+            if (current is NodeTreeModel curNodeTree)
             {
                 stack.Insert(0, curNodeTree);
             }
@@ -172,7 +172,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
         using var list = new PooledList<NodeTreeNavigationItem>(stack.Count);
 
-        foreach (NodeTreeSpace item in stack.Span)
+        foreach (NodeTreeModel item in stack.Span)
         {
             NodeTreeNavigationItem? foundItem = FindItem(item);
 

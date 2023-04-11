@@ -128,7 +128,7 @@ public sealed class NodeTreeInputViewModel : IDisposable, IServiceProvider
 
     public object? GetService(Type serviceType)
     {
-        if (serviceType.IsAssignableTo(typeof(NodeTreeSpace)))
+        if (serviceType.IsAssignableTo(typeof(NodeTreeModel)))
             return Model.NodeTree;
 
         return _parent.GetService(serviceType);

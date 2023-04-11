@@ -9,7 +9,7 @@ using Beutl.Rendering;
 
 namespace Beutl.NodeTree;
 
-public class LayerNodeTreeModel : NodeTreeSpace
+public class LayerNodeTreeModel : NodeTreeModel
 {
     // 評価する順番
     private readonly List<NodeEvaluationContext[]> _evalContexts = new();

@@ -14,7 +14,7 @@ public abstract class Node : Hierarchical
     public static readonly CoreProperty<(double X, double Y)> PositionProperty;
     private readonly HierarchicalList<INodeItem> _items;
     private (double X, double Y) _position;
-    private NodeTreeSpace? _nodeTree;
+    private NodeTreeModel? _nodeTree;
 
     static Node()
     {
@@ -474,7 +474,7 @@ public abstract class Node : Hierarchical
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnAttachedToHierarchy(args);
-        if (args.Parent is NodeTreeSpace nodeTree)
+        if (args.Parent is NodeTreeModel nodeTree)
         {
             _nodeTree = nodeTree;
             foreach (INodeItem item in _items.GetMarshal().Value)
@@ -487,7 +487,7 @@ public abstract class Node : Hierarchical
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnDetachedFromHierarchy(args);
-        if (args.Parent is NodeTreeSpace nodeTree)
+        if (args.Parent is NodeTreeModel nodeTree)
         {
             _nodeTree = null;
             foreach (INodeItem item in _items.GetMarshal().Value)

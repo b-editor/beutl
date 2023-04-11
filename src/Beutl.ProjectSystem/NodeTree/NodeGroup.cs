@@ -1,19 +1,13 @@
 ﻿using System.ComponentModel;
 using System.Runtime.InteropServices;
-using System.Text.Json.Nodes;
 
-using Avalonia.Collections.Pooled;
-
-using Beutl.Animation;
-using Beutl.Collections;
 using Beutl.Media;
 using Beutl.NodeTree.Nodes.Group;
-using Beutl.ProjectSystem;
 using Beutl.Rendering;
 
 namespace Beutl.NodeTree;
 
-public class NodeGroup : NodeTreeSpace
+public class NodeGroup : NodeTreeModel
 {
     public static readonly CoreProperty<GroupInput?> InputProperty;
     public static readonly CoreProperty<GroupOutput?> OutputProperty;
@@ -199,85 +193,6 @@ public class NodeGroup : NodeTreeSpace
                     Nodes.Insert(index, newNode);
                 }
             }
-        }
-    }
-}
-
-// Todo: NodeTreeModel
-public abstract class NodeTreeSpace : Hierarchical, IAffectsRender
-{
-    private readonly HierarchicalList<Node> _nodes;
-
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
-
-    public NodeTreeSpace()
-    {
-        _nodes = new HierarchicalList<Node>(this);
-    }
-
-    public ICoreList<Node> Nodes => _nodes;
-
-    protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
-    {
-        Invalidated?.Invoke(this, args);
-    }
-
-    public ISocket? FindSocket(Guid id)
-    {
-        foreach (Node node in Nodes.GetMarshal().Value)
-        {
-            foreach (INodeItem item in node.Items.GetMarshal().Value)
-            {
-                if (item is ISocket socket
-                    && socket.Id == id)
-                {
-                    return socket;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-
-        if (json.TryGetPropertyValue(nameof(Nodes), out JsonNode? nodesNode)
-            && nodesNode is JsonArray nodesArray)
-        {
-            foreach (JsonObject nodeJson in nodesArray.OfType<JsonObject>())
-            {
-                if (nodeJson.TryGetDiscriminator(out Type? type)
-                    && Activator.CreateInstance(type) is Node node)
-                {
-                    // Todo: 型が見つからない場合、SourceOperatorと同じようにする
-                    node.ReadFromJson(nodeJson);
-                    Nodes.Add(node);
-                }
-            }
-        }
-    }
-
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-
-        Span<Node> nodes = _nodes.GetMarshal().Value;
-        if (nodes.Length > 0)
-        {
-            var array = new JsonArray();
-
-            foreach (Node item in nodes)
-            {
-                var itemJson = new JsonObject();
-                item.WriteToJson(itemJson);
-                itemJson.WriteDiscriminator(item.GetType());
-
-                array.Add(itemJson);
-            }
-
-            json[nameof(Nodes)] = array;
         }
     }
 }

@@ -26,7 +26,7 @@ public interface INodeItem : ICoreObject, IHierarchical, IAffectsRender
 
     void PostEvaluate(EvaluationContext context);
 
-    void NotifyAttachedToNodeTree(NodeTreeSpace nodeTree);
+    void NotifyAttachedToNodeTree(NodeTreeModel nodeTree);
 
-    void NotifyDetachedFromNodeTree(NodeTreeSpace nodeTree);
+    void NotifyDetachedFromNodeTree(NodeTreeModel nodeTree);
 }

@@ -214,13 +214,13 @@ public class InputSocket<T> : Socket<T>, IInputSocket
         }
     }
 
-    protected override void OnAttachedToNodeTree(NodeTreeSpace nodeTree)
+    protected override void OnAttachedToNodeTree(NodeTreeModel nodeTree)
     {
         base.OnAttachedToNodeTree(nodeTree);
         TryRestoreConnection();
     }
 
-    protected override void OnDetachedFromNodeTree(NodeTreeSpace nodeTree)
+    protected override void OnDetachedFromNodeTree(NodeTreeModel nodeTree)
     {
         base.OnDetachedFromNodeTree(nodeTree);
         if (Connection != null && _outputId == Guid.Empty)
