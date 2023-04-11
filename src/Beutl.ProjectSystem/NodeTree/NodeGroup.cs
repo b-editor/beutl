@@ -26,7 +26,6 @@ public class NodeGroup : NodeTreeModel
 
     public NodeGroup()
     {
-        Id = Guid.NewGuid();
         Nodes.Attached += OnNodeAttached;
         Nodes.Detached += OnNodeDetached;
     }

@@ -16,11 +16,6 @@ public abstract class NodeItem : Hierarchical
             .Register();
     }
 
-    public NodeItem()
-    {
-        Id = Guid.NewGuid();
-    }
-
     public int LocalId
     {
         get => _localId;
