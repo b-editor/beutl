@@ -8,24 +8,24 @@ namespace Beutl.NodeTree.Nodes;
 
 public class RectNode : Node
 {
-    private readonly OutputSocket<Rectangle> _outputSocket;
+    private readonly OutputSocket<RectShape> _outputSocket;
     private readonly InputSocket<float> _widthSocket;
     private readonly InputSocket<float> _heightSocket;
     private readonly InputSocket<float> _strokeSocket;
 
     public RectNode()
     {
-        _outputSocket = AsOutput<Rectangle>("Rectangle");
+        _outputSocket = AsOutput<RectShape>("Rectangle");
 
-        _widthSocket = AsInput<float, Rectangle>(Drawable.WidthProperty, value: 100).AcceptNumber();
-        _heightSocket = AsInput<float, Rectangle>(Drawable.HeightProperty, value: 100).AcceptNumber();
-        _strokeSocket = AsInput<float, Rectangle>(Rectangle.StrokeWidthProperty, value: 4000).AcceptNumber();
+        _widthSocket = AsInput<float, RectShape>(Drawable.WidthProperty, value: 100).AcceptNumber();
+        _heightSocket = AsInput<float, RectShape>(Drawable.HeightProperty, value: 100).AcceptNumber();
+        _strokeSocket = AsInput<float, RectShape>(RectShape.StrokeWidthProperty, value: 4000).AcceptNumber();
     }
 
     public override void InitializeForContext(NodeEvaluationContext context)
     {
         base.InitializeForContext(context);
-        context.State = new Rectangle();
+        context.State = new RectShape();
     }
 
     public override void UninitializeForContext(NodeEvaluationContext context)
@@ -36,7 +36,7 @@ public class RectNode : Node
 
     public override void Evaluate(NodeEvaluationContext context)
     {
-        Rectangle rectangle = context.GetOrSetState<Rectangle>();
+        RectShape rectangle = context.GetOrSetState<RectShape>();
         while (rectangle.BatchUpdate)
         {
             rectangle.EndBatchUpdate();

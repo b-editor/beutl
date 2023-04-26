@@ -9,13 +9,13 @@ using Beutl.Styling;
 
 namespace Beutl.Operators.Source;
 
-public sealed class EllipseOperator : DrawablePublishOperator<Ellipse>
+public sealed class EllipseOperator : DrawablePublishOperator<EllipseShape>
 {
     protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
         initializing.Add(new Setter<float>(Drawable.WidthProperty, 100));
         initializing.Add(new Setter<float>(Drawable.HeightProperty, 100));
-        initializing.Add(new Setter<float>(Ellipse.StrokeWidthProperty, 4000));
+        initializing.Add(new Setter<float>(EllipseShape.StrokeWidthProperty, 4000));
         initializing.Add(new Setter<IBrush?>(Drawable.ForegroundProperty, new SolidColorBrush(Colors.White)));
     }
 }

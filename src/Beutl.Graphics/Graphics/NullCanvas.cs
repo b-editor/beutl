@@ -13,7 +13,7 @@ internal sealed class NullCanvas : ICanvas
 
     public bool IsDisposed => throw new NotImplementedException();
 
-    public IBrush Foreground
+    public IBrush FillBrush
     {
         get => throw new NotImplementedException();
         set => throw new NotImplementedException();
@@ -41,6 +41,7 @@ internal sealed class NullCanvas : ICanvas
         get => throw new NotImplementedException();
         set => throw new NotImplementedException();
     }
+    public IPen? Pen { get; set; }
 
     public void Clear() => throw new NotImplementedException();
 
@@ -72,9 +73,9 @@ internal sealed class NullCanvas : ICanvas
 
     public void PopClip(int level = -1) => throw new NotImplementedException();
 
-    public void PopFilters(int level = -1) => throw new NotImplementedException();
+    public void PopImageFilter(int level = -1) => throw new NotImplementedException();
 
-    public void PopForeground(int level = -1) => throw new NotImplementedException();
+    public void PopFillBrush(int level = -1) => throw new NotImplementedException();
 
     public void PopOpacityMask(int level = -1) => throw new NotImplementedException();
 
@@ -88,9 +89,9 @@ internal sealed class NullCanvas : ICanvas
 
     public PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect) => throw new NotImplementedException();
 
-    public PushedState PushFilters(IImageFilter? filter) => throw new NotImplementedException();
+    public PushedState PushImageFilter(IImageFilter? filter) => throw new NotImplementedException();
 
-    public PushedState PushForeground(IBrush brush) => throw new NotImplementedException();
+    public PushedState PushFillBrush(IBrush brush) => throw new NotImplementedException();
 
     public PushedState PushOpacityMask(IBrush mask, Rect bounds, bool invert = false) => throw new NotImplementedException();
 
@@ -107,4 +108,10 @@ internal sealed class NullCanvas : ICanvas
     public void Skew(Vector vector) => throw new NotImplementedException();
 
     public void Translate(Vector vector) => throw new NotImplementedException();
+    public PushedState PushPen(IPen? pen) => throw new NotImplementedException();
+    public void PopPen(int level = -1) => throw new NotImplementedException();
+    public void ClipPath(Geometry geometry, ClipOperation operation = ClipOperation.Intersect) => throw new NotImplementedException();
+    public void DrawCircle(Rect rect) => throw new NotImplementedException();
+    public void DrawRect(Rect rect) => throw new NotImplementedException();
+    public void DrawGeometry(Geometry geometry) => throw new NotImplementedException();
 }

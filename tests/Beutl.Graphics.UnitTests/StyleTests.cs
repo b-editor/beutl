@@ -12,7 +12,7 @@ namespace Beutl.Graphics.UnitTests;
 public class StyleTests
 {
     private StyleableObject _obj;
-    private Rectangle _obj2;
+    private RectShape _obj2;
     private Style[] _styles1;
     private Style[] _styles2;
 
@@ -52,11 +52,11 @@ public class StyleTests
             style3
         };
 
-        _obj2 = new Rectangle
+        _obj2 = new RectShape
         {
             Foreground = Brushes.White
         };
-        style1 = new Style<Rectangle>
+        style1 = new Style<RectShape>
         {
             Setters =
             {
@@ -67,7 +67,7 @@ public class StyleTests
                 })
             }
         };
-        style2 = new Style<Rectangle>
+        style2 = new Style<RectShape>
         {
             Setters =
             {
@@ -149,6 +149,12 @@ public class StyleTests
         public TimeSpan CurrentTime { get; }
 
         public TimeSpan AudioStartTime { get; }
+
+        public TimeSpan BeginTime { get; }
+
+        public TimeSpan DurationTime { get; }
+
+        public IClock GlobalClock => this;
     }
 
     public class InheritStyleableObject : StyleableObject

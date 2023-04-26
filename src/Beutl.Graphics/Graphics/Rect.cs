@@ -483,6 +483,20 @@ public readonly struct Rect
     }
 
     /// <summary>
+    /// Gets the union of this rectangle and the specified point.
+    /// </summary>
+    /// <param name="point">The point.</param>
+    /// <returns>The union.</returns>
+    public Rect Union(Point point)
+    {
+        float x1 = MathF.Min(X, point.X);
+        float x2 = MathF.Max(Right, point.X);
+        float y1 = MathF.Min(Y, point.Y);
+        float y2 = MathF.Max(Bottom, point.Y);
+        return new Rect(new Point(x1, y1), new Point(x2, y2));
+    }
+
+    /// <summary>
     /// Returns a new <see cref="Rect"/> with the specified X position.
     /// </summary>
     /// <param name="x">The x position.</param>

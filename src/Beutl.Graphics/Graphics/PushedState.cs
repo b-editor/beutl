@@ -33,14 +33,11 @@ public readonly record struct PushedState : IDisposable
         {
             case PushedStateType.None:
                 break;
-            case PushedStateType.Foreground:
-                Canvas.PopForeground(Level);
+            case PushedStateType.FillBrush:
+                Canvas.PopFillBrush(Level);
                 break;
             case PushedStateType.Filter:
-                Canvas.PopFilters(Level);
-                break;
-            case PushedStateType.StrokeWidth:
-                Canvas.PopStrokeWidth(Level);
+                Canvas.PopImageFilter(Level);
                 break;
             case PushedStateType.BlendMode:
                 Canvas.PopBlendMode(Level);
@@ -56,6 +53,9 @@ public readonly record struct PushedState : IDisposable
                 break;
             case PushedStateType.Canvas:
                 Canvas.PopCanvas(Level);
+                break;
+            case PushedStateType.Pen:
+                Canvas.PopPen(Level);
                 break;
             default:
                 break;

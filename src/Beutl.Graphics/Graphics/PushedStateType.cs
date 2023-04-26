@@ -3,12 +3,12 @@
 public enum PushedStateType
 {
     None,
-    Foreground,
+    FillBrush,
     Filter,
-    StrokeWidth,
     BlendMode,
     Transform,
     Clip,
     OpacityMask,
-    Canvas
+    Canvas,
+    Pen
 }

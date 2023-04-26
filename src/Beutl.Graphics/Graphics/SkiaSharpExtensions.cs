@@ -23,6 +23,11 @@ internal static class SkiaSharpExtensions
     {
         return new SKPoint(p.X, p.Y);
     }
+    
+    public static Point ToGraphicsPoint(this in SKPoint p)
+    {
+        return new Point(p.X, p.Y);
+    }
 
     public static SKPoint ToSKPoint(this Vector p)
     {

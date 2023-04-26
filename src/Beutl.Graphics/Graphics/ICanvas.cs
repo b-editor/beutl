@@ -13,11 +13,11 @@ public interface ICanvas : IDisposable
 
     bool IsDisposed { get; }
 
-    IBrush Foreground { get; set; }
+    IBrush FillBrush { get; set; }
 
-    IImageFilter? Filter { get; set; }
+    IPen? Pen { get; set; }
 
-    float StrokeWidth { get; set; }
+    IImageFilter? Filter { get; }
 
     BlendMode BlendMode { get; set; }
 
@@ -29,19 +29,17 @@ public interface ICanvas : IDisposable
 
     void ClipRect(Rect clip, ClipOperation operation = ClipOperation.Intersect);
 
-    void ClipPath(SKPath path, ClipOperation operation = ClipOperation.Intersect);
+    void ClipPath(Geometry geometry, ClipOperation operation = ClipOperation.Intersect);
 
     void DrawBitmap(IBitmap bmp);
 
-    void DrawCircle(Size size);
+    void DrawCircle(Rect rect);
 
-    void DrawRect(Size size);
+    void DrawRect(Rect rect);
+
+    void DrawGeometry(Geometry geometry);
     
     void DrawText(FormattedText text);
-
-    void FillCircle(Size size);
-
-    void FillRect(Size size);
 
     Bitmap<Bgra8888> GetBitmap();
 
@@ -57,17 +55,17 @@ public interface ICanvas : IDisposable
 
     void PopOpacityMask(int level = -1);
 
-    PushedState PushForeground(IBrush brush);
+    PushedState PushFillBrush(IBrush brush);
 
-    void PopForeground(int level = -1);
+    void PopFillBrush(int level = -1);
+    
+    PushedState PushPen(IPen? pen);
 
-    PushedState PushStrokeWidth(float strokeWidth);
+    void PopPen(int level = -1);
 
-    void PopStrokeWidth(int level = -1);
+    PushedState PushImageFilter(IImageFilter filter);
 
-    PushedState PushFilters(IImageFilter? filter);
-
-    void PopFilters(int level = -1);
+    void PopImageFilter(int level = -1);
 
     PushedState PushBlendMode(BlendMode blendMode);
 
@@ -76,16 +74,6 @@ public interface ICanvas : IDisposable
     PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend);
 
     void PopTransform(int level = -1);
-
-    void RotateDegrees(float degrees);
-
-    void RotateRadians(float radians);
-
-    void Scale(Vector vector);
-
-    void Skew(Vector vector);
-
-    void Translate(Vector vector);
 }
 
 public enum TransformOperator

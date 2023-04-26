@@ -13,8 +13,6 @@ namespace Beutl.Graphics;
 
 public abstract class Drawable : Renderable, IDrawable, IHierarchical
 {
-    public static readonly CoreProperty<float> WidthProperty;
-    public static readonly CoreProperty<float> HeightProperty;
     public static readonly CoreProperty<ITransform?> TransformProperty;
     public static readonly CoreProperty<IImageFilter?> FilterProperty;
     public static readonly CoreProperty<IBitmapEffect?> EffectProperty;
@@ -24,8 +22,6 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
     public static readonly CoreProperty<IBrush?> ForegroundProperty;
     public static readonly CoreProperty<IBrush?> OpacityMaskProperty;
     public static readonly CoreProperty<BlendMode> BlendModeProperty;
-    private float _width = 0;
-    private float _height = 0;
     private ITransform? _transform;
     private IImageFilter? _filter;
     private IBitmapEffect? _effect;
@@ -38,16 +34,6 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
 
     static Drawable()
     {
-        WidthProperty = ConfigureProperty<float, Drawable>(nameof(Width))
-            .Accessor(o => o.Width, (o, v) => o.Width = v)
-            .DefaultValue(0)
-            .Register();
-
-        HeightProperty = ConfigureProperty<float, Drawable>(nameof(Height))
-            .Accessor(o => o.Height, (o, v) => o.Height = v)
-            .DefaultValue(0)
-            .Register();
-
         TransformProperty = ConfigureProperty<ITransform?, Drawable>(nameof(Transform))
             .Accessor(o => o.Transform, (o, v) => o.Transform = v)
             .DefaultValue(null)
@@ -92,28 +78,11 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
             .Register();
 
         AffectsRender<Drawable>(
-            WidthProperty, HeightProperty,
             TransformProperty, FilterProperty, EffectProperty,
             AlignmentXProperty, AlignmentYProperty,
             TransformOriginProperty,
             ForegroundProperty, OpacityMaskProperty,
             BlendModeProperty);
-    }
-
-    [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
-    [Range(0, float.MaxValue)]
-    public float Width
-    {
-        get => _width;
-        set => SetAndRaise(WidthProperty, ref _width, value);
-    }
-
-    [Display(Name = nameof(Strings.Height), ResourceType = typeof(Strings))]
-    [Range(0, float.MaxValue)]
-    public float Height
-    {
-        get => _height;
-        set => SetAndRaise(HeightProperty, ref _height, value);
     }
 
     public Rect Bounds { get; private set; }
@@ -189,7 +158,7 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
         if (width > 0 && height > 0)
         {
             using (var canvas = new Canvas(width, height))
-            using (Foreground == null ? new() : canvas.PushForeground(Foreground))
+            using (Foreground == null ? new() : canvas.PushFillBrush(Foreground))
             {
                 OnDraw(canvas);
                 return canvas.GetBitmap();
@@ -256,10 +225,10 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
         }
 
         rect = rect.TransformToAABB(transform);
-        using (Foreground == null ? new() : canvas.PushForeground(Foreground))
+        using (Foreground == null ? new() : canvas.PushFillBrush(Foreground))
         using (canvas.PushBlendMode(BlendMode))
         using (canvas.PushTransform(transformFact))
-        using (_filter == null ? new() : canvas.PushFilters(_filter))
+        using (_filter == null ? new() : canvas.PushImageFilter(_filter))
         using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, rect))
         {
             IBitmap bitmap = ToBitmap();
@@ -315,10 +284,10 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
 
                 Matrix transform = GetTransformMatrix(availableSize, size);
 
-                using (Foreground == null ? new() : canvas.PushForeground(Foreground))
+                using (Foreground == null ? new() : canvas.PushFillBrush(Foreground))
                 using (canvas.PushBlendMode(BlendMode))
                 using (canvas.PushTransform(transform))
-                using (_filter == null ? new() : canvas.PushFilters(_filter))
+                using (_filter == null ? new() : canvas.PushImageFilter(_filter))
                 using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
                 {
                     OnDraw(canvas);

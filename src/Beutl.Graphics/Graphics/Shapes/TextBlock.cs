@@ -208,10 +208,10 @@ public class TextBlock : Drawable
                     {
                         if (item.Text.Length > 0)
                         {
-                            canvas.Translate(new(prevRight, 0));
+                            canvas.Transform = Matrix.CreateTranslation(prevRight, 0) * canvas.Transform;
                             Size elementBounds = item.Bounds;
 
-                            using (item.Brush != null ? canvas.PushForeground(item.Brush) : default)
+                            using (item.Brush != null ? canvas.PushFillBrush(item.Brush) : default)
                                 canvas.DrawText(item);
 
                             prevRight = elementBounds.Width + item.Margin.Right;

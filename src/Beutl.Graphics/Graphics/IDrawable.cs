@@ -7,10 +7,6 @@ namespace Beutl.Graphics;
 
 public interface IDrawable : IRenderable
 {
-    float Width { get; set; }
-
-    float Height { get; set; }
-
     Rect Bounds { get; }
 
     IBrush? Foreground { get; set; }
