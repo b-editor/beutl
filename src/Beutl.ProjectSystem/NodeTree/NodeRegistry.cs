@@ -1,4 +1,5 @@
-﻿using System.Reactive.Linq;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Reactive.Linq;
 
 using Beutl.Media;
 
@@ -9,13 +10,17 @@ public class NodeRegistry
     private static readonly List<BaseRegistryItem> s_nodes = new();
     internal static int s_totalCount;
 
-    public static void RegisterNode<T>(string displayName)
+    public static void RegisterNode<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
+        string displayName)
         where T : Node, new()
     {
         Register(new RegistryItem(displayName, Colors.Teal, typeof(T)));
     }
 
-    public static void RegisterNode<T>(string displayName, Color accentColor)
+    public static void RegisterNode<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
+        string displayName, Color accentColor)
         where T : Node, new()
     {
         Register(new RegistryItem(displayName, accentColor, typeof(T)));
@@ -109,7 +114,11 @@ public class NodeRegistry
 
     public record BaseRegistryItem(string DisplayName, Color AccentColor);
 
-    public record RegistryItem(string DisplayName, Color AccentColor, Type Type)
+    public record RegistryItem(
+        string DisplayName,
+        Color AccentColor,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
+        Type Type)
         : BaseRegistryItem(DisplayName, AccentColor);
 
     public record GroupableRegistryItem(string DisplayName, Color AccentColor)
@@ -163,7 +172,9 @@ public class NodeRegistry
             _register = register ?? (item => NodeRegistry.Register(item));
         }
 
-        public RegistrationHelper Add<T>(string displayName)
+        public RegistrationHelper Add<
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
+            string displayName)
             where T : Node, new()
         {
             _item.Items!.Add(new RegistryItem(displayName, Colors.Teal, typeof(T)));
@@ -171,7 +182,8 @@ public class NodeRegistry
             return this;
         }
 
-        public RegistrationHelper Add<T>(string displayName, Color accentColor)
+        public RegistrationHelper Add<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
+            string displayName, Color accentColor)
             where T : Node, new()
         {
             _item.Items.Add(new RegistryItem(displayName, accentColor, typeof(T)));

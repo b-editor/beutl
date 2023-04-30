@@ -12,7 +12,7 @@ public static class NodesRegistrar
     {
         NodeRegistry.RegisterNode<LayerInputNode>("Layer input");
         NodeRegistry.RegisterNode<LayerOutputNode>("Layer output");
-        NodeRegistry.RegisterNode<RectNode>(Strings.Rectangle);
+        NodeRegistry.RegisterNode<GeometryShapeNode>(Strings.Rectangle);
 
         NodeRegistry.RegisterNodes("Group")
             .Add<GroupInput>("Group Input")

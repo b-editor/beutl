@@ -13,8 +13,8 @@ public abstract class Shape : Drawable
     public static readonly CoreProperty<IPen?> PenProperty;
     public static readonly CoreProperty<PathFillType> FillTypeProperty;
     public static readonly CoreProperty<Geometry?> CreatedGeometryProperty;
-    private float _width = 0;
-    private float _height = 0;
+    private float _width = -1;
+    private float _height = -1;
     private Stretch _stretch = Stretch.None;
     private IPen? _pen = null;
     private PathFillType _fillType;
@@ -24,12 +24,12 @@ public abstract class Shape : Drawable
     {
         WidthProperty = ConfigureProperty<float, Shape>(nameof(Width))
             .Accessor(o => o.Width, (o, v) => o.Width = v)
-            .DefaultValue(0)
+            .DefaultValue(float.PositiveInfinity)
             .Register();
 
         HeightProperty = ConfigureProperty<float, Shape>(nameof(Height))
             .Accessor(o => o.Height, (o, v) => o.Height = v)
-            .DefaultValue(0)
+            .DefaultValue(float.PositiveInfinity)
             .Register();
 
         StretchProperty = ConfigureProperty<Stretch, Shape>(nameof(Stretch))
@@ -145,6 +145,9 @@ public abstract class Shape : Drawable
         Matrix translate = Matrix.Identity;
         float desiredX = requestedSize.Width;
         float desiredY = requestedSize.Height;
+        bool widthInfinityOrNegative = float.IsInfinity(requestedSize.Width) || requestedSize.Width < 0;
+        bool heightInfinityOrNegative = float.IsInfinity(requestedSize.Height) || requestedSize.Height < 0;
+
         float sx = 0.0f;
         float sy = 0.0f;
 
@@ -154,12 +157,12 @@ public abstract class Shape : Drawable
             translate = Matrix.CreateTranslation(-(Vector)shapeBounds.Position);
         }
 
-        if (float.IsInfinity(requestedSize.Width))
+        if (widthInfinityOrNegative)
         {
             desiredX = shapeSize.Width;
         }
 
-        if (float.IsInfinity(requestedSize.Height))
+        if (heightInfinityOrNegative)
         {
             desiredY = shapeSize.Height;
         }
@@ -174,12 +177,12 @@ public abstract class Shape : Drawable
             sy = desiredY / shapeSize.Height;
         }
 
-        if (float.IsInfinity(requestedSize.Width))
+        if (widthInfinityOrNegative)
         {
             sx = sy;
         }
 
-        if (float.IsInfinity(requestedSize.Height))
+        if (heightInfinityOrNegative)
         {
             sy = sx;
         }
@@ -193,12 +196,12 @@ public abstract class Shape : Drawable
                 sx = sy = Math.Max(sx, sy);
                 break;
             case Stretch.Fill:
-                if (float.IsInfinity(requestedSize.Width))
+                if (widthInfinityOrNegative)
                 {
                     sx = 1.0f;
                 }
 
-                if (float.IsInfinity(requestedSize.Height))
+                if (heightInfinityOrNegative)
                 {
                     sy = 1.0f;
                 }
