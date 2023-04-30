@@ -34,12 +34,12 @@ public static class NodesRegistrar
             .Register();
 
         NodeRegistry.RegisterNodes(Strings.Transform)
-            .Add<TransformNode>(Strings.Transform)
-            .Add<TranslateNode>(Strings.Translate)
-            .Add<RotationNode>(Strings.Rotation)
-            .Add<Rotation3DNode>(Strings.Rotation3D)
-            .Add<ScaleNode>(Strings.Scale)
-            .Add<SkewNode>(Strings.Skew)
+            .Add<MatrixTransformNode>(Strings.Transform)
+            .Add<TranslateTransformNode>(Strings.Translate)
+            .Add<RotationTransformNode>(Strings.Rotation)
+            .Add<Rotation3DTransformNode>(Strings.Rotation3D)
+            .Add<ScaleTransformNode>(Strings.Scale)
+            .Add<SkewTransformNode>(Strings.Skew)
             .Register();
 
         NodeRegistry.RegisterNodes("Utilities")

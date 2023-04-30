@@ -1,13 +1,12 @@
-﻿using Beutl.Graphics;
-using Beutl.Graphics.Transformation;
+﻿using Beutl.Graphics.Transformation;
 
 namespace Beutl.NodeTree.Nodes.Transform;
 
-public class RotationNode : ConfigureNode
+public sealed class RotationTransformNode : TransformNode
 {
     private readonly InputSocket<float> _rotationSocket;
 
-    public RotationNode()
+    public RotationTransformNode()
     {
         _rotationSocket = AsInput(RotationTransform.RotationProperty).AcceptNumber();
     }
@@ -15,13 +14,12 @@ public class RotationNode : ConfigureNode
     public override void InitializeForContext(NodeEvaluationContext context)
     {
         base.InitializeForContext(context);
-        context.State = new ConfigureNodeEvaluationState(null, new RotationTransform());
+        context.State = new TransformNodeEvaluationState(null, new RotationTransform());
     }
 
-    protected override void EvaluateCore(Drawable drawable, object? state)
+    protected override void EvaluateCore(TransformGroup group, object? state)
     {
-        if (state is RotationTransform model
-            && drawable.Transform is TransformGroup group)
+        if (state is RotationTransform model)
         {
             model.Rotation = _rotationSocket.Value;
 

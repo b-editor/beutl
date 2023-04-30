@@ -1,9 +1,8 @@
-﻿using Beutl.Graphics;
-using Beutl.Graphics.Transformation;
+﻿using Beutl.Graphics.Transformation;
 
 namespace Beutl.NodeTree.Nodes.Transform;
 
-public class Rotation3DNode : ConfigureNode
+public sealed class Rotation3DTransformNode : TransformNode
 {
     private readonly InputSocket<float> _rotationXSocket;
     private readonly InputSocket<float> _rotationYSocket;
@@ -13,7 +12,7 @@ public class Rotation3DNode : ConfigureNode
     private readonly InputSocket<float> _centerZSocket;
     private readonly InputSocket<float> _depthSocket;
 
-    public Rotation3DNode()
+    public Rotation3DTransformNode()
     {
         _rotationXSocket = AsInput(Rotation3DTransform.RotationXProperty).AcceptNumber();
         _rotationYSocket = AsInput(Rotation3DTransform.RotationYProperty).AcceptNumber();
@@ -27,13 +26,12 @@ public class Rotation3DNode : ConfigureNode
     public override void InitializeForContext(NodeEvaluationContext context)
     {
         base.InitializeForContext(context);
-        context.State = new ConfigureNodeEvaluationState(null, new Rotation3DTransform());
+        context.State = new TransformNodeEvaluationState(null, new Rotation3DTransform());
     }
 
-    protected override void EvaluateCore(Drawable drawable, object? state)
+    protected override void EvaluateCore(TransformGroup group, object? state)
     {
-        if (state is Rotation3DTransform model
-            && drawable.Transform is TransformGroup group)
+        if (state is Rotation3DTransform model)
         {
             model.RotationX = _rotationXSocket.Value;
             model.RotationY = _rotationYSocket.Value;

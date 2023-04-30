@@ -1,14 +1,13 @@
-﻿using Beutl.Graphics;
-using Beutl.Graphics.Transformation;
+﻿using Beutl.Graphics.Transformation;
 
 namespace Beutl.NodeTree.Nodes.Transform;
 
-public class TranslateNode : ConfigureNode
+public sealed class TranslateTransformNode : TransformNode
 {
     private readonly InputSocket<float> _xSocket;
     private readonly InputSocket<float> _ySocket;
 
-    public TranslateNode()
+    public TranslateTransformNode()
     {
         _xSocket = AsInput(TranslateTransform.XProperty).AcceptNumber();
         _ySocket = AsInput(TranslateTransform.YProperty).AcceptNumber();
@@ -17,13 +16,12 @@ public class TranslateNode : ConfigureNode
     public override void InitializeForContext(NodeEvaluationContext context)
     {
         base.InitializeForContext(context);
-        context.State = new ConfigureNodeEvaluationState(null, new TranslateTransform());
+        context.State = new TransformNodeEvaluationState(null, new TranslateTransform());
     }
 
-    protected override void EvaluateCore(Drawable drawable, object? state)
+    protected override void EvaluateCore(TransformGroup group, object? state)
     {
-        if (state is TranslateTransform model
-            && drawable.Transform is TransformGroup group)
+        if (state is TranslateTransform model)
         {
             model.X = _xSocket.Value;
             model.Y = _ySocket.Value;

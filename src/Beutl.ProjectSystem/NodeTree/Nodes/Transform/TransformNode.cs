@@ -1,38 +1,50 @@
-﻿using Beutl.Graphics;
-using Beutl.Graphics.Transformation;
+﻿using Beutl.Graphics.Transformation;
 
 namespace Beutl.NodeTree.Nodes.Transform;
 
-public class TransformNode : ConfigureNode
+public sealed class TransformNodeEvaluationState
 {
-    private readonly InputSocket<Matrix> _matrixSocket;
+    public TransformNodeEvaluationState(TransformGroup? created, object? addtionalState)
+    {
+        Created = created;
+        AddtionalState = addtionalState;
+    }
 
+    public TransformGroup? Created { get; set; }
+
+    public object? AddtionalState { get; set; }
+}
+
+public abstract class TransformNode : Node
+{
     public TransformNode()
     {
-        _matrixSocket = AsInput<Matrix>("Matrix");
+        OutputSocket = AsOutput<TransformGroup>("TransformGroup");
+        InputSocket = AsInput<TransformGroup?>("TransformGroup");
     }
 
-    public override void InitializeForContext(NodeEvaluationContext context)
-    {
-        base.InitializeForContext(context);
-        context.State = new ConfigureNodeEvaluationState(null, new MatrixTransform());
-    }
+    protected OutputSocket<TransformGroup> OutputSocket { get; }
 
-    protected override void EvaluateCore(Drawable drawable, object? state)
+    protected InputSocket<TransformGroup?> InputSocket { get; }
+
+    public override void Evaluate(NodeEvaluationContext context)
     {
-        if (state is MatrixTransform model
-            && drawable.Transform is TransformGroup group)
+        TransformGroup? value = InputSocket.Value;
+        var state = context.State as TransformNodeEvaluationState;
+        if (state == null)
         {
-            if (_matrixSocket.Connection != null)
-            {
-                model.Matrix = _matrixSocket.Value;
-            }
-            else
-            {
-                model.Matrix = Matrix.Identity;
-            }
-
-            group.Children.Add(model);
+            context.State = state = new TransformNodeEvaluationState(null, null);
         }
+
+        if (value == null)
+        {
+            state.Created ??= new TransformGroup();
+            value = state.Created;
+        }
+
+        EvaluateCore(value, state.AddtionalState);
+        OutputSocket.Value = value;
     }
+
+    protected abstract void EvaluateCore(TransformGroup group, object? state);
 }

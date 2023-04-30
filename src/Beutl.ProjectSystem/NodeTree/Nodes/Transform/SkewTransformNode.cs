@@ -1,14 +1,13 @@
-﻿using Beutl.Graphics;
-using Beutl.Graphics.Transformation;
+﻿using Beutl.Graphics.Transformation;
 
 namespace Beutl.NodeTree.Nodes.Transform;
 
-public class SkewNode : ConfigureNode
+public sealed class SkewTransformNode : TransformNode
 {
     private readonly InputSocket<float> _skewXSocket;
     private readonly InputSocket<float> _skewYSocket;
 
-    public SkewNode()
+    public SkewTransformNode()
     {
         _skewXSocket = AsInput(SkewTransform.SkewXProperty).AcceptNumber();
         _skewYSocket = AsInput(SkewTransform.SkewYProperty).AcceptNumber();
@@ -17,13 +16,12 @@ public class SkewNode : ConfigureNode
     public override void InitializeForContext(NodeEvaluationContext context)
     {
         base.InitializeForContext(context);
-        context.State = new ConfigureNodeEvaluationState(null, new SkewTransform());
+        context.State = new TransformNodeEvaluationState(null, new SkewTransform());
     }
 
-    protected override void EvaluateCore(Drawable drawable, object? state)
+    protected override void EvaluateCore(TransformGroup group, object? state)
     {
-        if (state is SkewTransform model
-            && drawable.Transform is TransformGroup group)
+        if (state is SkewTransform model)
         {
             model.SkewY = _skewXSocket.Value;
             model.SkewY = _skewYSocket.Value;
