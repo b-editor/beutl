@@ -202,6 +202,17 @@ public class CoreProperty<T> : CoreProperty
 
     public new IObservable<CorePropertyChangedEventArgs<T>> Changed => _changed;
 
+    public void OverrideDefaultValue<TOverride>(Optional<T> defaultValue)
+         where TOverride : ICoreObject
+    {
+        OverrideMetadata<TOverride>(new CorePropertyMetadata<T>(defaultValue));
+    }
+
+    public void OverrideMetadata(Type type, Optional<T> defaultValue)
+    {
+        OverrideMetadata(type, new CorePropertyMetadata<T>(defaultValue));
+    }
+
     internal override bool HasObservers => _changed.HasObservers;
 
     internal override void NotifyChanged(CorePropertyChangedEventArgs e)

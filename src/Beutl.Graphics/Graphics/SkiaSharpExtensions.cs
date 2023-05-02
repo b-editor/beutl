@@ -23,7 +23,7 @@ internal static class SkiaSharpExtensions
     {
         return new SKPoint(p.X, p.Y);
     }
-    
+
     public static Point ToGraphicsPoint(this in SKPoint p)
     {
         return new Point(p.X, p.Y);
@@ -47,6 +47,11 @@ internal static class SkiaSharpExtensions
     public static Rect ToGraphicsRect(this in SKRect r)
     {
         return new Rect(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
+    }
+
+    public static Size ToGraphicsSize(this in SKSize s)
+    {
+        return new Size(s.Width, s.Height);
     }
 
     public static SKMatrix ToSKMatrix(this in Matrix m)

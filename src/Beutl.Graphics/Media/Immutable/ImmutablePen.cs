@@ -9,7 +9,8 @@ public sealed class ImmutablePen : IPen, IEquatable<IPen?>
         float thickness,
         float miterLimit,
         StrokeCap strokeCap,
-        StrokeJoin strokeJoin)
+        StrokeJoin strokeJoin,
+        StrokeAlignment strokeAlignment)
     {
         Brush = brush;
         DashArray = dashArray;
@@ -18,6 +19,7 @@ public sealed class ImmutablePen : IPen, IEquatable<IPen?>
         MiterLimit = miterLimit;
         StrokeCap = strokeCap;
         StrokeJoin = strokeJoin;
+        StrokeAlignment = strokeAlignment;
     }
 
     public IBrush? Brush { get; }
@@ -34,6 +36,8 @@ public sealed class ImmutablePen : IPen, IEquatable<IPen?>
 
     public StrokeJoin StrokeJoin { get; }
 
+    public StrokeAlignment StrokeAlignment { get; }
+
     public override bool Equals(object? obj)
     {
         return Equals(obj as IPen);
@@ -48,12 +52,13 @@ public sealed class ImmutablePen : IPen, IEquatable<IPen?>
             && Thickness == other.Thickness
             && MiterLimit == other.MiterLimit
             && StrokeCap == other.StrokeCap
-            && StrokeJoin == other.StrokeJoin;
+            && StrokeJoin == other.StrokeJoin
+            && StrokeAlignment == other.StrokeAlignment;
     }
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(Brush, DashArray, DashOffset, Thickness, MiterLimit, StrokeCap, StrokeJoin);
+        return HashCode.Combine(Brush, DashArray, DashOffset, Thickness, MiterLimit, StrokeCap, StrokeJoin, StrokeAlignment);
     }
 
     public static bool operator ==(ImmutablePen? left, ImmutablePen? right) => EqualityComparer<ImmutablePen>.Default.Equals(left, right);

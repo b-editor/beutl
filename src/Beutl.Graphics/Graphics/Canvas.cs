@@ -136,7 +136,7 @@ public class Canvas : ICanvas
         VerifyAccess();
         var size = new Size(bmp.Width, bmp.Height);
         ConfigureFillPaint(size);
-        ConfigureStrokePaint(size);
+        ConfigureStrokePaint(new Rect(size));
 
         if (bmp is Bitmap<Bgra8888>)
         {
@@ -155,16 +155,24 @@ public class Canvas : ICanvas
     {
         VerifyAccess();
         ConfigureFillPaint(rect.Size);
-
         _canvas.DrawOval(rect.ToSKRect(), _sharedFillPaint);
 
-        if (Pen != null && Pen.Thickness != 0)
+        IPen? pen = Pen;
+        if (pen != null && pen.Thickness != 0)
         {
-            rect = rect.Inflate(Pen.Thickness);
-
-            ConfigureStrokePaint(rect.Size);
-
-            _canvas.DrawOval(rect.ToSKRect(), _sharedStrokePaint);
+            if (pen.StrokeAlignment == StrokeAlignment.Center)
+            {
+                ConfigureStrokePaint(rect);
+                _canvas.DrawOval(rect.ToSKRect(), _sharedStrokePaint);
+            }
+            else
+            {
+                using (var path = new SKPath())
+                {
+                    path.AddOval(rect.ToSKRect());
+                    DrawSKPath(path, true);
+                }
+            }
         }
     }
 
@@ -172,16 +180,24 @@ public class Canvas : ICanvas
     {
         VerifyAccess();
         ConfigureFillPaint(rect.Size);
-
         _canvas.DrawRect(rect.ToSKRect(), _sharedFillPaint);
 
-        if (Pen != null && Pen.Thickness != 0)
+        IPen? pen = Pen;
+        if (pen != null && pen.Thickness != 0)
         {
-            rect = rect.Inflate(Pen.Thickness);
-
-            ConfigureStrokePaint(rect.Size);
-
-            _canvas.DrawRect(rect.ToSKRect(), _sharedStrokePaint);
+            if (pen.StrokeAlignment == StrokeAlignment.Center)
+            {
+                ConfigureStrokePaint(rect);
+                _canvas.DrawRect(rect.ToSKRect(), _sharedStrokePaint);
+            }
+            else
+            {
+                using (var path = new SKPath())
+                {
+                    path.AddRect(rect.ToSKRect());
+                    DrawSKPath(path, true);
+                }
+            }
         }
     }
 
@@ -221,23 +237,48 @@ public class Canvas : ICanvas
         }
     }
 
+    private void DrawSKPath(SKPath skPath, bool strokeOnly)
+    {
+        Rect rect = skPath.Bounds.ToGraphicsRect();
+
+        if (!strokeOnly)
+        {
+            ConfigureFillPaint(rect.Size);
+            _canvas.DrawPath(skPath, _sharedFillPaint);
+        }
+
+        IPen? pen = Pen;
+        if (pen != null && pen.Thickness != 0)
+        {
+            ConfigureStrokePaint(rect);
+            switch (pen.StrokeAlignment)
+            {
+                case StrokeAlignment.Center:
+                    _canvas.DrawPath(skPath, _sharedStrokePaint);
+                    break;
+
+                case StrokeAlignment.Inside:
+                    _canvas.Save();
+                    _canvas.ClipPath(skPath, SKClipOperation.Intersect, true);
+                    _canvas.DrawPath(skPath, _sharedStrokePaint);
+                    _canvas.Restore();
+                    break;
+
+                case StrokeAlignment.Outside:
+                    _canvas.Save();
+                    _canvas.ClipPath(skPath, SKClipOperation.Difference, true);
+                    _canvas.DrawPath(skPath, _sharedStrokePaint);
+                    _canvas.Restore();
+                    break;
+            }
+        }
+    }
+
     public void DrawGeometry(Geometry geometry)
     {
         VerifyAccess();
         SKPath skPath = geometry.GetNativeObject();
-        Rect rect = geometry.Bounds;
-        ConfigureFillPaint(rect.Size);
-
-        _canvas.DrawPath(skPath, _sharedFillPaint);
-
-        if (Pen != null && Pen.Thickness != 0)
-        {
-            rect = rect.Inflate(Pen.Thickness);
-
-            ConfigureStrokePaint(rect.Size);
-
-            _canvas.DrawPath(skPath, _sharedStrokePaint);
-        }
+        DrawSKPath(skPath, false);
     }
 
     public unsafe Bitmap<Bgra8888> GetBitmap()
@@ -645,7 +686,7 @@ public class Canvas : ICanvas
         }
     }
 
-    private void ConfigureStrokePaint(Size targetSize)
+    private void ConfigureStrokePaint(Rect rect)
     {
         _sharedStrokePaint.Reset();
         IPen? pen = Pen;
@@ -653,7 +694,19 @@ public class Canvas : ICanvas
         if (pen != null && pen.Thickness != 0)
         {
             float thickness = pen.Thickness;
+            switch (pen.StrokeAlignment)
+            {
+                case StrokeAlignment.Center:
+                    break;
+                case StrokeAlignment.Inside:
+                case StrokeAlignment.Outside:
+                    thickness *= 2;
+                    break;
+                default:
+                    break;
+            }
 
+            rect = rect.Inflate(thickness);
             _sharedStrokePaint.IsStroke = true;
             _sharedStrokePaint.StrokeWidth = thickness;
             _sharedStrokePaint.StrokeCap = (SKStrokeCap)pen.StrokeCap;
@@ -679,7 +732,7 @@ public class Canvas : ICanvas
                 _sharedStrokePaint.PathEffect = pe;
             }
 
-            ConfigurePaint(_sharedStrokePaint, targetSize, pen.Brush, BlendMode);
+            ConfigurePaint(_sharedStrokePaint, rect.Size, pen.Brush, BlendMode);
         }
     }
 

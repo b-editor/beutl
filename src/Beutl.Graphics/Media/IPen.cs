@@ -9,12 +9,14 @@ public interface IPen
     float DashOffset { get; }
 
     float Thickness { get; }
-    
+
     float MiterLimit { get; }
 
     StrokeCap StrokeCap { get; }
 
     StrokeJoin StrokeJoin { get; }
+
+    StrokeAlignment StrokeAlignment { get; }
 }
 
 public interface IMutablePen : IPen, IAffectsRender

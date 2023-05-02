@@ -16,6 +16,7 @@ public sealed class Pen : Animatable, IMutablePen
     public static readonly CoreProperty<float> MiterLimitProperty;
     public static readonly CoreProperty<StrokeCap> StrokeCapProperty;
     public static readonly CoreProperty<StrokeJoin> StrokeJoinProperty;
+    public static readonly CoreProperty<StrokeAlignment> StrokeAlignmentProperty;
     private IBrush? _brush;
     private CoreList<float>? _dashArray;
     private float _dashOffset;
@@ -23,6 +24,7 @@ public sealed class Pen : Animatable, IMutablePen
     private float _miterLimit = 10;
     private StrokeCap _strokeCap = StrokeCap.Flat;
     private StrokeJoin _strokeJoin = StrokeJoin.Miter;
+    private StrokeAlignment _strokeAlignment = StrokeAlignment.Center;
 
     static Pen()
     {
@@ -57,6 +59,11 @@ public sealed class Pen : Animatable, IMutablePen
             .Accessor(o => o.StrokeJoin, (o, v) => o.StrokeJoin = v)
             .DefaultValue(StrokeJoin.Miter)
             .Register();
+
+        StrokeAlignmentProperty = ConfigureProperty<StrokeAlignment, Pen>(nameof(StrokeAlignment))
+            .Accessor(o => o.StrokeAlignment, (o, v) => o.StrokeAlignment = v)
+            .DefaultValue(StrokeAlignment.Center)
+            .Register();
     }
 
     public IBrush? Brush
@@ -82,7 +89,7 @@ public sealed class Pen : Animatable, IMutablePen
         get => _thickness;
         set => SetAndRaise(ThicknessProperty, ref _thickness, value);
     }
-    
+
     public float MiterLimit
     {
         get => _miterLimit;
@@ -99,6 +106,12 @@ public sealed class Pen : Animatable, IMutablePen
     {
         get => _strokeJoin;
         set => SetAndRaise(StrokeJoinProperty, ref _strokeJoin, value);
+    }
+
+    public StrokeAlignment StrokeAlignment
+    {
+        get => _strokeAlignment;
+        set => SetAndRaise(StrokeAlignmentProperty, ref _strokeAlignment, value);
     }
 
     IReadOnlyList<float>? IPen.DashArray => _dashArray;
@@ -145,11 +158,12 @@ public sealed class Pen : Animatable, IMutablePen
 
                 goto RaiseInvalidated;
 
-            case CorePropertyChangedEventArgs<float> { PropertyName: nameof(DashOffset) }:
-            case CorePropertyChangedEventArgs<float> { PropertyName: nameof(Thickness) }:
-            case CorePropertyChangedEventArgs<float> { PropertyName: nameof(MiterLimit) }:
-            case CorePropertyChangedEventArgs<StrokeCap> { PropertyName: nameof(StrokeCap) }:
-            case CorePropertyChangedEventArgs<StrokeJoin> { PropertyName: nameof(StrokeJoin) }:
+            case { PropertyName: nameof(DashOffset) }:
+            case { PropertyName: nameof(Thickness) }:
+            case { PropertyName: nameof(MiterLimit) }:
+            case { PropertyName: nameof(StrokeCap) }:
+            case { PropertyName: nameof(StrokeJoin) }:
+            case { PropertyName: nameof(StrokeAlignment) }:
             RaiseInvalidated:
                 Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(this, args.PropertyName));
                 break;
@@ -178,6 +192,7 @@ public sealed class Pen : Animatable, IMutablePen
             Thickness,
             MiterLimit,
             StrokeCap,
-            StrokeJoin);
+            StrokeJoin,
+            StrokeAlignment);
     }
 }

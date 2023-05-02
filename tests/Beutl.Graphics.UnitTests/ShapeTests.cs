@@ -11,6 +11,8 @@ using Beutl.Media.Pixel;
 
 using NUnit.Framework;
 
+using SkiaSharp;
+
 namespace Beutl.Graphics.UnitTests;
 
 public class ShapeTests
@@ -124,15 +126,51 @@ public class ShapeTests
 
         Assert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
     }
+    
+    [Test]
+    [TestCase(StrokeAlignment.Center)]
+    [TestCase(StrokeAlignment.Inside)]
+    [TestCase(StrokeAlignment.Outside)]
+    public void DrawRoundedRectWithStroke(StrokeAlignment alignment)
+    {
+        var shape = new RoundedRectShape
+        {
+            AlignmentX = AlignmentX.Center,
+            AlignmentY = AlignmentY.Center,
+            TransformOrigin = RelativePoint.Center,
+
+            Width = 100,
+            Height = 100,
+            CornerRadius = new CornerRadius(25),
+
+            Foreground = Brushes.Gray,
+            Pen = new Pen()
+            {
+                Brush = Brushes.White,
+                Thickness = 10,
+                StrokeCap = StrokeCap.Round,
+                StrokeAlignment = alignment,
+            }
+        };
+
+        using var canvas = new Canvas(250, 250);
+
+        canvas.Clear(Colors.Black);
+        shape.Draw(canvas);
+
+        using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
+
+        Assert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{alignment}.png"), EncodedImageFormat.Png));
+    }
 
     [Test]
     public void DrawGeometry()
     {
         var geometry = new PathGeometry();
-        var center = new Point(50, 50);
-        float radius = 0.45f * Math.Min(100, 100);
+        var center = new Point(100, 100);
+        float radius = 0.45f * Math.Min(200, 200);
 
-        geometry.MoveTo(new Point(50, 50 - radius));
+        geometry.MoveTo(new Point(100, 100 - radius));
 
         for (int i = 1; i < 5; i++)
         {
@@ -162,13 +200,16 @@ public class ShapeTests
     }
 
     [Test]
-    public void DrawGeometryWithPen()
+    [TestCase(StrokeAlignment.Center)]
+    [TestCase(StrokeAlignment.Inside)]
+    [TestCase(StrokeAlignment.Outside)]
+    public void DrawGeometryWithPen(StrokeAlignment alignment)
     {
         var geometry = new PathGeometry();
-        var center = new Point(50, 50);
-        float radius = 0.45f * Math.Min(100, 100);
+        var center = new Point(100, 100);
+        float radius = 0.45f * Math.Min(200, 200);
 
-        geometry.MoveTo(new Point(50, 50 - radius));
+        geometry.MoveTo(new Point(100, 100 - radius));
 
         for (int i = 1; i < 5; i++)
         {
@@ -191,6 +232,7 @@ public class ShapeTests
                 Brush = Brushes.White,
                 Thickness = 10,
                 StrokeCap = StrokeCap.Round,
+                StrokeAlignment = alignment,
             }
         };
 
@@ -201,6 +243,6 @@ public class ShapeTests
 
         using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
 
-        Assert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
+        Assert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{alignment}.png"), EncodedImageFormat.Png));
     }
 }
