@@ -40,12 +40,6 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
         _isDefault = false;
     }
 
-    public CorePropertyMetadata<T> Metadata
-    {
-        get => _metadata ?? throw new InvalidOperationException();
-        set => _metadata = value;
-    }
-
     public CoreProperty<T> Property
     {
         get => _property ?? throw new InvalidOperationException();
@@ -118,8 +112,6 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
             }
         }
     }
-
-    CorePropertyMetadata ISetter.Metadata => Metadata;
 
     CoreProperty ISetter.Property => Property;
 
