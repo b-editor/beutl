@@ -4,8 +4,10 @@ using Avalonia.Data.Converters;
 
 namespace Beutl.Converters;
 
-public sealed class PixelSizeConverter : IValueConverter
+public sealed class AvaloniaPixelSizeConverter : IValueConverter
 {
+    public static readonly AvaloniaPixelSizeConverter Instance = new();
+
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is PixelSize size)

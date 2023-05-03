@@ -13,7 +13,7 @@
                 <!--<ResourceInclude Source="avares://Avalonia.Themes.Fluent/Controls/ContextMenu.xaml" />-->
             </ResourceDictionary.MergedDictionaries>
 
-            <convert:PixelSizeConverter x:Key="PixelSizeConverter" />
+            <convert:AvaloniaPixelSizeConverter x:Key="PixelSizeConverter" />
             <convert:TimeSpanToDoubleConverter x:Key="TimeSpanToDoubleConverter" />
             <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
 
