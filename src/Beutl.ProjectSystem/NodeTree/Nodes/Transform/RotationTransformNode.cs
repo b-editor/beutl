@@ -14,16 +14,14 @@ public sealed class RotationTransformNode : TransformNode
     public override void InitializeForContext(NodeEvaluationContext context)
     {
         base.InitializeForContext(context);
-        context.State = new TransformNodeEvaluationState(null, new RotationTransform());
+        context.State = new TransformNodeEvaluationState(new RotationTransform());
     }
 
-    protected override void EvaluateCore(TransformGroup group, object? state)
+    protected override void EvaluateCore(ITransform? state)
     {
         if (state is RotationTransform model)
         {
             model.Rotation = _rotationSocket.Value;
-
-            group.Children.Add(model);
         }
     }
 }

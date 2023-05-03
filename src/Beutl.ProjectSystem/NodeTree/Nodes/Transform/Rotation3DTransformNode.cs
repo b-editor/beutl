@@ -26,10 +26,10 @@ public sealed class Rotation3DTransformNode : TransformNode
     public override void InitializeForContext(NodeEvaluationContext context)
     {
         base.InitializeForContext(context);
-        context.State = new TransformNodeEvaluationState(null, new Rotation3DTransform());
+        context.State = new TransformNodeEvaluationState(new Rotation3DTransform());
     }
 
-    protected override void EvaluateCore(TransformGroup group, object? state)
+    protected override void EvaluateCore(ITransform? state)
     {
         if (state is Rotation3DTransform model)
         {
@@ -40,7 +40,6 @@ public sealed class Rotation3DTransformNode : TransformNode
             model.CenterY = _centerYSocket.Value;
             model.CenterZ = _centerZSocket.Value;
             model.Depth = _depthSocket.Value;
-            group.Children.Add(model);
         }
     }
 }

@@ -10,7 +10,6 @@ public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
 
     public virtual IRenderable? Publish(IClock clock)
     {
-        OnPrePublish();
         IRenderable? renderable = Instance?.Target as IRenderable;
         
         if (!ReferenceEquals(Style, Instance?.Source) || Instance?.Target == null)
@@ -27,6 +26,7 @@ public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
             }
         }
 
+        OnBeforeApplying();
         if (Instance != null && IsEnabled)
         {
             Instance.Begin();
@@ -34,7 +34,7 @@ public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
             Instance.End();
         }
 
-        OnPostPublish();
+        OnAfterApplying();
 
         return IsEnabled ? renderable : null;
     }
@@ -47,11 +47,11 @@ public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
         tmp?.Dispose();
     }
 
-    protected virtual void OnPrePublish()
+    protected virtual void OnBeforeApplying()
     {
     }
 
-    protected virtual void OnPostPublish()
+    protected virtual void OnAfterApplying()
     {
     }
 }

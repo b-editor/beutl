@@ -4,7 +4,7 @@ using Beutl.Media;
 
 namespace Beutl.NodeTree.Nodes.Filters;
 
-public class DropShadowNode : ConfigureNode
+public class DropShadowNode : ImageFilterNode
 {
     private readonly InputSocket<Point> _posSocket;
     private readonly InputSocket<Vector> _sigmaSocket;
@@ -22,19 +22,17 @@ public class DropShadowNode : ConfigureNode
     public override void InitializeForContext(NodeEvaluationContext context)
     {
         base.InitializeForContext(context);
-        context.State = new ConfigureNodeEvaluationState(null, new DropShadow());
+        context.State = new ImageFilterNodeEvaluationState(new DropShadow());
     }
 
-    protected override void EvaluateCore(Drawable drawable, object? state)
+    protected override void EvaluateCore(IImageFilter? state)
     {
-        if (state is DropShadow model
-            && drawable.Filter is ImageFilterGroup group)
+        if (state is DropShadow model)
         {
             model.Position = _posSocket.Value;
             model.Sigma = _sigmaSocket.Value;
             model.Color = _colorSocket.Value;
             model.ShadowOnly = _shadowOnlySocket.Value;
-            group.Children.Add(model);
         }
     }
 }

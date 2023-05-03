@@ -15,10 +15,10 @@ public sealed class MatrixTransformNode : TransformNode
     public override void InitializeForContext(NodeEvaluationContext context)
     {
         base.InitializeForContext(context);
-        context.State = new TransformNodeEvaluationState(null, new MatrixTransform());
+        context.State = new TransformNodeEvaluationState(new MatrixTransform());
     }
 
-    protected override void EvaluateCore(TransformGroup group, object? state)
+    protected override void EvaluateCore(ITransform? state)
     {
         if (state is MatrixTransform model)
         {
@@ -30,8 +30,6 @@ public sealed class MatrixTransformNode : TransformNode
             {
                 model.Matrix = Matrix.Identity;
             }
-
-            group.Children.Add(model);
         }
     }
 }

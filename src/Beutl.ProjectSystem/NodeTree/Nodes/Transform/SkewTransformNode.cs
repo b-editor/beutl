@@ -16,17 +16,15 @@ public sealed class SkewTransformNode : TransformNode
     public override void InitializeForContext(NodeEvaluationContext context)
     {
         base.InitializeForContext(context);
-        context.State = new TransformNodeEvaluationState(null, new SkewTransform());
+        context.State = new TransformNodeEvaluationState(new SkewTransform());
     }
 
-    protected override void EvaluateCore(TransformGroup group, object? state)
+    protected override void EvaluateCore(ITransform? state)
     {
         if (state is SkewTransform model)
         {
             model.SkewY = _skewXSocket.Value;
             model.SkewY = _skewYSocket.Value;
-
-            group.Children.Add(model);
         }
     }
 }

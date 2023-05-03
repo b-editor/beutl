@@ -1,7 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Filters;
-using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Operation;
 using Beutl.Styling;
@@ -18,29 +17,27 @@ public abstract class DrawablePublishOperator<T> : StyledSourcePublisher
         return style;
     }
 
-    protected override void OnPostPublish()
+    protected override void OnBeforeApplying()
     {
-        base.OnPostPublish();
+        base.OnBeforeApplying();
+        if (Instance?.Target is T drawable)
+        {
+            drawable.BeginBatchUpdate();
+        }
+    }
+
+    protected override void OnAfterApplying()
+    {
+        base.OnAfterApplying();
         if (Instance?.Target is T drawable)
         {
             drawable.BlendMode = BlendMode.SrcOver;
             drawable.AlignmentX = AlignmentX.Left;
             drawable.AlignmentY = AlignmentY.Top;
             drawable.TransformOrigin = RelativePoint.TopLeft;
-            if (drawable.Transform is TransformGroup transformGroup)
-                transformGroup.Children.Clear();
-            else
-                drawable.Transform = new TransformGroup();
-
-            if (drawable.Filter is ImageFilterGroup filterGroup)
-                filterGroup.Children.Clear();
-            else
-                drawable.Filter = new ImageFilterGroup();
-
-            if (drawable.Effect is BitmapEffectGroup effectGroup)
-                effectGroup.Children.Clear();
-            else
-                drawable.Effect = new BitmapEffectGroup();
+            drawable.Transform = null;
+            drawable.Filter = null;
+            drawable.Effect = null;
         }
     }
 }

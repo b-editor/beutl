@@ -4,47 +4,49 @@ namespace Beutl.NodeTree.Nodes.Transform;
 
 public sealed class TransformNodeEvaluationState
 {
-    public TransformNodeEvaluationState(TransformGroup? created, object? addtionalState)
+    public TransformNodeEvaluationState(ITransform? created)
     {
         Created = created;
-        AddtionalState = addtionalState;
     }
 
-    public TransformGroup? Created { get; set; }
+    public ITransform? Created { get; set; }
 
-    public object? AddtionalState { get; set; }
+    public MultiTransform? AddtionalState { get; set; }
 }
 
 public abstract class TransformNode : Node
 {
     public TransformNode()
     {
-        OutputSocket = AsOutput<TransformGroup>("TransformGroup");
-        InputSocket = AsInput<TransformGroup?>("TransformGroup");
+        OutputSocket = AsOutput<ITransform?>("Transform");
+        InputSocket = AsInput<ITransform?>("Transform");
     }
 
-    protected OutputSocket<TransformGroup> OutputSocket { get; }
+    protected OutputSocket<ITransform?> OutputSocket { get; }
 
-    protected InputSocket<TransformGroup?> InputSocket { get; }
+    protected InputSocket<ITransform?> InputSocket { get; }
 
     public override void Evaluate(NodeEvaluationContext context)
     {
-        TransformGroup? value = InputSocket.Value;
-        var state = context.State as TransformNodeEvaluationState;
-        if (state == null)
+        ITransform? value = InputSocket.Value;
+        if (context.State is not TransformNodeEvaluationState state)
         {
-            context.State = state = new TransformNodeEvaluationState(null, null);
+            context.State = state = new TransformNodeEvaluationState(null);
         }
 
-        if (value == null)
+        EvaluateCore(state.Created);
+        if (value != null)
         {
-            state.Created ??= new TransformGroup();
-            value = state.Created;
+            state.AddtionalState ??= new MultiTransform();
+            state.AddtionalState.Left = state.Created;
+            state.AddtionalState.Right = value;
+            OutputSocket.Value = state.AddtionalState;
         }
-
-        EvaluateCore(value, state.AddtionalState);
-        OutputSocket.Value = value;
+        else
+        {
+            OutputSocket.Value = state.Created;
+        }
     }
 
-    protected abstract void EvaluateCore(TransformGroup group, object? state);
+    protected abstract void EvaluateCore(ITransform? state);
 }
