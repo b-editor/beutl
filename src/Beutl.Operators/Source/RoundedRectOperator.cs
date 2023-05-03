@@ -8,12 +8,13 @@ namespace Beutl.Operators.Source;
 
 public sealed class RoundedRectOperator : DrawablePublishOperator<RoundedRectShape>
 {
-    protected override void OnInitializeSetters(IList<ISetter> initializing)
-    {
-        initializing.Add(new Setter<float>(Drawable.WidthProperty, 100));
-        initializing.Add(new Setter<float>(Drawable.HeightProperty, 100));
-        initializing.Add(new Setter<float>(RoundedRectShape.StrokeWidthProperty, 4000));
-        initializing.Add(new Setter<IBrush?>(Drawable.ForegroundProperty, new SolidColorBrush(Colors.White)));
-        initializing.Add(new Setter<CornerRadius>(RoundedRectShape.CornerRadiusProperty, new CornerRadius(25)));
-    }
+    public Setter<float> Width { get; set; } = new(Shape.WidthProperty, 100);
+
+    public Setter<float> Height { get; set; } = new(Shape.HeightProperty, 100);
+    
+    public Setter<CornerRadius> CornerRadius { get; set; } = new(RoundedRectShape.CornerRadiusProperty, new(25));
+
+    public Setter<IPen?> Pen { get; set; } = new(Shape.PenProperty);
+
+    public Setter<IBrush?> Fill { get; set; } = new(Drawable.ForegroundProperty, new SolidColorBrush(Colors.White));
 }

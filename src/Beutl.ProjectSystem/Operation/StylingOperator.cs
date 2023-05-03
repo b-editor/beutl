@@ -1,7 +1,10 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq.Expressions;
 using System.Reactive.Linq;
+using System.Reflection;
 using System.Text.Json.Nodes;
 
 using Beutl.Animation;
@@ -9,6 +12,8 @@ using Beutl.Framework;
 using Beutl.Media;
 using Beutl.Reactive;
 using Beutl.Styling;
+
+using static Beutl.Operation.StylingOperatorPropertyDefinition;
 
 namespace Beutl.Operation;
 
@@ -101,6 +106,96 @@ public sealed class StylingSetterPropertyImpl<T> : IAbstractAnimatableProperty<T
     }
 }
 
+internal static class StylingOperatorPropertyDefinition
+{
+    internal record struct Definition(PropertyInfo Property, Func<object, ISetter> Getter, Action<object, ISetter> Setter);
+
+    private static readonly Dictionary<Type, Definition[]> s_defines = new();
+
+    public static ISetter[] GetSetters(object obj)
+    {
+        Type type = obj.GetType();
+        if (!s_defines.TryGetValue(type, out Definition[]? def))
+        {
+            def = CreateDefinitions(type);
+        }
+
+        var array = new ISetter[def.Length];
+        for (int i = 0; i < def.Length; i++)
+        {
+            array[i] = def[i].Getter(obj);
+        }
+
+        return array;
+    }
+
+    public static Definition[] GetDefintions(Type type)
+    {
+        if (!s_defines.TryGetValue(type, out Definition[]? def))
+        {
+            def = CreateDefinitions(type);
+        }
+
+        return def;
+    }
+
+    private static Definition[] CreateDefinitions(Type type)
+    {
+        PropertyInfo[] props = type.GetProperties(BindingFlags.Public | BindingFlags.GetProperty | BindingFlags.Instance);
+        var list = new List<(Definition, DisplayAttribute?)>();
+
+        foreach (PropertyInfo item in props)
+        {
+            if (item.PropertyType.IsAssignableTo(typeof(ISetter))
+                && item.CanWrite
+                && item.CanRead)
+            {
+                DisplayAttribute? att = item.GetCustomAttribute<DisplayAttribute>();
+                ParameterExpression target = Expression.Parameter(typeof(object), "target");
+                ParameterExpression value = Expression.Parameter(typeof(ISetter), "value");
+
+                // (object target) => (target as Type).Property;
+                var getExpr = Expression.Lambda<Func<object, ISetter>>(
+                    Expression.Property(Expression.TypeAs(target, type), item),
+                    target);
+                // (object target, ISetter value) => (target as Type).Property = value;
+                var setExpr = Expression.Lambda<Action<object, ISetter>>(
+                    Expression.Assign(Expression.Property(Expression.TypeAs(target, type), item), Expression.TypeAs(value, item.PropertyType)),
+                    target, value);
+
+                list.Add((new Definition(item, getExpr.Compile(), setExpr.Compile()), att));
+            }
+        }
+
+        list.Sort((x, y) =>
+        {
+            int? xOrder = x.Item2?.GetOrder();
+            int? yOrder = y.Item2?.GetOrder();
+            if (xOrder == yOrder)
+            {
+                return 0;
+            }
+
+            if (!xOrder.HasValue)
+            {
+                return 1;
+            }
+            else if (!yOrder.HasValue)
+            {
+                return -1;
+            }
+            else
+            {
+                return xOrder.Value - yOrder.Value;
+            }
+        });
+
+        Definition[] array = list.Select(x => x.Item1).ToArray();
+        s_defines[type] = array;
+        return array;
+    }
+}
+
 public abstract class StylingOperator : SourceOperator
 {
     private bool _isSettersChanging;
@@ -110,9 +205,22 @@ public abstract class StylingOperator : SourceOperator
     {
         Style = OnInitializeStyle(() =>
         {
-            var list = new List<ISetter>();
-            OnInitializeSetters(list);
-            return list;
+            ISetter[] setters = GetSetters(this);
+            if (setters.Length > 0)
+            {
+                return setters;
+            }
+            else
+            {
+                // 互換性のため
+                var list = new List<ISetter>();
+
+#pragma warning disable CS0612
+                OnInitializeSetters(list);
+#pragma warning restore CS0612
+
+                return list;
+            }
         });
     }
 
@@ -120,7 +228,7 @@ public abstract class StylingOperator : SourceOperator
     {
         get => _style;
 
-        [MemberNotNull("_style")]
+        [MemberNotNull(nameof(_style))]
         private set
         {
             if (!ReferenceEquals(value, _style))
@@ -154,10 +262,9 @@ public abstract class StylingOperator : SourceOperator
         }
     }
 
-    //public IStyleInstance? Instance { get; protected set; }
-
     protected abstract Style OnInitializeStyle(Func<IList<ISetter>> setters);
 
+    [Obsolete]
     protected virtual void OnInitializeSetters(IList<ISetter> initializing)
     {
     }
@@ -170,6 +277,8 @@ public abstract class StylingOperator : SourceOperator
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
+
+        // 互換性のため
         if (json.TryGetPropertyValue(nameof(Style), out JsonNode? styleNode)
             && styleNode is JsonObject styleObj)
         {
@@ -181,12 +290,47 @@ public abstract class StylingOperator : SourceOperator
                 RaiseInvalidated(new RenderInvalidatedEventArgs(this));
             }
         }
+        else
+        {
+            Definition[] defs = GetDefintions(GetType());
+            foreach (Definition item in defs.AsSpan())
+            {
+                string name = item.Property.Name;
+                if (json.TryGetPropertyValue(name, out JsonNode? propNode)
+                    && propNode != null)
+                {
+                    ISetter knownSetter = item.Getter.Invoke(this);
+
+                    if (propNode.ToSetter(knownSetter.Property.Name, _style.TargetType) is ISetter setter)
+                    {
+                        item.Setter.Invoke(this, setter);
+                    }
+                }
+            }
+
+            Style = OnInitializeStyle(() => GetSetters(this));
+            RaiseInvalidated(new RenderInvalidatedEventArgs(this));
+        }
     }
 
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
-        json[nameof(Style)] = StyleSerializer.ToJson(Style);
+        Definition[] defs = GetDefintions(GetType());
+        if (defs.Length == 0)
+        {
+            // 互換性のため
+            json[nameof(Style)] = StyleSerializer.ToJson(Style);
+        }
+        else
+        {
+            foreach (Definition item in defs.AsSpan())
+            {
+                string name = item.Property.Name;
+                ISetter setter = item.Getter.Invoke(this);
+                json[name] = setter.ToJson(_style.TargetType).Item2;
+            }
+        }
     }
 
     private void Properties_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

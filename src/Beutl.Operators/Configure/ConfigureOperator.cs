@@ -34,6 +34,7 @@ public abstract class ConfigureOperator<TTarget, TValue> : StylingOperator, ISou
         return style;
     }
 
+    [Obsolete]
     protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
         base.OnInitializeSetters(initializing);
@@ -94,6 +95,7 @@ public abstract class ConfigureOperator<TTarget, TValue> : StylingOperator, ISou
 
     protected abstract void Process(TTarget target, TValue value);
 
+    [Obsolete]
     protected virtual IEnumerable<CoreProperty> GetProperties()
     {
         yield break;
