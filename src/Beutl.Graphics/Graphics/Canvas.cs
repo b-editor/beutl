@@ -205,11 +205,22 @@ public class Canvas : ICanvas
     {
         VerifyAccess();
         var typeface = new Typeface(text.Font, text.Style, text.Weight);
+        Size size = text.Bounds;
         SKTypeface sktypeface = typeface.ToSkia();
-        ConfigureFillPaint(text.Bounds);
+        ConfigureFillPaint(size);
         _sharedFillPaint.TextSize = text.Size;
         _sharedFillPaint.Typeface = sktypeface;
-        _sharedFillPaint.Style = SKPaintStyle.Fill;
+
+        IPen? pen = Pen;
+        bool enableStroke = pen != null && pen.Thickness != 0;
+
+        if (enableStroke)
+        {
+            ConfigureStrokePaint(new Rect(size));
+            _sharedStrokePaint.TextSize = text.Size;
+            _sharedStrokePaint.Typeface = sktypeface;
+        }
+
         Span<char> sc = stackalloc char[1];
         float prevRight = 0;
 
@@ -222,13 +233,37 @@ public class Canvas : ICanvas
             _canvas.Save();
             _canvas.Translate(prevRight + bounds.Left, 0);
 
-            SKPath path = _sharedFillPaint.GetTextPath(
+            SKPath skPath = _sharedFillPaint.GetTextPath(
                 sc,
                 (bounds.Width / 2) - bounds.MidX,
                 0/*-_paint.FontMetrics.Ascent*/);
 
-            _canvas.DrawPath(path, _sharedFillPaint);
-            path.Dispose();
+            _canvas.DrawPath(skPath, _sharedFillPaint);
+            if (enableStroke)
+            {
+                switch (pen!.StrokeAlignment)
+                {
+                    case StrokeAlignment.Center:
+                        _canvas.DrawPath(skPath, _sharedStrokePaint);
+                        break;
+
+                    case StrokeAlignment.Inside:
+                        _canvas.Save();
+                        _canvas.ClipPath(skPath, SKClipOperation.Intersect, true);
+                        _canvas.DrawPath(skPath, _sharedStrokePaint);
+                        _canvas.Restore();
+                        break;
+
+                    case StrokeAlignment.Outside:
+                        _canvas.Save();
+                        _canvas.ClipPath(skPath, SKClipOperation.Difference, true);
+                        _canvas.DrawPath(skPath, _sharedStrokePaint);
+                        _canvas.Restore();
+                        break;
+                }
+            }
+
+            skPath.Dispose();
 
             prevRight += text.Spacing;
             prevRight += w;
@@ -237,7 +272,7 @@ public class Canvas : ICanvas
         }
     }
 
-    private void DrawSKPath(SKPath skPath, bool strokeOnly)
+    internal void DrawSKPath(SKPath skPath, bool strokeOnly)
     {
         Rect rect = skPath.Bounds.ToGraphicsRect();
 

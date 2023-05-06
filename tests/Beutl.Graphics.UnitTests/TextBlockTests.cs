@@ -18,6 +18,7 @@ public class TextBlockTests
 ます。
 </single-line>
 
+<stroke='Gray,5,flat,miter,outside,2'>縁取り</stroke>
 <font='Roboto'>Roboto</font>
 <noparse><font='Noto Sans JP'><bold>Noto Sans</font></bold></noparse>";
     private const string Case2 = "吾輩は猫である";
@@ -56,5 +57,44 @@ public class TextBlockTests
         using Bitmap<Bgra8888> bmp = graphics.GetBitmap();
 
         Assert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{id}.png"), EncodedImageFormat.Png));
+    }
+
+    [Test]
+    public void ToSKPath()
+    {
+        Typeface typeface = TypefaceProvider.Typeface();
+        var tb = new TextBlock()
+        {
+            FontFamily = typeface.FontFamily,
+            FontStyle = typeface.Style,
+            FontWeight = typeface.Weight,
+            Size = 100,
+            Foreground = Brushes.White,
+            Spacing = 0,
+            Text = Case1
+        };
+
+        tb.Measure(Size.Infinity);
+        Rect bounds = tb.Bounds;
+        using var skpath = TextBlock.ToSKPath(tb.Elements!);
+
+        using var graphics = new Canvas((int)bounds.Width, (int)bounds.Height);
+
+        graphics.Clear(Colors.White);
+
+        var pen = new Pen
+        {
+            Brush = Brushes.Black,
+            Thickness = 5,
+            StrokeAlignment = StrokeAlignment.Outside
+        };
+        using (graphics.PushPen(pen))
+        {
+            graphics.DrawSKPath(skpath, false);
+        }
+
+        using Bitmap<Bgra8888> bmp = graphics.GetBitmap();
+
+        Assert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
     }
 }

@@ -763,4 +763,7 @@ and b-editor maintains the download URL.</value>
   <data name="NodeTree" xml:space="preserve">
     <value>Node Tree</value>
   </data>
+  <data name="Fill" xml:space="preserve">
+    <value>Fill</value>
+  </data>
 </root>

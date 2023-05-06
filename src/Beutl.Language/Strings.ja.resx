@@ -763,4 +763,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="NodeTree" xml:space="preserve">
     <value>ノードツリー</value>
   </data>
+  <data name="Fill" xml:space="preserve">
+    <value>塗りつぶし</value>
+  </data>
 </root>

@@ -1,7 +1,6 @@
 ﻿using Beutl.Collections;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
-using Beutl.Media.Immutable;
 using Beutl.Media.Pixel;
 
 using NUnit.Framework;

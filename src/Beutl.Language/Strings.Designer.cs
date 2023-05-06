@@ -782,6 +782,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Fill に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Fill {
+            get {
+                return ResourceManager.GetString("Fill", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Finish editing に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string FinishEditing {

@@ -2,6 +2,8 @@
 using System.Globalization;
 
 using Beutl.Graphics;
+using Beutl.Media.Immutable;
+using Beutl.Utilities;
 
 namespace Beutl.Media.TextFormatting;
 
@@ -71,6 +73,10 @@ public static class FormattedTextParser
         {
             return TagType.Color;
         }
+        else if (span.SequenceEqual("/stroke"))
+        {
+            return TagType.Stroke;
+        }
         else if (span.SequenceEqual("/cspace"))
         {
             return TagType.CharSpace;
@@ -137,6 +143,10 @@ public static class FormattedTextParser
         {
             return TagType.Color;
         }
+        else if (span.SequenceEqual("stroke"))
+        {
+            return TagType.Stroke;
+        }
         else if (span.SequenceEqual("cspace"))
         {
             return TagType.CharSpace;
@@ -190,6 +200,134 @@ public static class FormattedTextParser
             }
 
             color = default;
+            return false;
+        }
+
+        public bool TryGetStroke([NotNullWhen(true)] out IPen? pen)
+        {
+            static bool TryReadStrokeCap(ReadOnlySpan<char> s, ref StrokeCap cap)
+            {
+                if (s.StartsWith("Join:", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                if (s.Equals(nameof(StrokeCap.Flat), StringComparison.OrdinalIgnoreCase))
+                {
+                    cap = StrokeCap.Flat;
+                    return true;
+                }
+                else if (s.Equals(nameof(StrokeCap.Round), StringComparison.OrdinalIgnoreCase))
+                {
+                    cap = StrokeCap.Round;
+                    return true;
+                }
+                else if (s.Equals(nameof(StrokeCap.Square), StringComparison.OrdinalIgnoreCase))
+                {
+                    cap = StrokeCap.Square;
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            static bool TryReadStrokeJoin(ReadOnlySpan<char> s, ref StrokeJoin r)
+            {
+                if (s.StartsWith("Cap:", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                if (s.Equals(nameof(StrokeJoin.Miter), StringComparison.OrdinalIgnoreCase))
+                {
+                    r = StrokeJoin.Miter;
+                    return true;
+                }
+                else if (s.Equals(nameof(StrokeJoin.Round), StringComparison.OrdinalIgnoreCase))
+                {
+                    r = StrokeJoin.Round;
+                    return true;
+                }
+                else if (s.Equals(nameof(StrokeJoin.Bevel), StringComparison.OrdinalIgnoreCase))
+                {
+                    r = StrokeJoin.Bevel;
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            static bool TryReadStrokeAlignment(ReadOnlySpan<char> s, ref StrokeAlignment r)
+            {
+                if (s.Equals(nameof(StrokeAlignment.Center), StringComparison.OrdinalIgnoreCase))
+                {
+                    r = StrokeAlignment.Center;
+                    return true;
+                }
+                else if (s.Equals(nameof(StrokeAlignment.Inside), StringComparison.OrdinalIgnoreCase))
+                {
+                    r = StrokeAlignment.Inside;
+                    return true;
+                }
+                else if (s.Equals(nameof(StrokeAlignment.Outside), StringComparison.OrdinalIgnoreCase))
+                {
+                    r = StrokeAlignment.Outside;
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            if (Type is TagType.Stroke)
+            {
+                ReadOnlySpan<char> str = RemoveQuotation(Value);
+                var tokenizer = new RefStringTokenizer(str);
+                if (tokenizer.TryReadString(out ReadOnlySpan<char> colorStr)
+                    && Color.TryParse(colorStr, out Color color))
+                {
+                    if (tokenizer.TryReadSingle(out float thickness))
+                    {
+                        StrokeCap cap = StrokeCap.Flat;
+                        StrokeJoin join = StrokeJoin.Miter;
+                        StrokeAlignment align = StrokeAlignment.Center;
+
+                        ReadOnlySpan<char> str1 = tokenizer.TryReadString(out ReadOnlySpan<char> _str1) ? _str1 : default;
+                        ReadOnlySpan<char> str2 = tokenizer.TryReadString(out ReadOnlySpan<char> _str2) ? _str2 : default;
+                        ReadOnlySpan<char> str3 = tokenizer.TryReadString(out ReadOnlySpan<char> _str3) ? _str3 : default;
+
+                        if (TryReadStrokeCap(str1, ref cap)
+                            || TryReadStrokeJoin(str1, ref join)
+                            || TryReadStrokeAlignment(str1, ref align))
+                        { }
+                        if (TryReadStrokeCap(str2, ref cap)
+                            || TryReadStrokeJoin(str2, ref join)
+                            || TryReadStrokeAlignment(str2, ref align))
+                        { }
+                        if (TryReadStrokeCap(str3, ref cap)
+                            || TryReadStrokeJoin(str3, ref join)
+                            || TryReadStrokeAlignment(str3, ref align))
+                        { }
+
+                        float miterLimit = tokenizer.TryReadSingle(out float _miterLimit) ? _miterLimit : 10;
+
+                        pen = new ImmutablePen(
+                            new ImmutableSolidColorBrush(color),
+                            null,
+                            0,
+                            thickness,
+                            miterLimit,
+                            cap,
+                            join,
+                            align);
+
+                        return true;
+                    }
+                }
+            }
+
+            pen = default;
             return false;
         }
 
@@ -341,6 +479,7 @@ public static class FormattedTextParser
         Font,
         Size,
         Color,
+        Stroke,
         ColorHash,
         CharSpace,
         FontWeightBold,

@@ -7,7 +7,7 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
 
-using DynamicData;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Shapes;
 
@@ -20,6 +20,7 @@ public class TextBlock : Drawable
     public static readonly CoreProperty<float> SpacingProperty;
     public static readonly CoreProperty<string> TextProperty;
     public static readonly CoreProperty<Thickness> MarginProperty;
+    public static readonly CoreProperty<IPen?> PenProperty;
     public static readonly CoreProperty<TextElements?> ElementsProperty;
     private FontFamily _fontFamily = FontFamily.Default;
     private FontWeight _fontWeight = FontWeight.Regular;
@@ -28,6 +29,7 @@ public class TextBlock : Drawable
     private float _spacing;
     private string _text = string.Empty;
     private Thickness _margin;
+    private IPen? _pen = null;
     private TextElements? _elements;
 
     static TextBlock()
@@ -65,6 +67,10 @@ public class TextBlock : Drawable
         MarginProperty = ConfigureProperty<Thickness, TextBlock>(nameof(Margin))
             .Accessor(o => o.Margin, (o, v) => o.Margin = v)
             .DefaultValue(new Thickness())
+            .Register();
+
+        PenProperty = ConfigureProperty<IPen?, TextBlock>(nameof(Pen))
+            .Accessor(o => o.Pen, (o, v) => o.Pen = v)
             .Register();
 
         ElementsProperty = ConfigureProperty<TextElements?, TextBlock>(nameof(Elements))
@@ -126,6 +132,12 @@ public class TextBlock : Drawable
     {
         get => _margin;
         set => SetAndRaise(MarginProperty, ref _margin, value);
+    }
+
+    public IPen? Pen
+    {
+        get => _pen;
+        set => SetAndRaise(PenProperty, ref _pen, value);
     }
 
     [NotAutoSerialized]
@@ -191,6 +203,37 @@ public class TextBlock : Drawable
         return new Size(width, height);
     }
 
+    internal static SKPath ToSKPath(TextElements elements)
+    {
+        var skpath = new SKPath();
+
+        float prevBottom = 0;
+        foreach (Span<FormattedText> line in elements.Lines)
+        {
+            Size lineBounds = MeasureLine(line);
+            float ascent = MinAscent(line);
+            var point = new Point(0, prevBottom - ascent);
+
+            float prevRight = 0;
+            foreach (FormattedText item in line)
+            {
+                if (item.Text.Length > 0)
+                {
+                    point += new Point(prevRight, 0);
+                    Size elementBounds = item.Bounds;
+
+                    item.AddToSKPath(skpath, point);
+
+                    prevRight = elementBounds.Width + item.Margin.Right;
+                }
+            }
+
+            prevBottom += lineBounds.Height;
+        }
+
+        return skpath;
+    }
+
     protected override void OnDraw(ICanvas canvas)
     {
         if (_elements != null)
@@ -212,6 +255,7 @@ public class TextBlock : Drawable
                             Size elementBounds = item.Bounds;
 
                             using (item.Brush != null ? canvas.PushFillBrush(item.Brush) : default)
+                            using (canvas.PushPen(item.Pen))
                                 canvas.DrawText(item);
 
                             prevRight = elementBounds.Width + item.Margin.Right;
@@ -227,23 +271,15 @@ public class TextBlock : Drawable
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args.PropertyName is nameof(Elements))
-        {
-            if (args is CorePropertyChangedEventArgs<TextElements> typedargs)
-            {
-                if (typedargs.OldValue != null)
-                {
-                    HierarchicalChildren.RemoveMany(typedargs.OldValue);
-                }
-
-                if (typedargs.NewValue != null)
-                {
-                    HierarchicalChildren.AddRange(typedargs.NewValue);
-                }
-            }
-        }
-
-        if (args.PropertyName is nameof(Text) or nameof(Size) or nameof(FontFamily) or nameof(FontStyle) or nameof(FontWeight) or nameof(Foreground) or nameof(Spacing) or nameof(Margin))
+        if (args.PropertyName is nameof(Text)
+            or nameof(Size)
+            or nameof(FontFamily)
+            or nameof(FontStyle)
+            or nameof(FontWeight)
+            or nameof(Foreground)
+            or nameof(Spacing)
+            or nameof(Margin)
+            or nameof(Pen))
         {
             OnUpdateText();
         }
@@ -258,7 +294,8 @@ public class TextBlock : Drawable
             Size: _size,
             Brush: (Foreground as IMutableBrush)?.ToImmutable(),
             Space: _spacing,
-            Margin: _margin);
+            Margin: _margin,
+            Pen: _pen);
 
         var builder = new TextElementsBuilder(options);
         builder.AppendTokens(CollectionsMarshal.AsSpan(tokenizer.Result));

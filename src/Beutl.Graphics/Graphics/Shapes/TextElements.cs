@@ -4,11 +4,12 @@ using System.Buffers;
 using System.Collections;
 using System.Text.Json.Nodes;
 
+using Beutl.Media;
 using Beutl.Media.TextFormatting;
 
 namespace Beutl.Graphics.Shapes;
 
-public class TextElements : IReadOnlyList<TextElement>
+public class TextElements : IReadOnlyList<TextElement>, IAffectsRender
 {
     private readonly TextElement[] _array;
 
@@ -21,6 +22,16 @@ public class TextElements : IReadOnlyList<TextElement>
     {
         _array = array;
         Lines = new LineEnumerable(array);
+
+        foreach (TextElement item in array)
+        {
+            item.Invalidated += OnItemInvalidated;
+        }
+    }
+
+    private void OnItemInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    {
+        Invalidated?.Invoke(sender, e);
     }
 
     public TextElement this[int index] => ((IReadOnlyList<TextElement>)_array)[index];
@@ -28,6 +39,8 @@ public class TextElements : IReadOnlyList<TextElement>
     public int Count => ((IReadOnlyCollection<TextElement>)_array).Count;
 
     public LineEnumerable Lines { get; }
+
+    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
     public IEnumerator<TextElement> GetEnumerator()
     {
