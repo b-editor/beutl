@@ -101,7 +101,7 @@ public class Canvas : ICanvas
     public void ClipPath(Geometry geometry, ClipOperation operation = ClipOperation.Intersect)
     {
         VerifyAccess();
-        _canvas.ClipPath(geometry.GetNativeObject(), operation.ToSKClipOperation());
+        _canvas.ClipPath(geometry.GetNativeObject(), operation.ToSKClipOperation(), true);
     }
 
     public void Dispose()
@@ -697,16 +697,21 @@ public class Canvas : ICanvas
             switch (pen.StrokeAlignment)
             {
                 case StrokeAlignment.Center:
+                    rect = rect.Inflate(thickness / 2);
                     break;
-                case StrokeAlignment.Inside:
+
                 case StrokeAlignment.Outside:
+                    rect = rect.Inflate(thickness);
+                    goto case StrokeAlignment.Inside;
+
+                case StrokeAlignment.Inside:
                     thickness *= 2;
                     break;
+
                 default:
                     break;
             }
 
-            rect = rect.Inflate(thickness);
             _sharedStrokePaint.IsStroke = true;
             _sharedStrokePaint.StrokeWidth = thickness;
             _sharedStrokePaint.StrokeCap = (SKStrokeCap)pen.StrokeCap;

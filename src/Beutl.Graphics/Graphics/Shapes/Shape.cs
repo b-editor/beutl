@@ -11,13 +11,11 @@ public abstract class Shape : Drawable
     public static readonly CoreProperty<float> HeightProperty;
     public static readonly CoreProperty<Stretch> StretchProperty;
     public static readonly CoreProperty<IPen?> PenProperty;
-    public static readonly CoreProperty<PathFillType> FillTypeProperty;
     public static readonly CoreProperty<Geometry?> CreatedGeometryProperty;
     private float _width = -1;
     private float _height = -1;
     private Stretch _stretch = Stretch.None;
     private IPen? _pen = null;
-    private PathFillType _fillType;
     private Geometry? _createdGeometry;
 
     static Shape()
@@ -40,17 +38,13 @@ public abstract class Shape : Drawable
             .Accessor(o => o.Pen, (o, v) => o.Pen = v)
             .Register();
 
-        FillTypeProperty = ConfigureProperty<PathFillType, Shape>(nameof(FillType))
-            .Accessor(o => o.FillType, (o, v) => o.FillType = v)
-            .Register();
-
         CreatedGeometryProperty = ConfigureProperty<Geometry?, Shape>(nameof(CreatedGeometry))
             .Accessor(o => o.CreatedGeometry, (o, v) => o.CreatedGeometry = v)
             .Register();
 
         AffectsRender<Shape>(
             WidthProperty, HeightProperty,
-            StretchProperty, PenProperty, FillTypeProperty, CreatedGeometryProperty);
+            StretchProperty, PenProperty, CreatedGeometryProperty);
     }
 
     [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
@@ -79,12 +73,6 @@ public abstract class Shape : Drawable
     {
         get => _pen;
         set => SetAndRaise(PenProperty, ref _pen, value);
-    }
-
-    public PathFillType FillType
-    {
-        get => _fillType;
-        set => SetAndRaise(FillTypeProperty, ref _fillType, value);
     }
 
     public Geometry? CreatedGeometry
@@ -126,10 +114,6 @@ public abstract class Shape : Drawable
     private Geometry? GetOrCreateGeometry()
     {
         CreatedGeometry ??= CreateGeometry();
-        if (CreatedGeometry != null)
-        {
-            CreatedGeometry.FillType = FillType;
-        }
 
         return CreatedGeometry;
     }
@@ -139,10 +123,9 @@ public abstract class Shape : Drawable
         CreatedGeometry = null;
     }
 
-    private static (Size size, Matrix transform) CalculateSizeAndTransform(Size requestedSize, Rect shapeBounds, Stretch stretch)
+    private static Vector CalculateScale(Size requestedSize, Rect shapeBounds, Stretch stretch)
     {
-        var shapeSize = new Size(shapeBounds.Right, shapeBounds.Bottom);
-        Matrix translate = Matrix.Identity;
+        var shapeSize = shapeBounds.Size;
         float desiredX = requestedSize.Width;
         float desiredY = requestedSize.Height;
         bool widthInfinityOrNegative = float.IsInfinity(requestedSize.Width) || requestedSize.Width < 0;
@@ -150,12 +133,6 @@ public abstract class Shape : Drawable
 
         float sx = 0.0f;
         float sy = 0.0f;
-
-        if (stretch != Stretch.None)
-        {
-            shapeSize = shapeBounds.Size;
-            translate = Matrix.CreateTranslation(-(Vector)shapeBounds.Position);
-        }
 
         if (widthInfinityOrNegative)
         {
@@ -212,9 +189,7 @@ public abstract class Shape : Drawable
                 break;
         }
 
-        Matrix transform = translate * Matrix.CreateScale(sx, sy);
-        var size = new Size(shapeSize.Width * sx, shapeSize.Height * sy);
-        return (size, transform);
+        return new Vector(sx, sy);
     }
 
     protected override Size MeasureCore(Size availableSize)
@@ -225,7 +200,25 @@ public abstract class Shape : Drawable
             return default;
         }
 
-        return CalculateSizeAndTransform(new Size(Width, Height), geometry.Bounds, Stretch).size;
+        Vector scale = CalculateScale(new Size(Width, Height), geometry.Bounds, Stretch);
+        Size size = geometry.Bounds.Size * scale;
+        if (Pen != null)
+        {
+            size = size.Inflate(ActualThickness(Pen));
+        }
+
+        return size;
+    }
+
+    private static float ActualThickness(IPen pen)
+    {
+        return pen.StrokeAlignment switch
+        {
+            StrokeAlignment.Center => pen.Thickness / 2,
+            StrokeAlignment.Inside => 0,
+            StrokeAlignment.Outside => pen.Thickness,
+            _ => 0,
+        };
     }
 
     protected abstract Geometry? CreateGeometry();
@@ -237,9 +230,20 @@ public abstract class Shape : Drawable
             return;
 
         var requestedSize = new Size(Width, Height);
-        (Size _, Matrix transform) = CalculateSizeAndTransform(requestedSize, geometry.Bounds, Stretch);
+        Rect shapeBounds = geometry.Bounds;
+        Vector scale = CalculateScale(requestedSize, shapeBounds, Stretch);
+        Matrix matrix = Matrix.CreateTranslation(-(Vector)shapeBounds.Position);
 
-        using (canvas.PushTransform(transform))
+        if (Pen != null)
+        {
+            float thickness = ActualThickness(Pen);
+
+            matrix *= Matrix.CreateTranslation(thickness, thickness);
+        }
+
+        matrix *= Matrix.CreateScale(scale);
+
+        using (canvas.PushTransform(matrix))
         using (canvas.PushPen(Pen))
         {
             canvas.DrawGeometry(geometry);

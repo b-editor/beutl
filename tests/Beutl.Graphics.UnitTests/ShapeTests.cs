@@ -1,17 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Beutl.Collections;
+﻿using Beutl.Collections;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.Media.Immutable;
 using Beutl.Media.Pixel;
 
 using NUnit.Framework;
-
-using SkiaSharp;
 
 namespace Beutl.Graphics.UnitTests;
 
@@ -126,7 +119,7 @@ public class ShapeTests
 
         Assert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
     }
-    
+
     [Test]
     [TestCase(StrokeAlignment.Center)]
     [TestCase(StrokeAlignment.Inside)]
@@ -200,12 +193,18 @@ public class ShapeTests
     }
 
     [Test]
-    [TestCase(StrokeAlignment.Center)]
-    [TestCase(StrokeAlignment.Inside)]
-    [TestCase(StrokeAlignment.Outside)]
-    public void DrawGeometryWithPen(StrokeAlignment alignment)
+    [TestCase(StrokeAlignment.Center, PathFillType.Winding)]
+    [TestCase(StrokeAlignment.Inside, PathFillType.Winding)]
+    [TestCase(StrokeAlignment.Outside, PathFillType.Winding)]
+    [TestCase(StrokeAlignment.Center, PathFillType.EvenOdd)]
+    [TestCase(StrokeAlignment.Inside, PathFillType.EvenOdd)]
+    [TestCase(StrokeAlignment.Outside, PathFillType.EvenOdd)]
+    public void DrawGeometryWithPen(StrokeAlignment alignment, PathFillType fillType)
     {
-        var geometry = new PathGeometry();
+        var geometry = new PathGeometry()
+        {
+            FillType = fillType
+        };
         var center = new Point(100, 100);
         float radius = 0.45f * Math.Min(200, 200);
 
@@ -243,6 +242,6 @@ public class ShapeTests
 
         using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
 
-        Assert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{alignment}.png"), EncodedImageFormat.Png));
+        Assert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{alignment}_{fillType}.png"), EncodedImageFormat.Png));
     }
 }

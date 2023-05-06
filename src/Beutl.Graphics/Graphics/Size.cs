@@ -266,6 +266,19 @@ public readonly struct Size
     }
 
     /// <summary>
+    /// Deflates the size by a <see cref="Thickness"/>.
+    /// </summary>
+    /// <param name="thickness">The thickness.</param>
+    /// <returns>The deflated size.</returns>
+    /// <remarks>The deflated size cannot be less than 0.</remarks>
+    public Size Deflate(float thickness)
+    {
+        return new Size(
+            MathF.Max(0, Width - (thickness * 2)),
+            MathF.Max(0, Height - (thickness * 2)));
+    }
+
+    /// <summary>
     /// Returns a boolean indicating whether the size is equal to the other given size (bitwise).
     /// </summary>
     /// <param name="other">The other size to test equality against.</param>
@@ -318,6 +331,18 @@ public readonly struct Size
         return new Size(
             Width + thickness.Left + thickness.Right,
             Height + thickness.Top + thickness.Bottom);
+    }
+
+    /// <summary>
+    /// Inflates the size by a <see cref="Thickness"/>.
+    /// </summary>
+    /// <param name="thickness">The thickness.</param>
+    /// <returns>The inflated size.</returns>
+    public Size Inflate(float thickness)
+    {
+        return new Size(
+            Width + (thickness * 2),
+            Height + (thickness * 2));
     }
 
     /// <summary>

@@ -26,7 +26,7 @@ public sealed class GeometryShapeNode : Node
         _widthSocket = AsInput<float, GeometryShape>(Shape.WidthProperty, value: -1).AcceptNumber();
         _heightSocket = AsInput<float, GeometryShape>(Shape.HeightProperty, value: -1).AcceptNumber();
         _stretchSocket = AsInput<Stretch, GeometryShape>(Shape.StretchProperty);
-        _fillTypeSocket = AsInput<PathFillType, GeometryShape>(Shape.FillTypeProperty);
+        _fillTypeSocket = AsInput<PathFillType, Media.Geometry>(Media.Geometry.FillTypeProperty);
         _penSocket = AsInput<IPen?, GeometryShape>(Shape.PenProperty);
         _transformSocket = AsInput<ITransform?, GeometryShape>(Drawable.TransformProperty);
     }
@@ -53,10 +53,14 @@ public sealed class GeometryShapeNode : Node
 
         shape.BeginBatchUpdate();
         shape.Data = _geometrySocket.Value;
+        if (shape.Data != null)
+        {
+            shape.Data.FillType = _fillTypeSocket.Value;
+        }
+
         shape.Width = _widthSocket.Value;
         shape.Height = _heightSocket.Value;
         shape.Stretch = _stretchSocket.Value;
-        shape.FillType = _fillTypeSocket.Value;
         shape.Pen = _penSocket.Value;
         shape.Transform = _transformSocket.Value;
 
