@@ -147,6 +147,7 @@ public static class PropertyEditorService
             { typeof(ISoundSource), new(_ => new SoundSourceEditor(), s=>new SoundSourceEditorViewModel(s.ToTyped<ISoundSource?>())) },
 
             { typeof(IBrush), new(_ => new BrushEditor(), s => new BrushEditorViewModel(s)) },
+            { typeof(IPen), new(_ => new PenEditor(), s => new PenEditorViewModel(s)) },
             { typeof(GradientStops), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<GradientStops>())) },
             { typeof(IList), new(_ => new ListEditor(), s => new ListEditorViewModel(s)) },
             { typeof(ICoreObject), new(CreateNavigationButton, CreateNavigationButtonViewModel) },

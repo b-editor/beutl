@@ -35,7 +35,8 @@
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
                                    ClipToBounds="False"
-                                   Text="{TemplateBinding Header}" />
+                                   Text="{TemplateBinding Header}"
+                                   TextTrimming="CharacterEllipsis" />
 
                         <GridSplitter Grid.Column="1" Background="Transparent" />
 

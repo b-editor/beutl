@@ -1,12 +1,39 @@
-﻿using System.Reflection;
-
-using Beutl.Framework;
+﻿using Beutl.Framework;
 using Beutl.Media;
 using Beutl.ViewModels.Tools;
 
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
+
+public sealed class SetCommand : IRecordableCommand
+{
+    private readonly IAbstractProperty _setter;
+    private readonly object? _oldValue;
+    private readonly object? _newValue;
+
+    public SetCommand(IAbstractProperty setter, object? oldValue, object? newValue)
+    {
+        _setter = setter;
+        _oldValue = oldValue;
+        _newValue = newValue;
+    }
+
+    public void Do()
+    {
+        _setter.SetValue(_newValue);
+    }
+
+    public void Redo()
+    {
+        Do();
+    }
+
+    public void Undo()
+    {
+        _setter.SetValue(_oldValue);
+    }
+}
 
 public sealed class BrushEditorViewModel : BaseEditorViewModel
 {
@@ -15,11 +42,6 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     public BrushEditorViewModel(IAbstractProperty property)
         : base(property)
     {
-        CoreProperty coreProperty = property.Property;
-        PropertyInfo propertyInfo = coreProperty.OwnerType.GetProperty(coreProperty.Name)!;
-
-        CanWrite = propertyInfo.SetMethod?.IsPublic == true;
-
         Value = property.GetObservable()
             .Select(x => x as IBrush)
             .ToReadOnlyReactivePropertySlim()
@@ -78,8 +100,6 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 
     public ReactivePropertySlim<bool> IsSeparatorVisible { get; } = new();
 
-    public bool CanWrite { get; }
-
     public override void Reset()
     {
         if (GetDefaultValue() is { } defaultValue)
@@ -116,35 +136,6 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 
         public void Visit(IPropertyEditorContext context)
         {
-        }
-    }
-
-    private sealed class SetCommand : IRecordableCommand
-    {
-        private readonly IAbstractProperty _setter;
-        private readonly object? _oldValue;
-        private readonly object? _newValue;
-
-        public SetCommand(IAbstractProperty setter, object? oldValue, object? newValue)
-        {
-            _setter = setter;
-            _oldValue = oldValue;
-            _newValue = newValue;
-        }
-
-        public void Do()
-        {
-            _setter.SetValue(_newValue);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            _setter.SetValue(_oldValue);
         }
     }
 }

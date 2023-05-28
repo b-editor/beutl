@@ -79,6 +79,7 @@
                     <Grid ColumnDefinitions="2*,3*,Auto">
                         <TextBlock Name="PART_HeaderTextBlock"
                                    Margin="4,0,0,0"
+                                   TextTrimming="CharacterEllipsis"
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
                                    ClipToBounds="False"

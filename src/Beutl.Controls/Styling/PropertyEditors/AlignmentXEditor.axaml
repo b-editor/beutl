@@ -25,6 +25,7 @@
                         <TextBlock Name="PART_HeaderTextBlock"
                                    Margin="4,0,0,0"
                                    HorizontalAlignment="Left"
+                                   TextTrimming="CharacterEllipsis"
                                    VerticalAlignment="Center"
                                    ClipToBounds="False"
                                    Text="{TemplateBinding Header}" />

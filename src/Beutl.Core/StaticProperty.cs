@@ -35,7 +35,7 @@ public class StaticProperty<TOwner, T> : StaticProperty<T>, IStaticProperty
     {
         if (Setter == null)
         {
-            throw new Exception("This property is read-only.");
+            throw new InvalidOperationException("This property is read-only.");
         }
         else
         {

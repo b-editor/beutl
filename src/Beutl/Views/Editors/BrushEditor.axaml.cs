@@ -61,6 +61,7 @@ public sealed partial class BrushEditor : UserControl
             };
 
             viewModel.SetValue(viewModel.Value.Value, newBrush);
+            expandToggle.IsChecked = true;
         }
     }
 }

@@ -15,7 +15,7 @@ public partial class PropertiesEditor : UserControl
         InitializeComponent();
     }
 
-    private sealed class ViewModelToViewConverter : IValueConverter
+    public sealed class ViewModelToViewConverter : IValueConverter
     {
         public static readonly ViewModelToViewConverter Instance = new();
 
