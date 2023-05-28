@@ -44,6 +44,6 @@
             </StackPanel>
         </Expander.Header>
 
-        <editors:PropertiesEditor />
+        <editors:PropertiesEditor Grid.IsSharedSizeScope="True" />
     </Expander>
 </UserControl>

@@ -2,6 +2,7 @@
 
 using Beutl.Framework;
 using Beutl.Media;
+using Beutl.ViewModels.Tools;
 
 using Reactive.Bindings;
 
@@ -9,7 +10,6 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class BrushEditorViewModel : BaseEditorViewModel
 {
-    private static readonly NullabilityInfoContext s_context = new();
     private bool _accepted;
 
     public BrushEditorViewModel(IAbstractProperty property)
@@ -17,20 +17,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     {
         CoreProperty coreProperty = property.Property;
         PropertyInfo propertyInfo = coreProperty.OwnerType.GetProperty(coreProperty.Name)!;
-        NullabilityInfo? nullabilityInfo = s_context.Create(propertyInfo);
 
         CanWrite = propertyInfo.SetMethod?.IsPublic == true;
-        CanDelete = (CanWrite && nullabilityInfo.WriteState == NullabilityState.Nullable)
-            || IsStylingSetter;
-
-        IsSet = property.GetObservable()
-            .Select(x => x != null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        IsNotSetAndCanWrite = IsSet.Select(x => !x && CanWrite)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
 
         Value = property.GetObservable()
             .Select(x => x as IBrush)
@@ -40,6 +28,22 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         ChildContext = Value.Select(v => v as ICoreObject)
             .Select(x => x != null ? new PropertiesEditorViewModel(x, m => m.Browsable) : null)
             .Do(AcceptChildren)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        IsSolid = Value.Select(v => v is ISolidColorBrush)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        IsLinearGradient = Value.Select(v => v is ILinearGradientBrush)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        IsConicGradient = Value.Select(v => v is IConicGradientBrush)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        IsRadialGradient = Value.Select(v => v is IRadialGradientBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -64,13 +68,17 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 
     public ReadOnlyReactivePropertySlim<PropertiesEditorViewModel?> ChildContext { get; }
 
-    public ReadOnlyReactivePropertySlim<bool> IsSet { get; }
+    public ReadOnlyReactivePropertySlim<bool> IsSolid { get; }
 
-    public ReadOnlyReactivePropertySlim<bool> IsNotSetAndCanWrite { get; }
+    public ReadOnlyReactivePropertySlim<bool> IsLinearGradient { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsConicGradient { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsRadialGradient { get; }
+
+    public ReactivePropertySlim<bool> IsSeparatorVisible { get; } = new();
 
     public bool CanWrite { get; }
-
-    public bool CanDelete { get; }
 
     public override void Reset()
     {
@@ -95,6 +103,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         {
             AcceptChildren(ChildContext.Value);
         }
+
+        IsSeparatorVisible.Value = visitor is SourceOperatorViewModel;
     }
 
     private sealed record Visitor(BrushEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor

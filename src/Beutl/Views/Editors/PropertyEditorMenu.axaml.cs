@@ -1,16 +1,12 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.LogicalTree;
 
 using Beutl.Animation;
 using Beutl.Framework;
-using Beutl.Operation;
 using Beutl.ProjectSystem;
-using Beutl.Styling;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -75,20 +71,6 @@ public sealed partial class PropertyEditorMenu : UserControl
 
             // タイムラインのタブを開く
             timeline.AttachInline(animatableProperty, layer);
-        }
-    }
-
-    private void DeleteSetter_Click(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is BaseEditorViewModel viewModel
-            && this.FindLogicalAncestorOfType<StyleEditor>()?.DataContext is StyleEditorViewModel parentViewModel
-            && viewModel.WrappedProperty is IStylingSetterPropertyImpl wrapper
-            && parentViewModel.Style.Value is Style style)
-        {
-            style.Setters.BeginRecord<ISetter>()
-                .Remove(wrapper.Setter)
-                .ToCommand()
-                .DoAndRecord(CommandRecorder.Default);
         }
     }
 }
