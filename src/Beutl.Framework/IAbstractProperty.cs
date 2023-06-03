@@ -9,7 +9,15 @@ public interface IAbstractProperty
 {
     Type ImplementedType { get; }
 
-    CoreProperty Property { get; }
+    Type PropertyType { get; }
+
+    string DisplayName { get; }
+
+    bool IsReadOnly { get; }
+
+    object? GetDefaultValue();
+
+    CoreProperty? GetCoreProperty() => null;
 
     void SetValue(object? value);
 
@@ -20,8 +28,6 @@ public interface IAbstractProperty
 
 public interface IAbstractProperty<T> : IAbstractProperty
 {
-    new CoreProperty<T> Property { get; }
-
     void SetValue(T? value);
 
     new T? GetValue();
@@ -49,8 +55,6 @@ public interface IAbstractProperty<T> : IAbstractProperty
     {
         return GetObservable().Select(x => (object?)x);
     }
-
-    CoreProperty IAbstractProperty.Property => Property;
 }
 
 public interface IAbstractAnimatableProperty : IAbstractProperty
@@ -93,9 +97,13 @@ internal sealed class KeyFramePropertyWrapper<T> : IAbstractProperty<T>
         _animation = animation;
     }
 
-    public CoreProperty<T> Property => _animation.Property;
+    public Type ImplementedType => _animation.Property.OwnerType;
 
-    public Type ImplementedType => Property.OwnerType;
+    public Type PropertyType => _animation.Property.PropertyType;
+
+    public string DisplayName => "KeyFrame Value";
+
+    public bool IsReadOnly => false;
 
     public IObservable<T?> GetObservable()
     {
@@ -112,8 +120,15 @@ internal sealed class KeyFramePropertyWrapper<T> : IAbstractProperty<T>
         _keyFrame.SetValue(GetProperty(), value);
     }
 
-    private CoreProperty<T> GetProperty()
+    CoreProperty? IAbstractProperty.GetCoreProperty() => _animation.Property;
+
+    private static CoreProperty<T> GetProperty()
     {
         return KeyFrame<T>.ValueProperty;
+    }
+
+    public object? GetDefaultValue()
+    {
+        return _animation.Property.GetMetadata<ICorePropertyMetadata>(ImplementedType).GetDefaultValue();
     }
 }

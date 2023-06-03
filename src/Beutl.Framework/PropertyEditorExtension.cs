@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Text.Json.Nodes;
 
 using Avalonia.Controls;
 
@@ -9,7 +8,7 @@ namespace Beutl.Framework;
 
 internal interface IPropertyEditorExtensionImpl
 {
-    IEnumerable<CoreProperty> MatchProperty(IReadOnlyList<CoreProperty> properties);
+    IEnumerable<IAbstractProperty> MatchProperty(IReadOnlyList<IAbstractProperty> properties);
 
     bool TryCreateContext(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context);
 
@@ -30,7 +29,7 @@ public class PropertyEditorExtension : Extension
 
     public override string DisplayName => "";
 
-    public virtual IEnumerable<CoreProperty> MatchProperty(IReadOnlyList<CoreProperty> properties)
+    public virtual IEnumerable<IAbstractProperty> MatchProperty(IReadOnlyList<IAbstractProperty> properties)
     {
         _impl ??= ServiceLocator.Current.GetRequiredService<IPropertyEditorExtensionImpl>();
         return _impl.MatchProperty(properties);

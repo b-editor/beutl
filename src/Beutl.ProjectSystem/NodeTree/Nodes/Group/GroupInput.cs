@@ -50,9 +50,10 @@ public class GroupInput : Node, ISocketsCanBeAdded
 
             if (Activator.CreateInstance(type) is IOutputSocket outputSocket)
             {
+                CoreProperty? coreProperty = inputSocket.Property?.GetCoreProperty();
                 ((NodeItem)outputSocket).LocalId = NextLocalId++;
-                ((IGroupSocket)outputSocket).AssociatedProperty = inputSocket.Property?.Property;
-                if (inputSocket.Property?.Property == null)
+                ((IGroupSocket)outputSocket).AssociatedProperty = coreProperty;
+                if (coreProperty == null)
                 {
                     ((CoreObject)outputSocket).Name = NodeDisplayNameHelper.GetDisplayName(inputSocket);
                 }
@@ -76,7 +77,7 @@ public class GroupInput : Node, ISocketsCanBeAdded
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json.TryGetPropertyValue("Items", out var itemsNode)
+        if (json.TryGetPropertyValue("Items", out JsonNode? itemsNode)
             && itemsNode is JsonArray itemsArray)
         {
             int index = 0;

@@ -52,11 +52,6 @@ public partial class NavigateButton : UserControl
     {
         OnNew();
     }
-
-    private void Delete_Click(object? sender, RoutedEventArgs e)
-    {
-        OnDelete();
-    }
 }
 
 public sealed class NavigateButton<T> : NavigateButton
@@ -83,7 +78,7 @@ public sealed class NavigateButton<T> : NavigateButton
         {
             await Task.Run(async () =>
             {
-                Type type = viewModel.WrappedProperty.Property.PropertyType;
+                Type type = viewModel.WrappedProperty.PropertyType;
                 Type[] types = AppDomain.CurrentDomain.GetAssemblies()
                     .SelectMany(x => x.GetTypes())
                     .Where(x => !x.IsAbstract
@@ -141,25 +136,5 @@ public sealed class NavigateButton<T> : NavigateButton
         }
 
         //progress.IsVisible = false;
-    }
-
-    protected override void OnDelete()
-    {
-        if (DataContext is NavigationButtonViewModel<T> viewModel)
-        {
-            if (this.FindLogicalAncestorOfType<StyleEditor>()?.DataContext is StyleEditorViewModel parentViewModel
-                && viewModel.WrappedProperty is IStylingSetterPropertyImpl wrapper
-                && parentViewModel.Style.Value is Style style)
-            {
-                style.Setters.BeginRecord<ISetter>()
-                    .Remove(wrapper.Setter)
-                    .ToCommand()
-                    .DoAndRecord(CommandRecorder.Default);
-            }
-            else if (viewModel.Value.Value is T obj)
-            {
-                viewModel.SetValue(obj, default);
-            }
-        }
     }
 }

@@ -179,7 +179,7 @@ public sealed class TimelineViewModel : IToolContext
             && Layers.FirstOrDefault(x => x.Model == layer) is { } viewModel)
         {
             // タイムラインのタブを開く
-            Type type = typeof(InlineAnimationLayerViewModel<>).MakeGenericType(property.Property.PropertyType);
+            Type type = typeof(InlineAnimationLayerViewModel<>).MakeGenericType(property.PropertyType);
             if (Activator.CreateInstance(type, property, this, viewModel) is InlineAnimationLayerViewModel anmTimelineViewModel)
             {
                 Inlines.Add(anmTimelineViewModel);

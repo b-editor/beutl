@@ -30,9 +30,9 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     private void Update(IPen? pen)
     {
-        void CreateContexts(PooledList<CoreProperty> props, CoreList<IPropertyEditorContext> dst)
+        static void CreateContexts(PooledList<IAbstractProperty> props, CoreList<IPropertyEditorContext> dst)
         {
-            CoreProperty[]? foundItems;
+            IAbstractProperty[]? foundItems;
             PropertyEditorExtension? extension;
 
             do
@@ -40,15 +40,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
                 (foundItems, extension) = PropertyEditorService.MatchProperty(props);
                 if (foundItems != null && extension != null)
                 {
-                    var tmp = new IAbstractProperty[foundItems.Length];
-                    for (int i = 0; i < foundItems.Length; i++)
-                    {
-                        CoreProperty item = foundItems[i];
-                        Type wrapperGType = typeof(AnimatableCorePropertyImpl<>).MakeGenericType(item.PropertyType);
-                        tmp[i] = (IAbstractProperty)Activator.CreateInstance(wrapperGType, item, pen)!;
-                    }
-
-                    if (extension.TryCreateContext(tmp, out IPropertyEditorContext? context))
+                    if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))
                     {
                         dst.Add(context);
                     }
@@ -60,23 +52,23 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
         MajorProperties.Clear();
         MinorProperties.Clear();
-        if (pen is Pen)
+        if (pen is Pen mutablePen)
         {
-            using var props = new PooledList<CoreProperty>();
-            Span<CoreProperty> span = props.AddSpan(4);
-            span[0] = Pen.ThicknessProperty;
-            span[1] = Pen.StrokeCapProperty;
-            span[2] = Pen.StrokeAlignmentProperty;
-            span[3] = Pen.BrushProperty;
+            using var props = new PooledList<IAbstractProperty>();
+            Span<IAbstractProperty> span = props.AddSpan(4);
+            span[0] = new AnimatableCorePropertyImpl<float>(Pen.ThicknessProperty, mutablePen);
+            span[1] = new AnimatableCorePropertyImpl<StrokeCap>(Pen.StrokeCapProperty, mutablePen);
+            span[2] = new AnimatableCorePropertyImpl<StrokeAlignment>(Pen.StrokeAlignmentProperty, mutablePen);
+            span[3] = new AnimatableCorePropertyImpl<IBrush?>(Pen.BrushProperty, mutablePen);
 
             CreateContexts(props, MajorProperties);
 
             props.Clear();
             span = props.AddSpan(4);
-            span[0] = Pen.MiterLimitProperty;
-            span[1] = Pen.StrokeJoinProperty;
-            span[2] = Pen.DashArrayProperty;
-            span[3] = Pen.DashOffsetProperty;
+            span[0] = new AnimatableCorePropertyImpl<float>(Pen.MiterLimitProperty, mutablePen);
+            span[1] = new AnimatableCorePropertyImpl<StrokeJoin>(Pen.StrokeJoinProperty, mutablePen);
+            span[2] = new AnimatableCorePropertyImpl<CoreList<float>?>(Pen.DashArrayProperty, mutablePen);
+            span[3] = new AnimatableCorePropertyImpl<float>(Pen.DashOffsetProperty, mutablePen);
 
             CreateContexts(props, MinorProperties);
         }

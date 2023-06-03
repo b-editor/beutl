@@ -116,7 +116,7 @@ public class InputSocket<T> : Socket<T>, IInputSocket
         {
             value1 = Property.GetValue();
             if (value1 == null
-                && Property?.Property.GetMetadata<CorePropertyMetadata<T>>(Property.ImplementedType) is { } metadata
+                && Property?.GetCoreProperty()?.GetMetadata<CorePropertyMetadata<T>>(Property.ImplementedType) is { } metadata
                 && metadata.HasDefaultValue)
             {
                 value1 = metadata.DefaultValue;

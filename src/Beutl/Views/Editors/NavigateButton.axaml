@@ -59,9 +59,6 @@
                     <MenuItem Click="New_Click"
                               Header="{x:Static lang:Strings.CreateNew}"
                               IsEnabled="{Binding CanWrite}" />
-                    <MenuItem Click="Delete_Click"
-                              Header="{x:Static lang:Strings.Delete}"
-                              IsEnabled="{Binding CanDelete}" />
                 </ContextMenu>
             </Button.ContextMenu>
             <icons:SymbolIcon Symbol="MoreVertical" />

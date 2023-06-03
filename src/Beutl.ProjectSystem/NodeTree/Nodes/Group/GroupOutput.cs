@@ -50,9 +50,10 @@ public class GroupOutput : Node, ISocketsCanBeAdded
 
             if (Activator.CreateInstance(type) is IInputSocket inputSocket)
             {
+                CoreProperty? coreProperty = outputSocket.Property?.GetCoreProperty();
                 ((NodeItem)inputSocket).LocalId = NextLocalId++;
-                ((IGroupSocket)inputSocket).AssociatedProperty = outputSocket.Property?.Property;
-                if (outputSocket.Property?.Property == null)
+                ((IGroupSocket)inputSocket).AssociatedProperty = coreProperty;
+                if (coreProperty == null)
                 {
                     ((CoreObject)inputSocket).Name = NodeDisplayNameHelper.GetDisplayName(outputSocket);
                 }

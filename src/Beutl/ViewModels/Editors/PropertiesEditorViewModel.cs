@@ -34,28 +34,25 @@ public sealed class PropertiesEditorViewModel : IDisposable
         Type animatableWrapperType = typeof(AnimatableCorePropertyImpl<>);
         bool isAnimatable = obj is IAnimatable;
 
-        List<CoreProperty> props = PropertyRegistry.GetRegistered(objType).ToList();
+        List<CoreProperty> cprops = PropertyRegistry.GetRegistered(objType).ToList();
+        cprops.RemoveAll(x => !(predicate?.Invoke(x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
+        List<IAbstractProperty> props = cprops.ConvertAll(x =>
+        {
+            CorePropertyMetadata metadata = x.GetMetadata<CorePropertyMetadata>(objType);
+            Type wtype = isAnimatable ? animatableWrapperType : wrapperType;
+            Type wrapperGType = wtype.MakeGenericType(x.PropertyType);
+            return (IAbstractProperty)Activator.CreateInstance(wrapperGType, x, obj)!;
+        });
         Properties.EnsureCapacity(props.Count);
-        CoreProperty[]? foundItems;
+        IAbstractProperty[]? foundItems;
         PropertyEditorExtension? extension;
-        props.RemoveAll(x => !(predicate?.Invoke(x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
 
         do
         {
             (foundItems, extension) = PropertyEditorService.MatchProperty(props);
             if (foundItems != null && extension != null)
             {
-                var tmp = new IAbstractProperty[foundItems.Length];
-                for (int i = 0; i < foundItems.Length; i++)
-                {
-                    CoreProperty item = foundItems[i];
-                    CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(objType);
-                    Type wtype = isAnimatable ? animatableWrapperType : wrapperType;
-                    Type wrapperGType = wtype.MakeGenericType(item.PropertyType);
-                    tmp[i] = (IAbstractProperty)Activator.CreateInstance(wrapperGType, item, obj)!;
-                }
-
-                if (extension.TryCreateContext(tmp, out IPropertyEditorContext? context))
+                if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))
                 {
                     Properties.Add(context);
                 }

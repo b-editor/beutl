@@ -67,6 +67,21 @@ public sealed class SetterPropertyImpl<T> : IAbstractAnimatableProperty<T>
 
     public Type ImplementedType { get; }
 
+    public Type PropertyType => Property.PropertyType;
+
+    public string DisplayName
+    {
+        get
+        {
+            CorePropertyMetadata metadata = Property.GetMetadata<CorePropertyMetadata>(ImplementedType);
+            return metadata.DisplayAttribute?.GetName() ?? Property.Name;
+        }
+    }
+
+    public bool IsReadOnly => false;
+
+    CoreProperty? IAbstractProperty.GetCoreProperty() => Property;
+
     public IObservable<T?> GetObservable()
     {
         return Setter;
@@ -105,5 +120,10 @@ public sealed class SetterPropertyImpl<T> : IAbstractAnimatableProperty<T>
                 Setter.Value = setter.Value;
             }
         }
+    }
+
+    public object? GetDefaultValue()
+    {
+        return Property.GetMetadata<ICorePropertyMetadata>(ImplementedType).GetDefaultValue();
     }
 }

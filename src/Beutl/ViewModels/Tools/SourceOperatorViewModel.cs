@@ -113,9 +113,9 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
     private void Init()
     {
-        List<CoreProperty> props = Model.Properties.Select(x => x.Property).ToList();
+        List<IAbstractProperty> props = Model.Properties.ToList();
         Properties.EnsureCapacity(props.Count);
-        CoreProperty[]? foundItems;
+        IAbstractProperty[]? foundItems;
         PropertyEditorExtension? extension;
 
         do
@@ -123,14 +123,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
             (foundItems, extension) = PropertyEditorService.MatchProperty(props);
             if (foundItems != null && extension != null)
             {
-                var tmp = new IAbstractProperty[foundItems.Length];
-                for (int i = 0; i < foundItems.Length; i++)
-                {
-                    CoreProperty item = foundItems[i];
-                    tmp[i] = Model.Properties.First(x => x.Property.Id == item.Id);
-                }
-
-                if (extension.TryCreateContext(tmp, out IPropertyEditorContext? context))
+                if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))
                 {
                     Properties.Add(context);
                     context.Accept(this);

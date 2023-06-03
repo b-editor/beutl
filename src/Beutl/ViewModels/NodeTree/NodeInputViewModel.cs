@@ -91,11 +91,10 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
 
     private void InitializeProperties()
     {
-        var ctmp = new CoreProperty[1];
         var atmp = new IAbstractProperty[1];
         foreach (INodeItem item in Node.Items)
         {
-            Properties.Add(CreatePropertyContext(ctmp, atmp, item));
+            Properties.Add(CreatePropertyContext(atmp, item));
         }
 
         Node.Items.CollectionChanged += OnItemsCollectionChanged;
@@ -105,11 +104,10 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
     {
         void Add(int index, IList items)
         {
-            var ctmp = new CoreProperty[1];
             var atmp = new IAbstractProperty[1];
             foreach (INodeItem item in items)
             {
-                Properties.Insert(index++, CreatePropertyContext(ctmp, atmp, item));
+                Properties.Insert(index++, CreatePropertyContext(atmp, item));
             }
         }
 
@@ -149,7 +147,7 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
         }
     }
 
-    private IPropertyEditorContext? CreatePropertyContext(CoreProperty[] ctmp, IAbstractProperty[] atmp, INodeItem item)
+    private IPropertyEditorContext? CreatePropertyContext(IAbstractProperty[] atmp, INodeItem item)
     {
         IPropertyEditorContext? context = null;
         if (item is LayerInputNode.ILayerInputSocket socket)
@@ -157,9 +155,8 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
             IAbstractProperty? aproperty = socket.GetProperty();
             if (aproperty != null)
             {
-                ctmp[0] = aproperty.Property;
                 atmp[0] = aproperty;
-                (_, PropertyEditorExtension ext) = PropertyEditorService.MatchProperty(ctmp);
+                (_, PropertyEditorExtension ext) = PropertyEditorService.MatchProperty(atmp);
                 ext?.TryCreateContext(atmp, out context);
 
                 context?.Accept(this);

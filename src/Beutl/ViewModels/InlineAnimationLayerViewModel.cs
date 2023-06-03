@@ -107,8 +107,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         // Widthプロパティを構成
         Timeline.Options.Subscribe(_ => UpdateWidth()).DisposeWith(_disposables);
 
-        CorePropertyMetadata metadata = property.Property.GetMetadata<CorePropertyMetadata>(property.ImplementedType);
-        Header = metadata.DisplayAttribute?.GetName() ?? property.Property.Name;
+        Header = property.DisplayName;
 
         Close = new ReactiveCommand()
             .WithSubscribe(() => Timeline.DetachInline(this))

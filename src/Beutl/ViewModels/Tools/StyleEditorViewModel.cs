@@ -60,13 +60,11 @@ public sealed class StyleEditorViewModel : IToolContext
                         Type wrapperType = typeof(StylingSetterPropertyImpl<>);
                         wrapperType = wrapperType.MakeGenericType(item.Property.PropertyType);
                         var wrapper = (IAbstractProperty)Activator.CreateInstance(wrapperType, item)!;
-                        CoreProperty[] tmp1 = ArrayPool<CoreProperty>.Shared.Rent(1);
-                        var tmp2 = new IAbstractProperty[1];
-                        tmp1[0] = item.Property;
-                        tmp2[0] = wrapper;
+                        var tmp = new IAbstractProperty[1];
+                        tmp[0] = wrapper;
 
-                        if (PropertyEditorService.MatchProperty(tmp1) is { Extension: { } ext, Properties.Length: 1 }
-                            && ext.TryCreateContext(tmp2, out IPropertyEditorContext? context))
+                        if (PropertyEditorService.MatchProperty(tmp) is { Extension: { } ext, Properties.Length: 1 }
+                            && ext.TryCreateContext(tmp, out IPropertyEditorContext? context))
                         {
                             Properties.Insert(idx, context);
                         }
@@ -75,8 +73,7 @@ public sealed class StyleEditorViewModel : IToolContext
                             Properties.Insert(idx, null);
                         }
 
-                        ArrayPool<CoreProperty>.Shared.Return(tmp1);
-                        ArrayPool<IAbstractProperty>.Shared.Return(tmp2);
+                        ArrayPool<IAbstractProperty>.Shared.Return(tmp);
                     },
                     (idx, _) =>
                     {

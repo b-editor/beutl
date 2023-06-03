@@ -19,6 +19,26 @@ public class CorePropertyImpl<T> : IAbstractProperty<T>
 
     public Type ImplementedType => _implementedType ??= Object.GetType();
 
+    public Type PropertyType => Property.PropertyType;
+
+    public string DisplayName
+    {
+        get
+        {
+            CorePropertyMetadata metadata = Property.GetMetadata<CorePropertyMetadata>(ImplementedType);
+            return metadata.DisplayAttribute?.GetName() ?? Property.Name;
+        }
+    }
+
+    public bool IsReadOnly => Property is IStaticProperty { CanRead: false };
+
+    CoreProperty? IAbstractProperty.GetCoreProperty() => Property;
+
+    public object? GetDefaultValue()
+    {
+        return Property.GetMetadata<ICorePropertyMetadata>(ImplementedType).GetDefaultValue();
+    }
+
     public IObservable<T?> GetObservable()
     {
         return _observable ??= Object.GetObservable(Property);

@@ -84,7 +84,22 @@ public sealed class StylingSetterPropertyImpl<T> : IAbstractAnimatableProperty<T
 
     public IObservable<IAnimation<T>?> ObserveAnimation { get; }
 
+    public Type PropertyType => Property.PropertyType;
+
+    public string DisplayName
+    {
+        get
+        {
+            CorePropertyMetadata metadata = Property.GetMetadata<CorePropertyMetadata>(ImplementedType);
+            return metadata.DisplayAttribute?.GetName() ?? Property.Name;
+        }
+    }
+
+    public bool IsReadOnly => false;
+
     public Type ImplementedType => Style.TargetType;
+
+    CoreProperty? IAbstractProperty.GetCoreProperty() => Property;
 
     ISetter IStylingSetterPropertyImpl.Setter => Setter;
 
@@ -103,6 +118,11 @@ public sealed class StylingSetterPropertyImpl<T> : IAbstractAnimatableProperty<T
     public void SetValue(T? value)
     {
         Setter.Value = value;
+    }
+
+    public object? GetDefaultValue()
+    {
+        return Property.GetMetadata<ICorePropertyMetadata>(ImplementedType).GetDefaultValue();
     }
 }
 

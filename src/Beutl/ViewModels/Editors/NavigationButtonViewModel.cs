@@ -1,7 +1,4 @@
-﻿using System.ComponentModel;
-using System.Reflection;
-
-using Beutl.Framework;
+﻿using Beutl.Framework;
 
 using Reactive.Bindings;
 
@@ -18,25 +15,15 @@ public interface INavigationButtonViewModel
     ReadOnlyReactivePropertySlim<bool> IsNotSetAndCanWrite { get; }
 
     bool CanWrite { get; }
-
-    bool CanDelete { get; }
 }
 
 public sealed class NavigationButtonViewModel<T> : BaseEditorViewModel<T>, INavigationButtonViewModel
     where T : ICoreObject
 {
-    private static readonly NullabilityInfoContext s_context = new();
-
     public NavigationButtonViewModel(IAbstractProperty<T> property)
         : base(property)
     {
-        CoreProperty<T> coreProperty = property.Property;
-        PropertyInfo propertyInfo = coreProperty.OwnerType.GetProperty(coreProperty.Name)!;
-        NullabilityInfo? nullabilityInfo = s_context.Create(propertyInfo);
-
-        CanWrite = propertyInfo.SetMethod?.IsPublic == true;
-        CanDelete = (CanWrite && nullabilityInfo.WriteState == NullabilityState.Nullable)
-            || IsStylingSetter;
+        CanWrite = !property.IsReadOnly;
 
         IsSet = property.GetObservable()
             .Select(x => x != null)
@@ -59,6 +46,4 @@ public sealed class NavigationButtonViewModel<T> : BaseEditorViewModel<T>, INavi
     public ReadOnlyReactivePropertySlim<bool> IsNotSetAndCanWrite { get; }
 
     public bool CanWrite { get; }
-
-    public bool CanDelete { get; }
 }

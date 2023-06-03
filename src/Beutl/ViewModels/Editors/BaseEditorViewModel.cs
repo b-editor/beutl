@@ -33,14 +33,13 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     {
         WrappedProperty = property;
 
-        CorePropertyMetadata metadata = property.Property.GetMetadata<CorePropertyMetadata>(property.ImplementedType);
-        Header = metadata.DisplayAttribute?.GetName() ?? property.Property.Name;
+        Header = property.DisplayName;
 
         IObservable<bool> hasAnimation = property is IAbstractAnimatableProperty anm
             ? anm.ObserveAnimation.Select(x => x != null)
             : Observable.Return(false);
 
-        IObservable<bool>? isReadOnly = Observable.Return(property.Property is IStaticProperty { CanWrite: false });
+        IObservable<bool>? isReadOnly = Observable.Return(property.IsReadOnly);
 
         CanEdit = isReadOnly
             .Not()
@@ -231,8 +230,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     protected object? GetDefaultValue()
     {
-        ICorePropertyMetadata metadata = WrappedProperty.Property.GetMetadata<ICorePropertyMetadata>(WrappedProperty.ImplementedType);
-        return metadata.GetDefaultValue();
+        return WrappedProperty.GetDefaultValue();
     }
 
     protected virtual void Dispose(bool disposing)
@@ -357,7 +355,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         if (WrappedProperty is IAbstractAnimatableProperty
             {
                 Animation: IKeyFrameAnimation kfAnimation,
-                Property.PropertyType: { } ptype
+                PropertyType: { } ptype
             })
         {
             keyTime = ConvertKeyTime(keyTime, kfAnimation);

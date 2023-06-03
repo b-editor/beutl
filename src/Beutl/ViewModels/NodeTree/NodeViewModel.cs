@@ -109,11 +109,10 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
 
     private void InitItems()
     {
-        var ctmp = new CoreProperty[1];
         var atmp = new IAbstractProperty[1];
         foreach (INodeItem item in Node.Items)
         {
-            Items.Add(CreateNodeItemViewModel(ctmp, atmp, item));
+            Items.Add(CreateNodeItemViewModel(atmp, item));
         }
 
         Node.Items.CollectionChanged += OnItemsCollectionChanged;
@@ -123,11 +122,10 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
     {
         void Add(int index, IList items)
         {
-            var ctmp = new CoreProperty[1];
             var atmp = new IAbstractProperty[1];
             foreach (INodeItem item in items)
             {
-                Items.Insert(index++, CreateNodeItemViewModel(ctmp, atmp, item));
+                Items.Insert(index++, CreateNodeItemViewModel(atmp, item));
             }
         }
 
@@ -167,14 +165,13 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
         }
     }
 
-    private NodeItemViewModel CreateNodeItemViewModel(CoreProperty[] ctmp, IAbstractProperty[] atmp, INodeItem item)
+    private NodeItemViewModel CreateNodeItemViewModel(IAbstractProperty[] atmp, INodeItem item)
     {
         IPropertyEditorContext? context = null;
         if (item.Property is { } aproperty)
         {
-            ctmp[0] = aproperty.Property;
             atmp[0] = aproperty;
-            (_, PropertyEditorExtension ext) = PropertyEditorService.MatchProperty(ctmp);
+            (_, PropertyEditorExtension ext) = PropertyEditorService.MatchProperty(atmp);
             ext?.TryCreateContextForNode(atmp, out context);
         }
 

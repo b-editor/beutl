@@ -63,14 +63,18 @@ public sealed partial class PropertyEditorMenu : UserControl
             && viewModel.GetService<Element>() is { } layer
             && editViewModel.FindToolTab<TimelineViewModel>() is { } timeline)
         {
-            if (animatableProperty.Animation is not IKeyFrameAnimation)
+            if (animatableProperty.Animation is not IKeyFrameAnimation
+                && animatableProperty.GetCoreProperty() is { } coreProp)
             {
-                Type type = typeof(KeyFrameAnimation<>).MakeGenericType(animatableProperty.Property.PropertyType);
-                animatableProperty.Animation = Activator.CreateInstance(type, animatableProperty.Property) as IAnimation;
+                Type type = typeof(KeyFrameAnimation<>).MakeGenericType(animatableProperty.PropertyType);
+                animatableProperty.Animation = Activator.CreateInstance(type, coreProp) as IAnimation;
             }
 
-            // タイムラインのタブを開く
-            timeline.AttachInline(animatableProperty, layer);
+            if (animatableProperty.Animation is IKeyFrameAnimation)
+            {
+                // タイムラインのタブを開く
+                timeline.AttachInline(animatableProperty, layer);
+            }
         }
     }
 }
