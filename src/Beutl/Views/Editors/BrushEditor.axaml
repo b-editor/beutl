@@ -20,59 +20,48 @@
                    Margin="0,4"
                    IsVisible="{Binding IsSeparatorVisible.Value}" />
 
-        <Grid Grid.Row="1"
-              Margin="4"
-              ColumnDefinitions="*,Auto,4,Auto">
-            <TextBlock HorizontalAlignment="Left"
-                       VerticalAlignment="Center"
-                       FontWeight="DemiBold"
-                       Text="{Binding Header, FallbackValue=Fill}" />
-
-            <Button Grid.Column="1"
-                    Width="24"
-                    Height="24"
-                    Padding="0"
-                    HorizontalContentAlignment="Center"
-                    VerticalContentAlignment="Center"
-                    Click="Menu_Click"
-                    Theme="{StaticResource TransparentButton}">
-                <Button.ContextFlyout>
-                    <ui:FAMenuFlyout>
-                        <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
-                                                IsChecked="{Binding IsSolid.Value, Mode=OneWay}"
-                                                Tag="Solid"
-                                                Text="塗りつぶし" />
-                        <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
-                                                IsChecked="{Binding IsLinearGradient.Value, Mode=OneWay}"
-                                                Tag="LinearGradient"
-                                                Text="線形グラデーション" />
-                        <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
-                                                IsChecked="{Binding IsConicGradient.Value, Mode=OneWay}"
-                                                Tag="ConicGradient"
-                                                Text="円錐型グラデーション" />
-                        <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
-                                                IsChecked="{Binding IsRadialGradient.Value, Mode=OneWay}"
-                                                Tag="RadialGradient"
-                                                Text="放射状グラデーション" />
-                        <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
-                                                IsChecked="{Binding !Value.Value, Mode=OneWay}"
-                                                Tag="Null"
-                                                Text="Null" />
-                    </ui:FAMenuFlyout>
-                </Button.ContextFlyout>
-                <icons:SymbolIcon Symbol="Compose" />
-            </Button>
-
-            <ToggleButton x:Name="expandToggle"
-                          Grid.Column="3"
-                          Width="24"
-                          Height="24"
-                          Padding="0"
-                          HorizontalContentAlignment="Center"
-                          VerticalContentAlignment="Center"
-                          IsChecked="True"
-                          Theme="{StaticResource ExpandCollapseToggleButtonStyle}" />
-        </Grid>
+        <ToggleButton x:Name="expandToggle"
+                      Grid.Row="1"
+                      Margin="4"
+                      Content="{Binding Header, FallbackValue=Brush}"
+                      FontWeight="DemiBold"
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+            <ToggleButton.Tag>
+                <Button Width="24"
+                        Height="24"
+                        Padding="0"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Click="Menu_Click"
+                        Theme="{StaticResource TransparentButton}">
+                    <Button.ContextFlyout>
+                        <ui:FAMenuFlyout>
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding IsSolid.Value, Mode=OneWay}"
+                                                    Tag="Solid"
+                                                    Text="塗りつぶし" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding IsLinearGradient.Value, Mode=OneWay}"
+                                                    Tag="LinearGradient"
+                                                    Text="線形グラデーション" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding IsConicGradient.Value, Mode=OneWay}"
+                                                    Tag="ConicGradient"
+                                                    Text="円錐型グラデーション" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding IsRadialGradient.Value, Mode=OneWay}"
+                                                    Tag="RadialGradient"
+                                                    Text="放射状グラデーション" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding !Value.Value, Mode=OneWay}"
+                                                    Tag="Null"
+                                                    Text="Null" />
+                        </ui:FAMenuFlyout>
+                    </Button.ContextFlyout>
+                    <icons:SymbolIcon Symbol="Compose" />
+                </Button>
+            </ToggleButton.Tag>
+        </ToggleButton>
 
         <Panel x:Name="content"
                Grid.Row="2"

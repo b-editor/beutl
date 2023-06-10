@@ -12,10 +12,19 @@ using Beutl.Framework;
 
 namespace Beutl.Controls.PropertyEditors;
 
-[PseudoClasses(":compact", ":visible-left-button", ":visible-right-button")]
+public enum PropertyEditorStyle
+{
+    Normal,
+    Compact,
+    ListItem
+}
+
+[PseudoClasses(":compact", ":list-item", ":visible-left-button", ":visible-right-button")]
 [TemplatePart("PART_LeftButton", typeof(Button))]
 [TemplatePart("PART_RightButton", typeof(Button))]
-public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor
+[TemplatePart("PART_DeleteButton", typeof(Button))]
+[TemplatePart("PART_ReorderHandle", typeof(Control))]
+public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, IListItemEditor
 {
     public static readonly StyledProperty<string> HeaderProperty =
         AvaloniaProperty.Register<PropertyEditor, string>(nameof(Header));
@@ -25,6 +34,9 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor
 
     public static readonly StyledProperty<bool> UseCompactProperty =
         AvaloniaProperty.Register<PropertyEditor, bool>(nameof(UseCompact), false);
+
+    public static readonly StyledProperty<PropertyEditorStyle> EditorStyleProperty =
+        AvaloniaProperty.Register<PropertyEditor, PropertyEditorStyle>(nameof(EditorStyle), PropertyEditorStyle.Normal);
 
     public static readonly StyledProperty<object> MenuContentProperty =
         AvaloniaProperty.Register<PropertyEditor, object>(nameof(MenuContent));
@@ -38,13 +50,16 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor
     public static readonly StyledProperty<int> KeyFrameCountProperty =
         AvaloniaProperty.Register<PropertyEditor, int>(nameof(KeyFrameCount), 0, coerce: (_, v) => Math.Max(v, 0));
 
+    public static readonly StyledProperty<Control> ReorderHandleProperty =
+        AvaloniaProperty.Register<PropertyEditor, Control>(nameof(ReorderHandle), null);
+
     public static readonly RoutedEvent<PropertyEditorValueChangedEventArgs> ValueChangingEvent =
         RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueChanging), RoutingStrategies.Bubble);
 
     public static readonly RoutedEvent<PropertyEditorValueChangedEventArgs> ValueChangedEvent =
         RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueChanged), RoutingStrategies.Bubble);
 
-    private readonly CompositeDisposable _eventRevokers = new(2);
+    private readonly CompositeDisposable _eventRevokers = new(3);
 
     public string Header
     {
@@ -58,10 +73,16 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor
         set => SetValue(IsReadOnlyProperty, value);
     }
 
+    public PropertyEditorStyle EditorStyle
+    {
+        get => GetValue(EditorStyleProperty);
+        set => SetValue(EditorStyleProperty, value);
+    }
+
     public bool UseCompact
     {
         get => GetValue(UseCompactProperty);
-        set => SetValue(UseCompactProperty, value);
+        private set => SetValue(UseCompactProperty, value);
     }
 
     public object MenuContent
@@ -88,6 +109,14 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor
         set => SetValue(KeyFrameCountProperty, value);
     }
 
+    public Control ReorderHandle
+    {
+        get => GetValue(ReorderHandleProperty);
+        private set => SetValue(ReorderHandleProperty, value);
+    }
+
+    public event EventHandler DeleteRequested;
+
     public event EventHandler<PropertyEditorValueChangedEventArgs> ValueChanging
     {
         add => AddHandler(ValueChangingEvent, value);
@@ -104,16 +133,29 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor
     {
     }
 
+    private void UpdateStyle()
+    {
+        PseudoClasses.Remove(":compact");
+        PseudoClasses.Remove(":list-item");
+        switch (EditorStyle)
+        {
+            case PropertyEditorStyle.Compact:
+                PseudoClasses.Add(":compact");
+                break;
+
+            case PropertyEditorStyle.ListItem:
+                PseudoClasses.Add(":list-item");
+                break;
+        }
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == UseCompactProperty)
+        if (change.Property == EditorStyleProperty)
         {
-            PseudoClasses.Remove(":compact");
-            if (UseCompact)
-            {
-                PseudoClasses.Add(":compact");
-            }
+            UseCompact = EditorStyle == PropertyEditorStyle.Compact;
+            UpdateStyle();
         }
         else if (change.Property == MenuContentProperty)
         {
@@ -150,6 +192,15 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor
             leftButton.AddDisposableHandler(Button.ClickEvent, OnLeftButtonClick).DisposeWith(_eventRevokers);
             rightButton.AddDisposableHandler(Button.ClickEvent, OnRightButtonClick).DisposeWith(_eventRevokers);
         }
+
+        ReorderHandle = e.NameScope.Find<Control>("PART_ReorderHandle");
+        Button deleteButton = e.NameScope.Find<Button>("PART_DeleteButton");
+        deleteButton?.AddDisposableHandler(Button.ClickEvent, OnDeleteButtonClick).DisposeWith(_eventRevokers);
+    }
+
+    private void OnDeleteButtonClick(object sender, RoutedEventArgs e)
+    {
+        DeleteRequested?.Invoke(this, e);
     }
 
     private void OnLeftButtonClick(object sender, RoutedEventArgs e)

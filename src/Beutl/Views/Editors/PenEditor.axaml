@@ -19,42 +19,29 @@
         <Separator Height="2"
                    Margin="0,4"
                    IsVisible="{Binding IsSeparatorVisible.Value}" />
-
-        <Grid Grid.Row="1"
-              Margin="4"
-              ColumnDefinitions="*,Auto,4,Auto">
-            <TextBlock HorizontalAlignment="Left"
-                       VerticalAlignment="Center"
-                       FontWeight="DemiBold"
-                       Text="{Binding Header, FallbackValue=Pen}" />
-
-            <Button Grid.Column="1"
-                    Width="24"
-                    Height="24"
-                    Padding="0"
-                    HorizontalContentAlignment="Center"
-                    VerticalContentAlignment="Center"
-                    Click="Menu_Click"
-                    Theme="{StaticResource TransparentButton}">
-                <Button.ContextFlyout>
-                    <ui:FAMenuFlyout>
-                        <ui:MenuFlyoutItem Click="InitializeClick" Text="初期化" />
-                        <ui:MenuFlyoutItem Click="DeleteClick" Text="削除" />
-                    </ui:FAMenuFlyout>
-                </Button.ContextFlyout>
-                <icons:SymbolIcon Symbol="Compose" />
-            </Button>
-
-            <ToggleButton x:Name="expandToggle"
-                          Grid.Column="3"
-                          Width="24"
-                          Height="24"
-                          Padding="0"
-                          HorizontalContentAlignment="Center"
-                          VerticalContentAlignment="Center"
-                          IsChecked="True"
-                          Theme="{StaticResource ExpandCollapseToggleButtonStyle}" />
-        </Grid>
+        <ToggleButton x:Name="expandToggle"
+                      Grid.Row="1"
+                      Margin="4"
+                      Content="{Binding Header, FallbackValue=Pen}"
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+            <ToggleButton.Tag>
+                <Button Width="24"
+                        Height="24"
+                        Padding="0"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Click="Menu_Click"
+                        Theme="{StaticResource TransparentButton}">
+                    <Button.ContextFlyout>
+                        <ui:FAMenuFlyout>
+                            <ui:MenuFlyoutItem Click="InitializeClick" Text="初期化" />
+                            <ui:MenuFlyoutItem Click="DeleteClick" Text="削除" />
+                        </ui:FAMenuFlyout>
+                    </Button.ContextFlyout>
+                    <icons:SymbolIcon Symbol="Compose" />
+                </Button>
+            </ToggleButton.Tag>
+        </ToggleButton>
 
         <StackPanel x:Name="content"
                     Grid.Row="2"

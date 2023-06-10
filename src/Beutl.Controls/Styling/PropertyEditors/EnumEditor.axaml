@@ -1,10 +1,12 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:icons="using:FluentIcons.FluentAvalonia"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
     <Design.PreviewWith>
         <Border Width="300">
             <StackPanel>
+                <local:EnumEditor EditorStyle="ListItem" Header="Property 1" />
                 <local:EnumEditor Header="Property 1" />
                 <local:EnumEditor Header="Property 2" KeyFrameCount="3" />
                 <local:EnumEditor Header="Property 2"
@@ -115,6 +117,38 @@
                                               Grid.Column="1"
                                               Content="{TemplateBinding MenuContent}"
                                               ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="^:list-item">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Name="PART_ReorderHandle" Theme="{StaticResource PropertyEditorReorderHandle}" />
+
+                            <ComboBox x:Name="PART_InnerComboBox"
+                                      Grid.Column="1"
+                                      Margin="0,4"
+                                      HorizontalAlignment="Stretch"
+                                      IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                      Items="{TemplateBinding Items, Mode=TwoWay}"
+                                      SelectedIndex="{TemplateBinding SelectedIndex, Mode=TwoWay}" />
+
+                            <Button Name="PART_DeleteButton"
+                                    Grid.Column="2"
+                                    Margin="4,0"
+                                    Padding="0"
+                                    Classes="size-24x24"
+                                    Theme="{StaticResource TransparentButton}">
+                                <icons:SymbolIcon Symbol="Delete" />
+                            </Button>
                         </Grid>
                     </Border>
                 </ControlTemplate>

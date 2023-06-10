@@ -32,16 +32,16 @@ public class BooleanEditor : PropertyEditor
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
-        CheckBox checkBox = e.NameScope.Get<CheckBox>("PART_CheckBox");
-        checkBox.Click += OnCheckBoxClick;
+        ToggleButton toggleButton = e.NameScope.Get<ToggleButton>("PART_CheckBox");
+        toggleButton.Click += OnCheckBoxClick;
     }
 
     private void OnCheckBoxClick(object sender, RoutedEventArgs e)
     {
-        if (sender is CheckBox checkBox
-            && checkBox.IsChecked.HasValue)
+        if (sender is ToggleButton toggleButton
+            && toggleButton.IsChecked.HasValue)
         {
-            bool value = checkBox.IsChecked.Value;
+            bool value = toggleButton.IsChecked.Value;
             RaiseEvent(new PropertyEditorValueChangedEventArgs<bool>(value, !value, ValueChangingEvent));
             Value = value;
             RaiseEvent(new PropertyEditorValueChangedEventArgs<bool>(value, !value, ValueChangedEvent));

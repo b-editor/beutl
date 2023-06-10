@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 using Avalonia;
 using Avalonia.Animation;
@@ -11,11 +12,15 @@ using Avalonia.Threading;
 
 using Beutl.Commands;
 using Beutl.Controls.Behaviors;
+using Beutl.Framework.Service;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using Beutl.ViewModels.Tools;
 
 using FluentAvalonia.UI.Controls;
+
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
 
@@ -23,15 +28,21 @@ public sealed class ListEditorDragBehavior : GenericDragBehavior
 {
     protected override void OnMoveDraggedItem(ItemsControl? itemsControl, int oldIndex, int newIndex)
     {
-        if (itemsControl?.Items is not IList items)
-        {
-            return;
-        }
+        //if (itemsControl?.Items is not IList items)
+        //{
+        //    return;
+        //}
 
-        items.BeginRecord()
-            .Move(oldIndex, newIndex)
-            .ToCommand()
-            .DoAndRecord(CommandRecorder.Default);
+        //items.BeginRecord()
+        //    .Move(oldIndex, newIndex)
+        //    .ToCommand()
+        //    .DoAndRecord(CommandRecorder.Default);
+
+        // Todo: ListEditorItemの移動処理
+        //if(itemsControl?.DataContext is ListEditorViewModel<TItem> viewModel)
+        //{
+        //    viewModel.MoveItem(oldIndex, newIndex);
+        //}
     }
 }
 
@@ -43,7 +54,7 @@ public partial class ListEditor : UserControl
     public ListEditor()
     {
         InitializeComponent();
-        toggle.GetObservable(ToggleButton.IsCheckedProperty)
+        expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(async value =>
             {
                 _lastTransitionCts?.Cancel();
@@ -62,39 +73,117 @@ public partial class ListEditor : UserControl
             });
     }
 
+    private void InitializeClick(object? sender, RoutedEventArgs e)
+    {
+        OnInitializeClick();
+    }
+
+    private void DeleteClick(object? sender, RoutedEventArgs e)
+    {
+        OnDeleteClick();
+    }
+
     private async void Add_Click(object? sender, RoutedEventArgs e)
     {
-        progress.IsVisible = progress.IsIndeterminate = true;
-        if (DataContext is ListEditorViewModel viewModel && viewModel.List.Value != null)
-        {
-            await Task.Run(async () =>
-            {
-                Type type = viewModel.WrappedProperty.Property.PropertyType;
-                Type? interfaceType = Array.Find(type.GetInterfaces(), x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IList<>));
-                Type? itemtype = interfaceType?.GenericTypeArguments?.FirstOrDefault();
-                if (itemtype != null)
-                {
-                    Type[] types = AppDomain.CurrentDomain.GetAssemblies()
-                        .SelectMany(x => x.GetTypes())
-                        .Where(x => !x.IsAbstract
-                            && x.IsPublic
-                            && x.IsAssignableTo(itemtype)
-                            && x.GetConstructor(Array.Empty<Type>()) != null)
-                        .ToArray();
-                    Type? type2 = null;
-                    ConstructorInfo? constructorInfo = null;
+        await OnAddClick(sender);
+    }
 
-                    if (types.Length == 1)
+    protected virtual void OnInitializeClick()
+    {
+    }
+
+    protected virtual void OnDeleteClick()
+    {
+    }
+
+    protected virtual ValueTask OnAddClick(object? sender)
+    {
+        return ValueTask.CompletedTask;
+    }
+}
+
+public sealed class ListEditor<TItem> : ListEditor
+{
+    protected override void OnInitializeClick()
+    {
+        if (DataContext is ListEditorViewModel<TItem> viewModel)
+        {
+            try
+            {
+                viewModel.Initialize();
+            }
+            catch (InvalidOperationException ex)
+            {
+                ServiceLocator.Current.GetRequiredService<INotificationService>()
+                    .Show(new("Error", ex.Message, NotificationType.Error));
+            }
+        }
+    }
+
+    protected override void OnDeleteClick()
+    {
+        if (DataContext is ListEditorViewModel<TItem> viewModel)
+        {
+            try
+            {
+                viewModel.Delete();
+            }
+            catch (InvalidOperationException ex)
+            {
+                ServiceLocator.Current.GetRequiredService<INotificationService>()
+                    .Show(new("Error", ex.Message, NotificationType.Error));
+            }
+        }
+    }
+
+    protected override async ValueTask OnAddClick(object? sender)
+    {
+        if (DataContext is ListEditorViewModel<TItem> viewModel)
+        {
+            if (viewModel.List.Value == null && sender is Button btn)
+            {
+                btn.ContextFlyout?.ShowAt(btn);
+            }
+            else if (viewModel.List.Value != null)
+            {
+                progress.IsVisible = progress.IsIndeterminate = true;
+
+                await Task.Run(async () =>
+                {
+                    Type itemType = typeof(TItem);
+                    Type[]? availableTypes = null;
+
+                    if (itemType.IsSealed
+                        && (itemType.GetConstructor(Array.Empty<Type>()) != null
+                        || itemType.GetConstructors().Length == 0))
                     {
-                        type2 = types[0];
+                        availableTypes = new[] { itemType };
                     }
-                    else if (types.Length > 1)
+                    else
                     {
-                        type2 = await Dispatcher.UIThread.InvokeAsync(async () =>
+                        availableTypes = AppDomain.CurrentDomain.GetAssemblies()
+                            .SelectMany(x => x.GetTypes())
+                            .Where(x => !x.IsAbstract
+                                && x.IsPublic
+                                && x.IsAssignableTo(itemType)
+                                && (itemType.GetConstructor(Array.Empty<Type>()) != null
+                                || itemType.GetConstructors().Length == 0))
+                            .ToArray();
+                    }
+
+                    Type? selectedType = null;
+
+                    if (availableTypes.Length == 1)
+                    {
+                        selectedType = availableTypes[0];
+                    }
+                    else if (availableTypes.Length > 1)
+                    {
+                        selectedType = await Dispatcher.UIThread.InvokeAsync(async () =>
                         {
                             var combobox = new ComboBox
                             {
-                                Items = types,
+                                Items = availableTypes,
                                 SelectedIndex = 0
                             };
 
@@ -116,93 +205,19 @@ public partial class ListEditor : UserControl
                             }
                         });
                     }
-                    else if (itemtype.IsSealed)
+
+                    if (selectedType != null && Activator.CreateInstance(selectedType) is TItem item)
                     {
-                        type2 = itemtype;
+                        viewModel.AddItem(item);
                     }
-
-                    constructorInfo = type2?.GetConstructor(Array.Empty<Type>());
-
-                    if (constructorInfo != null)
+                    else
                     {
-                        object? obj = constructorInfo.Invoke(null);
-                        if (obj != null)
-                        {
-                            await Dispatcher.UIThread.InvokeAsync(() => viewModel.List.Value.Add(obj));
-                        }
+                        ServiceLocator.Current.GetRequiredService<INotificationService>()
+                            .Show(new("Error", "ListEditor<TItem>.OnAddClick", NotificationType.Error));
                     }
-                }
-            });
+                });
 
-            // ListがINotifyProeprtyChangedを実装していない可能性があるので
-            if (viewModel.ObserveCount.Value != viewModel.List.Value.Count)
-            {
-                viewModel.ObserveCount.Value = viewModel.List.Value.Count;
-            }
-        }
-
-        progress.IsVisible = progress.IsIndeterminate = false;
-    }
-
-    private void Menu_Click(object? sender, RoutedEventArgs e)
-    {
-        if (sender is Button button)
-        {
-            button.ContextMenu?.Open();
-        }
-    }
-
-    private void Edit_Click(object? sender, RoutedEventArgs e)
-    {
-        if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
-            && sender is ILogical logical
-            && DataContext is ListEditorViewModel { List.Value: { } list } viewModel)
-        {
-            ObjectPropertyEditorViewModel objViewModel
-                = editViewModel.FindToolTab<ObjectPropertyEditorViewModel>()
-                    ?? new ObjectPropertyEditorViewModel(editViewModel);
-
-            if (logical.FindLogicalAncestorOfType<Grid>() is { } grid)
-            {
-                int index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
-
-                if (index >= 0)
-                {
-                    switch (list[index])
-                    {
-                        case CoreObject coreObject:
-                            objViewModel.NavigateCore(coreObject, false);
-                            break;
-                        case Styling.Style style:
-                            StyleEditorViewModel styleEditor
-                                = objViewModel.ParentContext.FindToolTab<StyleEditorViewModel>()
-                                    ?? new StyleEditorViewModel(editViewModel);
-
-                            styleEditor.Style.Value = style;
-                            editViewModel.OpenToolTab(styleEditor);
-                            break;
-                    }
-                }
-            }
-            
-            editViewModel.OpenToolTab(objViewModel);
-        }
-    }
-
-    private void Delete_Click(object? sender, RoutedEventArgs e)
-    {
-        if (sender is MenuItem menuItem
-            && DataContext is ListEditorViewModel { List.Value: { } list } viewModel
-            && menuItem.FindLogicalAncestorOfType<Grid>() is { } grid)
-        {
-            int index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
-
-            if (index >= 0)
-            {
-                list.BeginRecord()
-                    .Remove(list[index])
-                    .ToCommand()
-                    .DoAndRecord(CommandRecorder.Default);
+                progress.IsVisible = progress.IsIndeterminate = false;
             }
         }
     }

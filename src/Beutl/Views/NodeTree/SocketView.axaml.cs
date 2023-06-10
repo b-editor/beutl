@@ -156,7 +156,7 @@ public partial class SocketView : UserControl
             extension.TryCreateControlForNode(obj.PropertyEditorContext, out IControl? control1);
             if (control1 is PropertyEditor pe)
             {
-                pe.UseCompact = true;
+                pe.EditorStyle = PropertyEditorStyle.Compact;
                 pe.Bind(PropertyEditor.HeaderProperty, obj.Name.ToBinding()).DisposeWith(_disposables);
             }
             if (control1 != null)

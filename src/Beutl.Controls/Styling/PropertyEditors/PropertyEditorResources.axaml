@@ -1,4 +1,31 @@
-<ResourceDictionary xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:i="using:Avalonia.Xaml.Interactions.Core"
+                    xmlns:icons="using:FluentIcons.FluentAvalonia"
+                    xmlns:intv="using:Avalonia.Xaml.Interactivity"
+                    xmlns:local="using:Beutl.Controls.Styling.PropertyEditors">
+    <Design.PreviewWith>
+        <Border Width="300">
+            <ToggleButton Margin="4"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Center"
+                          Content="Header"
+                          Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+                <ToggleButton.Tag>
+
+                    <Button Width="24"
+                            Height="24"
+                            Padding="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Theme="{StaticResource TransparentButton}">
+                        <icons:SymbolIcon Symbol="Compose" />
+                    </Button>
+
+                </ToggleButton.Tag>
+            </ToggleButton>
+        </Border>
+    </Design.PreviewWith>
     <x:Double x:Key="PropertyEditorMinWidth">200</x:Double>
 
     <ControlTheme x:Key="PropertyEditorLeftRightButton"
@@ -8,5 +35,104 @@
         <Setter Property="Padding" Value="0" />
         <Setter Property="VerticalAlignment" Value="Stretch" />
         <Setter Property="Background" Value="Transparent" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="PropertyEditorReorderHandle" TargetType="Border">
+        <Setter Property="Margin" Value="4,0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Width" Value="24" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+        <Setter Property="Cursor" Value="SizeNorthSouth" />
+        <Setter Property="Child">
+            <Template>
+                <icons:SymbolIcon Symbol="ReOrderDotsVertical" />
+            </Template>
+        </Setter>
+
+        <Style Selector="^:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="PropertyEditorMiniExpanderToggleButton" TargetType="ToggleButton">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Grid Name="PART_Grid"
+                      Background="{TemplateBinding Background}"
+                      ColumnDefinitions="*,Auto,Auto">
+                    <ContentPresenter Name="ContentPresenter"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Foreground="{TemplateBinding Foreground}" />
+
+                    <ContentPresenter Name="TagContentPresenter"
+                                      Grid.Column="1"
+                                      Margin="0,0,4,0"
+                                      Content="{TemplateBinding Tag}">
+                        <intv:Interaction.Behaviors>
+                            <local:MiniExpanderToggleButtonBehavior />
+                        </intv:Interaction.Behaviors>
+                    </ContentPresenter>
+
+                    <Border Name="PART_Root"
+                            Grid.Column="2"
+                            Width="24"
+                            Height="24"
+                            Padding="0"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <TextBlock x:Name="PART_ExpandCollapseChevron"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontFamily="{DynamicResource SymbolThemeFontFamily}"
+                                   FontSize="{TemplateBinding FontSize}"
+                                   FontWeight="Normal"
+                                   Foreground="{TemplateBinding Foreground}"
+                                   RenderTransform="none"
+                                   Text="{StaticResource ExpanderChevronDownGlyph}">
+                            <TextBlock.Transitions>
+                                <Transitions>
+                                    <TransformOperationsTransition Property="RenderTransform" Duration="00:00:00.167" />
+                                </Transitions>
+                            </TextBlock.Transitions>
+                        </TextBlock>
+                    </Border>
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:checked /template/ TextBlock#PART_ExpandCollapseChevron">
+            <Setter Property="RenderTransform" Value="rotate(180deg)" />
+        </Style>
+
+        <Style Selector="^:pointerover /template/ Border#PART_Root">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+
+        <Style Selector="^:pressed /template/ Border#PART_Root">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+        </Style>
+        <Style Selector="^:pressed /template/ TextBlock#PART_ExpandCollapseChevron">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+
+        <Style Selector="^:disabled /template/ Border#PART_Root">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorDisabledBrush}" />
+        </Style>
+        <Style Selector="^:disabled /template/ TextBlock#PART_ExpandCollapseChevron">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
+        </Style>
     </ControlTheme>
 </ResourceDictionary>

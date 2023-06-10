@@ -1,0 +1,54 @@
+<UserControl x:Class="Beutl.Views.Editors.ListItemEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:interactions="using:Avalonia.Xaml.Interactions.Core"
+             xmlns:interactivity="using:Avalonia.Xaml.Interactivity"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Views.Editors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             mc:Ignorable="d">
+    <Grid ColumnDefinitions="Auto,8,*,24">
+        <Border x:Name="dragBorder"
+                CornerRadius="{DynamicResource ControlCornerRadius}"
+                Cursor="SizeNorthSouth">
+            <Border.Styles>
+                <Style Selector="Border:pointerover">
+                    <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                </Style>
+            </Border.Styles>
+            <interactivity:Interaction.Behaviors>
+                <interactivity:BehaviorCollection>
+                    <local:ListEditorDragBehavior DragControl="dragBorder" Orientation="Vertical" />
+                </interactivity:BehaviorCollection>
+            </interactivity:Interaction.Behaviors>
+            <icons:SymbolIcon FontSize="14" Symbol="ReOrderDotsVertical" />
+        </Border>
+
+        <ContentControl Grid.Column="2"
+                        HorizontalAlignment="Stretch"
+                        Content="{Binding Item}" />
+
+        <Button Grid.Column="3"
+                Width="24"
+                Height="24"
+                Padding="0"
+                HorizontalAlignment="Center"
+                Background="Transparent"
+                BorderThickness="0"
+                Click="Menu_Click">
+            <Button.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Click="Edit_Click" Header="{x:Static lang:Strings.Edit}" />
+                    <MenuItem Click="Delete_Click"
+                              Header="{x:Static lang:Strings.Delete}"
+                              IsEnabled="{Binding !Parent.List.Value.IsReadOnly}" />
+                </ContextMenu>
+            </Button.ContextMenu>
+            <icons:SymbolIcon Symbol="MoreVertical" />
+        </Button>
+    </Grid>
+</UserControl>

@@ -6,7 +6,9 @@
     <Design.PreviewWith>
         <Border Width="300">
             <StackPanel>
-                <local:ColorEditor Header="Property 1" KeyFrameCount="3" />
+                <local:ColorEditor EditorStyle="ListItem"
+                                   Header="Property 1"
+                                   KeyFrameCount="3" />
             </StackPanel>
         </Border>
     </Design.PreviewWith>
@@ -21,11 +23,11 @@
                     <Grid ColumnDefinitions="2*,3*,Auto,Auto">
                         <TextBlock Name="PART_HeaderTextBlock"
                                    Margin="4,0,0,0"
-                                   TextTrimming="CharacterEllipsis"
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
                                    ClipToBounds="False"
-                                   Text="{TemplateBinding Header}" />
+                                   Text="{TemplateBinding Header}"
+                                   TextTrimming="CharacterEllipsis" />
 
                         <ui:ColorPickerButton x:Name="PART_ColorPickerButton"
                                               Grid.Column="1"
@@ -56,6 +58,38 @@
                 </Border>
             </ControlTemplate>
         </Setter>
+
+        <Style Selector="^:list-item">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Name="PART_ReorderHandle" Theme="{StaticResource PropertyEditorReorderHandle}" />
+
+                            <ui:ColorPickerButton x:Name="PART_ColorPickerButton"
+                                                  Grid.Column="1"
+                                                  Margin="4,2"
+                                                  HorizontalAlignment="Right"
+                                                  IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                                  UseColorPalette="True"
+                                                  Color="{Binding Value, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
+
+                            <Button Name="PART_DeleteButton"
+                                    Grid.Column="2"
+                                    Margin="4,0"
+                                    Padding="0"
+                                    Classes="size-24x24"
+                                    Theme="{StaticResource TransparentButton}">
+                                <icons:SymbolIcon Symbol="Delete" />
+                            </Button>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
 
         <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
             <Setter Property="IsEnabled" Value="False" />
