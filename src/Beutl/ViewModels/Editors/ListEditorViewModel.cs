@@ -56,7 +56,17 @@ public sealed class ListItemAccessorImpl<T> : IAbstractProperty<T>
     }
 }
 
-public sealed class ListItemEditorViewModel<TItem> : IDisposable
+public interface IListItemEditorViewModel
+{
+    void OnDeleteRequested();
+}
+
+public interface IListEditorViewModel
+{
+    void MoveItem(int oldIndex, int newIndex);
+}
+
+public sealed class ListItemEditorViewModel<TItem> : IDisposable, IListItemEditorViewModel
 {
     public ListItemEditorViewModel(ListEditorViewModel<TItem> parent, ListItemAccessorImpl<TItem?> itemAccessor)
     {
@@ -81,9 +91,14 @@ public sealed class ListItemEditorViewModel<TItem> : IDisposable
     {
         Context?.Dispose();
     }
+
+    public void OnDeleteRequested()
+    {
+        Parent.RemoveItem(ItemAccessor.Index);
+    }
 }
 
-public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel
+public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEditorViewModel
 {
     private static readonly NotifyCollectionChangedEventArgs s_resetCollectionChanged = new(NotifyCollectionChangedAction.Reset);
     private INotifyCollectionChanged? _incc;
@@ -120,7 +135,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel
                 _incc = incc;
                 _incc.CollectionChanged += OnCollectionChanged;
 
-                OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, changedItems: list.ToArray()));
+                OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, changedItems: list.ToArray(), startingIndex: 0));
             }
         }).DisposeWith(Disposables);
     }
@@ -178,9 +193,11 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel
                 break;
 
             case NotifyCollectionChangedAction.Replace:
-                for (int i = e.NewStartingIndex; i < e.NewItems!.Count; i++)
+                index = e.NewStartingIndex;
+                for (int i = 0; i < e.NewItems!.Count; i++)
                 {
-                    Items[i].ItemAccessor.OnItemChanged(List.Value![i]);
+                    Items[index].ItemAccessor.OnItemChanged(List.Value![index]);
+                    index++;
                 }
                 break;
 
@@ -242,14 +259,6 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel
         }
     }
 
-    public void AddItem(TItem? item)
-    {
-        List.Value!.BeginRecord()
-            .Add(item)
-            .ToCommand()
-            .DoAndRecord(CommandRecorder.Default);
-    }
-
     public override void Reset()
     {
         try
@@ -259,5 +268,29 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel
         catch (InvalidOperationException)
         {
         }
+    }
+
+    public void AddItem(TItem? item)
+    {
+        List.Value!.BeginRecord()
+            .Add(item)
+            .ToCommand()
+            .DoAndRecord(CommandRecorder.Default);
+    }
+
+    public void RemoveItem(int index)
+    {
+        List.Value!.BeginRecord()
+            .RemoveAt(index)
+            .ToCommand()
+            .DoAndRecord(CommandRecorder.Default);
+    }
+
+    public void MoveItem(int oldIndex, int newIndex)
+    {
+        List.Value!.BeginRecord()
+            .Move(oldIndex, newIndex)
+            .ToCommand()
+            .DoAndRecord(CommandRecorder.Default);
     }
 }

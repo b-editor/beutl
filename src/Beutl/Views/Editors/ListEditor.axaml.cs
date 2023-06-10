@@ -1,25 +1,16 @@
-﻿using System.Collections;
-using System.Reflection;
-using System.Runtime.CompilerServices;
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-using Avalonia.LogicalTree;
 using Avalonia.Threading;
 
-using Beutl.Commands;
 using Beutl.Controls.Behaviors;
 using Beutl.Framework.Service;
-using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
-using Beutl.ViewModels.Tools;
 
 using FluentAvalonia.UI.Controls;
 
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
@@ -28,21 +19,10 @@ public sealed class ListEditorDragBehavior : GenericDragBehavior
 {
     protected override void OnMoveDraggedItem(ItemsControl? itemsControl, int oldIndex, int newIndex)
     {
-        //if (itemsControl?.Items is not IList items)
-        //{
-        //    return;
-        //}
-
-        //items.BeginRecord()
-        //    .Move(oldIndex, newIndex)
-        //    .ToCommand()
-        //    .DoAndRecord(CommandRecorder.Default);
-
-        // Todo: ListEditorItemの移動処理
-        //if(itemsControl?.DataContext is ListEditorViewModel<TItem> viewModel)
-        //{
-        //    viewModel.MoveItem(oldIndex, newIndex);
-        //}
+        if (itemsControl?.DataContext is IListEditorViewModel viewModel)
+        {
+            viewModel.MoveItem(oldIndex, newIndex);
+        }
     }
 }
 

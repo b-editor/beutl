@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
+using Beutl.Animation;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -248,5 +249,11 @@ public abstract class Shape : Drawable
         {
             canvas.DrawGeometry(geometry);
         }
+    }
+
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        (Pen as IAnimatable)?.ApplyAnimations(clock);
     }
 }

@@ -47,7 +47,6 @@
 
         <Grid x:Name="expandItem"
               Grid.Row="1"
-              Margin="16,0,0,0"
               IsVisible="False"
               RowDefinitions="Auto,Auto">
             <WrapPanel Grid.Row="1"
@@ -67,7 +66,7 @@
 
             <ItemsControl x:Name="items"
                           Grid.Row="1"
-                          Items="{Binding List.Value}">
+                          Items="{Binding Items}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <local:ListItemEditor />

@@ -14,8 +14,6 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class PenEditorViewModel : BaseEditorViewModel
 {
-    private bool _accepted;
-
     public PenEditorViewModel(IAbstractProperty property)
         : base(property)
     {
@@ -78,8 +76,6 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     private void AcceptChildren()
     {
-        _accepted = false;
-
         if (Value.Value is Pen)
         {
             var visitor = new Visitor(this);
@@ -91,8 +87,6 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
             {
                 item.Accept(visitor);
             }
-
-            _accepted = true;
         }
     }
 
@@ -123,7 +117,8 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
-        if (visitor is IServiceProvider && !_accepted)
+
+        if (visitor is IServiceProvider)
         {
             AcceptChildren();
         }

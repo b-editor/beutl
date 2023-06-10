@@ -391,6 +391,11 @@ public static class PropertyEditorService
                 {
                     context.Accept(visitor);
                 }
+
+                if (control is PropertyEditor pe)
+                {
+                    pe.EditorStyle = PropertyEditorStyle.ListItem;
+                }
             }
         }
 

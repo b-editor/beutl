@@ -37,8 +37,6 @@ public sealed class SetCommand : IRecordableCommand
 
 public sealed class BrushEditorViewModel : BaseEditorViewModel
 {
-    private bool _accepted;
-
     public BrushEditorViewModel(IAbstractProperty property)
         : base(property)
     {
@@ -72,8 +70,6 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 
     private void AcceptChildren(PropertiesEditorViewModel? obj)
     {
-        _accepted = false;
-
         if (obj != null)
         {
             var visitor = new Visitor(this);
@@ -81,8 +77,6 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
             {
                 item.Accept(visitor);
             }
-
-            _accepted = true;
         }
     }
 
@@ -119,7 +113,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
-        if (visitor is IServiceProvider && !_accepted)
+        if (visitor is IServiceProvider)
         {
             AcceptChildren(ChildContext.Value);
         }
