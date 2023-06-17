@@ -1,4 +1,7 @@
-﻿using Avalonia;
+﻿using System;
+using System.Reactive;
+using System.Reactive.Linq;
+using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -15,7 +18,8 @@ public sealed partial class PenEditor : UserControl
 {
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
 
-    private CancellationTokenSource? _lastTransitionCts;
+    private CancellationTokenSource? _lastTransitionCts1;
+    private CancellationTokenSource? _lastTransitionCts2;
 
     public PenEditor()
     {
@@ -24,9 +28,9 @@ public sealed partial class PenEditor : UserControl
         expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(async v =>
             {
-                _lastTransitionCts?.Cancel();
-                _lastTransitionCts = new CancellationTokenSource();
-                CancellationToken localToken = _lastTransitionCts.Token;
+                _lastTransitionCts1?.Cancel();
+                _lastTransitionCts1 = new CancellationTokenSource();
+                CancellationToken localToken = _lastTransitionCts1.Token;
 
                 if (v == true)
                 {
@@ -41,9 +45,9 @@ public sealed partial class PenEditor : UserControl
         expandMinorProps.GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(async v =>
             {
-                _lastTransitionCts?.Cancel();
-                _lastTransitionCts = new CancellationTokenSource();
-                CancellationToken localToken = _lastTransitionCts.Token;
+                _lastTransitionCts2?.Cancel();
+                _lastTransitionCts2 = new CancellationTokenSource();
+                CancellationToken localToken = _lastTransitionCts2.Token;
 
                 if (v == true)
                 {

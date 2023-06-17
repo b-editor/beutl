@@ -15,7 +15,11 @@ public sealed class EllipseOperator : DrawablePublishOperator<EllipseShape>
 
     public Setter<float> Height { get; set; } = new(Shape.HeightProperty, 100);
 
+    public Setter<ITransform?> Transform { get; set; } = new(Drawable.TransformProperty, null);
+
     public Setter<IPen?> Pen { get; set; } = new(Shape.PenProperty);
 
     public Setter<IBrush?> Fill { get; set; } = new(Drawable.ForegroundProperty, new SolidColorBrush(Colors.White));
+
+    public Setter<IImageFilter?> Filter { get; set; } = new(Drawable.FilterProperty, null);
 }

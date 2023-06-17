@@ -1,10 +1,11 @@
-<UserControl x:Class="Beutl.Views.Editors.ImageFilterListItemEditor"
+<UserControl x:Class="Beutl.Views.Editors.TransformListItemEditor"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels.Editors"
              d:DesignHeight="450"
              d:DesignWidth="400"
@@ -18,12 +19,12 @@
                           BorderBrush="Transparent"
                           Cursor="SizeNorthSouth"
                           IsChecked="{Binding IsExpanded.Value}">
-                <icons:SymbolIcon Symbol="ReOrderDotsVertical" />
+                <ui:FAPathIcon Data="{Binding TransformType.Value, Converter={StaticResource TransformTypeToIconConverter}}" />
             </ToggleButton>
 
             <TextBlock Grid.Column="1"
                        Margin="0,4"
-                       Text="{Binding FilterName.Value}" />
+                       Text="{Binding TransformName.Value}" />
 
             <ToggleButton Grid.Column="2"
                           Margin="4,0,0,0"

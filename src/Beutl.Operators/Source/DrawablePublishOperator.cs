@@ -35,7 +35,7 @@ public abstract class DrawablePublishOperator<T> : StyledSourcePublisher
             drawable.AlignmentX = AlignmentX.Left;
             drawable.AlignmentY = AlignmentY.Top;
             drawable.TransformOrigin = RelativePoint.TopLeft;
-            drawable.Transform = null;
+            //drawable.Transform = null;
             //drawable.Filter = null;
             drawable.Effect = null;
         }

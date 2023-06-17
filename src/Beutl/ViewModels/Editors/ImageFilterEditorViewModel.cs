@@ -25,7 +25,7 @@ public sealed class ImageFilterEditorViewModel : ValueEditorViewModel<IImageFilt
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsExpanded.Skip(1)
+        IsExpanded.SkipWhile(v => !v)
             .Take(1)
             .Subscribe(_ =>
                 Value.Subscribe(v =>

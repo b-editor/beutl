@@ -1,4 +1,4 @@
-<UserControl x:Class="Beutl.Views.Editors.ImageFilterEditor"
+<UserControl x:Class="Beutl.Views.Editors.TransformEditor"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -7,9 +7,10 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels.Editors"
-             d:DesignHeight="450"
-             d:DesignWidth="800"
-             x:DataType="viewModel:ImageFilterEditorViewModel"
+             x:Name="root"
+             d:DesignHeight="300"
+             d:DesignWidth="300"
+             x:DataType="viewModel:TransformEditorViewModel"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto,Auto">
         <Separator Height="2"
@@ -23,10 +24,10 @@
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
             <ToggleButton.ContextFlyout>
                 <ui:FAMenuFlyout>
-                    <ui:MenuFlyoutItem Click="ChangeFilterTypeClick"
-                                       FontWeight="Normal"
-                                       Icon="New"
-                                       Text="変更" />
+                    <ui:MenuFlyoutSubItem x:Name="ChangeTypeMenu"
+                                          FontWeight="Normal"
+                                          Icon="New"
+                                          Text="変更" />
                     <ui:MenuFlyoutItem Click="SetNullClick"
                                        FontWeight="Normal"
                                        Text="Null" />
@@ -59,16 +60,11 @@
                     </Button>
                 </StackPanel>
             </ToggleButton.Tag>
-            <WrapPanel Orientation="Horizontal">
-                <TextBlock FontWeight="DemiBold" Text="{Binding Header, FallbackValue=Filter}" />
-                <TextBlock Margin="8,0,0,0"
-                           IsVisible="{Binding !IsGroupOrNull.Value}"
-                           Text="{Binding FilterName.Value}" />
-            </WrapPanel>
+            <TextBlock FontWeight="DemiBold" Text="{Binding Header, FallbackValue=Transform}" />
         </ToggleButton>
 
         <Panel x:Name="content" Grid.Row="2">
-            <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="フィルタががNullです。" />
+            <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="Nullです。" />
 
             <local:PropertiesEditor Margin="16,0,0,0"
                                     Padding="0"

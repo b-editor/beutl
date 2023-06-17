@@ -23,6 +23,7 @@
                       Grid.Row="1"
                       Margin="4"
                       Content="{Binding Header, FallbackValue=Pen}"
+                      IsChecked="True"
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
             <ToggleButton.Tag>
                 <Button Width="24"
@@ -69,6 +70,7 @@
                           HorizontalContentAlignment="Center"
                           VerticalContentAlignment="Center"
                           Background="{DynamicResource ButtonBackground}"
+                          IsChecked="False"
                           IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                           Theme="{StaticResource ExpandCollapseToggleButtonStyle}" />
 

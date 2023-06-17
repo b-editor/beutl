@@ -130,7 +130,8 @@ public static class PropertyEditorService
 
         private static readonly Dictionary<Type, ListItemEditor> s_listItemEditorsOverride = new()
         {
-            { typeof(IImageFilter), new(_ => new ImageFilterListItemEditor(), s => new ImageFilterEditorViewModel(s.ToTyped<IImageFilter?>())) }
+            { typeof(IImageFilter), new(_ => new ImageFilterListItemEditor(), s => new ImageFilterEditorViewModel(s.ToTyped<IImageFilter?>())) },
+            { typeof(ITransform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>())) }
         };
 
         private static readonly Dictionary<int, Editor> s_editorsOverride = new()
@@ -193,6 +194,7 @@ public static class PropertyEditorService
             { typeof(IBrush), new(_ => new BrushEditor(), s => new BrushEditorViewModel(s)) },
             { typeof(IPen), new(_ => new PenEditor(), s => new PenEditorViewModel(s)) },
             { typeof(IImageFilter), new(_ => new ImageFilterEditor(), s => new ImageFilterEditorViewModel(s.ToTyped<IImageFilter?>())) },
+            { typeof(ITransform), new(_ => new TransformEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>())) },
             { typeof(GradientStops), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<GradientStops>())) },
             { typeof(IList), new(CreateListEditor, CreateListEditorViewModel) },
             { typeof(ICoreObject), new(CreateNavigationButton, CreateNavigationButtonViewModel) },
