@@ -16,13 +16,13 @@
         <ToggleButton x:Name="expandToggle"
                       Margin="4"
                       Content="{Binding Header, FallbackValue=List}"
+                      IsChecked="{Binding IsExpanded.Value}"
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
             <ToggleButton.Tag>
-                <Button Width="24"
-                        Height="24"
-                        Padding="0"
+                <Button Padding="0"
                         HorizontalContentAlignment="Center"
                         VerticalContentAlignment="Center"
+                        Classes="size-24x24"
                         Click="Add_Click"
                         Theme="{StaticResource TransparentButton}">
                     <Button.ContextFlyout>

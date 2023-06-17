@@ -227,8 +227,8 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
         rect = rect.TransformToAABB(transform);
         using (Foreground == null ? new() : canvas.PushFillBrush(Foreground))
         using (canvas.PushBlendMode(BlendMode))
-        using (canvas.PushTransform(transformFact))
         using (_filter == null ? new() : canvas.PushImageFilter(_filter))
+        using (canvas.PushTransform(transformFact))
         using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, rect))
         {
             IBitmap bitmap = ToBitmap();
@@ -286,8 +286,8 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
 
                 using (Foreground == null ? new() : canvas.PushFillBrush(Foreground))
                 using (canvas.PushBlendMode(BlendMode))
-                using (canvas.PushTransform(transform))
                 using (_filter == null ? new() : canvas.PushImageFilter(_filter))
+                using (canvas.PushTransform(transform))
                 using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
                 {
                     OnDraw(canvas);

@@ -9,7 +9,19 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class PropertiesEditorViewModel : IDisposable
 {
-    public PropertiesEditorViewModel(ICoreObject obj, Predicate<CorePropertyMetadata>? predicate = null)
+    public PropertiesEditorViewModel(ICoreObject obj)
+    {
+        Target = obj;
+        InitializeCoreObject(obj);
+    }
+
+    public PropertiesEditorViewModel(ICoreObject obj, Predicate<CorePropertyMetadata> predicate)
+    {
+        Target = obj;
+        InitializeCoreObject(obj, (_, v) => predicate(v));
+    }
+
+    public PropertiesEditorViewModel(ICoreObject obj, Func<CoreProperty, CorePropertyMetadata, bool> predicate)
     {
         Target = obj;
         InitializeCoreObject(obj, predicate);
@@ -27,7 +39,7 @@ public sealed class PropertiesEditorViewModel : IDisposable
         }
     }
 
-    private void InitializeCoreObject(ICoreObject obj, Predicate<CorePropertyMetadata>? predicate = null)
+    private void InitializeCoreObject(ICoreObject obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
     {
         Type objType = obj.GetType();
         Type wrapperType = typeof(CorePropertyImpl<>);
@@ -35,7 +47,7 @@ public sealed class PropertiesEditorViewModel : IDisposable
         bool isAnimatable = obj is IAnimatable;
 
         List<CoreProperty> cprops = PropertyRegistry.GetRegistered(objType).ToList();
-        cprops.RemoveAll(x => !(predicate?.Invoke(x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
+        cprops.RemoveAll(x => !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
         List<IAbstractProperty> props = cprops.ConvertAll(x =>
         {
             CorePropertyMetadata metadata = x.GetMetadata<CorePropertyMetadata>(objType);

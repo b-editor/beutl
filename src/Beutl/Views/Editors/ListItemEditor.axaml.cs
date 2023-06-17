@@ -4,9 +4,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
-using Avalonia.Input;
-using Avalonia.Interactivity;
-using Avalonia.Layout;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.Framework;
@@ -16,10 +13,7 @@ namespace Beutl.Views.Editors;
 
 public partial class ListItemEditor : UserControl
 {
-    private readonly ListEditorDragBehavior _behavior = new()
-    {
-        Orientation = Orientation.Vertical
-    };
+    private readonly ListEditorDragBehavior _behavior = new();
 
     public ListItemEditor()
     {
@@ -37,6 +31,9 @@ public partial class ListItemEditor : UserControl
             {
                 if (viewModel.Extension.TryCreateControlForListItem(viewModel, out IListItemEditor? control))
                 {
+                    if (control is StyledElement s)
+                        s.DataContext = viewModel;
+
                     return control;
                 }
                 else

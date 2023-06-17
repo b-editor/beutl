@@ -6,7 +6,6 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:media="using:Beutl.Media"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.Editors"
              x:Name="root"
@@ -27,11 +26,10 @@
                       FontWeight="DemiBold"
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
             <ToggleButton.Tag>
-                <Button Width="24"
-                        Height="24"
-                        Padding="0"
+                <Button Padding="0"
                         HorizontalContentAlignment="Center"
                         VerticalContentAlignment="Center"
+                        Classes="size-24x24"
                         Click="Menu_Click"
                         Theme="{StaticResource TransparentButton}">
                     <Button.ContextFlyout>

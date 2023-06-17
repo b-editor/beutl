@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Filters;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Operation;
@@ -15,4 +16,6 @@ public sealed class RectOperator : DrawablePublishOperator<RectShape>
     public Setter<IPen?> Pen { get; set; } = new(Shape.PenProperty);
 
     public Setter<IBrush?> Fill { get; set; } = new(Drawable.ForegroundProperty, new SolidColorBrush(Colors.White));
+
+    public Setter<IImageFilter?> Filter { get; set; } = new(Drawable.FilterProperty, null);
 }

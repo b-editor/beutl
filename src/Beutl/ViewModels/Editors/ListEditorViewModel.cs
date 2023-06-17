@@ -1,4 +1,5 @@
 ﻿using System.Collections.Specialized;
+using System.Reactive.Linq;
 
 using Beutl.Framework;
 using Beutl.Services;
@@ -111,34 +112,39 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        ObserveCount = Items.ObserveProperty(o => o.Count)
-            .ToReadOnlyReactivePropertySlim()
+        IsExpanded.Skip(1)
+            .Take(1)
+            .Subscribe(_ =>
+                List.Subscribe(list =>
+                {
+                    if (_incc != null)
+                    {
+                        _incc.CollectionChanged -= OnCollectionChanged;
+                        _incc = null;
+
+                        OnCollectionChanged(s_resetCollectionChanged);
+                    }
+
+                    if (list is INotifyCollectionChanged incc)
+                    {
+                        _incc = incc;
+                        _incc.CollectionChanged += OnCollectionChanged;
+                        var args = new NotifyCollectionChangedEventArgs(
+                            action: NotifyCollectionChangedAction.Add,
+                            changedItems: list.ToArray(),
+                            startingIndex: 0);
+                        OnCollectionChanged(args);
+                    }
+                })
+                .DisposeWith(Disposables))
             .DisposeWith(Disposables);
-
-        CountString = ObserveCount
-            .Select(x => string.Format(Message.CountItems, x))
-            .ToReadOnlyReactivePropertySlim(string.Empty)
-            .DisposeWith(Disposables);
-
-        List.Subscribe(list =>
-        {
-            if (_incc != null)
-            {
-                _incc.CollectionChanged -= OnCollectionChanged;
-                _incc = null;
-
-                OnCollectionChanged(s_resetCollectionChanged);
-            }
-
-            if (list is INotifyCollectionChanged incc)
-            {
-                _incc = incc;
-                _incc.CollectionChanged += OnCollectionChanged;
-
-                OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, changedItems: list.ToArray(), startingIndex: 0));
-            }
-        }).DisposeWith(Disposables);
     }
+
+    public ReadOnlyReactivePropertySlim<IList<TItem?>?> List { get; }
+
+    public CoreList<ListItemEditorViewModel<TItem>> Items { get; } = new();
+
+    public ReactivePropertySlim<bool> IsExpanded { get; } = new(false);
 
     private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
@@ -184,7 +190,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
             case NotifyCollectionChangedAction.Remove:
                 index = e.OldStartingIndex;
-                for (int i = List.Value!.Count - 1; i >= 0; --i)
+                for (int i = e.OldItems!.Count - 1; i >= 0; --i)
                 {
                     Removed(index + i);
                 }
@@ -217,14 +223,6 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
                 break;
         }
     }
-
-    public ReadOnlyReactivePropertySlim<IList<TItem?>?> List { get; }
-
-    public CoreList<ListItemEditorViewModel<TItem>> Items { get; } = new();
-
-    public ReadOnlyReactivePropertySlim<int> ObserveCount { get; }
-
-    public ReadOnlyReactivePropertySlim<string> CountString { get; }
 
     public void Initialize()
     {
