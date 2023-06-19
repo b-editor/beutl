@@ -14,7 +14,7 @@
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
         <ToggleButton x:Name="expandToggle"
-                      Margin="4"
+                      Margin="8,4"
                       Content="{Binding Header, FallbackValue=List}"
                       IsChecked="{Binding IsExpanded.Value}"
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">

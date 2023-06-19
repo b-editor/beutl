@@ -50,7 +50,7 @@ public static class AnimatorRegistry
             }
         }
 
-        throw new Exception($"Could not find an Animator that supports type {type.Name}.");
+        return typeof(_Animator<>).MakeGenericType(type);
     }
 
     public static void RegisterAnimator(Type animatorType, Func<Type, bool> condition)
@@ -70,5 +70,13 @@ public static class AnimatorRegistry
         where TAnimator : Animator<T>
     {
         s_animators.Insert(0, (condition, typeof(TAnimator)));
+    }
+
+    private sealed class _Animator<T> : Animator<T>
+    {
+        public override T Interpolate(float progress, T oldValue, T newValue)
+        {
+            return newValue;
+        }
     }
 }

@@ -162,6 +162,8 @@ public partial class SocketView : UserControl
             if (control1 != null)
             {
                 control1.DataContext = obj.PropertyEditorContext;
+                // Todo: TryCreateControlForNodeの時
+                ((Layoutable)control1).Margin = control1.Margin - new Thickness(4, 0);
             }
 
             _editor = control1;

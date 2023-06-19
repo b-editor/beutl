@@ -21,7 +21,7 @@
 
         <ToggleButton x:Name="expandToggle"
                       Grid.Row="1"
-                      Margin="4"
+                      Margin="8,4"
                       Content="{Binding Header, FallbackValue=Brush}"
                       FontWeight="DemiBold"
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">

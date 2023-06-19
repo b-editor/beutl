@@ -13,7 +13,7 @@
     <Grid RowDefinitions="Auto,Auto">
         <Grid ColumnDefinitions="Auto,*,Auto,Auto">
             <ToggleButton x:Name="reorderHandle"
-                          Margin="4,0"
+                          Margin="8,0"
                           Padding="4"
                           Background="Transparent"
                           BorderBrush="Transparent"
@@ -34,7 +34,7 @@
                           Theme="{StaticResource VisibilityToggleButtonStyle}" />
 
             <Button Grid.Column="3"
-                    Margin="4,0"
+                    Margin="4,0,8,0"
                     Padding="0"
                     Classes="size-24x24"
                     Click="DeleteClick"

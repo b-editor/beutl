@@ -61,6 +61,11 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
 
     private readonly CompositeDisposable _eventRevokers = new(3);
 
+    static PropertyEditor()
+    {
+        MarginProperty.OverrideDefaultValue<PropertyEditor>(new(4, 0));
+    }
+
     public string Header
     {
         get => GetValue(HeaderProperty);

@@ -11,7 +11,7 @@
              x:DataType="vm:OpacityEditorViewModel"
              mc:Ignorable="d">
     <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-        <TextBlock Margin="4,0,0,2"
+        <TextBlock Margin="8,0,0,2"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Top"
                    Text="{Binding Header}" />
@@ -124,7 +124,7 @@
 
         <local:PropertyEditorMenu Grid.Row="1"
                                   Grid.Column="1"
-                                  Margin="0,0,4,8" />
+                                  Margin="0,0,8,8" />
 
     </Grid>
 </UserControl>
