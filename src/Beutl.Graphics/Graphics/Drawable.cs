@@ -25,9 +25,9 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
     private ITransform? _transform;
     private IImageFilter? _filter;
     private IBitmapEffect? _effect;
-    private AlignmentX _alignX;
-    private AlignmentY _alignY;
-    private RelativePoint _transformOrigin;
+    private AlignmentX _alignX = AlignmentX.Center;
+    private AlignmentY _alignY = AlignmentY.Center;
+    private RelativePoint _transformOrigin = RelativePoint.Center;
     private IBrush? _foreground;
     private IBrush? _opacityMask;
     private BlendMode _blendMode = BlendMode.SrcOver;
@@ -51,16 +51,17 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
 
         AlignmentXProperty = ConfigureProperty<AlignmentX, Drawable>(nameof(AlignmentX))
             .Accessor(o => o.AlignmentX, (o, v) => o.AlignmentX = v)
-            .DefaultValue(AlignmentX.Left)
+            .DefaultValue(AlignmentX.Center)
             .Register();
 
         AlignmentYProperty = ConfigureProperty<AlignmentY, Drawable>(nameof(AlignmentY))
             .Accessor(o => o.AlignmentY, (o, v) => o.AlignmentY = v)
-            .DefaultValue(AlignmentY.Top)
+            .DefaultValue(AlignmentY.Center)
             .Register();
 
         TransformOriginProperty = ConfigureProperty<RelativePoint, Drawable>(nameof(TransformOrigin))
             .Accessor(o => o.TransformOrigin, (o, v) => o.TransformOrigin = v)
+            .DefaultValue(RelativePoint.Center)
             .Register();
 
         ForegroundProperty = ConfigureProperty<IBrush?, Drawable>(nameof(Foreground))
@@ -193,17 +194,17 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
 
     private Matrix GetTransformMatrix(Size availableSize, Size coreBounds)
     {
-        Vector pt = CalculateTranslate(coreBounds);
-        Vector origin = CalculateOriginPoint(availableSize);
+        Vector pt = CalculateTranslate(coreBounds, availableSize);
+        Vector origin = TransformOrigin.ToPixels(coreBounds);
         Matrix offset = Matrix.CreateTranslation(origin);
 
         if (Transform is { })
         {
-            return Matrix.CreateTranslation(pt) * Transform.Value * offset;
+            return (-offset) * Transform.Value * offset * Matrix.CreateTranslation(pt);
         }
         else
         {
-            return offset * Matrix.CreateTranslation(pt);
+            return Matrix.CreateTranslation(pt);
         }
     }
 
@@ -324,43 +325,29 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
 
     protected abstract void OnDraw(ICanvas canvas);
 
-    private Point CalculateOriginPoint(Size size)
+    private Point CalculateTranslate(Size bounds, Size canvasSize)
     {
-        if (float.IsNormal(size.Width) && float.IsNormal(size.Height))
-        {
-            return TransformOrigin.ToPixels(size);
-        }
-        else if (TransformOrigin.Unit == RelativeUnit.Absolute)
-        {
-            return TransformOrigin.Point;
-        }
-        else
-        {
-            return default;
-        }
-    }
+        float x = -bounds.Width / 2;
+        float y = -bounds.Height / 2;
 
-    private Point CalculateTranslate(Size bounds)
-    {
-        float x = 0;
-        float y = 0;
-
-        if (AlignmentX == AlignmentX.Center)
+        switch (AlignmentX)
         {
-            x -= bounds.Width / 2;
-        }
-        else if (AlignmentX == AlignmentX.Right)
-        {
-            x -= bounds.Width;
+            case AlignmentX.Center:
+                x += canvasSize.Width / 2;
+                break;
+            case AlignmentX.Right:
+                x += canvasSize.Width;
+                break;
         }
 
-        if (AlignmentY == AlignmentY.Center)
+        switch (AlignmentY)
         {
-            y -= bounds.Height / 2;
-        }
-        else if (AlignmentY == AlignmentY.Bottom)
-        {
-            y -= bounds.Height;
+            case AlignmentY.Center:
+                y += canvasSize.Height / 2;
+                break;
+            case AlignmentY.Bottom:
+                y += canvasSize.Height;
+                break;
         }
 
         return new Point(x, y);
