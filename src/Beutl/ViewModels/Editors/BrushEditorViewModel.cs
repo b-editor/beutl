@@ -1,4 +1,6 @@
-﻿using Beutl.Framework;
+﻿using System.Text.Json.Nodes;
+
+using Beutl.Framework;
 using Beutl.Media;
 using Beutl.ViewModels.Tools;
 
@@ -94,6 +96,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 
     public ReactivePropertySlim<bool> IsSeparatorVisible { get; } = new();
 
+    public ReactivePropertySlim<bool> IsExpanded { get; } = new();
+
     public override void Reset()
     {
         if (GetDefaultValue() is { } defaultValue)
@@ -119,6 +123,36 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         }
 
         IsSeparatorVisible.Value = visitor is SourceOperatorViewModel;
+    }
+
+    public override void ReadFromJson(JsonObject json)
+    {
+        base.ReadFromJson(json);
+        try
+        {
+            if (json.TryGetPropertyValue(nameof(IsExpanded), out var isExpandedNode)
+                && isExpandedNode is JsonValue isExpanded)
+            {
+                IsExpanded.Value = (bool)isExpanded;
+            }
+            ChildContext.Value?.ReadFromJson(json);
+        }
+        catch
+        {
+        }
+    }
+
+    public override void WriteToJson(JsonObject json)
+    {
+        base.WriteToJson(json);
+        try
+        {
+            json[nameof(IsExpanded)] = IsExpanded.Value;
+            ChildContext.Value?.WriteToJson(json);
+        }
+        catch
+        {
+        }
     }
 
     private sealed record Visitor(BrushEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor

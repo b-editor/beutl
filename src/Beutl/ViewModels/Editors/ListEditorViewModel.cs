@@ -1,5 +1,6 @@
 ﻿using System.Collections.Specialized;
 using System.Reactive.Linq;
+using System.Text.Json.Nodes;
 
 using Beutl.Framework;
 using Beutl.Services;
@@ -57,7 +58,7 @@ public sealed class ListItemAccessorImpl<T> : IAbstractProperty<T>
     }
 }
 
-public interface IListItemEditorViewModel
+public interface IListItemEditorViewModel : IJsonSerializable
 {
     void OnDeleteRequested();
 }
@@ -96,6 +97,16 @@ public sealed class ListItemEditorViewModel<TItem> : IDisposable, IListItemEdito
     public void OnDeleteRequested()
     {
         Parent.RemoveItem(ItemAccessor.Index);
+    }
+
+    public void ReadFromJson(JsonObject json)
+    {
+        Context?.ReadFromJson(json);
+    }
+
+    public void WriteToJson(JsonObject json)
+    {
+        Context?.WriteToJson(json);
     }
 }
 
@@ -295,5 +306,59 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
             .Move(oldIndex, newIndex)
             .ToCommand()
             .DoAndRecord(CommandRecorder.Default);
+    }
+
+    public override void ReadFromJson(JsonObject json)
+    {
+        base.ReadFromJson(json);
+        try
+        {
+            IsExpanded.Value = (bool)json[nameof(IsExpanded)]!;
+
+            if (json.TryGetPropertyValue(nameof(Items), out JsonNode? propsNode)
+                && propsNode is JsonArray propsArray)
+            {
+                foreach ((JsonNode? node, ListItemEditorViewModel<TItem>? context) in propsArray.Zip(Items))
+                {
+                    if (context != null && node != null)
+                    {
+                        context.ReadFromJson(node.AsObject());
+                    }
+                }
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    public override void WriteToJson(JsonObject json)
+    {
+        base.WriteToJson(json);
+        try
+        {
+            json[nameof(IsExpanded)] = IsExpanded.Value;
+
+            var array = new JsonArray();
+
+            foreach (ListItemEditorViewModel<TItem> item in Items.GetMarshal().Value)
+            {
+                if (item == null)
+                {
+                    array.Add(null);
+                }
+                else
+                {
+                    var node = new JsonObject();
+                    item.WriteToJson(node);
+                    array.Add(node);
+                }
+            }
+
+            json[nameof(Items)] = array;
+        }
+        catch
+        {
+        }
     }
 }

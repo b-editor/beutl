@@ -1,4 +1,6 @@
-﻿using Beutl.Animation;
+﻿using System.Text.Json.Nodes;
+
+using Beutl.Animation;
 using Beutl.Framework;
 using Beutl.Operators.Configure;
 using Beutl.Services;
@@ -7,7 +9,7 @@ using DynamicData;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class PropertiesEditorViewModel : IDisposable
+public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable
 {
     public PropertiesEditorViewModel(ICoreObject obj)
     {
@@ -37,6 +39,42 @@ public sealed class PropertiesEditorViewModel : IDisposable
         {
             item.Dispose();
         }
+    }
+
+    public void ReadFromJson(JsonObject json)
+    {
+        if (json.TryGetPropertyValue(nameof(Properties), out JsonNode? propsNode)
+            && propsNode is JsonArray propsArray)
+        {
+            foreach ((JsonNode? node, IPropertyEditorContext? context) in propsArray.Zip(Properties))
+            {
+                if (context != null && node != null)
+                {
+                    context.ReadFromJson(node.AsObject());
+                }
+            }
+        }
+    }
+
+    public void WriteToJson(JsonObject json)
+    {
+        var array = new JsonArray();
+
+        foreach (IPropertyEditorContext? item in Properties.GetMarshal().Value)
+        {
+            if (item == null)
+            {
+                array.Add(null);
+            }
+            else
+            {
+                var node = new JsonObject();
+                item.WriteToJson(node);
+                array.Add(node);
+            }
+        }
+
+        json[nameof(Properties)] = array;
     }
 
     private void InitializeCoreObject(ICoreObject obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)

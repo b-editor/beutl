@@ -1,4 +1,6 @@
-﻿using Avalonia.Collections.Pooled;
+﻿using System.Text.Json.Nodes;
+
+using Avalonia.Collections.Pooled;
 
 using Beutl.Framework;
 using Beutl.Media;
@@ -90,6 +92,8 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
         }
     }
 
+    public ReactivePropertySlim<bool> IsExpanded { get; } = new(false);
+
     public ReadOnlyReactivePropertySlim<IPen?> Value { get; }
 
     public CoreList<IPropertyEditorContext> MajorProperties { get; } = new();
@@ -124,6 +128,28 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
         }
 
         IsSeparatorVisible.Value = visitor is SourceOperatorViewModel;
+    }
+
+    public override void ReadFromJson(JsonObject json)
+    {
+        base.ReadFromJson(json);
+        if (json.TryGetPropertyValue(nameof(IsExpanded), out var isExpandedNode)
+            && isExpandedNode is JsonValue isExpanded)
+        {
+            IsExpanded.Value = (bool)isExpanded;
+        }
+    }
+
+    public override void WriteToJson(JsonObject json)
+    {
+        base.WriteToJson(json);
+        try
+        {
+            json[nameof(IsExpanded)] = IsExpanded.Value;
+        }
+        catch
+        {
+        }
     }
 
     private sealed record Visitor(PenEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor

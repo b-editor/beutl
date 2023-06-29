@@ -129,6 +129,11 @@ public sealed partial class Timeline : UserControl
                 }
             })
             .DisposeWith(_disposables);
+    }
+
+    protected override void OnLoaded()
+    {
+        base.OnLoaded();
 
         ViewModel.EditorContext.Options.Subscribe(options =>
             {

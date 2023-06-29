@@ -199,10 +199,18 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
+        if (Layer.Value != null)
+        {
+            RestoreState(Layer.Value);
+        }
     }
 
     public void WriteToJson(JsonObject json)
     {
+        if (Layer.Value != null)
+        {
+            SaveState(Layer.Value);
+        }
     }
 
     public object? GetService(Type serviceType)

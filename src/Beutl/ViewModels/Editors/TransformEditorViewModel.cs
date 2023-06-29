@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+﻿using System.Text.Json.Nodes;
 
 using Beutl.Commands;
 using Beutl.Framework;
@@ -179,6 +179,49 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
     public void SetNull()
     {
         SetValue(Value.Value, null);
+    }
+
+    public override void ReadFromJson(JsonObject json)
+    {
+        base.ReadFromJson(json);
+        try
+        {
+            if (json.TryGetPropertyValue(nameof(IsExpanded), out var isExpandedNode)
+                && isExpandedNode is JsonValue isExpanded)
+            {
+                IsExpanded.Value = (bool)isExpanded;
+            }
+            Properties.Value?.ReadFromJson(json);
+
+            if (Group.Value != null
+                && json.TryGetPropertyValue(nameof(Group), out var groupNode)
+                && groupNode is JsonObject group)
+            {
+                Group.Value.ReadFromJson(group);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    public override void WriteToJson(JsonObject json)
+    {
+        base.WriteToJson(json);
+        try
+        {
+            json[nameof(IsExpanded)] = IsExpanded.Value;
+            Properties.Value?.WriteToJson(json);
+            if (Group.Value != null)
+            {
+                var group = new JsonObject();
+                Group.Value.WriteToJson(group);
+                json[nameof(Group)] = group;
+            }
+        }
+        catch
+        {
+        }
     }
 
     private sealed record Visitor(TransformEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor

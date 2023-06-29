@@ -23,7 +23,7 @@
                       Grid.Row="1"
                       Margin="8,4"
                       Content="{Binding Header, FallbackValue=Pen}"
-                      IsChecked="True"
+                      IsChecked="{Binding IsExpanded.Value}"
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
             <ToggleButton.Tag>
                 <Button Width="24"

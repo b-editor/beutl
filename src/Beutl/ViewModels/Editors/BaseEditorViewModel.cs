@@ -155,11 +155,11 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public abstract void Reset();
 
-    public void WriteToJson(JsonObject json)
+    public virtual void WriteToJson(JsonObject json)
     {
     }
 
-    public void ReadFromJson(JsonObject json)
+    public virtual void ReadFromJson(JsonObject json)
     {
     }
 

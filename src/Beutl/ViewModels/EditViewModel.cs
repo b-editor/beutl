@@ -44,7 +44,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
             .DisposeWith(_disposables);
         Player = new PlayerViewModel(scene, IsEnabled)
             .DisposeWith(_disposables);
-        Commands = new KnownCommandsImpl(scene);
+        Commands = new KnownCommandsImpl(scene, this);
         SelectedObject = new ReactiveProperty<CoreObject?>()
             .DisposeWith(_disposables);
 
@@ -379,10 +379,12 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
     private sealed class KnownCommandsImpl : IKnownEditorCommands
     {
         private readonly Scene _scene;
+        private readonly EditViewModel _viewModel;
 
-        public KnownCommandsImpl(Scene scene)
+        public KnownCommandsImpl(Scene scene, EditViewModel viewModel)
         {
             _scene = scene;
+            _viewModel = viewModel;
         }
 
         public ValueTask<bool> OnSave()
@@ -392,6 +394,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
             {
                 layer.Save(layer.FileName);
             }
+            _viewModel.SaveState();
 
             return ValueTask.FromResult(true);
         }

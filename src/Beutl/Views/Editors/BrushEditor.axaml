@@ -24,6 +24,7 @@
                       Margin="8,4"
                       Content="{Binding Header, FallbackValue=Brush}"
                       FontWeight="DemiBold"
+                      IsChecked="{Binding IsExpanded.Value}"
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
             <ToggleButton.Tag>
                 <Button Padding="0"
