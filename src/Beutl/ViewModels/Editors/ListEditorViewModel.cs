@@ -208,9 +208,14 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
                 break;
 
             case NotifyCollectionChangedAction.Move:
-                Items.MoveRange(e.OldStartingIndex, e.NewItems!.Count, e.NewStartingIndex);
+                int newIndex = e.NewStartingIndex;
+                if (newIndex > e.OldStartingIndex)
+                {
+                    newIndex += e.OldItems!.Count;
+                }
+                Items.MoveRange(e.OldStartingIndex, e.NewItems!.Count, newIndex);
 
-                UpdateIndex(e.NewStartingIndex);
+                UpdateIndex(0);
                 break;
 
             case NotifyCollectionChangedAction.Reset:

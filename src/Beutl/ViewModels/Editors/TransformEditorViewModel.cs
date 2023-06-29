@@ -123,7 +123,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
 
     public ReadOnlyReactivePropertySlim<bool> IsGroupOrNull { get; }
 
-    public ReactivePropertySlim<bool> IsExpanded { get; } = new(true);
+    public ReactivePropertySlim<bool> IsExpanded { get; } = new(false);
 
     public ReactiveProperty<bool> IsEnabled { get; }
 

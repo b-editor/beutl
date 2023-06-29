@@ -88,6 +88,12 @@ public abstract class Brush : Animatable, IMutableBrush
             if (e.Sender is T s)
             {
                 s.RaiseInvalidated(new RenderInvalidatedEventArgs(s, e.Property.Name));
+
+                if (e.OldValue is IAffectsRender oldAffectsRender)
+                    oldAffectsRender.Invalidated -= s.OnAffectsRenderInvalidated;
+
+                if (e.NewValue is IAffectsRender newAffectsRender)
+                    newAffectsRender.Invalidated += s.OnAffectsRenderInvalidated;
             }
         }
 
@@ -107,9 +113,20 @@ public abstract class Brush : Animatable, IMutableBrush
                 if (e.Sender is T s)
                 {
                     s.RaiseInvalidated(new RenderInvalidatedEventArgs(s, e.Property.Name));
+
+                    if (e.OldValue is IAffectsRender oldAffectsRender)
+                        oldAffectsRender.Invalidated -= s.OnAffectsRenderInvalidated;
+
+                    if (e.NewValue is IAffectsRender newAffectsRender)
+                        newAffectsRender.Invalidated += s.OnAffectsRenderInvalidated;
                 }
             });
         }
+    }
+
+    private void OnAffectsRenderInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    {
+        Invalidated?.Invoke(this, e);
     }
 
     protected void RaiseInvalidated(RenderInvalidatedEventArgs args)

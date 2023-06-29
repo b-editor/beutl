@@ -16,7 +16,7 @@ public sealed class CoreObjectJsonConverter : JsonConverter<ICoreObject>
         var jsonNode = JsonNode.Parse(ref reader);
         if (jsonNode is JsonObject jsonObject)
         {
-            Type? actualType = jsonObject.GetDiscriminator();
+            Type? actualType = typeToConvert.IsSealed ? typeToConvert : jsonObject.GetDiscriminator();
             if (actualType?.IsAssignableTo(typeToConvert) == true
                 && Activator.CreateInstance(actualType) is ICoreObject instance)
             {

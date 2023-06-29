@@ -230,20 +230,27 @@ public class RelativePointEditor : Vector2Editor
             && textBox.IsKeyboardFocusWithin
             && TryParse(textBox.Text, out float value, out Graphics.RelativeUnit unit))
         {
-            value = e.Delta.Y switch
+            float delta1 = 1;
+            float delta2 = 10;
+            if (unit == Graphics.RelativeUnit.Relative)
             {
-                < 0 => value - 0.1f,
-                > 0 => value + 0.1f,
-                _ => value
-            };
+                delta1 *= 0.01f;
+                delta2 *= 0.01f;
+            }
 
             value = e.Delta.X switch
             {
-                < 0 => value - 0.01f,
-                > 0 => value + 0.01f,
+                < 0 => value - delta1,
+                > 0 => value + delta1,
                 _ => value
             };
 
+            value = e.Delta.Y switch
+            {
+                < 0 => value - delta2,
+                > 0 => value + delta2,
+                _ => value
+            };
 
             switch (textBox.Name)
             {
