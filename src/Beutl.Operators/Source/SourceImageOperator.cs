@@ -1,6 +1,8 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Filters;
+using Beutl.Graphics.Transformation;
+using Beutl.Media;
 using Beutl.Media.Source;
-using Beutl.Operation;
 using Beutl.Styling;
 
 namespace Beutl.Operators.Source;
@@ -9,15 +11,18 @@ public sealed class SourceImageOperator : DrawablePublishOperator<SourceImage>
 {
     private string? _sourceName;
 
-    protected override void OnInitializeSetters(IList<ISetter> initializing)
-    {
-        initializing.Add(new Setter<IImageSource?>(SourceImage.SourceProperty, null));
-    }
+    public Setter<IImageSource?> Source { get; set; } = new(SourceImage.SourceProperty, null);
+
+    public Setter<ITransform?> Transform { get; set; } = new(Drawable.TransformProperty, null);
+
+    public Setter<IBrush?> Fill { get; set; } = new(Drawable.ForegroundProperty, new SolidColorBrush(Colors.White));
+
+    public Setter<IImageFilter?> Filter { get; set; } = new(Drawable.FilterProperty, null);
 
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnDetachedFromHierarchy(args);
-        if (GetImageSourceSetter() is Setter<IImageSource> { Value: { Name: string name } value } setter)
+        if (Source is { Value: { Name: string name } value } setter)
         {
             _sourceName = name;
             setter.Value = null;
@@ -28,16 +33,11 @@ public sealed class SourceImageOperator : DrawablePublishOperator<SourceImage>
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnAttachedToHierarchy(args);
-        if (GetImageSourceSetter() is Setter<IImageSource> { Value: null } setter
+        if (Source is { Value: null } setter
             && _sourceName != null
             && MediaSourceManager.Shared.OpenImageSource(_sourceName, out IImageSource? imageSource))
         {
             setter.Value = imageSource;
         }
-    }
-
-    private Setter<IImageSource>? GetImageSourceSetter()
-    {
-        return Style.Setters.FirstOrDefault(x => x.Property == SourceImage.SourceProperty) as Setter<IImageSource>;
     }
 }
