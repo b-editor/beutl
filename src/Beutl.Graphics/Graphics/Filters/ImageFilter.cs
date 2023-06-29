@@ -38,7 +38,7 @@ public abstract class ImageFilter : Animatable, IMutableImageFilter
         return rect;
     }
 
-    protected internal abstract SKImageFilter ToSKImageFilter();
+    protected internal abstract SKImageFilter? ToSKImageFilter(Rect bounds);
 
     protected static void AffectsRender<T>(params CoreProperty[] properties)
         where T : ImageFilter
@@ -71,8 +71,8 @@ public abstract class ImageFilter : Animatable, IMutableImageFilter
         Invalidated?.Invoke(this, args);
     }
 
-    SKImageFilter IImageFilter.ToSKImageFilter()
+    SKImageFilter? IImageFilter.ToSKImageFilter(Rect bounds)
     {
-        return ToSKImageFilter();
+        return ToSKImageFilter(bounds);
     }
 }

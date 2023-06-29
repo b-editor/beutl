@@ -80,7 +80,7 @@ public sealed class DropShadow : ImageFilter
         return ShadowOnly ? shadow : rect.Union(shadow);
     }
 
-    protected internal override SKImageFilter ToSKImageFilter()
+    protected internal override SKImageFilter ToSKImageFilter(Rect bounds)
     {
         if (ShadowOnly)
         {

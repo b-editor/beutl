@@ -63,7 +63,7 @@ public interface ICanvas : IDisposable
 
     void PopPen(int level = -1);
 
-    PushedState PushImageFilter(IImageFilter filter);
+    PushedState PushImageFilter(IImageFilter filter, Rect bounds);
 
     void PopImageFilter(int level = -1);
 

@@ -426,11 +426,11 @@ public class Canvas : ICanvas
         }
     }
 
-    public PushedState PushImageFilter(IImageFilter filter)
+    public PushedState PushImageFilter(IImageFilter filter, Rect bounds)
     {
         VerifyAccess();
         SKPaint? paint;
-        using (var skFilter = filter.ToSKImageFilter())
+        using (var skFilter = filter.ToSKImageFilter(bounds))
         {
             paint = new SKPaint
             {
@@ -782,7 +782,7 @@ public class Canvas : ICanvas
         ConfigurePaint(_sharedFillPaint, targetSize, FillBrush, BlendMode);
     }
 
-    private static void ConfigurePaint(SKPaint paint, Size targetSize, IBrush? brush, BlendMode blendMode)
+    internal static void ConfigurePaint(SKPaint paint, Size targetSize, IBrush? brush, BlendMode blendMode)
     {
         float opacity = brush?.Opacity ?? 0;
         paint.IsAntialias = true;

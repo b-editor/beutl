@@ -228,7 +228,7 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
         rect = rect.TransformToAABB(transform);
         using (Foreground == null ? new() : canvas.PushFillBrush(Foreground))
         using (canvas.PushBlendMode(BlendMode))
-        using (_filter == null ? new() : canvas.PushImageFilter(_filter))
+        using (_filter == null ? new() : canvas.PushImageFilter(_filter, rect))
         using (canvas.PushTransform(transformFact))
         using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, rect))
         {
@@ -284,17 +284,18 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
                 }
 
                 Matrix transform = GetTransformMatrix(availableSize, size);
+                Rect transformedBounds = rect.TransformToAABB(transform);
 
                 using (Foreground == null ? new() : canvas.PushFillBrush(Foreground))
                 using (canvas.PushBlendMode(BlendMode))
-                using (_filter == null ? new() : canvas.PushImageFilter(_filter))
+                using (_filter == null ? new() : canvas.PushImageFilter(_filter, /*new Rect(size)*/transformedBounds))
                 using (canvas.PushTransform(transform))
                 using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
                 {
                     OnDraw(canvas);
                 }
 
-                Bounds = rect.TransformToAABB(transform);
+                Bounds = transformedBounds;
             }
         }
 

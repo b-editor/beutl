@@ -96,26 +96,28 @@ public sealed class ImageFilterGroup : ImageFilter
         }
     }
 
-    protected internal override SKImageFilter ToSKImageFilter()
+    protected internal override SKImageFilter? ToSKImageFilter(Rect bounds)
     {
-        var array = new SKImageFilter[ValidEffectCount()];
-        int index = 0;
+        var array = new List<SKImageFilter>(ValidEffectCount());
         foreach (IImageFilter item in _children.GetMarshal().Value)
         {
             if (item.IsEnabled)
             {
-                array[index] = item.ToSKImageFilter();
-                index++;
+                var sk = item.ToSKImageFilter(bounds);
+                if (sk != null)
+                {
+                    array.Add(sk);
+                }
             }
         }
 
-        if (array.Length > 0)
+        if (array.Count > 0)
         {
-            return SKImageFilter.CreateMerge(array);
+            return SKImageFilter.CreateMerge(array.ToArray());
         }
         else
         {
-            return SKImageFilter.CreateOffset(0, 0);
+            return null;
         }
     }
 

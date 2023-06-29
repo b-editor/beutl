@@ -46,21 +46,21 @@ public sealed class ComposedImageFilter : ImageFilter
         set => SetAndRaise(InnerProperty, ref _inner, value);
     }
 
-    protected internal override SKImageFilter ToSKImageFilter()
+    protected internal override SKImageFilter? ToSKImageFilter(Rect bounds)
     {
         switch ((Outer, Inner))
         {
             case (null or { IsEnabled: false }, { IsEnabled: true }):
-                return Inner.ToSKImageFilter();
+                return Inner.ToSKImageFilter(bounds);
 
             case ({ IsEnabled: true }, null or { IsEnabled: false }):
-                return Outer.ToSKImageFilter();
+                return Outer.ToSKImageFilter(bounds);
 
             case ({ IsEnabled: true }, { IsEnabled: true }):
-                return SKImageFilter.CreateCompose(Outer.ToSKImageFilter(), Inner.ToSKImageFilter());
+                return SKImageFilter.CreateCompose(Outer.ToSKImageFilter(bounds), Inner.ToSKImageFilter(bounds));
 
             default:
-                return SKImageFilter.CreateOffset(0, 0);
+                return null;
         }
     }
 

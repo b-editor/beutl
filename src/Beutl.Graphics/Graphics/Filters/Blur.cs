@@ -34,7 +34,7 @@ public sealed class Blur : ImageFilter
         return rect.Inflate(new Thickness(Sigma.X, Sigma.Y));
     }
 
-    protected internal override SKImageFilter ToSKImageFilter()
+    protected internal override SKImageFilter ToSKImageFilter(Rect bounds)
     {
         return SKImageFilter.CreateBlur(Sigma.X, Sigma.Y);
     }

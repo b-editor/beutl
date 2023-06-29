@@ -8,5 +8,5 @@ public interface IImageFilter
 
     Rect TransformBounds(Rect rect);
 
-    SKImageFilter ToSKImageFilter();
+    SKImageFilter? ToSKImageFilter(Rect bounds);
 }

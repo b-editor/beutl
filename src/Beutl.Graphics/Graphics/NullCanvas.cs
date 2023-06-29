@@ -89,7 +89,7 @@ internal sealed class NullCanvas : ICanvas
 
     public PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect) => throw new NotImplementedException();
 
-    public PushedState PushImageFilter(IImageFilter? filter) => throw new NotImplementedException();
+    public PushedState PushImageFilter(IImageFilter? filter, Rect bounds) => throw new NotImplementedException();
 
     public PushedState PushFillBrush(IBrush brush) => throw new NotImplementedException();
 
