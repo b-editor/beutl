@@ -57,8 +57,17 @@ public sealed class ComposedImageFilter : ImageFilter
                 return Outer.ToSKImageFilter(bounds);
 
             case ({ IsEnabled: true }, { IsEnabled: true }):
-                return SKImageFilter.CreateCompose(Outer.ToSKImageFilter(bounds), Inner.ToSKImageFilter(bounds));
+                var inner = Inner.ToSKImageFilter(bounds);
+                var outer = Outer.ToSKImageFilter(bounds);
 
+                if ((inner, outer) is ({ }, { }))
+                {
+                    return SKImageFilter.CreateCompose(outer, inner);
+                }
+                else
+                {
+                    return inner ?? outer;
+                }
             default:
                 return null;
         }
