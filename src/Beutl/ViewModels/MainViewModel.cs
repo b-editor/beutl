@@ -332,7 +332,6 @@ public sealed class MainViewModel : BasePageViewModel
                 SceneProjectItemExtension.Instance,
                 TimelineTabExtension.Instance,
                 ObjectPropertyTabExtension.Instance,
-                StyleEditorTabExtension.Instance,
                 SourceOperatorsTabExtension.Instance,
                 PropertyEditorExtension.Instance,
                 NodeTreeTabExtension.Instance,
