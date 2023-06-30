@@ -68,6 +68,11 @@ public sealed class DisplacementMap : ImageFilter
         (Displacement as Animatable)?.ApplyAnimations(clock);
     }
 
+    public override Rect TransformBounds(Rect rect)
+    {
+        return rect.Inflate(_scale / 2);
+    }
+
     protected internal override SKImageFilter? ToSKImageFilter(Rect bounds)
     {
         if (Displacement?.IsEnabled == true)
