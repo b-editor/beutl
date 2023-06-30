@@ -189,7 +189,7 @@
 
         <Style Selector="^[KeyFrameCount=0]">
             <Style Selector="^ /template/ StackPanel#LeftRightButtons">
-                <Setter Property="Opacity" Value="0" />
+                <Setter Property="IsVisible" Value="False" />
             </Style>
         </Style>
     </ControlTheme>
@@ -368,7 +368,7 @@
 
         <Style Selector="^[KeyFrameCount=0]">
             <Style Selector="^ /template/ StackPanel#LeftRightButtons">
-                <Setter Property="Opacity" Value="0" />
+                <Setter Property="IsVisible" Value="False" />
             </Style>
         </Style>
     </ControlTheme>
