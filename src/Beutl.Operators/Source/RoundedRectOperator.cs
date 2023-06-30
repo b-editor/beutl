@@ -18,6 +18,12 @@ public sealed class RoundedRectOperator : DrawablePublishOperator<RoundedRectSha
 
     public Setter<ITransform?> Transform { get; set; } = new(Drawable.TransformProperty, null);
 
+    public Setter<AlignmentX> AlignmentX { get; set; } = new(Drawable.AlignmentXProperty, Media.AlignmentX.Center);
+
+    public Setter<AlignmentY> AlignmentY { get; set; } = new(Drawable.AlignmentYProperty, Media.AlignmentY.Center);
+
+    public Setter<RelativePoint> TransformOrigin { get; set; } = new(Drawable.TransformOriginProperty, RelativePoint.Center);
+
     public Setter<IPen?> Pen { get; set; } = new(Shape.PenProperty);
 
     public Setter<IBrush?> Fill { get; set; } = new(Drawable.ForegroundProperty, new SolidColorBrush(Colors.White));

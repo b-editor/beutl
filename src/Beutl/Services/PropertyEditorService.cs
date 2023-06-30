@@ -339,6 +339,11 @@ public static class PropertyEditorService
                 control = control1;
                 return true;
             }
+            else if (context is PropertyEditorGroupContext)
+            {
+                control = new PropertyEditorGroup();
+                return true;
+            }
             else
             {
                 control = null;

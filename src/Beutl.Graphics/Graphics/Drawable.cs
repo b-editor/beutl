@@ -88,14 +88,7 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
 
     public Rect Bounds { get; private set; }
 
-    [Display(Name = nameof(Strings.Transform), ResourceType = typeof(Strings))]
-    public ITransform? Transform
-    {
-        get => _transform;
-        set => SetAndRaise(TransformProperty, ref _transform, value);
-    }
-
-    [Display(Name = nameof(Strings.ImageFilter), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(Strings.ImageFilter), ResourceType = typeof(Strings), GroupName = nameof(Strings.ImageFilter))]
     public IImageFilter? Filter
     {
         get => _filter;
@@ -109,28 +102,35 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
         set => SetAndRaise(EffectProperty, ref _effect, value);
     }
 
-    [Display(Name = nameof(Strings.AlignmentX), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(Strings.Transform), ResourceType = typeof(Strings), GroupName = nameof(Strings.Transform))]
+    public ITransform? Transform
+    {
+        get => _transform;
+        set => SetAndRaise(TransformProperty, ref _transform, value);
+    }
+
+    [Display(Name = nameof(Strings.AlignmentX), ResourceType = typeof(Strings), GroupName = nameof(Strings.Transform))]
     public AlignmentX AlignmentX
     {
         get => _alignX;
         set => SetAndRaise(AlignmentXProperty, ref _alignX, value);
     }
 
-    [Display(Name = nameof(Strings.AlignmentY), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(Strings.AlignmentY), ResourceType = typeof(Strings), GroupName = nameof(Strings.Transform))]
     public AlignmentY AlignmentY
     {
         get => _alignY;
         set => SetAndRaise(AlignmentYProperty, ref _alignY, value);
     }
 
-    [Display(Name = nameof(Strings.TransformOrigin), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(Strings.TransformOrigin), ResourceType = typeof(Strings), GroupName = nameof(Strings.Transform))]
     public RelativePoint TransformOrigin
     {
         get => _transformOrigin;
         set => SetAndRaise(TransformOriginProperty, ref _transformOrigin, value);
     }
 
-    [Display(Name = nameof(Strings.Foreground), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(Strings.Foreground), ResourceType = typeof(Strings), GroupName = nameof(Strings.Foreground))]
     public IBrush? Foreground
     {
         get => _foreground;

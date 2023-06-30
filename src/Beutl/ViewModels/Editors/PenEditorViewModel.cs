@@ -100,8 +100,6 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     public CoreList<IPropertyEditorContext> MinorProperties { get; } = new();
 
-    public ReactivePropertySlim<bool> IsSeparatorVisible { get; } = new();
-
     public override void Reset()
     {
         if (GetDefaultValue() is { } defaultValue)
@@ -126,8 +124,6 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
         {
             AcceptChildren();
         }
-
-        IsSeparatorVisible.Value = visitor is SourceOperatorViewModel;
     }
 
     public override void ReadFromJson(JsonObject json)

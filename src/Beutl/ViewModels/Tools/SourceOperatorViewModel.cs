@@ -8,6 +8,8 @@ using Beutl.Operation;
 using DynamicData;
 
 using Reactive.Bindings;
+using Beutl.ViewModels.Editors;
+using Microsoft.CodeAnalysis;
 
 namespace Beutl.ViewModels.Tools;
 
@@ -114,7 +116,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
     private void Init()
     {
         List<IAbstractProperty> props = Model.Properties.ToList();
-        Properties.EnsureCapacity(props.Count);
+        var tempItems = new List<IPropertyEditorContext?>(props.Count);
         IAbstractProperty[]? foundItems;
         PropertyEditorExtension? extension;
 
@@ -125,13 +127,42 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
             {
                 if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))
                 {
-                    Properties.Add(context);
+                    tempItems.Add(context);
                     context.Accept(this);
                 }
 
                 props.RemoveMany(foundItems);
             }
         } while (foundItems != null && extension != null);
+
+        foreach ((string? Key, IPropertyEditorContext?[] Value) group in tempItems.GroupBy(x =>
+            {
+                if (x is BaseEditorViewModel { WrappedProperty: { } abProperty }
+                    && abProperty.GetCoreProperty() is { } coreProperty
+                    && coreProperty.TryGetMetadata<CorePropertyMetadata>(abProperty.ImplementedType, out var metadata))
+                {
+                    return metadata.DisplayAttribute?.GetGroupName();
+                }
+                else
+                {
+                    return null;
+                }
+            })
+            .Select(x => (x.Key, x.ToArray())))
+        {
+            if (group.Key != null)
+            {
+                IPropertyEditorContext?[] array = group.Value;
+                if (array.Length >= 1)
+                {
+                    int index = tempItems.IndexOf(array[0]);
+                    tempItems.RemoveMany(array);
+                    tempItems.Insert(index, new PropertyEditorGroupContext(array, group.Key));
+                }
+            }
+        }
+
+        Properties.AddRange(tempItems);
     }
 
     public void Visit(IPropertyEditorContext context)

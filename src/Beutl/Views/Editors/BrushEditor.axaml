@@ -14,13 +14,8 @@
              x:CompileBindings="True"
              x:DataType="vm:BrushEditorViewModel"
              mc:Ignorable="d">
-    <Grid RowDefinitions="Auto,Auto,Auto">
-        <Separator Height="2"
-                   Margin="0,4"
-                   IsVisible="{Binding IsSeparatorVisible.Value}" />
-
+    <Grid RowDefinitions="Auto,Auto">
         <ToggleButton x:Name="expandToggle"
-                      Grid.Row="1"
                       Margin="8,4"
                       Content="{Binding Header, FallbackValue=Brush}"
                       FontWeight="DemiBold"
@@ -63,7 +58,7 @@
         </ToggleButton>
 
         <Panel x:Name="content"
-               Grid.Row="2"
+               Grid.Row="1"
                Margin="16,0,0,0">
             <WrapPanel IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Orientation="Horizontal">
                 <TextBlock Text="ブラシがNullです。" />

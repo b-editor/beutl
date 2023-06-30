@@ -4,6 +4,7 @@ using Avalonia.Data;
 using Avalonia.Data.Converters;
 
 using Beutl.Framework;
+using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;
 

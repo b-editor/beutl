@@ -131,14 +131,10 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
 
     public ReactivePropertySlim<ListEditorViewModel<ITransform?>?> Group { get; } = new();
 
-    public ReactivePropertySlim<bool> IsSeparatorVisible { get; } = new();
-
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
         AcceptChild();
-
-        IsSeparatorVisible.Value = visitor is SourceOperatorViewModel;
     }
 
     private void AcceptChild()

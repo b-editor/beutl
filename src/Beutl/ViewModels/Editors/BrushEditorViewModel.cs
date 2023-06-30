@@ -94,8 +94,6 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 
     public ReadOnlyReactivePropertySlim<bool> IsRadialGradient { get; }
 
-    public ReactivePropertySlim<bool> IsSeparatorVisible { get; } = new();
-
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
 
     public override void Reset()
@@ -121,8 +119,6 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         {
             AcceptChildren(ChildContext.Value);
         }
-
-        IsSeparatorVisible.Value = visitor is SourceOperatorViewModel;
     }
 
     public override void ReadFromJson(JsonObject json)

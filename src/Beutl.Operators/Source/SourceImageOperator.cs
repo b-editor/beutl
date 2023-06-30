@@ -14,6 +14,12 @@ public sealed class SourceImageOperator : DrawablePublishOperator<SourceImage>
     public Setter<IImageSource?> Source { get; set; } = new(SourceImage.SourceProperty, null);
 
     public Setter<ITransform?> Transform { get; set; } = new(Drawable.TransformProperty, null);
+    
+    public Setter<AlignmentX> AlignmentX { get; set; } = new(Drawable.AlignmentXProperty, Media.AlignmentX.Center);
+
+    public Setter<AlignmentY> AlignmentY { get; set; } = new(Drawable.AlignmentYProperty, Media.AlignmentY.Center);
+
+    public Setter<RelativePoint> TransformOrigin { get; set; } = new(Drawable.TransformOriginProperty, RelativePoint.Center);
 
     public Setter<IBrush?> Fill { get; set; } = new(Drawable.ForegroundProperty, new SolidColorBrush(Colors.White));
 

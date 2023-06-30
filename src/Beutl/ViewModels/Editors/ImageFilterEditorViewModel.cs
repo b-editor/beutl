@@ -86,14 +86,10 @@ public sealed class ImageFilterEditorViewModel : ValueEditorViewModel<IImageFilt
 
     public ReactivePropertySlim<ListEditorViewModel<IImageFilter>?> Group { get; } = new();
 
-    public ReactivePropertySlim<bool> IsSeparatorVisible { get; } = new();
-
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
         AcceptChild();
-
-        IsSeparatorVisible.Value = visitor is SourceOperatorViewModel;
     }
 
     private void AcceptChild()

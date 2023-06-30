@@ -70,6 +70,7 @@ public abstract class Shape : Drawable
         set => SetAndRaise(StretchProperty, ref _stretch, value);
     }
 
+    [Display(GroupName = "Pen")]
     public IPen? Pen
     {
         get => _pen;

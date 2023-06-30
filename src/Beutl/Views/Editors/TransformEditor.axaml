@@ -12,13 +12,8 @@
              d:DesignWidth="300"
              x:DataType="viewModel:TransformEditorViewModel"
              mc:Ignorable="d">
-    <Grid RowDefinitions="Auto,Auto,Auto">
-        <Separator Height="2"
-                   Margin="0,4"
-                   IsVisible="{Binding IsSeparatorVisible.Value}" />
-
+    <Grid RowDefinitions="Auto,Auto">
         <ToggleButton x:Name="expandToggle"
-                      Grid.Row="1"
                       Margin="8,4"
                       IsChecked="{Binding IsExpanded.Value}"
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
@@ -63,7 +58,7 @@
             <TextBlock FontWeight="DemiBold" Text="{Binding Header, FallbackValue=Transform}" />
         </ToggleButton>
 
-        <Panel x:Name="content" Grid.Row="2">
+        <Panel x:Name="content" Grid.Row="1">
             <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="Nullです。" />
 
             <local:PropertiesEditor Margin="16,0,0,0"
