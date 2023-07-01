@@ -88,10 +88,7 @@ public class TextBlockTests
             Thickness = 5,
             StrokeAlignment = StrokeAlignment.Outside
         };
-        using (graphics.PushPen(pen))
-        {
-            graphics.DrawSKPath(skpath, false);
-        }
+        graphics.DrawSKPath(skpath, false, null, pen);
 
         using Bitmap<Bgra8888> bmp = graphics.GetBitmap();
 

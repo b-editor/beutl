@@ -51,6 +51,11 @@ public sealed class TextEditorContext : IEditorContext
         return default;
     }
 
+    public object? GetService(Type serviceType)
+    {
+        return null;
+    }
+
     public bool OpenToolTab(IToolContext item)
     {
         return false;

@@ -246,9 +246,8 @@ public abstract class Shape : Drawable
         matrix *= Matrix.CreateScale(scale);
 
         using (canvas.PushTransform(matrix))
-        using (canvas.PushPen(Pen))
         {
-            canvas.DrawGeometry(geometry);
+            canvas.DrawGeometry(geometry, Foreground, Pen);
         }
     }
 

@@ -60,14 +60,17 @@ public sealed class SSETExtenison : ToolTabExtension
         {
         }
 
-        public void ReadFromJson(JsonNode json)
+        public object? GetService(Type serviceType)
         {
-
+            return null;
         }
 
-        public void WriteToJson(ref JsonNode json)
+        public void ReadFromJson(JsonObject json)
         {
+        }
 
+        public void WriteToJson(JsonObject json)
+        {
         }
     }
 }

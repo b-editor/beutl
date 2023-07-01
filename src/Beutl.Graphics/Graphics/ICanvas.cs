@@ -13,12 +13,6 @@ public interface ICanvas : IDisposable
 
     bool IsDisposed { get; }
 
-    IBrush FillBrush { get; set; }
-
-    IPen? Pen { get; set; }
-
-    IImageFilter? Filter { get; }
-
     BlendMode BlendMode { get; set; }
 
     Matrix Transform { get; set; }
@@ -27,53 +21,33 @@ public interface ICanvas : IDisposable
 
     void Clear(Color color);
 
-    void ClipRect(Rect clip, ClipOperation operation = ClipOperation.Intersect);
+    void DrawBitmap(IBitmap bmp, IBrush? fill, IPen? pen);
 
-    void ClipPath(Geometry geometry, ClipOperation operation = ClipOperation.Intersect);
+    void DrawEllipse(Rect rect, IBrush? fill, IPen? pen);
 
-    void DrawBitmap(IBitmap bmp);
+    void DrawRectangle(Rect rect, IBrush? fill, IPen? pen);
 
-    void DrawCircle(Rect rect);
-
-    void DrawRect(Rect rect);
-
-    void DrawGeometry(Geometry geometry);
+    void DrawGeometry(Geometry geometry, IBrush? fill, IPen? pen);
     
-    void DrawText(FormattedText text);
+    void DrawText(FormattedText text, IBrush? fill, IPen? pen);
 
     Bitmap<Bgra8888> GetBitmap();
 
+    void Pop(int count = -1);
+
+    PushedState Push();
+
     PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect);
-
-    void PopClip(int level = -1);
-
-    PushedState PushCanvas();
-
-    void PopCanvas(int level = -1);
+    
+    PushedState PushClip(Geometry geometry, ClipOperation operation = ClipOperation.Intersect);
 
     PushedState PushOpacityMask(IBrush mask, Rect bounds, bool invert = false);
 
-    void PopOpacityMask(int level = -1);
-
-    PushedState PushFillBrush(IBrush brush);
-
-    void PopFillBrush(int level = -1);
-    
-    PushedState PushPen(IPen? pen);
-
-    void PopPen(int level = -1);
-
     PushedState PushImageFilter(IImageFilter filter, Rect bounds);
-
-    void PopImageFilter(int level = -1);
 
     PushedState PushBlendMode(BlendMode blendMode);
 
-    void PopBlendMode(int level = -1);
-
     PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend);
-
-    void PopTransform(int level = -1);
 }
 
 public enum TransformOperator
@@ -82,5 +56,5 @@ public enum TransformOperator
 
     Append,
 
-    Assign
+    Set
 }

@@ -102,7 +102,7 @@ public class ImmediateRenderer : IRenderer
 
     protected virtual void RenderGraphicsCore()
     {
-        using (Graphics.PushCanvas())
+        using (Graphics.Push())
         {
             Graphics.Clear();
 

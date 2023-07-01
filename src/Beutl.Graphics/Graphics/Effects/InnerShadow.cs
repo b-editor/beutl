@@ -105,10 +105,10 @@ public class InnerShadow : BitmapEffect
 
             maskBrush.Transform = null;
             canvas.Clear();
-            canvas.DrawBitmap(src);
+            canvas.DrawBitmap(src, Brushes.White, null);
             using (canvas.PushOpacityMask(maskBrush, rect, false))
             {
-                canvas.DrawBitmap(blurred);
+                canvas.DrawBitmap(blurred, Brushes.White, null);
             }
 
             dst = canvas.GetBitmap();

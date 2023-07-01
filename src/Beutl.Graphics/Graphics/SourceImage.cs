@@ -42,7 +42,7 @@ public class SourceImage : Drawable
         {
             using (bitmap)
             {
-                canvas.DrawBitmap(bitmap);
+                canvas.DrawBitmap(bitmap, Brushes.White, null);
             }
         }
     }

@@ -14,19 +14,14 @@ using SkiaSharp;
 namespace Beutl.Graphics;
 
 // https://github.com/AvaloniaUI/Avalonia/blob/master/src/Skia/Avalonia.Skia/DrawingContextImpl.cs
-public class Canvas : ICanvas
+public partial class Canvas : ICanvas
 {
     private readonly SKSurface _surface;
     internal readonly SKCanvas _canvas;
     private readonly Dispatcher? _dispatcher;
-    private readonly Stack<IBrush> _brushesStack = new();
-    private readonly Stack<MaskInfo> _maskStack = new();
-    private readonly Stack<ImageFilterInfo> _filterStack = new();
-    private readonly Stack<IPen?> _penStack = new();
-    private readonly Stack<float> _strokeWidthStack = new();
-    private readonly Stack<BlendMode> _blendModeStack = new();
     private readonly SKPaint _sharedFillPaint = new();
     private readonly SKPaint _sharedStrokePaint = new();
+    private readonly Stack<CanvasPushedState> _states = new();
     private Matrix _currentTransform;
 
     public Canvas(int width, int height)
@@ -47,21 +42,6 @@ public class Canvas : ICanvas
     }
 
     public bool IsDisposed { get; private set; }
-
-    public IBrush FillBrush { get; set; } = Brushes.White;
-
-    public IPen? Pen { get; set; }
-
-    public IImageFilter? Filter
-    {
-        get
-        {
-            if (_filterStack.Count == 0)
-                return null;
-
-            return _filterStack.PeekOrDefault(default).ImageFilter;
-        }
-    }
 
     public BlendMode BlendMode { get; set; } = BlendMode.SrcOver;
 
@@ -128,15 +108,15 @@ public class Canvas : ICanvas
         }
     }
 
-    public void DrawBitmap(IBitmap bmp)
+    public void DrawBitmap(IBitmap bmp, IBrush? fill, IPen? pen)
     {
         if (bmp.ByteCount <= 0)
             return;
 
         VerifyAccess();
         var size = new Size(bmp.Width, bmp.Height);
-        ConfigureFillPaint(size);
-        ConfigureStrokePaint(new Rect(size));
+        ConfigureFillPaint(size, fill);
+        ConfigureStrokePaint(new Rect(size), pen);
 
         if (bmp is Bitmap<Bgra8888>)
         {
@@ -151,18 +131,17 @@ public class Canvas : ICanvas
         }
     }
 
-    public void DrawCircle(Rect rect)
+    public void DrawEllipse(Rect rect, IBrush? fill, IPen? pen)
     {
         VerifyAccess();
-        ConfigureFillPaint(rect.Size);
+        ConfigureFillPaint(rect.Size, fill);
         _canvas.DrawOval(rect.ToSKRect(), _sharedFillPaint);
 
-        IPen? pen = Pen;
         if (pen != null && pen.Thickness != 0)
         {
             if (pen.StrokeAlignment == StrokeAlignment.Center)
             {
-                ConfigureStrokePaint(rect);
+                ConfigureStrokePaint(rect, pen);
                 _canvas.DrawOval(rect.ToSKRect(), _sharedStrokePaint);
             }
             else
@@ -170,24 +149,23 @@ public class Canvas : ICanvas
                 using (var path = new SKPath())
                 {
                     path.AddOval(rect.ToSKRect());
-                    DrawSKPath(path, true);
+                    DrawSKPath(path, true, fill, pen);
                 }
             }
         }
     }
 
-    public void DrawRect(Rect rect)
+    public void DrawRectangle(Rect rect, IBrush? fill, IPen? pen)
     {
         VerifyAccess();
-        ConfigureFillPaint(rect.Size);
+        ConfigureFillPaint(rect.Size, fill);
         _canvas.DrawRect(rect.ToSKRect(), _sharedFillPaint);
 
-        IPen? pen = Pen;
         if (pen != null && pen.Thickness != 0)
         {
             if (pen.StrokeAlignment == StrokeAlignment.Center)
             {
-                ConfigureStrokePaint(rect);
+                ConfigureStrokePaint(rect, pen);
                 _canvas.DrawRect(rect.ToSKRect(), _sharedStrokePaint);
             }
             else
@@ -195,28 +173,27 @@ public class Canvas : ICanvas
                 using (var path = new SKPath())
                 {
                     path.AddRect(rect.ToSKRect());
-                    DrawSKPath(path, true);
+                    DrawSKPath(path, true, fill, pen);
                 }
             }
         }
     }
 
-    public void DrawText(FormattedText text)
+    public void DrawText(FormattedText text, IBrush? fill, IPen? pen)
     {
         VerifyAccess();
         var typeface = new Typeface(text.Font, text.Style, text.Weight);
         Size size = text.Bounds;
         SKTypeface sktypeface = typeface.ToSkia();
-        ConfigureFillPaint(size);
+        ConfigureFillPaint(size, fill);
         _sharedFillPaint.TextSize = text.Size;
         _sharedFillPaint.Typeface = sktypeface;
 
-        IPen? pen = Pen;
         bool enableStroke = pen != null && pen.Thickness != 0;
 
         if (enableStroke)
         {
-            ConfigureStrokePaint(new Rect(size));
+            ConfigureStrokePaint(new Rect(size), pen);
             _sharedStrokePaint.TextSize = text.Size;
             _sharedStrokePaint.Typeface = sktypeface;
         }
@@ -272,20 +249,19 @@ public class Canvas : ICanvas
         }
     }
 
-    internal void DrawSKPath(SKPath skPath, bool strokeOnly)
+    internal void DrawSKPath(SKPath skPath, bool strokeOnly, IBrush? fill, IPen? pen)
     {
         Rect rect = skPath.Bounds.ToGraphicsRect();
 
         if (!strokeOnly)
         {
-            ConfigureFillPaint(rect.Size);
+            ConfigureFillPaint(rect.Size, fill);
             _canvas.DrawPath(skPath, _sharedFillPaint);
         }
 
-        IPen? pen = Pen;
         if (pen != null && pen.Thickness != 0)
         {
-            ConfigureStrokePaint(rect);
+            ConfigureStrokePaint(rect, pen);
             switch (pen.StrokeAlignment)
             {
                 case StrokeAlignment.Center:
@@ -309,11 +285,11 @@ public class Canvas : ICanvas
         }
     }
 
-    public void DrawGeometry(Geometry geometry)
+    public void DrawGeometry(Geometry geometry, IBrush? fill, IPen? pen)
     {
         VerifyAccess();
         SKPath skPath = geometry.GetNativeObject();
-        DrawSKPath(skPath, false);
+        DrawSKPath(skPath, false, fill, pen);
     }
 
     public unsafe Bitmap<Bgra8888> GetBitmap()
@@ -326,54 +302,54 @@ public class Canvas : ICanvas
         return result;
     }
 
-    public PushedState PushPen(IPen? pen)
+    public void Pop(int count = -1)
     {
         VerifyAccess();
-        int level = _brushesStack.Count;
-        _penStack.Push(Pen);
-        Pen = pen;
-        return new PushedState(this, level, PushedStateType.Pen);
+
+        if (count < 0)
+        {
+            if (_states.TryPop(out CanvasPushedState? state))
+            {
+                state.Pop(this);
+            }
+        }
+        else
+        {
+            while (_states.Count >= count
+                && _states.TryPop(out CanvasPushedState? state))
+            {
+                state.Pop(this);
+            }
+        }
     }
 
-    public void PopPen(int level = -1)
+    public PushedState Push()
     {
         VerifyAccess();
-        level = level < 0 ? _penStack.Count - 1 : level;
+        int count = _canvas.Save();
 
-        while (_penStack.Count > level &&
-            _penStack.TryPop(out IPen? state))
-        {
-            Pen = state;
-        }
+        _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
+        return new PushedState(this, _states.Count);
     }
 
     public PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect)
     {
         VerifyAccess();
-        int level = _canvas.Save();
+        int count = _canvas.Save();
         ClipRect(clip, operation);
-        return new PushedState(this, level, PushedStateType.Clip);
+
+        _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
+        return new PushedState(this, _states.Count);
     }
 
-    public void PopClip(int level = -1)
+    public PushedState PushClip(Geometry geometry, ClipOperation operation = ClipOperation.Intersect)
     {
         VerifyAccess();
-        _canvas.RestoreToCount(level);
-        _currentTransform = _canvas.TotalMatrix.ToMatrix();
-    }
+        int count = _canvas.Save();
+        ClipPath(geometry, operation);
 
-    public PushedState PushCanvas()
-    {
-        VerifyAccess();
-        int level = _canvas.Save();
-        return new PushedState(this, level, PushedStateType.Canvas);
-    }
-
-    public void PopCanvas(int level = -1)
-    {
-        VerifyAccess();
-        _canvas.RestoreToCount(level);
-        _currentTransform = _canvas.TotalMatrix.ToMatrix();
+        _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
+        return new PushedState(this, _states.Count);
     }
 
     public PushedState PushOpacityMask(IBrush mask, Rect bounds, bool invert = false)
@@ -381,49 +357,10 @@ public class Canvas : ICanvas
         VerifyAccess();
         var paint = new SKPaint();
 
-        int level = _canvas.SaveLayer(paint);
+        int count = _canvas.SaveLayer(paint);
         ConfigurePaint(paint, bounds.Size, mask, (BlendMode)paint.BlendMode);
-        _maskStack.Push(new MaskInfo(invert, paint));
-        return new PushedState(this, level, PushedStateType.OpacityMask);
-    }
-
-    public void PopOpacityMask(int level = -1)
-    {
-        VerifyAccess();
-        MaskInfo maskInfo = _maskStack.Pop();
-        _sharedFillPaint.Reset();
-        _sharedFillPaint.BlendMode = maskInfo.Invert ? SKBlendMode.DstOut : SKBlendMode.DstIn;
-
-        _canvas.SaveLayer(_sharedFillPaint);
-        using (SKPaint maskPaint = maskInfo.Paint)
-        {
-            _canvas.DrawPaint(maskPaint);
-        }
-
-        _canvas.Restore();
-
-        _canvas.RestoreToCount(level);
-    }
-
-    public PushedState PushFillBrush(IBrush brush)
-    {
-        VerifyAccess();
-        int level = _brushesStack.Count;
-        _brushesStack.Push(FillBrush);
-        FillBrush = brush;
-        return new PushedState(this, level, PushedStateType.FillBrush);
-    }
-
-    public void PopFillBrush(int level = -1)
-    {
-        VerifyAccess();
-        level = level < 0 ? _brushesStack.Count - 1 : level;
-
-        while (_brushesStack.Count > level &&
-            _brushesStack.TryPop(out IBrush? state))
-        {
-            FillBrush = state;
-        }
+        _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
+        return new PushedState(this, _states.Count);
     }
 
     public PushedState PushImageFilter(IImageFilter filter, Rect bounds)
@@ -438,49 +375,16 @@ public class Canvas : ICanvas
             };
         }
 
-        int level = _canvas.SaveLayer(paint);
+        int count = _canvas.SaveLayer(paint);
 
-        _filterStack.Push(new ImageFilterInfo(filter, paint, level));
-        return new PushedState(this, level, PushedStateType.Filter);
-    }
-
-    public void PopImageFilter(int level = -1)
-    {
-        VerifyAccess();
-        while (_filterStack.TryPop(out ImageFilterInfo state)
-            && state.SaveCount >= level)
-        {
-            state.Paint.Dispose();
-        }
-
-        _canvas.RestoreToCount(level);
-    }
-
-    public PushedState PushBlendMode(BlendMode blendMode)
-    {
-        VerifyAccess();
-        int level = _blendModeStack.Count;
-        _blendModeStack.Push(BlendMode);
-        BlendMode = blendMode;
-        return new PushedState(this, level, PushedStateType.BlendMode);
-    }
-
-    public void PopBlendMode(int level = -1)
-    {
-        VerifyAccess();
-        level = level < 0 ? _blendModeStack.Count - 1 : level;
-
-        while (_blendModeStack.Count > level &&
-            _blendModeStack.TryPop(out BlendMode state))
-        {
-            BlendMode = state;
-        }
+        _states.Push(new CanvasPushedState.ImageFilterPushedState(count, filter, paint));
+        return new PushedState(this, _states.Count);
     }
 
     public PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend)
     {
         VerifyAccess();
-        int level = _canvas.Save();
+        int count = _canvas.Save();
 
         if (transformOperator == TransformOperator.Prepend)
         {
@@ -495,14 +399,15 @@ public class Canvas : ICanvas
             Transform = matrix;
         }
 
-        return new PushedState(this, level, PushedStateType.Transform);
+        _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
+        return new PushedState(this, _states.Count);
     }
 
-    public void PopTransform(int level = -1)
+    public PushedState PushBlendMode(BlendMode blendMode)
     {
         VerifyAccess();
-        _canvas.RestoreToCount(level);
-        _currentTransform = _canvas.TotalMatrix.ToMatrix();
+        _states.Push(new CanvasPushedState.BlendModePushedState(blendMode));
+        return new PushedState(this, _states.Count);
     }
 
     private void VerifyAccess()
@@ -721,10 +626,9 @@ public class Canvas : ICanvas
         }
     }
 
-    private void ConfigureStrokePaint(Rect rect)
+    private void ConfigureStrokePaint(Rect rect, IPen? pen)
     {
         _sharedStrokePaint.Reset();
-        IPen? pen = Pen;
 
         if (pen != null && pen.Thickness != 0)
         {
@@ -776,10 +680,10 @@ public class Canvas : ICanvas
         }
     }
 
-    private void ConfigureFillPaint(Size targetSize)
+    private void ConfigureFillPaint(Size targetSize, IBrush? brush)
     {
         _sharedFillPaint.Reset();
-        ConfigurePaint(_sharedFillPaint, targetSize, FillBrush, BlendMode);
+        ConfigurePaint(_sharedFillPaint, targetSize, brush, BlendMode);
     }
 
     internal static void ConfigurePaint(SKPaint paint, Size targetSize, IBrush? brush, BlendMode blendMode)
@@ -807,12 +711,6 @@ public class Canvas : ICanvas
             paint.Color = new SKColor(255, 255, 255, 0);
         }
     }
-
-    private readonly record struct MaskInfo(bool Invert, SKPaint Paint);
-
-    private readonly record struct ImageFilterInfo(IImageFilter ImageFilter, SKPaint Paint, int SaveCount);
-
-    private readonly record struct PenInfo(IPen? Pen, SKPaint? Paint, int SaveCount);
 
     private readonly struct TileBrushCalculator
     {

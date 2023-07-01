@@ -28,7 +28,7 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
     private AlignmentX _alignX = AlignmentX.Center;
     private AlignmentY _alignY = AlignmentY.Center;
     private RelativePoint _transformOrigin = RelativePoint.Center;
-    private IBrush? _foreground;
+    private IBrush? _foreground = new SolidColorBrush(Colors.White);
     private IBrush? _opacityMask;
     private BlendMode _blendMode = BlendMode.SrcOver;
 
@@ -159,7 +159,6 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
         if (width > 0 && height > 0)
         {
             using (var canvas = new Canvas(width, height))
-            using (Foreground == null ? new() : canvas.PushFillBrush(Foreground))
             {
                 OnDraw(canvas);
                 return canvas.GetBitmap();
@@ -226,7 +225,6 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
         }
 
         rect = rect.TransformToAABB(transform);
-        using (Foreground == null ? new() : canvas.PushFillBrush(Foreground))
         using (canvas.PushBlendMode(BlendMode))
         using (_filter == null ? new() : canvas.PushImageFilter(_filter, rect))
         using (canvas.PushTransform(transformFact))
@@ -250,7 +248,7 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
                 //}
                 //else
                 {
-                    canvas.DrawBitmap(outBmp);
+                    canvas.DrawBitmap(outBmp, Brushes.White, null);
                 }
 
                 outBmp.Dispose();
@@ -285,8 +283,6 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
 
                 Matrix transform = GetTransformMatrix(availableSize, size);
                 Rect transformedBounds = rect.TransformToAABB(transform);
-
-                using (Foreground == null ? new() : canvas.PushFillBrush(Foreground))
                 using (canvas.PushBlendMode(BlendMode))
                 using (_filter == null ? new() : canvas.PushImageFilter(_filter, /*new Rect(size)*/transformedBounds))
                 using (canvas.PushTransform(transform))
@@ -328,27 +324,35 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
 
     private Point CalculateTranslate(Size bounds, Size canvasSize)
     {
-        float x = -bounds.Width / 2;
-        float y = -bounds.Height / 2;
+        float x = 0;
+        float y = 0;
 
-        switch (AlignmentX)
+        if (float.IsFinite(canvasSize.Width))
         {
-            case AlignmentX.Center:
-                x += canvasSize.Width / 2;
-                break;
-            case AlignmentX.Right:
-                x += canvasSize.Width;
-                break;
+            x = -bounds.Width / 2;
+            switch (AlignmentX)
+            {
+                case AlignmentX.Center:
+                    x += canvasSize.Width / 2;
+                    break;
+                case AlignmentX.Right:
+                    x += canvasSize.Width;
+                    break;
+            }
         }
 
-        switch (AlignmentY)
+        if (float.IsFinite(canvasSize.Height))
         {
-            case AlignmentY.Center:
-                y += canvasSize.Height / 2;
-                break;
-            case AlignmentY.Bottom:
-                y += canvasSize.Height;
-                break;
+            y = -bounds.Height / 2;
+            switch (AlignmentY)
+            {
+                case AlignmentY.Center:
+                    y += canvasSize.Height / 2;
+                    break;
+                case AlignmentY.Bottom:
+                    y += canvasSize.Height;
+                    break;
+            }
         }
 
         return new Point(x, y);

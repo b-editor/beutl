@@ -24,7 +24,7 @@ public sealed class GeometryContext : IGeometryContext, IDisposable
 
     public Point LastPoint => NativeObject.LastPoint.ToGraphicsPoint();
 
-    public Rect Bounds => NativeObject.Bounds.ToGraphicsRect();
+    public Rect Bounds => NativeObject.TightBounds.ToGraphicsRect();
 
     public void ArcTo(Size radius, float angle, bool isLargeArc, bool sweepClockwise, Point point)
     {

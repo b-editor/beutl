@@ -169,12 +169,12 @@ public class VideoFrame : Drawable
             if (_previousBitmap?.IsDisposed == false
                 && MathUtilities.AreClose(frameNum, _previousFrame))
             {
-                canvas.DrawBitmap(_previousBitmap);
+                canvas.DrawBitmap(_previousBitmap, Foreground, null);
             }
             else if (_mediaReader.ReadVideo((int)frameNum, out IBitmap? bmp)
                 && bmp?.IsDisposed == false)
             {
-                canvas.DrawBitmap(bmp);
+                canvas.DrawBitmap(bmp, Foreground, null);
 
                 _previousBitmap?.Dispose();
                 _previousBitmap = bmp;

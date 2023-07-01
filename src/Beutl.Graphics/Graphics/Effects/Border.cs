@@ -174,7 +174,7 @@ public class Border : BitmapEffect
                 if (style == BorderStyles.Foreground)
                 {
                     using (canvas.PushTransform(srcTranslate))
-                        canvas.DrawBitmap(src);
+                        canvas.DrawBitmap(src, Brushes.White, null);
                 }
 
                 float xx = -(offset.X - Math.Max(offset.X, thickness)) - thickness;
@@ -183,13 +183,13 @@ public class Border : BitmapEffect
                 using (canvas.PushTransform(Matrix.CreateTranslation(offset.X + xx, offset.Y + yy)))
                 using (maskBrush != null ? canvas.PushOpacityMask(maskBrush, borderRect, maskType == MaskTypes.Invert) : new())
                 {
-                    canvas.DrawBitmap(border);
+                    canvas.DrawBitmap(border, Brushes.White, null);
                 }
 
                 if (style == BorderStyles.Background)
                 {
                     using (canvas.PushTransform(srcTranslate))
-                        canvas.DrawBitmap(src);
+                        canvas.DrawBitmap(src, Brushes.White, null);
                 }
 
                 dst = canvas.GetBitmap();
