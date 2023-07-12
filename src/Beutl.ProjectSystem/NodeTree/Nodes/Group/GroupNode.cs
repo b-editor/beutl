@@ -4,6 +4,8 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 
+using Avalonia.Controls.Mixins;
+
 namespace Beutl.NodeTree.Nodes.Group;
 
 // Todo: ファイルからノードグループを読み込めるようにする。
