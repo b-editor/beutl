@@ -12,6 +12,10 @@
   <ItemGroup>
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
-  <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.DependencyInjection.props" />
-  <Import Project="$(RootDirectory)\build\props\System.Reactive.props" />
+
+  <ItemGroup>
+    <PackageReference Include="System.Reactive" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+
 </Project>

@@ -5,11 +5,13 @@
     <ProjectReference Include="..\Beutl.Graphics\Beutl.Graphics.csproj" />
   </ItemGroup>
 
-  <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="FluentAvaloniaUI" />
+    <PackageReference Include="ReactiveProperty" />
 
-  <!-- CS8032 -->
-  <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.Analyzers.props" />
+    <!-- CS8032 -->
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
+  </ItemGroup>
 
 </Project>

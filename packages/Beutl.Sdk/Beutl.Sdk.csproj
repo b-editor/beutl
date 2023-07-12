@@ -18,17 +18,25 @@
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Utilities/Beutl.Utilities.csproj" PrivateAssets="All" />
   </ItemGroup>
 
-  <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\Avalonia.Svg.Skia.props" />
-  <Import Project="$(RootDirectory)\build\props\Avalonia.Xaml.Interactivity.props" />
-  <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\FluentIcons.FluentAvalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\OpenCvSharp4.props" />
-  <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
-  <Import Project="$(RootDirectory)\build\props\SkiaSharp.props" />
-  <Import Project="$(RootDirectory)\build\props\System.Interactive.props" />
-  <Import Project="$(RootDirectory)\build\props\System.Reactive.props" />
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.ReactiveUI" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Svg.Skia" />
+    <PackageReference Include="Avalonia.Xaml.Behaviors" />
+    <PackageReference Include="Avalonia.Xaml.Interactivity" />
+    <PackageReference Include="FluentAvaloniaUI" />
+    <PackageReference Include="FluentAvalonia.UI.Windowing" />
+    <PackageReference Include="FluentIcons.FluentAvalonia" />
+    <PackageReference Include="ReactiveProperty" />
+    <PackageReference Include="System.Interactive" />
+    <PackageReference Include="System.Reactive" />
 
+    <PackageReference Include="OpenCvSharp4" />
+    <PackageReference Include="SkiaSharp" />
+  </ItemGroup>
+  
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.props" />
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.targets" />
 </Project>

@@ -13,10 +13,29 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia.Controls.PanAndZoom" Version="11.0.0-preview4" />
-    <PackageReference Include="FluentAvalonia.BreadcrumbBar" Version="2.0.0-preview4.1" />
-    <PackageReference Include="PanelExtension" Version="1.0.0-preview2" />
-    <PackageReference Include="Roslynator.Analyzers" Version="4.2.0">
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.ReactiveUI" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" />
+    <PackageReference Include="AsyncImageLoader.Avalonia" />
+    <PackageReference Include="Avalonia.Controls.PanAndZoom" />
+    <PackageReference Include="Avalonia.Svg.Skia" />
+    <PackageReference Include="Avalonia.Xaml.Behaviors" />
+    <PackageReference Include="Avalonia.Xaml.Interactivity" />
+    <PackageReference Include="FluentAvaloniaUI" />
+    <PackageReference Include="FluentAvalonia.UI.Windowing" />
+    <PackageReference Include="FluentAvalonia.BreadcrumbBar" />
+    <PackageReference Include="FluentIcons.FluentAvalonia" />
+    <PackageReference Include="PanelExtension" />
+    <PackageReference Include="XamlNameReferenceGenerator" />
+
+    <PackageReference Include="ReactiveProperty" />
+    <PackageReference Include="System.Interactive" />
+    <PackageReference Include="System.Interactive.Async" />
+
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Roslynator.Analyzers" >
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -44,16 +63,5 @@
 
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.props" />
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.targets" />
-
-  <Import Project="$(RootDirectory)\build\props\AsyncImageLoader.Avalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\Avalonia.Svg.Skia.props" />
-  <Import Project="$(RootDirectory)\build\props\Avalonia.Xaml.Interactivity.props" />
-  <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
-  <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.DependencyInjection.props" />
   <Import Project="$(RootDirectory)\build\props\CoreLibraries.props" />
-  <Import Project="$(RootDirectory)\build\props\FluentIcons.FluentAvalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\System.Interactive.props" />
-  <Import Project="$(RootDirectory)\build\props\XamlNameReferenceGenerator.props" />
 </Project>

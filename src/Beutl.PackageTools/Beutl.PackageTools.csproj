@@ -14,15 +14,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FluentTextTable" Version="1.0.0" />
-    <PackageReference Include="Kokuban" Version="0.2.0" />
-    <PackageReference Include="Kurukuru" Version="1.4.2" />
-    <PackageReference Include="Sharprompt" Version="2.4.5" />
-    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+    <PackageReference Include="FluentTextTable" />
+    <PackageReference Include="Kokuban" />
+    <PackageReference Include="Kurukuru" />
+    <PackageReference Include="Sharprompt" />
+    <PackageReference Include="System.CommandLine" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
   </ItemGroup>
-
-  <!-- CS8032 -->
-  <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.Analyzers.props" />
 
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />

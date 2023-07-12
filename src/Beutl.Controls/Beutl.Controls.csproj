@@ -4,14 +4,17 @@
     <Nullable>disable</Nullable>
   </PropertyGroup>
 
-  <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\Avalonia.Xaml.Interactivity.props" />
-  <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\FluentIcons.FluentAvalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.FileSystemGlobbing.props" />
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Xaml.Behaviors" />
+    <PackageReference Include="Avalonia.Xaml.Interactivity" />
+    <PackageReference Include="FluentAvaloniaUI" />
+    <PackageReference Include="FluentIcons.FluentAvalonia" />
+    <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" />
 
-  <!-- CS8032 -->
-  <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.Analyzers.props" />
+    <!-- CS8032 -->
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Framework\Beutl.Framework.csproj" />

@@ -27,30 +27,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{BBF37951
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Props", "Props", "{74C34E00-E924-4463-A38B-F691AFBAE362}"
 	ProjectSection(SolutionItems) = preProject
-		build\props\AsyncImageLoader.Avalonia.props = build\props\AsyncImageLoader.Avalonia.props
-		build\props\Avalonia.props = build\props\Avalonia.props
-		build\props\Avalonia.Svg.Skia.props = build\props\Avalonia.Svg.Skia.props
-		build\props\Avalonia.Xaml.Interactivity.props = build\props\Avalonia.Xaml.Interactivity.props
 		build\props\CopyProjectReferencesToPackage.props = build\props\CopyProjectReferencesToPackage.props
 		build\props\CopyProjectReferencesToPackage.targets = build\props\CopyProjectReferencesToPackage.targets
 		build\props\CoreLibraries.props = build\props\CoreLibraries.props
-		build\props\FluentAvalonia.props = build\props\FluentAvalonia.props
-		build\props\FluentIcons.FluentAvalonia.props = build\props\FluentIcons.FluentAvalonia.props
-		build\props\Microsoft.CodeAnalysis.Analyzers.props = build\props\Microsoft.CodeAnalysis.Analyzers.props
-		build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props = build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props
-		build\props\Microsoft.Extensions.DependencyInjection.props = build\props\Microsoft.Extensions.DependencyInjection.props
-		build\props\Microsoft.Extensions.FileSystemGlobbing.props = build\props\Microsoft.Extensions.FileSystemGlobbing.props
-		build\props\Microsoft.Extensions.Http.props = build\props\Microsoft.Extensions.Http.props
-		build\props\Microsoft.Extensions.Logging.props = build\props\Microsoft.Extensions.Logging.props
-		build\props\Nito.AsyncEx.props = build\props\Nito.AsyncEx.props
-		build\props\OpenCvSharp4.props = build\props\OpenCvSharp4.props
-		build\props\ReactiveProperty.props = build\props\ReactiveProperty.props
-		build\props\Serilog.props = build\props\Serilog.props
-		build\props\SkiaSharp.props = build\props\SkiaSharp.props
-		build\props\System.Interactive.props = build\props\System.Interactive.props
-		build\props\System.Reactive.props = build\props\System.Reactive.props
-		build\props\UnitTest.props = build\props\UnitTest.props
-		build\props\XamlNameReferenceGenerator.props = build\props\XamlNameReferenceGenerator.props
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Configuration", "src\Beutl.Configuration\Beutl.Configuration.csproj", "{985AFD44-4A83-43DE-A700-269F5175E8C5}"
@@ -67,6 +46,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Root", "Root", "{80264A90-C
 		.gitattributes = .gitattributes
 		.gitignore = .gitignore
 		Directory.Build.props = Directory.Build.props
+		Directory.Packages.props = Directory.Packages.props
 		LICENSE = LICENSE
 		README.md = README.md
 	EndProjectSection
