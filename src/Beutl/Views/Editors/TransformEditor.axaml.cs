@@ -39,7 +39,7 @@ public partial class TransformEditor : UserControl
                 }
             });
 
-        ChangeTypeMenu.Items = CreateMenuItems(TransformTypeClicked);
+        ChangeTypeMenu.ItemsSource = CreateMenuItems(TransformTypeClicked);
     }
 
     private static MenuFlyoutItem[] CreateMenuItems(EventHandler<RoutedEventArgs>? handler)
@@ -67,7 +67,7 @@ public partial class TransformEditor : UserControl
 
                 if (x.Icon != null)
                 {
-                    obj.Icon = new FAPathIcon
+                    obj.IconSource = new PathIconSource
                     {
                         Data = Application.Current?.FindResource(x.Icon) as Avalonia.Media.Geometry
                     };
@@ -82,7 +82,7 @@ public partial class TransformEditor : UserControl
     {
         return s_flyout ??= new FAMenuFlyout()
         {
-            Items = CreateMenuItems((s, e) => s_handler?.Invoke(s, e))
+            ItemsSource = CreateMenuItems((s, e) => s_handler?.Invoke(s, e))
         };
     }
 

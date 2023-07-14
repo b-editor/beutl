@@ -18,7 +18,7 @@
 
         <ui:BreadcrumbBar Margin="8"
                           ItemClicked="BreadcrumbBarItemClicked"
-                          Items="{Binding Items}">
+                          ItemsSource="{Binding Items}">
             <ui:BreadcrumbBar.ItemTemplate>
                 <DataTemplate x:DataType="viewModel:NodeTreeNavigationItem">
                     <TextBlock Text="{Binding Name.Value}" />

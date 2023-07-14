@@ -3,11 +3,9 @@ using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
-using Avalonia.Collections.Pooled;
-
 using Beutl.Animation;
 using Beutl.Collections;
-using Beutl.Graphics;
+using Beutl.Collections.Pooled;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;

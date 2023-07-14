@@ -127,18 +127,18 @@ public sealed partial class MainView : UserControl
         FillMode = FillMode.Forward
     };
     private readonly TaskCompletionSource _windowOpenedTask = new();
-    private IControl? _settingsView;
+    private Control? _settingsView;
 
     public MainView()
     {
         InitializeComponent();
 
         // NavigationViewの設定
-        Navi.MenuItems = _navigationItems;
+        Navi.MenuItemsSource = _navigationItems;
         Navi.ItemInvoked += NavigationView_ItemInvoked;
 
-        recentFiles.Items = _rawRecentFileItems;
-        recentProjects.Items = _rawRecentProjItems;
+        recentFiles.ItemsSource = _rawRecentFileItems;
+        recentProjects.ItemsSource = _rawRecentProjItems;
     }
 
     private async void SceneSettings_Click(object? sender, RoutedEventArgs e)
@@ -169,7 +169,7 @@ public sealed partial class MainView : UserControl
                         Title = Message.DoYouWantToLoadSideloadExtensions,
                         Content = new ListBox
                         {
-                            Items = items.Select(x => x.Name).ToArray(),
+                            ItemsSource = items.Select(x => x.Name).ToArray(),
                             SelectedIndex = 0
                         },
                         PrimaryButtonText = Strings.Yes,
@@ -253,7 +253,7 @@ public sealed partial class MainView : UserControl
         NaviContent.Children.Add(_settingsView);
         _navigationItems.Clear();
 
-        IControl[] pageViews = viewModel.Pages.Select(CreateView).ToArray();
+        Control[] pageViews = viewModel.Pages.Select(CreateView).ToArray();
         NaviContent.Children.InsertRange(0, pageViews);
 
         NavigationViewItem[] navItems = viewModel.Pages.Select(item =>
@@ -283,10 +283,10 @@ public sealed partial class MainView : UserControl
             {
                 int idx = obj == null ? -1 : viewModel.Pages.IndexOf(obj);
 
-                IControl? oldControl = null;
+                Control? oldControl = null;
                 for (int i = 0; i < NaviContent.Children.Count; i++)
                 {
-                    if (NaviContent.Children[i] is IControl { IsVisible: true } control)
+                    if (NaviContent.Children[i] is Control { IsVisible: true } control)
                     {
                         control.IsVisible = false;
                         oldControl = control;
@@ -294,11 +294,11 @@ public sealed partial class MainView : UserControl
                 }
 
                 Navi.SelectedItem = idx >= 0 ? _navigationItems[idx] : Navi.FooterMenuItems.Cast<object>().First();
-                IControl newControl = idx >= 0 ? NaviContent.Children[idx] : _settingsView;
+                Control newControl = idx >= 0 ? NaviContent.Children[idx] : _settingsView;
 
                 newControl.IsVisible = true;
                 newControl.Opacity = 0;
-                await _animation.RunAsync((Animatable)newControl, null);
+                await _animation.RunAsync((Animatable)newControl);
                 newControl.Opacity = 1;
 
                 newControl.Focus();
@@ -306,9 +306,9 @@ public sealed partial class MainView : UserControl
         }).AddTo(_disposables);
     }
 
-    private static IControl CreateView(MainViewModel.NavItemViewModel item)
+    private static Control CreateView(MainViewModel.NavItemViewModel item)
     {
-        IControl? view = null;
+        Control? view = null;
         Exception? exception = null;
         try
         {
@@ -351,7 +351,7 @@ Error:
                 if (item != null)
                 {
                     int idx = index++;
-                    IControl view = CreateView(item);
+                    Control view = CreateView(item);
 
                     NaviContent.Children.Insert(idx, view);
                     _navigationItems.Insert(idx, new NavigationViewItem()
@@ -434,10 +434,9 @@ Error:
 
                 IReadOnlyList<IStorageFile> result = await window.StorageProvider.OpenFilePickerAsync(options);
                 if (result.Count > 0
-                    && result[0].TryGetUri(out Uri? uri)
-                    && uri.IsFile)
+                    && result[0].TryGetLocalPath() is string localPath)
                 {
-                    _projectService.OpenProject(uri.LocalPath);
+                    _projectService.OpenProject(localPath);
                 }
             }
         }).AddTo(_disposables);
@@ -468,9 +467,8 @@ Error:
 
                 foreach (IStorageFile file in files)
                 {
-                    if (file.TryGetUri(out Uri? uri) && uri.IsFile)
+                    if (file.TryGetLocalPath() is string path)
                     {
-                        string path = uri.LocalPath;
                         if (project != null && _projectItemContainer.TryGetOrCreateItem(path, out ProjectItem? item))
                         {
                             if (!addToProject.HasValue)
@@ -627,44 +625,38 @@ Error:
 
         viewModel.CutLayer.Subscribe(async () =>
         {
-            if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+            if (TopLevel.GetTopLevel(this) is { Clipboard: IClipboard clipboard }
+                && TryGetSelectedEditViewModel(out EditViewModel? viewModel)
                 && viewModel.Scene is Scene scene
                 && viewModel.SelectedObject.Value is Element layer)
             {
-                IClipboard? clipboard = Application.Current?.Clipboard;
-                if (clipboard != null)
-                {
-                    var jsonNode = new JsonObject();
-                    layer.WriteToJson(jsonNode);
-                    string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
-                    var data = new DataObject();
-                    data.Set(DataFormats.Text, json);
-                    data.Set(Constants.Element, json);
+                var jsonNode = new JsonObject();
+                layer.WriteToJson(jsonNode);
+                string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
+                var data = new DataObject();
+                data.Set(DataFormats.Text, json);
+                data.Set(Constants.Element, json);
 
-                    await clipboard.SetDataObjectAsync(data);
-                    scene.RemoveChild(layer).DoAndRecord(CommandRecorder.Default);
-                }
+                await clipboard.SetDataObjectAsync(data);
+                scene.RemoveChild(layer).DoAndRecord(CommandRecorder.Default);
             }
         }).AddTo(_disposables);
 
         viewModel.CopyLayer.Subscribe(async () =>
         {
-            if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+            if (TopLevel.GetTopLevel(this) is { Clipboard: IClipboard clipboard }
+                && TryGetSelectedEditViewModel(out EditViewModel? viewModel)
                 && viewModel.Scene is Scene scene
                 && viewModel.SelectedObject.Value is Element layer)
             {
-                IClipboard? clipboard = Application.Current?.Clipboard;
-                if (clipboard != null)
-                {
-                    var jsonNode = new JsonObject();
-                    layer.WriteToJson(jsonNode);
-                    string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
-                    var data = new DataObject();
-                    data.Set(DataFormats.Text, json);
-                    data.Set(Constants.Element, json);
+                var jsonNode = new JsonObject();
+                layer.WriteToJson(jsonNode);
+                string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
+                var data = new DataObject();
+                data.Set(DataFormats.Text, json);
+                data.Set(Constants.Element, json);
 
-                    await clipboard.SetDataObjectAsync(data);
-                }
+                await clipboard.SetDataObjectAsync(data);
             }
         }).AddTo(_disposables);
 
@@ -691,7 +683,7 @@ Error:
         if (toolTabMenuItem.Items is not IList items1)
         {
             items1 = new AvaloniaList<object>();
-            toolTabMenuItem.Items = items1;
+            toolTabMenuItem.ItemsSource = items1;
         }
 
         // Todo: Extensionの実行時アンロードの実現時、
@@ -727,7 +719,7 @@ Error:
         if (editorTabMenuItem.Items is not IList items2)
         {
             items2 = new AvaloniaList<object>();
-            editorTabMenuItem.Items = items2;
+            editorTabMenuItem.ItemsSource = items2;
         }
 
         viewMenuItem.SubmenuOpened += (s, e) =>

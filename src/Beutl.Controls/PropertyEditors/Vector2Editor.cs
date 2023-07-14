@@ -204,7 +204,7 @@ public class Vector2Editor<TElement> : Vector2Editor
 [TemplatePart("PART_InnerFirstTextBox", typeof(TextBox))]
 [TemplatePart("PART_InnerSecondTextBox", typeof(TextBox))]
 [TemplatePart("PART_BackgroundBorder", typeof(Border))]
-public class Vector2Editor : PropertyEditor, IStyleable
+public class Vector2Editor : PropertyEditor
 {
     public static readonly DirectProperty<Vector2Editor, string> FirstTextProperty =
         Vector4Editor.FirstTextProperty.AddOwner<Vector2Editor>(
@@ -258,7 +258,7 @@ public class Vector2Editor : PropertyEditor, IStyleable
 
     protected TextBox InnerSecondTextBox { get; private set; }
 
-    Type IStyleable.StyleKey => typeof(Vector2Editor);
+    protected override Type StyleKeyOverride => typeof(Vector2Editor);
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {

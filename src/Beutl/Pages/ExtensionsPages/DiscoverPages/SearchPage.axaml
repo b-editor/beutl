@@ -73,7 +73,7 @@
                     </Style>
                 </TabControl.Styles>
                 <TabItem Header="{x:Static lang:ExtensionsPage.Search_Packages}">
-                    <ItemsRepeater Items="{Binding Packages}">
+                    <ItemsRepeater ItemsSource="{Binding Packages}">
                         <ItemsRepeater.Layout>
                             <panelx:HorizontalGridLayout ColumnSpacing="16"
                                                          MinItemWidth="345"
@@ -136,7 +136,7 @@
                     </ItemsRepeater>
                 </TabItem>
                 <TabItem Header="{x:Static lang:ExtensionsPage.Search_Users}">
-                    <ItemsRepeater Items="{Binding Users}">
+                    <ItemsRepeater ItemsSource="{Binding Users}">
                         <ItemsRepeater.Layout>
                             <panelx:HorizontalGridLayout ColumnSpacing="16"
                                                          MinItemWidth="345"

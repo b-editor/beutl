@@ -9,7 +9,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Pages.ExtensionsPages.DevelopPages.Dialogs;
 
-public sealed partial class CreatePackageDialog : ContentDialog, IStyleable
+public sealed partial class CreatePackageDialog : ContentDialog
 {
     public CreatePackageDialog()
     {
@@ -24,7 +24,7 @@ public sealed partial class CreatePackageDialog : ContentDialog, IStyleable
         };
     }
 
-    Type IStyleable.StyleKey => typeof(ContentDialog);
+    protected override Type StyleKeyOverride => typeof(ContentDialog);
 
     protected override async void OnPrimaryButtonClick(ContentDialogButtonClickEventArgs args)
     {

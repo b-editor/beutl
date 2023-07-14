@@ -142,7 +142,7 @@
 
                 <ItemsRepeater Grid.Row="1"
                                Margin="0,16,0,0"
-                               Items="{Binding Packages}">
+                               ItemsSource="{Binding Packages}">
                     <ItemsRepeater.Layout>
                         <panelx:HorizontalGridLayout ColumnSpacing="16"
                                                      MinItemWidth="345"

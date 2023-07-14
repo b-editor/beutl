@@ -62,11 +62,8 @@ internal static class Program
             .UseReactiveUI()
             .With(new Win32PlatformOptions()
             {
-                UseWindowsUIComposition = true,
-                //EnableMultitouch = true,
-                CompositionBackdropCornerRadius = 8f
+                WinUICompositionBackdropCornerRadius = 8f
             })
-            .UseFAWindowing()
             .LogToTrace();
     }
 }

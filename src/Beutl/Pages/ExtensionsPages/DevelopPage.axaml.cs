@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.Platform.Storage.FileIO;
 using Avalonia.VisualTree;
 
@@ -48,12 +49,12 @@ public sealed partial class DevelopPage : UserControl
                 && DataContext is DevelopPageViewModel viewModel
                 && this.FindAncestorOfType<Frame>() is { } frame)
             {
-                string? file = e.Data.GetFileNames()?.FirstOrDefault(x => x.EndsWith(".nupkg") || x.EndsWith(".nuspec"));
-                if (file != null)
+                IStorageItem? sitem = e.Data.GetFiles()?.FirstOrDefault(x => x.Name.EndsWith(".nupkg") || x.Name.EndsWith(".nuspec"));
+                if (sitem is IStorageFile file)
                 {
                     DataContextFactory factory = viewModel.DataContextFactory;
                     UpdatePackageDialogViewModel dialogViewModel = factory.UpdatePackageDialog();
-                    dialogViewModel.SelectedFile.Value = new BclStorageFile(file);
+                    dialogViewModel.SelectedFile.Value = file;
 
                     var dialog = new UpdatePackageDialog()
                     {
@@ -81,7 +82,7 @@ public sealed partial class DevelopPage : UserControl
 
     private void OnDragEnter(object? sender, DragEventArgs e)
     {
-        if (e.Data.GetFileNames()?.Any(x => x.EndsWith(".nupkg") || x.EndsWith(".nuspec")) == true)
+        if (e.Data.GetFiles()?.Any(x => x.Name.EndsWith(".nupkg") || x.Name.EndsWith(".nuspec")) == true)
         {
             e.DragEffects = DragDropEffects.Copy;
         }

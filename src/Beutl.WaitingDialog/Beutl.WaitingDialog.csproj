@@ -20,9 +20,7 @@
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" />
     <PackageReference Include="FluentAvaloniaUI" />
-    <PackageReference Include="FluentAvalonia.UI.Windowing" />
     <PackageReference Include="FluentIcons.FluentAvalonia" />
-    <PackageReference Include="XamlNameReferenceGenerator" />
 
     <!-- CS8032 -->
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />

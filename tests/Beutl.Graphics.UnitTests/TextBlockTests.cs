@@ -52,7 +52,7 @@ public class TextBlockTests
 
         graphics.Clear(Colors.White);
 
-        tb.Draw(graphics);
+        tb.Render(graphics);
 
         using Bitmap<Bgra8888> bmp = graphics.GetBitmap();
 

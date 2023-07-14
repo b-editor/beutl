@@ -327,7 +327,7 @@ public static class PropertyEditorService
             return result;
         }
 
-        public bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out IControl? control)
+        public bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
         {
             if (TryCreateControlCore(context, out var control1))
             {
@@ -351,7 +351,7 @@ public static class PropertyEditorService
             }
         }
 
-        public bool TryCreateControlForNode(IPropertyEditorContext context, [NotNullWhen(true)] out IControl? control)
+        public bool TryCreateControlForNode(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
         {
             return TryCreateControlCore(context, out control);
         }
@@ -385,7 +385,7 @@ public static class PropertyEditorService
                     }
                 }
 
-                if (TryCreateControlCore(context, out IControl? control1) && control1 is IListItemEditor control2)
+                if (TryCreateControlCore(context, out Control? control1) && control1 is IListItemEditor control2)
                 {
                     control = control2;
                     return true;
@@ -409,7 +409,7 @@ public static class PropertyEditorService
             }
         }
 
-        private static bool TryCreateControlCore(IPropertyEditorContext context, [NotNullWhen(true)] out IControl? control)
+        private static bool TryCreateControlCore(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
         {
             control = null;
             try

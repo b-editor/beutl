@@ -54,6 +54,8 @@ public sealed partial class ElementView : UserControl
         obj.AnimationRequested = (_, _) => Task.CompletedTask;
         _disposable1?.Dispose();
         _disposable1 = null;
+
+        obj.SetClipboard(null);
     }
 
     private void OnDataContextAttached(ElementViewModel obj)
@@ -115,14 +117,16 @@ public sealed partial class ElementView : UserControl
                         }
                 };
 
-                Task task1 = animation1.RunAsync(border, null, token);
-                Task task2 = animation2.RunAsync(this, null, token);
+                Task task1 = animation1.RunAsync(border, token);
+                Task task2 = animation2.RunAsync(this, token);
                 await Task.WhenAll(task1, task2);
             });
         };
 
         _disposable1 = obj.Model.GetObservable(Element.IsEnabledProperty)
             .Subscribe(b => Dispatcher.UIThread.InvokeAsync(() => border.Opacity = b ? 1 : 0.5));
+
+        obj.SetClipboard(TopLevel.GetTopLevel(this)?.Clipboard);
     }
 
     protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
@@ -559,7 +563,7 @@ public sealed partial class ElementView : UserControl
                     else
                     {
                         s_animation1.PlaybackDirection = PlaybackDirection.Normal;
-                        Task task1 = s_animation1.RunAsync(obj.border, null);
+                        Task task1 = s_animation1.RunAsync(obj.border);
 
                         if (e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt)
                         {
@@ -600,7 +604,7 @@ public sealed partial class ElementView : UserControl
                 }
 
                 s_animation1.PlaybackDirection = PlaybackDirection.Reverse;
-                await s_animation1.RunAsync(obj.border, null);
+                await s_animation1.RunAsync(obj.border);
                 obj.border.Opacity = 1;
             }
         }

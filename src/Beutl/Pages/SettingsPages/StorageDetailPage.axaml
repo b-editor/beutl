@@ -33,12 +33,12 @@
         <ui:CommandBar Grid.Row="1" DefaultLabelPosition="Right">
             <ui:CommandBar.PrimaryCommands>
                 <ui:CommandBarButton Click="UploadClick"
-                                     Icon="Add"
+                                     IconSource="Add"
                                      Label="{x:Static lang:Strings.Add}" />
             </ui:CommandBar.PrimaryCommands>
         </ui:CommandBar>
 
-        <ListBox Grid.Row="2" Items="{CompiledBinding Items}">
+        <ListBox Grid.Row="2" ItemsSource="{CompiledBinding Items}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Grid ColumnDefinitions="*,Auto,Auto,Auto">
@@ -70,31 +70,31 @@
                                              Click="ChangeVisibility_Click"
                                              IsVisible="{CompiledBinding Model.IsPublic.Value}"
                                              Label="{x:Static lang:SettingsPage.MakePrivate}">
-                            <ui:CommandBarButton.Icon>
-                                <icons:SymbolIcon Symbol="EyeOff" />
-                            </ui:CommandBarButton.Icon>
+                            <ui:CommandBarButton.IconSource>
+                                <icons:SymbolIconSource Symbol="EyeOff" />
+                            </ui:CommandBarButton.IconSource>
                         </ui:CommandBarButton>
 
                         <ui:CommandBarButton Grid.Column="1"
                                              Click="ChangeVisibility_Click"
                                              IsVisible="{CompiledBinding !Model.IsPublic.Value}"
                                              Label="{x:Static lang:SettingsPage.MakePublic}">
-                            <ui:CommandBarButton.Icon>
-                                <icons:SymbolIcon Symbol="Eye" />
-                            </ui:CommandBarButton.Icon>
+                            <ui:CommandBarButton.IconSource>
+                                <icons:SymbolIconSource Symbol="Eye" />
+                            </ui:CommandBarButton.IconSource>
                         </ui:CommandBarButton>
 
                         <ui:CommandBarButton Grid.Column="2"
                                              Click="CopyDownloadUrl_Click"
                                              Label="{x:Static lang:Strings.Copy}">
-                            <ui:CommandBarButton.Icon>
-                                <icons:SymbolIcon Symbol="ClipboardLink" />
-                            </ui:CommandBarButton.Icon>
+                            <ui:CommandBarButton.IconSource>
+                                <icons:SymbolIconSource Symbol="ClipboardLink" />
+                            </ui:CommandBarButton.IconSource>
                         </ui:CommandBarButton>
 
                         <ui:CommandBarButton Grid.Column="3"
                                              Click="Delete_Click"
-                                             Icon="Delete"
+                                             IconSource="Delete"
                                              Label="{x:Static lang:Strings.Delete}" />
                     </Grid>
                 </DataTemplate>

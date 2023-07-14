@@ -18,7 +18,7 @@ public sealed class GraphEditorTabExtension : ToolTabExtension
 
     public override string DisplayName => "Graph Editor Tab";
 
-    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
+    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
         if (editorContext is EditViewModel)
         {

@@ -5,25 +5,23 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
-using Avalonia.Platform.Storage.FileIO;
-using Avalonia.Styling;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class StorageFileEditor : StringEditor, IStyleable
+public class StorageFileEditor : StringEditor
 {
     public static readonly StyledProperty<FilePickerOpenOptions> OpenOptionsProperty =
         AvaloniaProperty.Register<StorageFileEditor, FilePickerOpenOptions>(nameof(OpenOptions));
 
-    public static readonly DirectProperty<StorageFileEditor, IStorageFile> ValueProperty =
-        AvaloniaProperty.RegisterDirect<StorageFileEditor, IStorageFile>(
+    public static readonly DirectProperty<StorageFileEditor, FileInfo> ValueProperty =
+        AvaloniaProperty.RegisterDirect<StorageFileEditor, FileInfo>(
             nameof(Value),
             o => o.Value,
             (o, v) => o.Value = v,
             defaultBindingMode: BindingMode.TwoWay);
 
-    private IStorageFile _value;
-    private IStorageFile _oldValue;
+    private FileInfo _value;
+    private FileInfo _oldValue;
     private string _oldText;
 
     public StorageFileEditor()
@@ -37,20 +35,19 @@ public class StorageFileEditor : StringEditor, IStyleable
         set => SetValue(OpenOptionsProperty, value);
     }
 
-    public IStorageFile Value
+    public FileInfo Value
     {
         get => _value;
         set
         {
-            string text = value?.TryGetUri(out Uri uri) == true ? uri.LocalPath : "";
             if (SetAndRaise(ValueProperty, ref _value, value))
             {
-                Text = text;
+                Text = value.FullName;
             }
         }
     }
 
-    Type IStyleable.StyleKey => typeof(StorageFileEditor);
+    protected override Type StyleKeyOverride => typeof(StorageFileEditor);
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -66,11 +63,11 @@ public class StorageFileEditor : StringEditor, IStyleable
         if (VisualRoot is TopLevel { StorageProvider: { } storage })
         {
             IReadOnlyList<IStorageFile> result = await storage.OpenFilePickerAsync(OpenOptions);
-            if (result is [var file])
+            if (result is [var file] && file.TryGetLocalPath() is string localPath)
             {
-                IStorageFile oldValue = Value;
-                Value = file;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<IStorageFile>(file, oldValue, ValueChangedEvent));
+                FileInfo oldValue = Value;
+                Value = new FileInfo(localPath);
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo>(Value, oldValue, ValueChangedEvent));
             }
         }
     }
@@ -91,7 +88,7 @@ public class StorageFileEditor : StringEditor, IStyleable
             Value = GetStorageFile(Text);
             if (Text != _oldText)
             {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<IStorageFile>(Value, _oldValue, ValueChangedEvent));
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo>(Value, _oldValue, ValueChangedEvent));
             }
         }
     }
@@ -113,26 +110,14 @@ public class StorageFileEditor : StringEditor, IStyleable
             return true;
         }
 
-        if (Uri.TryCreate(value, UriKind.Absolute, out Uri uri)
-            && uri.IsFile)
-        {
-            return File.Exists(uri.LocalPath);
-        }
-
         return false;
     }
 
-    private static IStorageFile GetStorageFile(string value)
+    private FileInfo GetStorageFile(string value)
     {
         if (File.Exists(value))
         {
-            return new BclStorageFile(value);
-        }
-
-        if (Uri.TryCreate(value, UriKind.Absolute, out Uri uri)
-            && uri.IsFile)
-        {
-            return new BclStorageFile(uri.LocalPath);
+            return new FileInfo(value);
         }
 
         return null;

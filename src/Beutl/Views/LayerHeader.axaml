@@ -110,7 +110,7 @@
 
         <ItemsControl Grid.Row="1"
                       Grid.ColumnSpan="4"
-                      Items="{CompiledBinding Inlines}">
+                      ItemsSource="{CompiledBinding Inlines}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <local:InlineAnimationLayerHeader />

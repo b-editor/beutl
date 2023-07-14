@@ -148,7 +148,7 @@ public sealed class ConnectionLine : Line
     {
         var geometry = new StreamGeometry();
 
-        using var context = geometry.Open();
+        using StreamGeometryContext context = geometry.Open();
 
         context.BeginFigure(StartPoint, false);
 
@@ -345,7 +345,7 @@ public sealed class SocketPoint : Control
         {
             for (int i = _canvas.Children.Count - 1; i >= 0; i--)
             {
-                IControl item = _canvas.Children[i];
+                Control item = _canvas.Children[i];
                 if (item is ConnectionLine cline && cline.Match(viewModel))
                 {
                     SocketViewModel? target = cline.GetTarget(viewModel);

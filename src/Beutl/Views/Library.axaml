@@ -73,7 +73,7 @@
 
                 <ListBox x:Name="searchResult"
                          Grid.Row="2"
-                         Items="{Binding AllItems}">
+                         ItemsSource="{Binding AllItems}">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <StackPanel DataContext="{Binding Value}" Spacing="2">
@@ -163,7 +163,7 @@
                         </Panel>
                     </Border>
 
-                    <ItemsControl x:Name="itemsControl" Items="{Binding Easings}">
+                    <ItemsControl x:Name="itemsControl" ItemsSource="{Binding Easings}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel Orientation="Horizontal" />
@@ -187,7 +187,7 @@
             </ScrollViewer>
 
             <TreeView x:Name="OperatorTree"
-                      Items="{Binding Operators}"
+                      ItemsSource="{Binding Operators}"
                       SelectionMode="Single">
                 <TreeView.ItemTemplate>
                     <TreeDataTemplate ItemsSource="{Binding Children}">
@@ -197,7 +197,7 @@
             </TreeView>
 
             <TreeView x:Name="NodeTreeView"
-                      Items="{Binding Nodes}"
+                      ItemsSource="{Binding Nodes}"
                       SelectionMode="Single">
                 <TreeView.ItemTemplate>
                     <TreeDataTemplate ItemsSource="{Binding Children}">

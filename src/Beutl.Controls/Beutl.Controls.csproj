@@ -9,7 +9,6 @@
     <PackageReference Include="Avalonia.Xaml.Behaviors" />
     <PackageReference Include="Avalonia.Xaml.Interactivity" />
     <PackageReference Include="FluentAvaloniaUI" />
-    <PackageReference Include="FluentAvalonia.UI.Windowing" />
     <PackageReference Include="FluentIcons.FluentAvalonia" />
     <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" />
 

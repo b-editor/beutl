@@ -9,7 +9,7 @@ public abstract class PropertyEditorValueChangedEventArgs : RoutedEventArgs
     {
     }
 
-    protected PropertyEditorValueChangedEventArgs(RoutedEvent routedEvent, IInteractive source)
+    protected PropertyEditorValueChangedEventArgs(RoutedEvent routedEvent, Interactive source)
         : base(routedEvent, source)
     {
     }
@@ -32,7 +32,7 @@ public class PropertyEditorValueChangedEventArgs<TValue> : PropertyEditorValueCh
         OldValue = oldValue;
     }
 
-    public PropertyEditorValueChangedEventArgs(TValue newValue, TValue oldValue, RoutedEvent routedEvent, IInteractive source)
+    public PropertyEditorValueChangedEventArgs(TValue newValue, TValue oldValue, RoutedEvent routedEvent, Interactive source)
         : base(routedEvent, source)
     {
         NewValue = newValue;

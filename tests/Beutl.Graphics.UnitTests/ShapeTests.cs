@@ -26,7 +26,7 @@ public class ShapeTests
         using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
-        shape.Draw(canvas);
+        shape.Render(canvas);
 
         using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
 
@@ -62,7 +62,7 @@ public class ShapeTests
 
         canvas.Clear(Colors.Black);
 
-        shape.Draw(canvas);
+        shape.Render(canvas);
 
         using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
 
@@ -86,7 +86,7 @@ public class ShapeTests
         using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
-        shape.Draw(canvas);
+        shape.Render(canvas);
 
         using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
 
@@ -112,7 +112,7 @@ public class ShapeTests
         using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
-        shape.Draw(canvas);
+        shape.Render(canvas);
 
         using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
 
@@ -148,7 +148,7 @@ public class ShapeTests
         using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
-        shape.Draw(canvas);
+        shape.Render(canvas);
 
         using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
 
@@ -184,7 +184,7 @@ public class ShapeTests
         using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
-        shape.Draw(canvas);
+        shape.Render(canvas);
 
         using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
 
@@ -237,7 +237,7 @@ public class ShapeTests
         using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
-        shape.Draw(canvas);
+        shape.Render(canvas);
 
         using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
 

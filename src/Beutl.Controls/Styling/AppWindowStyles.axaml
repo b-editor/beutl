@@ -1,7 +1,7 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:ui="using:FluentAvalonia.UI.Controls"
-                    xmlns:wnd="clr-namespace:FluentAvalonia.UI.Windowing;assembly=FluentAvalonia.UI.Windowing">
+                    xmlns:wnd="using:FluentAvalonia.UI.Windowing">
     <FontFamily x:Key="SegoeFluentIconsFontFamily">Segoe Fluent Icons</FontFamily>
     <SolidColorBrush x:Key="CaptionButtonBackground" Color="Transparent" />
     <StaticResource x:Key="CaptionButtonForeground" ResourceKey="TextFillColorPrimaryBrush" />

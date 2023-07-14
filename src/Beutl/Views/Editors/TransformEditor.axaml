@@ -21,7 +21,7 @@
                 <ui:FAMenuFlyout>
                     <ui:MenuFlyoutSubItem x:Name="ChangeTypeMenu"
                                           FontWeight="Normal"
-                                          Icon="New"
+                                          IconSource="New"
                                           Text="変更" />
                     <ui:MenuFlyoutItem Click="SetNullClick"
                                        FontWeight="Normal"
@@ -67,7 +67,7 @@
                                     IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
                                                                   Converter={x:Static ObjectConverters.IsNotNull}}" />
 
-            <ItemsControl DataContext="{Binding Group.Value}" Items="{Binding Items}">
+            <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <local:ListItemEditor />

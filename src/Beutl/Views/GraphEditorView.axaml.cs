@@ -48,30 +48,23 @@ public partial class GraphEditorView : UserControl
             OnDataContextAttached,
             OnDataContextDetached);
 
-        views.ItemContainerGenerator.Materialized += OnViewMaterialized;
-        views.ItemContainerGenerator.Dematerialized += OnViewDematerialized;
+        views.ContainerPrepared += OnContainerPrepared;
+        views.ContainerClearing += OnContainerClearing;
     }
 
-    private void OnViewMaterialized(object? sender, ItemContainerEventArgs e)
+    private void OnContainerPrepared(object? sender, ContainerPreparedEventArgs e)
     {
-        foreach (ItemContainerInfo item in e.Containers)
+        if (e.Container is { DataContext: GraphEditorViewViewModel viewModel } container)
         {
-            if (item.Item is GraphEditorViewViewModel viewModel
-                && item.ContainerControl is ContentPresenter container)
-            {
-                container.Bind(ZIndexProperty, viewModel.IsSelected.Select(v => v ? 1 : 0));
-            }
+            container.Bind(ZIndexProperty, viewModel.IsSelected.Select(v => v ? 1 : 0));
         }
     }
 
-    private void OnViewDematerialized(object? sender, ItemContainerEventArgs e)
+    private void OnContainerClearing(object? sender, ContainerClearingEventArgs e)
     {
-        foreach (ItemContainerInfo item in e.Containers)
+        if (e.Container is { } container)
         {
-            if (item.ContainerControl is ContentPresenter container)
-            {
-                container.Bind(ZIndexProperty, Observable.Return(BindingValue<int>.Unset));
-            }
+            container.Bind(ZIndexProperty, Observable.Return(BindingValue<int>.Unset));
         }
     }
 

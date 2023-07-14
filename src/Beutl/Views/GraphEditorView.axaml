@@ -81,7 +81,7 @@
                         </MenuItem>
                         <MenuItem Header="ビュー"
                                   IsEnabled="{Binding !!Views.Length}"
-                                  Items="{Binding Views}"
+                                  ItemsSource="{Binding Views}"
                                   MenuItem.Click="SelectedView_Click">
                             <!--  https://github.com/AvaloniaUI/Avalonia/issues/9696
                             <MenuItem.ItemTemplate>
@@ -138,7 +138,7 @@
                               HorizontalAlignment="Stretch"
                               VerticalAlignment="Stretch"
                               ClipToBounds="False"
-                              Items="{Binding Views}">
+                              ItemsSource="{Binding Views}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <Panel />
@@ -157,7 +157,7 @@
                                 <ItemsControl HorizontalAlignment="Left"
                                               VerticalAlignment="Stretch"
                                               ClipToBounds="False"
-                                              Items="{Binding KeyFrames}">
+                                              ItemsSource="{Binding KeyFrames}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <Panel />
@@ -182,7 +182,7 @@
                                               VerticalAlignment="Stretch"
                                               ClipToBounds="False"
                                               IsVisible="{Binding IsSelected.Value}"
-                                              Items="{Binding KeyFrames}">
+                                              ItemsSource="{Binding KeyFrames}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <Panel />

@@ -38,7 +38,7 @@
                            IsVisible="{Binding !!Suggestion.Count}"
                            Text="{x:Static lang:Strings.Suggestion}" />
                 <ListBox MaxHeight="160"
-                         Items="{Binding Suggestion}"
+                         ItemsSource="{Binding Suggestion}"
                          SelectedItem="{Binding SelectedFile.Value}">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
@@ -55,7 +55,7 @@
             <StackPanel Spacing="8">
                 <TextBlock Text="{x:Static lang:Strings.Extensions}" />
                 <ListBox MaxHeight="235"
-                         Items="{Binding AvailableExtensions}"
+                         ItemsSource="{Binding AvailableExtensions}"
                          SelectedItem="{Binding SelectedExtension.Value}"
                          SelectionMode="AlwaysSelected">
                     <ListBox.ItemTemplate>

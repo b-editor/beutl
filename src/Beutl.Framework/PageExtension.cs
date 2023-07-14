@@ -8,7 +8,7 @@ namespace Beutl.Framework;
 
 public abstract class PageExtension : Extension
 {
-    public abstract IControl CreateControl();
+    public abstract Control CreateControl();
     
     public abstract IPageContext CreateContext();
 

@@ -66,7 +66,7 @@
 
             <ItemsControl x:Name="items"
                           Grid.Row="1"
-                          Items="{Binding Items}">
+                          ItemsSource="{Binding Items}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <local:ListItemEditor />

@@ -68,8 +68,6 @@
                                                         Grid.Column="0"
                                                         MaxWidth="{TemplateBinding MaxWidthOfItemsPresenter}"
                                                         HorizontalAlignment="Left"
-                                                        ItemTemplate="{TemplateBinding ItemTemplate}"
-                                                        Items="{TemplateBinding Items}"
                                                         ItemsPanel="{TemplateBinding ItemsPanel}">
                                             <ItemsPresenter.Transitions>
                                                 <Transitions>
@@ -181,8 +179,6 @@
                                                         Grid.Column="0"
                                                         MaxWidth="{TemplateBinding MaxWidthOfItemsPresenter}"
                                                         HorizontalAlignment="Left"
-                                                        ItemTemplate="{TemplateBinding ItemTemplate}"
-                                                        Items="{TemplateBinding Items}"
                                                         ItemsPanel="{TemplateBinding ItemsPanel}">
                                             <ItemsPresenter.Transitions>
                                                 <Transitions>
@@ -251,8 +247,6 @@
                                                         MaxHeight="{TemplateBinding MaxWidthOfItemsPresenter}"
                                                         HorizontalAlignment="Stretch"
                                                         VerticalAlignment="Top"
-                                                        ItemTemplate="{TemplateBinding ItemTemplate}"
-                                                        Items="{TemplateBinding Items}"
                                                         ItemsPanel="{TemplateBinding ItemsPanel}">
                                             <ItemsPresenter.Transitions>
                                                 <Transitions>
@@ -344,8 +338,6 @@
                                                             MaxHeight="{TemplateBinding MaxWidthOfItemsPresenter}"
                                                             HorizontalAlignment="Stretch"
                                                             VerticalAlignment="Top"
-                                                            ItemTemplate="{TemplateBinding ItemTemplate}"
-                                                            Items="{TemplateBinding Items}"
                                                             ItemsPanel="{TemplateBinding ItemsPanel}">
                                                 <ItemsPresenter.Transitions>
                                                     <Transitions>

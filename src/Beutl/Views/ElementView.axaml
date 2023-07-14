@@ -48,37 +48,37 @@
                 <ui:MenuFlyoutItem Command="{CompiledBinding Split}"
                                    CommandParameter="{Binding #root.GetClickedTime, Mode=OneTime}"
                                    Text="{x:Static lang:Strings.Split}">
-                    <ui:MenuFlyoutItem.Icon>
-                        <icons:SymbolIcon Symbol="SplitVertical" />
-                    </ui:MenuFlyoutItem.Icon>
+                    <ui:MenuFlyoutItem.IconSource>
+                        <icons:SymbolIconSource Symbol="SplitVertical" />
+                    </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
                 <ui:MenuFlyoutItem Command="{CompiledBinding Cut}"
                                    InputGesture="{DynamicResource CutKeyGesture}"
                                    Text="{x:Static lang:Strings.Cut}">
-                    <ui:MenuFlyoutItem.Icon>
-                        <icons:SymbolIcon Symbol="Cut" />
-                    </ui:MenuFlyoutItem.Icon>
+                    <ui:MenuFlyoutItem.IconSource>
+                        <icons:SymbolIconSource Symbol="Cut" />
+                    </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
                 <ui:MenuFlyoutItem Command="{CompiledBinding Copy}"
                                    InputGesture="{DynamicResource CopyKeyGesture}"
                                    Text="{x:Static lang:Strings.Copy}">
-                    <ui:MenuFlyoutItem.Icon>
-                        <icons:SymbolIcon Symbol="Copy" />
-                    </ui:MenuFlyoutItem.Icon>
+                    <ui:MenuFlyoutItem.IconSource>
+                        <icons:SymbolIconSource Symbol="Copy" />
+                    </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
                 <ui:MenuFlyoutItem Command="{CompiledBinding Delete}"
                                    InputGesture="{DynamicResource LayerDeleteKeyGesture}"
                                    Text="{x:Static lang:Strings.Delete}">
-                    <ui:MenuFlyoutItem.Icon>
-                        <icons:SymbolIcon Symbol="DeleteDismiss" />
-                    </ui:MenuFlyoutItem.Icon>
+                    <ui:MenuFlyoutItem.IconSource>
+                        <icons:SymbolIconSource Symbol="DeleteDismiss" />
+                    </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
                 <ui:MenuFlyoutItem Command="{CompiledBinding Exclude}"
                                    InputGesture="{DynamicResource DeleteKeyGesture}"
                                    Text="{x:Static lang:Strings.Exclude}">
-                    <ui:MenuFlyoutItem.Icon>
-                        <icons:SymbolIcon Symbol="Delete" />
-                    </ui:MenuFlyoutItem.Icon>
+                    <ui:MenuFlyoutItem.IconSource>
+                        <icons:SymbolIconSource Symbol="Delete" />
+                    </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
                 <ui:ToggleMenuFlyoutItem Click="AllowOutflowClick"
                                          IsChecked="{CompiledBinding AllowOutflow.Value, Mode=OneWay}"
@@ -105,9 +105,9 @@
                     </ui:ToggleMenuFlyoutItem.Styles>
                 </ui:ToggleMenuFlyoutItem>
                 <ui:MenuFlyoutItem Click="OpenNodeTree_Click" Text="ノードツリーを開く">
-                    <ui:MenuFlyoutItem.Icon>
-                        <icons:SymbolIcon Symbol="Open" />
-                    </ui:MenuFlyoutItem.Icon>
+                    <ui:MenuFlyoutItem.IconSource>
+                        <icons:SymbolIconSource Symbol="Open" />
+                    </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
             </ui:FAMenuFlyout>
         </Border.ContextFlyout>

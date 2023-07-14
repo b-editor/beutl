@@ -99,7 +99,7 @@ public sealed class NavigateButton<T> : NavigateButton
                     {
                         var combobox = new ComboBox
                         {
-                            Items = types,
+                            ItemsSource = types,
                             SelectedIndex = 0
                         };
 

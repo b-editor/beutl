@@ -17,9 +17,6 @@ public partial class MainWindow : Window
             EnableRaisingEvents = true,
             IncludeSubdirectories = true
         });
-#if DEBUG
-        this.AttachDevTools();
-#endif
     }
 
     private void InitializeComponent()

@@ -27,7 +27,7 @@ public sealed partial class SettingsPage : UserControl
         _ = new NavigationProvider(frame, _pageResolver);
 
         List<NavigationViewItem> items = GetItems();
-        nav.MenuItems = items;
+        nav.MenuItemsSource = items;
         NavigationViewItem selected = items[0];
 
         frame.Navigated += Frame_Navigated;
@@ -69,7 +69,7 @@ public sealed partial class SettingsPage : UserControl
             {
                 Content = Strings.Account,
                 Tag = typeof(AccountSettingsPage),
-                Icon = new SymbolIcon
+                IconSource = new SymbolIconSource
                 {
                     Symbol = Symbol.People
                 }
@@ -78,7 +78,7 @@ public sealed partial class SettingsPage : UserControl
             {
                 Content = Strings.View,
                 Tag = typeof(ViewSettingsPage),
-                Icon = new SymbolIcon
+                IconSource = new SymbolIconSource
                 {
                     Symbol = Symbol.View
                 }
@@ -87,7 +87,7 @@ public sealed partial class SettingsPage : UserControl
             {
                 Content = Strings.Font,
                 Tag = typeof(FontSettingsPage),
-                Icon = new SymbolIcon
+                IconSource = new SymbolIconSource
                 {
                     Symbol = Symbol.Font
                 }
@@ -96,7 +96,7 @@ public sealed partial class SettingsPage : UserControl
             {
                 Content = Strings.Extensions,
                 Tag = typeof(ExtensionsSettingsPage),
-                Icon = new FluentIcons.FluentAvalonia.SymbolIcon()
+                IconSource = new FluentIcons.FluentAvalonia.SymbolIconSource()
                 {
                     Symbol = FluentIcons.Common.Symbol.PuzzlePiece
                 }
@@ -105,7 +105,7 @@ public sealed partial class SettingsPage : UserControl
             {
                 Content = Language.SettingsPage.Storage,
                 Tag = typeof(StorageSettingsPage),
-                Icon = new FluentIcons.FluentAvalonia.SymbolIcon()
+                IconSource = new FluentIcons.FluentAvalonia.SymbolIconSource()
                 {
                     Symbol = FluentIcons.Common.Symbol.Storage
                 }
@@ -114,7 +114,7 @@ public sealed partial class SettingsPage : UserControl
             {
                 Content = Strings.Info,
                 Tag = typeof(InfomationPage),
-                Icon = new FluentIcons.FluentAvalonia.SymbolIcon()
+                IconSource = new FluentIcons.FluentAvalonia.SymbolIconSource()
                 {
                     Symbol = FluentIcons.Common.Symbol.Info
                 }

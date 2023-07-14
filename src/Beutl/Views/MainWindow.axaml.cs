@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using Avalonia.Styling;
 using Avalonia.Threading;
 
 using Beutl.Configuration;
@@ -29,9 +30,17 @@ public sealed partial class MainWindow : AppWindow
             Margin = new Thickness(64, 40, 0, 0)
         };
         TitleBar.Height = 40;
+
+        ActualThemeVariantChanged += OnActualThemeVariantChanged;
 #if DEBUG
         this.AttachDevTools();
 #endif
+    }
+
+    private void OnActualThemeVariantChanged(object? sender, EventArgs e)
+    {
+        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        OnThemeChanged(ActualThemeVariant, viewConfig.IsMicaEffectEnabled);
     }
 
     public WindowNotificationManager NotificationManager { get; }
@@ -40,23 +49,14 @@ public sealed partial class MainWindow : AppWindow
     {
         base.OnOpened(e);
         mainView.Focus();
-        FluentAvaloniaTheme thm = AvaloniaLocator.Current.GetService<FluentAvaloniaTheme>()!;
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        thm.RequestedThemeChanged += (_, e) => OnThemeChanged(e.NewTheme, viewConfig.IsMicaEffectEnabled);
 
         viewConfig.GetObservable(ViewConfig.IsMicaEffectEnabledProperty).Subscribe(value
             => Dispatcher.UIThread.InvokeAsync(()
-                => OnThemeChanged(thm.RequestedTheme, value)));
-
-        if (OperatingSystem.IsWindows())
-        {
-            thm.UseSystemFontOnWindows = false;
-
-            thm.ForceWin32WindowToTheme(this);
-        }
+                => OnThemeChanged(ActualThemeVariant, value)));
     }
 
-    protected override void OnClosing(CancelEventArgs e)
+    protected override void OnClosing(WindowClosingEventArgs e)
     {
         base.OnClosing(e);
         if (DataContext is MainViewModel viewModel)
@@ -65,9 +65,9 @@ public sealed partial class MainWindow : AppWindow
         }
     }
 
-    private void OnThemeChanged(string theme, bool isMicaEnabled)
+    private void OnThemeChanged(ThemeVariant theme, bool isMicaEnabled)
     {
-        if (theme == FluentAvaloniaTheme.HighContrastModeString)
+        if (theme == FluentAvaloniaTheme.HighContrastTheme)
         {
             SetValue(BackgroundProperty, AvaloniaProperty.UnsetValue);
         }
@@ -76,20 +76,20 @@ public sealed partial class MainWindow : AppWindow
             if (IsWindows11 && isMicaEnabled)
             {
                 TransparencyBackgroundFallback = Brushes.Transparent;
-                TransparencyLevelHint = WindowTransparencyLevel.Mica;
+                TransparencyLevelHint = new[] { WindowTransparencyLevel.Mica };
 
                 TryEnableMicaEffect(theme);
             }
             else
             {
-                TransparencyLevelHint = WindowTransparencyLevel.None;
+                TransparencyLevelHint = new[] { WindowTransparencyLevel.None };
 
                 TryDisableMicaEffect(theme);
             }
         }
     }
 
-    private void TryEnableMicaEffect(string thm)
+    private void TryEnableMicaEffect(ThemeVariant thm)
     {
         // The background colors for the Mica brush are still based around SolidBackgroundFillColorBase resource
         // BUT since we can't control the actual Mica brush color, we have to use the window background to create
@@ -98,7 +98,7 @@ public sealed partial class MainWindow : AppWindow
         // apply the opacity until we get the roughly the correct color
         // NOTE that the effect still doesn't look right, but it suffices. Ideally we need access to the Mica
         // CompositionBrush to properly change the color but I don't know if we can do that or not
-        if (thm == FluentAvaloniaTheme.DarkModeString)
+        if (thm == ThemeVariant.Dark)
         {
             Color2 color = this.TryFindResource("SolidBackgroundFillColorBase", out object? value)
                 ? (Color)value!
@@ -108,7 +108,7 @@ public sealed partial class MainWindow : AppWindow
 
             Background = new ImmutableSolidColorBrush(color, 0.9);
         }
-        else if (thm == FluentAvaloniaTheme.LightModeString)
+        else if (thm == ThemeVariant.Light)
         {
             // Similar effect here
             Color2 color = this.TryFindResource("SolidBackgroundFillColorBase", out object? value)
@@ -119,9 +119,9 @@ public sealed partial class MainWindow : AppWindow
         }
     }
 
-    private void TryDisableMicaEffect(string thm)
+    private void TryDisableMicaEffect(ThemeVariant thm)
     {
-        if (thm == FluentAvaloniaTheme.DarkModeString)
+        if (thm == ThemeVariant.Dark)
         {
             Color2 color = this.TryFindResource("SolidBackgroundFillColorBase", out object? value)
                 ? (Color)value!
@@ -131,7 +131,7 @@ public sealed partial class MainWindow : AppWindow
 
             Background = new ImmutableSolidColorBrush(color);
         }
-        else if (thm == FluentAvaloniaTheme.LightModeString)
+        else if (thm == ThemeVariant.Light)
         {
             // Similar effect here
             Color2 color = this.TryFindResource("SolidBackgroundFillColorBase", out object? value)

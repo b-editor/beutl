@@ -22,7 +22,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
 
-public sealed class ListEditorDragBehavior : Behavior<IControl>
+public sealed class ListEditorDragBehavior : Behavior<Control>
 {
     private bool _enableDrag;
     private bool _dragStarted;
@@ -30,7 +30,7 @@ public sealed class ListEditorDragBehavior : Behavior<IControl>
     private int _draggedIndex;
     private int _targetIndex;
     private ItemsControl? _itemsControl;
-    private IControl? _draggedContainer;
+    private Control? _draggedContainer;
 
     public static readonly StyledProperty<double> DragThresholdProperty =
         AvaloniaProperty.Register<ListEditorDragBehavior, double>(nameof(DragThreshold), 3);
@@ -137,9 +137,9 @@ public sealed class ListEditorDragBehavior : Behavior<IControl>
 
         if (_itemsControl is { })
         {
-            foreach (ItemContainerInfo? container in _itemsControl.ItemContainerGenerator.Containers)
+            foreach (Control container in _itemsControl.GetRealizedContainers())
             {
-                SetDraggingPseudoClasses(container.ContainerControl, true);
+                SetDraggingPseudoClasses(container, true);
             }
         }
 
@@ -150,9 +150,9 @@ public sealed class ListEditorDragBehavior : Behavior<IControl>
 
         if (_itemsControl is { })
         {
-            foreach (ItemContainerInfo container in _itemsControl.ItemContainerGenerator.Containers)
+            foreach (Control container in _itemsControl.GetRealizedContainers())
             {
-                SetDraggingPseudoClasses(container.ContainerControl, false);
+                SetDraggingPseudoClasses(container, false);
             }
         }
 
@@ -181,7 +181,7 @@ public sealed class ListEditorDragBehavior : Behavior<IControl>
 
         foreach (object? _ in itemsControl.Items)
         {
-            IControl? container = itemsControl.ItemContainerGenerator.ContainerFromIndex(i);
+            Control? container = itemsControl.ContainerFromIndex(i);
             if (container is not null)
             {
                 SetTranslateTransform(container, 0, 0);
@@ -202,7 +202,7 @@ public sealed class ListEditorDragBehavior : Behavior<IControl>
 
         foreach (object? _ in itemsControl.Items)
         {
-            IControl? container = itemsControl.ItemContainerGenerator.ContainerFromIndex(i);
+            Control? container = itemsControl.ContainerFromIndex(i);
             if (container is not null)
             {
                 SetTranslateTransform(container, 0, 0);
@@ -251,7 +251,7 @@ public sealed class ListEditorDragBehavior : Behavior<IControl>
 
             SetTranslateTransform(_draggedContainer, 0, delta);
 
-            _draggedIndex = _itemsControl.ItemContainerGenerator.IndexFromContainer(_draggedContainer);
+            _draggedIndex = _itemsControl.IndexFromContainer(_draggedContainer);
             _targetIndex = -1;
 
             Rect draggedBounds = _draggedContainer.Bounds;
@@ -263,7 +263,7 @@ public sealed class ListEditorDragBehavior : Behavior<IControl>
 
             foreach (object? _ in _itemsControl.Items)
             {
-                IControl? targetContainer = _itemsControl.ItemContainerGenerator.ContainerFromIndex(i);
+                Control? targetContainer = _itemsControl.ContainerFromIndex(i);
                 if (targetContainer?.RenderTransform is null || ReferenceEquals(targetContainer, _draggedContainer))
                 {
                     i++;
@@ -273,7 +273,7 @@ public sealed class ListEditorDragBehavior : Behavior<IControl>
                 Rect targetBounds = targetContainer.Bounds;
                 double targetStart = targetBounds.Y;
                 double targetMid = targetBounds.Y + targetBounds.Height / 2;
-                int targetIndex = _itemsControl.ItemContainerGenerator.IndexFromContainer(targetContainer);
+                int targetIndex = _itemsControl.IndexFromContainer(targetContainer);
 
                 if (targetStart > draggedStart && draggedDeltaEnd >= targetMid)
                 {
@@ -299,12 +299,12 @@ public sealed class ListEditorDragBehavior : Behavior<IControl>
         }
     }
 
-    private static void SetDraggingPseudoClasses(IControl control, bool isDragging)
+    private static void SetDraggingPseudoClasses(Control control, bool isDragging)
     {
         ((IPseudoClasses)control.Classes).Set(":dragging", isDragging);
     }
 
-    private static void SetTranslateTransform(IControl control, double x, double y)
+    private static void SetTranslateTransform(Control control, double x, double y)
     {
         var transformBuilder = new TransformOperations.Builder(1);
         transformBuilder.AppendTranslate(x, y);
@@ -449,7 +449,7 @@ public sealed class ListEditor<TItem> : ListEditor
                         {
                             var combobox = new ComboBox
                             {
-                                Items = availableTypes,
+                                ItemsSource = availableTypes,
                                 SelectedIndex = 0
                             };
 

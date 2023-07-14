@@ -38,7 +38,7 @@
                        DefaultLabelPosition="Right">
             <ui:CommandBar.PrimaryCommands>
                 <ui:CommandBarButton Click="Add_Click"
-                                     Icon="Add"
+                                     IconSource="Add"
                                      Label="{x:Static lang:Strings.Add}" />
             </ui:CommandBar.PrimaryCommands>
         </ui:CommandBar>
@@ -46,7 +46,7 @@
         <ListBox x:Name="ReleasesList"
                  Grid.Row="2"
                  Margin="10,0"
-                 Items="{CompiledBinding Items}">
+                 ItemsSource="{CompiledBinding Items}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Grid MaxHeight="64" ColumnDefinitions="Auto,*,2*,Auto,Auto">
@@ -77,12 +77,12 @@
 
                         <ui:CommandBarButton Grid.Column="3"
                                              Click="Edit_Click"
-                                             Icon="Edit"
+                                             IconSource="Edit"
                                              Label="{x:Static lang:Strings.Edit}" />
 
                         <ui:CommandBarButton Grid.Column="4"
                                              Click="Delete_Click"
-                                             Icon="Delete"
+                                             IconSource="Delete"
                                              Label="{x:Static lang:Strings.Delete}" />
                     </Grid>
                 </DataTemplate>

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
+using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 
@@ -43,7 +44,7 @@ public abstract class EditorExtension : ViewExtension
 
     public abstract bool TryCreateEditor(
         string file,
-        [NotNullWhen(true)] out IEditor? editor);
+        [NotNullWhen(true)] out Control? editor);
 
     // NOTE: ここからProjectItemを取得する場合、
     //       ProjectItemContainerから取得すればいい

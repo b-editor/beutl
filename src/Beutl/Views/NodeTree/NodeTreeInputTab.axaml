@@ -10,7 +10,7 @@
              x:DataType="viewModel:NodeTreeInputTabViewModel"
              mc:Ignorable="d">
     <ScrollViewer x:Name="scrollViewer">
-        <ItemsControl x:Name="itemsControl" Items="{CompiledBinding InnerViewModel.Value.Items}">
+        <ItemsControl x:Name="itemsControl" ItemsSource="{CompiledBinding InnerViewModel.Value.Items}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <local:NodeInputView />

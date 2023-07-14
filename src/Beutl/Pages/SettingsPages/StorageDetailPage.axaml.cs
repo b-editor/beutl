@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 
 using Beutl.ViewModels.SettingsPages;
@@ -41,8 +42,8 @@ public partial class StorageDetailPage : UserControl
 
     public async void CopyDownloadUrl_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is CommandBarButton { DataContext: AssetViewModel itemViewModel }
-            && Application.Current?.Clipboard is { } clipboard)
+        if (TopLevel.GetTopLevel(this) is { Clipboard: IClipboard clipboard }
+            && sender is CommandBarButton { DataContext: AssetViewModel itemViewModel })
         {
             await clipboard.SetTextAsync(itemViewModel.Model.DownloadUrl);
         }

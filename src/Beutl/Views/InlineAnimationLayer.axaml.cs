@@ -23,8 +23,8 @@ public partial class InlineAnimationLayer : UserControl
             OnDataContextAttached,
             OnDataContextDetached);
 
-        items.ItemContainerGenerator.Materialized += OnMaterialized;
-        items.ItemContainerGenerator.Dematerialized += OnDematerialized;
+        items.ContainerPrepared += OnMaterialized;
+        items.ContainerClearing += OnDematerialized;
 
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
@@ -58,20 +58,14 @@ public partial class InlineAnimationLayer : UserControl
         }
     }
 
-    private void OnMaterialized(object? sender, ItemContainerEventArgs e)
+    private void OnMaterialized(object? sender, ContainerPreparedEventArgs e)
     {
-        foreach (ItemContainerInfo item in e.Containers)
-        {
-            Interaction.GetBehaviors(item.ContainerControl).Add(new _DragBehavior());
-        }
+        Interaction.GetBehaviors(e.Container).Add(new _DragBehavior());
     }
 
-    private void OnDematerialized(object? sender, ItemContainerEventArgs e)
+    private void OnDematerialized(object? sender, ContainerClearingEventArgs e)
     {
-        foreach (ItemContainerInfo item in e.Containers)
-        {
-            Interaction.GetBehaviors(item.ContainerControl).Clear();
-        }
+        Interaction.GetBehaviors(e.Container).Clear();
     }
 
     private void OnDataContextDetached(InlineAnimationLayerViewModel obj)
@@ -136,14 +130,14 @@ public partial class InlineAnimationLayer : UserControl
                     }
                 };
 
-                Task task1 = animation1.RunAsync(this, null, token);
-                Task task2 = animation2.RunAsync(items, null, token);
+                Task task1 = animation1.RunAsync(this, token);
+                Task task2 = animation2.RunAsync(items, token);
                 await Task.WhenAll(task1, task2);
             });
         };
     }
 
-    private sealed class _DragBehavior : Behavior<IControl>
+    private sealed class _DragBehavior : Behavior<Control>
     {
         private bool _pressed;
         private Point _start;

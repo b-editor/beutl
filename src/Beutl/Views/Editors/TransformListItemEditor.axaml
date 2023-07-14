@@ -50,7 +50,7 @@
                                     IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
                                                                   Converter={x:Static ObjectConverters.IsNotNull}}" />
 
-            <ItemsControl DataContext="{Binding Group.Value}" Items="{Binding Items}">
+            <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <local:ListItemEditor />

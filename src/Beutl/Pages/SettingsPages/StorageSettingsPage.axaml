@@ -79,7 +79,7 @@
 
             <ItemsControl Margin="0,24,0,0"
                           IsVisible="{CompiledBinding SignedIn.Value}"
-                          Items="{CompiledBinding Details}">
+                          ItemsSource="{CompiledBinding Details}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <StackPanel Spacing="4" />

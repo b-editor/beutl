@@ -90,21 +90,24 @@ public sealed partial class Timeline : UserControl
 
         ViewModel.Paste.Subscribe(async () =>
             {
-                if (Application.Current?.Clipboard is IClipboard clipboard)
+                if (TopLevel.GetTopLevel(this) is { Clipboard: IClipboard clipboard })
                 {
                     string[] formats = await clipboard.GetFormatsAsync();
 
                     if (formats.AsSpan().Contains(Constants.Element))
                     {
-                        string json = await clipboard.GetTextAsync();
-                        var layer = new Element();
-                        layer.ReadFromJson(JsonNode.Parse(json)!.AsObject());
-                        layer.Start = ViewModel.ClickedFrame;
-                        layer.ZIndex = ViewModel.ClickedLayer;
+                        string? json = await clipboard.GetTextAsync();
+                        if (json != null)
+                        {
+                            var layer = new Element();
+                            layer.ReadFromJson(JsonNode.Parse(json)!.AsObject());
+                            layer.Start = ViewModel.ClickedFrame;
+                            layer.ZIndex = ViewModel.ClickedLayer;
 
-                        layer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.ElementFileExtension));
+                            layer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.ElementFileExtension));
 
-                        ViewModel.Scene.AddChild(layer).DoAndRecord(CommandRecorder.Default);
+                            ViewModel.Scene.AddChild(layer).DoAndRecord(CommandRecorder.Default);
+                        }
                     }
                 }
             })
@@ -131,9 +134,9 @@ public sealed partial class Timeline : UserControl
             .DisposeWith(_disposables);
     }
 
-    protected override void OnLoaded()
+    protected override void OnLoaded(RoutedEventArgs e)
     {
-        base.OnLoaded();
+        base.OnLoaded(e);
 
         ViewModel.EditorContext.Options.Subscribe(options =>
             {
@@ -300,7 +303,7 @@ public sealed partial class Timeline : UserControl
             if (e.KeyModifiers == KeyModifiers.Control)
             {
                 _mouseFlag = MouseFlags.RangeSelectionPressed;
-                overlay.SelectionRange = new(pointerPt.Position, Size.Empty);
+                overlay.SelectionRange = new(pointerPt.Position, default(Size));
             }
             else
             {
@@ -349,7 +352,7 @@ public sealed partial class Timeline : UserControl
     private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
     {
         if (e.Data.Contains("SourceOperator")
-            || (e.Data.GetFileNames()?.Any() ?? false))
+            || (e.Data.GetFiles()?.Any() ?? false))
         {
             e.DragEffects = DragDropEffects.Copy;
         }
@@ -397,7 +400,7 @@ public sealed partial class Timeline : UserControl
 
         for (int i = 0; i < TimelinePanel.Children.Count; i++)
         {
-            IControl item = TimelinePanel.Children[i];
+            Control item = TimelinePanel.Children[i];
             if (item.DataContext is ElementViewModel vm && vm.Model == elm)
             {
                 TimelinePanel.Children.RemoveAt(i);
@@ -421,7 +424,7 @@ public sealed partial class Timeline : UserControl
         IAbstractAnimatableProperty prop = viewModel.Property;
         for (int i = 0; i < TimelinePanel.Children.Count; i++)
         {
-            IControl item = TimelinePanel.Children[i];
+            Control item = TimelinePanel.Children[i];
             if (item.DataContext is InlineAnimationLayerViewModel vm && vm.Property == prop)
             {
                 TimelinePanel.Children.RemoveAt(i);

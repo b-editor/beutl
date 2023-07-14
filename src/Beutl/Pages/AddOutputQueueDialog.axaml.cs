@@ -10,7 +10,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Pages;
 
-public partial class AddOutputQueueDialog : ContentDialog, IStyleable
+public partial class AddOutputQueueDialog : ContentDialog
 {
     private IDisposable? _sBtnBinding;
 
@@ -19,7 +19,7 @@ public partial class AddOutputQueueDialog : ContentDialog, IStyleable
         InitializeComponent();
     }
 
-    Type IStyleable.StyleKey => typeof(ContentDialog);
+    protected override Type StyleKeyOverride => typeof(ContentDialog);
 
     protected override void OnPrimaryButtonClick(ContentDialogButtonClickEventArgs args)
     {
@@ -67,10 +67,9 @@ public partial class AddOutputQueueDialog : ContentDialog, IStyleable
             IReadOnlyList<IStorageFile> result = await parent.StorageProvider.OpenFilePickerAsync(options);
 
             if (result.Count > 0
-                && result[0].TryGetUri(out Uri? uri)
-                && uri.IsFile)
+                && result[0].TryGetLocalPath() is string localPath)
             {
-                vm.SelectedFile.Value = uri.LocalPath;
+                vm.SelectedFile.Value = localPath;
             }
         }
     }

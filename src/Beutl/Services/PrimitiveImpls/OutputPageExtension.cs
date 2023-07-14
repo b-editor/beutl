@@ -25,7 +25,7 @@ public sealed class OutputPageExtension : PageExtension
         return new OutputPageViewModel();
     }
 
-    public override IControl CreateControl()
+    public override Control CreateControl()
     {
         return new OutputPage();
     }

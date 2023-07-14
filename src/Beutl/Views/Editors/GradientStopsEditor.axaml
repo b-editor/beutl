@@ -31,7 +31,7 @@
                       Margin="8,0"
                       ClipToBounds="False"
                       IsEnabled="{Binding CanEdit.Value}"
-                      Items="{Binding Stops}">
+                      ItemsSource="{Binding Stops}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <Panel />

@@ -1,4 +1,5 @@
-﻿
+﻿#if false
+
 using Avalonia.Media;
 using Avalonia.Media.Fonts;
 using Avalonia.Platform;
@@ -152,3 +153,4 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
         return new GlyphTypefaceImpl(skTypeface, fontSimulations);
     }
 }
+#endif

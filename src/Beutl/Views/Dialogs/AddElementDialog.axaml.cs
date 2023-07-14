@@ -7,7 +7,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Dialogs;
 
-public sealed partial class AddElementDialog : ContentDialog, IStyleable
+public sealed partial class AddElementDialog : ContentDialog
 {
     private IDisposable? _sBtnBinding;
 
@@ -16,7 +16,7 @@ public sealed partial class AddElementDialog : ContentDialog, IStyleable
         InitializeComponent();
     }
 
-    Type IStyleable.StyleKey => typeof(ContentDialog);
+    protected override Type StyleKeyOverride => typeof(ContentDialog);
 
     // 戻る
     protected override void OnPrimaryButtonClick(ContentDialogButtonClickEventArgs args)

@@ -4,7 +4,6 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
-using Avalonia.Controls.Generators;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -14,7 +13,6 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 
 using Beutl.Controls.Extensions;
-using Beutl.Controls.Generators;
 
 namespace Beutl.Controls;
 
@@ -65,7 +63,7 @@ public partial class BcTabView : TabControl
 
                 if (sender.TransitionIsEnabled && sender._gridHost != null)
                 {
-                    await sender._animation.RunAsync(sender._gridHost, null);
+                    await sender._animation.RunAsync(sender._gridHost);
                     sender._gridHost.Opacity = 1;
                 }
             }
@@ -79,8 +77,12 @@ public partial class BcTabView : TabControl
         e_.Handled = true;
     }
 
-    protected override IItemContainerGenerator CreateItemContainerGenerator()
-        => new BcTabItemContainerGenerator(this, ContentControl.ContentProperty, ContentControl.ContentTemplateProperty);
+    protected override Control CreateContainerForItemOverride(object item, int index, object recycleKey)
+    {
+        return new BcTabItem();
+    }
+
+    protected override void PrepareContainerForItemOverride(Control element, object item, int index) => base.PrepareContainerForItemOverride(element, item, index);
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -93,11 +95,11 @@ public partial class BcTabView : TabControl
                 double d = ((double)ItemCount / 2);
                 if (_lastselectindex < d & ItemCount != 0)
                 {
-                    SelectedItem = (Items as IList).OfType<object>().FirstOrDefault();
+                    SelectedItem = (ItemsSource as IList).OfType<object>().FirstOrDefault();
                 }
                 else if (_lastselectindex >= d & ItemCount != 0)
                 {
-                    SelectedItem = (Items as IList).OfType<object>().LastOrDefault();
+                    SelectedItem = (ItemsSource as IList).OfType<object>().LastOrDefault();
                 }
             }
         }

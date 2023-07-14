@@ -41,7 +41,7 @@ public sealed partial class EditPage : UserControl
     {
         InitializeComponent();
 
-        tabview.Items = _tabItems;
+        tabview.ItemsSource = _tabItems;
         tabview.SelectionChanged += TabView_SelectionChanged;
         _tabItems.CollectionChanged += TabItems_CollectionChanged;
     }
@@ -67,9 +67,9 @@ public sealed partial class EditPage : UserControl
                         Content = new ContentControl
                         {
                             [!ContentProperty] = s_contentBinding,
-                            DataContext = item.Context.Select<IEditorContext, IControl>(obj =>
+                            DataContext = item.Context.Select<IEditorContext, Control>(obj =>
                             {
-                                if (obj?.Extension.TryCreateEditor(obj.EdittingFile, out IEditor? editor) == true)
+                                if (obj?.Extension.TryCreateEditor(obj.EdittingFile, out Control? editor) == true)
                                 {
                                     editor.DataContext = obj;
                                     return editor;

@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 
@@ -62,9 +63,9 @@ public sealed class GraphEditorScale : Control
         set => SetAndRaise(OffsetProperty, ref _offset, value);
     }
 
-    protected override void OnLoaded()
+    protected override void OnLoaded(RoutedEventArgs e)
     {
-        base.OnLoaded();
+        base.OnLoaded(e);
         _disposable = this.GetResourceObservable("TextControlForeground").Subscribe(b =>
         {
             if (b is IBrush brush)
@@ -76,9 +77,9 @@ public sealed class GraphEditorScale : Control
         });
     }
 
-    protected override void OnUnloaded()
+    protected override void OnUnloaded(RoutedEventArgs e)
     {
-        base.OnUnloaded();
+        base.OnUnloaded(e);
         _disposable?.Dispose();
     }
 
@@ -99,7 +100,7 @@ public sealed class GraphEditorScale : Control
         double originY = _baseline;
 
         using (context.PushClip(new Rect(0, 0, 64, Bounds.Height)))
-        using (context.PushPreTransform(Matrix.CreateTranslation(0, -viewport.Y)))
+        using (context.PushTransform(Matrix.CreateTranslation(0, -viewport.Y)))
         {
             context.FillRectangle(Brushes.Transparent, viewport);
             double value = PixelsPer100;

@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 
@@ -89,9 +90,9 @@ public sealed class GraphEditorBackground : Control
         set => SetValue(MinimumProperty, value);
     }
 
-    protected override void OnLoaded()
+    protected override void OnLoaded(RoutedEventArgs e)
     {
-        base.OnLoaded();
+        base.OnLoaded(e);
         _disposable = this.GetResourceObservable("TextFillColorTertiaryBrush").Subscribe(b =>
         {
             if (b is IBrush brush)
@@ -103,9 +104,9 @@ public sealed class GraphEditorBackground : Control
         });
     }
 
-    protected override void OnUnloaded()
+    protected override void OnUnloaded(RoutedEventArgs e)
     {
-        base.OnUnloaded();
+        base.OnUnloaded(e);
         _disposable?.Dispose();
     }
 

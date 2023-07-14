@@ -28,7 +28,7 @@
                       HorizontalAlignment="Left"
                       VerticalAlignment="Stretch"
                       ClipToBounds="False"
-                      Items="{CompiledBinding Items}">
+                      ItemsSource="{CompiledBinding Items}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <Panel />

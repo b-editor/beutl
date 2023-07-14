@@ -70,7 +70,7 @@
                                Text="{Binding SelectedEncoder.Value.Name}" />
                 </OptionsDisplayItem.ActionButton>
                 <OptionsDisplayItem.Content>
-                    <ListBox Items="{Binding Encoders}"
+                    <ListBox ItemsSource="{Binding Encoders}"
                              SelectedItem="{Binding SelectedEncoder.Value}"
                              SelectionMode="AlwaysSelected">
                         <ListBox.ItemTemplate>

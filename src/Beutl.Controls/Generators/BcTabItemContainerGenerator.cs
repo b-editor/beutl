@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿#if false
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Generators;
 using Avalonia.Controls.Primitives;
@@ -122,3 +123,4 @@ public class BcTabItemContainerGenerator : ItemContainerGenerator<BcTabItem>
         }
     }
 }
+#endif

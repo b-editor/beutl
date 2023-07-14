@@ -37,14 +37,14 @@
                     <ui:MenuFlyoutItem Command="{Binding Delete}"
                                        InputGesture="Delete"
                                        Text="{x:Static lang:Strings.Delete}">
-                        <ui:MenuFlyoutItem.Icon>
-                            <icons:SymbolIcon Symbol="Delete" />
-                        </ui:MenuFlyoutItem.Icon>
+                        <ui:MenuFlyoutItem.IconSource>
+                            <icons:SymbolIconSource Symbol="Delete" />
+                        </ui:MenuFlyoutItem.IconSource>
                     </ui:MenuFlyoutItem>
                     <ui:MenuFlyoutItem Click="RenameClick" Text="{x:Static lang:Strings.Rename}">
-                        <ui:MenuFlyoutItem.Icon>
-                            <icons:SymbolIcon Symbol="Rename" />
-                        </ui:MenuFlyoutItem.Icon>
+                        <ui:MenuFlyoutItem.IconSource>
+                            <icons:SymbolIconSource Symbol="Rename" />
+                        </ui:MenuFlyoutItem.IconSource>
                     </ui:MenuFlyoutItem>
                 </ui:FAMenuFlyout>
             </Border.ContextFlyout>
@@ -81,7 +81,7 @@
             <StackPanel x:Name="stackPanel">
                 <ItemsControl x:Name="itemsControl"
                               ClipToBounds="False"
-                              Items="{Binding Items}">
+                              ItemsSource="{Binding Items}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <views:SocketView />

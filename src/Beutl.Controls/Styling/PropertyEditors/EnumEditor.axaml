@@ -49,7 +49,7 @@
                             <ComboBox x:Name="PART_InnerComboBox"
                                       HorizontalAlignment="Stretch"
                                       IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                      Items="{TemplateBinding Items, Mode=TwoWay}"
+                                      ItemsSource="{TemplateBinding Items, Mode=TwoWay}"
                                       SelectedIndex="{TemplateBinding SelectedIndex, Mode=TwoWay}" />
 
                             <StackPanel Name="LeftRightButtons"
@@ -96,7 +96,7 @@
                                       Margin="4"
                                       HorizontalAlignment="Stretch"
                                       IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                      Items="{TemplateBinding Items, Mode=TwoWay}"
+                                      ItemsSource="{TemplateBinding Items, Mode=TwoWay}"
                                       SelectedIndex="{TemplateBinding SelectedIndex, Mode=TwoWay}" />
 
                             <StackPanel Name="LeftRightButtons"
@@ -138,7 +138,7 @@
                                       Margin="0,4"
                                       HorizontalAlignment="Stretch"
                                       IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                      Items="{TemplateBinding Items, Mode=TwoWay}"
+                                      ItemsSource="{TemplateBinding Items, Mode=TwoWay}"
                                       SelectedIndex="{TemplateBinding SelectedIndex, Mode=TwoWay}" />
 
                             <Button Name="PART_DeleteButton"

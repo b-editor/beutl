@@ -86,7 +86,7 @@ public partial class ImageFilterEditor : UserControl
 
         var combobox = new ComboBox
         {
-            Items = availableTypes,
+            ItemsSource = availableTypes,
             SelectedIndex = 0
         };
 

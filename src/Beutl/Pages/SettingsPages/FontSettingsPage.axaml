@@ -18,12 +18,12 @@
         <ui:CommandBar DefaultLabelPosition="Right">
             <ui:CommandBar.PrimaryCommands>
                 <ui:CommandBarButton Click="AddClick"
-                                     Icon="Add"
+                                     IconSource="Add"
                                      Label="{x:Static lang:Strings.Add}" />
             </ui:CommandBar.PrimaryCommands>
         </ui:CommandBar>
 
-        <ListBox Items="{CompiledBinding FontDirectories}" SelectedItem="{CompiledBinding SelectFont.Value, Mode=TwoWay}">
+        <ListBox ItemsSource="{CompiledBinding FontDirectories}" SelectedItem="{CompiledBinding SelectFont.Value, Mode=TwoWay}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Panel>
@@ -32,7 +32,7 @@
                         <ui:CommandBarButton HorizontalAlignment="Right"
                                              Command="{Binding #root.DataContext.Remove, Mode=OneTime}"
                                              CommandParameter="{Binding $self.DataContext}"
-                                             Icon="Delete"
+                                             IconSource="Delete"
                                              Label="{x:Static lang:Strings.Remove}" />
                     </Panel>
                 </DataTemplate>

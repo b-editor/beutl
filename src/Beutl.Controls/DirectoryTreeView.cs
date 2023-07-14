@@ -5,8 +5,10 @@ using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
 
@@ -16,7 +18,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Controls;
 
-public sealed class DirectoryTreeView : TreeView, IStyleable
+public sealed class DirectoryTreeView : TreeView
 {
     private readonly FileSystemWatcher _watcher;
     private readonly AvaloniaList<TreeViewItem> _items = new();
@@ -34,7 +36,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         _watcher = watcher;
         _directoryInfo = new DirectoryInfo(watcher.Path);
         _contextFactory = contextFactory;
-        Items = _items;
+        ItemsSource = _items;
         InitSubDirectory();
 
         _watcher.Renamed += Watcher_Renamed;
@@ -103,7 +105,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
             new MenuItem
             {
                 Header = Strings.CreateNew,
-                Items = new object[]
+                Items = 
                 {
                     _addfolder,
                 },
@@ -132,10 +134,10 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
 
         ContextMenu = new ContextMenu
         {
-            Items = _menuItem
+            ItemsSource = _menuItem
         };
 
-        ContextMenu.ContextMenuOpening += ContextMenu_ContextMenuOpening;
+        ContextMenu.Opening += ContextMenu_ContextMenuOpening;
     }
 
     //private void PluginFileMenu_Click(object sender, RoutedEventArgs e)
@@ -173,7 +175,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         //}
     }
 
-    Type IStyleable.StyleKey => typeof(TreeView);
+    protected override Type StyleKeyOverride => typeof(TreeView);
 
     private bool CanOpen()
     {
@@ -197,18 +199,21 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
 
     private async void Copy(object sender, RoutedEventArgs e)
     {
-        if (SelectedItem is DirectoryTreeItem directoryTree)
+        if (TopLevel.GetTopLevel(this) is { Clipboard: IClipboard clipboard })
         {
-            await Application.Current.Clipboard.SetTextAsync(directoryTree.Info.FullName);
-        }
-        else if (SelectedItem is FileTreeItem fileTree)
-        {
-            var data = new DataObject();
-            data.Set(DataFormats.FileNames, new string[]
+            if (SelectedItem is DirectoryTreeItem directoryTree)
             {
-                fileTree.Info.FullName
-            });
-            await Application.Current.Clipboard.SetDataObjectAsync(data);
+                await clipboard.SetTextAsync(directoryTree.Info.FullName);
+            }
+            else if (SelectedItem is FileTreeItem fileTree)
+            {
+                var data = new DataObject();
+                data.Set(DataFormats.Files, new string[]
+                {
+                    fileTree.Info.FullName
+                });
+                await clipboard.SetDataObjectAsync(data);
+            }
         }
     }
 
@@ -367,7 +372,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
 
     private void OnDragOver(object sender, DragEventArgs e)
     {
-        if (e.Data.Contains(DataFormats.FileNames))
+        if (e.Data.Contains(DataFormats.Files))
         {
             e.DragEffects = DragDropEffects.Copy;
         }
@@ -375,7 +380,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
 
     private void OnDrop(object sender, DragEventArgs e)
     {
-        if (e.Data.Contains(DataFormats.FileNames) && e.Source is ILogical logical)
+        if (e.Data.Contains(DataFormats.Files) && e.Source is ILogical logical)
         {
             e.DragEffects = DragDropEffects.Copy;
 
@@ -387,12 +392,16 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
             else if (treeViewItem is FileTreeItem fileTree && fileTree.Info.DirectoryName != null)
                 baseDir = fileTree.Info.DirectoryName;
 
-            foreach (string src in e.Data.GetFileNames() ?? Enumerable.Empty<string>())
+            foreach (IStorageItem src in e.Data.GetFiles() ?? Enumerable.Empty<IStorageItem>())
             {
-                string dst = Path.Combine(baseDir, Path.GetFileName(src));
-                if (!File.Exists(dst))
+                if (src is IStorageFile
+                    && src.TryGetLocalPath() is string localPath)
                 {
-                    File.Copy(src, dst);
+                    string dst = Path.Combine(baseDir, Path.GetFileName(localPath));
+                    if (!File.Exists(dst))
+                    {
+                        File.Copy(localPath, dst);
+                    }
                 }
             }
         }
@@ -457,7 +466,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
     }
 }
 
-public sealed class FileTreeItem : TreeViewItem, IStyleable
+public sealed class FileTreeItem : TreeViewItem
 {
     private FileInfo _info;
     // 名前を変更中
@@ -480,7 +489,7 @@ public sealed class FileTreeItem : TreeViewItem, IStyleable
         }
     }
 
-    Type IStyleable.StyleKey => typeof(TreeViewItem);
+    protected override Type StyleKeyOverride => typeof(TreeViewItem);
 
     public void Refresh()
     {
@@ -582,7 +591,7 @@ public sealed class FileTreeItem : TreeViewItem, IStyleable
             Refresh();
 
             var dataObject = new DataObject();
-            dataObject.Set(DataFormats.FileNames, new string[] { Info.FullName });
+            dataObject.Set(DataFormats.Files, new string[] { Info.FullName });
 
             // ドラッグ開始
             DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy).ConfigureAwait(false);
@@ -599,7 +608,7 @@ public sealed class FileTreeItem : TreeViewItem, IStyleable
     }
 }
 
-public sealed class DirectoryTreeItem : TreeViewItem, IStyleable
+public sealed class DirectoryTreeItem : TreeViewItem
 {
     private readonly AvaloniaList<TreeViewItem> _items = new();
     private readonly FileSystemWatcher _watcher;
@@ -614,7 +623,7 @@ public sealed class DirectoryTreeItem : TreeViewItem, IStyleable
     {
         _info = info;
         Header = info.Name;
-        Items = _items;
+        ItemsSource = _items;
         _watcher = watcher;
         _contextFactory = contextFactory;
         if (info.EnumerateFileSystemInfos().Any())
@@ -641,7 +650,7 @@ public sealed class DirectoryTreeItem : TreeViewItem, IStyleable
         }
     }
 
-    Type IStyleable.StyleKey => typeof(TreeViewItem);
+    protected override Type StyleKeyOverride => typeof(TreeViewItem);
 
     //サブフォルダツリー追加
     private void InitSubDirectory()

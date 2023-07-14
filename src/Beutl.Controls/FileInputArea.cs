@@ -27,16 +27,15 @@ public class FileInputArea : ContentControl
             nameof(OpenOptions),
             validate: x => x?.AllowMultiple != true);
 
-    public static readonly DirectProperty<FileInputArea, string> TextProperty
-        = TextBlock.TextProperty.AddOwner<FileInputArea>(o => o.Text, (o, v) => o.Text = v, DefaultTextValue);
+    public static readonly StyledProperty<string> TextProperty
+        = TextBlock.TextProperty.AddOwner<FileInputArea>(new StyledPropertyMetadata<string>(DefaultTextValue));
 
     private const string DefaultTextValue = "To open the file, drop it here or click here.";
     private static readonly FilePickerOpenOptions s_defaultOptions = new();
-    private string _text = DefaultTextValue;
     private Button _button;
     private TextBlock _selectedFileDisplay;
     private List<IPatternContext> _patternContexts;
-    private FileInfo _matchResult;
+    private IStorageFile _matchResult;
 
     public IStorageFile SelectedFile
     {
@@ -52,8 +51,8 @@ public class FileInputArea : ContentControl
 
     public string Text
     {
-        get => _text;
-        set => SetAndRaise(TextProperty, ref _text, value);
+        get => GetValue(TextProperty);
+        set => SetValue(TextProperty, value);
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -78,7 +77,7 @@ public class FileInputArea : ContentControl
             if (e.DragEffects != DragDropEffects.None
                 && _matchResult != null)
             {
-                SelectedFile = new BclStorageFile(_matchResult);
+                SelectedFile = _matchResult;
             }
         }
         finally
@@ -96,7 +95,7 @@ public class FileInputArea : ContentControl
     private void OnDragEnter(object sender, DragEventArgs e)
     {
         if (_patternContexts != null
-            && e.Data.GetFileNames() is { } files)
+            && e.Data.GetFiles() is { } files)
         {
             _matchResult = Match(_patternContexts, files);
             if (_matchResult != null)
@@ -187,23 +186,26 @@ public class FileInputArea : ContentControl
         }
     }
 
-    private static FileInfo Match(List<IPatternContext> patternContexts, IEnumerable<string> files)
+    private static IStorageFile Match(List<IPatternContext> patternContexts, IEnumerable<IStorageItem> files)
     {
-        foreach (string file in files)
+        foreach (IStorageItem item in files)
         {
-            var fi = new FileInfo(file);
-            var fiWrapper = new FileInfoWrapper(fi);
-            var diWrapper = new DirectoryInfoWrapper(fi.Directory);
-
-            foreach (IPatternContext item in patternContexts)
+            if (item is IStorageFile file && file.TryGetLocalPath() is string path)
             {
-                item.PushDirectory(diWrapper);
-                if (item.Test(fiWrapper).IsSuccessful)
+                var fi = new FileInfo(path);
+                var fiWrapper = new FileInfoWrapper(fi);
+                var diWrapper = new DirectoryInfoWrapper(fi.Directory);
+
+                foreach (IPatternContext ctx in patternContexts)
                 {
-                    item.PopDirectory();
-                    return fi;
+                    ctx.PushDirectory(diWrapper);
+                    if (ctx.Test(fiWrapper).IsSuccessful)
+                    {
+                        ctx.PopDirectory();
+                        return file;
+                    }
+                    ctx.PopDirectory();
                 }
-                item.PopDirectory();
             }
         }
 

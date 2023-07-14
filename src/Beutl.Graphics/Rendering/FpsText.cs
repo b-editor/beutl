@@ -72,7 +72,7 @@ internal sealed class FpsText
                 using (_canvas.PushClip(_fpsText._fpsFText.Bounds))
                 {
                     _canvas.Clear();
-                    _fpsText._fpsFText.Draw(_canvas);
+                    _fpsText._fpsFText.Render(_canvas);
                 }
             }
         }

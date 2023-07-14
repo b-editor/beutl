@@ -29,7 +29,7 @@
 
                 <ComboBox x:Name="RankingComboBox"
                           VerticalAlignment="Bottom"
-                          Items="{Binding Rankings}"
+                          ItemsSource="{Binding Rankings}"
                           SelectedItem="{Binding SelectedRanking.Value}">
                     <ComboBox.Styles>
                         <Style Selector="ComboBox">
@@ -74,7 +74,7 @@
                 </ComboBox>
             </StackPanel>
 
-            <ItemsControl Items="{Binding Items}">
+            <ItemsControl ItemsSource="{Binding Items}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <WrapPanel Orientation="Horizontal" />

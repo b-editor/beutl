@@ -6,6 +6,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Platform;
+using Avalonia.ReactiveUI;
 using Avalonia.Styling;
 using Avalonia.Threading;
 
@@ -31,6 +32,7 @@ namespace Beutl;
 
 public sealed class App : Application
 {
+    private FluentAvaloniaTheme? _theme;
     private MainViewModel? _mainViewModel;
 
     public override void Initialize()
@@ -50,25 +52,25 @@ public sealed class App : Application
         AvaloniaXamlLoader.Load(this);
         Resources["PaletteColors"] = colors;
 
+        _theme = (FluentAvaloniaTheme)Styles[0];
+
         view.GetObservable(ViewConfig.ThemeProperty).Subscribe(v =>
         {
             Dispatcher.UIThread.InvokeAsync(() =>
             {
-                FluentAvaloniaTheme thm = AvaloniaLocator.Current.GetService<FluentAvaloniaTheme>()!;
                 switch (v)
                 {
                     case ViewConfig.ViewTheme.Light:
-                        thm.RequestedTheme = FluentAvaloniaTheme.LightModeString;
+                        RequestedThemeVariant = ThemeVariant.Light;
                         break;
                     case ViewConfig.ViewTheme.Dark:
-                        thm.RequestedTheme = FluentAvaloniaTheme.DarkModeString;
+                        RequestedThemeVariant = ThemeVariant.Dark;
                         break;
                     case ViewConfig.ViewTheme.HighContrast:
-                        thm.RequestedTheme = FluentAvaloniaTheme.HighContrastModeString;
+                        RequestedThemeVariant = FluentAvaloniaTheme.HighContrastTheme;
                         break;
                     case ViewConfig.ViewTheme.System:
-                        thm.PreferSystemTheme = true;
-                        thm.InvalidateThemingFromSystemThemeChanged();
+                        _theme.PreferSystemTheme = true;
                         break;
                 }
             });
@@ -84,9 +86,6 @@ public sealed class App : Application
     public override void RegisterServices()
     {
         base.RegisterServices();
-        AvaloniaLocator.CurrentMutable
-            .Bind<IFontManagerImpl>().ToConstant(new CustomFontManagerImpl());
-
         ServiceLocator.Current
             .BindToSelfSingleton<EditorService>()
             .BindToSelfSingleton<OutputService>()

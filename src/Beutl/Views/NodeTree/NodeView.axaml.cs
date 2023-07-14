@@ -126,9 +126,9 @@ public partial class NodeView : UserControl
         {
             if (viewModel.IsExpanded.Value)
             {
-                foreach (ItemContainerInfo item in itemsControl.ItemContainerGenerator.Containers)
+                foreach (Control item in itemsControl.GetRealizedContainers())
                 {
-                    if (item.ContainerControl is ContentPresenter { Child: SocketView socketView })
+                    if (item is ContentPresenter { Child: SocketView socketView })
                     {
                         socketView.UpdateSocketPosition();
                     }
@@ -223,7 +223,7 @@ public partial class NodeView : UserControl
     {
         if (Parent is Canvas canvas)
         {
-            foreach (IControl? item in canvas.Children.Where(x => x.DataContext is NodeViewModel))
+            foreach (Control? item in canvas.Children.Where(x => x.DataContext is NodeViewModel))
             {
                 if (item.DataContext is NodeViewModel itemViewModel)
                 {
@@ -275,7 +275,7 @@ public partial class NodeView : UserControl
         PointerPoint point = e.GetCurrentPoint(this);
         if (point.Properties.IsLeftButtonPressed)
         {
-            _start = e.GetPosition(Parent);
+            _start = e.GetPosition(Parent as Visual);
             _captured = true;
             _snapshot = GetPoint();
 
@@ -299,7 +299,7 @@ public partial class NodeView : UserControl
             int minZindex = canvas.Children.Where(x => x is NodeView).Min(x => x.ZIndex);
             for (int i = 0; i < canvas.Children.Count; i++)
             {
-                IControl? item = canvas.Children[i];
+                Control? item = canvas.Children[i];
                 if (item is NodeView)
                 {
                     item.ZIndex -= minZindex;
@@ -345,16 +345,15 @@ public partial class NodeView : UserControl
 
 public sealed class RenameFlyout : PickerFlyoutBase
 {
-    public static readonly DirectProperty<RenameFlyout, string?> TextProperty
-        = TextBox.TextProperty.AddOwner<RenameFlyout>(o => o.Text, (o, v) => o.Text = v);
+    public static readonly StyledProperty<string?> TextProperty
+        = TextBox.TextProperty.AddOwner<RenameFlyout>();
 
     private TextBox? _textBox;
-    private string? _text;
 
     public string? Text
     {
-        get => _text;
-        set => SetAndRaise(TextProperty, ref _text, value);
+        get => GetValue(TextProperty);
+        set => SetValue(TextProperty, value);
     }
 
     public event EventHandler<string?>? Confirmed;
@@ -395,7 +394,7 @@ public sealed class RenameFlyout : PickerFlyoutBase
     {
         base.OnOpening(args);
         _textBox ??= new TextBox();
-        _textBox.Text = _text;
+        _textBox.Text = Text;
     }
 
     private void OnFlyoutDismissed(PickerFlyoutPresenter sender, object args)

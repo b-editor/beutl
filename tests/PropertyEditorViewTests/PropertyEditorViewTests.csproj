@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="XamlNameReferenceGenerator" />
+    <PackageReference Include="Avalonia.Desktop" />
   </ItemGroup>
   
 </Project>

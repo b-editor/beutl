@@ -33,19 +33,6 @@ public class NavItemHelper : Behavior<NavigationViewItem>
     protected override void OnAttached()
     {
         base.OnAttached();
-        _regular = new IconSourceElement()
-        {
-            IconSource = RegularIcon,
-            Width = 40,
-            Height = 40
-        };
-        _filled = new IconSourceElement()
-        {
-            IconSource = FilledIcon,
-            Width = 40,
-            Height = 40
-        };
-
         SetFontSize(RegularIcon);
         SetFontSize(FilledIcon);
         _disposable = AssociatedObject.GetPropertyChangedObservable(ListBoxItem.IsSelectedProperty)
@@ -97,11 +84,11 @@ public class NavItemHelper : Behavior<NavigationViewItem>
     {
         if (sender.IsSelected)
         {
-            sender.Icon = _filled;
+            sender.IconSource = FilledIcon;
         }
         else
         {
-            sender.Icon = _regular;
+            sender.IconSource = RegularIcon;
         }
     }
 }

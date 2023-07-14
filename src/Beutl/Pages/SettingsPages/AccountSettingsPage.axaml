@@ -95,9 +95,9 @@
                                    DefaultLabelPosition="Right">
                         <ui:CommandBar.PrimaryCommands>
                             <ui:CommandBarButton Command="{CompiledBinding SignOut}" Label="{x:Static lang:SettingsPage.SignOut}">
-                                <ui:CommandBarButton.Icon>
-                                    <icons:SymbolIcon Symbol="SignOut" />
-                                </ui:CommandBarButton.Icon>
+                                <ui:CommandBarButton.IconSource>
+                                    <icons:SymbolIconSource Symbol="SignOut" />
+                                </ui:CommandBarButton.IconSource>
                             </ui:CommandBarButton>
                         </ui:CommandBar.PrimaryCommands>
                     </ui:CommandBar>

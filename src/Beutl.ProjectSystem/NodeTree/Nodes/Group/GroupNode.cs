@@ -4,7 +4,7 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 
-using Avalonia.Controls.Mixins;
+using Beutl.Reactive;
 
 namespace Beutl.NodeTree.Nodes.Group;
 

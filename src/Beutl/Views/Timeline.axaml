@@ -62,7 +62,7 @@
             <ItemsControl x:Name="LeftPanel"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Stretch"
-                          Items="{CompiledBinding LayerHeaders}">
+                          ItemsSource="{CompiledBinding LayerHeaders}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <VirtualizingStackPanel />

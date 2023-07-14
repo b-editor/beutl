@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
+using Avalonia.Styling;
 
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.SettingsPages;
@@ -13,44 +14,25 @@ namespace Beutl.Pages.SettingsPages;
 
 public sealed partial class AccountSettingsPage : UserControl
 {
-    private readonly FluentAvaloniaTheme _theme;
-
     public AccountSettingsPage()
     {
         InitializeComponent();
-        _theme = AvaloniaLocator.Current.GetRequiredService<FluentAvaloniaTheme>();
+        OnActualThemeVariantChanged(null, EventArgs.Empty);
+        ActualThemeVariantChanged += OnActualThemeVariantChanged;
     }
 
-    protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
+    private void OnActualThemeVariantChanged(object? sender, EventArgs e)
     {
-        base.OnAttachedToLogicalTree(e);
-        _theme.RequestedThemeChanged += Theme_RequestedThemeChanged;
-        OnThemeChanged(_theme.RequestedTheme);
-    }
-
-    protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
-    {
-        base.OnDetachedFromLogicalTree(e);
-        _theme.RequestedThemeChanged -= Theme_RequestedThemeChanged;
-    }
-
-    private void Theme_RequestedThemeChanged(FluentAvaloniaTheme sender, RequestedThemeChangedEventArgs args)
-    {
-        OnThemeChanged(args.NewTheme);
-    }
-
-    private void OnThemeChanged(string theme)
-    {
-        switch (theme)
+        ThemeVariant theme = ActualThemeVariant;
+        if (theme == ThemeVariant.Light || theme == FluentAvaloniaTheme.HighContrastTheme)
         {
-            case "Light" or "HightContrast":
-                githubLightLogo.IsVisible = true;
-                githubDarkLogo.IsVisible = false;
-                break;
-            case "Dark":
-                githubLightLogo.IsVisible = false;
-                githubDarkLogo.IsVisible = true;
-                break;
+            githubLightLogo.IsVisible = true;
+            githubDarkLogo.IsVisible = false;
+        }
+        else
+        {
+            githubLightLogo.IsVisible = false;
+            githubDarkLogo.IsVisible = true;
         }
     }
 

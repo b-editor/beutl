@@ -24,7 +24,7 @@ public sealed partial class ExtensionsPage : UserControl
         InitializeComponent();
 
         List<NavigationViewItem> items = GetItems();
-        nav.MenuItems = items;
+        nav.MenuItemsSource = items;
         NavigationViewItem selected = items[0];
 
         frame.Navigated += Frame_Navigated;
@@ -71,7 +71,7 @@ public sealed partial class ExtensionsPage : UserControl
             {
                 Content = "Home",
                 Tag = typeof(DiscoverPage),
-                Icon = new SymbolIcon
+                IconSource = new SymbolIconSource
                 {
                     Symbol = Symbol.Home
                 }
@@ -80,7 +80,7 @@ public sealed partial class ExtensionsPage : UserControl
             {
                 Content = "Library",
                 Tag = typeof(LibraryPage),
-                Icon = new SymbolIcon
+                IconSource = new SymbolIconSource
                 {
                     Symbol = Symbol.Library
                 }
@@ -89,7 +89,7 @@ public sealed partial class ExtensionsPage : UserControl
             {
                 Content = "Develop",
                 Tag = typeof(DevelopPage),
-                Icon = new SymbolIcon
+                IconSource = new SymbolIconSource
                 {
                     Symbol = Symbol.Code
                 }

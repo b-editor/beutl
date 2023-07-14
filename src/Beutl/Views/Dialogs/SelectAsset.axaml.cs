@@ -9,14 +9,14 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Dialogs;
 
-public partial class SelectAsset : ContentDialog, IStyleable
+public partial class SelectAsset : ContentDialog
 {
     public SelectAsset()
     {
         InitializeComponent();
     }
 
-    Type IStyleable.StyleKey => typeof(ContentDialog);
+    protected override Type StyleKeyOverride => typeof(ContentDialog);
 
     private async void Add_Click(object? sender, RoutedEventArgs e)
     {
