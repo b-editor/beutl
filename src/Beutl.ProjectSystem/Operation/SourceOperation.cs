@@ -7,6 +7,7 @@ using Avalonia.Collections.Pooled;
 
 using Beutl.Animation;
 using Beutl.Collections;
+using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;
@@ -77,63 +78,34 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
         }
     }
 
-    public void Evaluate(IRenderer renderer, Element layer, IList<Renderable> unhandled)
+    public void Evaluate(IRenderer renderer, Element layer)
     {
-        void Detach(IList<Renderable> renderables)
-        {
-            foreach (Renderable item in renderables)
-            {
-                if (item.HierarchicalParent is RenderLayerSpan span
-                    && layer.Span != span)
-                {
-                    span.Value.Remove(item);
-                }
-            }
-        }
-
         Initialize(renderer, layer.Clock);
         if (_contexts != null)
         {
-            if (!layer.AllowOutflow)
+            using var flow = new PooledList<Renderable>();
+            foreach (OperatorEvaluationContext? item in _contexts.AsSpan().Slice(0, _contextsLength))
             {
-                using var flow = new PooledList<Renderable>();
-                foreach (OperatorEvaluationContext? item in _contexts.AsSpan().Slice(0, _contextsLength))
-                {
-                    item.FlowRenderables = flow;
-                    item.Operator.Evaluate(item);
-                }
-
-                Detach(flow);
-                layer.Span.Value.Replace(flow);
-            }
-            else
-            {
-                using var pooled = new PooledList<Renderable>();
-                foreach (OperatorEvaluationContext? item in _contexts.AsSpan().Slice(0, _contextsLength))
-                {
-                    item._renderables = pooled;
-                    item.FlowRenderables = unhandled;
-                    item.Operator.Evaluate(item);
-                }
-
-                Detach(pooled);
-                layer.Span.Value.Replace(pooled);
+                item.FlowRenderables = flow;
+                item.Operator.Evaluate(item);
             }
 
-            foreach (Renderable item in layer.Span.Value.GetMarshal().Value)
+
+            foreach (Renderable item in flow.Span)
             {
+                item.ZIndex = layer.ZIndex;
+                item.TimeRange = new TimeRange(layer.Start, layer.Length);
                 item.ApplyStyling(layer.Clock);
                 item.ApplyAnimations(layer.Clock);
                 item.IsVisible = layer.IsEnabled;
+
                 while (item.BatchUpdate)
                 {
                     item.EndBatchUpdate();
                 }
             }
-        }
-        else
-        {
-            layer.Span.Value.Clear();
+
+            renderer.RenderScene[layer.ZIndex].UpdateAll(flow);
         }
     }
 

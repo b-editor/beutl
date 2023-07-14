@@ -33,12 +33,6 @@ public abstract class SoundEffect : Animatable, IMutableSoundEffect
 
     public abstract ISoundProcessor CreateProcessor();
 
-    public override void ApplyAnimations(IClock clock)
-    {
-        // SoundEffectはアニメーションに対応しない。
-        //base.ApplyAnimations(clock);
-    }
-
     protected static void AffectsRender<T>(params CoreProperty[] properties)
         where T : SoundEffect
     {

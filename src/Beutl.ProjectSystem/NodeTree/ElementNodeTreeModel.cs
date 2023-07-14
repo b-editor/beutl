@@ -63,7 +63,14 @@ public class ElementNodeTreeModel : NodeTreeModel
             }
         }
 
-        layer.Span.Value.Replace(list);
+        // Todo: LayerOutputNodeに移動
+        foreach (Renderable item in list.Span)
+        {
+            item.ZIndex = layer.ZIndex;
+            item.TimeRange = new TimeRange(layer.Start, layer.Length);
+        }
+
+        renderer.RenderScene[layer.ZIndex].UpdateAll(list);
     }
 
     private void Uninitialize()

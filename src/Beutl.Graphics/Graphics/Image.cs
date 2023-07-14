@@ -83,6 +83,13 @@ public static unsafe partial class Image
         }
     }
 
+    public static Bitmap<Bgra8888> ToBitmap(this SKImage self)
+    {
+        var result = new Bitmap<Bgra8888>(self.Width, self.Height);
+        self.ReadPixels(new SKImageInfo(self.Width, self.Height, SKColorType.Bgra8888), result.Data);
+        return result;
+    }
+
     public static SKBitmap ToSKBitmap(this Bitmap<Bgra8888> self)
     {
         var result = new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888));

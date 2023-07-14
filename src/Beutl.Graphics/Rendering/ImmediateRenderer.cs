@@ -6,22 +6,23 @@ using Beutl.Threading;
 
 namespace Beutl.Rendering;
 
+// 後で名前を変更
 public class ImmediateRenderer : IRenderer
 {
     internal static readonly Dispatcher s_dispatcher = Dispatcher.Spawn();
-    private readonly SortedDictionary<int, IRenderLayer> _objects = new();
-    private readonly Canvas _graphics;
+    private readonly ImmediateCanvas _immediateCanvas;
     private readonly Audio.Audio _audio;
     private readonly FpsText _fpsText = new();
     private readonly InstanceClock _instanceClock = new();
 
     public ImmediateRenderer(int width, int height)
     {
-        _graphics = Dispatcher.Invoke(() => new Canvas(width, height));
+        _immediateCanvas = Dispatcher.Invoke(() => new ImmediateCanvas(width, height));
         _audio = new Audio.Audio(44100);
+        RenderScene = new RenderScene(new PixelSize(width, height));
     }
 
-    public ICanvas Graphics => _graphics;
+    public ICanvas Graphics => _immediateCanvas;
 
     public Dispatcher Dispatcher => s_dispatcher;
 
@@ -41,23 +42,7 @@ public class ImmediateRenderer : IRenderer
 
     public IAudio Audio => _audio;
 
-    public IRenderLayer? this[int index]
-    {
-        get => _objects.TryGetValue(index, out IRenderLayer? value) ? value : null;
-        set
-        {
-            if (value != null)
-            {
-                value.AttachToRenderer(this);
-                _objects[index] = value;
-            }
-            else if (_objects.TryGetValue(index, out IRenderLayer? oldLayer))
-            {
-                oldLayer.DetachFromRenderer();
-                _objects.Remove(index);
-            }
-        }
-    }
+    public RenderScene RenderScene { get; }
 
     public event EventHandler<TimeSpan>? RenderInvalidated;
 
@@ -102,35 +87,18 @@ public class ImmediateRenderer : IRenderer
 
     protected virtual void RenderGraphicsCore()
     {
-        using (Graphics.Push())
-        {
-            Graphics.Clear();
-
-            foreach (KeyValuePair<int, IRenderLayer> item in _objects)
-            {
-                item.Value.RenderGraphics();
-            }
-        }
+        RenderScene.Render(_immediateCanvas);
     }
 
     protected virtual void RenderAudioCore()
     {
-        _audio.Clear();
+        //_audio.Clear();
 
-        foreach (KeyValuePair<int, IRenderLayer> item in _objects)
-        {
-            item.Value.RenderAudio();
-        }
+        //foreach (KeyValuePair<int, IRenderLayer> item in _objects)
+        //{
+        //    item.Value.RenderAudio();
+        //}
     }
-
-    //void IRenderer.AddDirtyRect(Rect rect)
-    //{
-    //}
-
-    //void IRenderer.AddDirtyRange(TimeRange timeRange)
-    //{
-
-    //}
 
     public IRenderer.RenderResult RenderAudio(TimeSpan timeSpan)
     {
@@ -173,8 +141,4 @@ public class ImmediateRenderer : IRenderer
             return default;
         }
     }
-
-    //public void AddDirty(IRenderable renderable)
-    //{
-    //}
 }

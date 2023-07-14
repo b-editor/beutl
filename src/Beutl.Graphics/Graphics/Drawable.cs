@@ -16,6 +16,7 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
     public static readonly CoreProperty<ITransform?> TransformProperty;
     public static readonly CoreProperty<IImageFilter?> FilterProperty;
     public static readonly CoreProperty<IBitmapEffect?> EffectProperty;
+    public static readonly CoreProperty<FilterEffect?> FilterEffectProperty;
     public static readonly CoreProperty<AlignmentX> AlignmentXProperty;
     public static readonly CoreProperty<AlignmentY> AlignmentYProperty;
     public static readonly CoreProperty<RelativePoint> TransformOriginProperty;
@@ -25,6 +26,7 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
     private ITransform? _transform;
     private IImageFilter? _filter;
     private IBitmapEffect? _effect;
+    private FilterEffect? _filterEffect;
     private AlignmentX _alignX = AlignmentX.Center;
     private AlignmentY _alignY = AlignmentY.Center;
     private RelativePoint _transformOrigin = RelativePoint.Center;
@@ -46,6 +48,11 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
 
         EffectProperty = ConfigureProperty<IBitmapEffect?, Drawable>(nameof(Effect))
             .Accessor(o => o.Effect, (o, v) => o.Effect = v)
+            .DefaultValue(null)
+            .Register();
+        
+        FilterEffectProperty = ConfigureProperty<FilterEffect?, Drawable>(nameof(FilterEffect))
+            .Accessor(o => o.FilterEffect, (o, v) => o.FilterEffect = v)
             .DefaultValue(null)
             .Register();
 
@@ -100,6 +107,13 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
     {
         get => _effect;
         set => SetAndRaise(EffectProperty, ref _effect, value);
+    }
+    
+    [Display(Name = "FilterEffect")]
+    public FilterEffect? FilterEffect
+    {
+        get => _filterEffect;
+        set => SetAndRaise(FilterEffectProperty, ref _filterEffect, value);
     }
 
     [Display(Name = nameof(Strings.Transform), ResourceType = typeof(Strings), GroupName = nameof(Strings.Transform))]
@@ -158,7 +172,7 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
         int height = (int)size.Height;
         if (width > 0 && height > 0)
         {
-            using (var canvas = new Canvas(width, height))
+            using (var canvas = new ImmediateCanvas(width, height))
             {
                 OnDraw(canvas);
                 return canvas.GetBitmap();
@@ -226,7 +240,11 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
 
         rect = rect.TransformToAABB(transform);
         using (canvas.PushBlendMode(BlendMode))
+
+#pragma warning disable CS0618
         using (_filter == null ? new() : canvas.PushImageFilter(_filter, rect))
+#pragma warning restore CS0618
+
         using (canvas.PushTransform(transformFact))
         using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, rect))
         {
@@ -263,7 +281,7 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
         Bounds = rect;
     }
 
-    public void Draw(ICanvas canvas)
+    public void Render(ICanvas canvas)
     {
         if (IsVisible)
         {
@@ -284,7 +302,12 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
                 Matrix transform = GetTransformMatrix(availableSize, size);
                 Rect transformedBounds = rect.TransformToAABB(transform);
                 using (canvas.PushBlendMode(BlendMode))
+
+#pragma warning disable CS0618
                 using (_filter == null ? new() : canvas.PushImageFilter(_filter, /*new Rect(size)*/transformedBounds))
+#pragma warning restore CS0618
+
+                using (_filterEffect == null ? new() : canvas.PushFilterEffect(_filterEffect))
                 using (canvas.PushTransform(transform))
                 using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
                 {
@@ -303,11 +326,6 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
         //    canvas.DrawRect(bounds.Size);
         //}
 #endif
-    }
-
-    public override void Render(IRenderer renderer)
-    {
-        Draw(renderer.Graphics);
     }
 
     public override void ApplyAnimations(IClock clock)

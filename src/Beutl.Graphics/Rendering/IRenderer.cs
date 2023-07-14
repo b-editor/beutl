@@ -11,7 +11,7 @@ namespace Beutl.Rendering;
 
 public interface IRenderer : IDisposable
 {
-    IRenderLayer? this[int index] { get; set; }
+    RenderScene RenderScene { get; }
 
     ICanvas Graphics { get; }
 

@@ -4,57 +4,40 @@ using Beutl.Media.Pixel;
 
 namespace Beutl.Media.Source;
 
-public sealed class ImageSource : IImageSource
+public abstract class ImageSource : IImageSource
 {
-    private readonly Ref<IBitmap> _bitmap;
-
-    public ImageSource(Ref<IBitmap> bitmap, string name)
-    {
-        _bitmap = bitmap;
-        Name = name;
-        FrameSize = new PixelSize(_bitmap.Value.Width, _bitmap.Value.Height);
-    }
-
     ~ImageSource()
     {
-        Dispose();
+        if (!IsDisposed)
+        {
+            OnDispose(false);
+            IsDisposed = true;
+        }
     }
 
-    public PixelSize FrameSize { get; }
+    public abstract PixelSize FrameSize { get; }
+
+    public abstract bool IsGenerated { get; }
+
+    public abstract string Name { get; }
 
     public bool IsDisposed { get; private set; }
 
-    public string Name { get; }
+    public abstract IImageSource Clone();
+
+    public abstract bool Read([NotNullWhen(true)] out IBitmap? bitmap);
+
+    public abstract bool TryGetRef([NotNullWhen(true)] out Ref<IBitmap>? bitmap);
+
+    protected abstract void OnDispose(bool disposing);
 
     public void Dispose()
     {
         if (!IsDisposed)
         {
-            _bitmap.Dispose();
+            OnDispose(true);
             GC.SuppressFinalize(this);
             IsDisposed = true;
         }
     }
-
-    public ImageSource Clone()
-    {
-        if (IsDisposed)
-            throw new ObjectDisposedException(nameof(VideoSource));
-
-        return new ImageSource(_bitmap.Clone(), Name);
-    }
-
-    public bool Read([NotNullWhen(true)] out IBitmap? bitmap)
-    {
-        if (IsDisposed)
-        {
-            bitmap = null;
-            return false;
-        }
-
-        bitmap = _bitmap.Value.Clone();
-        return true;
-    }
-
-    IImageSource IImageSource.Clone() => Clone();
 }

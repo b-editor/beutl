@@ -1,4 +1,6 @@
-﻿using Beutl.Media;
+﻿using Beutl.Audio;
+using Beutl.Graphics;
+using Beutl.Media;
 using Beutl.Styling;
 
 namespace Beutl.Rendering;
@@ -6,11 +8,11 @@ namespace Beutl.Rendering;
 public abstract class Renderable : Styleable, IRenderable, IAffectsRender
 {
     public static readonly CoreProperty<bool> IsVisibleProperty;
-    //public static readonly CoreProperty<int> ZIndexProperty;
-    //public static readonly CoreProperty<TimeRange> TimeRangeProperty;
+    public static readonly CoreProperty<int> ZIndexProperty;
+    public static readonly CoreProperty<TimeRange> TimeRangeProperty;
     private bool _isVisible = true;
-    //private int _zIndex;
-    //private TimeRange _timeRange;
+    private int _zIndex;
+    private TimeRange _timeRange;
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
@@ -21,13 +23,13 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
             .DefaultValue(true)
             .Register();
 
-        //ZIndexProperty = ConfigureProperty<int, Renderable>(nameof(ZIndex))
-        //    .Accessor(o => o.ZIndex, (o, v) => o.ZIndex = v)
-        //    .Register();
+        ZIndexProperty = ConfigureProperty<int, Renderable>(nameof(ZIndex))
+            .Accessor(o => o.ZIndex, (o, v) => o.ZIndex = v)
+            .Register();
 
-        //TimeRangeProperty = ConfigureProperty<TimeRange, Renderable>(nameof(TimeRange))
-        //    .Accessor(o => o.TimeRange, (o, v) => o.TimeRange = v)
-        //    .Register();
+        TimeRangeProperty = ConfigureProperty<TimeRange, Renderable>(nameof(TimeRange))
+            .Accessor(o => o.TimeRange, (o, v) => o.TimeRange = v)
+            .Register();
 
         AffectsRender<Renderable>(IsVisibleProperty);
     }
@@ -38,17 +40,17 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
         set => SetAndRaise(IsVisibleProperty, ref _isVisible, value);
     }
 
-    //public int ZIndex
-    //{
-    //    get => _zIndex;
-    //    set => SetAndRaise(ZIndexProperty, ref _zIndex, value);
-    //}
+    public int ZIndex
+    {
+        get => _zIndex;
+        set => SetAndRaise(ZIndexProperty, ref _zIndex, value);
+    }
 
-    //public TimeRange TimeRange
-    //{
-    //    get => _timeRange;
-    //    set => SetAndRaise(TimeRangeProperty, ref _timeRange, value);
-    //}
+    public TimeRange TimeRange
+    {
+        get => _timeRange;
+        set => SetAndRaise(TimeRangeProperty, ref _timeRange, value);
+    }
 
     private void AffectsRender_Invalidated(object? sender, RenderInvalidatedEventArgs e)
     {
@@ -84,6 +86,4 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
     {
         Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(this));
     }
-
-    public abstract void Render(IRenderer renderer);
 }

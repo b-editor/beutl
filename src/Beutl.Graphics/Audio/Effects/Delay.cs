@@ -142,23 +142,17 @@ public sealed class Delay : SoundEffect
 
     public override ISoundProcessor CreateProcessor()
     {
-        return new DelayProcessor(_delayTime, _feedback, _dryMix, _wetMix);
+        return new DelayProcessor(this);
     }
 
     private sealed class DelayProcessor : ISoundProcessor
     {
-        private readonly float _delayTime;
-        private readonly float _feedback;
-        private readonly float _dryMix;
-        private readonly float _wetMix;
+        private readonly Delay _delay;
         private SimpleCircularBuffer<Vector2>? _delayBuffer;
 
-        public DelayProcessor(float delayTime, float feedback, float dryMix, float wetMix)
+        public DelayProcessor(Delay delay)
         {
-            _delayTime = delayTime;
-            _feedback = feedback;
-            _dryMix = dryMix;
-            _wetMix = wetMix;
+            _delay = delay;
         }
 
         ~DelayProcessor()
@@ -191,11 +185,11 @@ public sealed class Delay : SoundEffect
             {
                 ref Vector2 input = ref Unsafe.As<Stereo32BitFloat, Vector2>(ref channel_data[sample]);
 
-                Vector2 delay = _delayBuffer.Read((int)(_delayTime * sampleRate));
+                Vector2 delay = _delayBuffer.Read((int)(_delay._delayTime * sampleRate));
 
-                _delayBuffer.Write(input + (_feedback * delay));
+                _delayBuffer.Write(input + (_delay._feedback * delay));
 
-                input = ((_dryMix) * input) + (_wetMix * delay);
+                input = ((_delay._dryMix) * input) + (_delay._wetMix * delay);
             }
 
             dst = src;

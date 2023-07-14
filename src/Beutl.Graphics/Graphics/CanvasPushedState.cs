@@ -4,13 +4,13 @@ using SkiaSharp;
 
 namespace Beutl.Graphics;
 
-public partial class Canvas
+public partial class ImmediateCanvas
 {
     private abstract record CanvasPushedState
     {
         internal record SKCanvasPushedState(int Count) : CanvasPushedState
         {
-            public override void Pop(Canvas canvas)
+            public override void Pop(ImmediateCanvas canvas)
             {
                 canvas._canvas.RestoreToCount(Count);
                 canvas._currentTransform = canvas._canvas.TotalMatrix.ToMatrix();
@@ -19,7 +19,7 @@ public partial class Canvas
 
         internal record MaskPushedState(int Count, bool Invert, SKPaint Paint) : CanvasPushedState
         {
-            public override void Pop(Canvas canvas)
+            public override void Pop(ImmediateCanvas canvas)
             {
                 canvas._sharedFillPaint.Reset();
                 canvas._sharedFillPaint.BlendMode = Invert ? SKBlendMode.DstOut : SKBlendMode.DstIn;
@@ -38,7 +38,7 @@ public partial class Canvas
 
         internal record ImageFilterPushedState(int Count, IImageFilter ImageFilter, SKPaint Paint) : CanvasPushedState
         {
-            public override void Pop(Canvas canvas)
+            public override void Pop(ImmediateCanvas canvas)
             {
                 canvas._canvas.RestoreToCount(Count);
                 Paint.Dispose();
@@ -47,12 +47,12 @@ public partial class Canvas
 
         internal record BlendModePushedState(BlendMode BlendMode) : CanvasPushedState
         {
-            public override void Pop(Canvas canvas)
+            public override void Pop(ImmediateCanvas canvas)
             {
                 canvas.BlendMode = BlendMode;
             }
         }
 
-        public abstract void Pop(Canvas canvas);
+        public abstract void Pop(ImmediateCanvas canvas);
     }
 }

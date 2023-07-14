@@ -1,130 +1,140 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 using Beutl.Audio;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
 namespace Beutl.Rendering;
 
-public class RenderLayer : IRenderLayer
+public class RenderLayer
 {
-    private TimeSpan? _lastTimeSpan;
-    private RenderLayerSpan? _lastTimeResult;
-    private readonly List<RenderLayerSpan> _spans = new();
-
-    public RenderLayerSpan? this[TimeSpan timeSpan] => Get(timeSpan);
-
-    public IRenderer? Renderer { get; private set; }
-
-    public void AddSpan(RenderLayerSpan span)
+    private class Entry : IDisposable
     {
-        _spans.Add(span);
-        _lastTimeSpan = null;
-        _lastTimeResult = null;
-
-        span.AttachToRenderLayer(this);
-    }
-
-    public void RemoveSpan(RenderLayerSpan span)
-    {
-        _spans.Remove(span);
-        _lastTimeSpan = null;
-        _lastTimeResult = null;
-
-        span.DetachFromRenderLayer();
-    }
-
-    public bool ContainsSpan(RenderLayerSpan span)
-    {
-        return _spans.Contains(span);
-    }
-
-    private RenderLayerSpan? Get(TimeSpan timeSpan)
-    {
-        if (_lastTimeSpan.HasValue && _lastTimeSpan == timeSpan)
+        public Entry(INode node)
         {
-            return _lastTimeResult;
+            Node = node;
+            IsDirty = true;
         }
 
-        _lastTimeSpan = timeSpan;
-
-        foreach (RenderLayerSpan span in CollectionsMarshal.AsSpan(_spans))
+        ~Entry()
         {
-            if (span.Range.Contains(timeSpan))
+            Dispose();
+        }
+
+        public INode Node { get; }
+
+        public bool IsDirty { get; set; }
+
+        public bool IsDisposed { get; private set; }
+
+        public void Dispose()
+        {
+            if (!IsDisposed)
             {
-                _lastTimeResult = span;
-                return span;
+                Node.Dispose();
+                IsDisposed = true;
+                GC.SuppressFinalize(this);
             }
         }
-
-        _lastTimeResult = null;
-        return null;
     }
 
-    public Span<RenderLayerSpan> GetRange(TimeSpan start, TimeSpan duration)
+    // このテーブルは本描画するときに、自分のレイヤー以外のものを削除する。
+    private readonly ConditionalWeakTable<Renderable, Entry> _cache = new();
+
+    private readonly List<Entry> _currentFrame = new(1);
+    private readonly RenderScene _renderScene;
+
+    public RenderLayer(RenderScene renderScene)
     {
-        var list = new List<RenderLayerSpan>();
-        var range = new TimeRange(start, duration);
-
-        foreach (RenderLayerSpan node in CollectionsMarshal.AsSpan(_spans))
-        {
-            if (node.Range.Intersects(range))
-            {
-                list.Add(node);
-            }
-        }
-
-        return CollectionsMarshal.AsSpan(list);
+        _renderScene = renderScene;
     }
 
-    public void RenderGraphics()
+    public void Clear()
     {
-        if (Renderer is { Clock.CurrentTime: { } timeSpan } renderer)
+        _currentFrame.Clear();
+    }
+
+    public void UpdateAll(IReadOnlyList<Renderable> elements)
+    {
+        _currentFrame.Clear();
+        _currentFrame.EnsureCapacity(elements.Count);
+        // Todo: Drawable, Renderableを統合する予定
+        foreach (Renderable element in elements)
         {
-            RenderLayerSpan? layer = Get(timeSpan);
-            if (layer != null)
+            if (!_cache.TryGetValue(element, out Entry? entry))
             {
-                foreach (Renderable r in layer.Value.GetMarshal().Value)
+                if (element is Drawable drawable)
                 {
-                    if (r is Drawable drawable)
+                    entry = new Entry(new DrawableNode(drawable));
+                    _cache.Add(element, entry);
+
+                    var weakRef = new WeakReference<Entry>(entry);
+                    EventHandler<RenderInvalidatedEventArgs>? handler = null;
+                    handler = (_, _) =>
                     {
-                        drawable.Render(renderer);
-                    }
+                        if (weakRef.TryGetTarget(out Entry? obj))
+                        {
+                            obj.IsDirty = true;
+                        }
+                        else
+                        {
+                            element.Invalidated -= handler;
+                        }
+                    };
+                    element.Invalidated += handler;
+                }
+                else if (element is Sound sound)
+                {
+                    entry = new Entry(new SoundNode(sound));
+                    _cache.Add(element, entry);
                 }
             }
-        }
-    }
 
-    public void RenderAudio()
-    {
-        if (Renderer is { Clock.AudioStartTime: { } timeSpan } renderer)
-        {
-            Span<RenderLayerSpan> span = GetRange(timeSpan, TimeSpan.FromSeconds(1));
-            foreach (RenderLayerSpan item in span)
+            if (entry != null)
             {
-                foreach (Renderable r in item.Value.GetMarshal().Value)
+                if (entry.IsDirty
+                    && entry.Node is DrawableNode { Drawable: var drawable } drawableNode)
                 {
-                    if (r is Sound sound)
-                    {
-                        sound.Render(renderer);
-                    }
+                    // DeferredCanvasを作成し、記録
+                    var canvas = new DeferradCanvas(drawableNode, _renderScene.Size);
+                    drawable.Render(canvas);
+                    entry.IsDirty = false;
                 }
+
+                _currentFrame.Add(entry);
             }
         }
     }
 
-    public void AttachToRenderer(IRenderer renderer)
+    public void Render(ImmediateCanvas canvas)
     {
-        if (Renderer != null && Renderer != renderer)
+        foreach (Entry? entry in CollectionsMarshal.AsSpan(_currentFrame))
         {
-            throw new InvalidOperationException();
-        }
+            if (entry.Node is DrawableNode dnode)
+            {
+                Drawable element = dnode.Drawable;
+                if (entry.IsDirty)
+                {
+                    var dcanvas = new DeferradCanvas(dnode, _renderScene.Size);
+                    element.Render(dcanvas);
+                    entry.IsDirty = false;
+                }
 
-        Renderer = renderer;
+                dnode.Render(canvas);
+            }
+        }
     }
 
-    public void DetachFromRenderer()
+    public void Render(Audio.Audio audio)
     {
-        Renderer = null;
+        foreach (Entry? entry in CollectionsMarshal.AsSpan(_currentFrame))
+        {
+            if (entry.Node is SoundNode snode)
+            {
+                snode.Sound.Render(audio);
+            }
+        }
     }
 }

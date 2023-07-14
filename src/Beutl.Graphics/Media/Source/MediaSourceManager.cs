@@ -40,7 +40,7 @@ public class MediaSourceManager
         value = null;
         if (TryGetBitmapOrOpen(name, out Ref<IBitmap>? bitmap))
         {
-            value = new ImageSource(bitmap, name);
+            value = new BitmapSource(bitmap, name);
         }
 
         return value != null;

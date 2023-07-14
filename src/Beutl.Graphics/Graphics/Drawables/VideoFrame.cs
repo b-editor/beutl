@@ -31,7 +31,6 @@ public class VideoFrame : Drawable
     private TimeSpan _requestedPosition;
     private IBitmap? _previousBitmap;
     private double _previousFrame;
-    private RenderLayerSpan? _layerNode;
 
     static VideoFrame()
     {
@@ -121,24 +120,8 @@ public class VideoFrame : Drawable
         if (PositionMode == VideoPositionMode.Automatic)
         {
             _requestedPosition = clock.CurrentTime;
-
-            if (_layerNode != null)
-            {
-                _requestedPosition -= _layerNode.Start;
-            }
+            _requestedPosition -= clock.BeginTime;
         }
-    }
-
-    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-        base.OnAttachedToHierarchy(args);
-        _layerNode = this.FindHierarchicalParent<RenderLayerSpan>();
-    }
-
-    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-        base.OnDetachedFromHierarchy(args);
-        _layerNode = null;
     }
 
     protected override Size MeasureCore(Size availableSize)

@@ -10,6 +10,8 @@ public interface IImageSource : IMediaSource
 
     bool Read([NotNullWhen(true)] out IBitmap? bitmap);
 
+    bool TryGetRef([NotNullWhen(true)] out Ref<IBitmap>? bitmap);
+
     new IImageSource Clone();
 
     IMediaSource IMediaSource.Clone() => Clone();

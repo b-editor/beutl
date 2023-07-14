@@ -162,10 +162,10 @@ public class Border : BitmapEffect
             var borderRect = new Rect(0, 0, border.Width, border.Height);
 
             ImmutableImageBrush? maskBrush = maskType != MaskTypes.None
-                ? new ImmutableImageBrush(new ImageSource(Ref<IBitmap>.Create(src), "Temp"), stretch: Stretch.None)
+                ? new ImmutableImageBrush(new BitmapSource(Ref<IBitmap>.Create(src), "Temp"), stretch: Stretch.None)
                 : null;
 
-            using (var canvas = new Canvas((int)canvasRect.Width, (int)canvasRect.Height))
+            using (var canvas = new ImmediateCanvas((int)canvasRect.Width, (int)canvasRect.Height))
             using (canvas.PushTransform(Matrix.CreateTranslation(8, 8)))
             {
                 var srcTranslate = Matrix.CreateTranslation(

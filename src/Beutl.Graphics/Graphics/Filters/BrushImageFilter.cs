@@ -48,7 +48,7 @@ public sealed class BrushImageFilter : ImageFilter
         if (Brush != null)
         {
             var paint = new SKPaint();
-            Canvas.ConfigurePaint(paint, bounds.Size, Brush, BlendMode);
+            ImmediateCanvas.ConfigurePaint(paint, bounds.Size, Brush, BlendMode);
             return SKImageFilter.CreatePaint(paint);
         }
         else

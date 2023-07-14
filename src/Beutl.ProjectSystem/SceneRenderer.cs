@@ -15,7 +15,6 @@ internal sealed class SceneRenderer :
     private readonly List<Element> _entered = new();
     private readonly List<Element> _exited = new();
     private readonly List<Element> _layers = new();
-    private readonly List<Renderable> _unhandleds = new();
     private TimeSpan _recentTime = TimeSpan.MinValue;
 
     public SceneRenderer(Scene scene, int width, int height)
@@ -36,10 +35,10 @@ internal sealed class SceneRenderer :
         Span<Element> layers = CollectionsMarshal.AsSpan(_layers);
         Span<Element> entered = CollectionsMarshal.AsSpan(_entered);
         Span<Element> exited = CollectionsMarshal.AsSpan(_exited);
-        _unhandleds.Clear();
 
         foreach (Element item in exited)
         {
+            RenderScene[item.ZIndex].Clear();
             ExitSourceOperators(item);
         }
 
@@ -50,7 +49,7 @@ internal sealed class SceneRenderer :
 
         foreach (Element layer in layers)
         {
-            layer.Evaluate(this, _unhandleds);
+            layer.Evaluate(this);
         }
 
         base.RenderGraphicsCore();

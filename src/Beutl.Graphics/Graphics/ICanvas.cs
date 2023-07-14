@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Filters;
+﻿using Beutl.Graphics.Effects;
+using Beutl.Graphics.Filters;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.TextFormatting;
@@ -13,9 +14,9 @@ public interface ICanvas : IDisposable
 
     bool IsDisposed { get; }
 
-    BlendMode BlendMode { get; set; }
+    BlendMode BlendMode { get; }
 
-    Matrix Transform { get; set; }
+    Matrix Transform { get; }
 
     void Clear();
 
@@ -43,7 +44,10 @@ public interface ICanvas : IDisposable
 
     PushedState PushOpacityMask(IBrush mask, Rect bounds, bool invert = false);
 
+    [Obsolete("Use PushFilterEffect")]
     PushedState PushImageFilter(IImageFilter filter, Rect bounds);
+
+    PushedState PushFilterEffect(FilterEffect effect);
 
     PushedState PushBlendMode(BlendMode blendMode);
 

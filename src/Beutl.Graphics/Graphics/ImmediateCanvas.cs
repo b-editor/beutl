@@ -1,8 +1,10 @@
 ﻿using System.Runtime.CompilerServices;
 
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Filters;
 using Beutl.Media;
 using Beutl.Media.Pixel;
+using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
 using Beutl.Threading;
 
@@ -13,8 +15,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics;
 
-// https://github.com/AvaloniaUI/Avalonia/blob/master/src/Skia/Avalonia.Skia/DrawingContextImpl.cs
-public partial class Canvas : ICanvas
+public partial class ImmediateCanvas : ICanvas
 {
     private readonly SKSurface _surface;
     internal readonly SKCanvas _canvas;
@@ -22,21 +23,25 @@ public partial class Canvas : ICanvas
     private readonly SKPaint _sharedFillPaint = new();
     private readonly SKPaint _sharedStrokePaint = new();
     private readonly Stack<CanvasPushedState> _states = new();
+    private readonly bool _leaveOpen;
     private Matrix _currentTransform;
 
-    public Canvas(int width, int height)
+    public ImmediateCanvas(SKSurface surface, bool leaveOpen)
     {
         _dispatcher = Dispatcher.Current;
-        Size = new PixelSize(width, height);
-        var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
-
-        _surface = SKSurface.Create(info);
-
+        Size = surface.Canvas.DeviceClipBounds.Size.ToGraphicsSize();
+        _surface = surface;
         _canvas = _surface.Canvas;
         _currentTransform = _canvas.TotalMatrix.ToMatrix();
+        _leaveOpen = leaveOpen;
     }
 
-    ~Canvas()
+    public ImmediateCanvas(int width, int height)
+        : this(SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul)), false)
+    {
+    }
+
+    ~ImmediateCanvas()
     {
         Dispose();
     }
@@ -88,7 +93,11 @@ public partial class Canvas : ICanvas
     {
         void DisposeCore()
         {
-            _surface.Dispose();
+            if (!_leaveOpen)
+            {
+                _surface.Dispose();
+            }
+
             _sharedFillPaint.Dispose();
             _sharedStrokePaint.Dispose();
             GC.SuppressFinalize(this);
@@ -308,9 +317,11 @@ public partial class Canvas : ICanvas
 
         if (count < 0)
         {
-            if (_states.TryPop(out CanvasPushedState? state))
+            while (count < 0
+                && _states.TryPop(out CanvasPushedState? state))
             {
                 state.Pop(this);
+                count++;
             }
         }
         else
@@ -410,10 +421,15 @@ public partial class Canvas : ICanvas
         return new PushedState(this, _states.Count);
     }
 
+    public PushedState PushFilterEffect(FilterEffect effect)
+    {
+        throw new NotSupportedException("ImmediateCanvasはFilterEffectに対応しません");
+    }
+
     private void VerifyAccess()
     {
         if (IsDisposed)
-            throw new ObjectDisposedException(nameof(Canvas));
+            throw new ObjectDisposedException(nameof(ImmediateCanvas));
 
         _dispatcher?.VerifyAccess();
     }
@@ -560,12 +576,13 @@ public partial class Canvas : ICanvas
 
     private static void ConfigureTileBrush(SKPaint paint, Size targetSize, ITileBrush tileBrush)
     {
-        IBitmap? bitmap;
+        // Todo: DrawableBrush 
+        Ref<IBitmap>? bitmap;
         if (tileBrush is IDrawableBrush { Drawable: { } } drawableBrush)
         {
-            bitmap = drawableBrush.Drawable.ToBitmap();
+            bitmap = Ref<IBitmap>.Create(drawableBrush.Drawable.ToBitmap());
         }
-        else if ((tileBrush as IImageBrush)?.Source?.Read(out bitmap) == true)
+        else if ((tileBrush as IImageBrush)?.Source?.TryGetRef(out bitmap) == true)
         {
         }
         else
@@ -573,13 +590,13 @@ public partial class Canvas : ICanvas
             throw new InvalidOperationException();
         }
 
-        var calc = new TileBrushCalculator(tileBrush, new Size(bitmap.Width, bitmap.Height), targetSize);
+        var calc = new TileBrushCalculator(tileBrush, new Size(bitmap.Value.Width, bitmap.Value.Height), targetSize);
         SKSizeI intermediateSize = calc.IntermediateSize.ToSKSize().ToSizeI();
 
         var intermediate = new SKBitmap(new SKImageInfo(intermediateSize.Width, intermediateSize.Height, SKColorType.Bgra8888));
         using (var canvas = new SKCanvas(intermediate))
         {
-            using var target = bitmap.ToSKBitmap();
+            using var target = bitmap.Value.ToSKBitmap();
             using var ipaint = new SKPaint();
             ipaint.FilterQuality = tileBrush.BitmapInterpolationMode.ToSKFilterQuality();
 

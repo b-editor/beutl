@@ -132,17 +132,6 @@ public class Scene : ProjectItem
         Renderer = new SceneRenderer(this, width, height);
         _renderer = Renderer;
 
-        foreach (Element item in _children.GetMarshal().Value)
-        {
-            IRenderLayer? context = _renderer[item.ZIndex];
-            if (context == null)
-            {
-                context = new RenderLayer();
-                _renderer[item.ZIndex] = context;
-            }
-            context.AddSpan(item.Span);
-        }
-
         OnPropertyChanged(new CorePropertyChangedEventArgs<int>(
             sender: this,
             property: WidthProperty,

@@ -53,6 +53,11 @@ internal static class SkiaSharpExtensions
     {
         return new Size(s.Width, s.Height);
     }
+    
+    public static PixelSize ToGraphicsSize(this in SKSizeI s)
+    {
+        return new PixelSize(s.Width, s.Height);
+    }
 
     public static SKMatrix ToSKMatrix(this in Matrix m)
     {

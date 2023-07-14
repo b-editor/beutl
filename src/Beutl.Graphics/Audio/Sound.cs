@@ -7,6 +7,8 @@ using Beutl.Rendering;
 
 namespace Beutl.Audio;
 
+// Animationに対応させる (手動)
+
 public abstract class Sound : Renderable
 {
     public static readonly CoreProperty<float> GainProperty;
@@ -78,12 +80,7 @@ public abstract class Sound : Renderable
         }
     }
 
-    public override void Render(IRenderer renderer)
-    {
-        Record(renderer.Audio);
-    }
-
-    public void Record(IAudio audio)
+    public void Render(IAudio audio)
     {
         if (_effect is { IsEnabled: true } effect)
         {

@@ -22,8 +22,9 @@ public class Element : ProjectItem
     public static readonly CoreProperty<int> ZIndexProperty;
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
+
+    [Obsolete]
     public static readonly CoreProperty<bool> AllowOutflowProperty;
-    public static readonly CoreProperty<RenderLayerSpan> SpanProperty;
     public static readonly CoreProperty<SourceOperation> OperationProperty;
     public static readonly CoreProperty<ElementNodeTreeModel> NodeTreeProperty;
     public static readonly CoreProperty<bool> UseNodeProperty;
@@ -59,15 +60,6 @@ public class Element : ProjectItem
             .DefaultValue(true)
             .Register();
 
-        AllowOutflowProperty = ConfigureProperty<bool, Element>(nameof(AllowOutflow))
-            .Accessor(o => o.AllowOutflow, (o, v) => o.AllowOutflow = v)
-            .DefaultValue(false)
-            .Register();
-
-        SpanProperty = ConfigureProperty<RenderLayerSpan, Element>(nameof(Span))
-            .Accessor(o => o.Span, null)
-            .Register();
-
         OperationProperty = ConfigureProperty<SourceOperation, Element>(nameof(Operation))
             .Accessor(o => o.Operation, null)
             .Register();
@@ -81,32 +73,7 @@ public class Element : ProjectItem
             .DefaultValue(false)
             .Register();
 
-        ZIndexProperty.Changed.Subscribe(args =>
-        {
-            if (args.Sender is Element layer && layer.HierarchicalParent is Scene { Renderer: { IsDisposed: false } renderer })
-            {
-                renderer[args.OldValue]?.RemoveSpan(layer.Span);
-                if (args.NewValue >= 0)
-                {
-                    IRenderLayer? context = renderer[args.NewValue];
-                    if (context == null)
-                    {
-                        context = new RenderLayer();
-                        renderer[args.NewValue] = context;
-                    }
-                    context.AddSpan(layer.Span);
-                }
-            }
-        });
-
         IsEnabledProperty.Changed.Subscribe(args =>
-        {
-            if (args.Sender is Element layer)
-            {
-                layer.ForceRender();
-            }
-        });
-        AllowOutflowProperty.Changed.Subscribe(args =>
         {
             if (args.Sender is Element layer)
             {
@@ -120,22 +87,20 @@ public class Element : ProjectItem
                 layer.ForceRender();
             }
         });
+#pragma warning disable CS0612
+        AllowOutflowProperty = ConfigureProperty<bool, Element>(nameof(AllowOutflow))
+            .Accessor(o => o.AllowOutflow, (o, v) => o.AllowOutflow = v)
+            .DefaultValue(false)
+            .Register();
 
-        StartProperty.Changed.Subscribe(e =>
+        AllowOutflowProperty.Changed.Subscribe(args =>
         {
-            if (e.Sender is Element layer)
+            if (args.Sender is Element layer)
             {
-                layer.Span.Start = e.NewValue;
+                layer.ForceRender();
             }
         });
-
-        LengthProperty.Changed.Subscribe(e =>
-        {
-            if (e.Sender is Element layer)
-            {
-                layer.Span.Duration = e.NewValue;
-            }
-        });
+#pragma warning restore CS0612
     }
 
     public Element()
@@ -149,7 +114,6 @@ public class Element : ProjectItem
         NodeTree.Invalidated += (_, _) => ForceRender();
 
         HierarchicalChildren.Add(Operation);
-        HierarchicalChildren.Add(Span);
         HierarchicalChildren.Add(NodeTree);
     }
 
@@ -212,13 +176,12 @@ public class Element : ProjectItem
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
     }
 
+    [Obsolete]
     public bool AllowOutflow
     {
         get => _allowOutflow;
         set => SetAndRaise(AllowOutflowProperty, ref _allowOutflow, value);
     }
-
-    public RenderLayerSpan Span { get; } = new();
 
     public SourceOperation Operation { get; }
 
@@ -272,7 +235,7 @@ public class Element : ProjectItem
         json[nameof(NodeTree)] = nodeTreeJson;
     }
 
-    public void Evaluate(IRenderer renderer, List<Renderable> unhandleds)
+    public void Evaluate(IRenderer renderer)
     {
         _instanceClock.GlobalClock = renderer.Clock;
         _instanceClock.BeginTime = Start;
@@ -285,35 +248,7 @@ public class Element : ProjectItem
         }
         else
         {
-            Operation.Evaluate(renderer, this, unhandleds);
-        }
-    }
-
-    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-        base.OnAttachedToHierarchy(args);
-        if (args.Parent is Scene { Renderer: { IsDisposed: false } renderer } && ZIndex >= 0)
-        {
-            IRenderLayer? context = renderer[ZIndex];
-            if (context == null)
-            {
-                context = new RenderLayer();
-                renderer[ZIndex] = context;
-            }
-            context.AddSpan(Span);
-
-            _disposable = SubscribeToLayerNode();
-        }
-    }
-
-    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-        base.OnDetachedFromHierarchy(args);
-        if (args.Parent is Scene { Renderer: { IsDisposed: false } renderer } && ZIndex >= 0)
-        {
-            renderer[ZIndex]?.RemoveSpan(Span);
-            _disposable?.Dispose();
-            _disposable = null;
+            Operation.Evaluate(renderer, this);
         }
     }
 
@@ -328,18 +263,6 @@ public class Element : ProjectItem
         {
             scene.Renderer.RaiseInvalidated(scene.CurrentFrame);
         }
-    }
-
-    private IDisposable SubscribeToLayerNode()
-    {
-        return Span.GetObservable(RenderLayerSpan.ValueProperty)
-            .SelectMany(value => value != null
-                ? Observable.FromEventPattern<RenderInvalidatedEventArgs>(h => value.Invalidated += h, h => value.Invalidated -= h)
-                    .Select(_ => Unit.Default)
-                    .Publish(Unit.Default)
-                    .RefCount()
-                : Observable.Return(Unit.Default))
-            .Subscribe(_ => ForceRender());
     }
 
     internal Element? GetBefore(int zindex, TimeSpan start)

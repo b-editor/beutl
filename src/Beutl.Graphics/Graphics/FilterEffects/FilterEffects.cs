@@ -2,14 +2,14 @@
 using System.Collections.Specialized;
 
 using Beutl.Collections;
+using Beutl.Graphics.Effects;
 using Beutl.Media;
 
-namespace Beutl.Rendering;
+namespace Beutl.Graphics.Effects;
 
-public sealed class Renderables : HierarchicalList<Renderable>, IAffectsRender
+public sealed class FilterEffects : CoreList<FilterEffect>, IAffectsRender
 {
-    public Renderables(IModifiableHierarchical parent)
-        : base(parent)
+    public FilterEffects()
     {
         ResetBehavior = ResetBehavior.Remove;
         CollectionChanged += OnCollectionChanged;
@@ -21,7 +21,7 @@ public sealed class Renderables : HierarchicalList<Renderable>, IAffectsRender
         {
             foreach (IAffectsRender? item in list.OfType<IAffectsRender>())
             {
-                item.Invalidated += OnItemInvalidated;
+                item.Invalidated += Item_Invalidated;
             }
         }
 
@@ -29,7 +29,7 @@ public sealed class Renderables : HierarchicalList<Renderable>, IAffectsRender
         {
             foreach (IAffectsRender? item in list.OfType<IAffectsRender>())
             {
-                item.Invalidated -= OnItemInvalidated;
+                item.Invalidated -= Item_Invalidated;
             }
         }
 
@@ -56,7 +56,7 @@ public sealed class Renderables : HierarchicalList<Renderable>, IAffectsRender
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
-    private void OnItemInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void Item_Invalidated(object? sender, RenderInvalidatedEventArgs e)
     {
         RaiseInvalidated(e);
     }
@@ -65,5 +65,4 @@ public sealed class Renderables : HierarchicalList<Renderable>, IAffectsRender
     {
         Invalidated?.Invoke(this, args);
     }
-
 }

@@ -2,7 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 
-using Canvas = Beutl.Graphics.Canvas;
+using Canvas = Beutl.Graphics.ImmediateCanvas;
 
 namespace TextFormattingPlayground;
 

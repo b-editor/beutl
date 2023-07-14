@@ -48,7 +48,7 @@ public class TextBlockTests
 
         tb.Measure(Size.Infinity);
         Rect bounds = tb.Bounds;
-        using var graphics = new Canvas((int)bounds.Width, (int)bounds.Height);
+        using var graphics = new ImmediateCanvas((int)bounds.Width, (int)bounds.Height);
 
         graphics.Clear(Colors.White);
 
@@ -78,7 +78,7 @@ public class TextBlockTests
         Rect bounds = tb.Bounds;
         using var skpath = TextBlock.ToSKPath(tb.Elements!);
 
-        using var graphics = new Canvas((int)bounds.Width, (int)bounds.Height);
+        using var graphics = new ImmediateCanvas((int)bounds.Width, (int)bounds.Height);
 
         graphics.Clear(Colors.White);
 

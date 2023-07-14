@@ -23,12 +23,5 @@ public interface IDrawable : IRenderable
 
     RelativePoint TransformOrigin { get; set; }
 
-    void Draw(ICanvas canvas);
-
     IBitmap ToBitmap();
-
-    void IRenderable.Render(IRenderer renderer)
-    {
-        Draw(renderer.Graphics);
-    }
 }

@@ -23,7 +23,7 @@ public class ShapeTests
             Foreground = Brushes.White
         };
 
-        using var canvas = new Canvas(250, 250);
+        using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
         shape.Draw(canvas);
@@ -58,7 +58,7 @@ public class ShapeTests
             }
         };
 
-        using var canvas = new Canvas(250, 250);
+        using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
 
@@ -83,7 +83,7 @@ public class ShapeTests
             Foreground = Brushes.White
         };
 
-        using var canvas = new Canvas(250, 250);
+        using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
         shape.Draw(canvas);
@@ -109,7 +109,7 @@ public class ShapeTests
             Foreground = Brushes.White
         };
 
-        using var canvas = new Canvas(250, 250);
+        using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
         shape.Draw(canvas);
@@ -145,7 +145,7 @@ public class ShapeTests
             }
         };
 
-        using var canvas = new Canvas(250, 250);
+        using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
         shape.Draw(canvas);
@@ -181,7 +181,7 @@ public class ShapeTests
             Foreground = Brushes.White
         };
 
-        using var canvas = new Canvas(250, 250);
+        using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
         shape.Draw(canvas);
@@ -234,7 +234,7 @@ public class ShapeTests
             }
         };
 
-        using var canvas = new Canvas(250, 250);
+        using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
         shape.Draw(canvas);

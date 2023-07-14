@@ -82,8 +82,8 @@ public class InnerShadow : BitmapEffect
             var rect = new Rect(0, 0, src.Width, src.Height);
             PixelSize ksize = _shadow.KernelSize;
 
-            using var canvas = new Canvas(src.Width, src.Height);
-            var maskSource = new ImageSource(Ref<IBitmap>.Create(src), "Temp");
+            using var canvas = new ImmediateCanvas(src.Width, src.Height);
+            var maskSource = new BitmapSource(Ref<IBitmap>.Create(src), "Temp");
             var maskBrush = new ImageBrush(maskSource)
             {
                 Transform = new TranslateTransform(_shadow._position),
