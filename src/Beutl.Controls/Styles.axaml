@@ -36,6 +36,14 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/FontFamilyEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/FontFamilyPicker.axaml" />
             </ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="MainViewBackground" Color="Transparent" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="MainViewBackground" Color="#4D000000" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
 
             <x:Double x:Key="LayerHeight">25</x:Double>
             <x:Double x:Key="SecondWidth">150</x:Double>

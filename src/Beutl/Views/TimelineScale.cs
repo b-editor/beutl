@@ -46,10 +46,7 @@ public sealed class TimelineScale : Control
     public TimelineScale()
     {
         ClipToBounds = true;
-        _pen = new Pen()
-        {
-            Brush = _brush
-        };
+        _pen = new Pen(_brush, 1);
     }
 
     public float Scale
@@ -99,6 +96,7 @@ public sealed class TimelineScale : Control
     public override void Render(DrawingContext context)
     {
         base.Render(context);
+
         const int top = 16;
 
         double width = Bounds.Width;
@@ -149,15 +147,9 @@ public sealed class TimelineScale : Control
             var endingbar = new Point(_endingBarMargin.Left, 0);
             var bottom = new Point(0, height);
 
-            _pen.Thickness = 1.25;
-            _pen.Brush = Brushes.Red;
-            context.DrawLine(_pen, seekbar, seekbar + bottom);
+            context.DrawLine(TimelineSharedObject.RedPen, seekbar, seekbar + bottom);
 
-            _pen.Brush = Brushes.Blue;
-            context.DrawLine(_pen, endingbar, endingbar + bottom);
-
-            _pen.Thickness = 1;
-            _pen.Brush = _brush;
+            context.DrawLine(TimelineSharedObject.BluePen, endingbar, endingbar + bottom);
         }
     }
 }

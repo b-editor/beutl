@@ -68,7 +68,7 @@ public sealed class NodeTreeBackground : Control
         double amariX = offsetX % DotSize;
         double amariY = offsetY % DotSize;
 
-        using (context.PushPreTransform(Matrix.CreateTranslation(amariX, amariY) * Matrix.CreateScale(_zoomBorder.ZoomX, _zoomBorder.ZoomY)))
+        using (context.PushTransform(Matrix.CreateTranslation(amariX, amariY) * Matrix.CreateScale(_zoomBorder.ZoomX, _zoomBorder.ZoomY)))
         {
             IBrush brush = BorderBrush ?? Brushes.Gray;
             for (int i = -1; i < hsplit; i++)

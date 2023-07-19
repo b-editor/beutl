@@ -58,6 +58,7 @@ public sealed class ViewConfig : ConfigurationBase
         set => SetValue(UICultureProperty, value);
     }
 
+    [Obsolete]
     public bool IsMicaEffectEnabled
     {
         get => GetValue(IsMicaEffectEnabledProperty);

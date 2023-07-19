@@ -5,6 +5,21 @@ using Avalonia.Media.Immutable;
 
 namespace Beutl.Views;
 
+public static class TimelineSharedObject
+{
+    public static readonly IPen RedPen;
+    public static readonly IPen BluePen;
+    public static readonly IPen SelectionPen;
+    public static readonly IBrush SelectionFillBrush = new ImmutableSolidColorBrush(Colors.CornflowerBlue, 0.3);
+
+    static TimelineSharedObject()
+    {
+        RedPen = new ImmutablePen(Brushes.Red, 1.25);
+        BluePen = new ImmutablePen(Brushes.Blue, 1.25);
+        SelectionPen = new ImmutablePen(Brushes.CornflowerBlue, 0.5);
+    }
+}
+
 public sealed class TimelineOverlay : Control
 {
     public static readonly DirectProperty<TimelineOverlay, Vector> OffsetProperty
@@ -27,9 +42,6 @@ public sealed class TimelineOverlay : Control
         = AvaloniaProperty.RegisterDirect<TimelineOverlay, Thickness>(
             nameof(SeekBarMargin), o => o.SeekBarMargin, (o, v) => o.SeekBarMargin = v);
 
-    private readonly Pen _pen;
-    private readonly IBrush _selectionFillBrush = new ImmutableSolidColorBrush(Colors.CornflowerBlue, 0.3);
-    private readonly IBrush _selectionStrokeBrush = Brushes.CornflowerBlue;
     private Vector _offset;
     private Thickness _endingBarMargin;
     private Thickness _seekBarMargin;
@@ -44,7 +56,6 @@ public sealed class TimelineOverlay : Control
     public TimelineOverlay()
     {
         ClipToBounds = true;
-        _pen = new Pen();
     }
 
     public Vector Offset
@@ -81,25 +92,19 @@ public sealed class TimelineOverlay : Control
     {
         base.Render(context);
         Rect rect = _selectionRange.Normalize();
-        context.FillRectangle(_selectionFillBrush, rect);
+        context.FillRectangle(TimelineSharedObject.SelectionFillBrush, rect);
 
-        _pen.Thickness = 0.5;
-        _pen.Brush = _selectionStrokeBrush;
-        context.DrawRectangle(_pen, rect);
+        context.DrawRectangle(TimelineSharedObject.SelectionPen, rect);
 
-        using (context.PushPreTransform(Matrix.CreateTranslation(0, _offset.Y)))
+        using (context.PushTransform(Matrix.CreateTranslation(0, _offset.Y)))
         {
             double height = _viewport.Height;
             var seekbar = new Point(_seekBarMargin.Left, 0);
             var endingbar = new Point(_endingBarMargin.Left, 0);
             var bottom = new Point(0, height);
 
-            _pen.Thickness = 1.25;
-            _pen.Brush = Brushes.Red;
-            context.DrawLine(_pen, seekbar, seekbar + bottom);
-
-            _pen.Brush = Brushes.Blue;
-            context.DrawLine(_pen, endingbar, endingbar + bottom);
+            context.DrawLine(TimelineSharedObject.RedPen, seekbar, seekbar + bottom);
+            context.DrawLine(TimelineSharedObject.BluePen, endingbar, endingbar + bottom);
         }
     }
 }

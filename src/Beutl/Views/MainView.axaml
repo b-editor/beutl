@@ -18,6 +18,7 @@
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="vm:MainViewModel"
+             Background="{DynamicResource MainViewBackground}"
              Focusable="True"
              mc:Ignorable="d">
 
@@ -43,6 +44,7 @@
                    MaxHeight="24"
                    Margin="8,0"
                    VerticalAlignment="Center"
+                   RenderOptions.BitmapInterpolationMode="HighQuality"
                    Source="/Assets/logo.ico">
                 <Image.Clip>
                     <EllipseGeometry RadiusX="12"

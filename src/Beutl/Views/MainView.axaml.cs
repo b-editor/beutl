@@ -213,7 +213,7 @@ public sealed partial class MainView : UserControl
             {
                 titleBar.ExtendsContentIntoTitleBar = true;
 
-                Titlebar.Margin = new Thickness(titleBar.RightInset, 0, titleBar.LeftInset, 0);
+                Titlebar.Margin = new Thickness(0, 0, titleBar.LeftInset, 0);
                 AppWindow.SetAllowInteractionInTitleBar(MenuBar, true);
             }
         }

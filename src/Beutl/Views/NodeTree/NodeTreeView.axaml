@@ -10,6 +10,7 @@
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="viewModel:NodeTreeViewModel"
+             RenderOptions.BitmapInterpolationMode="HighQuality"
              mc:Ignorable="d">
     <ScrollViewer Grid.Row="4"
                   Grid.Column="1"

@@ -124,6 +124,7 @@
                     Margin="32,0,0,0"
                     HorizontalAlignment="Left"
                     Orientation="Horizontal"
+                    RenderOptions.BitmapInterpolationMode="HighQuality"
                     Spacing="8">
             <StackPanel.Styles>
                 <Style Selector="Button">

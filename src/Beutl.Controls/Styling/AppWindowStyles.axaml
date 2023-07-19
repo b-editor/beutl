@@ -3,30 +3,10 @@
                     xmlns:ui="using:FluentAvalonia.UI.Controls"
                     xmlns:wnd="using:FluentAvalonia.UI.Windowing">
     <FontFamily x:Key="SegoeFluentIconsFontFamily">Segoe Fluent Icons</FontFamily>
-    <SolidColorBrush x:Key="CaptionButtonBackground" Color="Transparent" />
-    <StaticResource x:Key="CaptionButtonForeground" ResourceKey="TextFillColorPrimaryBrush" />
-    <StaticResource x:Key="CaptionButtonBackgroundPointerOver" ResourceKey="SubtleFillColorSecondaryBrush" />
-    <StaticResource x:Key="CaptionButtonForegroundPointerOver" ResourceKey="TextFillColorPrimaryBrush" />
-    <StaticResource x:Key="CaptionButtonBackgroundPressed" ResourceKey="SubtleFillColorSecondaryBrush" />
-    <StaticResource x:Key="CaptionButtonForegroundPressed" ResourceKey="TextFillColorPrimaryBrush" />
-    <SolidColorBrush x:Key="CaptionButtonBackgroundInactive" Color="Transparent" />
-    <StaticResource x:Key="CaptionButtonForegroundInactive" ResourceKey="TextFillColorDisabledBrush" />
-    <StaticResource x:Key="CaptionButtonBackgroundInactivePointerOver" ResourceKey="SubtleFillColorSecondaryBrush" />
-    <StaticResource x:Key="CaptionButtonForegroundInactivePointerOver" ResourceKey="TextFillColorPrimaryBrush" />
-    <StaticResource x:Key="CaptionButtonBackgroundInactivePressed" ResourceKey="SubtleFillColorSecondaryBrush" />
-    <StaticResource x:Key="CaptionButtonForegroundInactivePressed" ResourceKey="TextFillColorTertiaryBrush" />
-
-    <SolidColorBrush x:Key="CaptionButtonBackgroundClosePointerOver" Color="#FFC42B1C" />
-    <SolidColorBrush x:Key="CaptionButtonForegroundClosePointerOver" Color="White" />
-    <SolidColorBrush x:Key="CaptionButtonBackgroundClosePressed" Color="rgba(196, 43, 28, 0.9)" />
-    <SolidColorBrush x:Key="CaptionButtonForegroundClosePressed" Color="White" />
-
-    <SolidColorBrush x:Key="CaptionButtonBackgroundDisabled" Color="Transparent" />
-    <StaticResource x:Key="CaptionButtonForegroundDisabled" ResourceKey="TextFillColorDisabledBrush" />
 
     <ControlTheme x:Key="FA_SystemCaptionButton" TargetType="Button">
-        <Setter Property="Background" Value="{DynamicResource CaptionButtonBackground}" />
-        <Setter Property="Foreground" Value="{DynamicResource CaptionButtonForeground}" />
+        <Setter Property="Background" Value="{DynamicResource FATitle_SysCaptionBackground}" />
+        <Setter Property="Foreground" Value="{DynamicResource FATitle_SysCaptionForeground}" />
         <Setter Property="BorderBrush" Value="{x:Null}" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Width" Value="46" />
@@ -47,87 +27,50 @@
             </ControlTemplate>
         </Setter>
 
-        <Style Selector="^:pointerover">
+        <Style Selector="^:inactive">
             <Style Selector="^ /template/ Border">
-                <Setter Property="Background" Value="{DynamicResource CaptionButtonBackgroundPointerOver}" />
+                <Setter Property="Background" Value="{DynamicResource FATitle_SysCaptionBackgroundInactive}" />
             </Style>
             <Style Selector="^ /template/ ui|FontIcon">
-                <Setter Property="Foreground" Value="{DynamicResource CaptionButtonForegroundPointerOver}" />
+                <Setter Property="Foreground" Value="{DynamicResource FATitle_SysCaptionForegroundInactive}" />
+            </Style>
+        </Style>
+
+        <Style Selector="^:pointerover">
+            <Style Selector="^ /template/ Border">
+                <Setter Property="Background" Value="{DynamicResource FATitle_SysCaptionBackgroundHover}" />
+            </Style>
+            <Style Selector="^ /template/ ui|FontIcon">
+                <Setter Property="Foreground" Value="{DynamicResource FATitle_SysCaptionForegroundHover}" />
             </Style>
         </Style>
 
         <Style Selector="^:pressed">
             <Style Selector="^ /template/ Border">
-                <Setter Property="Background" Value="{DynamicResource CaptionButtonBackgroundPressed}" />
+                <Setter Property="Background" Value="{DynamicResource FATitle_SysCaptionBackgroundPressed}" />
             </Style>
             <Style Selector="^ /template/ ui|FontIcon">
-                <Setter Property="Foreground" Value="{DynamicResource CaptionButtonForegroundPressed}" />
-            </Style>
-        </Style>
-
-        <Style Selector="^:inactive">
-            <Style Selector="^ /template/ Border">
-                <Setter Property="Background" Value="{DynamicResource CaptionButtonBackgroundInactive}" />
-            </Style>
-            <Style Selector="^ /template/ ui|FontIcon">
-                <Setter Property="Foreground" Value="{DynamicResource CaptionButtonForegroundInactive}" />
-            </Style>
-
-            <Style Selector="^:pointerover">
-                <Style Selector="^ /template/ Border">
-                    <Setter Property="Background" Value="{DynamicResource CaptionButtonBackgroundInactivePointerOver}" />
-                </Style>
-                <Style Selector="^ /template/ ui|FontIcon">
-                    <Setter Property="Foreground" Value="{DynamicResource CaptionButtonForegroundInactivePointerOver}" />
-                </Style>
-            </Style>
-
-            <Style Selector="^:pressed">
-                <Style Selector="^ /template/ Border">
-                    <Setter Property="Background" Value="{DynamicResource CaptionButtonBackgroundInactivePressed}" />
-                </Style>
-                <Style Selector="^ /template/ ui|FontIcon">
-                    <Setter Property="Foreground" Value="{DynamicResource CaptionButtonForegroundInactivePressed}" />
-                </Style>
+                <Setter Property="Foreground" Value="{DynamicResource FATitle_SysCaptionForegroundPressed}" />
             </Style>
         </Style>
 
         <Style Selector="^.Close">
-            <Style Selector="^:inactive">
-                <Style Selector="^ /template/ Border">
-                    <Setter Property="Background" Value="{DynamicResource CaptionButtonBackgroundInactive}" />
-                </Style>
-                <Style Selector="^ /template/ ui|FontIcon">
-                    <Setter Property="Foreground" Value="{DynamicResource CaptionButtonForegroundInactive}" />
-                </Style>
+            <Style Selector="^:pointerover /template/ Border">
+                <Setter Property="Background" Value="#e81123" />
             </Style>
-
-            <Style Selector="^:pointerover">
-                <Style Selector="^ /template/ Border">
-                    <Setter Property="Background" Value="{DynamicResource CaptionButtonBackgroundClosePointerOver}" />
-                </Style>
-                <Style Selector="^ /template/ ui|FontIcon">
-                    <Setter Property="Foreground" Value="{DynamicResource CaptionButtonForegroundClosePointerOver}" />
-                </Style>
+            <Style Selector="^:pointerover /template/ ui|FontIcon">
+                <Setter Property="Foreground" Value="White" />
             </Style>
-
-            <Style Selector="^:pressed">
-                <Style Selector="^ /template/ Border">
-                    <Setter Property="Background" Value="{DynamicResource CaptionButtonBackgroundClosePressed}" />
-                </Style>
-                <Style Selector="^ /template/ ui|FontIcon">
-                    <Setter Property="Foreground" Value="{DynamicResource CaptionButtonForegroundClosePressed}" />
-                </Style>
+            <Style Selector="^:pressed /template/ Border">
+                <Setter Property="Background" Value="#f1707a" />
+            </Style>
+            <Style Selector="^:pressed /template/ ui|FontIcon">
+                <Setter Property="Foreground" Value="White" />
             </Style>
         </Style>
 
         <Style Selector="^:disabled">
-            <Style Selector="^ /template/ Border">
-                <Setter Property="Background" Value="{DynamicResource CaptionButtonBackgroundDisabled}" />
-            </Style>
-            <Style Selector="^ /template/ ui|FontIcon">
-                <Setter Property="Foreground" Value="{DynamicResource CaptionButtonForegroundDisabled}" />
-            </Style>
+            <Setter Property="Opacity" Value="0.5" />
         </Style>
     </ControlTheme>
 

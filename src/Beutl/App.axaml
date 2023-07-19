@@ -48,7 +48,7 @@
         </ResourceDictionary>
     </Application.Resources>
     <Application.Styles>
-        <sty:FluentAvaloniaTheme />
+        <sty:FluentAvaloniaTheme PreferUserAccentColor="True" />
         <StyleInclude Source="avares://Beutl.Controls/Styles.axaml" />
         <StyleInclude Source="avares://FluentAvalonia.BreadcrumbBar/Styling/Styles.axaml" />
 
