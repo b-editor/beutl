@@ -1,10 +1,7 @@
 ﻿using Beutl.Graphics.Effects;
-using Beutl.Graphics.Filters;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.TextFormatting;
-
-using SkiaSharp;
 
 namespace Beutl.Graphics;
 
@@ -29,7 +26,7 @@ public interface ICanvas : IDisposable
     void DrawRectangle(Rect rect, IBrush? fill, IPen? pen);
 
     void DrawGeometry(Geometry geometry, IBrush? fill, IPen? pen);
-    
+
     void DrawText(FormattedText text, IBrush? fill, IPen? pen);
 
     Bitmap<Bgra8888> GetBitmap();
@@ -39,13 +36,10 @@ public interface ICanvas : IDisposable
     PushedState Push();
 
     PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect);
-    
+
     PushedState PushClip(Geometry geometry, ClipOperation operation = ClipOperation.Intersect);
 
     PushedState PushOpacityMask(IBrush mask, Rect bounds, bool invert = false);
-
-    [Obsolete("Use PushFilterEffect")]
-    PushedState PushImageFilter(IImageFilter filter, Rect bounds);
 
     PushedState PushFilterEffect(FilterEffect effect);
 

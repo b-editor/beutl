@@ -1,7 +1,5 @@
-﻿using System.Runtime.CompilerServices;
-
-using Beutl.Graphics.Effects;
-using Beutl.Graphics.Filters;
+﻿using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
@@ -10,15 +8,12 @@ using Beutl.Threading;
 
 using SkiaSharp;
 
-[assembly: InternalsVisibleTo("Beutl.ProjectSystem")]
-[assembly: InternalsVisibleTo("Beutl")]
-
 namespace Beutl.Graphics;
 
-public partial class ImmediateCanvas : ICanvas
+public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 {
+    private readonly SKCanvas _canvas;
     private readonly SKSurface _surface;
-    internal readonly SKCanvas _canvas;
     private readonly Dispatcher? _dispatcher;
     private readonly SKPaint _sharedFillPaint = new();
     private readonly SKPaint _sharedStrokePaint = new();
@@ -65,6 +60,38 @@ public partial class ImmediateCanvas : ICanvas
         }
     }
 
+    internal IImmediateCanvasFactory? Factory { get; set; }
+
+    internal SKCanvas Canvas => _canvas;
+
+    public ImmediateCanvas CreateCanvas(SKSurface surface, bool leaveOpen)
+    {
+        if (Factory != null)
+        {
+            return Factory.CreateCanvas(surface, leaveOpen);
+        }
+        else
+        {
+            return new ImmediateCanvas(surface, leaveOpen)
+            {
+                Factory = this
+            };
+        }
+    }
+
+    public SKSurface CreateRenderTarget(int width, int height)
+    {
+        if (Factory != null)
+        {
+            return Factory.CreateRenderTarget(width, height);
+        }
+        else
+        {
+            return SKSurface.Create(
+                new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul));
+        }
+    }
+
     public void Clear()
     {
         VerifyAccess();
@@ -101,6 +128,7 @@ public partial class ImmediateCanvas : ICanvas
             _sharedFillPaint.Dispose();
             _sharedStrokePaint.Dispose();
             GC.SuppressFinalize(this);
+            Factory = null;
             IsDisposed = true;
         }
 
@@ -117,8 +145,16 @@ public partial class ImmediateCanvas : ICanvas
         }
     }
 
+    public void DrawNode(IGraphicNode node)
+    {
+        node.Render(this);
+    }
+
     public void DrawBitmap(IBitmap bmp, IBrush? fill, IPen? pen)
     {
+        if (bmp.IsDisposed)
+            throw new ObjectDisposedException(nameof(IBitmap));
+
         if (bmp.ByteCount <= 0)
             return;
 
@@ -371,24 +407,6 @@ public partial class ImmediateCanvas : ICanvas
         int count = _canvas.SaveLayer(paint);
         ConfigurePaint(paint, bounds.Size, mask, (BlendMode)paint.BlendMode);
         _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
-        return new PushedState(this, _states.Count);
-    }
-
-    public PushedState PushImageFilter(IImageFilter filter, Rect bounds)
-    {
-        VerifyAccess();
-        SKPaint? paint;
-        using (var skFilter = filter.ToSKImageFilter(bounds))
-        {
-            paint = new SKPaint
-            {
-                ImageFilter = skFilter
-            };
-        }
-
-        int count = _canvas.SaveLayer(paint);
-
-        _states.Push(new CanvasPushedState.ImageFilterPushedState(count, filter, paint));
         return new PushedState(this, _states.Count);
     }
 

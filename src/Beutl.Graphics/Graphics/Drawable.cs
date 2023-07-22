@@ -2,7 +2,6 @@
 
 using Beutl.Animation;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Filters;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media;
@@ -14,8 +13,6 @@ namespace Beutl.Graphics;
 public abstract class Drawable : Renderable, IDrawable, IHierarchical
 {
     public static readonly CoreProperty<ITransform?> TransformProperty;
-    public static readonly CoreProperty<IImageFilter?> FilterProperty;
-    public static readonly CoreProperty<IBitmapEffect?> EffectProperty;
     public static readonly CoreProperty<FilterEffect?> FilterEffectProperty;
     public static readonly CoreProperty<AlignmentX> AlignmentXProperty;
     public static readonly CoreProperty<AlignmentY> AlignmentYProperty;
@@ -24,8 +21,6 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
     public static readonly CoreProperty<IBrush?> OpacityMaskProperty;
     public static readonly CoreProperty<BlendMode> BlendModeProperty;
     private ITransform? _transform;
-    private IImageFilter? _filter;
-    private IBitmapEffect? _effect;
     private FilterEffect? _filterEffect;
     private AlignmentX _alignX = AlignmentX.Center;
     private AlignmentY _alignY = AlignmentY.Center;
@@ -41,16 +36,6 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
             .DefaultValue(null)
             .Register();
 
-        FilterProperty = ConfigureProperty<IImageFilter?, Drawable>(nameof(Filter))
-            .Accessor(o => o.Filter, (o, v) => o.Filter = v)
-            .DefaultValue(null)
-            .Register();
-
-        EffectProperty = ConfigureProperty<IBitmapEffect?, Drawable>(nameof(Effect))
-            .Accessor(o => o.Effect, (o, v) => o.Effect = v)
-            .DefaultValue(null)
-            .Register();
-        
         FilterEffectProperty = ConfigureProperty<FilterEffect?, Drawable>(nameof(FilterEffect))
             .Accessor(o => o.FilterEffect, (o, v) => o.FilterEffect = v)
             .DefaultValue(null)
@@ -86,7 +71,7 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
             .Register();
 
         AffectsRender<Drawable>(
-            TransformProperty, FilterProperty, EffectProperty,
+            TransformProperty, FilterEffectProperty,
             AlignmentXProperty, AlignmentYProperty,
             TransformOriginProperty,
             ForegroundProperty, OpacityMaskProperty,
@@ -96,20 +81,6 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
     public Rect Bounds { get; private set; }
 
     [Display(Name = nameof(Strings.ImageFilter), ResourceType = typeof(Strings), GroupName = nameof(Strings.ImageFilter))]
-    public IImageFilter? Filter
-    {
-        get => _filter;
-        set => SetAndRaise(FilterProperty, ref _filter, value);
-    }
-
-    [Display(Name = nameof(Strings.BitmapEffect), ResourceType = typeof(Strings))]
-    public IBitmapEffect? Effect
-    {
-        get => _effect;
-        set => SetAndRaise(EffectProperty, ref _effect, value);
-    }
-    
-    [Display(Name = "FilterEffect")]
     public FilterEffect? FilterEffect
     {
         get => _filterEffect;
@@ -190,14 +161,9 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
         Matrix transform = GetTransformMatrix(availableSize, size);
         var rect = new Rect(size);
 
-        if (_effect != null)
+        if (_filterEffect != null)
         {
-            rect = _effect.TransformBounds(rect);
-        }
-
-        if (_filter != null)
-        {
-            rect = _filter.TransformBounds(rect);
+            rect = _filterEffect.TransformBounds(rect);
         }
 
         Bounds = rect.TransformToAABB(transform);
@@ -211,7 +177,7 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
         Vector origin = TransformOrigin.ToPixels(coreBounds);
         Matrix offset = Matrix.CreateTranslation(origin);
 
-        if (Transform is { })
+        if (Transform is { IsEnabled: true })
         {
             return (-offset) * Transform.Value * offset * Matrix.CreateTranslation(pt);
         }
@@ -221,101 +187,29 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
         }
     }
 
-    private void HasBitmapEffect(ICanvas canvas)
-    {
-        Size availableSize = canvas.Size.ToSize(1);
-        Size size = MeasureCore(availableSize);
-        var rect = new Rect(size);
-        Matrix transform = GetTransformMatrix(availableSize, size);
-        Matrix transformFact = transform;
-        if (_effect != null)
-        {
-            rect = _effect.TransformBounds(rect);
-            transformFact = transform.Append(Matrix.CreateTranslation(rect.Position));
-        }
-        if (_filter != null)
-        {
-            rect = _filter.TransformBounds(rect);
-        }
-
-        rect = rect.TransformToAABB(transform);
-        using (canvas.PushBlendMode(BlendMode))
-
-#pragma warning disable CS0618
-        using (_filter == null ? new() : canvas.PushImageFilter(_filter, rect))
-#pragma warning restore CS0618
-
-        using (canvas.PushTransform(transformFact))
-        using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, rect))
-        {
-            IBitmap bitmap = ToBitmap();
-            if (bitmap is Bitmap<Bgra8888> bmp)
-            {
-                _effect!.Processor.Process(in bmp, out Bitmap<Bgra8888> outBmp);
-                if (bmp != outBmp)
-                {
-                    bmp.Dispose();
-                }
-
-                //if (Width > 0 && Height > 0)
-                //{
-                //    using (canvas.PushTransform(Matrix.CreateScale(Width / outBmp.Width, Height / outBmp.Height)))
-                //    {
-                //        canvas.DrawBitmap(outBmp);
-                //    }
-                //}
-                //else
-                {
-                    canvas.DrawBitmap(outBmp, Brushes.White, null);
-                }
-
-                outBmp.Dispose();
-            }
-            else
-            {
-                bitmap.Dispose();
-                OnDraw(canvas);
-            }
-        }
-
-        Bounds = rect;
-    }
-
     public void Render(ICanvas canvas)
     {
         if (IsVisible)
         {
-            if (_effect?.IsEnabled == true)
+            Size availableSize = canvas.Size.ToSize(1);
+            Size size = MeasureCore(availableSize);
+            var rect = new Rect(size);
+            if (_filterEffect != null)
             {
-                HasBitmapEffect(canvas);
+                rect = _filterEffect.TransformBounds(rect);
             }
-            else
+
+            Matrix transform = GetTransformMatrix(availableSize, size);
+            Rect transformedBounds = rect.TransformToAABB(transform);
+            using (canvas.PushBlendMode(BlendMode))
+            using (canvas.PushTransform(transform))
+            using (_filterEffect == null ? new() : canvas.PushFilterEffect(_filterEffect))
+            using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
             {
-                Size availableSize = canvas.Size.ToSize(1);
-                Size size = MeasureCore(availableSize);
-                var rect = new Rect(size);
-                if (_filter != null)
-                {
-                    rect = _filter.TransformBounds(rect);
-                }
-
-                Matrix transform = GetTransformMatrix(availableSize, size);
-                Rect transformedBounds = rect.TransformToAABB(transform);
-                using (canvas.PushBlendMode(BlendMode))
-
-#pragma warning disable CS0618
-                using (_filter == null ? new() : canvas.PushImageFilter(_filter, /*new Rect(size)*/transformedBounds))
-#pragma warning restore CS0618
-
-                using (_filterEffect == null ? new() : canvas.PushFilterEffect(_filterEffect))
-                using (canvas.PushTransform(transform))
-                using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
-                {
-                    OnDraw(canvas);
-                }
-
-                Bounds = transformedBounds;
+                OnDraw(canvas);
             }
+
+            Bounds = transformedBounds;
         }
 
 #if DEBUG
@@ -332,8 +226,7 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
     {
         base.ApplyAnimations(clock);
         (Transform as Animatable)?.ApplyAnimations(clock);
-        (Filter as Animatable)?.ApplyAnimations(clock);
-        (Effect as Animatable)?.ApplyAnimations(clock);
+        (FilterEffect as Animatable)?.ApplyAnimations(clock);
         (Foreground as Animatable)?.ApplyAnimations(clock);
         (OpacityMask as Animatable)?.ApplyAnimations(clock);
     }

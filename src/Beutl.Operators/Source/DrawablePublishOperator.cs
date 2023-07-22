@@ -1,7 +1,4 @@
 ﻿using Beutl.Graphics;
-using Beutl.Graphics.Effects;
-using Beutl.Graphics.Filters;
-using Beutl.Media;
 using Beutl.Operation;
 using Beutl.Styling;
 
@@ -37,7 +34,7 @@ public abstract class DrawablePublishOperator<T> : StyledSourcePublisher
             //drawable.TransformOrigin = RelativePoint.TopLeft;
             //drawable.Transform = null;
             //drawable.Filter = null;
-            drawable.Effect = null;
+            //drawable.FilterEffect = null;
         }
     }
 }

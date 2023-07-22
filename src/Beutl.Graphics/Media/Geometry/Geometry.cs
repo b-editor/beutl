@@ -15,6 +15,7 @@ public abstract class Geometry : Animatable, IAffectsRender
     private PathFillType _fillType;
     private ITransform? _transform;
     private bool _isDirty = true;
+    private int _version;
 
     static Geometry()
     {
@@ -56,6 +57,15 @@ public abstract class Geometry : Animatable, IAffectsRender
 
     public Rect Bounds => GetNativeObject().TightBounds.ToGraphicsRect();
 
+    internal int Version
+    {
+        get
+        {
+            _ = GetNativeObject();
+            return _version;
+        }
+    }
+
     protected static void AffectsRender<T>(params CoreProperty[] properties)
         where T : Geometry
     {
@@ -83,7 +93,7 @@ public abstract class Geometry : Animatable, IAffectsRender
 
     private void OnAffectsRenderInvalidated(object? sender, RenderInvalidatedEventArgs e)
     {
-        Invalidated?.Invoke(this, e);
+        RaiseInvalidated(e);
     }
 
     protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
@@ -114,6 +124,10 @@ public abstract class Geometry : Animatable, IAffectsRender
             _context.Clear();
             ApplyTo(_context);
             _isDirty = false;
+            unchecked
+            {
+                _version++;
+            }
         }
 
         return _context.NativeObject;

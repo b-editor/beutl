@@ -1,47 +1,71 @@
 ﻿using Beutl.Graphics.Effects;
 
-using SkiaSharp;
-
 namespace Beutl.Graphics.Rendering;
 
-public class FilterEffectNode : ContainerNode
+public sealed class FilterEffectNode : ContainerNode
 {
+    //private RecentContext _recentContext = new();
+
+    // DeferredCanvasでFilterEffectContextを作成できない。Boundsが未知なので。
     public FilterEffectNode(FilterEffect filterEffect)
     {
-        ImageEffect = filterEffect;
+        FilterEffect = filterEffect;
     }
 
-    public FilterEffect ImageEffect { get; }
+    public FilterEffect FilterEffect { get; }
 
-    public bool Equals(FilterEffect imageEffect)
+    public override void Dispose()
     {
-        return ImageEffect == imageEffect;
+        base.Dispose();
+        //_recentContext.Dispose();
+        //_recentContext = null!;
+    }
+
+    public bool Equals(FilterEffect filterEffect)
+    {
+        return FilterEffect == filterEffect;
+    }
+
+    protected override Rect TransformBounds(Rect bounds)
+    {
+        return FilterEffect.TransformBounds(bounds);
     }
 
     public override void Render(ImmediateCanvas canvas)
     {
-        using (var builder = new FilterEffectBuilder())
-        using (var target = new EffectTarget(this))
-        using (var context = new FilterEffectContext(OriginalBounds, target, builder))
-        {
-            ImageEffect.ApplyTo(context);
+        var context = new FilterEffectContext(OriginalBounds);
+        context.Apply(FilterEffect);
+        //_recentContext.Add(context);
 
-            if (context.Builder.HasFilter())
+        using (var builder = new SKImageFilterBuilder())
+        using (var target = new EffectTarget(this))
+        using (var activator = new FilterEffectActivator(OriginalBounds, target, builder, canvas))
+        {
+            activator.Apply(context);
+
+#if false
+            if (builder.HasFilter())
             {
                 using (var paint = new SKPaint())
                 {
-                    paint.ImageFilter = context.Builder.GetFilter();
-                    int count = canvas._canvas.SaveLayer(paint);
-                    canvas._canvas.Translate(context.OriginalBounds.X, context.OriginalBounds.Y);
+                    paint.ImageFilter = builder.GetFilter();
+                    int count = canvas.Canvas.SaveLayer(Bounds.ToSKRect(), paint);
+                    canvas.Canvas.Translate(activator.OriginalBounds.X, activator.OriginalBounds.Y);
 
-                    context.CurrentTarget.Draw(canvas);
+                    activator.CurrentTarget.Draw(canvas);
 
-                    canvas._canvas.RestoreToCount(count);
+                    canvas.Canvas.RestoreToCount(count);
                 }
             }
-            else if (context.CurrentTarget.Surface != null)
+            else
+#else
+            // 上のコードは、フレームバッファごと回転してしまう。
+            // (SaveLayerでlilmitを指定しても)
+            activator.Flush(true);
+#endif
+            if (activator.CurrentTarget.Surface != null)
             {
-                canvas._canvas.DrawSurface(context.CurrentTarget.Surface.Value, context.Bounds.X, context.Bounds.Y);
+                canvas.Canvas.DrawSurface(activator.CurrentTarget.Surface.Value, activator.Bounds.X, activator.Bounds.Y);
             }
             else
             {
@@ -49,4 +73,55 @@ public class FilterEffectNode : ContainerNode
             }
         }
     }
+
+    //private class RecentContext : IDisposable
+    //{
+    //    private FilterEffectContext? _slot0;
+    //    private FilterEffectContext? _slot1;
+    //    private FilterEffectContext? _slot2;
+    //    private int _index;
+
+    //    private ref FilterEffectContext? GetRef(int index)
+    //    {
+    //        switch (index)
+    //        {
+    //            case 0: return ref _slot0;
+    //            case 1: return ref _slot1;
+    //            case 2: return ref _slot2;
+    //        }
+
+    //        return ref Unsafe.NullRef<FilterEffectContext?>();
+    //    }
+
+    //    public void Add(FilterEffectContext context)
+    //    {
+    //        FilterEffectContext? slot = GetRef(_index);
+    //        if (!Unsafe.IsNullRef(ref slot))
+    //        {
+    //            slot?.Dispose();
+    //            slot = context;
+
+    //            _index++;
+    //            // 折り返す
+    //            _index %= 3;
+    //        }
+    //    }
+
+    //    public bool EqualsAll()
+    //    {
+    //        EqualityComparer<FilterEffectContext> comparer = EqualityComparer<FilterEffectContext>.Default;
+    //        return comparer.Equals(_slot0, _slot1) && comparer.Equals(_slot1, _slot2);
+    //    }
+
+    //    public void Dispose()
+    //    {
+    //        _index = 0;
+    //        _slot0?.Dispose();
+    //        _slot0 = null;
+    //        _slot1?.Dispose();
+    //        _slot1 = null;
+    //        _slot2?.Dispose();
+    //        _slot2 = null;
+    //    }
+    //}
 }

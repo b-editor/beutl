@@ -13,9 +13,9 @@ public interface IRenderer : IDisposable
 {
     RenderScene RenderScene { get; }
 
-    ICanvas Graphics { get; }
+    ImmediateCanvas Canvas { get; }
 
-    IAudio Audio { get; }
+    Audio.Audio Audio { get; }
 
     IClock Clock { get; }
 

@@ -1,5 +1,4 @@
 ﻿using Beutl.Graphics.Effects;
-using Beutl.Graphics.Filters;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.TextFormatting;
@@ -240,23 +239,6 @@ public sealed class DeferradCanvas : ICanvas
         if (next == null || !next.Equals(geometry, operation))
         {
             AddAndPush(new GeometryClipNode(geometry, operation));
-        }
-        else
-        {
-            Push(next);
-        }
-
-        return new(this, _nodes.Count);
-    }
-
-    [Obsolete("Use PushFilterEffect")]
-    public PushedState PushImageFilter(IImageFilter filter, Rect bounds)
-    {
-        ImageFilterNode? next = Next<ImageFilterNode>();
-
-        if (next == null || !next.Equals(filter, bounds))
-        {
-            AddAndPush(new ImageFilterNode(filter, bounds));
         }
         else
         {

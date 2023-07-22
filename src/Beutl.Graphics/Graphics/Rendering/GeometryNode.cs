@@ -4,10 +4,13 @@ namespace Beutl.Graphics.Rendering;
 
 public sealed class GeometryNode : BrushDrawNode
 {
+    private readonly int _version;
+
     public GeometryNode(Geometry geometry, IBrush? fill, IPen? pen)
         : base(fill, pen, PenHelper.CalculateBoundsWithStrokeCap(geometry.GetRenderBounds(pen), pen))
     {
         Geometry = geometry;
+        _version = geometry.Version;
     }
 
     public Geometry Geometry { get; private set; }
@@ -15,6 +18,7 @@ public sealed class GeometryNode : BrushDrawNode
     public bool Equals(Geometry geometry, IBrush? fill, IPen? pen)
     {
         return Geometry == geometry
+            && _version == geometry.Version
             && Fill == fill
             && Pen == pen;
     }

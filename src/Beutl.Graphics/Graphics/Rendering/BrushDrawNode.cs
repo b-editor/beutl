@@ -7,8 +7,8 @@ public abstract class BrushDrawNode : DrawNode
     protected BrushDrawNode(IBrush? fill, IPen? pen, Rect bounds)
         : base(bounds)
     {
-        Fill = fill;
-        Pen = pen;
+        Fill = (fill as IMutableBrush)?.ToImmutable() ?? fill;
+        Pen = (pen as IMutablePen)?.ToImmutable() ?? pen;
     }
 
     public IBrush? Fill { get; }

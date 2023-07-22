@@ -50,7 +50,7 @@ public class ContainerNode : IGraphicNode
     {
         foreach (IGraphicNode item in _children)
         {
-            item.Render(canvas);
+            canvas.DrawNode(item);
         }
     }
 

@@ -12,6 +12,11 @@ public sealed class TransformNode : ContainerNode
 
     public TransformOperator TransformOperator { get; }
 
+    protected override Rect TransformBounds(Rect bounds)
+    {
+        return bounds.TransformToAABB(Transform);
+    }
+
     public bool Equals(Matrix transform, TransformOperator transformOperator)
     {
         return Transform == transform

@@ -31,18 +31,18 @@ internal sealed class FpsText
 
     public bool DrawFps { get; set; } = false;
 
-    public FpsDrawer StartRender(IRenderer renderer)
+    public FpsDrawer StartRender(ImmediateCanvas canvas)
     {
-        return new FpsDrawer(renderer.Graphics, this);
+        return new FpsDrawer(canvas, this);
     }
 
     public readonly struct FpsDrawer : IDisposable
     {
-        private readonly ICanvas _canvas;
+        private readonly ImmediateCanvas _canvas;
         private readonly FpsText _fpsText;
         private readonly DateTime _startTime;
 
-        public FpsDrawer(ICanvas canvas, FpsText fpsText)
+        public FpsDrawer(ImmediateCanvas canvas, FpsText fpsText)
         {
             _canvas = canvas;
             _fpsText = fpsText;

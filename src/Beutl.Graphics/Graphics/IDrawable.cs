@@ -1,4 +1,4 @@
-﻿using Beutl.Graphics.Filters;
+﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Rendering;
@@ -15,7 +15,7 @@ public interface IDrawable : IRenderable
 
     ITransform? Transform { get; set; }
 
-    IImageFilter? Filter { get; set; }
+    FilterEffect? FilterEffect { get; set; }
 
     AlignmentX AlignmentX { get; set; }
 

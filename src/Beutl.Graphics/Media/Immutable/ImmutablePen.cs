@@ -7,10 +7,10 @@ public sealed class ImmutablePen : IPen, IEquatable<IPen?>
         IReadOnlyList<float>? dashArray,
         float dashOffset,
         float thickness,
-        float miterLimit,
-        StrokeCap strokeCap,
-        StrokeJoin strokeJoin,
-        StrokeAlignment strokeAlignment)
+        float miterLimit = 10,
+        StrokeCap strokeCap = StrokeCap.Flat,
+        StrokeJoin strokeJoin = StrokeJoin.Miter,
+        StrokeAlignment strokeAlignment = StrokeAlignment.Center)
     {
         Brush = brush;
         DashArray = dashArray;
@@ -29,7 +29,7 @@ public sealed class ImmutablePen : IPen, IEquatable<IPen?>
     public float DashOffset { get; }
 
     public float Thickness { get; }
-    
+
     public float MiterLimit { get; }
 
     public StrokeCap StrokeCap { get; }

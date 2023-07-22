@@ -1,5 +1,4 @@
 ﻿using Beutl.Animation;
-using Beutl.Audio;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Threading;
@@ -30,8 +29,6 @@ public class ImmediateRenderer : IRenderer, IImmediateCanvasFactory
         });
         _audio = new Audio.Audio(44100);
     }
-
-    public ICanvas Graphics => _immediateCanvas;
 
     public Dispatcher Dispatcher => s_dispatcher;
 

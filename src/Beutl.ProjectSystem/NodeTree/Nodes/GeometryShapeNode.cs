@@ -1,6 +1,5 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Filters;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
@@ -69,15 +68,10 @@ public sealed class GeometryShapeNode : Node
         shape.AlignmentY = AlignmentY.Top;
         shape.TransformOrigin = RelativePoint.TopLeft;
 
-        if (shape.Filter is ImageFilterGroup filterGroup)
-            filterGroup.Children.Clear();
-        else
-            shape.Filter = new ImageFilterGroup();
-
-        if (shape.Effect is BitmapEffectGroup effectGroup)
+        if (shape.FilterEffect is FilterEffectGroup effectGroup)
             effectGroup.Children.Clear();
         else
-            shape.Effect = new BitmapEffectGroup();
+            shape.FilterEffect = new FilterEffectGroup();
 
         _outputSocket.Value = shape;
     }

@@ -1,6 +1,4 @@
-﻿using Beutl.Graphics.Filters;
-
-using SkiaSharp;
+﻿using SkiaSharp;
 
 namespace Beutl.Graphics;
 
@@ -33,15 +31,6 @@ public partial class ImmediateCanvas
                 canvas._canvas.Restore();
 
                 canvas._canvas.RestoreToCount(Count);
-            }
-        }
-
-        internal record ImageFilterPushedState(int Count, IImageFilter ImageFilter, SKPaint Paint) : CanvasPushedState
-        {
-            public override void Pop(ImmediateCanvas canvas)
-            {
-                canvas._canvas.RestoreToCount(Count);
-                Paint.Dispose();
             }
         }
 

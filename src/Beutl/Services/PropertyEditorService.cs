@@ -10,7 +10,7 @@ using Beutl.Audio.Effects;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Framework;
 using Beutl.Graphics;
-using Beutl.Graphics.Filters;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -130,7 +130,7 @@ public static class PropertyEditorService
 
         private static readonly Dictionary<Type, ListItemEditor> s_listItemEditorsOverride = new()
         {
-            { typeof(IImageFilter), new(_ => new ImageFilterListItemEditor(), s => new ImageFilterEditorViewModel(s.ToTyped<IImageFilter?>())) },
+            { typeof(FilterEffect), new(_ => new FilterEffectListItemEditor(), s => new FilterEffectEditorViewModel(s.ToTyped<FilterEffect?>())) },
             { typeof(ITransform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>())) }
         };
 
@@ -193,7 +193,7 @@ public static class PropertyEditorService
 
             { typeof(IBrush), new(_ => new BrushEditor(), s => new BrushEditorViewModel(s)) },
             { typeof(IPen), new(_ => new PenEditor(), s => new PenEditorViewModel(s)) },
-            { typeof(IImageFilter), new(_ => new ImageFilterEditor(), s => new ImageFilterEditorViewModel(s.ToTyped<IImageFilter?>())) },
+            { typeof(FilterEffect), new(_ => new FilterEffectEditor(), s => new FilterEffectEditorViewModel(s.ToTyped<FilterEffect?>())) },
             { typeof(ITransform), new(_ => new TransformEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>())) },
             { typeof(GradientStops), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<GradientStops>())) },
             { typeof(IList), new(CreateListEditor, CreateListEditorViewModel) },

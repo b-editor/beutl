@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Beutl.Media;
+using Beutl.Media.Immutable;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -14,4 +11,11 @@ public class DrawableNode : ContainerNode
     }
 
     public Drawable Drawable { get; }
+
+    public override void Render(ImmediateCanvas canvas)
+    {
+        base.Render(canvas);
+        Rect bounds = Bounds.Inflate(10);
+        canvas.DrawRectangle(bounds, null, new ImmutablePen(Brushes.White, null, 0, 5));
+    }
 }

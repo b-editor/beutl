@@ -31,6 +31,8 @@ public abstract class FilterEffect : Animatable, IAffectsRender
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
     }
 
+    internal int Version { get; private set; }
+
     protected static void AffectsRender<T>(params CoreProperty[] properties)
         where T : FilterEffect
     {
@@ -54,14 +56,19 @@ public abstract class FilterEffect : Animatable, IAffectsRender
 
     private void OnAffectsRenderInvalidated(object? sender, RenderInvalidatedEventArgs e)
     {
-        Invalidated?.Invoke(this, e);
+        RaiseInvalidated(e);
     }
 
     protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
     {
         Invalidated?.Invoke(this, args);
+        unchecked
+        {
+            Version++;
+        }
     }
 
+    // FilterEffectContext.Applyから呼び出される
     public abstract void ApplyTo(FilterEffectContext context);
 
     public virtual Rect TransformBounds(Rect bounds)

@@ -1,10 +1,9 @@
-﻿using Beutl.Audio;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Media;
 
 namespace Beutl.Rendering;
 
-public class RenderScene
+public sealed class RenderScene : IDisposable
 {
     private readonly SortedDictionary<int, RenderLayer> _layer = new();
 
@@ -28,6 +27,15 @@ public class RenderScene
     }
 
     public PixelSize Size { get; }
+
+    public void Dispose()
+    {
+        foreach (RenderLayer item in _layer.Values)
+        {
+            item.Dispose();
+        }
+        _layer.Clear();
+    }
 
     public void Render(ImmediateCanvas canvas)
     {

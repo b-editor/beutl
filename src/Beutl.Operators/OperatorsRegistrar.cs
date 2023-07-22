@@ -26,13 +26,11 @@ public class OperatorsRegistrar
                 .Add<Configure.Transform.Rotation3DOperator>(Strings.Rotation3D)
                 .Register())
             .AddGroup(Strings.ImageFilter, helper => helper
-                .Add<Configure.ImageFilter.BlurOperator>(Strings.Blur)
-                .Add<Configure.ImageFilter.BlurOperator>(Strings.DropShadow)
-                .Register())
-            .AddGroup(Strings.BitmapEffect, helper => helper
-                .Add<Configure.BitmapEffect.BlurOperator>(Strings.Blur)
-                .Add<Configure.BitmapEffect.InnerShadowOperator>(Strings.InnerShadow)
-                .Add<Configure.BitmapEffect.BorderOperator>(Strings.Border)
+                .Add<Configure.Effects.BlurOperator>(Strings.Blur)
+                .Add<Configure.Effects.DropShadowOperator>(Strings.DropShadow)
+                .Add<Configure.Effects.CvBlurOperator>(Strings.Blur)
+                .Add<Configure.Effects.InnerShadowOperator>(Strings.InnerShadow)
+                .Add<Configure.Effects.BorderOperator>(Strings.Border)
                 .Register())
             .AddGroup("SoundEffect", helper => helper
                 .Add<Configure.SoundEffect.DelayOperator>("Delay")

@@ -57,6 +57,7 @@
 
         <ScrollViewer x:Name="PaneScroll"
                       Grid.Row="1"
+                      BringIntoViewOnFocusChange="False"
                       ScrollChanged="PaneScroll_ScrollChanged"
                       VerticalScrollBarVisibility="Hidden">
             <ItemsControl x:Name="LeftPanel"
@@ -80,6 +81,7 @@
         <ScrollViewer x:Name="ContentScroll"
                       Grid.Row="1"
                       Grid.Column="2"
+                      BringIntoViewOnFocusChange="False"
                       HorizontalScrollBarVisibility="Visible">
             <Panel x:Name="TimelinePanel"
                    Width="{CompiledBinding PanelWidth.Value}"

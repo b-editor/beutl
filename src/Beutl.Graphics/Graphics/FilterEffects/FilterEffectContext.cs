@@ -1,245 +1,219 @@
 ﻿using System.ComponentModel;
+using System.Runtime.InteropServices;
 
-using Beutl.Graphics.Rendering;
+using Beutl.Collections.Pooled;
 using Beutl.Media;
-using Beutl.Media.Pixel;
-using Beutl.Media.Source;
 
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public class FilterEffectBuilder : IDisposable
+public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectContext>
 {
-    private SKImageFilter? _filter;
+    private readonly PooledList<(FilterEffect FE, int Version)> _versions;
+    internal readonly PooledList<IFEItem> _items;
 
-    public void AppendSkiaFilter<T>(T data, Func<T, SKImageFilter?, SKImageFilter?> factory)
+    public FilterEffectContext(Rect bounds)
     {
-        SKImageFilter? input = _filter;
-        _filter = factory(data, input);
-        input?.Dispose();
+        Bounds = OriginalBounds = bounds;
+        _versions = new PooledList<(FilterEffect, int)>(ClearMode.Always);
+        _items = new PooledList<IFEItem>();
     }
 
-    public bool HasFilter() => _filter != null;
-
-    public SKImageFilter? GetFilter()
+    private FilterEffectContext(FilterEffectContext obj)
     {
-        return _filter;
+        OriginalBounds = obj.OriginalBounds;
+        Bounds = obj.Bounds;
+        _versions = new PooledList<(FilterEffect, int)>(obj._versions.Span, ClearMode.Always);
+        _items = new PooledList<IFEItem>(obj._items);
     }
 
-    public void Clear()
+    public Rect Bounds { get; private set; }
+
+    public Rect OriginalBounds { get; }
+
+    public FilterEffectContext Clone()
     {
-        _filter?.Dispose();
-        _filter = null;
+        return new FilterEffectContext(this);
     }
 
-    public void Dispose()
+    public FilterEffectContext CreateChildContext()
     {
-        Clear();
-    }
-}
-
-public sealed class EffectTarget : IDisposable
-{
-    public EffectTarget(FilterEffectNode node)
-    {
-        Node = node;
+        // 今はnewしているが、キャッシュする予定
+        return new FilterEffectContext(Bounds);
     }
 
-    public EffectTarget(Ref<SKSurface> surface)
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public void AppendSkiaFilter<T>(T data, Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> factory, Func<T, Rect, Rect> transformBounds)
+        where T : IEquatable<T>
     {
-        Surface = surface;
+        _items.Add(new FEItem_Skia<T>(data, factory, transformBounds));
+        Bounds = transformBounds.Invoke(data, Bounds);
     }
 
-    public FilterEffectNode? Node { get; }
-
-    public Ref<SKSurface>? Surface { get; }
-
-    public EffectTarget Clone()
+    public void DropShadowOnly(Point position, Vector sigma, Color color)
     {
-        if (Node != null)
-        {
-            return this;
-        }
-        else
-        {
-            return new EffectTarget(Surface!.Clone());
-        }
+        AppendSkiaFilter(
+            data: (position, sigma, color),
+            factory: static (t, input, _) => SKImageFilter.CreateDropShadowOnly(t.position.X, t.position.Y, t.sigma.X, t.sigma.Y, t.color.ToSKColor(), input),
+            transformBounds: static (t, bounds) => bounds
+                .Translate(t.position)
+                .Inflate(new Thickness(t.sigma.X * 3, t.sigma.Y * 3)));
     }
 
-    public void Dispose()
+    public void DropShadow(Point position, Vector sigma, Color color)
     {
-        Surface?.Dispose();
-    }
-
-    public void Draw(ImmediateCanvas canvas)
-    {
-        if (Node != null)
-        {
-            // ImageEffectContextの処理はImageEffectNode.Renderで
-            // 行うので以下は循環する
-            // _node.Render(canvas);
-            foreach (IGraphicNode item in Node.Children)
-            {
-                item.Render(canvas);
-            }
-        }
-        else if (Surface != null)
-        {
-            canvas._canvas.DrawSurface(Surface.Value, default);
-        }
-    }
-}
-
-public sealed class FilterEffectContext : IDisposable
-{
-    private readonly FilterEffectBuilder _builder;
-    private readonly EffectTarget _initialTarget;
-
-    private EffectTarget _target;
-    private Rect _originalBounds;
-    private Rect _bounds;
-
-    public FilterEffectContext(Rect bounds, EffectTarget target, FilterEffectBuilder builder)
-    {
-        _bounds = _originalBounds = bounds;
-        _initialTarget = target;
-        _target = target;
-        _builder = builder;
-    }
-
-    public Rect OriginalBounds => _originalBounds;
-
-    public Rect Bounds => _bounds;
-
-    [EditorBrowsable(EditorBrowsableState.Advanced)]
-    public FilterEffectBuilder Builder => _builder;
-
-    [EditorBrowsable(EditorBrowsableState.Advanced)]
-    public EffectTarget CurrentTarget => _target;
-
-    public void Dispose()
-    {
-        if (_initialTarget != _target)
-        {
-            _target.Dispose();
-        }
-    }
-
-    //public ICanvas Open()
-    //{
-    //    throw new NotImplementedException();
-    //}
-
-    public Bitmap<Bgra8888> Snapshot()
-    {
-        Flush(true);
-        if (_target.Surface != null)
-        {
-            return _target.Surface.Value.Snapshot().ToBitmap();
-        }
-        else
-        {
-            throw new InvalidOperationException();
-        }
-    }
-
-    public void Flush(bool force = true)
-    {
-        if (force || _builder.HasFilter())
-        {
-            var surface = SKSurface.Create(
-                new SKImageInfo((int)_bounds.Width, (int)_bounds.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul));
-
-            using var canvas = new ImmediateCanvas(surface, true);
-            using var paint = new SKPaint
-            {
-                ImageFilter = _builder.GetFilter(),
-            };
-
-            int restoreCount = surface.Canvas.SaveLayer(paint);
-            using (canvas.PushTransform(Matrix.CreateTranslation(_originalBounds.X - _bounds.X, _originalBounds.Y - _bounds.Y)))
-            {
-                _target.Draw(canvas);
-            }
-
-            surface.Canvas.RestoreToCount(restoreCount);
-
-            _target?.Dispose();
-            _target = new EffectTarget(Ref<SKSurface>.Create(surface));
-            _builder.Clear();
-
-            _originalBounds = _bounds;
-        }
-    }
-
-    public void DropShadow(Point position, Vector sigma, Color color, bool shadowOnly)
-    {
-        Rect shadowBounds = Bounds
-            .Translate(position)
-            .Inflate(new Thickness(sigma.X * 3, sigma.Y * 3));
-
-        _bounds = shadowOnly ? shadowBounds : _bounds.Union(shadowBounds);
-
-        if (shadowOnly)
-        {
-            _builder.AppendSkiaFilter((position, sigma, color), (t, input) =>
-            {
-                return SKImageFilter.CreateDropShadowOnly(t.position.X, t.position.Y, t.sigma.X, t.sigma.Y, t.color.ToSKColor(), input);
-            });
-        }
-        else
-        {
-            _builder.AppendSkiaFilter((position, sigma, color), (t, input) =>
-            {
-                return SKImageFilter.CreateDropShadow(t.position.X, t.position.Y, t.sigma.X, t.sigma.Y, t.color.ToSKColor(), input);
-            });
-        }
+        AppendSkiaFilter(
+            data: (position, sigma, color),
+            factory: static (t, input, _) => SKImageFilter.CreateDropShadow(t.position.X, t.position.Y, t.sigma.X, t.sigma.Y, t.color.ToSKColor(), input),
+            transformBounds: static (t, bounds) => bounds.Union(bounds
+                .Translate(t.position)
+                .Inflate(new Thickness(t.sigma.X * 3, t.sigma.Y * 3))));
     }
 
     public void Blur(Vector sigma)
     {
-        _bounds = _bounds.Inflate(new Thickness(sigma.X * 3, sigma.Y * 3));
-
-        _builder.AppendSkiaFilter(sigma, (t, input) =>
-        {
-            return SKImageFilter.CreateBlur(t.X, t.Y, input);
-        });
+        AppendSkiaFilter(
+            data: sigma,
+            factory: static (sigma, input, _) => SKImageFilter.CreateBlur(sigma.X, sigma.Y, input),
+            transformBounds: static (sigma, bounds) => bounds.Inflate(new Thickness(sigma.X * 3, sigma.Y * 3)));
     }
 
-    public void DisplacementMap(SKColorChannel xChannelSelector, SKColorChannel yChannelSelector, float scale, FilterEffect displacement)
+    public void DisplacementMap(
+        SKColorChannel xChannelSelector,
+        SKColorChannel yChannelSelector,
+        float scale,
+        FilterEffect displacement)
     {
-        SKImageFilter? skDisplacement;
-        Flush(false);
-        using (EffectTarget cloned = _target.Clone())
-        using (var builder = new FilterEffectBuilder())
-        using (var context = new FilterEffectContext(_bounds, cloned, builder))
-        {
-            displacement.ApplyTo(context);
+        DisplacementMap(xChannelSelector, yChannelSelector, scale, context => context.Apply(displacement));
+    }
 
-            context.Flush(false);
+    public void DisplacementMap(
+        SKColorChannel xChannelSelector,
+        SKColorChannel yChannelSelector,
+        float scale,
+        Action<FilterEffectContext> displacementFactory)
+    {
+        FilterEffectContext child = CreateChildContext();
+        displacementFactory.Invoke(child);
 
-            skDisplacement = builder.GetFilter();
-            if (skDisplacement == null && context._target.Surface != null)
+        AppendSkiaFilter(
+            data: (xChannelSelector, yChannelSelector, scale, child),
+            factory: static (t, input, activator)
+                => SKImageFilter.CreateDisplacementMapEffect(t.xChannelSelector, t.yChannelSelector, t.scale, activator.Activate(t.child), input),
+            transformBounds: static (data, bounds) => bounds.Inflate(data.scale / 2));
+    }
+
+    // https://github.com/Shopify/react-native-skia/blob/c7740e30234e6b0a49721ab954c4a848e42d7edb/package/src/dom/nodes/paint/ImageFilters.ts#L25
+    public void InnerShadow(Point position, Vector sigma, Color color)
+    {
+        AppendSkiaFilter(
+            data: (position, sigma, color),
+            factory: static (data, input, activator) =>
             {
-                SKSurface innerSurface = context._target.Surface.Value;
-                using (SKImage skImage = innerSurface.Snapshot())
-                {
-                    skDisplacement = SKImageFilter.CreateImage(skImage);
-                }
+                using var dst = SKColorFilter.CreateBlendMode(SKColors.Black, SKBlendMode.Dst);
+                using var sourceGraphic = SKImageFilter.CreateColorFilter(dst);
+
+                using var srcIn = SKColorFilter.CreateBlendMode(SKColors.Black, SKBlendMode.SrcIn);
+                using var sourceAlpha = SKImageFilter.CreateColorFilter(srcIn);
+
+                using var srcOut = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
+                using var f1 = SKImageFilter.CreateColorFilter(srcOut);
+                using var f2 = SKImageFilter.CreateOffset(data.position.X, data.position.Y, f1);
+                using var f3 = SKImageFilter.CreateBlur(data.sigma.X, data.sigma.Y, SKShaderTileMode.Decal, f2);
+                using var f4 = SKImageFilter.CreateBlendMode(SKBlendMode.SrcIn, sourceAlpha, f3);
+
+                using var srcOver = SKImageFilter.CreateBlendMode(SKBlendMode.SrcOver, sourceGraphic, f4);
+                return SKImageFilter.CreateCompose(srcOver, input);
+            },
+            transformBounds: static (_, bounds) => bounds);
+    }
+
+    public void InnerShadowOnly(Point position, Vector sigma, Color color)
+    {
+        AppendSkiaFilter(
+            data: (position, sigma, color),
+            factory: static (data, input, activator) =>
+            {
+                using var dst = SKColorFilter.CreateBlendMode(SKColors.Black, SKBlendMode.Dst);
+                using var sourceGraphic = SKImageFilter.CreateColorFilter(dst);
+
+                using var srcIn = SKColorFilter.CreateBlendMode(SKColors.Black, SKBlendMode.SrcIn);
+                using var sourceAlpha = SKImageFilter.CreateColorFilter(srcIn);
+
+                using var srcOut = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
+                using var f1 = SKImageFilter.CreateColorFilter(srcOut);
+                using var f2 = SKImageFilter.CreateOffset(data.position.X, data.position.Y, f1);
+                using var f3 = SKImageFilter.CreateBlur(data.sigma.X, data.sigma.Y, SKShaderTileMode.Decal, f2);
+                return SKImageFilter.CreateBlendMode(SKBlendMode.SrcIn, sourceAlpha, f3);
+            },
+            transformBounds: static (_, bounds) => bounds);
+    }
+
+    public void Custom<T>(T data, Action<T, FilterEffectCustomOperationContext> action, Func<T, Rect, Rect> transformBounds)
+        where T : IEquatable<T>
+    {
+        _items.Add(new FEItem_Custom<T>(data, action, transformBounds));
+        Bounds = transformBounds.Invoke(data, Bounds);
+    }
+
+    public void Apply(FilterEffect? filterEffect)
+    {
+        if (filterEffect is { IsEnabled: true })
+        {
+            filterEffect.ApplyTo(this);
+            _versions.Add((filterEffect, filterEffect.Version));
+        }
+    }
+
+    public int CountEquals(FilterEffectContext other)
+    {
+        //if (other.OriginalBounds != OriginalBounds)
+        //    return -1;
+
+        int minLength = Math.Min(other._items.Count, _items.Count);
+        for (int i = 0; i < minLength; i++)
+        {
+            if (!_items[i].Equals(other._items[i]))
+            {
+                return i;
             }
         }
 
-        _builder.AppendSkiaFilter((xChannelSelector, yChannelSelector, scale, skDisplacement), (t, input) =>
-        {
-            return SKImageFilter.CreateDisplacementMapEffect(t.xChannelSelector, t.yChannelSelector, t.scale, t.skDisplacement, input);
-        });
-
-        _bounds = _bounds.Inflate(scale / 2);
+        return 0;
     }
 
-    public void Compose(FilterEffect outer, FilterEffect inner)
+    public bool Equals(FilterEffectContext? other)
     {
+        if (other == null
+            || _items.Count != other._items.Count
+            || Bounds != other.Bounds)
+            return false;
+
+        Span<IFEItem> items = _items.Span;
+        Span<IFEItem> otherItems = other._items.Span;
+        return items.SequenceEqual(otherItems);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as FilterEffectContext);
+    }
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        foreach (IFEItem? item in _items.Span)
+        {
+            hash.Add(item.GetHashCode());
+        }
+
+        return hash.ToHashCode();
+    }
+
+    public void Dispose()
+    {
+        _versions.Dispose();
+        _items.Dispose();
     }
 }
-

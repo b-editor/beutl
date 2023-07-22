@@ -82,10 +82,7 @@ public sealed class FilterEffectGroup : FilterEffect
     {
         foreach (FilterEffect item in _children.GetMarshal().Value)
         {
-            if (item.IsEnabled)
-            {
-                item.ApplyTo(context);
-            }
+            context.Apply(item);
         }
     }
 }

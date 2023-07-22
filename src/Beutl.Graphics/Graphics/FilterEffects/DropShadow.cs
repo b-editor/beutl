@@ -3,8 +3,6 @@
 using Beutl.Language;
 using Beutl.Media;
 
-using SkiaSharp;
-
 namespace Beutl.Graphics.Effects;
 
 public sealed class DropShadow : FilterEffect
@@ -43,7 +41,6 @@ public sealed class DropShadow : FilterEffect
         AffectsRender<DropShadow>(PositionProperty, SigmaProperty, ColorProperty, ShadowOnlyProperty);
     }
 
-
     [Display(Name = nameof(Strings.Position), ResourceType = typeof(Strings))]
     public Point Position
     {
@@ -75,7 +72,10 @@ public sealed class DropShadow : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.DropShadow(Position, Sigma, Color, ShadowOnly);
+        if (ShadowOnly)
+            context.DropShadowOnly(Position, Sigma, Color);
+        else
+            context.DropShadow(Position, Sigma, Color);
     }
 
     public override Rect TransformBounds(Rect bounds)

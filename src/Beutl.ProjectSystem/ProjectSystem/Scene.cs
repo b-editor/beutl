@@ -79,9 +79,9 @@ public class Scene : ProjectItem
         });
     }
 
-    public int Width => Renderer.Graphics.Size.Width;
+    public int Width => Renderer.RenderScene.Size.Width;
 
-    public int Height => Renderer.Graphics.Size.Height;
+    public int Height => Renderer.RenderScene.Size.Height;
 
     [Display(Name = nameof(Strings.DurationTime), ResourceType = typeof(Strings))]
     public TimeSpan Duration
@@ -127,10 +127,14 @@ public class Scene : ProjectItem
     [MemberNotNull(nameof(_renderer))]
     public void Initialize(int width, int height)
     {
-        PixelSize oldSize = _renderer?.Graphics?.Size ?? PixelSize.Empty;
-        _renderer?.Dispose();
-        Renderer = new SceneRenderer(this, width, height);
-        _renderer = Renderer;
+        PixelSize oldSize = _renderer?.RenderScene?.Size ?? PixelSize.Empty;
+        var newSize = new PixelSize(width, height);
+        if (oldSize != newSize || _renderer == null)
+        {
+            _renderer?.Dispose();
+            Renderer = new SceneRenderer(this, width, height);
+            _renderer = Renderer;
+        }
 
         OnPropertyChanged(new CorePropertyChangedEventArgs<int>(
             sender: this,
@@ -278,8 +282,8 @@ public class Scene : ProjectItem
         base.WriteToJson(json);
         if (_renderer != null)
         {
-            json[nameof(Width)] = _renderer.Graphics.Size.Width;
-            json[nameof(Height)] = _renderer.Graphics.Size.Height;
+            json[nameof(Width)] = _renderer.RenderScene.Size.Width;
+            json[nameof(Height)] = _renderer.RenderScene.Size.Height;
         }
 
         var elementsNode = new JsonObject();

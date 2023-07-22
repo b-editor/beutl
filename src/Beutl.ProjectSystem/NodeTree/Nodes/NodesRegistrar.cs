@@ -1,6 +1,6 @@
 ﻿using Beutl.Language;
 using Beutl.NodeTree.Nodes.Brushes;
-using Beutl.NodeTree.Nodes.Filters;
+using Beutl.NodeTree.Nodes.Effects;
 using Beutl.NodeTree.Nodes.Geometry;
 using Beutl.NodeTree.Nodes.Group;
 using Beutl.NodeTree.Nodes.Transform;

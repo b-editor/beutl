@@ -27,6 +27,7 @@
     <PackageReference Include="OpenCvSharp4.runtime.ubuntu.18.04-x64" />
     <PackageReference Include="OpenCvSharp4.runtime.win" />
     <PackageReference Include="OpenTK.OpenAL" />
+    <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" />
     <PackageReference Include="Vortice.XAudio2" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" />

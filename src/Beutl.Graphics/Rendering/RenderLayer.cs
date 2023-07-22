@@ -8,7 +8,7 @@ using Beutl.Media;
 
 namespace Beutl.Rendering;
 
-public class RenderLayer
+public sealed class RenderLayer : IDisposable
 {
     private class Entry : IDisposable
     {
@@ -122,7 +122,8 @@ public class RenderLayer
                     entry.IsDirty = false;
                 }
 
-                dnode.Render(canvas);
+                canvas.DrawNode(dnode);
+                //dnode.Render(canvas);
             }
         }
     }
@@ -136,5 +137,16 @@ public class RenderLayer
                 snode.Sound.Render(audio);
             }
         }
+    }
+
+    public void Dispose()
+    {
+        foreach (KeyValuePair<Renderable, Entry> item in _cache)
+        {
+            item.Value.Dispose();
+        }
+
+        _cache.Clear();
+        _currentFrame.Clear();
     }
 }
