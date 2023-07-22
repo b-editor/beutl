@@ -43,6 +43,11 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
             T nextValue = next2.Value;
             TimeSpan prevTime = prev?.KeyTime ?? TimeSpan.Zero;
             TimeSpan nextTime = next.KeyTime;
+            // Zero除算になるので
+            if (nextTime == prevTime)
+            {
+                return nextValue;
+            }
 
             float progress = (float)((timeSpan - prevTime) / (nextTime - prevTime));
             float ease = next.Easing.Ease(progress);
