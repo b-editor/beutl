@@ -105,7 +105,7 @@ public sealed class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        _ = ImmediateRenderer.s_dispatcher;
+        _ = RenderThread.Dispatcher;
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.MainWindow = new MainWindow
@@ -134,6 +134,5 @@ public sealed class App : Application
     private void Application_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
         GlobalConfiguration.Instance.Save(GlobalConfiguration.DefaultFilePath);
-        ImmediateRenderer.s_dispatcher.Stop();
     }
 }

@@ -19,7 +19,9 @@
                                 Background="Black"
                                 ClipToBounds="True" />
 
-                        <Image Name="PART_Image" Source="{TemplateBinding Source}" />
+                        <Image Name="PART_Image"
+                               RenderOptions.BitmapInterpolationMode="HighQuality"
+                               Source="{TemplateBinding Source}" />
                     </Panel>
 
                     <Grid Grid.Row="1" RowDefinitions="Auto,Auto">

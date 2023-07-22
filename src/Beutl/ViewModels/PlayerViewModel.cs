@@ -131,6 +131,9 @@ public sealed class PlayerViewModel : IDisposable
 
     public async void Play()
     {
+        if (!_isEnabled.Value)
+            return;
+
         IRenderer renderer = Scene.Renderer;
         renderer.RenderInvalidated -= Renderer_RenderInvalidated;
 
@@ -324,10 +327,10 @@ public sealed class PlayerViewModel : IDisposable
 
     private void Render(IRenderer renderer, TimeSpan timeSpan)
     {
-        if (renderer.IsGraphicsRendering && !_isEnabled.Value)
+        if (renderer.IsGraphicsRendering)
             return;
 
-        renderer.Dispatcher.Invoke(() =>
+        renderer.Dispatcher.Dispatch(() =>
         {
             if (renderer.RenderGraphics(timeSpan).Bitmap is { } bitmap)
             {
@@ -367,13 +370,13 @@ public sealed class PlayerViewModel : IDisposable
         PreviewInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
-    private async void Renderer_RenderInvalidated(object? sender, TimeSpan e)
+    private void Renderer_RenderInvalidated(object? sender, TimeSpan e)
     {
-        if (sender is IRenderer renderer)
+        if (sender is IRenderer { IsGraphicsRendering: false } renderer)
         {
-            await renderer.Dispatcher.InvokeAsync(() =>
+            renderer.Dispatcher.Dispatch(() =>
             {
-                IRenderer.RenderResult result = renderer.RenderGraphics(e);
+                IRenderer.RenderResult result = renderer.RenderGraphics(Scene.CurrentFrame);
                 if (result.Bitmap is { } bitmap)
                 {
                     UpdateImage(bitmap);

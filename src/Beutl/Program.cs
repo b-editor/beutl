@@ -1,7 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.ReactiveUI;
 
-using FluentAvalonia.UI.Windowing;
+using Beutl.Rendering;
 
 namespace Beutl;
 
@@ -42,8 +42,16 @@ internal static class Program
             process?.Kill();
         }
 
-        BuildAvaloniaApp()
-            .StartWithClassicDesktopLifetime(args);
+        try
+        {
+            BuildAvaloniaApp()
+                .StartWithClassicDesktopLifetime(args);
+        }
+        finally
+        {
+            SharedGRContext.Shutdown();
+            RenderThread.Dispatcher.Stop();
+        }
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.
