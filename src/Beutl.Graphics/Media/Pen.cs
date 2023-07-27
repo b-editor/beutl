@@ -7,7 +7,7 @@ using Beutl.Media.Immutable;
 
 namespace Beutl.Media;
 
-public sealed class Pen : Animatable, IMutablePen
+public sealed class Pen : Animatable, IMutablePen, IEquatable<IPen?>
 {
     public static readonly CoreProperty<IBrush?> BrushProperty;
     public static readonly CoreProperty<CoreList<float>?> DashArrayProperty;
@@ -194,5 +194,29 @@ public sealed class Pen : Animatable, IMutablePen
             StrokeCap,
             StrokeJoin,
             StrokeAlignment);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as IPen);
+    }
+
+    public bool Equals(IPen? other)
+    {
+        return other is not null
+            && EqualityComparer<IBrush?>.Default.Equals(Brush, other.Brush)
+            && ((DashArray != null && other.DashArray != null && DashArray.SequenceEqual(other.DashArray))
+            || DashArray == null && other.DashArray == null)
+            && DashOffset == other.DashOffset
+            && Thickness == other.Thickness
+            && MiterLimit == other.MiterLimit
+            && StrokeCap == other.StrokeCap
+            && StrokeJoin == other.StrokeJoin
+            && StrokeAlignment == other.StrokeAlignment;
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Brush, DashArray, DashOffset, Thickness, MiterLimit, StrokeCap, StrokeJoin, StrokeAlignment);
     }
 }

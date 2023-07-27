@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Media.Immutable;
 
-public sealed class ImmutablePen : IPen, IEquatable<IPen?>
+public sealed class ImmutablePen : IPen
 {
     public ImmutablePen(
         IBrush? brush,
@@ -47,7 +47,8 @@ public sealed class ImmutablePen : IPen, IEquatable<IPen?>
     {
         return other is not null
             && EqualityComparer<IBrush?>.Default.Equals(Brush, other.Brush)
-            && EqualityComparer<IReadOnlyList<float>?>.Default.Equals(DashArray, other.DashArray)
+            && ((DashArray != null && other.DashArray != null && DashArray.SequenceEqual(other.DashArray))
+            || DashArray == null && other.DashArray == null)
             && DashOffset == other.DashOffset
             && Thickness == other.Thickness
             && MiterLimit == other.MiterLimit
@@ -60,8 +61,4 @@ public sealed class ImmutablePen : IPen, IEquatable<IPen?>
     {
         return HashCode.Combine(Brush, DashArray, DashOffset, Thickness, MiterLimit, StrokeCap, StrokeJoin, StrokeAlignment);
     }
-
-    public static bool operator ==(ImmutablePen? left, ImmutablePen? right) => EqualityComparer<ImmutablePen>.Default.Equals(left, right);
-
-    public static bool operator !=(ImmutablePen? left, ImmutablePen? right) => !(left == right);
 }

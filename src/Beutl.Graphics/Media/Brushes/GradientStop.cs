@@ -6,7 +6,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Describes the location and color of a transition point in a gradient.
 /// </summary>
-public sealed class GradientStop : Animatable, IGradientStop, IAffectsRender
+public sealed class GradientStop : Animatable, IGradientStop, IAffectsRender, IEquatable<IGradientStop?>
 {
     public static readonly CoreProperty<float> OffsetProperty;
     public static readonly CoreProperty<Color> ColorProperty;
@@ -68,5 +68,20 @@ public sealed class GradientStop : Animatable, IGradientStop, IAffectsRender
     {
         get => _color;
         set => SetAndRaise(ColorProperty, ref _color, value);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as IGradientStop);
+    }
+
+    public bool Equals(IGradientStop? other)
+    {
+        return other is not null && Offset == other.Offset && Color.Equals(other.Color);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Offset, Color);
     }
 }

@@ -1,9 +1,10 @@
 ﻿
 using Beutl.Graphics;
+using Beutl.Graphics.Transformation;
 
 namespace Beutl.Media.Immutable;
 
-public class ImmutableLinearGradientBrush : ImmutableGradientBrush, ILinearGradientBrush
+public class ImmutableLinearGradientBrush : ImmutableGradientBrush, ILinearGradientBrush, IEquatable<ILinearGradientBrush?>
 {
     public ImmutableLinearGradientBrush(
         IReadOnlyList<ImmutableGradientStop> gradientStops,
@@ -29,4 +30,26 @@ public class ImmutableLinearGradientBrush : ImmutableGradientBrush, ILinearGradi
     public RelativePoint StartPoint { get; }
 
     public RelativePoint EndPoint { get; }
+
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as ILinearGradientBrush);
+    }
+
+    public bool Equals(ILinearGradientBrush? other)
+    {
+        return other is not null
+            && GradientStops.SequenceEqual( other.GradientStops)
+            && Opacity == other.Opacity
+            && EqualityComparer<ITransform?>.Default.Equals(Transform, other.Transform)
+            && TransformOrigin.Equals(other.TransformOrigin)
+            && SpreadMethod == other.SpreadMethod
+            && StartPoint.Equals(other.StartPoint)
+            && EndPoint.Equals(other.EndPoint);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(GradientStops, Opacity, Transform, TransformOrigin, SpreadMethod, StartPoint, EndPoint);
+    }
 }

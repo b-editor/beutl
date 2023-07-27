@@ -1,9 +1,10 @@
 ﻿
 using Beutl.Graphics;
+using Beutl.Graphics.Transformation;
 
 namespace Beutl.Media.Immutable;
 
-public class ImmutableDrawableBrush : ImmutableTileBrush, IDrawableBrush
+public class ImmutableDrawableBrush : ImmutableTileBrush, IDrawableBrush, IEquatable<IDrawableBrush?>
 {
     public ImmutableDrawableBrush(
         Drawable drawable,
@@ -39,4 +40,42 @@ public class ImmutableDrawableBrush : ImmutableTileBrush, IDrawableBrush
     }
 
     public IDrawable? Drawable { get; }
+
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as IDrawableBrush);
+    }
+
+    public bool Equals(IDrawableBrush? other)
+    {
+        return other is not null
+            && AlignmentX == other.AlignmentX
+            && AlignmentY == other.AlignmentY
+            && DestinationRect.Equals(other.DestinationRect)
+            && Opacity == other.Opacity
+            && EqualityComparer<ITransform?>.Default.Equals(Transform, other.Transform)
+            && TransformOrigin.Equals(other.TransformOrigin)
+            && SourceRect.Equals(other.SourceRect)
+            && Stretch == other.Stretch
+            && TileMode == other.TileMode
+            && BitmapInterpolationMode == other.BitmapInterpolationMode
+            && EqualityComparer<IDrawable?>.Default.Equals(Drawable, other.Drawable);
+    }
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(AlignmentX);
+        hash.Add(AlignmentY);
+        hash.Add(DestinationRect);
+        hash.Add(Opacity);
+        hash.Add(Transform);
+        hash.Add(TransformOrigin);
+        hash.Add(SourceRect);
+        hash.Add(Stretch);
+        hash.Add(TileMode);
+        hash.Add(BitmapInterpolationMode);
+        hash.Add(Drawable);
+        return hash.ToHashCode();
+    }
 }

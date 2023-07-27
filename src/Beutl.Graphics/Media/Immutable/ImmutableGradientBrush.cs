@@ -19,9 +19,12 @@ public abstract class ImmutableGradientBrush : IGradientBrush
         SpreadMethod = spreadMethod;
     }
 
-    protected ImmutableGradientBrush(GradientBrush source)
-        : this(source.GradientStops.ToImmutable(), source.Opacity, source.Transform?.ToImmutable(),
-              source.TransformOrigin, source.SpreadMethod)
+    protected ImmutableGradientBrush(IGradientBrush source)
+        : this((IReadOnlyList<ImmutableGradientStop>)((source.GradientStops as GradientStops)?.ToImmutable() ?? source.GradientStops),
+              source.Opacity,
+              source.Transform?.ToImmutable(),
+              source.TransformOrigin,
+              source.SpreadMethod)
     {
 
     }

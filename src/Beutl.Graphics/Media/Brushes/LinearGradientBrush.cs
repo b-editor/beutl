@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
 using Beutl.Graphics;
+using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media.Immutable;
 
@@ -9,7 +10,7 @@ namespace Beutl.Media;
 /// <summary>
 /// A brush that draws with a linear gradient.
 /// </summary>
-public sealed class LinearGradientBrush : GradientBrush, ILinearGradientBrush
+public sealed class LinearGradientBrush : GradientBrush, ILinearGradientBrush, IEquatable<ILinearGradientBrush?>
 {
     public static readonly CoreProperty<RelativePoint> StartPointProperty;
     public static readonly CoreProperty<RelativePoint> EndPointProperty;
@@ -55,5 +56,27 @@ public sealed class LinearGradientBrush : GradientBrush, ILinearGradientBrush
     public override IBrush ToImmutable()
     {
         return new ImmutableLinearGradientBrush(this);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as ILinearGradientBrush);
+    }
+
+    public bool Equals(ILinearGradientBrush? other)
+    {
+        return other is not null
+            && GradientStops.SequenceEqual(other.GradientStops)
+            && Opacity == other.Opacity
+            && EqualityComparer<ITransform?>.Default.Equals(Transform, other.Transform)
+            && TransformOrigin.Equals(other.TransformOrigin)
+            && SpreadMethod == other.SpreadMethod
+            && StartPoint.Equals(other.StartPoint)
+            && EndPoint.Equals(other.EndPoint);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(GradientStops, Opacity, Transform, TransformOrigin, SpreadMethod, StartPoint, EndPoint);
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
 using Beutl.Graphics;
+using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media.Immutable;
 
@@ -9,7 +10,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Paints an area with a radial gradient.
 /// </summary>
-public sealed class RadialGradientBrush : GradientBrush, IRadialGradientBrush
+public sealed class RadialGradientBrush : GradientBrush, IRadialGradientBrush,IEquatable<IRadialGradientBrush?>
 {
     public static readonly CoreProperty<RelativePoint> CenterProperty;
     public static readonly CoreProperty<RelativePoint> GradientOriginProperty;
@@ -74,5 +75,28 @@ public sealed class RadialGradientBrush : GradientBrush, IRadialGradientBrush
     public override IBrush ToImmutable()
     {
         return new ImmutableRadialGradientBrush(this);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as IRadialGradientBrush);
+    }
+
+    public bool Equals(IRadialGradientBrush? other)
+    {
+        return other is not null
+            && GradientStops.SequenceEqual(other.GradientStops)
+            && Opacity == other.Opacity
+            && EqualityComparer<ITransform?>.Default.Equals(Transform, other.Transform)
+            && TransformOrigin.Equals(other.TransformOrigin)
+            && SpreadMethod == other.SpreadMethod
+            && Center.Equals(other.Center)
+            && GradientOrigin.Equals(other.GradientOrigin)
+            && Radius == other.Radius;
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(GradientStops, Opacity, Transform, TransformOrigin, SpreadMethod, Center, GradientOrigin, Radius);
     }
 }
