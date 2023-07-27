@@ -1,12 +1,15 @@
 ﻿using Beutl.Graphics.Effects;
+using Beutl.Media.Source;
+using Beutl.Rendering.Cache;
+
+using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class FilterEffectNode : ContainerNode
+public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
 {
-    //private RecentContext _recentContext = new();
+    private FilterEffectContext? _prevContext;
 
-    // DeferredCanvasでFilterEffectContextを作成できない。Boundsが未知なので。
     public FilterEffectNode(FilterEffect filterEffect)
     {
         FilterEffect = filterEffect;
@@ -17,8 +20,8 @@ public sealed class FilterEffectNode : ContainerNode
     public override void Dispose()
     {
         base.Dispose();
-        //_recentContext.Dispose();
-        //_recentContext = null!;
+        _prevContext?.Dispose();
+        _prevContext = null;
     }
 
     public bool Equals(FilterEffect filterEffect)
@@ -31,17 +34,33 @@ public sealed class FilterEffectNode : ContainerNode
         return FilterEffect.TransformBounds(bounds);
     }
 
-    public override void Render(ImmediateCanvas canvas)
+    private FilterEffectContext GetOrCreateContext()
     {
-        var context = new FilterEffectContext(OriginalBounds);
-        context.Apply(FilterEffect);
-        //_recentContext.Add(context);
+        FilterEffectContext? context = _prevContext;
+        if (context == null
+           || _prevContext?.FirstVersion() != FilterEffect.Version)
+        {
+            context = new FilterEffectContext(OriginalBounds);
+            context.Apply(FilterEffect);
+            _prevContext?.Dispose();
+            _prevContext = context;
+        }
+
+        return context;
+    }
+
+    private void RenderCore(
+        ImmediateCanvas canvas,
+        Range range,
+        EffectTarget effectTarget,
+        Rect originalBounds)
+    {
+        FilterEffectContext context = GetOrCreateContext();
 
         using (var builder = new SKImageFilterBuilder())
-        using (var target = new EffectTarget(this))
-        using (var activator = new FilterEffectActivator(OriginalBounds, target, builder, canvas))
+        using (var activator = new FilterEffectActivator(originalBounds, effectTarget, builder, canvas))
         {
-            activator.Apply(context);
+            activator.Apply(context, range);
 
 #if false
             if (builder.HasFilter())
@@ -74,54 +93,70 @@ public sealed class FilterEffectNode : ContainerNode
         }
     }
 
-    //private class RecentContext : IDisposable
-    //{
-    //    private FilterEffectContext? _slot0;
-    //    private FilterEffectContext? _slot1;
-    //    private FilterEffectContext? _slot2;
-    //    private int _index;
+    public override void Render(ImmediateCanvas canvas)
+    {
+        using (var target = new EffectTarget(this))
+        {
+            RenderCore(canvas, Range.All, target, OriginalBounds);
+        }
+    }
 
-    //    private ref FilterEffectContext? GetRef(int index)
-    //    {
-    //        switch (index)
-    //        {
-    //            case 0: return ref _slot0;
-    //            case 1: return ref _slot1;
-    //            case 2: return ref _slot2;
-    //        }
+    void ISupportRenderCache.Accepts(RenderCache cache)
+    {
+        if (_prevContext != null
+            && _prevContext.FirstVersion() == FilterEffect.Version)
+        {
+            cache.ReportSameNumber(_prevContext.CountItems());
+        }
+        else
+        {
+            var context = new FilterEffectContext(OriginalBounds);
+            context.Apply(FilterEffect);
 
-    //        return ref Unsafe.NullRef<FilterEffectContext?>();
-    //    }
+            // 新しく作成したコンテキストと前回のコンテキストがどこまで同じかをカウント
+            int count = context.CountEquals(_prevContext);
+            cache.ReportSameNumber(count);
 
-    //    public void Add(FilterEffectContext context)
-    //    {
-    //        FilterEffectContext? slot = GetRef(_index);
-    //        if (!Unsafe.IsNullRef(ref slot))
-    //        {
-    //            slot?.Dispose();
-    //            slot = context;
+            _prevContext?.Dispose();
+            _prevContext = context;
+        }
+    }
 
-    //            _index++;
-    //            // 折り返す
-    //            _index %= 3;
-    //        }
-    //    }
+    void ISupportRenderCache.RenderForCache(ImmediateCanvas canvas, RenderCache cache)
+    {
+        int minNumber = cache.GetMinNumber();
+        using (var target = new EffectTarget(this))
+        {
+            RenderCore(canvas, 0..minNumber, target, OriginalBounds);
+        }
+    }
 
-    //    public bool EqualsAll()
-    //    {
-    //        EqualityComparer<FilterEffectContext> comparer = EqualityComparer<FilterEffectContext>.Default;
-    //        return comparer.Equals(_slot0, _slot1) && comparer.Equals(_slot1, _slot2);
-    //    }
+    void ISupportRenderCache.RenderWithCache(ImmediateCanvas canvas, RenderCache cache)
+    {
+        int minNumber = cache.GetMinNumber();
+        FilterEffectContext context = GetOrCreateContext();
 
-    //    public void Dispose()
-    //    {
-    //        _index = 0;
-    //        _slot0?.Dispose();
-    //        _slot0 = null;
-    //        _slot1?.Dispose();
-    //        _slot1 = null;
-    //        _slot2?.Dispose();
-    //        _slot2 = null;
-    //    }
-    //}
+        using (Ref<SKSurface> surface = cache.UseCache(out Rect cacheBounds))
+        {
+            if (context.CountItems() == minNumber)
+            {
+                canvas.Canvas.DrawSurface(surface.Value, cacheBounds.X, cacheBounds.Y);
+            }
+            else
+            {
+                using (var target = new EffectTarget(surface, cacheBounds.Size))
+                {
+                    RenderCore(canvas, minNumber.., target, cacheBounds);
+                }
+            }
+        }
+    }
+
+    Rect ISupportRenderCache.TransformBoundsForCache(RenderCache cache)
+    {
+        int minNumber = cache.GetMinNumber();
+        FilterEffectContext context = GetOrCreateContext();
+
+        return context.TransformBounds(0..minNumber);
+    }
 }

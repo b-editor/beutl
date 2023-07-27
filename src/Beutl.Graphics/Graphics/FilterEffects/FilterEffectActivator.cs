@@ -82,27 +82,65 @@ public sealed class FilterEffectActivator : IDisposable
         }
     }
 
+    public void Apply(FilterEffectContext context, Range range)
+    {
+        (int offset, int count) = range.GetOffsetAndLength(context._items.Count);
+        int endAt = offset + count;
+
+        int index = 0;
+        foreach (IFEItem item in context._items.Span)
+        {
+            if (offset <= index && index < endAt)
+            {
+                if (item is IFEItem_Skia skia)
+                {
+                    skia.Accepts(this, _builder);
+                    _bounds = item.TransformBounds(_bounds);
+                }
+                else if (item is IFEItem_Custom custom)
+                {
+                    Flush(true);
+                    var customContext = new FilterEffectCustomOperationContext(_canvas, _target);
+                    custom.Accepts(customContext);
+                    if (_target != customContext.Target)
+                    {
+                        _target?.Dispose();
+                        _target = customContext.Target;
+                    }
+                    _bounds = item.TransformBounds(_bounds);
+                }
+            }
+
+            index++;
+        }
+    }
+
     public void Apply(FilterEffectContext context)
     {
-        foreach (IFEItem item in context._items)
+        foreach (IFEItem item in context._items.Span)
         {
-            if (item is IFEItem_Skia skia)
+            ApplyFEItem(item);
+        }
+    }
+
+    private void ApplyFEItem(IFEItem item)
+    {
+        if (item is IFEItem_Skia skia)
+        {
+            skia.Accepts(this, _builder);
+            _bounds = item.TransformBounds(_bounds);
+        }
+        else if (item is IFEItem_Custom custom)
+        {
+            Flush(true);
+            var customContext = new FilterEffectCustomOperationContext(_canvas, _target);
+            custom.Accepts(customContext);
+            if (_target != customContext.Target)
             {
-                skia.Accepts(this, _builder);
-                _bounds = item.TransformBounds(_bounds);
+                _target?.Dispose();
+                _target = customContext.Target;
             }
-            else if (item is IFEItem_Custom custom)
-            {
-                Flush(true);
-                var customContext = new FilterEffectCustomOperationContext(_canvas, _target);
-                custom.Accepts(customContext);
-                if (_target != customContext.Target)
-                {
-                    _target?.Dispose();
-                    _target = customContext.Target;
-                }
-                _bounds = item.TransformBounds(_bounds);
-            }
+            _bounds = item.TransformBounds(_bounds);
         }
     }
 

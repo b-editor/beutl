@@ -4,6 +4,7 @@ using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
+using Beutl.Rendering.Cache;
 using Beutl.Threading;
 
 using SkiaSharp;
@@ -63,6 +64,11 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     internal IImmediateCanvasFactory? Factory { get; set; }
 
     internal SKCanvas Canvas => _canvas;
+
+    public RenderCacheContext? GetCacheContext()
+    {
+        return Factory?.GetCacheContext();
+    }
 
     public ImmediateCanvas CreateCanvas(SKSurface surface, bool leaveOpen)
     {
@@ -147,6 +153,58 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
     public void DrawNode(IGraphicNode node)
     {
+        if (GetCacheContext() is { } context)
+        {
+            RenderCache cache = context.GetCache(node);
+            if (node is ISupportRenderCache supportCache)
+            {
+                supportCache.Accepts(cache);
+
+                if (cache.CanCache())
+                {
+                    if (cache.IsCached)
+                    {
+                        supportCache.RenderWithCache(this, cache);
+                        return;
+                    }
+                }
+            }
+            else
+            {
+                cache.IncrementRenderCount();
+                if (cache.IsCached)
+                {
+                    void AcceptsAll(IGraphicNode node)
+                    {
+                        RenderCache cache = context!.GetCache(node);
+                        (node as ISupportRenderCache)?.Accepts(cache);
+                        if (node is ContainerNode c)
+                        {
+                            foreach (IGraphicNode item in c.Children)
+                            {
+                                AcceptsAll(item);
+                            }
+                        }
+                    }
+                    AcceptsAll(node);
+
+                    if (context.CanCacheRecursive(node))
+                    {
+                        using (Ref<SKSurface> surface = cache.UseCache(out Rect bounds))
+                        {
+                            _canvas.DrawSurface(surface.Value, bounds.X, bounds.Y);
+                        }
+
+                        return;
+                    }
+                    else
+                    {
+                        cache.Invalidate();
+                    }
+                }
+            }
+        }
+
         node.Render(this);
     }
 

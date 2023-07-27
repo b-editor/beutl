@@ -123,7 +123,8 @@ public sealed class RenderLayer : IDisposable
                 }
 
                 canvas.DrawNode(dnode);
-                //dnode.Render(canvas);
+
+                canvas.GetCacheContext()?.MakeCache(dnode, canvas);
             }
         }
     }

@@ -656,7 +656,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// capacity is increased to twice the current capacity or to min,
     /// whichever is larger.
     /// </summary>
-    private void EnsureCapacity(int min)
+    public void EnsureCapacity(int min)
     {
         if (_items.Length < min)
         {

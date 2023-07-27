@@ -1,0 +1,165 @@
+﻿using System.Diagnostics;
+
+using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
+using Beutl.Media.Source;
+
+using SkiaSharp;
+
+namespace Beutl.Rendering.Cache;
+
+public sealed class RenderCache : IDisposable
+{
+    private readonly WeakReference<IGraphicNode> _node;
+    private Ref<SKSurface>? _cache;
+    private Rect _cacheBounds;
+
+    public RenderCache(IGraphicNode node)
+    {
+        _node = new WeakReference<IGraphicNode>(node);
+    }
+
+    private int _count;
+
+    public void ReportRenderCount(int count)
+    {
+        _count = count;
+    }
+
+    public void IncrementRenderCount()
+    {
+        _count++;
+    }
+
+    // キャッシュしたときの進捗の値
+    private int _cachedAt = -1;
+    // 前回のフレームと比べたときに同じだった操作の数（進捗）
+    private FixedArrayAccessor? _accessor;
+
+    private FixedArrayAccessor Accessor => _accessor ??= new();
+
+    // 一つのノードで処理が別れている場合、どこまで同じかを報告する
+    public void ReportSameNumber(int value)
+    {
+        Accessor.Set(value);
+        Accessor.IncrementIndex();
+
+        // キャッシュしたときのpがvalueより大きい場合、キャッシュを無効化
+        // 例えば、キャッシュ時には三つのエフェクトが含まれている状態だったが、<- (1)
+        // 最後の一つだけ変わったなど。
+        if (_cachedAt > value)
+        {
+            Invalidate();
+        }
+        // `GetMinNumber()` と `_cachedAt`がかけ離れている、
+        // 例えば、上の (1) の状況で、三フレーム以上、変わらないエフェクトが追加されたとき
+        else if (GetMinNumber() > _cachedAt)
+        {
+            Invalidate();
+        }
+    }
+
+    public int GetMinNumber()
+    {
+        return _accessor?.Minimum() ?? 0;
+    }
+
+    public bool CanCache()
+    {
+        return GetMinNumber() >= 1 || _count >= FixedArray.Count;
+    }
+
+    public void Invalidate()
+    {
+        if (_cache != null)
+        {
+            Debug.WriteLine($"[RenderCache:Invalildated] '{(_node.TryGetTarget(out var node) ? node : null)}'");
+        }
+
+        _cache?.Dispose();
+        _cache = null;
+        _cacheBounds = Rect.Empty;
+        _cachedAt = -1;
+    }
+
+    public void Dispose()
+    {
+        _cache?.Dispose();
+        _cache = null;
+        _cacheBounds = Rect.Empty;
+    }
+
+    public bool IsCached => _cache != null;
+
+    public Ref<SKSurface> UseCache(out Rect bounds)
+    {
+        if (_cache == null)
+        {
+            throw new Exception("キャッシュはありません");
+        }
+
+        bounds = _cacheBounds;
+        return _cache.Clone();
+    }
+
+    public void StoreCache(Ref<SKSurface> surface, Rect bounds)
+    {
+        Invalidate();
+
+        _cache = surface.Clone();
+        _cacheBounds = bounds;
+
+        if (_accessor != null)
+        {
+            const int Count = FixedArray.Count;
+            _cachedAt = (_accessor.Index + (Count - 1)) % Count;
+        }
+        else
+        {
+            _cachedAt = 0;
+        }
+    }
+
+    private unsafe class FixedArrayAccessor
+    {
+        public FixedArray Array;
+        public int Index;
+
+        public void IncrementIndex()
+        {
+            Index++;
+            // 折り返す
+            Index %= FixedArray.Count;
+        }
+
+        public ref int Get(int index)
+        {
+            if (index is < 0 or >= FixedArray.Count)
+                throw new Exception("0 <= index <= 2");
+
+            return ref Array.Array[index];
+        }
+
+        public void Set(int value)
+        {
+            Array.Array[Index] = value;
+        }
+
+        public int Minimum()
+        {
+            int value = int.MaxValue;
+            for (int i = 0; i < FixedArray.Count; i++)
+            {
+                value = Math.Min(Array.Array[i], value);
+            }
+
+            return value;
+        }
+    }
+
+    private unsafe struct FixedArray
+    {
+        public const int Count = 3;
+        public fixed int Array[Count];
+    }
+}

@@ -1,6 +1,7 @@
 ﻿using Beutl.Animation;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Rendering.Cache;
 using Beutl.Threading;
 
 using SkiaSharp;
@@ -16,6 +17,7 @@ public class ImmediateRenderer : IRenderer, IImmediateCanvasFactory
     private readonly Audio.Audio _audio;
     private readonly FpsText _fpsText = new();
     private readonly InstanceClock _instanceClock = new();
+    private readonly RenderCacheContext _cacheContext = new();
 
     public ImmediateRenderer(int width, int height)
     {
@@ -166,5 +168,10 @@ public class ImmediateRenderer : IRenderer, IImmediateCanvasFactory
             new SKImageInfo(width, height, SKColorType.Bgra8888/*, SKAlphaType.Unpremul*/));
 
         return surface;
+    }
+
+    public RenderCacheContext? GetCacheContext()
+    {
+        return _cacheContext;
     }
 }

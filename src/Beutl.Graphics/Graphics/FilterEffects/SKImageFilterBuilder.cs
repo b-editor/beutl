@@ -1,5 +1,4 @@
-﻿using Beutl.Graphics.Effects;
-using SkiaSharp;
+﻿using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -13,7 +12,7 @@ public class SKImageFilterBuilder : IDisposable
         _filter = factory(data, input);
         input?.Dispose();
     }
-    
+
     public void AppendSkiaFilter<T>(T data, FilterEffectActivator activator, Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> factory)
     {
         SKImageFilter? input = _filter;

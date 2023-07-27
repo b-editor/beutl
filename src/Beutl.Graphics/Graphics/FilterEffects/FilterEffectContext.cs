@@ -166,8 +166,34 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
         }
     }
 
-    public int CountEquals(FilterEffectContext other)
+    public int FirstVersion()
     {
+        if (_versions.Count == 0)
+            throw new InvalidOperationException("有効なエフェクトバージョンがありません");
+
+        return _versions[0].Version;
+    }
+
+    public int CountItems()
+    {
+        return _items.Count;
+    }
+
+    public Rect TransformBounds(Range range)
+    {
+        Rect rect = Bounds;
+        foreach (IFEItem item in _items.Span[range])
+        {
+            rect = item.TransformBounds(rect);
+        }
+
+        return rect;
+    }
+
+    public int CountEquals(FilterEffectContext? other)
+    {
+        if (other == null)
+            return 0;
         //if (other.OriginalBounds != OriginalBounds)
         //    return -1;
 
