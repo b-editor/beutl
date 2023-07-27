@@ -38,8 +38,13 @@ public sealed class DeferradCanvas : ICanvas
         }
     }
 
-    private void AddAndPush(ContainerNode node)
+    private void AddAndPush(ContainerNode node, ContainerNode? old)
     {
+        if (old != null)
+        {
+            node.BringFrom(old);
+        }
+
         Add(node);
         Push(node);
     }
@@ -190,7 +195,7 @@ public sealed class DeferradCanvas : ICanvas
 
         if (next == null)
         {
-            AddAndPush(new PushNode());
+            AddAndPush(new PushNode(), next);
         }
         else
         {
@@ -206,7 +211,7 @@ public sealed class DeferradCanvas : ICanvas
 
         if (next == null || !next.Equals(blendMode))
         {
-            AddAndPush(new BlendModeNode(blendMode));
+            AddAndPush(new BlendModeNode(blendMode), next);
         }
         else
         {
@@ -222,7 +227,7 @@ public sealed class DeferradCanvas : ICanvas
 
         if (next == null || !next.Equals(clip, operation))
         {
-            AddAndPush(new RectClipNode(clip, operation));
+            AddAndPush(new RectClipNode(clip, operation), next);
         }
         else
         {
@@ -238,7 +243,7 @@ public sealed class DeferradCanvas : ICanvas
 
         if (next == null || !next.Equals(geometry, operation))
         {
-            AddAndPush(new GeometryClipNode(geometry, operation));
+            AddAndPush(new GeometryClipNode(geometry, operation), next);
         }
         else
         {
@@ -254,7 +259,7 @@ public sealed class DeferradCanvas : ICanvas
 
         if (next == null || !next.Equals(effect))
         {
-            AddAndPush(new FilterEffectNode(effect));
+            AddAndPush(new FilterEffectNode(effect), next);
         }
         else
         {
@@ -270,7 +275,7 @@ public sealed class DeferradCanvas : ICanvas
 
         if (next == null || !next.Equals(mask, bounds, invert))
         {
-            AddAndPush(new OpacityMaskNode(mask, bounds, invert));
+            AddAndPush(new OpacityMaskNode(mask, bounds, invert), next);
         }
         else
         {
@@ -286,7 +291,7 @@ public sealed class DeferradCanvas : ICanvas
 
         if (next == null || !next.Equals(matrix, transformOperator))
         {
-            AddAndPush(new TransformNode(matrix, transformOperator));
+            AddAndPush(new TransformNode(matrix, transformOperator), next);
         }
         else
         {

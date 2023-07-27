@@ -84,4 +84,13 @@ public class ContainerNode : IGraphicNode
         _children[index] = item;
         _isBoundsDirty = true;
     }
+
+    public void BringFrom(ContainerNode containerNode)
+    {
+        _children.Clear();
+        _children.AddRange(containerNode._children);
+
+        containerNode._children.Clear();
+        _isBoundsDirty = true;
+    }
 }
