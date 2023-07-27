@@ -17,8 +17,8 @@ public sealed class TextNode : BrushDrawNode
     public bool Equals(FormattedText text, IBrush? fill, IPen? pen)
     {
         return Text == text
-            && Fill == fill
-            && Pen == pen;
+            && EqualityComparer<IBrush?>.Default.Equals(Fill, fill)
+            && EqualityComparer<IPen?>.Default.Equals(Pen, pen);
     }
 
     public override void Render(ImmediateCanvas canvas)

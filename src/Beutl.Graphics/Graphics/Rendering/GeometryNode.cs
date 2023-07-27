@@ -19,8 +19,8 @@ public sealed class GeometryNode : BrushDrawNode
     {
         return Geometry == geometry
             && _version == geometry.Version
-            && Fill == fill
-            && Pen == pen;
+            && EqualityComparer<IBrush?>.Default.Equals(Fill, fill)
+            && EqualityComparer<IPen?>.Default.Equals(Pen, pen);
     }
 
     public override void Render(ImmediateCanvas canvas)

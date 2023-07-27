@@ -15,8 +15,8 @@ public sealed class BitmapNode : BrushDrawNode
     public bool Equals(IBitmap bitmap, IBrush? fill, IPen? pen)
     {
         return Bitmap == bitmap
-            && Fill == fill
-            && Pen == pen;
+            && EqualityComparer<IBrush?>.Default.Equals(Fill, fill)
+            && EqualityComparer<IPen?>.Default.Equals(Pen, pen);
     }
 
     public override void Render(ImmediateCanvas canvas)

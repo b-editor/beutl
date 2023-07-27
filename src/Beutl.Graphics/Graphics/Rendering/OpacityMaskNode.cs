@@ -19,7 +19,7 @@ public sealed class OpacityMaskNode : ContainerNode
 
     public bool Equals(IBrush? mask, Rect maskBounds, bool invert)
     {
-        return Mask == mask
+        return EqualityComparer<IBrush?>.Default.Equals(Mask, mask)
             && MaskBounds == maskBounds
             && Invert == invert;
     }

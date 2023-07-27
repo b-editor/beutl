@@ -15,8 +15,8 @@ public sealed class RectangleNode : BrushDrawNode
     public bool Equals(Rect rect, IBrush? fill, IPen? pen)
     {
         return Rect == rect
-            && Fill == fill
-            && Pen == pen;
+            && EqualityComparer<IBrush?>.Default.Equals(Fill, fill)
+            && EqualityComparer<IPen?>.Default.Equals(Pen, pen);
     }
 
     public override void Render(ImmediateCanvas canvas)
