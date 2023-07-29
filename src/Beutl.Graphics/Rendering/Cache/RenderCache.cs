@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
@@ -35,12 +36,15 @@ public sealed class RenderCache : IDisposable
     private int _cachedAt = -1;
     // 前回のフレームと比べたときに同じだった操作の数（進捗）
     private FixedArrayAccessor? _accessor;
+    private int _denum;
 
     private FixedArrayAccessor Accessor => _accessor ??= new();
 
     // 一つのノードで処理が別れている場合、どこまで同じかを報告する
-    public void ReportSameNumber(int value)
+    public void ReportSameNumber(int value, int count)
     {
+        _denum = count;
+
         Accessor.Set(value);
         Accessor.IncrementIndex();
 
@@ -65,6 +69,30 @@ public sealed class RenderCache : IDisposable
     }
 
     public bool CanCache()
+    {
+        if (_count >= FixedArray.Count)
+        {
+            return true;
+        }
+        else if (_accessor != null)
+        {
+            for (int i = 0; i < FixedArray.Count; i++)
+            {
+                if (_accessor.Get(i) != _denum)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    public bool CanCacheBoundary()
     {
         return GetMinNumber() >= 1 || _count >= FixedArray.Count;
     }
@@ -161,5 +189,7 @@ public sealed class RenderCache : IDisposable
     {
         public const int Count = 3;
         public fixed int Array[Count];
+
+        public Span<int> Span => new(Unsafe.AsPointer(ref Array[0]), Count);
     }
 }

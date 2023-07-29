@@ -85,4 +85,15 @@ public sealed class FilterEffectGroup : FilterEffect
             context.Apply(item);
         }
     }
+
+    public override Rect TransformBounds(Rect bounds)
+    {
+        foreach (FilterEffect item in _children.GetMarshal().Value)
+        {
+            if (item.IsEnabled)
+                bounds = item.TransformBounds(bounds);
+        }
+
+        return bounds;
+    }
 }

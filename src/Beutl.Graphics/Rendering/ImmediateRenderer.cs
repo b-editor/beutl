@@ -161,11 +161,19 @@ public class ImmediateRenderer : IRenderer, IImmediateCanvasFactory
     {
         Dispatcher.VerifyAccess();
         GRContext grcontext = SharedGRContext.GetOrCreate();
+        SKSurface? surface;
 
-        var surface = SKSurface.Create(
-            grcontext,
-            false,
-            new SKImageInfo(width, height, SKColorType.Bgra8888/*, SKAlphaType.Unpremul*/));
+        if (grcontext != null)
+        {
+            surface = SKSurface.Create(
+                grcontext,
+                false,
+                new SKImageInfo(width, height, SKColorType.Bgra8888/*, SKAlphaType.Unpremul*/));
+        }
+        else
+        {
+            surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul));
+        }
 
         return surface;
     }

@@ -163,20 +163,5 @@
                                   Symbol="Link" />
             </Button>
         </StackPanel>
-
-        <Grid Grid.Row="3"
-              Grid.ColumnSpan="2"
-              HorizontalAlignment="Right"
-              VerticalAlignment="Bottom"
-              ColumnDefinitions="*,*">
-            <ui:HyperlinkButton Grid.Column="0"
-                                HorizontalAlignment="Center"
-                                Content="{x:Static lang:Strings.PrivacyPolicy}"
-                                NavigateUri="https://beutl.beditor.net/Privacy" />
-            <ui:HyperlinkButton Grid.Column="1"
-                                HorizontalAlignment="Center"
-                                Content="{x:Static lang:Strings.TermsOfService}"
-                                NavigateUri="https://beutl.beditor.net/TermsOfService" />
-        </Grid>
     </Grid>
 </UserControl>

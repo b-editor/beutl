@@ -161,8 +161,8 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     {
         if (filterEffect is { IsEnabled: true })
         {
-            filterEffect.ApplyTo(this);
             _versions.Add((filterEffect, filterEffect.Version));
+            filterEffect.ApplyTo(this);
         }
     }
 

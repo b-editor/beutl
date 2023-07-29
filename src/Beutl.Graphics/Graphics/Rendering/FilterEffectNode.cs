@@ -106,7 +106,8 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
         if (_prevContext != null
             && _prevContext.FirstVersion() == FilterEffect.Version)
         {
-            cache.ReportSameNumber(_prevContext.CountItems());
+            int count = _prevContext.CountItems();
+            cache.ReportSameNumber(count, count);
         }
         else
         {
@@ -115,7 +116,7 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
 
             // 新しく作成したコンテキストと前回のコンテキストがどこまで同じかをカウント
             int count = context.CountEquals(_prevContext);
-            cache.ReportSameNumber(count);
+            cache.ReportSameNumber(count, context.CountItems());
 
             _prevContext?.Dispose();
             _prevContext = context;
