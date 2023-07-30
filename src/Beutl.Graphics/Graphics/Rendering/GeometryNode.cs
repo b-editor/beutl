@@ -28,8 +28,9 @@ public sealed class GeometryNode : BrushDrawNode
         canvas.DrawGeometry(Geometry, Fill, Pen);
     }
 
-    public override void Dispose()
+    protected override void OnDispose(bool disposing)
     {
+        base.OnDispose(disposing);
         Geometry = null!;
     }
 

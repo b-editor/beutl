@@ -47,7 +47,7 @@ public sealed class BitmapSource : ImageSource
             return false;
         }
 
-        bitmap = _bitmap;
+        bitmap = _bitmap.Clone();
         return true;
     }
 

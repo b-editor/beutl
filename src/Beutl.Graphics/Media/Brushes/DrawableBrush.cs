@@ -7,14 +7,14 @@ namespace Beutl.Media;
 /// <summary>
 /// Paints an area with an <see cref="IDrawable"/>.
 /// </summary>
-public class DrawableBrush : TileBrush, IDrawableBrush
+public class DrawableBrush : TileBrush, IDrawableBrush, IEquatable<IDrawableBrush?>
 {
-    public static readonly CoreProperty<IDrawable?> DrawableProperty;
-    private IDrawable? _drawable;
+    public static readonly CoreProperty<Drawable?> DrawableProperty;
+    private Drawable? _drawable;
 
     static DrawableBrush()
     {
-        DrawableProperty = ConfigureProperty<IDrawable?, DrawableBrush>(nameof(Drawable))
+        DrawableProperty = ConfigureProperty<Drawable?, DrawableBrush>(nameof(Drawable))
             .Accessor(o => o.Drawable, (o, v) => o.Drawable = v)
             .Register();
 
@@ -32,7 +32,7 @@ public class DrawableBrush : TileBrush, IDrawableBrush
     /// Initializes a new instance of the <see cref="DrawableBrush"/> class.
     /// </summary>
     /// <param name="drawable">The drawable to draw.</param>
-    public DrawableBrush(IDrawable drawable)
+    public DrawableBrush(Drawable drawable)
     {
         Drawable = drawable;
     }
@@ -40,7 +40,7 @@ public class DrawableBrush : TileBrush, IDrawableBrush
     /// <summary>
     /// Gets or sets the visual to draw.
     /// </summary>
-    public IDrawable? Drawable
+    public Drawable? Drawable
     {
         get => _drawable;
         set => SetAndRaise(DrawableProperty, ref _drawable, value);
@@ -70,7 +70,8 @@ public class DrawableBrush : TileBrush, IDrawableBrush
             && Stretch == other.Stretch
             && TileMode == other.TileMode
             && BitmapInterpolationMode == other.BitmapInterpolationMode
-            && EqualityComparer<IDrawable?>.Default.Equals(Drawable, other.Drawable);
+            && ReferenceEquals(Drawable, other.Drawable)
+            && Drawable?.Version == other.Drawable?.Version;
     }
 
     public override int GetHashCode()

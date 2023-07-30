@@ -5,6 +5,7 @@ using System.Numerics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
+using Beutl.Media;
 using Beutl.Utilities;
 
 namespace Beutl.Graphics;
@@ -363,6 +364,11 @@ public readonly struct Size
     public Size WithHeight(float height)
     {
         return new Size(Width, height);
+    }
+
+    public PixelSize Ceiling()
+    {
+        return new PixelSize((int)MathF.Ceiling(Width), (int)MathF.Ceiling(Height));
     }
 
     /// <summary>

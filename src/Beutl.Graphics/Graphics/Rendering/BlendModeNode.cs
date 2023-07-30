@@ -14,10 +14,6 @@ public sealed class BlendModeNode : ContainerNode
         return BlendMode == blendMode;
     }
 
-    public override void Dispose()
-    {
-    }
-
     public override void Render(ImmediateCanvas canvas)
     {
         using (canvas.PushBlendMode(BlendMode))

@@ -30,7 +30,7 @@ public class MeasureNode : Node
         base.Evaluate(context);
         if (_inputSocket.Value is Drawable drawable)
         {
-            drawable.Measure(context.Renderer.Canvas.Size.ToSize(1));
+            drawable.Measure(context.Renderer.FrameSize.ToSize(1));
             _xSocket.Value = drawable.Bounds.X;
             _ySocket.Value = drawable.Bounds.Y;
             _widthSocket.Value = drawable.Bounds.Width;

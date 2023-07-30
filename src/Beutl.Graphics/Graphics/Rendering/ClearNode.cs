@@ -22,10 +22,6 @@ public sealed class ClearNode : DrawNode
         canvas.Clear(Color);
     }
 
-    public override void Dispose()
-    {
-    }
-
     public override bool HitTest(Point point)
     {
         return false;

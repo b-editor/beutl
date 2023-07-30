@@ -7,7 +7,7 @@ using Beutl.Styling;
 namespace Beutl.Operators.Configure;
 
 public abstract class ConfigureOperator<TTarget, TValue> : StylingOperator, ISourceTransformer
-    where TTarget : IRenderable
+    where TTarget : Renderable
     where TValue : CoreObject, IAffectsRender, new()
 {
     private IStyleInstance? _instance;

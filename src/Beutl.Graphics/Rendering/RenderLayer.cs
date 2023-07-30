@@ -61,6 +61,7 @@ public sealed class RenderLayer : IDisposable
     {
         _currentFrame.Clear();
         _currentFrame.EnsureCapacity(elements.Count);
+
         // Todo: Drawable, Renderableを統合する予定
         foreach (Renderable element in elements)
         {
@@ -107,6 +108,19 @@ public sealed class RenderLayer : IDisposable
                 _currentFrame.Add(entry);
             }
         }
+    }
+
+    public void ClearAllNodeCache(RenderCacheContext? context)
+    {
+        foreach (KeyValuePair<Renderable, Entry> item in _cache)
+        {
+            if (item.Value.Node is IGraphicNode graphicNode)
+                context?.ClearCache(graphicNode);
+
+            item.Value.Dispose();
+        }
+
+        _cache.Clear();
     }
 
     public void Render(ImmediateCanvas canvas)

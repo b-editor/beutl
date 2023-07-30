@@ -8,7 +8,7 @@ using Beutl.Rendering;
 namespace Beutl;
 
 internal sealed class SceneRenderer :
-    ImmediateRenderer
+    Renderer
 //DeferredRenderer
 {
     private readonly Scene _scene;
@@ -38,8 +38,10 @@ internal sealed class SceneRenderer :
 
         foreach (Element item in exited)
         {
-            RenderScene[item.ZIndex].Clear();
             ExitSourceOperators(item);
+            RenderLayer layer = RenderScene[item.ZIndex];
+            layer.Clear();
+            layer.ClearAllNodeCache(GetCacheContext());
         }
 
         foreach (Element item in entered)

@@ -32,8 +32,9 @@ public sealed class OpacityMaskNode : ContainerNode
         }
     }
 
-    public override void Dispose()
+    protected override void OnDispose(bool disposing)
     {
+        base.OnDispose(disposing);
         Mask = null!;
     }
 }

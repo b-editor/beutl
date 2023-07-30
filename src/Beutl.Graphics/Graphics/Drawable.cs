@@ -10,7 +10,7 @@ using Beutl.Rendering;
 
 namespace Beutl.Graphics;
 
-public abstract class Drawable : Renderable, IDrawable, IHierarchical
+public abstract class Drawable : Renderable, IHierarchical
 {
     public static readonly CoreProperty<ITransform?> TransformProperty;
     public static readonly CoreProperty<FilterEffect?> FilterEffectProperty;
@@ -134,25 +134,6 @@ public abstract class Drawable : Renderable, IDrawable, IHierarchical
     {
         get => _blendMode;
         set => SetAndRaise(BlendModeProperty, ref _blendMode, value);
-    }
-
-    public IBitmap ToBitmap()
-    {
-        Size size = MeasureCore(Size.Infinity);
-        int width = (int)size.Width;
-        int height = (int)size.Height;
-        if (width > 0 && height > 0)
-        {
-            using (var canvas = new ImmediateCanvas(width, height))
-            {
-                OnDraw(canvas);
-                return canvas.GetBitmap();
-            }
-        }
-        else
-        {
-            return new Bitmap<Bgra8888>(0, 0);
-        }
     }
 
     public void Measure(Size availableSize)

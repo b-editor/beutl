@@ -1,10 +1,21 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿using System.Runtime.InteropServices;
+
+namespace Beutl.Graphics.Rendering;
 
 public class ContainerNode : IGraphicNode
 {
     private readonly List<IGraphicNode> _children = new List<IGraphicNode>();
     private bool _isBoundsDirty = true;
     private Rect _originalBounds;
+
+    ~ContainerNode()
+    {
+        if (!IsDisposed)
+        {
+            OnDispose(false);
+            IsDisposed = true;
+        }
+    }
 
     public Rect OriginalBounds
     {
@@ -30,10 +41,7 @@ public class ContainerNode : IGraphicNode
 
     public IReadOnlyList<IGraphicNode> Children => _children;
 
-    public virtual void Dispose()
-    {
-        GC.SuppressFinalize(this);
-    }
+    public bool IsDisposed { get; private set; }
 
     public virtual bool HitTest(Point point)
     {
@@ -81,6 +89,7 @@ public class ContainerNode : IGraphicNode
 
     public void SetChild(int index, IGraphicNode item)
     {
+        _children[index]?.Dispose();
         _children[index] = item;
         _isBoundsDirty = true;
     }
@@ -92,5 +101,25 @@ public class ContainerNode : IGraphicNode
 
         containerNode._children.Clear();
         _isBoundsDirty = true;
+    }
+
+    public void Dispose()
+    {
+        if (!IsDisposed)
+        {
+            OnDispose(true);
+            IsDisposed = true;
+            GC.SuppressFinalize(this);
+        }
+    }
+
+    protected virtual void OnDispose(bool disposing)
+    {
+        foreach (IGraphicNode? item in CollectionsMarshal.AsSpan(_children))
+        {
+            item.Dispose();
+        }
+
+        _children.Clear();
     }
 }

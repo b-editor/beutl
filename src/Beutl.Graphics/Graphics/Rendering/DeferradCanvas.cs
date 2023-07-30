@@ -1,7 +1,9 @@
 ﻿using Beutl.Graphics.Effects;
 using Beutl.Media;
 using Beutl.Media.Pixel;
+using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
+using Beutl.Rendering;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -96,13 +98,13 @@ public sealed class DeferradCanvas : ICanvas
         ++_drawOperationindex;
     }
 
-    public void DrawBitmap(IBitmap bitmap, IBrush? fill, IPen? pen)
+    public void DrawImageSource(IImageSource source, IBrush? fill, IPen? pen)
     {
-        BitmapNode? next = Next<BitmapNode>();
+        ImageSourceNode? next = Next<ImageSourceNode>();
 
-        if (next == null || !next.Equals(bitmap, fill, pen))
+        if (next == null || !next.Equals(source, fill, pen))
         {
-            Add(new BitmapNode(bitmap, fill, pen));
+            Add(new ImageSourceNode(source, ConvertBrush(fill), pen));
         }
 
         ++_drawOperationindex;
@@ -114,7 +116,7 @@ public sealed class DeferradCanvas : ICanvas
 
         if (next == null || !next.Equals(rect, fill, pen))
         {
-            Add(new EllipseNode(rect, fill, pen));
+            Add(new EllipseNode(rect, ConvertBrush(fill), pen));
         }
 
         ++_drawOperationindex;
@@ -126,7 +128,7 @@ public sealed class DeferradCanvas : ICanvas
 
         if (next == null || !next.Equals(geometry, fill, pen))
         {
-            Add(new GeometryNode(geometry, fill, pen));
+            Add(new GeometryNode(geometry, ConvertBrush(fill), pen));
         }
 
         ++_drawOperationindex;
@@ -138,7 +140,7 @@ public sealed class DeferradCanvas : ICanvas
 
         if (next == null || !next.Equals(rect, fill, pen))
         {
-            Add(new RectangleNode(rect, fill, pen));
+            Add(new RectangleNode(rect, ConvertBrush(fill), pen));
         }
 
         ++_drawOperationindex;
@@ -150,7 +152,7 @@ public sealed class DeferradCanvas : ICanvas
 
         if (next == null || !next.Equals(text, fill, pen))
         {
-            Add(new TextNode(text, fill, pen));
+            Add(new TextNode(text, ConvertBrush(fill), pen));
         }
 
         ++_drawOperationindex;
@@ -299,5 +301,28 @@ public sealed class DeferradCanvas : ICanvas
         }
 
         return new(this, _nodes.Count);
+    }
+
+    private static IBrush? ConvertBrush(IBrush? brush)
+    {
+        if (brush is IDrawableBrush drawableBrush)
+        {
+            RenderScene? scene = null;
+            Rect bounds = default;
+            if (drawableBrush is { Drawable: { IsVisible: true } drawable })
+            {
+                drawable.Measure(Graphics.Size.Infinity);
+
+                bounds = drawable.Bounds;
+                scene = new RenderScene(bounds.Size.Ceiling());
+                scene[0].UpdateAll(new[] { drawable });
+            }
+
+            return new RenderSceneBrush(drawableBrush, scene, bounds);
+        }
+        else
+        {
+            return brush;
+        }
     }
 }

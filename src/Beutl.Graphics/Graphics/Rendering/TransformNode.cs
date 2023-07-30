@@ -23,10 +23,6 @@ public sealed class TransformNode : ContainerNode
             && TransformOperator == transformOperator;
     }
 
-    public override void Dispose()
-    {
-    }
-
     public override void Render(ImmediateCanvas canvas)
     {
         using (canvas.PushTransform(Transform, TransformOperator))

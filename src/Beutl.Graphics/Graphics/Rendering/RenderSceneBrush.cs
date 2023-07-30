@@ -1,45 +1,51 @@
-﻿
-using Beutl.Graphics;
-using Beutl.Graphics.Transformation;
+﻿using Beutl.Graphics.Transformation;
+using Beutl.Media;
+using Beutl.Rendering;
 
-namespace Beutl.Media.Immutable;
+namespace Beutl.Graphics.Rendering;
 
-public class ImmutableDrawableBrush : ImmutableTileBrush, IDrawableBrush, IEquatable<IDrawableBrush?>
+internal sealed class RenderSceneBrush : IDrawableBrush, IEquatable<IDrawableBrush?>, IDisposable
 {
-    public ImmutableDrawableBrush(
-        Drawable drawable,
-        AlignmentX alignmentX = AlignmentX.Center,
-        AlignmentY alignmentY = AlignmentY.Center,
-        RelativeRect? destinationRect = null,
-        float opacity = 1,
-        ImmutableTransform? transform = null,
-        RelativePoint transformOrigin = new RelativePoint(),
-        RelativeRect? sourceRect = null,
-        Stretch stretch = Stretch.Uniform,
-        TileMode tileMode = TileMode.None,
-        BitmapInterpolationMode bitmapInterpolationMode = BitmapInterpolationMode.Default)
-        : base(
-              alignmentX,
-              alignmentY,
-              destinationRect ?? RelativeRect.Fill,
-              opacity,
-              transform,
-              transformOrigin,
-              sourceRect ?? RelativeRect.Fill,
-              stretch,
-              tileMode,
-              bitmapInterpolationMode)
+    public RenderSceneBrush(IDrawableBrush @base, RenderScene? scene, Rect bounds)
     {
-        Drawable = drawable;
+        Base = @base;
+        Scene = scene;
+        Bounds = bounds;
     }
 
-    public ImmutableDrawableBrush(IDrawableBrush source)
-        : base(source)
-    {
-        Drawable = source.Drawable;
-    }
+    public RenderScene? Scene { get; private set; }
 
-    public Drawable? Drawable { get; }
+    public Rect Bounds { get; }
+
+    public IDrawableBrush Base { get; }
+
+    public AlignmentX AlignmentX => Base.AlignmentX;
+
+    public AlignmentY AlignmentY => Base.AlignmentY;
+
+    public RelativeRect DestinationRect => Base.DestinationRect;
+
+    public RelativeRect SourceRect => Base.SourceRect;
+
+    public Stretch Stretch => Base.Stretch;
+
+    public TileMode TileMode => Base.TileMode;
+
+    public BitmapInterpolationMode BitmapInterpolationMode => Base.BitmapInterpolationMode;
+
+    public float Opacity => Base.Opacity;
+
+    public ITransform? Transform => Base.Transform;
+
+    public RelativePoint TransformOrigin => Base.TransformOrigin;
+
+    public Drawable? Drawable => Base.Drawable;
+
+    public void Dispose()
+    {
+        Scene?.Dispose();
+        Scene = null;
+    }
 
     public override bool Equals(object? obj)
     {

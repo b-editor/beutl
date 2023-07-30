@@ -24,10 +24,6 @@ public sealed class EllipseNode : BrushDrawNode
         canvas.DrawEllipse(Rect, Fill, Pen);
     }
 
-    public override void Dispose()
-    {
-    }
-
     //https://github.com/AvaloniaUI/Avalonia/blob/release/0.10.21/src/Avalonia.Visuals/Rendering/SceneGraph/EllipseNode.cs
     public override bool HitTest(Point point)
     {

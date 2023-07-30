@@ -8,10 +8,8 @@ using SkiaSharp;
 
 namespace Beutl.Rendering;
 
-// 後で名前を変更
-public class ImmediateRenderer : IRenderer, IImmediateCanvasFactory
+public class Renderer : IRenderer
 {
-    internal static readonly Dispatcher s_dispatcher = RenderThread.Dispatcher;
     private readonly ImmediateCanvas _immediateCanvas;
     private readonly SKSurface _surface;
     private readonly Audio.Audio _audio;
@@ -19,10 +17,12 @@ public class ImmediateRenderer : IRenderer, IImmediateCanvasFactory
     private readonly InstanceClock _instanceClock = new();
     private readonly RenderCacheContext _cacheContext = new();
 
-    public ImmediateRenderer(int width, int height)
+    public Renderer(int width, int height)
     {
-        RenderScene = new RenderScene(new PixelSize(width, height));
-        (_immediateCanvas, _surface) = Dispatcher.Invoke(() =>
+        FrameSize = new PixelSize(width, height);
+        SampleRate = 44100;
+        RenderScene = new RenderScene(FrameSize);
+        (_immediateCanvas, _surface) = RenderThread.Dispatcher.Invoke(() =>
         {
             var factory = (IImmediateCanvasFactory)this;
             SKSurface surface = factory.CreateRenderTarget(width, height);
@@ -31,8 +31,6 @@ public class ImmediateRenderer : IRenderer, IImmediateCanvasFactory
         });
         _audio = new Audio.Audio(44100);
     }
-
-    public Dispatcher Dispatcher => s_dispatcher;
 
     public bool IsDisposed { get; private set; }
 
@@ -48,11 +46,11 @@ public class ImmediateRenderer : IRenderer, IImmediateCanvasFactory
 
     public IClock Clock => _instanceClock;
 
+    public PixelSize FrameSize { get; }
+
+    public int SampleRate { get; }
+
     public RenderScene RenderScene { get; }
-
-    public ImmediateCanvas Canvas => _immediateCanvas;
-
-    public Audio.Audio Audio => _audio;
 
     public event EventHandler<TimeSpan>? RenderInvalidated;
 
@@ -77,7 +75,7 @@ public class ImmediateRenderer : IRenderer, IImmediateCanvasFactory
 
     public IRenderer.RenderResult RenderGraphics(TimeSpan timeSpan)
     {
-        Dispatcher.VerifyAccess();
+        RenderThread.Dispatcher.VerifyAccess();
         if (!IsGraphicsRendering)
         {
             IsGraphicsRendering = true;
@@ -125,7 +123,7 @@ public class ImmediateRenderer : IRenderer, IImmediateCanvasFactory
 
     public IRenderer.RenderResult Render(TimeSpan timeSpan)
     {
-        Dispatcher.VerifyAccess();
+        RenderThread.Dispatcher.VerifyAccess();
         if (!IsGraphicsRendering && !IsAudioRendering)
         {
             IsGraphicsRendering = true;
@@ -150,7 +148,7 @@ public class ImmediateRenderer : IRenderer, IImmediateCanvasFactory
 
     ImmediateCanvas IImmediateCanvasFactory.CreateCanvas(SKSurface surface, bool leaveOpen)
     {
-        Dispatcher.VerifyAccess();
+        RenderThread.Dispatcher.VerifyAccess();
         return new ImmediateCanvas(surface, leaveOpen)
         {
             Factory = this
@@ -159,7 +157,7 @@ public class ImmediateRenderer : IRenderer, IImmediateCanvasFactory
 
     SKSurface IImmediateCanvasFactory.CreateRenderTarget(int width, int height)
     {
-        Dispatcher.VerifyAccess();
+        RenderThread.Dispatcher.VerifyAccess();
         GRContext grcontext = SharedGRContext.GetOrCreate();
         SKSurface? surface;
 

@@ -26,10 +26,6 @@ public sealed class TextNode : BrushDrawNode
         canvas.DrawText(Text, Fill, Pen);
     }
 
-    public override void Dispose()
-    {
-    }
-
     public override bool HitTest(Point point)
     {
         return Bounds.ContainsExclusive(point);

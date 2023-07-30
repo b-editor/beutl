@@ -17,9 +17,9 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
 
     public FilterEffect FilterEffect { get; }
 
-    public override void Dispose()
+    protected override void OnDispose(bool disposing)
     {
-        base.Dispose();
+        base.OnDispose(disposing);
         _prevContext?.Dispose();
         _prevContext = null;
     }

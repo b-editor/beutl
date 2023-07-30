@@ -8,13 +8,13 @@ public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
 {
     public IStyleInstance? Instance { get; private set; }
 
-    public virtual IRenderable? Publish(IClock clock)
+    public virtual Renderable? Publish(IClock clock)
     {
-        IRenderable? renderable = Instance?.Target as IRenderable;
+        Renderable? renderable = Instance?.Target as Renderable;
         
         if (!ReferenceEquals(Style, Instance?.Source) || Instance?.Target == null)
         {
-            renderable = Activator.CreateInstance(Style.TargetType) as IRenderable;
+            renderable = Activator.CreateInstance(Style.TargetType) as Renderable;
             if (renderable is ICoreObject coreObj)
             {
                 Instance?.Dispose();

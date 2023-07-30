@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Media;
 using Beutl.Media.Decoding;
+using Beutl.Media.Source;
 using Beutl.Rendering;
 using Beutl.Utilities;
 using Beutl.Validation;
@@ -29,7 +30,7 @@ public class VideoFrame : Drawable
     private FileInfo? _sourceFile;
     private MediaReader? _mediaReader;
     private TimeSpan _requestedPosition;
-    private IBitmap? _previousBitmap;
+    private IImageSource? _previousBitmap;
     private double _previousFrame;
 
     static VideoFrame()
@@ -152,15 +153,16 @@ public class VideoFrame : Drawable
             if (_previousBitmap?.IsDisposed == false
                 && MathUtilities.AreClose(frameNum, _previousFrame))
             {
-                canvas.DrawBitmap(_previousBitmap, Foreground, null);
+                canvas.DrawImageSource(_previousBitmap, Foreground, null);
             }
             else if (_mediaReader.ReadVideo((int)frameNum, out IBitmap? bmp)
                 && bmp?.IsDisposed == false)
             {
-                canvas.DrawBitmap(bmp, Foreground, null);
-
                 _previousBitmap?.Dispose();
-                _previousBitmap = bmp;
+                _previousBitmap = new BitmapSource(Ref<IBitmap>.Create(bmp), "Temp");
+
+                canvas.DrawImageSource(_previousBitmap, Foreground, null);
+
                 _previousFrame = frameNum;
             }
         }

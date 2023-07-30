@@ -5,7 +5,7 @@ namespace Beutl.NodeTree.Nodes.Brushes;
 
 public class DrawableBrushNode : TileBrushNode<DrawableBrush>
 {
-    private readonly InputSocket<IDrawable?> _drawableSocket;
+    private readonly InputSocket<Drawable?> _drawableSocket;
 
     public DrawableBrushNode()
     {

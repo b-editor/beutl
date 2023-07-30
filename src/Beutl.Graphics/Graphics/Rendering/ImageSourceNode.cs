@@ -1,32 +1,40 @@
 ﻿using Beutl.Media;
+using Beutl.Media.Source;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class BitmapNode : BrushDrawNode
+public sealed class ImageSourceNode : BrushDrawNode
 {
-    public BitmapNode(IBitmap bitmap, IBrush? fill, IPen? pen)
-        : base(fill, pen, PenHelper.GetBounds(new Rect(0, 0, bitmap.Width, bitmap.Height), pen))
+    public ImageSourceNode(IImageSource source, IBrush? fill, IPen? pen)
+        : base(fill, pen, PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen))
     {
-        Bitmap = bitmap;
+        Source = source.Clone();
     }
 
-    public IBitmap Bitmap { get; }
+    public IImageSource Source { get; }
 
-    public bool Equals(IBitmap bitmap, IBrush? fill, IPen? pen)
+    public bool Equals(IImageSource source, IBrush? fill, IPen? pen)
     {
-        return Bitmap == bitmap
+        return EqualityComparer<IImageSource?>.Default.Equals(Source, source)
             && EqualityComparer<IBrush?>.Default.Equals(Fill, fill)
             && EqualityComparer<IPen?>.Default.Equals(Pen, pen);
     }
 
     public override void Render(ImmediateCanvas canvas)
     {
-        canvas.DrawBitmap(Bitmap, Fill, Pen);
+        if (Source.TryGetRef(out Ref<IBitmap>? bitmap))
+        {
+            using (bitmap)
+            {
+                canvas.DrawBitmap(bitmap.Value, Fill, Pen);
+            }
+        }
     }
 
-    public override void Dispose()
+    protected override void OnDispose(bool disposing)
     {
-        Bitmap.Dispose();
+        base.OnDispose(disposing);
+        Source.Dispose();
     }
 
     public override bool HitTest(Point point)

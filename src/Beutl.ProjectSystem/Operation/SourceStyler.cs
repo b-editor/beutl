@@ -31,11 +31,11 @@ public abstract class SourceStyler : StylingOperator, ISourceTransformer
         }
     }
 
-    protected virtual void OnPreSelect(IRenderable? value)
+    protected virtual void OnPreSelect(Renderable? value)
     {
     }
 
-    protected virtual void OnPostSelect(IRenderable? value)
+    protected virtual void OnPostSelect(Renderable? value)
     {
     }
 
@@ -61,7 +61,7 @@ public abstract class SourceStyler : StylingOperator, ISourceTransformer
         }
     }
 
-    protected virtual void ApplyStyle(IStyleInstance instance, IRenderable value, IClock clock)
+    protected virtual void ApplyStyle(IStyleInstance instance, Renderable value, IClock clock)
     {
         instance.Begin();
         instance.Apply(clock);

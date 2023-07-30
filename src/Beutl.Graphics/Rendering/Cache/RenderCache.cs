@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media.Source;
+using Beutl.Threading;
 
 using SkiaSharp;
 
@@ -15,12 +16,32 @@ public sealed class RenderCache : IDisposable
     private Ref<SKSurface>? _cache;
     private Rect _cacheBounds;
 
+    private int _count;
+
+    // キャッシュしたときの進捗の値
+    private int _cachedAt = -1;
+    // 前回のフレームと比べたときに同じだった操作の数（進捗）
+    private FixedArrayAccessor? _accessor;
+    private int _denum;
+
     public RenderCache(IGraphicNode node)
     {
         _node = new WeakReference<IGraphicNode>(node);
     }
 
-    private int _count;
+    ~RenderCache()
+    {
+        if (!IsDisposed)
+            Dispose();
+    }
+
+    private FixedArrayAccessor Accessor => _accessor ??= new();
+
+    public bool IsCached => _cache != null;
+
+    public DateTime LastAccessedTime { get; private set; }
+
+    public bool IsDisposed { get; private set; }
 
     public void ReportRenderCount(int count)
     {
@@ -31,14 +52,6 @@ public sealed class RenderCache : IDisposable
     {
         _count++;
     }
-
-    // キャッシュしたときの進捗の値
-    private int _cachedAt = -1;
-    // 前回のフレームと比べたときに同じだった操作の数（進捗）
-    private FixedArrayAccessor? _accessor;
-    private int _denum;
-
-    private FixedArrayAccessor Accessor => _accessor ??= new();
 
     // 一つのノードで処理が別れている場合、どこまで同じかを報告する
     public void ReportSameNumber(int value, int count)
@@ -99,10 +112,13 @@ public sealed class RenderCache : IDisposable
 
     public void Invalidate()
     {
+        RenderThread.Dispatcher.CheckAccess();
+#if DEBUG
         if (_cache != null)
         {
             Debug.WriteLine($"[RenderCache:Invalildated] '{(_node.TryGetTarget(out var node) ? node : null)}'");
         }
+#endif
 
         _cache?.Dispose();
         _cache = null;
@@ -112,12 +128,37 @@ public sealed class RenderCache : IDisposable
 
     public void Dispose()
     {
-        _cache?.Dispose();
-        _cache = null;
-        _cacheBounds = Rect.Empty;
-    }
+        void DisposeOnRenderThread()
+        {
+            if (_cache != null)
+            {
+                Ref<SKSurface> tmp = _cache;
+                _cache = null;
+                _cacheBounds = Rect.Empty;
 
-    public bool IsCached => _cache != null;
+                RenderThread.Dispatcher.Dispatch(tmp.Dispose, DispatchPriority.Low);
+            }
+
+            IsDisposed = true;
+        }
+
+        if (!IsDisposed)
+        {
+            if (RenderThread.Dispatcher.CheckAccess())
+            {
+                _cache?.Dispose();
+                _cache = null;
+                _cacheBounds = Rect.Empty;
+                IsDisposed = true;
+            }
+            else
+            {
+                DisposeOnRenderThread();
+            }
+
+            GC.SuppressFinalize(this);
+        }
+    }
 
     public Ref<SKSurface> UseCache(out Rect bounds)
     {
@@ -127,6 +168,7 @@ public sealed class RenderCache : IDisposable
         }
 
         bounds = _cacheBounds;
+        LastAccessedTime = DateTime.UtcNow;
         return _cache.Clone();
     }
 
@@ -146,6 +188,8 @@ public sealed class RenderCache : IDisposable
         {
             _cachedAt = 0;
         }
+
+        LastAccessedTime = DateTime.UtcNow;
     }
 
     private unsafe class FixedArrayAccessor

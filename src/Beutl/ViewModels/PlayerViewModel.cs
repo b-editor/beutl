@@ -208,7 +208,7 @@ public sealed class PlayerViewModel : IDisposable
     private async Task PlayWithXA2(XAudioContext audioContext)
     {
         IRenderer renderer = Scene.Renderer;
-        int sampleRate = renderer.Audio.SampleRate;
+        int sampleRate = renderer.SampleRate;
         TimeSpan cur = Scene.CurrentFrame;
         var fmt = new WaveFormat(sampleRate, 32, 2);
         var source = new XAudioSource(audioContext);
@@ -330,7 +330,7 @@ public sealed class PlayerViewModel : IDisposable
         if (renderer.IsGraphicsRendering)
             return;
 
-        renderer.Dispatcher.Dispatch(() =>
+        RenderThread.Dispatcher.Dispatch(() =>
         {
             if (renderer.RenderGraphics(timeSpan).Bitmap is { } bitmap)
             {
@@ -374,7 +374,7 @@ public sealed class PlayerViewModel : IDisposable
     {
         if (sender is IRenderer { IsGraphicsRendering: false } renderer)
         {
-            renderer.Dispatcher.Dispatch(() =>
+            RenderThread.Dispatcher.Dispatch(() =>
             {
                 IRenderer.RenderResult result = renderer.RenderGraphics(Scene.CurrentFrame);
                 if (result.Bitmap is { } bitmap)

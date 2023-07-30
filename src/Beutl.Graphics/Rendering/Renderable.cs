@@ -1,11 +1,9 @@
-﻿using Beutl.Audio;
-using Beutl.Graphics;
-using Beutl.Media;
+﻿using Beutl.Media;
 using Beutl.Styling;
 
 namespace Beutl.Rendering;
 
-public abstract class Renderable : Styleable, IRenderable, IAffectsRender
+public abstract class Renderable : Styleable, IAffectsRender
 {
     public static readonly CoreProperty<bool> IsVisibleProperty;
     public static readonly CoreProperty<int> ZIndexProperty;
@@ -52,9 +50,11 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
         set => SetAndRaise(TimeRangeProperty, ref _timeRange, value);
     }
 
+    internal int Version { get; private set; }
+
     private void AffectsRender_Invalidated(object? sender, RenderInvalidatedEventArgs e)
     {
-        Invalidated?.Invoke(this, e);
+        RaiseInvalidated(e);
     }
 
     protected static void AffectsRender<T>(params CoreProperty[] properties)
@@ -66,7 +66,7 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
             {
                 if (e.Sender is T s)
                 {
-                    s.Invalidated?.Invoke(s, new RenderInvalidatedEventArgs(s, e.Property.Name));
+                    s.RaiseInvalidated(new RenderInvalidatedEventArgs(s, e.Property.Name));
 
                     if (e.OldValue is IAffectsRender oldAffectsRender)
                     {
@@ -84,6 +84,15 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
 
     public void Invalidate()
     {
-        Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(this));
+        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
+    }
+
+    protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
+    {
+        Invalidated?.Invoke(this, args);
+        unchecked
+        {
+            Version++;
+        }
     }
 }

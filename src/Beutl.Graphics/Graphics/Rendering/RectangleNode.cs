@@ -24,10 +24,6 @@ public sealed class RectangleNode : BrushDrawNode
         canvas.DrawRectangle(Rect, Fill, Pen);
     }
 
-    public override void Dispose()
-    {
-    }
-
     public override bool HitTest(Point point)
     {
         StrokeAlignment alignment = Pen?.StrokeAlignment ?? StrokeAlignment.Inside;

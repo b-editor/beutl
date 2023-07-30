@@ -2,4 +2,5 @@
 
 public interface INode : IDisposable
 {
+    bool IsDisposed { get; }
 }

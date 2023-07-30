@@ -38,12 +38,9 @@ public class SourceImage : Drawable
 
     protected override void OnDraw(ICanvas canvas)
     {
-        if (_source?.Read(out IBitmap? bitmap) == true)
+        if (_source != null)
         {
-            using (bitmap)
-            {
-                canvas.DrawBitmap(bitmap, Brushes.White, null);
-            }
+            canvas.DrawImageSource(_source, Brushes.White, null);
         }
     }
 }

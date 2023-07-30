@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Animation;
+using Beutl.Graphics;
 using Beutl.Media;
 
 namespace Beutl.Rendering;

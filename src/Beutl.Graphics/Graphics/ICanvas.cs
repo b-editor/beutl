@@ -1,6 +1,7 @@
 ﻿using Beutl.Graphics.Effects;
 using Beutl.Media;
 using Beutl.Media.Pixel;
+using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
 
 namespace Beutl.Graphics;
@@ -19,7 +20,7 @@ public interface ICanvas : IDisposable
 
     void Clear(Color color);
 
-    void DrawBitmap(IBitmap bmp, IBrush? fill, IPen? pen);
+    void DrawImageSource(IImageSource source, IBrush? fill, IPen? pen);
 
     void DrawEllipse(Rect rect, IBrush? fill, IPen? pen);
 
