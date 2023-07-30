@@ -60,6 +60,7 @@ public class Renderer : IRenderer
 
         _immediateCanvas.Dispose();
         _audio.Dispose();
+        _cacheContext.Dispose();
         GC.SuppressFinalize(this);
 
         IsDisposed = true;

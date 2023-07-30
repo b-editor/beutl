@@ -16,6 +16,7 @@ using Beutl.Media;
 using System.Text.Json.Nodes;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Beutl.Rendering.Cache;
 
 namespace Beutl.ViewModels;
 
@@ -452,20 +453,37 @@ public sealed class OutputViewModel : IOutputContext
                     }
 
                     IRenderer renderer = scene.Renderer;
-                    for (double i = 0; i < frames; i++)
+                    RenderCacheContext? cacheContext = renderer.GetCacheContext();
+                    RenderCacheOptions? restoreCacheOptions = null;
+                    if (cacheContext != null)
                     {
-                        if (_lastCts.IsCancellationRequested)
-                            break;
+                        restoreCacheOptions = cacheContext.CacheOptions;
+                        cacheContext.CacheOptions = new RenderCacheOptions(false);
+                    }
+                    try
+                    {
+                        for (double i = 0; i < frames; i++)
+                        {
+                            if (_lastCts.IsCancellationRequested)
+                                break;
 
-                        var ts = TimeSpan.FromSeconds(i / frameRateD);
-                        IRenderer.RenderResult result = renderer.RenderGraphics(ts);
+                            var ts = TimeSpan.FromSeconds(i / frameRateD);
+                            IRenderer.RenderResult result = renderer.RenderGraphics(ts);
 
-                        writer.AddVideo(result.Bitmap!);
-                        result.Bitmap!.Dispose();
+                            writer.AddVideo(result.Bitmap!);
+                            result.Bitmap!.Dispose();
 
-                        ProgressValue.Value++;
-                        _progress.Value = ProgressValue.Value / ProgressMax.Value;
-                        ProgressText.Value = $"動画を出力: {ts:hh\\:mm\\:ss\\.ff}";
+                            ProgressValue.Value++;
+                            _progress.Value = ProgressValue.Value / ProgressMax.Value;
+                            ProgressText.Value = $"動画を出力: {ts:hh\\:mm\\:ss\\.ff}";
+                        }
+                    }
+                    finally
+                    {
+                        if (cacheContext != null && restoreCacheOptions != null)
+                        {
+                            cacheContext.CacheOptions = restoreCacheOptions;
+                        }
                     }
 
                     for (double i = 0; i < samples; i++)
