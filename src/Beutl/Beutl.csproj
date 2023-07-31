@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia.Controls.PanAndZoom" Version="11.0.0-preview4" />
+    <PackageReference Include="Avalonia.Controls.PanAndZoom" Version="11.0.0" />
     <PackageReference Include="FluentAvalonia.BreadcrumbBar" Version="2.0.0-preview4.1" />
     <PackageReference Include="PanelExtension" Version="1.0.0-preview2" />
     <PackageReference Include="Roslynator.Analyzers" Version="4.2.0">
