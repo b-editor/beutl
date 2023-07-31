@@ -14,12 +14,9 @@ namespace Beutl.ViewModels.NodeTree;
 
 public class SocketViewModel : NodeItemViewModel
 {
-    private readonly IDisposable? _disposable;
-
     public SocketViewModel(ISocket? socket, IPropertyEditorContext? propertyEditorContext, Node node)
         : base(socket, propertyEditorContext, node)
     {
-        _disposable = (socket as NodeItem)?.GetObservable(NodeItem.IsValidProperty)?.Subscribe(OnIsConnectedChanged);
         if (socket != null)
         {
             Brush = new(new ImmutableSolidColorBrush(socket.Color.ToAvalonia()));
@@ -30,11 +27,12 @@ public class SocketViewModel : NodeItemViewModel
         {
             Brush = new(Brushes.Gray);
         }
+
+        OnIsConnectedChanged();
     }
 
     public new ISocket? Model => base.Model as ISocket;
 
-    // IsValidがfalseの時、false
     public ReactivePropertySlim<bool> IsConnected { get; } = new();
 
     public ReactivePropertySlim<IBrush> Brush { get; }
@@ -147,14 +145,13 @@ public class SocketViewModel : NodeItemViewModel
 
     public void UpdateName(string? e)
     {
-        new ChangePropertyCommand<string>((ICoreObject)Model!, CoreObject.NameProperty, e, Model!.Name)
+        new ChangePropertyCommand<string>(Model!, CoreObject.NameProperty, e, Model!.Name)
             .DoAndRecord(CommandRecorder.Default);
     }
 
     protected override void OnDispose()
     {
         base.OnDispose();
-        _disposable?.Dispose();
         if (Model != null)
         {
             Model.Connected -= OnSocketConnected;
@@ -166,7 +163,7 @@ public class SocketViewModel : NodeItemViewModel
     {
         if (Model != null)
         {
-            OnIsConnectedChanged(((NodeItem)Model).IsValid);
+            OnIsConnectedChanged();
         }
     }
 
@@ -174,11 +171,11 @@ public class SocketViewModel : NodeItemViewModel
     {
         if (Model != null)
         {
-            OnIsConnectedChanged(((NodeItem)Model).IsValid);
+            OnIsConnectedChanged();
         }
     }
 
-    protected virtual void OnIsConnectedChanged(bool? isValid)
+    protected virtual void OnIsConnectedChanged()
     {
     }
 

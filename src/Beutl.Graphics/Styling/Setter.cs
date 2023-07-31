@@ -4,12 +4,14 @@ using System.Reactive.Linq;
 using Beutl.Animation;
 using Beutl.Media;
 using Beutl.Reactive;
+using Beutl.Validation;
 
 namespace Beutl.Styling;
 
 public class Setter<T> : LightweightObservableBase<T?>, ISetter
 {
     private CoreProperty<T>? _property;
+    private CorePropertyMetadata<T>? _metadata;
     private T? _value;
     private IAnimation<T>? _animation;
     private bool _isDefault;
@@ -22,9 +24,10 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
     public Setter(CoreProperty<T> property)
     {
         _property = property;
-        if (property.GetMetadata<CorePropertyMetadata<T>>(property.OwnerType) is { HasDefaultValue: true } metadata)
+        _metadata = property.GetMetadata<CorePropertyMetadata<T>>(property.OwnerType);
+        if (_metadata.HasDefaultValue)
         {
-            Value = metadata.DefaultValue;
+            Value = _metadata.DefaultValue;
         }
         _isDefault = true;
     }
@@ -32,6 +35,7 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
     public Setter(CoreProperty<T> property, T? value)
     {
         _property = property;
+        _metadata = property.GetMetadata<CorePropertyMetadata<T>>(property.OwnerType);
         Value = value;
         _isDefault = false;
     }
@@ -42,11 +46,12 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
         set
         {
             _property = value;
+            _metadata = value.GetMetadata<CorePropertyMetadata<T>>(value.OwnerType);
             if (_isDefault)
             {
-                if (_property.GetMetadata<CorePropertyMetadata<T>>(_property.OwnerType) is { HasDefaultValue: true } metadata)
+                if (_metadata.HasDefaultValue)
                 {
-                    Value = metadata.DefaultValue;
+                    Value = _metadata.DefaultValue;
                 }
 
                 _isDefault = true;
@@ -54,12 +59,16 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
         }
     }
 
-    // Todo: Validation
     public T? Value
     {
         get => _value;
         set
         {
+            if (_metadata?.Validator is IValidator<T> validator)
+            {
+                validator.TryCoerce(new ValidationContext(null, _property), ref value);
+            }
+
             if (!EqualityComparer<T>.Default.Equals(_value, value))
             {
                 _isDefault = false;
@@ -112,7 +121,7 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
 
     public event EventHandler? Invalidated;
 
-    public ISetterInstance Instance(IStyleable target)
+    public ISetterInstance Instance(ICoreObject target)
     {
         return new SetterInstance<T>(this, target);
     }

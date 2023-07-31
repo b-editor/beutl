@@ -19,6 +19,7 @@ public abstract class Animatable : CoreObject, IAnimatable
         remove => Animations.Invalidated -= value;
     }
 
+    // Todo: オブジェクトを作成したものがIClockを指定する
     public virtual void ApplyAnimations(IClock clock)
     {
         foreach (IAnimation? item in Animations.GetMarshal().Value)
@@ -27,49 +28,42 @@ public abstract class Animatable : CoreObject, IAnimatable
         }
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject jobject)
+        if (json.TryGetPropertyValue("animations", out JsonNode? animationsNode)
+            && animationsNode is JsonObject animationsObj)
         {
-            if (jobject.TryGetPropertyValue("animations", out JsonNode? animationsNode)
-                && animationsNode is JsonObject animationsObj)
-            {
-                Animations.Clear();
-                Animations.EnsureCapacity(animationsObj.Count);
+            Animations.Clear();
+            Animations.EnsureCapacity(animationsObj.Count);
 
-                Type type = GetType();
-                foreach ((string name, JsonNode? node) in animationsObj)
+            Type type = GetType();
+            foreach ((string name, JsonNode? node) in animationsObj)
+            {
+                if (node?.ToAnimation(name, type) is IAnimation animation)
                 {
-                    if (node?.ToAnimation(name, type) is IAnimation animation)
-                    {
-                        Animations.Add(animation);
-                    }
+                    Animations.Add(animation);
                 }
             }
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
-        if (json is JsonObject jobject)
+        base.WriteToJson(json);
+        var animations = new JsonObject();
+
+        foreach (IAnimation item in Animations.GetMarshal().Value)
         {
-            Type type = GetType();
-            var animations = new JsonObject();
-
-            foreach (IAnimation item in Animations.GetMarshal().Value)
+            if (item.ToJson() is { } itemJson)
             {
-                if (item.ToJson(type) is (string name, JsonNode node))
-                {
-                    animations.Add(name, node);
-                }
+                animations.Add(item.Property.Name, itemJson);
             }
+        }
 
-            if (animations.Count > 0)
-            {
-                jobject["animations"] = animations;
-            }
+        if (animations.Count > 0)
+        {
+            json["animations"] = animations;
         }
     }
 }

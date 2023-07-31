@@ -21,13 +21,14 @@ public sealed class ToolTabViewModel : IDisposable
         Context = context;
     }
 
-    public IToolContext Context { get; }
+    public IToolContext Context { get; private set; }
 
     public int Order { get; set; } = -1;
 
     public void Dispose()
     {
         Context.Dispose();
+        Context = null!;
     }
 }
 
@@ -39,9 +40,11 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
     public EditViewModel(Scene scene)
     {
         Scene = scene;
-        Library = new LibraryViewModel(this);
-        Player = new PlayerViewModel(scene, IsEnabled);
-        Commands = new KnownCommandsImpl(scene);
+        Library = new LibraryViewModel(this)
+            .DisposeWith(_disposables);
+        Player = new PlayerViewModel(scene, IsEnabled)
+            .DisposeWith(_disposables);
+        Commands = new KnownCommandsImpl(scene, this);
         SelectedObject = new ReactiveProperty<CoreObject?>()
             .DisposeWith(_disposables);
 
@@ -54,9 +57,9 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         RestoreState();
     }
 
-    public Scene Scene { get; set; }
+    public Scene Scene { get; private set; }
 
-    public LibraryViewModel Library { get; }
+    public LibraryViewModel Library { get; private set; }
 
     public CoreList<ToolTabViewModel> BottomTabItems { get; }
 
@@ -66,17 +69,13 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
 
     public ReactivePropertySlim<bool> IsEnabled { get; } = new(true);
 
-    public PlayerViewModel Player { get; }
-
-    //public EasingsViewModel Easings { get; }
-
-    //public ReadOnlyReactivePropertySlim<PropertiesEditorViewModel?> Property { get; }
+    public PlayerViewModel Player { get; private set; }
 
     public EditorExtension Extension => SceneEditorExtension.Instance;
 
     public string EdittingFile => Scene.FileName;
 
-    public IKnownEditorCommands? Commands { get; }
+    public IKnownEditorCommands? Commands { get; private set; }
 
     public IReactiveProperty<TimelineOptions> Options { get; } = new ReactiveProperty<TimelineOptions>(new TimelineOptions());
 
@@ -90,7 +89,10 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
     {
         SaveState();
         _disposables.Dispose();
-        Player.Dispose();
+        Options.Dispose();
+        IsEnabled.Dispose();
+        Library = null!;
+        Player = null!;
 
         foreach (ToolTabViewModel item in BottomTabItems.GetMarshal().Value)
         {
@@ -100,6 +102,13 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         {
             item.Dispose();
         }
+        BottomTabItems.Clear();
+        RightTabItems.Clear();
+
+        SelectedObject.Value = null;
+
+        Scene = null!;
+        Commands = null!;
     }
 
     public T? FindToolTab<T>(Func<T, bool> condition)
@@ -202,7 +211,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         string viewStateDir = ViewStateDirectory();
         var json = new JsonObject
         {
-            ["selected-layer"] = (SelectedObject.Value as Layer)?.ZIndex ?? -1,
+            ["selected-layer"] = (SelectedObject.Value as Element)?.ZIndex ?? -1,
             ["max-layer-count"] = Options.Value.MaxLayerCount,
             ["scale"] = Options.Value.Scale,
             ["offset"] = new JsonObject
@@ -215,10 +224,10 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         var bottomItems = new JsonArray();
         foreach (ToolTabViewModel? item in BottomTabItems.OrderBy(x => x.Order))
         {
-            JsonNode itemJson = new JsonObject();
-            item.Context.WriteToJson(ref itemJson);
+            var itemJson = new JsonObject();
+            item.Context.WriteToJson(itemJson);
 
-            itemJson["@type"] = TypeFormat.ToString(item.Context.Extension.GetType());
+            itemJson.WriteDiscriminator(item.Context.Extension.GetType());
             bottomItems.Add(itemJson);
         }
 
@@ -227,10 +236,10 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         var rightItems = new JsonArray();
         foreach (ToolTabViewModel? item in RightTabItems.OrderBy(x => x.Order))
         {
-            JsonNode itemJson = new JsonObject();
-            item.Context.WriteToJson(ref itemJson);
+            var itemJson = new JsonObject();
+            item.Context.WriteToJson(itemJson);
 
-            itemJson["@type"] = TypeFormat.ToString(item.Context.Extension.GetType());
+            itemJson.WriteDiscriminator(item.Context.Extension.GetType());
             rightItems.Add(itemJson);
         }
 
@@ -256,7 +265,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
                 int layer = (int?)json["selected-layer"] ?? -1;
                 if (layer >= 0)
                 {
-                    foreach (Layer item in Scene.Children.GetMarshal().Value)
+                    foreach (Element item in Scene.Children.GetMarshal().Value)
                     {
                         if (item.ZIndex == layer)
                         {
@@ -316,15 +325,11 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
                 foreach (JsonNode? item in source)
                 {
                     if (item is JsonObject itemObject
-                        && itemObject.TryGetPropertyValue("@type", out JsonNode? typeNode)
-                        && typeNode is JsonValue typeValue
-                        && typeValue.TryGetValue(out string? typeStr)
-                        && typeStr != null
-                        && TypeFormat.ToType(typeStr) is Type type
+                        && itemObject.TryGetDiscriminator(out Type? type)
                         && _extensionProvider.AllExtensions.FirstOrDefault(x => x.GetType() == type) is ToolTabExtension extension
                         && extension.TryCreateContext(this, out IToolContext? context))
                     {
-                        context.ReadFromJson(item);
+                        context.ReadFromJson(itemObject);
                         destination.Add(new ToolTabViewModel(context)
                         {
                             Order = count
@@ -360,22 +365,36 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         }
     }
 
+    public object? GetService(Type serviceType)
+    {
+        if (serviceType == typeof(Scene))
+            return Scene;
+
+        if (serviceType.IsAssignableTo(typeof(IEditorContext)))
+            return this;
+
+        return null;
+    }
+
     private sealed class KnownCommandsImpl : IKnownEditorCommands
     {
         private readonly Scene _scene;
+        private readonly EditViewModel _viewModel;
 
-        public KnownCommandsImpl(Scene scene)
+        public KnownCommandsImpl(Scene scene, EditViewModel viewModel)
         {
             _scene = scene;
+            _viewModel = viewModel;
         }
 
         public ValueTask<bool> OnSave()
         {
             _scene.Save(_scene.FileName);
-            foreach (Layer layer in _scene.Children)
+            foreach (Element layer in _scene.Children)
             {
                 layer.Save(layer.FileName);
             }
+            _viewModel.SaveState();
 
             return ValueTask.FromResult(true);
         }

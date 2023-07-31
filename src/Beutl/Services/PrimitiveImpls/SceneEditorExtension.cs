@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
+using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 
 using Beutl.Framework;
@@ -26,7 +27,7 @@ public sealed class SceneEditorExtension : EditorExtension
 
     public override string DisplayName => "Scene editor";
 
-    public override bool TryCreateEditor(string file, [NotNullWhen(true)] out IEditor? editor)
+    public override bool TryCreateEditor(string file, [NotNullWhen(true)] out Control? editor)
     {
         if (file.EndsWith($".{Constants.SceneFileExtension}"))
         {
@@ -43,7 +44,7 @@ public sealed class SceneEditorExtension : EditorExtension
     public override bool TryCreateContext(string file, [NotNullWhen(true)] out IEditorContext? context)
     {
         if (file.EndsWith($".{Constants.SceneFileExtension}")
-            && ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>().TryGetOrCreateItem(file, out Scene? model))
+            && ServiceLocator.Current.GetRequiredService<IProjectItemContainer>().TryGetOrCreateItem(file, out Scene? model))
         {
             context = new EditViewModel(model);
             return true;

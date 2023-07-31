@@ -1,4 +1,6 @@
-﻿using Beutl.Language;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Language;
 using Beutl.Media;
 
 namespace Beutl.NodeTree.Nodes.Utilities.Struct;
@@ -7,15 +9,11 @@ public class PixelRectNode : Node
 {
     private static readonly CoreProperty<PixelPoint> TopLeftProperty
         = ConfigureProperty<PixelPoint, PixelRectNode>(o => o.TopLeft)
-            .Display(Strings.Position)
             .DefaultValue(default)
-            .SerializeName("top-left")
             .Register();
     private static readonly CoreProperty<PixelSize> SizeProperty
         = ConfigureProperty<PixelSize, PixelRectNode>(o => o.Size)
-            .Display(Strings.Size)
             .DefaultValue(default)
-            .SerializeName("size")
             .Register();
     private readonly OutputSocket<PixelRect> _valueSocket;
     private readonly InputSocket<PixelPoint> _positionSocket;
@@ -28,12 +26,14 @@ public class PixelRectNode : Node
         _sizeSocket = AsInput(SizeProperty).AcceptNumber();
     }
 
+    [Display(Name = nameof(Strings.Position), ResourceType = typeof(Strings))]
     private PixelPoint TopLeft
     {
         get => default;
         set { }
     }
 
+    [Display(Name = nameof(Strings.Size), ResourceType = typeof(Strings))]
     private PixelSize Size
     {
         get => default;

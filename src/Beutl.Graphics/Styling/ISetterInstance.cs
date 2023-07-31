@@ -9,7 +9,7 @@ public interface ISetterInstance : IDisposable
 
     ISetter Setter { get; }
 
-    IStyleable Target { get; }
+    ICoreObject Target { get; }
 
     void Apply(IClock clock);
 

@@ -24,9 +24,11 @@
                 BorderThickness="1,0" />
 
         <ItemsControl x:Name="items"
+                      Margin="{Binding LeftMargin.Value}"
                       HorizontalAlignment="Left"
                       VerticalAlignment="Stretch"
-                      Items="{CompiledBinding Items}">
+                      ClipToBounds="False"
+                      ItemsSource="{CompiledBinding Items}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <Panel />
@@ -34,7 +36,7 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <Path Margin="{Binding Left.Value, ConverterParameter='Left', Converter={x:Static convert:ThicknessConverter.Instance}}"
+                    <Path Margin="{Binding Left.Value, ConverterParameter='Left', Converter={x:Static convert:AvaloniaThicknessConverter.Instance}}"
                           HorizontalAlignment="Left"
                           VerticalAlignment="Center"
                           Fill="Yellow">

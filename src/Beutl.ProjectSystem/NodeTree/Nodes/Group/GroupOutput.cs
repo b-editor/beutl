@@ -9,39 +9,33 @@ public class GroupOutput : Node, ISocketsCanBeAdded
 
     public class GroupOutputSocket<T> : InputSocket<T>, IAutomaticallyGeneratedSocket, IGroupSocket
     {
-        static GroupOutputSocket()
-        {
-            NameProperty.OverrideMetadata<GroupOutputSocket<T>>(new CorePropertyMetadata<string>("name"));
-        }
-
         public CoreProperty? AssociatedProperty { get; set; }
 
-        public override void ReadFromJson(JsonNode json)
+        public override void ReadFromJson(JsonObject json)
         {
             base.ReadFromJson(json);
-            JsonNode propertyJson = json["associated-property"]!;
-            string name = (string)propertyJson["name"]!;
-            string owner = (string)propertyJson["owner"]!;
+            JsonNode propertyJson = json[nameof(AssociatedProperty)]!;
+            string name = (string)propertyJson["Name"]!;
+            string owner = (string)propertyJson["Owner"]!;
 
             Type ownerType = TypeFormat.ToType(owner)!;
 
             AssociatedProperty = PropertyRegistry.GetRegistered(ownerType)
-                .FirstOrDefault(x => x.GetMetadata<CorePropertyMetadata>(ownerType).SerializeName == name || x.Name == name);
+                .FirstOrDefault(x => x.Name == name);
         }
 
-        public override void WriteToJson(ref JsonNode json)
+        public override void WriteToJson(JsonObject json)
         {
-            base.WriteToJson(ref json);
+            base.WriteToJson(json);
             if (AssociatedProperty is { OwnerType: Type ownerType } property)
             {
-                CorePropertyMetadata? metadata = property.GetMetadata<CorePropertyMetadata>(ownerType);
-                string name = metadata.SerializeName ?? property.Name;
+                string name = property.Name;
                 string owner = TypeFormat.ToString(ownerType);
 
-                json["associated-property"] = new JsonObject
+                json["AssociatedProperty"] = new JsonObject
                 {
-                    ["name"] = name,
-                    ["owner"] = owner,
+                    ["Name"] = name,
+                    ["Owner"] = owner,
                 };
             }
         }
@@ -56,9 +50,10 @@ public class GroupOutput : Node, ISocketsCanBeAdded
 
             if (Activator.CreateInstance(type) is IInputSocket inputSocket)
             {
+                CoreProperty? coreProperty = outputSocket.Property?.GetCoreProperty();
                 ((NodeItem)inputSocket).LocalId = NextLocalId++;
-                ((IGroupSocket)inputSocket).AssociatedProperty = outputSocket.Property?.Property;
-                if (outputSocket.Property?.Property == null)
+                ((IGroupSocket)inputSocket).AssociatedProperty = coreProperty;
+                if (coreProperty == null)
                 {
                     ((CoreObject)inputSocket).Name = NodeDisplayNameHelper.GetDisplayName(outputSocket);
                 }
@@ -79,42 +74,27 @@ public class GroupOutput : Node, ISocketsCanBeAdded
         return false;
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject obj)
+        if (json.TryGetPropertyValue("Items", out var itemsNode)
+            && itemsNode is JsonArray itemsArray)
         {
-            if (obj.TryGetPropertyValue("items", out var itemsNode)
-                && itemsNode is JsonArray itemsArray)
+            int index = 0;
+            foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
             {
-                int index = 0;
-                foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
+                if (itemJson.TryGetDiscriminator(out Type? type)
+                    && Activator.CreateInstance(type) is IInputSocket socket)
                 {
-                    if (itemJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-                        && atTypeNode is JsonValue atTypeValue
-                        && atTypeValue.TryGetValue(out string? atType))
-                    {
-                        var type = TypeFormat.ToType(atType);
-                        IInputSocket? socket = null;
-
-                        if (type?.IsAssignableTo(typeof(IInputSocket)) ?? false)
-                        {
-                            socket = Activator.CreateInstance(type) as IInputSocket;
-                        }
-
-                        if (socket != null)
-                        {
-                            (socket as IJsonSerializable)?.ReadFromJson(itemJson);
-                            Items.Add(socket);
-                            ((NodeItem)socket).LocalId = index;
-                        }
-                    }
-
-                    index++;
+                    (socket as IJsonSerializable)?.ReadFromJson(itemJson);
+                    Items.Add(socket);
+                    ((NodeItem)socket).LocalId = index;
                 }
 
-                NextLocalId = index;
+                index++;
             }
+
+            NextLocalId = index;
         }
     }
 }

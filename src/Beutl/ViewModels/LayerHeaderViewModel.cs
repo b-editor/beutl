@@ -27,11 +27,11 @@ public sealed class LayerHeaderViewModel : IDisposable
         IsEnabled.Subscribe(b =>
         {
             IRecordableCommand? command = null;
-            foreach (Layer? item in Timeline.Scene.Children.Where(i => i.ZIndex == Number.Value))
+            foreach (Element? item in Timeline.Scene.Children.Where(i => i.ZIndex == Number.Value))
             {
                 if (item.IsEnabled != b)
                 {
-                    var command2 = new ChangePropertyCommand<bool>(item, Layer.IsEnabledProperty, b, item.IsEnabled);
+                    var command2 = new ChangePropertyCommand<bool>(item, Element.IsEnabledProperty, b, item.IsEnabled);
                     if (command == null)
                     {
                         command = command2;
@@ -113,7 +113,7 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public ReactiveProperty<int> Number { get; }
 
-    public TimelineViewModel Timeline { get; }
+    public TimelineViewModel Timeline { get; private set; }
 
     public ReactivePropertySlim<double> PosY { get; } = new(0);
 
@@ -143,6 +143,8 @@ public sealed class LayerHeaderViewModel : IDisposable
     public void Dispose()
     {
         _disposables.Dispose();
+        Inlines.Clear();
+        Timeline = null!;
     }
 
     public double CalculateInlineTop(int index)

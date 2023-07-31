@@ -1,10 +1,12 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:icons="using:FluentIcons.FluentAvalonia"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
     <Design.PreviewWith>
         <Border Width="300">
             <StackPanel>
+                <local:StringEditor EditorStyle="ListItem" Header="Property 1" />
                 <local:StringEditor Header="Property 1" KeyFrameCount="3" />
                 <local:StringEditor Header="Property 2" KeyFrameCount="0" />
                 <local:StringEditor Header="Property 3"
@@ -22,15 +24,25 @@
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}">
-                    <Grid ColumnDefinitions="2*,3*,Auto">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
                         <TextBlock Name="PART_HeaderTextBlock"
                                    Margin="4,0,0,0"
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
                                    ClipToBounds="False"
-                                   Text="{TemplateBinding Header}" />
+                                   Text="{TemplateBinding Header}"
+                                   TextTrimming="CharacterEllipsis" />
 
-                        <Grid Grid.Column="1"
+                        <GridSplitter Grid.Column="1" Background="Transparent" />
+
+                        <Grid Grid.Column="2"
                               MinWidth="120"
                               Margin="4"
                               ColumnDefinitions="*,Auto">
@@ -53,7 +65,7 @@
                         </Grid>
 
                         <ContentPresenter Name="PART_MenuContentPresenter"
-                                          Grid.Column="2"
+                                          Grid.Column="3"
                                           Content="{TemplateBinding MenuContent}"
                                           ContentTemplate="{TemplateBinding MenuContentTemplate}" />
                     </Grid>
@@ -100,6 +112,36 @@
                                               Grid.Column="1"
                                               Content="{TemplateBinding MenuContent}"
                                               ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="^:list-item">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Name="PART_ReorderHandle" Theme="{StaticResource PropertyEditorReorderHandle}" />
+
+                            <TextBox x:Name="PART_InnerTextBox"
+                                     Grid.Column="1"
+                                     Margin="0,4"
+                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                     Text="{TemplateBinding Text, Mode=TwoWay}" />
+
+                            <Button Name="PART_DeleteButton"
+                                    Grid.Column="2"
+                                    Margin="4,0"
+                                    Padding="0"
+                                    Classes="size-24x24"
+                                    Theme="{StaticResource TransparentButton}">
+                                <icons:SymbolIcon Symbol="Delete" />
+                            </Button>
                         </Grid>
                     </Border>
                 </ControlTemplate>

@@ -9,14 +9,14 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Dialogs;
 
-public sealed partial class CreateNewScene : ContentDialog, IStyleable
+public sealed partial class CreateNewScene : ContentDialog
 {
     public CreateNewScene()
     {
         InitializeComponent();
     }
 
-    Type IStyleable.StyleKey => typeof(ContentDialog);
+    protected override Type StyleKeyOverride => typeof(ContentDialog);
 
     // 場所を選択
     private async void PickLocation(object? sender, RoutedEventArgs e)
@@ -26,11 +26,9 @@ public sealed partial class CreateNewScene : ContentDialog, IStyleable
             var options = new FolderPickerOpenOptions();
             IReadOnlyList<IStorageFolder> result = await parent.StorageProvider.OpenFolderPickerAsync(options);
 
-            if (result.Count > 0
-                && result[0].TryGetUri(out Uri? uri)
-                && uri.IsFile)
+            if (result.Count > 0 && result[0].TryGetLocalPath() is string localPath)
             {
-                vm.Location.Value = uri.LocalPath;
+                vm.Location.Value = localPath;
             }
         }
     }

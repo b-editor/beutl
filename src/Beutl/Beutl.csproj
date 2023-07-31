@@ -13,10 +13,27 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia.Controls.PanAndZoom" Version="11.0.0-preview4" />
-    <PackageReference Include="FluentAvalonia.BreadcrumbBar" Version="2.0.0-preview4.1" />
-    <PackageReference Include="PanelExtension" Version="1.0.0-preview2" />
-    <PackageReference Include="Roslynator.Analyzers" Version="4.2.0">
+    <PackageReference Include="AsyncImageLoader.Avalonia" />
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Controls.PanAndZoom" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="Avalonia.ReactiveUI" />
+    <PackageReference Include="Avalonia.Svg.Skia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Xaml.Behaviors" />
+    <PackageReference Include="Avalonia.Xaml.Interactivity" />
+    <PackageReference Include="DynamicData" />
+    <PackageReference Include="FluentAvalonia.BreadcrumbBar" />
+    <PackageReference Include="FluentAvaloniaUI" />
+    <PackageReference Include="FluentIcons.FluentAvalonia" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="PanelExtension" />
+    <PackageReference Include="ReactiveProperty" />
+    <PackageReference Include="System.Interactive" />
+    <PackageReference Include="System.Interactive.Async" />
+    <PackageReference Include="System.Reactive" />
+    <PackageReference Include="Roslynator.Analyzers">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -41,40 +58,8 @@
   <ItemGroup>
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
-  <ItemGroup>
-    <Compile Update="ViewModels\Editors\VectorEditorViewModels.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>VectorEditorViewModels.tt</DependentUpon>
-    </Compile>
-    <Compile Update="ViewModels\GraphEditorViewViewModelFactory.Impl.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>GraphEditorViewViewModelFactory.Impl.tt</DependentUpon>
-    </Compile>
-    <Compile Update="Views\Editors\PropertyEditorMenu.axaml.cs">
-      <DependentUpon>PropertyEditorMenu.axaml</DependentUpon>
-    </Compile>
-    <Compile Update="Views\NodeTree\SocketView.axaml.cs">
-      <DependentUpon>SocketView.axaml</DependentUpon>
-    </Compile>
-    <Compile Update="Views\NodeTree\NodeTreeInputTab.axaml.cs">
-      <DependentUpon>NodeTreeInputTab.axaml</DependentUpon>
-    </Compile>
-  </ItemGroup>
 
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.props" />
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.targets" />
-
-  <Import Project="$(RootDirectory)\build\props\AsyncImageLoader.Avalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\Avalonia.Svg.Skia.props" />
-  <Import Project="$(RootDirectory)\build\props\Avalonia.Xaml.Interactivity.props" />
-  <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
-  <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.DependencyInjection.props" />
   <Import Project="$(RootDirectory)\build\props\CoreLibraries.props" />
-  <Import Project="$(RootDirectory)\build\props\FluentIcons.FluentAvalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\System.Interactive.props" />
-  <Import Project="$(RootDirectory)\build\props\XamlNameReferenceGenerator.props" />
 </Project>

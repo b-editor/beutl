@@ -2,7 +2,6 @@
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 
-using Beutl.Audio;
 using Beutl.Audio.Platforms.OpenAL;
 using Beutl.Audio.Platforms.XAudio2;
 using Beutl.Media;
@@ -23,8 +22,7 @@ namespace Beutl.ViewModels;
 public sealed class PlayerViewModel : IDisposable
 {
     private static readonly TimeSpan s_second = TimeSpan.FromSeconds(1);
-    private readonly IDisposable _disposable0;
-    private readonly IDisposable _disposable1;
+    private readonly CompositeDisposable _disposables = new();
     private readonly ReactivePropertySlim<bool> _isEnabled;
 
     public PlayerViewModel(Scene scene, ReactivePropertySlim<bool> isEnabled)
@@ -42,7 +40,8 @@ public sealed class PlayerViewModel : IDisposable
                 {
                     Play();
                 }
-            });
+            })
+            .DisposeWith(_disposables);
 
         Next = new ReactiveCommand(_isEnabled)
             .WithSubscribe(() =>
@@ -50,7 +49,8 @@ public sealed class PlayerViewModel : IDisposable
                 int rate = GetFrameRate();
 
                 Scene.CurrentFrame += TimeSpan.FromSeconds(1d / rate);
-            });
+            })
+            .DisposeWith(_disposables);
 
         Previous = new ReactiveCommand(_isEnabled)
             .WithSubscribe(() =>
@@ -58,16 +58,19 @@ public sealed class PlayerViewModel : IDisposable
                 int rate = GetFrameRate();
 
                 Scene.CurrentFrame -= TimeSpan.FromSeconds(1d / rate);
-            });
+            })
+            .DisposeWith(_disposables);
 
         Start = new ReactiveCommand(_isEnabled)
-            .WithSubscribe(() => Scene.CurrentFrame = TimeSpan.Zero);
+            .WithSubscribe(() => Scene.CurrentFrame = TimeSpan.Zero)
+            .DisposeWith(_disposables);
 
         End = new ReactiveCommand(_isEnabled)
-            .WithSubscribe(() => Scene.CurrentFrame = Scene.Duration);
+            .WithSubscribe(() => Scene.CurrentFrame = Scene.Duration)
+            .DisposeWith(_disposables);
 
         Scene.Renderer.RenderInvalidated += Renderer_RenderInvalidated;
-        _disposable0 = Scene.GetPropertyChangedObservable(Scene.RendererProperty)
+        Scene.GetPropertyChangedObservable(Scene.RendererProperty)
             .Subscribe(a =>
             {
                 if (a.OldValue != null)
@@ -79,24 +82,40 @@ public sealed class PlayerViewModel : IDisposable
                 {
                     a.NewValue.RenderInvalidated += Renderer_RenderInvalidated;
                 }
-            });
+            })
+            .DisposeWith(_disposables);
 
-        _disposable1 = _isEnabled.Subscribe(v =>
-        {
-            if (!v && IsPlaying.Value)
+        _isEnabled.Subscribe(v =>
             {
-                Pause();
-            }
-        });
+                if (!v && IsPlaying.Value)
+                {
+                    Pause();
+                }
+            })
+            .DisposeWith(_disposables);
+
+        CurrentFrame = Scene.GetObservable(Scene.CurrentFrameProperty)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        CurrentFrame.Subscribe(UpdateCurrentFrame)
+            .DisposeWith(_disposables);
+
+        Duration = Scene.GetObservable(Scene.DurationProperty)
+            .ToReadOnlyReactiveProperty()
+            .DisposeWith(_disposables);
     }
 
-    public Scene Scene { get; }
+    public Scene Scene { get; set; }
 
-    public Project? Project => Scene.FindLogicalParent<Project>();
+    public Project? Project => Scene.FindHierarchicalParent<Project>();
 
     public ReactivePropertySlim<IImage> PreviewImage { get; } = new();
 
     public ReactivePropertySlim<bool> IsPlaying { get; } = new();
+
+    public ReactiveProperty<TimeSpan> CurrentFrame { get; }
+
+    public ReadOnlyReactiveProperty<TimeSpan> Duration { get; }
 
     public ReactiveCommand PlayPause { get; }
 
@@ -112,6 +131,9 @@ public sealed class PlayerViewModel : IDisposable
 
     public async void Play()
     {
+        if (!_isEnabled.Value)
+            return;
+
         IRenderer renderer = Scene.Renderer;
         renderer.RenderInvalidated -= Renderer_RenderInvalidated;
 
@@ -186,7 +208,7 @@ public sealed class PlayerViewModel : IDisposable
     private async Task PlayWithXA2(XAudioContext audioContext)
     {
         IRenderer renderer = Scene.Renderer;
-        int sampleRate = renderer.Audio.SampleRate;
+        int sampleRate = renderer.SampleRate;
         TimeSpan cur = Scene.CurrentFrame;
         var fmt = new WaveFormat(sampleRate, 32, 2);
         var source = new XAudioSource(audioContext);
@@ -305,10 +327,10 @@ public sealed class PlayerViewModel : IDisposable
 
     private void Render(IRenderer renderer, TimeSpan timeSpan)
     {
-        if (renderer.IsGraphicsRendering && !_isEnabled.Value)
+        if (renderer.IsGraphicsRendering)
             return;
 
-        renderer.Dispatcher.Invoke(() =>
+        RenderThread.Dispatcher.Dispatch(() =>
         {
             if (renderer.RenderGraphics(timeSpan).Bitmap is { } bitmap)
             {
@@ -348,17 +370,35 @@ public sealed class PlayerViewModel : IDisposable
         PreviewInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
-    private unsafe void Renderer_RenderInvalidated(object? sender, IRenderer.RenderResult e)
+    private void Renderer_RenderInvalidated(object? sender, TimeSpan e)
     {
-        if (e.Bitmap is { } bitmap)
+        if (sender is IRenderer { IsGraphicsRendering: false } renderer)
         {
-            UpdateImage(bitmap);
+            RenderThread.Dispatcher.Dispatch(() =>
+            {
+                IRenderer.RenderResult result = renderer.RenderGraphics(Scene.CurrentFrame);
+                if (result.Bitmap is { } bitmap)
+                {
+                    UpdateImage(bitmap);
+                    bitmap.Dispose();
+                }
+            });
+        }
+    }
+
+    private void UpdateCurrentFrame(TimeSpan timeSpan)
+    {
+        if (Scene.CurrentFrame != timeSpan)
+        {
+            int rate = Project?.GetFrameRate() ?? 30;
+            Scene.CurrentFrame = timeSpan.RoundToRate(rate);
         }
     }
 
     public void Dispose()
     {
-        _disposable0.Dispose();
-        _disposable1.Dispose();
+        _disposables.Dispose();
+        PreviewInvalidated = null;
+        Scene = null!;
     }
 }

@@ -40,9 +40,9 @@ public sealed class PropertyChangeTracker : IDisposable
             _trackingElement.Add(obj);
             obj.PropertyChanged += OnPropertyChanged;
 
-            if (obj is ILogicalElement elm)
+            if (obj is IHierarchical elm)
             {
-                foreach (ILogicalElement item in elm.LogicalChildren)
+                foreach (IHierarchical item in elm.HierarchicalChildren)
                 {
                     AddHandlers(item, currentDepth + 1);
                 }
@@ -50,7 +50,7 @@ public sealed class PropertyChangeTracker : IDisposable
         }
     }
 
-    private void AddHandlers(ILogicalElement elm, int currentDepth)
+    private void AddHandlers(IHierarchical elm, int currentDepth)
     {
         if (MaxDepth == -1 || currentDepth <= MaxDepth)
         {
@@ -60,7 +60,7 @@ public sealed class PropertyChangeTracker : IDisposable
                 obj.PropertyChanged += OnPropertyChanged;
             }
 
-            foreach (ILogicalElement item in elm.LogicalChildren)
+            foreach (IHierarchical item in elm.HierarchicalChildren)
             {
                 AddHandlers(item, currentDepth + 1);
             }

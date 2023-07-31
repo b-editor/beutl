@@ -240,7 +240,7 @@ public class Vector3Editor<TElement> : Vector3Editor
 [TemplatePart("PART_InnerSecondTextBox", typeof(TextBox))]
 [TemplatePart("PART_InnerThirdTextBox", typeof(TextBox))]
 [TemplatePart("PART_BackgroundBorder", typeof(Border))]
-public class Vector3Editor : PropertyEditor, IStyleable
+public class Vector3Editor : PropertyEditor
 {
     public static readonly DirectProperty<Vector3Editor, string> FirstTextProperty =
         Vector4Editor.FirstTextProperty.AddOwner<Vector3Editor>(
@@ -318,7 +318,7 @@ public class Vector3Editor : PropertyEditor, IStyleable
 
     protected TextBox InnerThirdTextBox { get; private set; }
 
-    Type IStyleable.StyleKey => typeof(Vector3Editor);
+    protected override Type StyleKeyOverride => typeof(Vector3Editor);
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {

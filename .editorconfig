@@ -155,7 +155,7 @@ csharp_space_between_parentheses = false
 csharp_space_between_square_brackets = false
 
 # License header
-# file_header_template = Licensed to the .NET Foundation under one or more agreements.\nThe .NET Foundation licenses this file to you under the MIT license.
+# file_header_template = {fileName}\r\n\r\nCopyright (C) b-editor\r\n\r\nThis software may be modified and distributed under the terms\r\nof the MIT license. See the LICENSE file for details.
 
 # C++ Files
 [*.{cpp,h,in}]

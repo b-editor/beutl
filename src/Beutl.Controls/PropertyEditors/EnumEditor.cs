@@ -10,15 +10,17 @@ using Avalonia.Styling;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class EnumEditor<TEnum> : EnumEditor, IStyleable
+public class EnumEditor<TEnum> : EnumEditor
     where TEnum : struct, Enum
 {
+#pragma warning disable AVP1002 // AvaloniaProperty objects should not be owned by a generic type
     public static readonly DirectProperty<EnumEditor<TEnum>, TEnum> SelectedValueProperty =
         AvaloniaProperty.RegisterDirect<EnumEditor<TEnum>, TEnum>(
             nameof(SelectedValue),
             o => o.SelectedValue,
             (o, v) => o.SelectedValue = v,
             defaultBindingMode: BindingMode.TwoWay);
+#pragma warning restore AVP1002 // AvaloniaProperty objects should not be owned by a generic type
 
     private static readonly string[] s_enumStrings;
     private static readonly TEnum[] s_enumValues;
@@ -59,7 +61,7 @@ public class EnumEditor<TEnum> : EnumEditor, IStyleable
         }
     }
 
-    Type IStyleable.StyleKey => typeof(EnumEditor);
+    protected override Type StyleKeyOverride => typeof(EnumEditor);
 
     protected override void OnComboBoxSelectionChanged(object sender, SelectionChangedEventArgs e)
     {

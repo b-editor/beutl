@@ -1,4 +1,5 @@
-﻿using System.Reactive.Linq;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Reactive.Linq;
 
 using Beutl.Media;
 
@@ -9,19 +10,24 @@ public class OperatorRegistry
     private static readonly List<BaseRegistryItem> s_operations = new();
     internal static int s_totalCount;
 
-    public static void RegisterOperation<T>(string displayName)
+    public static void RegisterOperation<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
+        string displayName)
         where T : SourceOperator, new()
     {
         Register(new RegistryItem(displayName, Colors.Teal, typeof(T)));
     }
 
-    public static void RegisterOperation<T>(string displayName, Color accentColor)
+    public static void RegisterOperation<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
+        string displayName, Color accentColor)
         where T : SourceOperator, new()
     {
         Register(new RegistryItem(displayName, accentColor, typeof(T)));
     }
 
-    public static void RegisterOperation<T>(
+    public static void RegisterOperation<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
         string displayName,
         Color accentColor,
         Func<string, bool> canOpen,
@@ -126,7 +132,11 @@ public class OperatorRegistry
 
     public record BaseRegistryItem(string DisplayName, Color AccentColor);
 
-    public record RegistryItem(string DisplayName, Color AccentColor, Type Type)
+    public record RegistryItem(
+        string DisplayName,
+        Color AccentColor,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
+        Type Type)
         : BaseRegistryItem(DisplayName, AccentColor)
     {
         public Func<string, SourceOperator>? OpenFile { get; init; }
@@ -185,7 +195,9 @@ public class OperatorRegistry
             _register = register ?? (item => OperatorRegistry.Register(item));
         }
 
-        public RegistrationHelper Add<T>(string displayName)
+        public RegistrationHelper Add<
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
+            string displayName)
             where T : SourceOperator, new()
         {
             _item.Items!.Add(new RegistryItem(displayName, Colors.Teal, typeof(T)));
@@ -193,7 +205,9 @@ public class OperatorRegistry
             return this;
         }
 
-        public RegistrationHelper Add<T>(string displayName, Color accentColor)
+        public RegistrationHelper Add<
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
+            string displayName, Color accentColor)
             where T : SourceOperator, new()
         {
             _item.Items.Add(new RegistryItem(displayName, accentColor, typeof(T)));
@@ -201,7 +215,8 @@ public class OperatorRegistry
             return this;
         }
 
-        public RegistrationHelper Add<T>(
+        public RegistrationHelper Add<
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
             string displayName,
             Color accentColor,
             Func<string, bool> canOpen,

@@ -45,20 +45,20 @@ public sealed class GlobalConfiguration
                 Directory.CreateDirectory(dir);
             }
 
-            JsonNode fontNode = new JsonObject();
-            FontConfig.WriteToJson(ref fontNode);
+            var fontNode = new JsonObject();
+            FontConfig.WriteToJson(fontNode);
             _json["font"] = fontNode;
 
-            JsonNode viewNode = new JsonObject();
-            ViewConfig.WriteToJson(ref viewNode);
+            var viewNode = new JsonObject();
+            ViewConfig.WriteToJson(viewNode);
             _json["view"] = viewNode;
 
-            JsonNode extensionNode = new JsonObject();
-            ExtensionConfig.WriteToJson(ref extensionNode);
+            var extensionNode = new JsonObject();
+            ExtensionConfig.WriteToJson(extensionNode);
             _json["extension"] = extensionNode;
 
-            JsonNode backupNode = new JsonObject();
-            BackupConfig.WriteToJson(ref backupNode);
+            var backupNode = new JsonObject();
+            BackupConfig.WriteToJson(backupNode);
             _json["backup"] = backupNode;
 
             _json.JsonSave(file);
@@ -76,10 +76,10 @@ public sealed class GlobalConfiguration
             RemoveHandlers();
             if (JsonHelper.JsonRestore(file) is JsonObject json)
             {
-                FontConfig.ReadFromJson(json["font"]!);
-                ViewConfig.ReadFromJson(json["view"]!);
-                ExtensionConfig.ReadFromJson(json["extension"]!);
-                BackupConfig.ReadFromJson(json["backup"]!);
+                FontConfig.ReadFromJson((JsonObject)json["font"]!);
+                ViewConfig.ReadFromJson((JsonObject)json["view"]!);
+                ExtensionConfig.ReadFromJson((JsonObject)json["extension"]!);
+                BackupConfig.ReadFromJson((JsonObject)json["backup"]!);
 
                 _json = json;
             }

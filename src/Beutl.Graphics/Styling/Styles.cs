@@ -4,7 +4,7 @@ namespace Beutl.Styling;
 
 public sealed class Styles : CoreList<IStyle>
 {
-    public IStyleInstance? Instance(IStyleable target)
+    public IStyleInstance? Instance(ICoreObject target)
     {
         IStyleInstance? baseStyle = null;
 

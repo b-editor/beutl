@@ -1,8 +1,9 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Transformation;
 
 namespace Beutl.Media.Immutable;
 
-public class ImmutableRadialGradientBrush : ImmutableGradientBrush, IRadialGradientBrush
+public class ImmutableRadialGradientBrush : ImmutableGradientBrush, IRadialGradientBrush, IEquatable<IRadialGradientBrush?>
 {
     public ImmutableRadialGradientBrush(
         IReadOnlyList<ImmutableGradientStop> gradientStops,
@@ -33,4 +34,27 @@ public class ImmutableRadialGradientBrush : ImmutableGradientBrush, IRadialGradi
     public RelativePoint GradientOrigin { get; }
 
     public float Radius { get; }
+
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as IRadialGradientBrush);
+    }
+
+    public bool Equals(IRadialGradientBrush? other)
+    {
+        return other is not null
+            && GradientStops.SequenceEqual(other.GradientStops)
+            && Opacity == other.Opacity
+            && EqualityComparer<ITransform?>.Default.Equals(Transform, other.Transform)
+            && TransformOrigin.Equals(other.TransformOrigin)
+            && SpreadMethod == other.SpreadMethod
+            && Center.Equals(other.Center)
+            && GradientOrigin.Equals(other.GradientOrigin)
+            && Radius == other.Radius;
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(GradientStops, Opacity, Transform, TransformOrigin, SpreadMethod, Center, GradientOrigin, Radius);
+    }
 }

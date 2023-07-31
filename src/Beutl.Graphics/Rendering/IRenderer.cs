@@ -1,37 +1,31 @@
 ﻿using Beutl.Animation;
-using Beutl.Audio;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
-using Beutl.Threading;
 
 namespace Beutl.Rendering;
 
-// RenderingのApiで時間を考慮する
-// Renderable内で持続時間と開始時間のプロパティを追加
-public interface IRenderer : IDisposable
+public interface IRenderer : IDisposable, IImmediateCanvasFactory
 {
-    IRenderLayer? this[int index] { get; set; }
+    RenderScene RenderScene { get; }
 
-    ICanvas Graphics { get; }
+    PixelSize FrameSize { get; }
 
-    IAudio Audio { get; }
+    int SampleRate { get; }
 
     IClock Clock { get; }
-
-    Dispatcher Dispatcher { get; }
 
     bool DrawFps { get; set; }
 
     bool IsDisposed { get; }
 
     bool IsGraphicsRendering { get; }
-    
+
     bool IsAudioRendering { get; }
 
-    event EventHandler<RenderResult> RenderInvalidated;
+    event EventHandler<TimeSpan> RenderInvalidated;
 
     RenderResult RenderGraphics(TimeSpan timeSpan);
 
@@ -39,13 +33,7 @@ public interface IRenderer : IDisposable
 
     RenderResult Render(TimeSpan timeSpan);
 
-    void Invalidate(TimeSpan timeSpan);
-
-    //void AddDirty(IRenderable renderable);
-    
-    //void AddDirtyRect(Rect rect);
-
-    //void AddDirtyRange(TimeRange timeRange);
+    void RaiseInvalidated(TimeSpan timeSpan);
 
     public record struct RenderResult(Bitmap<Bgra8888>? Bitmap = null, Pcm<Stereo32BitFloat>? Audio = null);
 }

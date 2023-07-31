@@ -22,7 +22,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views;
 
-public sealed partial class EditView : UserControl, IEditor
+public sealed partial class EditView : UserControl
 {
     private readonly SynchronizationContext _syncContext;
     private static readonly Binding s_isSelectedBinding = new("Context.IsSelected.Value", BindingMode.TwoWay);
@@ -41,11 +41,11 @@ public sealed partial class EditView : UserControl, IEditor
         _syncContext = SynchronizationContext.Current!;
 
         // 下部のタブ
-        BottomTabView.Items = _bottomTabItems;
+        BottomTabView.ItemsSource = _bottomTabItems;
         _bottomTabItems.CollectionChanged += TabItems_CollectionChanged;
 
         // 右側のタブ
-        RightTabView.Items = _rightTabItems;
+        RightTabView.ItemsSource = _rightTabItems;
         _rightTabItems.CollectionChanged += TabItems_CollectionChanged;
     }
 
@@ -77,7 +77,7 @@ public sealed partial class EditView : UserControl, IEditor
             }
         }
 
-        if (sender is BcTabView { Items: AvaloniaList<BcTabItem> tabItems })
+        if (sender is BcTabView { ItemsSource: AvaloniaList<BcTabItem> tabItems })
         {
             switch (e.Action)
             {
@@ -160,7 +160,7 @@ public sealed partial class EditView : UserControl, IEditor
                 (item) =>
                 {
                     ToolTabExtension ext = item.Context.Extension;
-                    if (DataContext is not IEditorContext editorContext || !item.Context.Extension.TryCreateContent(editorContext, out IControl? control))
+                    if (DataContext is not IEditorContext editorContext || !item.Context.Extension.TryCreateContent(editorContext, out Control? control))
                     {
                         control = new TextBlock()
                         {
@@ -215,7 +215,7 @@ Error:
                 (item) =>
                 {
                     ToolTabExtension ext = item.Context.Extension;
-                    if (DataContext is not IEditorContext editorContext || !item.Context.Extension.TryCreateContent(editorContext, out IControl? control))
+                    if (DataContext is not IEditorContext editorContext || !item.Context.Extension.TryCreateContent(editorContext, out Control? control))
                     {
                         control = new TextBlock()
                         {

@@ -7,6 +7,8 @@
     <ProjectReference Include="..\Beutl.Language\Beutl.Language.csproj" />
     <ProjectReference Include="..\Beutl.Framework\Beutl.Framework.csproj" />
   </ItemGroup>
-  <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props" />
-  <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.FileSystemGlobbing.props" />
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" />
+    <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" />
+  </ItemGroup>
 </Project>

@@ -133,7 +133,7 @@
                                     <ui:SymbolIcon Name="EllipsisIcon"
                                                    Height="{StaticResource AppBarExpandButtonCircleDiameter}"
                                                    FontSize="24"
-                                                   Symbol="MoreHorizontal" />
+                                                   Symbol="More" />
                                 </Button>
 
                                 <Border Name="OpenBorder"

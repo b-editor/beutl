@@ -4,6 +4,7 @@ using Avalonia.Data;
 using Avalonia.Data.Converters;
 
 using Beutl.Framework;
+using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;
 
@@ -15,7 +16,7 @@ public partial class PropertiesEditor : UserControl
         InitializeComponent();
     }
 
-    private sealed class ViewModelToViewConverter : IValueConverter
+    public sealed class ViewModelToViewConverter : IValueConverter
     {
         public static readonly ViewModelToViewConverter Instance = new();
 

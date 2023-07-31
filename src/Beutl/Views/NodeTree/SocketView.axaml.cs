@@ -23,7 +23,7 @@ public partial class SocketView : UserControl
     private SocketPoint? _socketPt;
     private NodeView? _nodeView;
     private Canvas? _canvas;
-    private IControl? _editor;
+    private Control? _editor;
     private TextBlock? _label;
 
     public SocketView()
@@ -117,7 +117,7 @@ public partial class SocketView : UserControl
 
         _socketPt.ContextMenu = new ContextMenu
         {
-            Items = list
+            ItemsSource = list
         };
 
         grid.Children.Add(_socketPt);
@@ -153,19 +153,21 @@ public partial class SocketView : UserControl
         if (obj.PropertyEditorContext is { } propContext)
         {
             PropertyEditorExtension extension = obj.PropertyEditorContext.Extension;
-            extension.TryCreateControlForNode(obj.PropertyEditorContext, out IControl? control1);
+            extension.TryCreateControlForNode(obj.PropertyEditorContext, out Control? control1);
             if (control1 is PropertyEditor pe)
             {
-                pe.UseCompact = true;
+                pe.EditorStyle = PropertyEditorStyle.Compact;
                 pe.Bind(PropertyEditor.HeaderProperty, obj.Name.ToBinding()).DisposeWith(_disposables);
             }
             if (control1 != null)
             {
                 control1.DataContext = obj.PropertyEditorContext;
+                // Todo: TryCreateControlForNodeの時
+                (control1).Margin = control1.Margin - new Thickness(4, 0);
             }
 
             _editor = control1;
-            Grid.SetColumn((Control)_editor!, 1);
+            Grid.SetColumn(_editor!, 1);
         }
 
         if (obj.Model != null)
@@ -194,7 +196,7 @@ public partial class SocketView : UserControl
         {
             for (int i = _canvas.Children.Count - 1; i >= 0; i--)
             {
-                IControl item = _canvas.Children[i];
+                Control item = _canvas.Children[i];
                 if (item is ConnectionLine line
                     && line.Match(connection.Input, connection.Output))
                 {

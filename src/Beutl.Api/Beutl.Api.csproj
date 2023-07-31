@@ -6,22 +6,20 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <Import Project="$(RootDirectory)\build\props\System.Reactive.props" />
-  <Import Project="$(RootDirectory)\build\props\System.Interactive.props" />
-  <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
-  <Import Project="$(RootDirectory)\build\props\Nito.AsyncEx.props" />
-
-  <!-- CS8032 -->
-  <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.Analyzers.props" />
-
   <ItemGroup>
     <EmbeddedResource Include="Resources\index.html" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NuGet.ProjectModel" Version="6.4.0" />
-    <PackageReference Include="NuGet.Protocol" Version="6.4.0" />
-    <PackageReference Include="NuGet.Resolver" Version="6.4.0" />
+    <PackageReference Include="Nito.AsyncEx" />
+    <PackageReference Include="ReactiveProperty" />
+    <PackageReference Include="System.Reactive" />
+    <PackageReference Include="System.Interactive" />
+    <PackageReference Include="System.Interactive.Async" />
+    
+    <PackageReference Include="NuGet.ProjectModel" />
+    <PackageReference Include="NuGet.Protocol" />
+    <PackageReference Include="NuGet.Resolver" />
   </ItemGroup>
 
   <ItemGroup>

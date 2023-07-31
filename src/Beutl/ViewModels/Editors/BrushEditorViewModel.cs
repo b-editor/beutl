@@ -1,63 +1,84 @@
-﻿using System.Reflection;
+﻿using System.Text.Json.Nodes;
 
 using Beutl.Framework;
 using Beutl.Media;
+using Beutl.ViewModels.Tools;
 
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
+public sealed class SetCommand : IRecordableCommand
+{
+    private readonly IAbstractProperty _setter;
+    private readonly object? _oldValue;
+    private readonly object? _newValue;
+
+    public SetCommand(IAbstractProperty setter, object? oldValue, object? newValue)
+    {
+        _setter = setter;
+        _oldValue = oldValue;
+        _newValue = newValue;
+    }
+
+    public void Do()
+    {
+        _setter.SetValue(_newValue);
+    }
+
+    public void Redo()
+    {
+        Do();
+    }
+
+    public void Undo()
+    {
+        _setter.SetValue(_oldValue);
+    }
+}
+
 public sealed class BrushEditorViewModel : BaseEditorViewModel
 {
-    private static readonly NullabilityInfoContext s_context = new();
-    private bool _accepted;
-
     public BrushEditorViewModel(IAbstractProperty property)
         : base(property)
     {
-        CoreProperty coreProperty = property.Property;
-        PropertyInfo propertyInfo = coreProperty.OwnerType.GetProperty(coreProperty.Name)!;
-        NullabilityInfo? nullabilityInfo = s_context.Create(propertyInfo);
-
-        CanWrite = propertyInfo.SetMethod?.IsPublic == true;
-        CanDelete = (CanWrite && nullabilityInfo.WriteState == NullabilityState.Nullable)
-            || IsStylingSetter;
-
-        IsSet = property.GetObservable()
-            .Select(x => x != null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        IsNotSetAndCanWrite = IsSet.Select(x => !x && CanWrite)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
         Value = property.GetObservable()
             .Select(x => x as IBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
         ChildContext = Value.Select(v => v as ICoreObject)
-            .Select(x => x != null ? new PropertiesEditorViewModel(x, m => m.PropertyFlags.HasFlag(PropertyFlags.Designable)) : null)
+            .Select(x => x != null ? new PropertiesEditorViewModel(x, m => m.Browsable) : null)
             .Do(AcceptChildren)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        IsSolid = Value.Select(v => v is ISolidColorBrush)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        IsLinearGradient = Value.Select(v => v is ILinearGradientBrush)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        IsConicGradient = Value.Select(v => v is IConicGradientBrush)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        IsRadialGradient = Value.Select(v => v is IRadialGradientBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
 
     private void AcceptChildren(PropertiesEditorViewModel? obj)
     {
-        _accepted = false;
-
-        EditViewModel? editViewModel = GetEditViewModel();
-        if (obj != null && editViewModel != null)
+        if (obj != null)
         {
-            var visitor = new Visitor(editViewModel);
+            var visitor = new Visitor(this);
             foreach (IPropertyEditorContext item in obj.Properties)
             {
                 item.Accept(visitor);
             }
-
-            _accepted = true;
         }
     }
 
@@ -65,13 +86,15 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 
     public ReadOnlyReactivePropertySlim<PropertiesEditorViewModel?> ChildContext { get; }
 
-    public ReadOnlyReactivePropertySlim<bool> IsSet { get; }
+    public ReadOnlyReactivePropertySlim<bool> IsSolid { get; }
 
-    public ReadOnlyReactivePropertySlim<bool> IsNotSetAndCanWrite { get; }
+    public ReadOnlyReactivePropertySlim<bool> IsLinearGradient { get; }
 
-    public bool CanWrite { get; }
+    public ReadOnlyReactivePropertySlim<bool> IsConicGradient { get; }
 
-    public bool CanDelete { get; }
+    public ReadOnlyReactivePropertySlim<bool> IsRadialGradient { get; }
+
+    public ReactivePropertySlim<bool> IsExpanded { get; } = new();
 
     public override void Reset()
     {
@@ -92,50 +115,51 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
-        if (visitor is IProvideEditViewModel && !_accepted)
+        if (visitor is IServiceProvider)
         {
             AcceptChildren(ChildContext.Value);
         }
     }
 
-    private EditViewModel? GetEditViewModel()
+    public override void ReadFromJson(JsonObject json)
     {
-        return ((IProvideEditViewModel)this).EditViewModel;
+        base.ReadFromJson(json);
+        try
+        {
+            if (json.TryGetPropertyValue(nameof(IsExpanded), out var isExpandedNode)
+                && isExpandedNode is JsonValue isExpanded)
+            {
+                IsExpanded.Value = (bool)isExpanded;
+            }
+            ChildContext.Value?.ReadFromJson(json);
+        }
+        catch
+        {
+        }
     }
 
-    private sealed record Visitor(EditViewModel EditViewModel) : IProvideEditViewModel, IPropertyEditorContextVisitor
+    public override void WriteToJson(JsonObject json)
     {
+        base.WriteToJson(json);
+        try
+        {
+            json[nameof(IsExpanded)] = IsExpanded.Value;
+            ChildContext.Value?.WriteToJson(json);
+        }
+        catch
+        {
+        }
+    }
+
+    private sealed record Visitor(BrushEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
+    {
+        public object? GetService(Type serviceType)
+        {
+            return Obj.GetService(serviceType);
+        }
+
         public void Visit(IPropertyEditorContext context)
         {
-        }
-    }
-
-    private sealed class SetCommand : IRecordableCommand
-    {
-        private readonly IAbstractProperty _setter;
-        private readonly object? _oldValue;
-        private readonly object? _newValue;
-
-        public SetCommand(IAbstractProperty setter, object? oldValue, object? newValue)
-        {
-            _setter = setter;
-            _oldValue = oldValue;
-            _newValue = newValue;
-        }
-
-        public void Do()
-        {
-            _setter.SetValue(_newValue);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            _setter.SetValue(_oldValue);
         }
     }
 }

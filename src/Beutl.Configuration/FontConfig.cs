@@ -12,33 +12,30 @@ public sealed class FontConfig : ConfigurationBase
 
     public ObservableCollection<string> FontDirectories { get; } = CreateDefaultFontDirectories();
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject jsonObject)
+        if (json.TryGetPropertyValue("directories", out JsonNode? dirsNode)
+            && dirsNode is JsonArray dirsArray)
         {
-            if (jsonObject.TryGetPropertyValue("directories", out JsonNode? dirsNode)
-                && dirsNode is JsonArray dirsArray)
+            string[] array = dirsArray.Select(i => (string?)i).Where(i => i != null).ToArray()!;
+            string[] fontDirs = FontDirectories.ToArray();
+
+            foreach (string item in array.Except(fontDirs))
             {
-                string[] array = dirsArray.Select(i => (string?)i).Where(i => i != null).ToArray()!;
-                string[] fontDirs = FontDirectories.ToArray();
+                FontDirectories.Add(item);
+            }
 
-                foreach (string item in array.Except(fontDirs))
-                {
-                    FontDirectories.Add(item);
-                }
-
-                foreach (string item in fontDirs.Except(array))
-                {
-                    FontDirectories.Remove(item);
-                }
+            foreach (string item in fontDirs.Except(array))
+            {
+                FontDirectories.Remove(item);
             }
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
+        base.WriteToJson(json);
         json["directories"] = new JsonArray(FontDirectories.Select(i => JsonValue.Create(i)).ToArray());
     }
 

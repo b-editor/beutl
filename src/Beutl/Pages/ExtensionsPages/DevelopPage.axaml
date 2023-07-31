@@ -50,7 +50,7 @@
 
             <ListBox x:Name="PackagesList"
                      IsEnabled="{CompiledBinding !IsBusy.Value}"
-                     Items="{CompiledBinding Packages}"
+                     ItemsSource="{CompiledBinding Packages}"
                      SelectionMode="Multiple">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
@@ -78,7 +78,7 @@
 
                             <ui:CommandBarButton Grid.Column="3"
                                                  Click="Edit_Click"
-                                                 Icon="Edit"
+                                                 IconSource="Edit"
                                                  Label="{x:Static lang:Strings.Edit}" />
                         </Grid>
                     </DataTemplate>

@@ -1,21 +1,18 @@
 ﻿using System.Runtime.InteropServices;
 
+using Beutl.Media;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;
 
 namespace Beutl;
 
-internal sealed class SceneRenderer :
-    ImmediateRenderer
-//DeferredRenderer
+internal sealed class SceneRenderer : Renderer
 {
     private readonly Scene _scene;
-    private readonly List<Layer> _begin = new();
-    private readonly List<Layer> _end = new();
-    private readonly List<Layer> _layers = new();
-    private readonly List<Renderable> _unhandleds = new();
-    private readonly List<Renderable> _sharedList = new();
+    private readonly List<Element> _entered = new();
+    private readonly List<Element> _exited = new();
+    private readonly List<Element> _layers = new();
     private TimeSpan _recentTime = TimeSpan.MinValue;
 
     public SceneRenderer(Scene scene, int width, int height)
@@ -32,165 +29,59 @@ internal sealed class SceneRenderer :
     {
         var timeSpan = Clock.CurrentTime;
         CurrentTime = timeSpan;
-        SortLayers(timeSpan);
-        Span<Layer> layers = CollectionsMarshal.AsSpan(_layers);
-        Span<Layer> begin = CollectionsMarshal.AsSpan(_begin);
-        Span<Layer> end = CollectionsMarshal.AsSpan(_end);
-        _unhandleds.Clear();
+        SortLayers(timeSpan, out _);
+        Span<Element> layers = CollectionsMarshal.AsSpan(_layers);
+        Span<Element> entered = CollectionsMarshal.AsSpan(_entered);
+        Span<Element> exited = CollectionsMarshal.AsSpan(_exited);
 
-        foreach (Layer item in end)
+        foreach (Element item in exited)
         {
             ExitSourceOperators(item);
+            RenderLayer layer = RenderScene[item.ZIndex];
+            layer.Clear();
+            layer.ClearAllNodeCache(GetCacheContext());
         }
 
-        foreach (Layer item in begin)
+        foreach (Element item in entered)
         {
             EnterSourceOperators(item);
         }
 
-        foreach (Layer layer in layers)
+        foreach (Element layer in layers)
         {
-            if (layer.UseNode)
-            {
-                InvokeNode(layer);
-            }
-            else
-            {
-                EvaluateLayer(layer);
-            }
+            layer.Evaluate(this);
         }
 
         base.RenderGraphicsCore();
         _recentTime = timeSpan;
     }
 
-    private static void EnterSourceOperators(Layer layer)
+    private static void EnterSourceOperators(Element layer)
     {
-        foreach (SourceOperator item in layer.Operators.GetMarshal().Value)
+        foreach (SourceOperator item in layer.Operation.Children.GetMarshal().Value)
         {
             item.Enter();
         }
     }
 
-    private static void ExitSourceOperators(Layer layer)
+    private static void ExitSourceOperators(Element layer)
     {
-        foreach (SourceOperator item in layer.Operators.GetMarshal().Value)
+        foreach (SourceOperator item in layer.Operation.Children.GetMarshal().Value)
         {
             item.Exit();
         }
     }
 
-    private void EvaluateLayer(Layer layer)
-    {
-        void Detach(IList<Renderable> renderables)
-        {
-            foreach (Renderable item in renderables)
-            {
-                if ((item as ILogicalElement).LogicalParent is RenderLayerSpan span
-                    && layer.Span != span)
-                {
-                    span.Value.Remove(item);
-                }
-            }
-        }
-
-        void DefaultHandler(IList<Renderable> renderables)
-        {
-            if (renderables.Count > 0)
-            {
-                RenderLayerSpan span = layer.Span;
-                Detach(renderables);
-
-                span.Value.Replace(renderables);
-
-                foreach (Renderable item in span.Value.GetMarshal().Value)
-                {
-                    item.ApplyStyling(Clock);
-                    item.ApplyAnimations(Clock);
-                    item.IsVisible = layer.IsEnabled;
-                    while (!item.EndBatchUpdate())
-                    {
-                    }
-                }
-
-                renderables.Clear();
-            }
-        }
-
-        void EvaluateSourceOperators(List<Renderable> unhandleds)
-        {
-            foreach (SourceOperator? item in layer.Operators.GetMarshal().Value)
-            {
-                if (item is ISourceTransformer selector)
-                {
-                    selector.Transform(unhandleds, Clock);
-                }
-                else if (item is ISourcePublisher source)
-                {
-                    if (source.Publish(Clock) is Renderable renderable)
-                    {
-                        unhandleds.Add(renderable);
-                        // Todo: Publish内でBeginBatchUpdateするようにする
-                        renderable.BeginBatchUpdate();
-                    }
-                }
-                else if (item is ISourceFilter { IsEnabled: true } filter)
-                {
-                    if (filter.Scope == SourceFilterScope.Local)
-                    {
-                        unhandleds = filter.Filter(unhandleds, Clock);
-                    }
-                    else
-                    {
-                        unhandleds = filter.Filter(unhandleds, Clock);
-                        _unhandleds.Clear();
-                        _unhandleds.AddRange(unhandleds);
-                    }
-                }
-
-                if (item is ISourceHandler handler)
-                {
-                    handler.Handle(unhandleds, Clock);
-                    // 差分を取ってEndBatchUpdateする
-                }
-            }
-        }
-
-        if (layer.AllowOutflow)
-        {
-            EvaluateSourceOperators(_unhandleds);
-        }
-        else
-        {
-            EvaluateSourceOperators(_sharedList);
-
-            DefaultHandler(_sharedList);
-        }
-
-        //span.Value = result;
-        //span.Value?.ApplyStyling(Clock);
-        //span.Value?.ApplyAnimations(Clock);
-
-        //if (prevResult != null)
-        //{
-        //    prevResult.IsVisible = layer.IsEnabled;
-        //}
-        //span.Value?.EndBatchUpdate();
-    }
-
-    private void InvokeNode(Layer layer)
-    {
-        layer.Space.Evaluate(this, layer);
-    }
-
     // Layersを振り分ける
-    private void SortLayers(TimeSpan timeSpan)
+    private void SortLayers(TimeSpan timeSpan, out TimeRange enterAffectsRange)
     {
-        _begin.Clear();
-        _end.Clear();
+        _entered.Clear();
+        _exited.Clear();
         _layers.Clear();
-        // Todo: 'public Layers Children'はソート済みにしたい
-        foreach (Layer? item in _scene.Children)
+        TimeSpan enterStart = TimeSpan.MaxValue;
+        TimeSpan enterEnd = TimeSpan.Zero;
+
+        foreach (Element? item in _scene.Children)
         {
             bool recent = InRange(item, _recentTime);
             bool current = InRange(item, timeSpan);
@@ -203,19 +94,27 @@ internal sealed class SceneRenderer :
             if (!recent && current)
             {
                 // _recentTimeの範囲外でcurrntTimeの範囲内
-                _begin.OrderedAdd(item, x => x.ZIndex);
+                _entered.OrderedAdd(item, x => x.ZIndex);
+                if (item.Start < enterStart)
+                    enterStart = item.Start;
+
+                TimeSpan end = item.Range.End;
+                if (enterEnd < end)
+                    enterEnd = end;
             }
             else if (recent && !current)
             {
                 // _recentTimeの範囲内でcurrntTimeの範囲外
-                _end.OrderedAdd(item, x => x.ZIndex);
+                _exited.OrderedAdd(item, x => x.ZIndex);
             }
         }
+
+        enterAffectsRange = TimeRange.FromRange(enterStart, enterEnd);
     }
 
 
     // itemがtsの範囲内かを確かめます
-    private static bool InRange(Layer item, TimeSpan ts)
+    private static bool InRange(Element item, TimeSpan ts)
     {
         return item.Start <= ts && ts < item.Length + item.Start;
     }

@@ -35,21 +35,21 @@
                                               MinWidth="250"
                                               Background="Transparent"
                                               BorderThickness="0"
-                                              Items="{CompiledBinding FileExtensions}"
+                                              ItemsSource="{CompiledBinding FileExtensions}"
                                               SelectedItem="{CompiledBinding SelectedFileExtension.Value}" />
                                 </ui:CommandBarElementContainer>
                                 <ui:CommandBarButton Click="Add_FileExtension"
-                                                     Icon="Add"
+                                                     IconSource="Add"
                                                      Label="{x:Static lang:Strings.Add}" />
                             </ui:CommandBar.PrimaryCommands>
                             <ui:CommandBar.SecondaryCommands>
                                 <ui:CommandBarButton Command="{CompiledBinding RemoveFileExtension}"
-                                                     Icon="Delete"
+                                                     IconSource="Delete"
                                                      Label="{x:Static lang:Strings.Remove}" />
                             </ui:CommandBar.SecondaryCommands>
                         </ui:CommandBar>
 
-                        <ListBox Grid.Row="1" Items="{CompiledBinding EditorExtensions1}">
+                        <ListBox Grid.Row="1" ItemsSource="{CompiledBinding EditorExtensions1}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Grid Height="64" ColumnDefinitions="*,Auto,Auto,Auto">
@@ -68,21 +68,21 @@
                                         <ui:CommandBarButton Grid.Column="1"
                                                              Command="{Binding #root.DataContext.HighPriority}"
                                                              CommandParameter="{Binding}"
-                                                             Icon="ChevronUp"
+                                                             IconSource="ChevronUp"
                                                              IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
                                                              Label="{x:Static lang:SettingsPage.Higher}" />
 
                                         <ui:CommandBarButton Grid.Column="2"
                                                              Command="{Binding #root.DataContext.LowPriority}"
                                                              CommandParameter="{Binding}"
-                                                             Icon="ChevronDown"
+                                                             IconSource="ChevronDown"
                                                              IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
                                                              Label="{x:Static lang:SettingsPage.Lower}" />
 
                                         <ui:CommandBarButton Grid.Column="3"
                                                              Command="{Binding #root.DataContext.RemoveExt}"
                                                              CommandParameter="{Binding}"
-                                                             Icon="Clear"
+                                                             IconSource="Clear"
                                                              IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
                                                              Label="{x:Static lang:Strings.Remove}" />
                                     </Grid>
@@ -92,7 +92,7 @@
                         <TextBlock Grid.Row="2"
                                    Margin="4,8,4,4"
                                    Text="{x:Static lang:SettingsPage.All_Editor_Extensions}" />
-                        <ListBox Grid.Row="3" Items="{CompiledBinding EditorExtensions2}">
+                        <ListBox Grid.Row="3" ItemsSource="{CompiledBinding EditorExtensions2}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Grid Height="64" ColumnDefinitions="*,Auto">
@@ -111,7 +111,7 @@
                                         <ui:CommandBarButton Grid.Column="1"
                                                              Command="{Binding #root.DataContext.AddExt}"
                                                              CommandParameter="{Binding}"
-                                                             Icon="Add"
+                                                             IconSource="Add"
                                                              IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
                                                              Label="{x:Static lang:Strings.Add}" />
                                     </Grid>

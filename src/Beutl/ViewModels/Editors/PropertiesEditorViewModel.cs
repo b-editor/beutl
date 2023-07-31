@@ -1,4 +1,6 @@
-﻿using Beutl.Animation;
+﻿using System.Text.Json.Nodes;
+
+using Beutl.Animation;
 using Beutl.Framework;
 using Beutl.Operators.Configure;
 using Beutl.Services;
@@ -7,9 +9,21 @@ using DynamicData;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class PropertiesEditorViewModel : IDisposable
+public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable
 {
-    public PropertiesEditorViewModel(ICoreObject obj, Predicate<CorePropertyMetadata>? predicate = null)
+    public PropertiesEditorViewModel(ICoreObject obj)
+    {
+        Target = obj;
+        InitializeCoreObject(obj);
+    }
+
+    public PropertiesEditorViewModel(ICoreObject obj, Predicate<CorePropertyMetadata> predicate)
+    {
+        Target = obj;
+        InitializeCoreObject(obj, (_, v) => predicate(v));
+    }
+
+    public PropertiesEditorViewModel(ICoreObject obj, Func<CoreProperty, CorePropertyMetadata, bool> predicate)
     {
         Target = obj;
         InitializeCoreObject(obj, predicate);
@@ -27,35 +41,68 @@ public sealed class PropertiesEditorViewModel : IDisposable
         }
     }
 
-    private void InitializeCoreObject(ICoreObject obj, Predicate<CorePropertyMetadata>? predicate = null)
+    public void ReadFromJson(JsonObject json)
+    {
+        if (json.TryGetPropertyValue(nameof(Properties), out JsonNode? propsNode)
+            && propsNode is JsonArray propsArray)
+        {
+            foreach ((JsonNode? node, IPropertyEditorContext? context) in propsArray.Zip(Properties))
+            {
+                if (context != null && node != null)
+                {
+                    context.ReadFromJson(node.AsObject());
+                }
+            }
+        }
+    }
+
+    public void WriteToJson(JsonObject json)
+    {
+        var array = new JsonArray();
+
+        foreach (IPropertyEditorContext? item in Properties.GetMarshal().Value)
+        {
+            if (item == null)
+            {
+                array.Add(null);
+            }
+            else
+            {
+                var node = new JsonObject();
+                item.WriteToJson(node);
+                array.Add(node);
+            }
+        }
+
+        json[nameof(Properties)] = array;
+    }
+
+    private void InitializeCoreObject(ICoreObject obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
     {
         Type objType = obj.GetType();
         Type wrapperType = typeof(CorePropertyImpl<>);
         Type animatableWrapperType = typeof(AnimatableCorePropertyImpl<>);
         bool isAnimatable = obj is IAnimatable;
 
-        List<CoreProperty> props = PropertyRegistry.GetRegistered(objType).ToList();
+        List<CoreProperty> cprops = PropertyRegistry.GetRegistered(objType).ToList();
+        cprops.RemoveAll(x => !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
+        List<IAbstractProperty> props = cprops.ConvertAll(x =>
+        {
+            CorePropertyMetadata metadata = x.GetMetadata<CorePropertyMetadata>(objType);
+            Type wtype = isAnimatable ? animatableWrapperType : wrapperType;
+            Type wrapperGType = wtype.MakeGenericType(x.PropertyType);
+            return (IAbstractProperty)Activator.CreateInstance(wrapperGType, x, obj)!;
+        });
         Properties.EnsureCapacity(props.Count);
-        CoreProperty[]? foundItems;
+        IAbstractProperty[]? foundItems;
         PropertyEditorExtension? extension;
-        props.RemoveAll(x => !(predicate?.Invoke(x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
 
         do
         {
             (foundItems, extension) = PropertyEditorService.MatchProperty(props);
             if (foundItems != null && extension != null)
             {
-                var tmp = new IAbstractProperty[foundItems.Length];
-                for (int i = 0; i < foundItems.Length; i++)
-                {
-                    CoreProperty item = foundItems[i];
-                    CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(objType);
-                    Type wtype = isAnimatable && metadata.PropertyFlags.HasFlag(PropertyFlags.Animatable) ? animatableWrapperType : wrapperType;
-                    Type wrapperGType = wtype.MakeGenericType(item.PropertyType);
-                    tmp[i] = (IAbstractProperty)Activator.CreateInstance(wrapperGType, item, obj)!;
-                }
-
-                if (extension.TryCreateContext(tmp, out IPropertyEditorContext? context))
+                if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))
                 {
                     Properties.Add(context);
                 }

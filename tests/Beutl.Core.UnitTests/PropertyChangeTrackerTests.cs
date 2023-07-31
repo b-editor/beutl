@@ -23,7 +23,7 @@ public class PropertyChangeTrackerTests
                 elm_1
             }
         };
-        var array = new Element[] { elm };
+        var array = new Hierarchical[] { elm };
         const string Foo = "Foo";
         const string Bar = "Bar";
 
@@ -47,20 +47,19 @@ public class PropertyChangeTrackerTests
     }
 }
 
-public class TestElement : Element, ILogicalElement
+public class TestElement : Hierarchical, IHierarchical
 {
     public static readonly CoreProperty<string> StringProperty;
 
     public TestElement()
     {
-        Children = new LogicalList<Element>(this);
+        Children = new HierarchicalList<Hierarchical>(this);
     }
 
     static TestElement()
     {
         StringProperty = ConfigureProperty<string, TestElement>("String")
             .DefaultValue(string.Empty)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
     }
 
@@ -70,7 +69,7 @@ public class TestElement : Element, ILogicalElement
         set => SetValue(StringProperty, value);
     }
 
-    public LogicalList<Element> Children { get; set; }
+    public HierarchicalList<Hierarchical> Children { get; set; }
 
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Children;
+    ICoreReadOnlyList<IHierarchical> IHierarchical.HierarchicalChildren => Children;
 }

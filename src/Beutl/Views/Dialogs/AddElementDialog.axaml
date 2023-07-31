@@ -1,0 +1,47 @@
+<ui:ContentDialog x:Class="Beutl.Views.Dialogs.AddElementDialog"
+                  xmlns="https://github.com/avaloniaui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:lang="using:Beutl.Language"
+                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:ui="using:FluentAvalonia.UI.Controls"
+                  xmlns:vm="using:Beutl.ViewModels.Dialogs"
+                  Title="{x:Static lang:Strings.AddElement}"
+                  d:DesignHeight="450"
+                  d:DesignWidth="800"
+                  x:DataType="vm:AddElementDialogViewModel"
+                  CloseButtonText="{x:Static lang:Strings.Close}"
+                  DefaultButton="Secondary"
+                  IsPrimaryButtonEnabled="False"
+                  PrimaryButtonText="{x:Static lang:Strings.Back}"
+                  SecondaryButtonText="{x:Static lang:Strings.Next}"
+                  mc:Ignorable="d">
+    <Carousel x:Name="carousel">
+        <Carousel.Items>
+            <StackPanel Spacing="8">
+                <TextBlock Text="{x:Static lang:Strings.StartTime}" />
+                <TextBox Text="{CompiledBinding Start.Value, Mode=TwoWay}" />
+
+                <TextBlock Margin="0,8,0,0" Text="{x:Static lang:Strings.DurationTime}" />
+                <TextBox Text="{CompiledBinding Duration.Value, Mode=TwoWay}" />
+
+                <TextBlock Margin="0,8,0,0" Text="{x:Static lang:Strings.Element}" />
+                <NumericUpDown Minimum="0" Value="{CompiledBinding Layer.Value, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Spacing="8">
+                <TextBlock Text="{x:Static lang:Strings.Name}" />
+                <TextBox InputMethod.IsInputMethodEnabled="True" Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
+
+                <StackPanel Margin="0,8,0,0"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                    <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Strings.Color}" />
+                    <ui:ColorPickerButton CustomPaletteColors="{StaticResource PaletteColors}"
+                                          IsAlphaEnabled="False"
+                                          UseColorPalette="True"
+                                          Color="{CompiledBinding Color.Value}" />
+                </StackPanel>
+            </StackPanel>
+        </Carousel.Items>
+    </Carousel>
+</ui:ContentDialog>

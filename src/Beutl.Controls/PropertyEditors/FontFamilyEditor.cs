@@ -100,7 +100,7 @@ public class FontFamilyPicker : TemplatedControl
         base.OnApplyTemplate(e);
         _textBox = e.NameScope.Get<TextBox>("PART_SearchTextBox");
         _listBox = e.NameScope.Get<ListBox>("PART_ListBox");
-        _listBox.Items = Media.FontManager.Instance.FontFamilies;
+        _listBox.ItemsSource = Media.FontManager.Instance.FontFamilies;
         _disposable = _textBox.GetObservable(TextBox.TextProperty).Subscribe(OnSearchTextBoxTextChanged);
     }
 
@@ -108,7 +108,7 @@ public class FontFamilyPicker : TemplatedControl
     {
         if (string.IsNullOrWhiteSpace(obj))
         {
-            _listBox.Items = Media.FontManager.Instance.FontFamilies;
+            _listBox.ItemsSource = Media.FontManager.Instance.FontFamilies;
         }
         else
         {
@@ -117,7 +117,7 @@ public class FontFamilyPicker : TemplatedControl
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .ToArray();
 
-            _listBox.Items = Media.FontManager.Instance.FontFamilies.Where(x =>
+            _listBox.ItemsSource = Media.FontManager.Instance.FontFamilies.Where(x =>
             {
                 foreach (string item in segments)
                 {

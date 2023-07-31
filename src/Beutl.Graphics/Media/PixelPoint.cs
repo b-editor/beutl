@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
@@ -16,14 +17,15 @@ namespace Beutl.Media;
 /// Represents a point in device pixels.
 /// </summary>
 [JsonConverter(typeof(PixelPointJsonConverter))]
-[RangeValidatable(typeof(PixelPointRangeValidator))]
+[TypeConverter(typeof(PixelPointConverter))]
 public readonly struct PixelPoint
     : IEquatable<PixelPoint>,
       IParsable<PixelPoint>,
       ISpanParsable<PixelPoint>,
       IEqualityOperators<PixelPoint, PixelPoint, bool>,
       IAdditionOperators<PixelPoint, PixelPoint, PixelPoint>,
-      ISubtractionOperators<PixelPoint, PixelPoint, PixelPoint>
+      ISubtractionOperators<PixelPoint, PixelPoint, PixelPoint>,
+      ITupleConvertible<PixelPoint, int>
 {
     /// <summary>
     /// A point representing 0,0.
@@ -50,6 +52,8 @@ public readonly struct PixelPoint
     /// Gets the Y co-ordinate.
     /// </summary>
     public int Y { get; }
+
+    static int ITupleConvertible<PixelPoint, int>.TupleLength => 2;
 
     /// <summary>
     /// Checks for equality between two <see cref="PixelPoint"/>s.
@@ -276,5 +280,16 @@ public readonly struct PixelPoint
     static bool ISpanParsable<PixelPoint>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out PixelPoint result)
     {
         return TryParse(s, out result);
+    }
+
+    static void ITupleConvertible<PixelPoint, int>.ConvertTo(PixelPoint self, Span<int> tuple)
+    {
+        tuple[0] = self.X;
+        tuple[1] = self.Y;
+    }
+
+    static void ITupleConvertible<PixelPoint, int>.ConvertFrom(Span<int> tuple, out PixelPoint self)
+    {
+        self = new PixelPoint(tuple[0], tuple[1]);
     }
 }

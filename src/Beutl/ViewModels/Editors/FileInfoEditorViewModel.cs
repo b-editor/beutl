@@ -17,34 +17,25 @@ public sealed class StorageFileEditorViewModel : BaseEditorViewModel<FileInfo>
         Value = property.GetObservable()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
-
-        File = Value.Select(x => (IStorageFile?)(x != null ? new BclStorageFile(x) : null))
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<FileInfo?> Value { get; }
-
-    public ReadOnlyReactivePropertySlim<IStorageFile?> File { get; }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
         if (visitor is StorageFileEditor editor)
         {
-            editor[!StorageFileEditor.ValueProperty] = File.ToBinding();
+            editor[!StorageFileEditor.ValueProperty] = Value.ToBinding();
             editor.ValueChanged += OnValueChanged;
         }
     }
 
     private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<IStorageFile> args
-            && args.NewValue.TryGetUri(out Uri? uri)
-            && uri.IsFile)
+        if (e is PropertyEditorValueChangedEventArgs<FileInfo> args)
         {
-            SetValue(Value.Value, new FileInfo(uri.LocalPath));
-            args.NewValue.Dispose();
+            SetValue(Value.Value, args.NewValue);
         }
     }
 }

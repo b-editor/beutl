@@ -2,63 +2,23 @@
 
 public readonly record struct PushedState : IDisposable
 {
-    private static readonly NullCanvas s_nullCanvas = new();
-
-    public PushedState(
-        ICanvas canvas,
-        int level,
-        PushedStateType type)
+    public PushedState(ICanvas canvas, int level)
     {
         Canvas = canvas;
-        Level = level;
-        Type = type;
+        Count = level;
     }
 
     public PushedState()
     {
-        Canvas = s_nullCanvas;
-        Level = -1;
-        Type = PushedStateType.None;
+        Count = -1;
     }
 
-    public ICanvas Canvas { get; init; }
+    public ICanvas? Canvas { get; init; }
 
-    public int Level { get; init; }
-
-    public PushedStateType Type { get; init; }
+    public int Count { get; init; }
 
     public void Dispose()
     {
-        switch (Type)
-        {
-            case PushedStateType.None:
-                break;
-            case PushedStateType.Foreground:
-                Canvas.PopForeground(Level);
-                break;
-            case PushedStateType.Filter:
-                Canvas.PopFilters(Level);
-                break;
-            case PushedStateType.StrokeWidth:
-                Canvas.PopStrokeWidth(Level);
-                break;
-            case PushedStateType.BlendMode:
-                Canvas.PopBlendMode(Level);
-                break;
-            case PushedStateType.Transform:
-                Canvas.PopTransform(Level);
-                break;
-            case PushedStateType.Clip:
-                Canvas.PopClip(Level);
-                break;
-            case PushedStateType.OpacityMask:
-                Canvas.PopOpacityMask(Level);
-                break;
-            case PushedStateType.Canvas:
-                Canvas.PopCanvas(Level);
-                break;
-            default:
-                break;
-        }
+        Canvas?.Pop(Count);
     }
 }

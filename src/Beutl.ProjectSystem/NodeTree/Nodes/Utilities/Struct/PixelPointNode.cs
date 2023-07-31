@@ -7,12 +7,10 @@ public class PixelPointNode : Node
     private static readonly CoreProperty<int> XProperty
         = ConfigureProperty<int, PixelPointNode>(o => o.X)
             .DefaultValue(0)
-            .SerializeName("x")
             .Register();
     private static readonly CoreProperty<int> YProperty
         = ConfigureProperty<int, PixelPointNode>(o => o.Y)
             .DefaultValue(0)
-            .SerializeName("y")
             .Register();
     private readonly OutputSocket<PixelPoint> _valueSocket;
     private readonly InputSocket<int> _xSocket;

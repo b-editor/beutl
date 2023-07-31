@@ -1,38 +1,52 @@
-﻿using Beutl.Graphics;
-using Beutl.Graphics.Transformation;
+﻿using Beutl.Graphics.Transformation;
 
 namespace Beutl.NodeTree.Nodes.Transform;
 
-public class TransformNode : ConfigureNode
+public sealed class TransformNodeEvaluationState
 {
-    private readonly InputSocket<Matrix> _matrixSocket;
+    public TransformNodeEvaluationState(ITransform? created)
+    {
+        Created = created;
+    }
 
+    public ITransform? Created { get; set; }
+
+    public MultiTransform? AddtionalState { get; set; }
+}
+
+public abstract class TransformNode : Node
+{
     public TransformNode()
     {
-        _matrixSocket = AsInput<Matrix>("Matrix");
+        OutputSocket = AsOutput<ITransform?>("Transform");
+        InputSocket = AsInput<ITransform?>("Transform");
     }
 
-    public override void InitializeForContext(NodeEvaluationContext context)
-    {
-        base.InitializeForContext(context);
-        context.State = new ConfigureNodeEvaluationState(null, new MatrixTransform());
-    }
+    protected OutputSocket<ITransform?> OutputSocket { get; }
 
-    protected override void EvaluateCore(Drawable drawable, object? state)
+    protected InputSocket<ITransform?> InputSocket { get; }
+
+    public override void Evaluate(NodeEvaluationContext context)
     {
-        if (state is MatrixTransform model
-            && drawable.Transform is TransformGroup group)
+        ITransform? value = InputSocket.Value;
+        if (context.State is not TransformNodeEvaluationState state)
         {
-            if (_matrixSocket.Connection != null)
-            {
-                model.Matrix = _matrixSocket.Value;
-            }
-            else
-            {
-                model.Matrix = Matrix.Identity;
-            }
+            context.State = state = new TransformNodeEvaluationState(null);
+        }
 
-            group.Children.Add(model);
+        EvaluateCore(state.Created);
+        if (value != null)
+        {
+            state.AddtionalState ??= new MultiTransform();
+            state.AddtionalState.Left = state.Created;
+            state.AddtionalState.Right = value;
+            OutputSocket.Value = state.AddtionalState;
+        }
+        else
+        {
+            OutputSocket.Value = state.Created;
         }
     }
+
+    protected abstract void EvaluateCore(ITransform? state);
 }

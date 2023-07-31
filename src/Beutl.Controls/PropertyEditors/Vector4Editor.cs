@@ -16,6 +16,7 @@ namespace Beutl.Controls.PropertyEditors;
 public class Vector4Editor<TElement> : Vector4Editor
     where TElement : INumber<TElement>
 {
+#pragma warning disable AVP1002 // AvaloniaProperty objects should not be owned by a generic type
     public static readonly DirectProperty<Vector4Editor<TElement>, TElement> FirstValueProperty =
         AvaloniaProperty.RegisterDirect<Vector4Editor<TElement>, TElement>(
             nameof(FirstValue),
@@ -43,6 +44,7 @@ public class Vector4Editor<TElement> : Vector4Editor
             o => o.FourthValue,
             (o, v) => o.FourthValue = v,
             defaultBindingMode: BindingMode.TwoWay);
+#pragma warning restore AVP1002 // AvaloniaProperty objects should not be owned by a generic type
 
     private TElement _firstValue;
     private TElement _oldFirstValue;
@@ -286,7 +288,7 @@ public class Vector4Editor<TElement> : Vector4Editor
 [TemplatePart("PART_InnerThirdTextBox", typeof(TextBox))]
 [TemplatePart("PART_InnerFourthTextBox", typeof(TextBox))]
 [TemplatePart("PART_BackgroundBorder", typeof(Border))]
-public class Vector4Editor : PropertyEditor, IStyleable
+public class Vector4Editor : PropertyEditor
 {
     public static readonly DirectProperty<Vector4Editor, string> FirstTextProperty =
         AvaloniaProperty.RegisterDirect<Vector4Editor, string>(
@@ -396,7 +398,7 @@ public class Vector4Editor : PropertyEditor, IStyleable
 
     protected TextBox InnerFourthTextBox { get; private set; }
 
-    Type IStyleable.StyleKey => typeof(Vector4Editor);
+    protected override Type StyleKeyOverride => typeof(Vector4Editor);
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {

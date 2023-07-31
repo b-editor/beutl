@@ -2,7 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 
-using Canvas = Beutl.Graphics.Canvas;
+using Canvas = Beutl.Graphics.ImmediateCanvas;
 
 namespace TextFormattingPlayground;
 
@@ -50,7 +50,7 @@ public partial class MainWindow : Window
 
         using var canvas = new Canvas(width, height);
         canvas.Clear(Beutl.Media.Colors.Black);
-        _text.Draw(canvas);
+        _text.Render(canvas);
 
         using var bmp = canvas.GetBitmap();
 
@@ -58,7 +58,6 @@ public partial class MainWindow : Window
         {
             image.Source = null;
             old.Dispose();
-            old.PlatformImpl.Item?.Dispose();
         }
 
         var wbmp = new WriteableBitmap(

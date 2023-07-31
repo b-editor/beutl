@@ -35,11 +35,6 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
                 (idx, _) => Stops.RemoveAt(idx),
                 () => Stops.Clear());
         }).DisposeWith(Disposables);
-
-        CanEditStop = CanEdit.CombineLatest(SelectedItem.Select(x => x != null))
-            .Select(x => x.First && x.Second)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<GradientStops> Value { get; }
@@ -47,8 +42,6 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
     public AM.GradientStops Stops { get; } = new();
 
     public ReactivePropertySlim<AM.GradientStop?> SelectedItem { get; } = new();
-
-    public ReadOnlyReactivePropertySlim<bool> CanEditStop { get; }
 
     public void PushChange(AM.GradientStop stop)
     {

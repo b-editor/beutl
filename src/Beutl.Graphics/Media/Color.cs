@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
@@ -11,6 +12,7 @@ namespace Beutl.Media;
 /// An ARGB color.
 /// </summary>
 [JsonConverter(typeof(ColorJsonConverter))]
+[TypeConverter(typeof(ColorConverter))]
 public readonly struct Color
     : IEquatable<Color>,
       IParsable<Color>,

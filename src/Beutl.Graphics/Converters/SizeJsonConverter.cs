@@ -10,10 +10,7 @@ internal sealed class SizeJsonConverter : JsonConverter<Size>
     public override Size Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         string? s = reader.GetString();
-        if (s == null)
-            throw new Exception("Invalid Size.");
-
-        return Size.Parse(s);
+        return s == null ? throw new Exception("Invalid Size.") : Size.Parse(s);
     }
 
     public override void Write(Utf8JsonWriter writer, Size value, JsonSerializerOptions options)

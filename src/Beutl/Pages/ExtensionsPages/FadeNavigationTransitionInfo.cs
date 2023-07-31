@@ -10,7 +10,7 @@ namespace Beutl.Pages.ExtensionsPages;
 
 public sealed class FadeNavigationTransitionInfo : NavigationTransitionInfo
 {
-    public override async void RunAnimation(Animatable ctrl)
+    public override async void RunAnimation(Animatable ctrl, CancellationToken ct)
     {
         var animation = new Avalonia.Animation.Animation
         {
@@ -38,8 +38,8 @@ public sealed class FadeNavigationTransitionInfo : NavigationTransitionInfo
             FillMode = FillMode.Forward
         };
 
-        await animation.RunAsync(ctrl, null);
+        await animation.RunAsync(ctrl, ct);
 
-        (ctrl as IVisual)!.Opacity = 1;
+        (ctrl as Visual)!.Opacity = 1;
     }
 }

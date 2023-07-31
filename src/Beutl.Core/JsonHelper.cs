@@ -1,6 +1,8 @@
-﻿using System.Text.Encodings.Web;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using System.Text.Unicode;
 
 using Beutl.JsonConverters;
@@ -9,30 +11,48 @@ namespace Beutl;
 
 public static class JsonHelper
 {
+    private static readonly Dictionary<Type, JsonConverter> s_converters = new();
+
     public static JsonWriterOptions WriterOptions { get; } = new()
     {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         Indented = true,
     };
 
     public static JsonSerializerOptions SerializerOptions { get; } = new()
     {
         WriteIndented = true,
-        Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         Converters =
         {
             new CultureInfoConverter(),
             new DirectoryInfoConverter(),
-            new FileInfoConverter()
+            new FileInfoConverter(),
+            new CoreObjectJsonConverter()
         }
     };
+
+    public static JsonConverter GetOrCreateConverterInstance(Type converterType)
+    {
+        if (s_converters.TryGetValue(converterType, out var converter))
+        {
+            return converter;
+        }
+        else
+        {
+            converter = (JsonConverter)Activator.CreateInstance(converterType)!;
+            s_converters.Add(converterType, converter);
+            return converter;
+        }
+    }
 
     public static void JsonSave(this IJsonSerializable serializable, string filename)
     {
         using var stream = new FileStream(filename, FileMode.Create, FileAccess.Write, FileShare.Write);
         using var writer = new Utf8JsonWriter(stream, WriterOptions);
-        JsonNode json = new JsonObject();
+        var json = new JsonObject();
 
-        serializable.WriteToJson(ref json);
+        serializable.WriteToJson(json);
         json.WriteTo(writer, SerializerOptions);
     }
 
@@ -41,9 +61,9 @@ public static class JsonHelper
         using var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
         var node = JsonNode.Parse(stream);
 
-        if (node != null)
+        if (node is JsonObject obj)
         {
-            serializable.ReadFromJson(node);
+            serializable.ReadFromJson(obj);
         }
     }
 
@@ -62,6 +82,35 @@ public static class JsonHelper
         return JsonNode.Parse(stream);
     }
 
+    public static Type? GetDiscriminator(this JsonNode node)
+    {
+        return node.TryGetDiscriminator(out Type? type) ? type : null;
+    }
+
+    public static bool TryGetDiscriminator(this JsonNode node, [NotNullWhen(true)] out Type? type)
+    {
+        type = null;
+        if (node is JsonObject obj)
+        {
+            JsonNode? typeNode = obj.TryGetPropertyValue("$type", out JsonNode? typeNode1) ? typeNode1
+                               : obj.TryGetPropertyValue("@type", out JsonNode? typeNode2) ? typeNode2
+                               : null;
+
+            if (typeNode is JsonValue typeValue
+                && typeValue.TryGetValue(out string? typeStr)
+                && !string.IsNullOrWhiteSpace(typeStr))
+            {
+                type = TypeFormat.ToType(typeStr);
+            }
+        }
+
+        return type != null;
+    }
+
+    public static void WriteDiscriminator(this JsonNode obj, Type type)
+    {
+        obj["$type"] = TypeFormat.ToString(type);
+    }
 
     private static Dictionary<string, object> ParseJson(string json)
     {

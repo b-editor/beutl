@@ -41,9 +41,9 @@ public abstract class OutputNode : Node
 
     protected abstract void Detach(Drawable drawable);
 
-    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnDetachedFromLogicalTree(args);
+        base.OnDetachedFromHierarchy(args);
         if (_prevDrawable != null)
         {
             Detach(_prevDrawable);

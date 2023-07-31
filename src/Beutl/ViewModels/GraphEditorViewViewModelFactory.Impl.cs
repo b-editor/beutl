@@ -39,7 +39,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                 new GraphEditorViewViewModel(
                     parent,
                     "Y",
-                    obj => ConvertTo(0, obj),
+                    obj => ConvertTo(1, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj))
             };
         }
@@ -118,7 +118,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                 new GraphEditorViewViewModel(
                     parent,
                     "Height",
-                    obj => ConvertTo(0, obj),
+                    obj => ConvertTo(1, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj))
             };
         }
@@ -197,7 +197,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                 new GraphEditorViewViewModel(
                     parent,
                     "Y",
-                    obj => ConvertTo(0, obj),
+                    obj => ConvertTo(1, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj))
             };
         }
@@ -276,7 +276,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                 new GraphEditorViewViewModel(
                     parent,
                     "Height",
-                    obj => ConvertTo(0, obj),
+                    obj => ConvertTo(1, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj))
             };
         }
@@ -355,7 +355,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                 new GraphEditorViewViewModel(
                     parent,
                     "Y",
-                    obj => ConvertTo(0, obj),
+                    obj => ConvertTo(1, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj))
             };
         }
@@ -434,7 +434,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                 new GraphEditorViewViewModel(
                     parent,
                     "Y",
-                    obj => ConvertTo(0, obj),
+                    obj => ConvertTo(1, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj))
             };
         }

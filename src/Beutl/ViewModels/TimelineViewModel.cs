@@ -7,14 +7,13 @@ using Avalonia;
 
 using Beutl.Framework;
 using Beutl.Models;
+using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Reactive;
 using Beutl.Services.PrimitiveImpls;
-using Beutl.Operation;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-using Beutl.Operators.Handler;
 
 namespace Beutl.ViewModels;
 
@@ -57,18 +56,18 @@ public sealed class TimelineViewModel : IToolContext
 
         AddLayer.Subscribe(item =>
         {
-            var sLayer = new Layer()
+            var sLayer = new Element()
             {
                 Start = item.Start,
                 Length = item.Length,
                 ZIndex = item.Layer,
-                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, Constants.LayerFileExtension)
+                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension)
             };
 
             if (item.InitialOperator != null)
             {
                 sLayer.AccentColor = item.InitialOperator.AccentColor;
-                sLayer.AddChild((SourceOperator)Activator.CreateInstance(item.InitialOperator.Type)!).Do();
+                sLayer.Operation.AddChild((SourceOperator)Activator.CreateInstance(item.InitialOperator.Type)!).Do();
             }
 
             sLayer.Save(sLayer.FileName);
@@ -77,10 +76,10 @@ public sealed class TimelineViewModel : IToolContext
 
         LayerHeaders.AddRange(Enumerable.Range(0, 100).Select(num => new LayerHeaderViewModel(num, this)));
         Scene.Children.ForEachItem(
-            (idx, item) => Layers.Insert(idx, new TimelineLayerViewModel(item, this)),
+            (idx, item) => Layers.Insert(idx, new ElementViewModel(item, this)),
             (idx, _) =>
             {
-                TimelineLayerViewModel layer = Layers[idx];
+                ElementViewModel layer = Layers[idx];
                 foreach (InlineAnimationLayerViewModel item in Inlines.Where(x => x.Layer == layer).ToArray())
                 {
                     DetachInline(item);
@@ -91,7 +90,7 @@ public sealed class TimelineViewModel : IToolContext
             },
             () =>
             {
-                foreach (TimelineLayerViewModel? item in Layers.GetMarshal().Value)
+                foreach (ElementViewModel? item in Layers.GetMarshal().Value)
                 {
                     item.Dispose();
                 }
@@ -102,11 +101,11 @@ public sealed class TimelineViewModel : IToolContext
         Header = new ReactivePropertySlim<string>(Strings.Timeline);
     }
 
-    public Scene Scene { get; }
+    public Scene Scene { get; private set; }
 
-    public PlayerViewModel Player { get; }
+    public PlayerViewModel Player { get; private set; }
 
-    public EditViewModel EditorContext { get; }
+    public EditViewModel EditorContext { get; private set; }
 
     public ReadOnlyReactivePropertySlim<double> PanelWidth { get; }
 
@@ -114,9 +113,9 @@ public sealed class TimelineViewModel : IToolContext
 
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
 
-    public ReactiveCommand<LayerDescription> AddLayer { get; } = new();
+    public ReactiveCommand<ElementDescription> AddLayer { get; } = new();
 
-    public CoreList<TimelineLayerViewModel> Layers { get; } = new();
+    public CoreList<ElementViewModel> Layers { get; } = new();
 
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = new();
 
@@ -143,27 +142,44 @@ public sealed class TimelineViewModel : IToolContext
     public void Dispose()
     {
         _disposables.Dispose();
-        foreach (TimelineLayerViewModel? item in Layers.GetMarshal().Value)
+        foreach (ElementViewModel? item in Layers.GetMarshal().Value)
         {
             item.Dispose();
         }
+        foreach (LayerHeaderViewModel item in LayerHeaders)
+        {
+            item.Dispose();
+        }
+        foreach (InlineAnimationLayerViewModel item in Inlines)
+        {
+            item.Dispose();
+        }
+
+        _layerHeightChanged.Dispose();
+
+        Inlines.Clear();
+        LayerHeaders.Clear();
+        Layers.Clear();
+        Scene = null!;
+        Player = null!;
+        EditorContext = null!;
     }
 
-    public void ReadFromJson(JsonNode json)
+    public void ReadFromJson(JsonObject json)
     {
     }
 
-    public void WriteToJson(ref JsonNode json)
+    public void WriteToJson(JsonObject json)
     {
     }
 
-    public void AttachInline(IAbstractAnimatableProperty property, Layer layer)
+    public void AttachInline(IAbstractAnimatableProperty property, Element layer)
     {
         if (!Inlines.Any(x => x.Layer.Model == layer && x.Property == property)
             && Layers.FirstOrDefault(x => x.Model == layer) is { } viewModel)
         {
             // タイムラインのタブを開く
-            Type type = typeof(InlineAnimationLayerViewModel<>).MakeGenericType(property.Property.PropertyType);
+            Type type = typeof(InlineAnimationLayerViewModel<>).MakeGenericType(property.PropertyType);
             if (Activator.CreateInstance(type, property, this, viewModel) is InlineAnimationLayerViewModel anmTimelineViewModel)
             {
                 Inlines.Add(anmTimelineViewModel);
@@ -232,9 +248,9 @@ public sealed class TimelineViewModel : IToolContext
         return -1;
     }
 
-    public bool AnySelected(TimelineLayerViewModel? exclude = null)
+    public bool AnySelected(ElementViewModel? exclude = null)
     {
-        foreach (TimelineLayerViewModel item in Layers)
+        foreach (ElementViewModel item in Layers)
         {
             if ((exclude == null || exclude != item) && item.IsSelected.Value)
             {
@@ -245,9 +261,9 @@ public sealed class TimelineViewModel : IToolContext
         return false;
     }
 
-    public IEnumerable<TimelineLayerViewModel> GetSelected(TimelineLayerViewModel? exclude = null)
+    public IEnumerable<ElementViewModel> GetSelected(ElementViewModel? exclude = null)
     {
-        foreach (TimelineLayerViewModel item in Layers)
+        foreach (ElementViewModel item in Layers)
         {
             if ((exclude == null || exclude != item) && item.IsSelected.Value)
             {
@@ -259,6 +275,11 @@ public sealed class TimelineViewModel : IToolContext
     internal void RaiseLayerHeightChanged(LayerHeaderViewModel value)
     {
         _layerHeightChanged.OnNext(value);
+    }
+
+    public object? GetService(Type serviceType)
+    {
+        return EditorContext.GetService(serviceType);
     }
 
     private sealed class TrackedLayerTopObservable : LightweightObservableBase<double>

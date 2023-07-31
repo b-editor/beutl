@@ -5,11 +5,9 @@ namespace Beutl.Styling;
 
 public interface IStyleInstance : IDisposable
 {
-    bool IsEnabled { get; set; }
-
     IStyleInstance? BaseStyle { get; }
 
-    IStyleable Target { get; }
+    ICoreObject Target { get; }
 
     IStyle Source { get; }
 

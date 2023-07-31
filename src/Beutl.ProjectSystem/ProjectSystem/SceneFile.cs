@@ -11,16 +11,16 @@ public sealed class SceneFile
 
         JsonNode json = JsonNode.Parse(File.ReadAllText(fileName))!;
 
-        Width = json["width"]?.AsValue()?.GetValue<int>() ?? 0;
-        Height = json["height"]?.AsValue()?.GetValue<int>() ?? 0;
+        Width = json[nameof(Width)]?.AsValue()?.GetValue<int>() ?? 0;
+        Height = json[nameof(Height)]?.AsValue()?.GetValue<int>() ?? 0;
 
-        if (json["duration"]?.AsValue()?.GetValue<string>() is { } durationStr
+        if (json[nameof(Duration)]?.AsValue()?.GetValue<string>() is { } durationStr
             && TimeSpan.TryParse(durationStr, out var duration))
         {
             Duration = duration;
         }
 
-        if (json["currentFrame"]?.AsValue()?.GetValue<string>() is { } currentStr
+        if (json[nameof(CurrentFrame)]?.AsValue()?.GetValue<string>() is { } currentStr
             && TimeSpan.TryParse(currentStr, out var current))
         {
             CurrentFrame = current;

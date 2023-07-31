@@ -149,7 +149,7 @@
                                           Margin="0,8,0,0"
                                           HorizontalScrollBarVisibility="Visible"
                                           VerticalScrollBarVisibility="Disabled">
-                                <ItemsControl Margin="0,0,0,8" Items="{CompiledBinding Screenshots}">
+                                <ItemsControl Margin="0,0,0,8" ItemsSource="{CompiledBinding Screenshots}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <StackPanel Orientation="Horizontal" Spacing="8" />

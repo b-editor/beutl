@@ -4,6 +4,8 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 
+using Beutl.Reactive;
+
 namespace Beutl.NodeTree.Nodes.Group;
 
 // Todo: ファイルからノードグループを読み込めるようにする。
@@ -21,7 +23,7 @@ public class GroupNode : Node
         {
             Name = "Group"
         };
-        (Group as ILogicalElement).NotifyAttachedToLogicalTree(new(this));
+        HierarchicalChildren.Add(Group);
         Group.Invalidated += OnGroupInvalidated;
 
         this.GetObservable(NameProperty).Subscribe(v => Group.Name = string.IsNullOrWhiteSpace(v) ? "Group" : v);
@@ -108,9 +110,9 @@ public class GroupNode : Node
         base.PostEvaluate(context);
     }
 
-    protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnAttachedToLogicalTree(args);
+        base.OnAttachedToHierarchy(args);
         Group.GetPropertyChangedObservable(NodeGroup.OutputProperty)
             .Subscribe(e => OnOutputChanged(e.NewValue, e.OldValue))
             .DisposeWith(_disposables);
@@ -120,9 +122,9 @@ public class GroupNode : Node
             .DisposeWith(_disposables);
     }
 
-    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnDetachedFromLogicalTree(args);
+        base.OnDetachedFromHierarchy(args);
 
         _disposables.Clear();
     }
@@ -301,54 +303,51 @@ public class GroupNode : Node
         }
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject obj)
+        if (json.TryGetPropertyValue("node-tree", out JsonNode? nodeTreeNode)
+            && nodeTreeNode is JsonObject nodeTreeJson)
         {
-            if (obj.TryGetPropertyValue("node-tree", out var nodeTreeNode)
-                && nodeTreeNode is JsonObject)
-            {
-                Group.ReadFromJson(nodeTreeNode);
-            }
+            Group.ReadFromJson(nodeTreeJson);
+        }
 
-            OnOutputChanged(Group.Output, null);
-            OnInputChanged(Group.Input, null);
+        OnOutputChanged(Group.Output, null);
+        OnInputChanged(Group.Input, null);
 
-            if (obj.TryGetPropertyValue("items", out var itemsNode)
-                && itemsNode is JsonArray itemsArray)
+        if (json.TryGetPropertyValue("items", out var itemsNode)
+            && itemsNode is JsonArray itemsArray)
+        {
+            int index = 0;
+            foreach (JsonNode? item in itemsArray)
             {
-                int index = 0;
-                foreach (JsonNode? item in itemsArray)
+                if (item is JsonObject itemObj)
                 {
-                    if (item is JsonObject itemObj)
+                    if (index < Items.Count)
                     {
-                        if (index < Items.Count)
+                        INodeItem? nodeItem = Items[index];
+                        if (nodeItem is IJsonSerializable serializable)
                         {
-                            INodeItem? nodeItem = Items[index];
-                            if (nodeItem is IJsonSerializable serializable)
-                            {
-                                serializable.ReadFromJson(itemObj);
-                            }
-
-                            ((NodeItem)nodeItem).LocalId = index;
+                            serializable.ReadFromJson(itemObj);
                         }
-                    }
 
-                    index++;
+                        ((NodeItem)nodeItem).LocalId = index;
+                    }
                 }
 
-                NextLocalId = index;
+                index++;
             }
+
+            NextLocalId = index;
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
-        JsonNode node = new JsonObject();
-        Group.WriteToJson(ref node);
+        base.WriteToJson(json);
+        var groupJson = new JsonObject();
+        Group.WriteToJson(groupJson);
 
-        json["node-tree"] = node;
+        json["node-tree"] = groupJson;
     }
 }

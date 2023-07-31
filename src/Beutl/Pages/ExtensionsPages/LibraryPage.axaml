@@ -152,7 +152,7 @@
                 <TabItem Header="{x:Static lang:ExtensionsPage.Search_Packages}">
                     <ItemsRepeater Margin="0,16,0,0"
                                    ItemTemplate="{StaticResource YourPackageItemTemplate}"
-                                   Items="{Binding Packages}">
+                                   ItemsSource="{Binding Packages}">
                         <ItemsRepeater.Layout>
                             <StackLayout Spacing="8" />
                         </ItemsRepeater.Layout>
@@ -161,7 +161,7 @@
                 <TabItem Header="{x:Static lang:ExtensionsPage.LocalPackages}">
                     <ItemsRepeater Margin="0,16,0,0"
                                    ItemTemplate="{StaticResource YourPackageItemTemplate}"
-                                   Items="{Binding LocalPackages}">
+                                   ItemsSource="{Binding LocalPackages}">
                         <ItemsRepeater.Layout>
                             <StackLayout Spacing="8" />
                         </ItemsRepeater.Layout>

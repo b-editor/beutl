@@ -4,12 +4,12 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Dialogs;
 
-public sealed partial class SceneSettings : ContentDialog, IStyleable
+public sealed partial class SceneSettings : ContentDialog
 {
     public SceneSettings()
     {
         InitializeComponent();
     }
 
-    Type IStyleable.StyleKey => typeof(ContentDialog);
+    protected override Type StyleKeyOverride => typeof(ContentDialog);
 }

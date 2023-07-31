@@ -18,6 +18,7 @@
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="vm:MainViewModel"
+             Background="{DynamicResource MainViewBackground}"
              Focusable="True"
              mc:Ignorable="d">
 
@@ -43,6 +44,7 @@
                    MaxHeight="24"
                    Margin="8,0"
                    VerticalAlignment="Center"
+                   RenderOptions.BitmapInterpolationMode="HighQuality"
                    Source="/Assets/logo.ico">
                 <Image.Clip>
                     <EllipseGeometry RadiusX="12"
@@ -159,8 +161,8 @@
                     <MenuItem Click="SceneSettings_Click"
                               Header="{x:Static lang:Strings.SceneSettings}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
-                    <!--  レイヤー  -->
-                    <MenuItem Header="{x:Static lang:Strings.Layer}">
+                    <!--  要素  -->
+                    <MenuItem Header="{x:Static lang:Strings.Element}">
                         <MenuItem Command="{CompiledBinding AddLayer}" Header="{x:Static lang:Strings.Add}" />
                         <MenuItem Command="{CompiledBinding DeleteLayer}" Header="{x:Static lang:Strings.Delete}" />
                         <MenuItem Command="{CompiledBinding ExcludeLayer}" Header="{x:Static lang:Strings.Exclude}" />
@@ -172,7 +174,11 @@
                 <!--  オブジェクト  -->
                 <MenuItem Header="{x:Static lang:Strings.Object}" />
                 <!--  ヘルプ  -->
-                <MenuItem Header="{x:Static lang:Strings.Help}" />
+                <MenuItem Header="{x:Static lang:Strings.Help}">
+                    <MenuItem Click="GC_Collect_Click"
+                              Header="GC.Collect"
+                              IsVisible="{Binding IsDebuggerAttached}" />
+                </MenuItem>
             </Menu>
 
             <TextBlock Grid.Column="2"

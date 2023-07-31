@@ -7,12 +7,10 @@ public class PointNode : Node
     private static readonly CoreProperty<float> XProperty
         = ConfigureProperty<float, PointNode>(o => o.X)
             .DefaultValue(0)
-            .SerializeName("x")
             .Register();
     private static readonly CoreProperty<float> YProperty
         = ConfigureProperty<float, PointNode>(o => o.Y)
             .DefaultValue(0)
-            .SerializeName("y")
             .Register();
     private readonly OutputSocket<Point> _valueSocket;
     private readonly InputSocket<float> _xSocket;

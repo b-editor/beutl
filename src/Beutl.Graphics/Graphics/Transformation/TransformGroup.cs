@@ -13,7 +13,6 @@ public sealed class TransformGroup : Transform
     {
         ChildrenProperty = ConfigureProperty<Transforms, TransformGroup>(nameof(Children))
             .Accessor(o => o.Children, (o, v) => o.Children = v)
-            .PropertyFlags(PropertyFlags.All)
             .Register();
     }
 
@@ -23,6 +22,7 @@ public sealed class TransformGroup : Transform
         _children.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 
+    [NotAutoSerialized]
     public Transforms Children
     {
         get => _children;
@@ -45,56 +45,47 @@ public sealed class TransformGroup : Transform
         }
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject jobject)
+        if (json.TryGetPropertyValue(nameof(Children), out JsonNode? childrenNode)
+            && childrenNode is JsonArray childrenArray)
         {
-            if (jobject.TryGetPropertyValue("children", out JsonNode? childrenNode)
-                && childrenNode is JsonArray childrenArray)
-            {
-                _children.Clear();
-                _children.EnsureCapacity(childrenArray.Count);
+            _children.Clear();
+            _children.EnsureCapacity(childrenArray.Count);
 
-                foreach (JsonObject childJson in childrenArray.OfType<JsonObject>())
+            foreach (JsonObject childJson in childrenArray.OfType<JsonObject>())
+            {
+                if (childJson.TryGetDiscriminator(out Type? type)
+                    && type.IsAssignableTo(typeof(Transform))
+                    && Activator.CreateInstance(type) is Transform transform)
                 {
-                    if (childJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-                        && atTypeNode is JsonValue atTypeValue
-                        && atTypeValue.TryGetValue(out string? atType)
-                        && TypeFormat.ToType(atType) is Type type
-                        && type.IsAssignableTo(typeof(Transform))
-                        && Activator.CreateInstance(type) is Transform transform)
-                    {
-                        transform.ReadFromJson(childJson);
-                        _children.Add(transform);
-                    }
+                    transform.ReadFromJson(childJson);
+                    _children.Add(transform);
                 }
             }
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
-        if (json is JsonObject jobject)
+        base.WriteToJson(json);
+        var array = new JsonArray();
+
+        foreach (ITransform item in _children.GetMarshal().Value)
         {
-            var array = new JsonArray();
-
-            foreach (ITransform item in _children.GetMarshal().Value)
+            if (item is Transform transform)
             {
-                if (item is Transform transform)
-                {
-                    JsonNode node = new JsonObject();
-                    transform.WriteToJson(ref node);
+                var itemJson = new JsonObject();
+                transform.WriteToJson(itemJson);
 
-                    node["@type"] = TypeFormat.ToString(item.GetType());
+                itemJson.WriteDiscriminator(item.GetType());
 
-                    array.Add(node);
-                }
+                array.Add(itemJson);
             }
-
-            jobject["children"] = array;
         }
+
+        json[nameof(Children)] = array;
     }
 
     public override void ApplyAnimations(IClock clock)

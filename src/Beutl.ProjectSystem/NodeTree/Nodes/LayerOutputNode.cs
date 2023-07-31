@@ -25,9 +25,9 @@ public class LayerOutputNode : OutputNode
     protected override void Detach(Drawable drawable)
     {
         drawable.BlendMode = BlendMode.SrcOver;
-        drawable.AlignmentX = AlignmentX.Left;
-        drawable.AlignmentY = AlignmentY.Top;
-        drawable.TransformOrigin = RelativePoint.TopLeft;
+        drawable.AlignmentX = AlignmentX.Center;
+        drawable.AlignmentY = AlignmentY.Center;
+        drawable.TransformOrigin = RelativePoint.Center;
     }
 
     protected override void EvaluateCore(NodeEvaluationContext context)

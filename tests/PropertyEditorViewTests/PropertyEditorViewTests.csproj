@@ -12,7 +12,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Beutl.Controls\Beutl.Controls.csproj" />
   </ItemGroup>
-  
-  <Import Project="..\..\build\props\XamlNameReferenceGenerator.props" />
 
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" />
+  </ItemGroup>
+  
 </Project>

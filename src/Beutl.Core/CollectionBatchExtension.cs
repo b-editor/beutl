@@ -25,6 +25,8 @@ public static class CollectionBatchExtension
         ICollectionBatchChanges Move(int oldIndex, int newIndex);
 
         ICollectionBatchChanges Remove(object? item);
+        
+        ICollectionBatchChanges RemoveAt(int index);
 
         ICollectionBatchChanges Clear();
 
@@ -40,6 +42,8 @@ public static class CollectionBatchExtension
         ICollectionBatchChanges<T> Move(int oldIndex, int newIndex);
 
         ICollectionBatchChanges<T> Remove(T item);
+
+        ICollectionBatchChanges<T> RemoveAt(int index);
 
         ICollectionBatchChanges<T> Clear();
 
@@ -86,6 +90,12 @@ public static class CollectionBatchExtension
             return this;
         }
 
+        public ICollectionBatchChanges RemoveAt(int index)
+        {
+            _commands.Add(new RemoveCommand(_list, index));
+            return this;
+        }
+
         public IRecordableCommand ToCommand()
         {
             return new Command(_commands.ToArray());
@@ -129,6 +139,12 @@ public static class CollectionBatchExtension
         public ICollectionBatchChanges<T> Remove(T item)
         {
             _commands.Add(new RemoveCommand<T>(_list, item));
+            return this;
+        }
+
+        public ICollectionBatchChanges<T> RemoveAt(int index)
+        {
+            _commands.Add(new RemoveCommand<T>(_list, index));
             return this;
         }
 

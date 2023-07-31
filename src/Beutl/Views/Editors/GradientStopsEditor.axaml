@@ -11,7 +11,7 @@
              x:DataType="vm:GradientStopsEditorViewModel"
              mc:Ignorable="d">
     <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
-        <TextBlock Margin="2,0,0,0"
+        <TextBlock Margin="8,0,0,0"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Top"
                    Text="{Binding Header}" />
@@ -31,7 +31,7 @@
                       Margin="8,0"
                       ClipToBounds="False"
                       IsEnabled="{Binding CanEdit.Value}"
-                      Items="{Binding Stops}">
+                      ItemsSource="{Binding Stops}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <Panel />
@@ -72,7 +72,7 @@
         <StackPanel Grid.Row="2"
                     Margin="8,8,4,0"
                     HorizontalAlignment="Right"
-                    IsEnabled="{Binding CanEditStop.Value}"
+                    IsEnabled="{Binding SelectedItem.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                     Orientation="Horizontal"
                     Spacing="4">
             <Button Width="35"

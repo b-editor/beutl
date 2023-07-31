@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics;
+﻿using System.Runtime.CompilerServices;
+
+using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
 
 namespace Beutl.Operators.Configure.Transform;
@@ -9,26 +11,27 @@ using Transform = Graphics.Transformation.Transform;
 public abstract class TransformOperator<T> : ConfigureOperator<Drawable, T>
     where T : Transform, new()
 {
-    protected override void PreSelect(Drawable target, T value)
+    private readonly ConditionalWeakTable<Drawable, MultiTransform> _table = new();
+
+    protected override void PreProcess(Drawable target, T value)
     {
         value.IsEnabled = IsEnabled;
     }
 
-    protected override void OnAttached(Drawable target, T value)
+    protected override void Process(Drawable target, T value)
     {
-        if (target.Transform is not TransformGroup group)
+        MultiTransform multi = _table.GetValue(target, _ => new MultiTransform());
+        if (target.Transform != multi)
         {
-            target.Transform = group = new TransformGroup();
+            multi.Left = value;
+            multi.Right = target.Transform;
+            target.Transform = multi;
         }
-
-        group.Children.Add(value);
     }
 
-    protected override void OnDetached(Drawable target, T value)
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        if (target.Transform is TransformGroup group)
-        {
-            group.Children.Remove(value);
-        }
+        base.OnDetachedFromHierarchy(args);
+        _table.Clear();
     }
 }

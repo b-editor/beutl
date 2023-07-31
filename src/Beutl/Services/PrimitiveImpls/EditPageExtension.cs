@@ -24,7 +24,7 @@ public sealed class EditPageExtension : PageExtension
         return new EditPageViewModel();
     }
 
-    public override IControl CreateControl()
+    public override Control CreateControl()
     {
         return new Pages.EditPage();
     }

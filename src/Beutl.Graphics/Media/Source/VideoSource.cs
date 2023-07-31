@@ -4,7 +4,7 @@ using Beutl.Media.Decoding;
 
 namespace Beutl.Media.Source;
 
-public sealed class VideoSource : IVideoSource, IImageSource
+public sealed class VideoSource : IVideoSource
 {
     private readonly Ref<MediaReader> _mediaReader;
     private readonly double _frameRate;
@@ -74,13 +74,6 @@ public sealed class VideoSource : IVideoSource, IImageSource
 
         return _mediaReader.Value.ReadVideo(frame, out bitmap);
     }
-
-    public bool Read([NotNullWhen(true)] out IBitmap? bitmap)
-    {
-        return Read(0, out bitmap);
-    }
-
-    IImageSource IImageSource.Clone() => Clone();
 
     IVideoSource IVideoSource.Clone() => Clone();
 

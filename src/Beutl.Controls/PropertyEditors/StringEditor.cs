@@ -3,18 +3,17 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
-using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Platform.Storage.FileIO;
-using Avalonia.Styling;
+
+using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
 [TemplatePart("PART_InnerTextBox", typeof(TextBox))]
-public class StringEditor : PropertyEditor, IStyleable
+public class StringEditor : PropertyEditor
 {
     public static readonly DirectProperty<StringEditor, string> TextProperty =
         AvaloniaProperty.RegisterDirect<StringEditor, string>(
@@ -36,7 +35,7 @@ public class StringEditor : PropertyEditor, IStyleable
 
     protected TextBox InnerTextBox => _innerTextBox;
 
-    Type IStyleable.StyleKey => typeof(StringEditor);
+    protected override Type StyleKeyOverride => typeof(StringEditor);
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {

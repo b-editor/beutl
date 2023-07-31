@@ -16,6 +16,7 @@ public class TextElementsBuilder
     private readonly Stack<FontStyle> _fontStyle = new();
     private readonly Stack<float> _size = new();
     private readonly Stack<IBrush?> _brush = new();
+    private readonly Stack<IPen?> _pen = new();
     private readonly Stack<float> _spacing = new();
     private readonly Stack<Thickness> _margin = new();
     private readonly FormattedTextInfo _initialOptions;
@@ -24,6 +25,7 @@ public class TextElementsBuilder
     private FontStyle _curFontStyle;
     private float _curSize;
     private IBrush? _curBrush;
+    private IPen? _curPen;
     private float _curSpacing;
     private Thickness _curMargin;
     private bool _singleLine;
@@ -36,6 +38,7 @@ public class TextElementsBuilder
         _curFontStyle = initialOptions.Typeface.Style;
         _curSize = initialOptions.Size;
         _curBrush = initialOptions.Brush;
+        _curPen = initialOptions.Pen;
         _curSpacing = initialOptions.Space;
         _curMargin = initialOptions.Margin;
     }
@@ -72,6 +75,12 @@ public class TextElementsBuilder
         _curBrush = brush;
     }
 
+    public void PushPen(IPen pen)
+    {
+        _pen.Push(_curPen);
+        _curPen = pen;
+    }
+
     public void PushSpacing(float value)
     {
         _spacing.Push(_curSpacing);
@@ -83,7 +92,7 @@ public class TextElementsBuilder
         _margin.Push(_curMargin);
         _curMargin = margin;
     }
-    
+
     public void PushSingleLine()
     {
         _singleLine = true;
@@ -108,6 +117,9 @@ public class TextElementsBuilder
             case Options.Brush:
                 _curBrush = _brush.PopOrDefault(_initialOptions.Brush);
                 break;
+            case Options.Pen:
+                _curPen = _pen.PopOrDefault(_initialOptions.Pen);
+                break;
             case Options.Spacing:
                 _curSpacing = _spacing.PopOrDefault(_initialOptions.Space);
                 break;
@@ -131,10 +143,11 @@ public class TextElementsBuilder
             FontStyle = _curFontStyle,
             FontWeight = _curFontWeight,
             Size = _curSize,
-            Foreground = _curBrush,
+            Brush = _curBrush,
             Spacing = _curSpacing,
             Margin = _curMargin,
-            IgnoreLineBreaks = _singleLine
+            IgnoreLineBreaks = _singleLine,
+            Pen = _curPen,
         });
     }
 
@@ -154,6 +167,8 @@ public class TextElementsBuilder
                     PushSize(size1);
                 else if (tag.TryGetColor(out Color color1))
                     PushBrush(color1.ToImmutableBrush());
+                else if (tag.TryGetStroke(out IPen? pen1))
+                    PushPen(pen1);
                 else if (tag.TryGetCharSpace(out float space1))
                     PushSpacing(space1);
                 else if (tag.TryGetMargin(out Thickness margin1))
@@ -199,6 +214,7 @@ public class TextElementsBuilder
             TagType.Font => Options.FontFamily,
             TagType.Size => Options.Size,
             TagType.Color or TagType.ColorHash => Options.Brush,
+            TagType.Stroke => Options.Pen,
             TagType.CharSpace => Options.Spacing,
             TagType.FontWeightBold or TagType.FontWeight => Options.FontWeight,
             TagType.FontStyle or TagType.FontStyleItalic => Options.FontStyle,
@@ -216,6 +232,7 @@ public class TextElementsBuilder
         FontStyle,
         Size,
         Brush,
+        Pen,
         Spacing,
         Margin,
         SingleLine,

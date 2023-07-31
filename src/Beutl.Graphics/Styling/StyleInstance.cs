@@ -8,12 +8,12 @@ namespace Beutl.Styling;
 
 public class StyleInstance : IStyleInstance
 {
-    private IStyleable? _target;
+    private ICoreObject? _target;
     private IStyle? _source;
     private ISetterInstance[] _setters;
     private ISetterInstance[][]? _cache;
 
-    public StyleInstance(IStyleable target, IStyle source, ISetterInstance[] setters, IStyleInstance? baseStyle)
+    public StyleInstance(ICoreObject target, IStyle source, ISetterInstance[] setters, IStyleInstance? baseStyle)
     {
         _target = target;
         _source = source;
@@ -21,11 +21,9 @@ public class StyleInstance : IStyleInstance
         BaseStyle = baseStyle;
     }
 
-    public bool IsEnabled { get; set; }
-
     public IStyleInstance? BaseStyle { get; private set; }
 
-    public IStyleable Target => _target ?? throw new InvalidOperationException();
+    public ICoreObject Target => _target ?? throw new InvalidOperationException();
 
     public IStyle Source => _source ?? throw new InvalidOperationException();
 

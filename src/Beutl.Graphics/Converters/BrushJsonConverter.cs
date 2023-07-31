@@ -17,12 +17,11 @@ internal sealed class BrushJsonConverter : JsonConverter<IBrush>
             {
                 return new SolidColorBrush(Color.Parse(color));
             }
-            else if ((string?)node["@type"] is string typeStr
-                && TypeFormat.ToType(typeStr) is Type type
+            else if (node.TryGetDiscriminator(out Type? type)
                 && Activator.CreateInstance(type) is IJsonSerializable jsonSerializable
                 && jsonSerializable is IBrush brush)
             {
-                jsonSerializable.ReadFromJson(node);
+                jsonSerializable.ReadFromJson(node.AsObject());
                 return brush;
             }
         }
@@ -36,11 +35,11 @@ internal sealed class BrushJsonConverter : JsonConverter<IBrush>
         {
             writer.WriteStringValue(solidColorBrush.Color.ToString());
         }
-        else if(value is IJsonSerializable jsonSerializable)
+        else if (value is IJsonSerializable jsonSerializable)
         {
-            JsonNode json = new JsonObject();
-            jsonSerializable.WriteToJson(ref json);
-            json["@type"] = TypeFormat.ToString(value.GetType());
+            var json = new JsonObject();
+            jsonSerializable.WriteToJson(json);
+            json.WriteDiscriminator(value.GetType());
 
             json.WriteTo(writer);
         }

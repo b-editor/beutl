@@ -1,26 +1,31 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
-using Beutl.Operation;
 using Beutl.Styling;
 
 namespace Beutl.Operators.Source;
 
-public sealed class RoundedRectOperator : StyledSourcePublisher
+public sealed class RoundedRectOperator : DrawablePublishOperator<RoundedRectShape>
 {
-    protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
-    {
-        var style = new Style<RoundedRect>();
-        style.Setters.AddRange(setters());
-        return style;
-    }
+    public Setter<float> Width { get; set; } = new(Shape.WidthProperty, 100);
 
-    protected override void OnInitializeSetters(IList<ISetter> initializing)
-    {
-        initializing.Add(new Setter<float>(Drawable.WidthProperty, 100));
-        initializing.Add(new Setter<float>(Drawable.HeightProperty, 100));
-        initializing.Add(new Setter<float>(RoundedRect.StrokeWidthProperty, 4000));
-        initializing.Add(new Setter<IBrush?>(Drawable.ForegroundProperty, new SolidColorBrush(Colors.White)));
-        initializing.Add(new Setter<CornerRadius>(RoundedRect.CornerRadiusProperty, new CornerRadius(25)));
-    }
+    public Setter<float> Height { get; set; } = new(Shape.HeightProperty, 100);
+
+    public Setter<CornerRadius> CornerRadius { get; set; } = new(RoundedRectShape.CornerRadiusProperty, new(25));
+
+    public Setter<ITransform?> Transform { get; set; } = new(Drawable.TransformProperty, null);
+
+    public Setter<AlignmentX> AlignmentX { get; set; } = new(Drawable.AlignmentXProperty, Media.AlignmentX.Center);
+
+    public Setter<AlignmentY> AlignmentY { get; set; } = new(Drawable.AlignmentYProperty, Media.AlignmentY.Center);
+
+    public Setter<RelativePoint> TransformOrigin { get; set; } = new(Drawable.TransformOriginProperty, RelativePoint.Center);
+
+    public Setter<IPen?> Pen { get; set; } = new(Shape.PenProperty);
+
+    public Setter<IBrush?> Fill { get; set; } = new(Drawable.ForegroundProperty, new SolidColorBrush(Colors.White));
+
+    public Setter<FilterEffect?> FilterEffect { get; set; } = new(Drawable.FilterEffectProperty, null);
 }

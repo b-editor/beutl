@@ -4,37 +4,16 @@ using Beutl.Media;
 
 namespace Beutl.NodeTree;
 
-public abstract class NodeItem : Element
+public abstract class NodeItem : Hierarchical
 {
-    public static readonly CoreProperty<bool?> IsValidProperty;
     public static readonly CoreProperty<int> LocalIdProperty;
-    private bool? _isValid;
     private int _localId = -1;
 
     static NodeItem()
     {
-        IsValidProperty = ConfigureProperty<bool?, NodeItem>(o => o.IsValid)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
-            .Register();
-
         LocalIdProperty = ConfigureProperty<int, NodeItem>(o => o.LocalId)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
-            .SerializeName("local-id")
             .DefaultValue(-1)
             .Register();
-
-        IdProperty.OverrideMetadata<NodeItem>(new CorePropertyMetadata<Guid>("id"));
-    }
-
-    public NodeItem()
-    {
-        Id = Guid.NewGuid();
-    }
-
-    public bool? IsValid
-    {
-        get => _isValid;
-        protected set => SetAndRaise(IsValidProperty, ref _isValid, value);
     }
 
     public int LocalId
@@ -66,7 +45,7 @@ public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
 
     public virtual Type? AssociatedType => typeof(T);
 
-    public NodeTreeSpace? NodeTree { get; private set; }
+    public NodeTreeModel? NodeTree { get; private set; }
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
@@ -76,7 +55,7 @@ public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
         {
             if (property is IAbstractAnimatableProperty<T> { Animation: IAnimation<T> animation })
             {
-                Value = animation.Interpolate(context.Clock.CurrentTime);
+                Value = animation.GetAnimatedValue(context.Clock);
             }
             else
             {
@@ -98,15 +77,15 @@ public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
         Invalidated?.Invoke(this, args);
     }
 
-    protected virtual void OnAttachedToNodeTree(NodeTreeSpace nodeTree)
+    protected virtual void OnAttachedToNodeTree(NodeTreeModel nodeTree)
     {
     }
 
-    protected virtual void OnDetachedFromNodeTree(NodeTreeSpace nodeTree)
+    protected virtual void OnDetachedFromNodeTree(NodeTreeModel nodeTree)
     {
     }
 
-    void INodeItem.NotifyAttachedToNodeTree(NodeTreeSpace nodeTree)
+    void INodeItem.NotifyAttachedToNodeTree(NodeTreeModel nodeTree)
     {
         if (NodeTree != null)
             throw new InvalidOperationException("Already attached to the node tree.");
@@ -115,7 +94,7 @@ public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
         OnAttachedToNodeTree(nodeTree);
     }
 
-    void INodeItem.NotifyDetachedFromNodeTree(NodeTreeSpace nodeTree)
+    void INodeItem.NotifyDetachedFromNodeTree(NodeTreeModel nodeTree)
     {
         if (NodeTree == null)
             throw new InvalidOperationException("Already detached from the node tree.");

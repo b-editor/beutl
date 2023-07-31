@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Media;
 using Beutl.Media.Decoding;
+using Beutl.Media.Source;
 using Beutl.Rendering;
 using Beutl.Utilities;
 using Beutl.Validation;
@@ -29,42 +30,33 @@ public class VideoFrame : Drawable
     private FileInfo? _sourceFile;
     private MediaReader? _mediaReader;
     private TimeSpan _requestedPosition;
-    private IBitmap? _previousBitmap;
+    private IImageSource? _previousBitmap;
     private double _previousFrame;
-    private RenderLayerSpan? _layerNode;
 
     static VideoFrame()
     {
         OffsetPositionProperty = ConfigureProperty<TimeSpan, VideoFrame>(nameof(OffsetPosition))
             .Accessor(o => o.OffsetPosition, (o, v) => o.OffsetPosition = v)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(TimeSpan.Zero)
-            .SerializeName("offset-position")
             .Register();
 
         PlaybackPositionProperty = ConfigureProperty<TimeSpan, VideoFrame>(nameof(PlaybackPosition))
             .Accessor(o => o.PlaybackPosition, (o, v) => o.PlaybackPosition = v)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(TimeSpan.Zero)
-            .Minimum(TimeSpan.Zero)
-            .SerializeName("playback-position")
             .Register();
 
         PositionModeProperty = ConfigureProperty<VideoPositionMode, VideoFrame>(nameof(PositionMode))
             .Accessor(o => o.PositionMode, (o, v) => o.PositionMode = v)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(VideoPositionMode.Automatic)
-            .SerializeName("position-mode")
             .Register();
 
         SourceFileProperty = ConfigureProperty<FileInfo?, VideoFrame>(nameof(SourceFile))
             .Accessor(o => o.SourceFile, (o, v) => o.SourceFile = v)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
 #if DEBUG
-            .Validator(new FileInfoExtensionValidator()
-            {
-                FileExtensions = new[] { "mp4" }
-            })
+            //.Validator(new FileInfoExtensionValidator()
+            //{
+            //    FileExtensions = new[] { "mp4" }
+            //})
 #else
 #warning Todo: DecoderRegistryからファイル拡張子を取得してセットする。
 #endif
@@ -95,17 +87,17 @@ public class VideoFrame : Drawable
         set => SetAndRaise(PositionModeProperty, ref _positionMode, value);
     }
 
+    [NotAutoSerialized]
     public FileInfo? SourceFile
     {
         get => _sourceFile;
         set => SetAndRaise(SourceFileProperty, ref _sourceFile, value);
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject jobj
-            && jobj.TryGetPropertyValue("source-file", out JsonNode? fileNode)
+        if (json.TryGetPropertyValue("source-file", out JsonNode? fileNode)
             && fileNode is JsonValue fileValue
             && fileValue.TryGetValue(out string? fileStr)
             && File.Exists(fileStr))
@@ -114,13 +106,12 @@ public class VideoFrame : Drawable
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
-        if (json is JsonObject jobj
-            && _sourceFile != null)
+        base.WriteToJson(json);
+        if (_sourceFile != null)
         {
-            jobj["source-file"] = _sourceFile.FullName;
+            json["source-file"] = _sourceFile.FullName;
         }
     }
 
@@ -130,24 +121,8 @@ public class VideoFrame : Drawable
         if (PositionMode == VideoPositionMode.Automatic)
         {
             _requestedPosition = clock.CurrentTime;
-
-            if (_layerNode != null)
-            {
-                _requestedPosition -= _layerNode.Start;
-            }
+            _requestedPosition -= clock.BeginTime;
         }
-    }
-
-    protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
-    {
-        base.OnAttachedToLogicalTree(args);
-        _layerNode = args.Parent?.FindLogicalParent<RenderLayerSpan>(true);
-    }
-
-    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
-    {
-        base.OnDetachedFromLogicalTree(args);
-        _layerNode = null;
     }
 
     protected override Size MeasureCore(Size availableSize)
@@ -178,15 +153,16 @@ public class VideoFrame : Drawable
             if (_previousBitmap?.IsDisposed == false
                 && MathUtilities.AreClose(frameNum, _previousFrame))
             {
-                canvas.DrawBitmap(_previousBitmap);
+                canvas.DrawImageSource(_previousBitmap, Foreground, null);
             }
             else if (_mediaReader.ReadVideo((int)frameNum, out IBitmap? bmp)
                 && bmp?.IsDisposed == false)
             {
-                canvas.DrawBitmap(bmp);
-
                 _previousBitmap?.Dispose();
-                _previousBitmap = bmp;
+                _previousBitmap = new BitmapSource(Ref<IBitmap>.Create(bmp), "Temp");
+
+                canvas.DrawImageSource(_previousBitmap, Foreground, null);
+
                 _previousFrame = frameNum;
             }
         }

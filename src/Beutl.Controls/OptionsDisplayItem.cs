@@ -29,8 +29,8 @@ public class OptionsDisplayItem : TemplatedControl
     public static readonly StyledProperty<bool> NavigatesProperty =
         AvaloniaProperty.Register<OptionsDisplayItem, bool>(nameof(Navigates));
 
-    public static readonly StyledProperty<IControl> ActionButtonProperty =
-        AvaloniaProperty.Register<OptionsDisplayItem, IControl>(nameof(ActionButton));
+    public static readonly StyledProperty<Control> ActionButtonProperty =
+        AvaloniaProperty.Register<OptionsDisplayItem, Control>(nameof(ActionButton));
 
     public static readonly StyledProperty<bool> ExpandsProperty =
         AvaloniaProperty.Register<OptionsDisplayItem, bool>(nameof(Expands));
@@ -38,9 +38,8 @@ public class OptionsDisplayItem : TemplatedControl
     public static readonly StyledProperty<object> ContentProperty =
         ContentControl.ContentProperty.AddOwner<OptionsDisplayItem>();
 
-    public static readonly DirectProperty<OptionsDisplayItem, bool> IsExpandedProperty =
-        Expander.IsExpandedProperty.AddOwner<OptionsDisplayItem>(x => x.IsExpanded,
-            (x, v) => x.IsExpanded = v);
+    public static readonly StyledProperty<bool> IsExpandedProperty =
+        Expander.IsExpandedProperty.AddOwner<OptionsDisplayItem>();
 
     public static readonly StyledProperty<ICommand> NavigationCommandProperty =
         AvaloniaProperty.Register<OptionsDisplayItem, ICommand>(nameof(NavigationCommand));
@@ -75,7 +74,7 @@ public class OptionsDisplayItem : TemplatedControl
         set => SetValue(NavigatesProperty, value);
     }
 
-    public IControl ActionButton
+    public Control ActionButton
     {
         get => GetValue(ActionButtonProperty);
         set => SetValue(ActionButtonProperty, value);
@@ -95,8 +94,8 @@ public class OptionsDisplayItem : TemplatedControl
 
     public bool IsExpanded
     {
-        get => _isExpanded;
-        set => SetAndRaise(IsExpandedProperty, ref _isExpanded, value);
+        get => GetValue(IsExpandedProperty);
+        set => SetValue(IsExpandedProperty, value);
     }
 
     public ICommand NavigationCommand
@@ -210,7 +209,7 @@ public class OptionsDisplayItem : TemplatedControl
 
     private void OnLayoutRootPointerReleased(object sender, PointerReleasedEventArgs e)
     {
-        var pt = e.GetCurrentPoint(this);
+        PointerPoint pt = e.GetCurrentPoint(this);
         if (_isPressed && pt.Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased)
         {
             _isPressed = false;
@@ -236,7 +235,6 @@ public class OptionsDisplayItem : TemplatedControl
     }
 
     private bool _isPressed;
-    private bool _isExpanded;
     private Border _layoutRoot;
     private CancellationTokenSource _lastTransitionCts;
 }

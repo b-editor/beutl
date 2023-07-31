@@ -3,7 +3,7 @@ using Beutl.Graphics.Transformation;
 
 namespace Beutl.Media.Immutable;
 
-public class ImmutableSolidColorBrush : ISolidColorBrush, IEquatable<ImmutableSolidColorBrush?>
+public class ImmutableSolidColorBrush : ISolidColorBrush, IEquatable<ISolidColorBrush?>
 {
     public ImmutableSolidColorBrush(Color color, float opacity = 1, ImmutableTransform? transform = null, RelativePoint origin = default)
     {
@@ -36,13 +36,22 @@ public class ImmutableSolidColorBrush : ISolidColorBrush, IEquatable<ImmutableSo
         return Color.ToString();
     }
 
-    public override bool Equals(object? obj) => Equals(obj as ImmutableSolidColorBrush);
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as ISolidColorBrush);
+    }
 
-    public bool Equals(ImmutableSolidColorBrush? other) => other is not null && Color.Equals(other.Color) && Opacity == other.Opacity && EqualityComparer<ITransform?>.Default.Equals(Transform, other.Transform) && TransformOrigin.Equals(other.TransformOrigin);
+    public bool Equals(ISolidColorBrush? other)
+    {
+        return other is not null
+            && Color.Equals(other.Color)
+            && Opacity == other.Opacity
+            && EqualityComparer<ITransform?>.Default.Equals(Transform, other.Transform)
+            && TransformOrigin.Equals(other.TransformOrigin);
+    }
 
-    public override int GetHashCode() => HashCode.Combine(Color, Opacity, Transform, TransformOrigin);
-
-    public static bool operator ==(ImmutableSolidColorBrush? left, ImmutableSolidColorBrush? right) => EqualityComparer<ImmutableSolidColorBrush>.Default.Equals(left, right);
-
-    public static bool operator !=(ImmutableSolidColorBrush? left, ImmutableSolidColorBrush? right) => !(left == right);
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Color, Opacity, Transform, TransformOrigin);
+    }
 }

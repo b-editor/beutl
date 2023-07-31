@@ -73,12 +73,44 @@ public struct FormattedText : IEquatable<FormattedText>
     public bool BeginOnNewLine { get; set; } = false;
 
     public IBrush? Brush { get; set; }
+    
+    public IPen? Pen { get; set; }
 
     public Thickness Margin { get; set; } = new();
 
     public FontMetrics Metrics => MeasureAndSetField().Metrics;
 
     public Size Bounds => MeasureAndSetField().Bounds;
+
+    internal Point AddToSKPath(SKPath path, Point point)
+    {
+        SKTypeface typeface = new Typeface(Font, Style, Weight).ToSkia();
+        using SKPaint paint = new()
+        {
+            TextSize = Size,
+            Typeface = typeface
+        };
+
+        Size size = Bounds;
+        Span<char> buffer = stackalloc char[1];
+
+        foreach (char item in Text.AsSpan())
+        {
+            buffer[0] = item;
+            var bounds = default(SKRect);
+            float width = paint.MeasureText(buffer, ref bounds);
+
+            SKPath skPath = paint.GetTextPath(buffer, (bounds.Width / 2) - bounds.MidX, 0);
+
+            path.AddPath(skPath, point.X + bounds.Left, point.Y);
+
+            skPath.Dispose();
+
+            point += new Point(Spacing + width, 0);
+        }
+
+        return point;
+    }
 
     private (FontMetrics, Size) Measure()
     {

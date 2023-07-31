@@ -10,7 +10,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Dialogs;
 
-public sealed partial class CreateNewProject : ContentDialog, IStyleable
+public sealed partial class CreateNewProject : ContentDialog
 {
     private IDisposable? _sBtnBinding;
 
@@ -19,7 +19,7 @@ public sealed partial class CreateNewProject : ContentDialog, IStyleable
         InitializeComponent();
     }
 
-    Type IStyleable.StyleKey => typeof(ContentDialog);
+    protected override Type StyleKeyOverride => typeof(ContentDialog);
 
     // 戻る
     protected override void OnPrimaryButtonClick(ContentDialogButtonClickEventArgs args)
@@ -73,10 +73,9 @@ public sealed partial class CreateNewProject : ContentDialog, IStyleable
             IReadOnlyList<IStorageFolder> result = await parent.StorageProvider.OpenFolderPickerAsync(options);
 
             if (result.Count > 0
-                && result[0].TryGetUri(out Uri? uri)
-                && uri.IsFile)
+                && result[0].TryGetLocalPath() is string localPath)
             {
-                vm.Location.Value = uri.LocalPath;
+                vm.Location.Value = localPath;
             }
         }
     }

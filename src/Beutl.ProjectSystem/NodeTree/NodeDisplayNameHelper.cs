@@ -14,9 +14,7 @@ internal class NodeDisplayNameHelper
 
         if (item.Property is { } property)
         {
-            CorePropertyMetadata metadata = property.Property.GetMetadata<CorePropertyMetadata>(property.ImplementedType);
-
-            return name ?? metadata.DisplayAttribute?.GetName() ?? property.Property.Name;
+            return property.DisplayName;
         }
         else if (item is IGroupSocket { AssociatedProperty: { } asProperty })
         {

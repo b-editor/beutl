@@ -48,30 +48,23 @@ public partial class GraphEditorView : UserControl
             OnDataContextAttached,
             OnDataContextDetached);
 
-        views.ItemContainerGenerator.Materialized += OnViewMaterialized;
-        views.ItemContainerGenerator.Dematerialized += OnViewDematerialized;
+        views.ContainerPrepared += OnContainerPrepared;
+        views.ContainerClearing += OnContainerClearing;
     }
 
-    private void OnViewMaterialized(object? sender, ItemContainerEventArgs e)
+    private void OnContainerPrepared(object? sender, ContainerPreparedEventArgs e)
     {
-        foreach (ItemContainerInfo item in e.Containers)
+        if (e.Container is { DataContext: GraphEditorViewViewModel viewModel } container)
         {
-            if (item.Item is GraphEditorViewViewModel viewModel
-                && item.ContainerControl is ContentPresenter container)
-            {
-                container.Bind(ZIndexProperty, viewModel.IsSelected.Select(v => v ? 1 : 0));
-            }
+            container.Bind(ZIndexProperty, viewModel.IsSelected.Select(v => v ? 1 : 0));
         }
     }
 
-    private void OnViewDematerialized(object? sender, ItemContainerEventArgs e)
+    private void OnContainerClearing(object? sender, ContainerClearingEventArgs e)
     {
-        foreach (ItemContainerInfo item in e.Containers)
+        if (e.Container is { } container)
         {
-            if (item.ContainerControl is ContentPresenter container)
-            {
-                container.Bind(ZIndexProperty, Observable.Return(BindingValue<int>.Unset));
-            }
+            container.Bind(ZIndexProperty, Observable.Return(BindingValue<int>.Unset));
         }
     }
 
@@ -192,7 +185,7 @@ public partial class GraphEditorView : UserControl
             PointerPoint pointerPt = e.GetCurrentPoint(graphPanel);
 
             _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale)
-                .RoundToRate(viewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
+                .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
 
             if (_pressed)
             {
@@ -223,7 +216,7 @@ public partial class GraphEditorView : UserControl
                 _pressed = true;
 
                 viewModel.Scene.CurrentFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale)
-                    .RoundToRate(viewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
+                    .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
 
                 e.Handled = true;
             }
@@ -379,7 +372,7 @@ public partial class GraphEditorView : UserControl
                     itemViewModel.EndY.Value -= delta.Y;
 
                     float scale = viewModel.Options.Value.Scale;
-                    int rate = viewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
+                    int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
 
                     double right = itemViewModel.Right.Value + delta.X;
                     var timeSpan = right.ToTimeSpan(scale);
@@ -459,6 +452,14 @@ public partial class GraphEditorView : UserControl
             && e.Source is MenuItem { DataContext: GraphEditorViewViewModel itemViewModel })
         {
             viewModel.SelectedView.Value = itemViewModel;
+        }
+    }
+
+    private void UseGlobalClock_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is GraphEditorViewModel viewModel)
+        {
+            viewModel.UpdateUseGlobalClock(!viewModel.UseGlobalClock.Value);
         }
     }
 }

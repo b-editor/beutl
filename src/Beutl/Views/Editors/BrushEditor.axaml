@@ -6,65 +6,71 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:media="using:Beutl.Media"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.Editors"
              x:Name="root"
+             d:DesignHeight="300"
              d:DesignWidth="300"
              x:CompileBindings="True"
              x:DataType="vm:BrushEditorViewModel"
              mc:Ignorable="d">
-    <Grid ColumnDefinitions="*,24" RowDefinitions="Auto,Auto">
-        <TextBlock Margin="4,0,0,0"
-                   HorizontalAlignment="Left"
-                   VerticalAlignment="Center"
-                   Text="{Binding Header}" />
+    <Grid RowDefinitions="Auto,Auto">
+        <ToggleButton x:Name="expandToggle"
+                      Margin="8,4"
+                      Content="{Binding Header, FallbackValue=Brush}"
+                      FontWeight="DemiBold"
+                      IsChecked="{Binding IsExpanded.Value}"
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+            <ToggleButton.Tag>
+                <Button Padding="0"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Classes="size-24x24"
+                        Click="Menu_Click"
+                        Theme="{StaticResource TransparentButton}">
+                    <Button.ContextFlyout>
+                        <ui:FAMenuFlyout>
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding IsSolid.Value, Mode=OneWay}"
+                                                    Tag="Solid"
+                                                    Text="塗りつぶし" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding IsLinearGradient.Value, Mode=OneWay}"
+                                                    Tag="LinearGradient"
+                                                    Text="線形グラデーション" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding IsConicGradient.Value, Mode=OneWay}"
+                                                    Tag="ConicGradient"
+                                                    Text="円錐型グラデーション" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding IsRadialGradient.Value, Mode=OneWay}"
+                                                    Tag="RadialGradient"
+                                                    Text="放射状グラデーション" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding !Value.Value, Mode=OneWay}"
+                                                    Tag="Null"
+                                                    Text="Null" />
+                        </ui:FAMenuFlyout>
+                    </Button.ContextFlyout>
+                    <icons:SymbolIcon Symbol="Compose" />
+                </Button>
+            </ToggleButton.Tag>
+        </ToggleButton>
 
-        <local:PropertiesEditor Grid.Row="1"
-                                Grid.ColumnSpan="2"
-                                Margin="16,0,0,0"
-                                Padding="0"
-                                DataContext="{Binding ChildContext.Value}"
-                                IsEnabled="{ReflectionBinding #root.DataContext.CanEdit.Value}" />
+        <Panel x:Name="content"
+               Grid.Row="1"
+               Margin="16,0,0,0">
+            <WrapPanel IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Orientation="Horizontal">
+                <TextBlock Text="ブラシがNullです。" />
+                <icons:SymbolIcon Symbol="Compose" />
+                <TextBlock Text="でブラシを設定できます" />
+            </WrapPanel>
 
-        <Grid Grid.Row="1" ColumnDefinitions="2*,3*">
-            <Button Grid.Column="1"
-                    Margin="4"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Left"
-                    Click="New_Click"
-                    IsEnabled="{Binding CanEdit.Value}"
-                    IsVisible="{Binding IsNotSetAndCanWrite.Value}">
-                <StackPanel Orientation="Horizontal" Spacing="16">
-                    <icons:SymbolIcon Symbol="New" />
-                    <TextBlock Text="{x:Static lang:Strings.CreateNew}" />
-                </StackPanel>
-            </Button>
-        </Grid>
-
-        <Button Grid.Column="2"
-                Width="24"
-                Height="24"
-                Margin="0,8"
-                Padding="0"
-                HorizontalAlignment="Center"
-                Background="Transparent"
-                BorderThickness="0"
-                Click="Menu_Click">
-            <Button.ContextMenu>
-                <ContextMenu>
-                    <MenuItem Click="Navigate_Click"
-                              Header="{x:Static lang:Strings.Edit}"
-                              IsEnabled="{Binding IsSet.Value}" />
-                    <MenuItem Click="New_Click"
-                              Header="{x:Static lang:Strings.CreateNew}"
-                              IsEnabled="{Binding CanWrite}" />
-                    <MenuItem Click="Delete_Click"
-                              Header="{x:Static lang:Strings.Delete}"
-                              IsEnabled="{Binding CanDelete}" />
-                </ContextMenu>
-            </Button.ContextMenu>
-            <icons:SymbolIcon Symbol="MoreVertical" />
-        </Button>
+            <local:PropertiesEditor Padding="0"
+                                    DataContext="{Binding ChildContext.Value}"
+                                    IsEnabled="{ReflectionBinding #root.DataContext.CanEdit.Value}"
+                                    IsVisible="{ReflectionBinding #root.DataContext.Value.Value,
+                                                                  Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </Panel>
     </Grid>
 </UserControl>

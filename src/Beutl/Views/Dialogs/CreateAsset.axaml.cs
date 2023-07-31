@@ -8,7 +8,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Dialogs;
 
-public partial class CreateAsset : ContentDialog, IStyleable
+public partial class CreateAsset : ContentDialog
 {
     private bool _flag;
 
@@ -19,7 +19,7 @@ public partial class CreateAsset : ContentDialog, IStyleable
         MethodsList.AddHandler(PointerReleasedEvent, MethodsList_PointerReleased, RoutingStrategies.Tunnel);
     }
 
-    Type IStyleable.StyleKey => typeof(ContentDialog);
+    protected override Type StyleKeyOverride => typeof(ContentDialog);
 
     protected override void OnPrimaryButtonClick(ContentDialogButtonClickEventArgs args)
     {
@@ -54,10 +54,9 @@ public partial class CreateAsset : ContentDialog, IStyleable
             IReadOnlyList<IStorageFile> result = await parent.StorageProvider.OpenFilePickerAsync(options);
 
             if (result.Count > 0
-                && result[0].TryGetUri(out Uri? uri)
-                && uri.IsFile)
+                && result[0].TryGetLocalPath() is string localPath)
             {
-                viewModel.File.Value = uri.LocalPath;
+                viewModel.File.Value = localPath;
             }
         }
     }

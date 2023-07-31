@@ -10,6 +10,13 @@ internal sealed class RemoveCommand : IRecordableCommand
         Item = item;
         Index = list.IndexOf(Item);
     }
+    
+    public RemoveCommand(IList list, int index)
+    {
+        List = list;
+        Index = index;
+        Item = list[index];
+    }
 
     public IList List { get; }
 
@@ -19,7 +26,6 @@ internal sealed class RemoveCommand : IRecordableCommand
 
     public void Do()
     {
-        Index = List.IndexOf(Item);
         List.RemoveAt(Index);
     }
 

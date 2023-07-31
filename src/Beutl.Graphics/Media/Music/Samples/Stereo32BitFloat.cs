@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Numerics;
+using System.Runtime.InteropServices;
 
 namespace Beutl.Media.Music.Samples;
 
@@ -29,7 +30,7 @@ public struct Stereo32BitFloat : ISample<Stereo32BitFloat>
         return new Stereo32BitFloat(s.Left * level.Left, s.Right * level.Right);
     }
 
-    public static Stereo32BitFloat Compound(Stereo32BitFloat s1,Stereo32BitFloat s2)
+    public static Stereo32BitFloat Compound(Stereo32BitFloat s1, Stereo32BitFloat s2)
     {
         return new Stereo32BitFloat(s1.Left + s2.Left, s1.Right + s2.Right);
     }
@@ -49,4 +50,8 @@ public struct Stereo32BitFloat : ISample<Stereo32BitFloat>
     {
         return 2;
     }
+
+    public static implicit operator Vector2(Stereo32BitFloat s) => new(s.Left, s.Right);
+
+    public static implicit operator Stereo32BitFloat(Vector2 v) => new(v.X, v.Y);
 }

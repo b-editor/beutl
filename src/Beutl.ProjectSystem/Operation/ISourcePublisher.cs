@@ -5,5 +5,5 @@ namespace Beutl.Operation;
 
 public interface ISourcePublisher : ISourceOperator
 {
-    IRenderable? Publish(IClock clock);
+    Renderable? Publish(IClock clock);
 }

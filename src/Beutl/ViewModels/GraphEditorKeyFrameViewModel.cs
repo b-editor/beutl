@@ -50,7 +50,8 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Left = _previous.Select(x => x?.Right ?? Observable.Return(0d))
+        Left = _previous
+            .Select(x => x?.Right ?? _parent.Parent.Margin.Select(x => -x.Left))
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -256,7 +257,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
     public void SubmitCrossed(TimeSpan timeSpan)
     {
-        int rate = _parent.Parent.Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
+        int rate = _parent.Parent.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
         Model.KeyTime = timeSpan.RoundToRate(rate);
     }
 
@@ -266,7 +267,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         IKeyFrameAnimation animation = parent2.Animation;
 
         float scale = parent2.Options.Value.Scale;
-        int rate = parent2.Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
+        int rate = parent2.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
 
         if (_parent.TryConvertFromDouble(Model.Value, EndY.Value / parent2.ScaleY.Value, animation.Property.PropertyType, out object? obj))
         {

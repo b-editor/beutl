@@ -13,7 +13,6 @@ public abstract class SoundEffect : Animatable, IMutableSoundEffect
         IsEnabledProperty = ConfigureProperty<bool, SoundEffect>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
-            .SerializeName("is-enabled")
             .Register();
 
         AffectsRender<SoundEffect>(IsEnabledProperty);
@@ -33,12 +32,6 @@ public abstract class SoundEffect : Animatable, IMutableSoundEffect
     }
 
     public abstract ISoundProcessor CreateProcessor();
-
-    public override void ApplyAnimations(IClock clock)
-    {
-        // SoundEffectはアニメーションに対応しない。
-        //base.ApplyAnimations(clock);
-    }
 
     protected static void AffectsRender<T>(params CoreProperty[] properties)
         where T : SoundEffect

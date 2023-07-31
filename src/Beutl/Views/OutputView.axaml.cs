@@ -24,11 +24,9 @@ public partial class OutputView : UserControl
             };
             IStorageFile? file = await topLevel.StorageProvider.SaveFilePickerAsync(options);
 
-            if (file != null
-                && file.TryGetUri(out Uri? uri)
-                && uri.IsFile)
+            if (file != null && file.TryGetLocalPath() is string localPath)
             {
-                viewModel.DestinationFile.Value = uri.LocalPath;
+                viewModel.DestinationFile.Value = localPath;
                 file.Dispose();
             }
         }

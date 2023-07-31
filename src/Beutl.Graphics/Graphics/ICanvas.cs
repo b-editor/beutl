@@ -1,9 +1,8 @@
-﻿using Beutl.Graphics.Filters;
+﻿using Beutl.Graphics.Effects;
 using Beutl.Media;
 using Beutl.Media.Pixel;
+using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
-
-using SkiaSharp;
 
 namespace Beutl.Graphics;
 
@@ -13,82 +12,41 @@ public interface ICanvas : IDisposable
 
     bool IsDisposed { get; }
 
-    IBrush Foreground { get; set; }
+    BlendMode BlendMode { get; }
 
-    IImageFilter? Filter { get; set; }
-
-    float StrokeWidth { get; set; }
-
-    BlendMode BlendMode { get; set; }
-
-    Matrix Transform { get; set; }
+    Matrix Transform { get; }
 
     void Clear();
 
     void Clear(Color color);
 
-    void ClipRect(Rect clip, ClipOperation operation = ClipOperation.Intersect);
+    void DrawImageSource(IImageSource source, IBrush? fill, IPen? pen);
 
-    void ClipPath(SKPath path, ClipOperation operation = ClipOperation.Intersect);
+    void DrawEllipse(Rect rect, IBrush? fill, IPen? pen);
 
-    void DrawBitmap(IBitmap bmp);
+    void DrawRectangle(Rect rect, IBrush? fill, IPen? pen);
 
-    void DrawCircle(Size size);
+    void DrawGeometry(Geometry geometry, IBrush? fill, IPen? pen);
 
-    void DrawRect(Size size);
-    
-    void DrawText(FormattedText text);
-
-    [Obsolete("Use 'DrawText(FormattedText)'.")]
-    void DrawText(Media.TextFormatting.Compat.TextElement text, Size size);
-
-    void FillCircle(Size size);
-
-    void FillRect(Size size);
+    void DrawText(FormattedText text, IBrush? fill, IPen? pen);
 
     Bitmap<Bgra8888> GetBitmap();
 
+    void Pop(int count = -1);
+
+    PushedState Push();
+
     PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect);
 
-    void PopClip(int level = -1);
-
-    PushedState PushCanvas();
-
-    void PopCanvas(int level = -1);
+    PushedState PushClip(Geometry geometry, ClipOperation operation = ClipOperation.Intersect);
 
     PushedState PushOpacityMask(IBrush mask, Rect bounds, bool invert = false);
 
-    void PopOpacityMask(int level = -1);
-
-    PushedState PushForeground(IBrush brush);
-
-    void PopForeground(int level = -1);
-
-    PushedState PushStrokeWidth(float strokeWidth);
-
-    void PopStrokeWidth(int level = -1);
-
-    PushedState PushFilters(IImageFilter? filter);
-
-    void PopFilters(int level = -1);
+    PushedState PushFilterEffect(FilterEffect effect);
 
     PushedState PushBlendMode(BlendMode blendMode);
 
-    void PopBlendMode(int level = -1);
-
     PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend);
-
-    void PopTransform(int level = -1);
-
-    void RotateDegrees(float degrees);
-
-    void RotateRadians(float radians);
-
-    void Scale(Vector vector);
-
-    void Skew(Vector vector);
-
-    void Translate(Vector vector);
 }
 
 public enum TransformOperator
@@ -97,5 +55,5 @@ public enum TransformOperator
 
     Append,
 
-    Assign
+    Set
 }

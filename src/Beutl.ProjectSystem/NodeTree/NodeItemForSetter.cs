@@ -22,15 +22,15 @@ public sealed class NodeItemForSetter<T> : NodeItem<T>
         return Property as SetterPropertyImpl<T>;
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
         GetProperty()?.ReadFromJson(json);
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
-        GetProperty()?.WriteToJson(ref json);
+        base.WriteToJson(json);
+        GetProperty()?.WriteToJson(json);
     }
 }

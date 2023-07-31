@@ -17,45 +17,39 @@ public sealed partial class Library : UserControl
         InitializeComponent();
         SearchBox.GetObservable(TextBox.TextProperty).Subscribe(SearchQueryChanged);
 
-        NodeTreeView.ItemContainerGenerator.Index!.Materialized += OnItemMaterialized;
-        NodeTreeView.ItemContainerGenerator.Index!.Dematerialized += OnItemDematerialized;
-        OperatorTree.ItemContainerGenerator.Index!.Materialized += OnItemMaterialized;
-        OperatorTree.ItemContainerGenerator.Index!.Dematerialized += OnItemDematerialized;
+        NodeTreeView.ContainerPrepared += OnItemContainerPrepared;
+        NodeTreeView.ContainerClearing += OnItemContainerClearing;
+        OperatorTree.ContainerPrepared += OnItemContainerPrepared;
+        OperatorTree.ContainerClearing += OnItemContainerClearing;
 
-        searchResult.ItemContainerGenerator.Materialized += OnItemMaterialized;
-        searchResult.ItemContainerGenerator.Dematerialized += OnItemDematerialized;
+        searchResult.ContainerPrepared += OnItemContainerPrepared;
+        searchResult.ContainerClearing += OnItemContainerClearing;
 
         itemsControl.AddHandler(PointerPressedEvent, OnEasingsPointerPressed, RoutingStrategies.Tunnel);
         splineEasing.AddHandler(PointerPressedEvent, OnSplineEasingPointerPressed, RoutingStrategies.Tunnel);
     }
 
-    private void OnItemMaterialized(object? sender, ItemContainerEventArgs e)
+    private void OnItemContainerPrepared(object? sender, ContainerPreparedEventArgs e)
     {
-        foreach (ItemContainerInfo item in e.Containers)
+        if (e.Container is TreeViewItem treeItem)
         {
-            if (item.ContainerControl is TreeViewItem treeItem)
-            {
-                treeItem.AddHandler(PointerPressedEvent, TreeViewPointerPressed, RoutingStrategies.Tunnel);
-            }
-            else if (item.ContainerControl is ListBoxItem listItem)
-            {
-                listItem.AddHandler(PointerPressedEvent, ListBoxItemPointerPressed, RoutingStrategies.Tunnel);
-            }
+            treeItem.AddHandler(PointerPressedEvent, TreeViewPointerPressed, RoutingStrategies.Tunnel);
+        }
+        else if (e.Container is ListBoxItem listItem)
+        {
+            listItem.AddHandler(PointerPressedEvent, ListBoxItemPointerPressed, RoutingStrategies.Tunnel);
         }
     }
 
-    private void OnItemDematerialized(object? sender, ItemContainerEventArgs e)
+    private void OnItemContainerClearing(object? sender, ContainerClearingEventArgs e)
     {
-        foreach (ItemContainerInfo item in e.Containers)
+        if (e.Container is TreeViewItem treeItem)
         {
-            if (item.ContainerControl is TreeViewItem treeItem)
-            {
-                treeItem.RemoveHandler(PointerPressedEvent, TreeViewPointerPressed);
-            }
-            else if (item.ContainerControl is ListBoxItem listItem)
-            {
-                listItem.RemoveHandler(PointerPressedEvent, ListBoxItemPointerPressed);
-            }
+            treeItem.RemoveHandler(PointerPressedEvent, TreeViewPointerPressed);
+        }
+        else if (e.Container is ListBoxItem listItem)
+        {
+            listItem.RemoveHandler(PointerPressedEvent, ListBoxItemPointerPressed);
         }
     }
 
@@ -121,12 +115,11 @@ public sealed partial class Library : UserControl
 
     private async void OnEasingsPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (itemsControl.Items is { } items)
+        if (itemsControl.ItemsSource is { } items)
         {
-            int index = 0;
             foreach (object? item in items)
             {
-                IControl? control = itemsControl.ItemContainerGenerator.ContainerFromIndex(index);
+                Control? control = itemsControl.ContainerFromItem(item);
 
                 if (control?.IsPointerOver == true)
                 {
@@ -135,8 +128,6 @@ public sealed partial class Library : UserControl
                     await DragDrop.DoDragDrop(e, data, DragDropEffects.Copy | DragDropEffects.Link);
                     return;
                 }
-
-                index++;
             }
         }
     }
@@ -150,13 +141,13 @@ public sealed partial class Library : UserControl
 
             if (string.IsNullOrWhiteSpace(str))
             {
-                searchResult.Items = viewModel.AllItems;
+                searchResult.ItemsSource = viewModel.AllItems;
                 viewModel.SearchResult.Clear();
             }
             else
             {
                 _cts = new CancellationTokenSource();
-                searchResult.Items = viewModel.SearchResult;
+                searchResult.ItemsSource = viewModel.SearchResult;
                 await viewModel.Search(str, _cts.Token);
             }
         }

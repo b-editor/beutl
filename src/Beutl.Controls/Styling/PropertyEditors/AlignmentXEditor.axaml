@@ -6,7 +6,9 @@
     <Design.PreviewWith>
         <Border Width="300" Height="200">
             <StackPanel>
-                <local:AlignmentXEditor Header="Property1" KeyFrameCount="3" />
+                <local:AlignmentXEditor EditorStyle="ListItem"
+                                        Header="Property1"
+                                        KeyFrameCount="3" />
                 <local:AlignmentYEditor Header="Property2" KeyFrameCount="3" />
             </StackPanel>
         </Border>
@@ -27,7 +29,8 @@
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
                                    ClipToBounds="False"
-                                   Text="{TemplateBinding Header}" />
+                                   Text="{TemplateBinding Header}"
+                                   TextTrimming="CharacterEllipsis" />
 
                         <StackPanel Grid.Column="1"
                                     Margin="4,2"
@@ -121,6 +124,46 @@
             </Setter>
         </Style>
 
+        <Style Selector="^:list-item">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Name="PART_ReorderHandle" Theme="{StaticResource PropertyEditorReorderHandle}" />
+
+                            <StackPanel Grid.Column="1"
+                                        Margin="4,2"
+                                        HorizontalAlignment="Right"
+                                        IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                        Orientation="Horizontal">
+                                <RadioButton Name="PART_LeftRadioButton">
+                                    <icons:SymbolIcon Symbol="AlignLeft" />
+                                </RadioButton>
+                                <RadioButton Name="PART_CenterRadioButton">
+                                    <icons:SymbolIcon Symbol="AlignCenterVertical" />
+                                </RadioButton>
+                                <RadioButton Name="PART_RightRadioButton">
+                                    <icons:SymbolIcon Symbol="AlignRight" />
+                                </RadioButton>
+                            </StackPanel>
+
+                            <Button Name="PART_DeleteButton"
+                                    Grid.Column="2"
+                                    Margin="4,0"
+                                    Padding="0"
+                                    Classes="size-24x24"
+                                    Theme="{StaticResource TransparentButton}">
+                                <icons:SymbolIcon Symbol="Delete" />
+                            </Button>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
         <Style Selector="^ /template/ RadioButton">
             <Setter Property="Padding" Value="12,4" />
             <Setter Property="Theme" Value="{StaticResource LiteNavRadioButton}" />
@@ -146,7 +189,7 @@
 
         <Style Selector="^[KeyFrameCount=0]">
             <Style Selector="^ /template/ StackPanel#LeftRightButtons">
-                <Setter Property="Opacity" Value="0" />
+                <Setter Property="IsVisible" Value="False" />
             </Style>
         </Style>
     </ControlTheme>
@@ -260,6 +303,46 @@
             </Setter>
         </Style>
 
+        <Style Selector="^:list-item">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Name="PART_ReorderHandle" Theme="{StaticResource PropertyEditorReorderHandle}" />
+
+                            <StackPanel Grid.Column="1"
+                                        Margin="4,2"
+                                        HorizontalAlignment="Right"
+                                        IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                        Orientation="Horizontal">
+                                <RadioButton Name="PART_TopRadioButton">
+                                    <icons:SymbolIcon Symbol="AlignTop" />
+                                </RadioButton>
+                                <RadioButton Name="PART_CenterRadioButton">
+                                    <icons:SymbolIcon Symbol="AlignCenterHorizontal" />
+                                </RadioButton>
+                                <RadioButton Name="PART_BottomRadioButton">
+                                    <icons:SymbolIcon Symbol="AlignBottom" />
+                                </RadioButton>
+                            </StackPanel>
+
+                            <Button Name="PART_DeleteButton"
+                                    Grid.Column="2"
+                                    Margin="4,0"
+                                    Padding="0"
+                                    Classes="size-24x24"
+                                    Theme="{StaticResource TransparentButton}">
+                                <icons:SymbolIcon Symbol="Delete" />
+                            </Button>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
         <Style Selector="^ /template/ RadioButton">
             <Setter Property="Padding" Value="12,4" />
             <Setter Property="Theme" Value="{StaticResource LiteNavRadioButton}" />
@@ -285,7 +368,7 @@
 
         <Style Selector="^[KeyFrameCount=0]">
             <Style Selector="^ /template/ StackPanel#LeftRightButtons">
-                <Setter Property="Opacity" Value="0" />
+                <Setter Property="IsVisible" Value="False" />
             </Style>
         </Style>
     </ControlTheme>

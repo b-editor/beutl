@@ -67,6 +67,21 @@ public sealed class SetterPropertyImpl<T> : IAbstractAnimatableProperty<T>
 
     public Type ImplementedType { get; }
 
+    public Type PropertyType => Property.PropertyType;
+
+    public string DisplayName
+    {
+        get
+        {
+            CorePropertyMetadata metadata = Property.GetMetadata<CorePropertyMetadata>(ImplementedType);
+            return metadata.DisplayAttribute?.GetName() ?? Property.Name;
+        }
+    }
+
+    public bool IsReadOnly => false;
+
+    CoreProperty? IAbstractProperty.GetCoreProperty() => Property;
+
     public IObservable<T?> GetObservable()
     {
         return Setter;
@@ -82,32 +97,33 @@ public sealed class SetterPropertyImpl<T> : IAbstractAnimatableProperty<T>
         Setter.Value = value;
     }
 
-    public void WriteToJson(ref JsonNode json)
+    public void WriteToJson(JsonObject json)
     {
-        CorePropertyMetadata? metadata = Property.GetMetadata<CorePropertyMetadata>(ImplementedType);
-        json["property"] = metadata.SerializeName ?? Property.Name;
-        json["target"] = TypeFormat.ToString(ImplementedType);
+        json[nameof(Property)] = Property.Name;
+        json["Target"] = TypeFormat.ToString(ImplementedType);
 
-        json["setter"] = StyleSerializer.ToJson(Setter, ImplementedType).Item2;
+        json[nameof(Setter)] = StyleSerializer.ToJson(Setter, ImplementedType).Item2;
     }
 
-    public void ReadFromJson(JsonNode json)
+    public void ReadFromJson(JsonObject json)
     {
-        if (json is JsonObject obj)
+        if (json.TryGetPropertyValue(nameof(Setter), out JsonNode? setterNode)
+            && setterNode != null)
         {
-            if (obj.TryGetPropertyValue("setter", out JsonNode? setterNode)
-                && setterNode != null)
+            if (StyleSerializer.ToSetter(setterNode, Property.Name, ImplementedType) is Setter<T> setter)
             {
-                if (StyleSerializer.ToSetter(setterNode, Property.Name, ImplementedType) is Setter<T> setter)
+                if (setter.Animation != null)
                 {
-                    if (setter.Animation != null)
-                    {
-                        Setter.Animation = setter.Animation;
-                    }
-
-                    Setter.Value = setter.Value;
+                    Setter.Animation = setter.Animation;
                 }
+
+                Setter.Value = setter.Value;
             }
         }
+    }
+
+    public object? GetDefaultValue()
+    {
+        return Property.GetMetadata<ICorePropertyMetadata>(ImplementedType).GetDefaultValue();
     }
 }

@@ -53,7 +53,7 @@
 
                 <ctrls:OptionsDisplayItem.ActionButton>
                     <ComboBox MinWidth="250"
-                              Items="{CompiledBinding Cultures}"
+                              ItemsSource="{CompiledBinding Cultures}"
                               SelectedItem="{CompiledBinding SelectedLanguage.Value}">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>

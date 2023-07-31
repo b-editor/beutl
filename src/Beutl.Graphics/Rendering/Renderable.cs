@@ -3,10 +3,14 @@ using Beutl.Styling;
 
 namespace Beutl.Rendering;
 
-public abstract class Renderable : Styleable, IRenderable, IAffectsRender
+public abstract class Renderable : Styleable, IAffectsRender
 {
     public static readonly CoreProperty<bool> IsVisibleProperty;
+    public static readonly CoreProperty<int> ZIndexProperty;
+    public static readonly CoreProperty<TimeRange> TimeRangeProperty;
     private bool _isVisible = true;
+    private int _zIndex;
+    private TimeRange _timeRange;
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
@@ -14,8 +18,15 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
     {
         IsVisibleProperty = ConfigureProperty<bool, Renderable>(nameof(IsVisible))
             .Accessor(o => o.IsVisible, (o, v) => o.IsVisible = v)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .DefaultValue(true)
+            .Register();
+
+        ZIndexProperty = ConfigureProperty<int, Renderable>(nameof(ZIndex))
+            .Accessor(o => o.ZIndex, (o, v) => o.ZIndex = v)
+            .Register();
+
+        TimeRangeProperty = ConfigureProperty<TimeRange, Renderable>(nameof(TimeRange))
+            .Accessor(o => o.TimeRange, (o, v) => o.TimeRange = v)
             .Register();
 
         AffectsRender<Renderable>(IsVisibleProperty);
@@ -27,9 +38,23 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
         set => SetAndRaise(IsVisibleProperty, ref _isVisible, value);
     }
 
+    public int ZIndex
+    {
+        get => _zIndex;
+        set => SetAndRaise(ZIndexProperty, ref _zIndex, value);
+    }
+
+    public TimeRange TimeRange
+    {
+        get => _timeRange;
+        set => SetAndRaise(TimeRangeProperty, ref _timeRange, value);
+    }
+
+    internal int Version { get; private set; }
+
     private void AffectsRender_Invalidated(object? sender, RenderInvalidatedEventArgs e)
     {
-        Invalidated?.Invoke(this, e);
+        RaiseInvalidated(e);
     }
 
     protected static void AffectsRender<T>(params CoreProperty[] properties)
@@ -41,7 +66,7 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
             {
                 if (e.Sender is T s)
                 {
-                    s.Invalidated?.Invoke(s, new RenderInvalidatedEventArgs(s, e.Property.Name));
+                    s.RaiseInvalidated(new RenderInvalidatedEventArgs(s, e.Property.Name));
 
                     if (e.OldValue is IAffectsRender oldAffectsRender)
                     {
@@ -59,8 +84,15 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
 
     public void Invalidate()
     {
-        Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(this));
+        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
     }
 
-    public abstract void Render(IRenderer renderer);
+    protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
+    {
+        Invalidated?.Invoke(this, args);
+        unchecked
+        {
+            Version++;
+        }
+    }
 }

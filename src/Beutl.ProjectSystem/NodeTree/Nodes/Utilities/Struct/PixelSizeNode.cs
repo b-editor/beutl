@@ -1,4 +1,6 @@
-﻿using Beutl.Language;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Language;
 using Beutl.Media;
 
 namespace Beutl.NodeTree.Nodes.Utilities.Struct;
@@ -7,15 +9,11 @@ public class PixelSizeNode : Node
 {
     private static readonly CoreProperty<int> WidthProperty
         = ConfigureProperty<int, PixelSizeNode>(o => o.Width)
-            .Display(Strings.Width)
             .DefaultValue(0)
-            .SerializeName("width")
             .Register();
     private static readonly CoreProperty<int> HeightProperty
         = ConfigureProperty<int, PixelSizeNode>(o => o.Height)
-            .Display(Strings.Height)
             .DefaultValue(0)
-            .SerializeName("height")
             .Register();
     private readonly OutputSocket<PixelSize> _valueSocket;
     private readonly InputSocket<int> _widthSocket;
@@ -28,12 +26,14 @@ public class PixelSizeNode : Node
         _heightSocket = AsInput(HeightProperty).AcceptNumber();
     }
 
+    [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
     private int Width
     {
         get => 0;
         set { }
     }
 
+    [Display(Name = nameof(Strings.Height), ResourceType = typeof(Strings))]
     private int Height
     {
         get => 0;

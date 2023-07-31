@@ -50,9 +50,8 @@ public partial class ImageSourceEditor : UserControl
 
         IReadOnlyList<IStorageFile> result = await topLevel.StorageProvider.OpenFilePickerAsync(options);
         if (result.Count > 0
-            && result[0].TryGetUri(out Uri? uri)
-            && uri.IsFile
-            && MediaSourceManager.Shared.OpenImageSource(uri.LocalPath, out IImageSource? imageSource))
+            && result[0].TryGetLocalPath() is string localPath
+            && MediaSourceManager.Shared.OpenImageSource(localPath, out IImageSource? imageSource))
         {
             IImageSource? oldValue = vm.WrappedProperty.GetValue();
             vm.SetValue(oldValue, imageSource);

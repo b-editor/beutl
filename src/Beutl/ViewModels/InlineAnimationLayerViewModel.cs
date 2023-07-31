@@ -11,25 +11,38 @@ namespace Beutl.ViewModels;
 
 public sealed class InlineAnimationLayerViewModel<T> : InlineAnimationLayerViewModel
 {
-    public InlineAnimationLayerViewModel(IAbstractAnimatableProperty<T> property, TimelineViewModel timeline, TimelineLayerViewModel layer)
+    public InlineAnimationLayerViewModel(IAbstractAnimatableProperty<T> property, TimelineViewModel timeline, ElementViewModel layer)
         : base(property, timeline, layer)
     {
     }
 
+    private TimeSpan ConvertKeyTime(TimeSpan globalkeyTime, IAnimation animation)
+    {
+        TimeSpan localKeyTime = globalkeyTime - Layer.Model.Start;
+        TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
+
+        int rate = Timeline.Scene?.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+
+        return keyTime.RoundToRate(rate);
+    }
+
     public override void InsertKeyFrame(Easing easing, TimeSpan keyTime)
     {
-        if (Property.Animation is KeyFrameAnimation<T> kfAnimation
-            && !kfAnimation.KeyFrames.Any(x => x.KeyTime == keyTime))
+        if (Property.Animation is KeyFrameAnimation<T> kfAnimation)
         {
-            var keyframe = new KeyFrame<T>()
+            keyTime = ConvertKeyTime(keyTime, kfAnimation);
+            if (!kfAnimation.KeyFrames.Any(x => x.KeyTime == keyTime))
             {
-                Value = kfAnimation.Interpolate(keyTime),
-                Easing = easing,
-                KeyTime = keyTime
-            };
+                var keyframe = new KeyFrame<T>()
+                {
+                    Value = kfAnimation.Interpolate(keyTime),
+                    Easing = easing,
+                    KeyTime = keyTime
+                };
 
-            var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe);
-            command.DoAndRecord(CommandRecorder.Default);
+                var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe);
+                command.DoAndRecord(CommandRecorder.Default);
+            }
         }
     }
 
@@ -64,19 +77,25 @@ public sealed class InlineAnimationLayerViewModel<T> : InlineAnimationLayerViewM
 public abstract class InlineAnimationLayerViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _innerDisposables = new();
+    private readonly ReactivePropertySlim<bool> _useGlobalClock = new(true);
     private LayerHeaderViewModel? _lastLayerHeader;
-    private IDisposable? _innerDisposable;
 
     protected InlineAnimationLayerViewModel(
         IAbstractAnimatableProperty property,
         TimelineViewModel timeline,
-        TimelineLayerViewModel layer)
+        ElementViewModel layer)
     {
         Property = property;
         Timeline = timeline;
         Layer = layer;
 
         Layer.LayerHeader.Subscribe(OnLayerHeaderChanged).DisposeWith(_disposables);
+
+        LeftMargin = _useGlobalClock.Select(v => !v ? layer.BorderMargin : Observable.Return<Thickness>(default))
+            .Switch()
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
 
         Margin = new TrackedInlineLayerTopObservable(this)
             .Select(x => new Thickness(0, x, 0, 0))
@@ -88,8 +107,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         // Widthプロパティを構成
         Timeline.Options.Subscribe(_ => UpdateWidth()).DisposeWith(_disposables);
 
-        CorePropertyMetadata metadata = property.Property.GetMetadata<CorePropertyMetadata>(property.ImplementedType);
-        Header = metadata.DisplayAttribute?.GetName() ?? property.Property.Name;
+        Header = property.DisplayName;
 
         Close = new ReactiveCommand()
             .WithSubscribe(() => Timeline.DetachInline(this))
@@ -101,8 +119,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                 if (t.OldValue != null)
                 {
                     t.OldValue.Invalidated -= OnAnimationInvalidated;
-                    _innerDisposable?.Dispose();
-                    _innerDisposable = null;
+                    _innerDisposables.Clear();
                     ClearItems();
                 }
 
@@ -111,7 +128,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                     t.NewValue.Invalidated += OnAnimationInvalidated;
                     if (t.NewValue is IKeyFrameAnimation kfAnimation)
                     {
-                        _innerDisposable = kfAnimation.KeyFrames.ForEachItem(
+                        kfAnimation.KeyFrames.ForEachItem(
                             (idx, item) => Items.Insert(idx, new InlineKeyFrameViewModel(item, kfAnimation, this)),
                             (idx, _) =>
                             {
@@ -119,24 +136,31 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                                 item.Dispose();
                                 Items.RemoveAt(idx);
                             },
-                            ClearItems);
+                            ClearItems)
+                            .DisposeWith(_innerDisposables);
                     }
+
+                    ((CoreObject)t.NewValue).GetObservable(KeyFrameAnimation.UseGlobalClockProperty)
+                        .Subscribe(v => _useGlobalClock.Value = v)
+                        .DisposeWith(_innerDisposables);
                 }
             })
             .DisposeWith(_disposables);
     }
 
-    public Func<Thickness, CancellationToken, Task>? AnimationRequested { get; set; }
+    public Func<Thickness, Thickness, CancellationToken, Task>? AnimationRequested { get; set; }
 
     public IAbstractAnimatableProperty Property { get; }
 
     public TimelineViewModel Timeline { get; }
 
-    public TimelineLayerViewModel Layer { get; }
+    public ElementViewModel Layer { get; }
 
     public CoreList<InlineKeyFrameViewModel> Items { get; } = new();
 
     public ReactiveProperty<Thickness> Margin { get; }
+
+    public ReactiveProperty<Thickness> LeftMargin { get; }
 
     public ReactivePropertySlim<double> Width { get; } = new();
 
@@ -170,29 +194,33 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public PrepareAnimationContext PrepareAnimation()
     {
-        return new PrepareAnimationContext(Margin.Value);
+        return new PrepareAnimationContext(Margin.Value, LeftMargin.Value);
     }
 
-    public async void AnimationRequest(PrepareAnimationContext context, Thickness layerMargin, CancellationToken cancellationToken = default)
+    public async void AnimationRequest(PrepareAnimationContext context, Thickness layerMargin, Thickness leftMargin, CancellationToken cancellationToken = default)
     {
         if (LayerHeader.Value is { } layerHeader)
         {
             Index.Value = layerHeader.Inlines.IndexOf(this);
             double top = layerHeader.CalculateInlineTop(Index.Value) + Helper.LayerHeight;
             Thickness newMargin = new Thickness(0, top, 0, 0) + layerMargin;
+            Thickness newLeftMargin = Property.Animation?.UseGlobalClock == true ? default : leftMargin;
 
             Margin.Value = context.Margin;
+            LeftMargin.Value = context.LeftMargin;
             if (AnimationRequested != null)
             {
-                await AnimationRequested(newMargin, cancellationToken);
+                await AnimationRequested(newMargin, newLeftMargin, cancellationToken);
             }
+
             Margin.Value = newMargin;
+            LeftMargin.Value = newLeftMargin;
         }
     }
 
     public void Dispose()
     {
-        _innerDisposable?.Dispose();
+        _innerDisposables?.Dispose();
         _disposables.Dispose();
         if (Property.Animation != null)
             Property.Animation.Invalidated -= OnAnimationInvalidated;
@@ -212,7 +240,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         Items.Clear();
     }
 
-    public record struct PrepareAnimationContext(Thickness Margin);
+    public record struct PrepareAnimationContext(Thickness Margin, Thickness LeftMargin);
 
     private sealed class TrackedInlineLayerTopObservable : LightweightObservableBase<double>
     {

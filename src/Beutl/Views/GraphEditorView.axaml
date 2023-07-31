@@ -81,7 +81,7 @@
                         </MenuItem>
                         <MenuItem Header="ビュー"
                                   IsEnabled="{Binding !!Views.Length}"
-                                  Items="{Binding Views}"
+                                  ItemsSource="{Binding Views}"
                                   MenuItem.Click="SelectedView_Click">
                             <!--  https://github.com/AvaloniaUI/Avalonia/issues/9696
                             <MenuItem.ItemTemplate>
@@ -106,6 +106,19 @@
                                 </DataTemplate>
                             </MenuItem.DataTemplates>
                         </MenuItem>
+                        <MenuItem Classes.checked="{Binding UseGlobalClock.Value}"
+                                  Click="UseGlobalClock_Click"
+                                  Header="グローバル時計を使う">
+                            <MenuItem.Styles>
+                                <Style Selector="MenuItem.checked">
+                                    <Setter Property="Icon">
+                                        <Template>
+                                            <ui:SymbolIcon Symbol="Checkmark" />
+                                        </Template>
+                                    </Setter>
+                                </Style>
+                            </MenuItem.Styles>
+                        </MenuItem>
                     </ContextMenu>
                 </Panel.ContextMenu>
 
@@ -121,9 +134,11 @@
 
                 <!--  Vector, Pointなど複数の値を持つ型のためにビューを分ける  -->
                 <ItemsControl x:Name="views"
+                              Margin="{Binding Margin.Value}"
                               HorizontalAlignment="Stretch"
                               VerticalAlignment="Stretch"
-                              Items="{Binding Views}">
+                              ClipToBounds="False"
+                              ItemsSource="{Binding Views}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <Panel />
@@ -141,7 +156,8 @@
                                 <!--  イージングの線  -->
                                 <ItemsControl HorizontalAlignment="Left"
                                               VerticalAlignment="Stretch"
-                                              Items="{Binding KeyFrames}">
+                                              ClipToBounds="False"
+                                              ItemsSource="{Binding KeyFrames}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <Panel />
@@ -166,7 +182,7 @@
                                               VerticalAlignment="Stretch"
                                               ClipToBounds="False"
                                               IsVisible="{Binding IsSelected.Value}"
-                                              Items="{Binding KeyFrames}">
+                                              ItemsSource="{Binding KeyFrames}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <Panel />

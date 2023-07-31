@@ -8,15 +8,23 @@ using Beutl.Operation;
 using DynamicData;
 
 using Reactive.Bindings;
+using Beutl.ViewModels.Editors;
+using Microsoft.CodeAnalysis;
 
 namespace Beutl.ViewModels.Tools;
 
-public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContextVisitor, IProvideEditViewModel
+public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider
 {
-    public SourceOperatorViewModel(SourceOperator model, EditViewModel editViewModel)
+    private SourceOperatorsTabViewModel _parent;
+
+    public SourceOperatorViewModel(SourceOperator model, SourceOperatorsTabViewModel parent)
     {
         Model = model;
-        EditViewModel = editViewModel;
+        _parent = parent;
+        IsEnabled = model.GetObservable(SourceOperator.IsEnabledProperty)
+            .ToReactiveProperty();
+        IsEnabled.Subscribe(v => Model.IsEnabled = v);
+
         Init();
 
         model.Properties.CollectionChanged += Properties_CollectionChanged;
@@ -33,11 +41,11 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
         Init();
     }
 
-    public SourceOperator Model { get; }
-
-    public EditViewModel EditViewModel { get; }
+    public SourceOperator Model { get; private set; }
 
     public ReactiveProperty<bool> IsExpanded { get; } = new(true);
+
+    public ReactiveProperty<bool> IsEnabled { get; }
 
     public CoreList<IPropertyEditorContext?> Properties { get; } = new();
 
@@ -59,7 +67,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
                 {
                     if (context != null && node != null)
                     {
-                        context.ReadFromJson(node);
+                        context.ReadFromJson(node.AsObject());
                     }
                 }
             }
@@ -78,8 +86,8 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
             }
             else
             {
-                JsonNode node = new JsonObject();
-                item.WriteToJson(ref node);
+                var node = new JsonObject();
+                item.WriteToJson(node);
                 array.Add(node);
             }
         }
@@ -98,13 +106,18 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
         {
             item?.Dispose();
         }
+        Properties.Clear();
+        IsEnabled.Dispose();
+
+        Model = null!;
+        _parent = null!;
     }
 
     private void Init()
     {
-        List<CoreProperty> props = Model.Properties.Select(x => x.Property).ToList();
-        Properties.EnsureCapacity(props.Count);
-        CoreProperty[]? foundItems;
+        List<IAbstractProperty> props = Model.Properties.ToList();
+        var tempItems = new List<IPropertyEditorContext?>(props.Count);
+        IAbstractProperty[]? foundItems;
         PropertyEditorExtension? extension;
 
         do
@@ -112,25 +125,55 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
             (foundItems, extension) = PropertyEditorService.MatchProperty(props);
             if (foundItems != null && extension != null)
             {
-                var tmp = new IAbstractProperty[foundItems.Length];
-                for (int i = 0; i < foundItems.Length; i++)
+                if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))
                 {
-                    CoreProperty item = foundItems[i];
-                    tmp[i] = Model.Properties.First(x => x.Property.Id == item.Id);
-                }
-
-                if (extension.TryCreateContext(tmp, out IPropertyEditorContext? context))
-                {
-                    Properties.Add(context);
+                    tempItems.Add(context);
                     context.Accept(this);
                 }
 
                 props.RemoveMany(foundItems);
             }
         } while (foundItems != null && extension != null);
+
+        foreach ((string? Key, IPropertyEditorContext?[] Value) group in tempItems.GroupBy(x =>
+            {
+                if (x is BaseEditorViewModel { WrappedProperty: { } abProperty }
+                    && abProperty.GetCoreProperty() is { } coreProperty
+                    && coreProperty.TryGetMetadata<CorePropertyMetadata>(abProperty.ImplementedType, out var metadata))
+                {
+                    return metadata.DisplayAttribute?.GetGroupName();
+                }
+                else
+                {
+                    return null;
+                }
+            })
+            .Select(x => (x.Key, x.ToArray())))
+        {
+            if (group.Key != null)
+            {
+                IPropertyEditorContext?[] array = group.Value;
+                if (array.Length >= 1)
+                {
+                    int index = tempItems.IndexOf(array[0]);
+                    tempItems.RemoveMany(array);
+                    tempItems.Insert(index, new PropertyEditorGroupContext(array, group.Key));
+                }
+            }
+        }
+
+        Properties.AddRange(tempItems);
     }
 
     public void Visit(IPropertyEditorContext context)
     {
+    }
+
+    public object? GetService(Type serviceType)
+    {
+        if (serviceType == typeof(SourceOperator))
+            return Model;
+
+        return _parent.GetService(serviceType);
     }
 }

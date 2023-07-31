@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
+using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
@@ -45,10 +46,7 @@ public sealed class TimelineScale : Control
     public TimelineScale()
     {
         ClipToBounds = true;
-        _pen = new Pen()
-        {
-            Brush = _brush
-        };
+        _pen = new Pen(_brush, 1);
     }
 
     public float Scale
@@ -75,9 +73,9 @@ public sealed class TimelineScale : Control
         set => SetAndRaise(SeekBarMarginProperty, ref _seekBarMargin, value);
     }
 
-    protected override void OnLoaded()
+    protected override void OnLoaded(RoutedEventArgs e)
     {
-        base.OnLoaded();
+        base.OnLoaded(e);
         _disposable = this.GetResourceObservable("TextControlForeground").Subscribe(b =>
         {
             if (b is IBrush brush)
@@ -89,15 +87,16 @@ public sealed class TimelineScale : Control
         });
     }
 
-    protected override void OnUnloaded()
+    protected override void OnUnloaded(RoutedEventArgs e)
     {
-        base.OnUnloaded();
+        base.OnUnloaded(e);
         _disposable?.Dispose();
     }
 
     public override void Render(DrawingContext context)
     {
         base.Render(context);
+
         const int top = 16;
 
         double width = Bounds.Width;
@@ -111,7 +110,7 @@ public sealed class TimelineScale : Control
         double l = viewport.Width + viewport.X;
 
         double originX = Math.Floor(viewport.X / inc) * inc;
-        using (context.PushPreTransform(Matrix.CreateTranslation(-viewport.X, 0)))
+        using (context.PushTransform(Matrix.CreateTranslation(-viewport.X, 0)))
         {
             context.FillRectangle(Brushes.Transparent, viewport);
             for (double x = originX; x < l; x += inc)
@@ -123,8 +122,8 @@ public sealed class TimelineScale : Control
                     context.DrawLine(_pen, new(x, 5), new(x, height));
                 }
 
-                var text = new TextLayout(time.ToString("hh\\:mm\\:ss\\.ff"), s_typeface, 13, _brush);
-                Rect textbounds = text.Bounds.WithX(x + 8);
+                using var text = new TextLayout(time.ToString("hh\\:mm\\:ss\\.ff"), s_typeface, 13, _brush);
+                var textbounds = new Rect(x + 8, 0, text.Width, text.Height);
 
                 if (viewport.Intersects(textbounds) && (recentPix == 0d || (x + 8) > recentPix))
                 {
@@ -148,15 +147,9 @@ public sealed class TimelineScale : Control
             var endingbar = new Point(_endingBarMargin.Left, 0);
             var bottom = new Point(0, height);
 
-            _pen.Thickness = 1.25;
-            _pen.Brush = Brushes.Red;
-            context.DrawLine(_pen, seekbar, seekbar + bottom);
+            context.DrawLine(TimelineSharedObject.RedPen, seekbar, seekbar + bottom);
 
-            _pen.Brush = Brushes.Blue;
-            context.DrawLine(_pen, endingbar, endingbar + bottom);
-
-            _pen.Thickness = 1;
-            _pen.Brush = _brush;
+            context.DrawLine(TimelineSharedObject.BluePen, endingbar, endingbar + bottom);
         }
     }
 }

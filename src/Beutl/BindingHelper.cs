@@ -28,7 +28,7 @@ internal static class BindingHelper
         }
 
         public InstancedBinding? Initiate(
-            IAvaloniaObject target,
+            AvaloniaObject target,
             AvaloniaProperty? targetProperty,
             object? anchor = null,
             bool enableDataValidation = false)
@@ -39,7 +39,7 @@ internal static class BindingHelper
 
             return bindingMode switch
             {
-                BindingMode.TwoWay => InstancedBinding.TwoWay(_source),
+                BindingMode.TwoWay => InstancedBinding.TwoWay(_source, _source),
                 BindingMode.OneTime => InstancedBinding.OneTime(_property.Value!),
                 BindingMode.OneWayToSource => InstancedBinding.OneWayToSource(_source),
                 _ => InstancedBinding.OneWay(_source),

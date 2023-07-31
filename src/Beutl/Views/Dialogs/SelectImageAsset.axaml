@@ -27,7 +27,7 @@
         <ui:CommandBar DefaultLabelPosition="Right">
             <ui:CommandBar.PrimaryCommands>
                 <ui:CommandBarButton Click="UploadImage_Click"
-                                     Icon="Add"
+                                     IconSource="Add"
                                      Label="{x:Static lang:Strings.Add}" />
             </ui:CommandBar.PrimaryCommands>
         </ui:CommandBar>
@@ -36,7 +36,7 @@
         <ListBox x:Name="ListBox"
                  Grid.Row="1"
                  IsVisible="{Binding !!Items.Count}"
-                 Items="{Binding Items}"
+                 ItemsSource="{Binding Items}"
                  SelectedItem="{Binding SelectedItem.Value}">
             <ListBox.ItemsPanel>
                 <ItemsPanelTemplate>

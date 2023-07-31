@@ -51,6 +51,11 @@ public sealed class TextEditorContext : IEditorContext
         return default;
     }
 
+    public object? GetService(Type serviceType)
+    {
+        return null;
+    }
+
     public bool OpenToolTab(IToolContext item)
     {
         return false;
@@ -77,14 +82,14 @@ public sealed class TextEditorContext : IEditorContext
     }
 }
 
-public class TextEditor : TextBox, IEditor, IStyleable
+public class TextEditor : TextBox
 {
     public TextEditor()
     {
         this[!TextProperty] = new Binding("Text.Value", BindingMode.TwoWay);
     }
 
-    Type IStyleable.StyleKey => typeof(TextBox);
+    protected override Type StyleKeyOverride => typeof(TextBox);
 
     public void Close()
     {
@@ -133,7 +138,7 @@ public sealed class SampleEditorExtension : EditorExtension
         }
     }
 
-    public override bool TryCreateEditor(string file, [NotNullWhen(true)] out IEditor? editor)
+    public override bool TryCreateEditor(string file, [NotNullWhen(true)] out Control? editor)
     {
         editor = null;
         if (file.EndsWith(".txt") || file.EndsWith(".scene"))

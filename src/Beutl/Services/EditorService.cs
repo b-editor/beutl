@@ -26,14 +26,14 @@ public sealed class EditorTabItem : IDisposable
     public EditorTabItem(IEditorContext context, TabOpenMode tabOpenMode)
     {
         Context = new ReactiveProperty<IEditorContext>(context);
-        FilePath = Context.Select(ctxt => ctxt.EdittingFile)
-            .ToReadOnlyReactivePropertySlim(context.EdittingFile);
-        FileName = Context.Select(ctxt => Path.GetFileName(ctxt.EdittingFile))
-            .ToReadOnlyReactivePropertySlim(Path.GetFileName(context.EdittingFile));
-        Extension = Context.Select(ctxt => ctxt.Extension)
-            .ToReadOnlyReactivePropertySlim(context.Extension);
-        Commands = Context.Select(ctxt => ctxt.Commands)
-            .ToReadOnlyReactivePropertySlim(context.Commands);
+        FilePath = Context.Select(ctxt => ctxt?.EdittingFile!)
+            .ToReadOnlyReactivePropertySlim()!;
+        FileName = Context.Select(ctxt => Path.GetFileName(ctxt?.EdittingFile)!)
+            .ToReadOnlyReactivePropertySlim()!;
+        Extension = Context.Select(ctxt => ctxt?.Extension!)
+            .ToReadOnlyReactivePropertySlim()!;
+        Commands = Context.Select(ctxt => ctxt?.Commands)
+            .ToReadOnlyReactivePropertySlim();
         TabOpenMode = tabOpenMode;
     }
 
@@ -56,6 +56,8 @@ public sealed class EditorTabItem : IDisposable
     public void Dispose()
     {
         Context.Value.Dispose();
+        Context.Value = null!;
+
         Context.Dispose();
         FilePath.Dispose();
         FileName.Dispose();

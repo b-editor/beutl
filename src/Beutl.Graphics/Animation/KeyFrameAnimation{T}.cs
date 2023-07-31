@@ -17,7 +17,19 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
 
     public override void ApplyAnimation(Animatable target, IClock clock)
     {
-        target.SetValue(Property, Interpolate(clock.CurrentTime));
+        if (UseGlobalClock)
+        {
+            target.SetValue(Property, Interpolate(clock.GlobalClock.CurrentTime));
+        }
+        else
+        {
+            target.SetValue(Property, Interpolate(clock.CurrentTime));
+        }
+    }
+
+    public T GetAnimatedValue(IClock clock)
+    {
+        return Interpolate(UseGlobalClock ? clock.GlobalClock.CurrentTime : clock.CurrentTime);
     }
 
     public T Interpolate(TimeSpan timeSpan)
@@ -31,6 +43,11 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
             T nextValue = next2.Value;
             TimeSpan prevTime = prev?.KeyTime ?? TimeSpan.Zero;
             TimeSpan nextTime = next.KeyTime;
+            // Zero除算になるので
+            if (nextTime == prevTime)
+            {
+                return nextValue;
+            }
 
             float progress = (float)((timeSpan - prevTime) / (nextTime - prevTime));
             float ease = next.Easing.Ease(progress);
@@ -48,41 +65,38 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
         }
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject obj)
+        if (json.TryGetPropertyValue(nameof(KeyFrames), out JsonNode? keyframesNode)
+            && keyframesNode is JsonArray keyframesArray)
         {
-            if (obj.TryGetPropertyValue("keyframes", out JsonNode? keyframesNode)
-                && keyframesNode is JsonArray keyframesArray)
-            {
-                KeyFrames.Clear();
-                KeyFrames.EnsureCapacity(keyframesArray.Count);
+            KeyFrames.Clear();
+            KeyFrames.EnsureCapacity(keyframesArray.Count);
 
-                foreach (JsonObject childJson in keyframesArray.OfType<JsonObject>())
-                {
-                    var item = new KeyFrame<T>();
-                    item.ReadFromJson(childJson);
-                    KeyFrames.Add(item);
-                }
+            foreach (JsonObject childJson in keyframesArray.OfType<JsonObject>())
+            {
+                var item = new KeyFrame<T>();
+                item.ReadFromJson(childJson);
+                KeyFrames.Add(item);
             }
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
+        base.WriteToJson(json);
 
         var array = new JsonArray();
 
         foreach (KeyFrame<T> item in KeyFrames.GetMarshal().Value)
         {
-            JsonNode node = new JsonObject();
-            item.WriteToJson(ref node);
+            var itemJson = new JsonObject();
+            item.WriteToJson(itemJson);
 
-            array.Add(node);
+            array.Add(itemJson);
         }
 
-        json["keyframes"] = array;
+        json[nameof(KeyFrames)] = array;
     }
 }

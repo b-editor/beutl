@@ -99,17 +99,17 @@
 
                 <Player x:Name="Player"
                         Grid.Column="2"
-                        CurrentTime="{Binding Scene.CurrentFrame, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
+                        CurrentTime="{CompiledBinding Player.CurrentFrame.Value, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
                         EndButtonCommand="{CompiledBinding Player.End}"
                         IsPlaying="{CompiledBinding Player.IsPlaying.Value, Mode=TwoWay}"
-                        Maximum="{Binding Scene.Duration, Converter={StaticResource TimeSpanToDoubleConverter}}"
+                        Maximum="{CompiledBinding Player.Duration.Value, Converter={StaticResource TimeSpanToDoubleConverter}}"
                         NextButtonCommand="{CompiledBinding Player.Next}"
                         PlayButtonCommand="{CompiledBinding Player.PlayPause}"
                         PreviousButtonCommand="{CompiledBinding Player.Previous}"
                         Source="{CompiledBinding Player.PreviewImage.Value, Mode=OneWay}"
                         StartButtonCommand="{CompiledBinding Player.Start}"
-                        Value="{Binding Scene.CurrentFrame, Converter={StaticResource TimeSpanToDoubleConverter}}"
-                        Duration="{Binding Scene.Duration, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}" />
+                        Value="{CompiledBinding Player.CurrentFrame.Value, Converter={StaticResource TimeSpanToDoubleConverter}}"
+                        Duration="{CompiledBinding Player.Duration.Value, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}" />
             </Grid>
 
             <GridSplitter Grid.Row="1" Classes="EditViewSplitter" />

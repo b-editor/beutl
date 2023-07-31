@@ -23,9 +23,9 @@ public sealed class UpdatePackageDialogViewModel
             {
                 IsFileLoading.Value = true;
                 LocalPackage.Value = null;
-                if (file?.CanOpenRead == true && file.TryGetUri(out Uri? uri))
+                if (file?.TryGetLocalPath() is string localPath)
                 {
-                    string ext = Path.GetExtension(uri.OriginalString);
+                    string ext = Path.GetExtension(localPath);
                     bool nuspec = ext is ".nuspec";
 
                     using (Stream stream = await file.OpenReadAsync().ConfigureAwait(false))

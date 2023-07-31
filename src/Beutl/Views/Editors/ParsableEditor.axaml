@@ -10,7 +10,7 @@
              x:DataType="vm:IParsableEditorViewModel"
              mc:Ignorable="d">
     <Grid ColumnDefinitions="2*,3*,Auto">
-        <TextBlock Margin="4,10,0,0"
+        <TextBlock Margin="8,10,0,0"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Top"
                    Text="{Binding Header}" />

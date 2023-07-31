@@ -2,8 +2,8 @@
 
 public static class Constants
 {
-    public const string Layer = "BeutlLayerJson";
-    public const string LayerFileExtension = "layer";
+    public const string Element = "BeutlElementJson";
+    public const string ElementFileExtension = "belm";
     public const string SceneFileExtension = "scene";
     public const string ProjectFileExtension = "bep";
     public const string BeutlFolder = ".beutl";

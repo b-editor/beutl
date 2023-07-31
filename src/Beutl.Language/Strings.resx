@@ -282,11 +282,11 @@
   <data name="Color" xml:space="preserve">
     <value>Color</value>
   </data>
-  <data name="Layer" xml:space="preserve">
-    <value>Layer</value>
+  <data name="Element" xml:space="preserve">
+    <value>Element</value>
   </data>
-  <data name="AddLayer" xml:space="preserve">
-    <value>Add Layer</value>
+  <data name="AddElement" xml:space="preserve">
+    <value>Add Element</value>
   </data>
   <data name="Location" xml:space="preserve">
     <value>Location</value>
@@ -762,5 +762,8 @@ and b-editor maintains the download URL.</value>
   </data>
   <data name="NodeTree" xml:space="preserve">
     <value>Node Tree</value>
+  </data>
+  <data name="Fill" xml:space="preserve">
+    <value>Fill</value>
   </data>
 </root>

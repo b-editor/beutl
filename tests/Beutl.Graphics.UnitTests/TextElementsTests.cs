@@ -32,7 +32,7 @@ public class TextElementsTests
         var tokenizer = new FormattedTextTokenizer(str);
         tokenizer.Tokenize();
 
-        var options = new FormattedTextInfo(typeface, 100, Colors.Black, 0, default);
+        var options = new FormattedTextInfo(typeface, 100, Colors.Black, 0, default, null);
         var builder = new TextElementsBuilder(options);
         builder.AppendTokens(CollectionsMarshal.AsSpan(tokenizer.Result));
 

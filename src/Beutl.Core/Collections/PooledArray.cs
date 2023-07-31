@@ -1,15 +1,66 @@
 ﻿using System.Buffers;
 using System.Collections;
 
-namespace BeUtl.Collections;
+namespace Beutl.Collections;
 
-public struct PooledArray<T> : IDisposable, IEnumerable<T>, ICloneable
+public static class PooledArrayExtensions
 {
-    private readonly T[] _array;
+    public static PooledArray<T> ToPooledArray<T>(this IEnumerable<T> source)
+    {
+        if (source is ICollection<T> collectionoft)
+        {
+            var array = new PooledArray<T>(collectionoft.Count);
+            collectionoft.CopyTo(array._array, 0);
+            return array;
+        }
+        else if (source.TryGetNonEnumeratedCount(out int count))
+        {
+            var array = new PooledArray<T>(count);
+            int index = 0;
+            foreach (T item in source)
+            {
+                array[index++] = item;
+            }
+
+            return array;
+        }
+        else
+        {
+            T[] array = ArrayPool<T>.Shared.Rent(4);
+            int index = 0;
+            foreach (T item in source)
+            {
+                if (index >= array.Length)
+                {
+                    T[] tmp = ArrayPool<T>.Shared.Rent(array.Length * 2);
+                    Array.Copy(array, tmp, array.Length);
+                    ArrayPool<T>.Shared.Return(array, true);
+                    array = tmp;
+                }
+
+                array[index] = item;
+                index++;
+            }
+
+            return new PooledArray<T>(array, index);
+        }
+    }
+}
+
+public struct PooledArray<T> : IDisposable, IEnumerable<T>
+{
+    internal readonly T[] _array;
 
     public PooledArray(int length)
     {
         _array = ArrayPool<T>.Shared.Rent(length);
+        Length = length;
+        IsDisposed = false;
+    }
+
+    internal PooledArray(T[] array, int length)
+    {
+        _array = array;
         Length = length;
         IsDisposed = false;
     }
@@ -30,12 +81,6 @@ public struct PooledArray<T> : IDisposable, IEnumerable<T>, ICloneable
         }
     }
 
-    public object Clone()
-    {
-        ThrowIfDisposed();
-        throw new NotImplementedException();
-    }
-
     public void Dispose()
     {
         if (!IsDisposed)
@@ -45,10 +90,15 @@ public struct PooledArray<T> : IDisposable, IEnumerable<T>, ICloneable
         }
     }
 
-    public IEnumerator<T> GetEnumerator()
+    public ArrayEnumerator GetEnumerator()
     {
         ThrowIfDisposed();
         return new ArrayEnumerator(this);
+    }
+
+    IEnumerator<T> IEnumerable<T>.GetEnumerator()
+    {
+        return GetEnumerator();
     }
 
     private void ThrowIfDisposed()
@@ -65,11 +115,10 @@ public struct PooledArray<T> : IDisposable, IEnumerable<T>, ICloneable
         return _array.GetEnumerator();
     }
 
-    private sealed class ArrayEnumerator : IEnumerator<T>, ICloneable
+    public struct ArrayEnumerator : IEnumerator<T>
     {
         private PooledArray<T> _array;
         private int _index;
-        private T? _currentElement;
 
         public ArrayEnumerator(PooledArray<T> array)
         {
@@ -77,7 +126,7 @@ public struct PooledArray<T> : IDisposable, IEnumerable<T>, ICloneable
             _index = -1;
         }
 
-        public T Current
+        public ref T Current
         {
             get
             {
@@ -85,23 +134,19 @@ public struct PooledArray<T> : IDisposable, IEnumerable<T>, ICloneable
                     throw new InvalidOperationException();
                 if (_index >= _array!.Length)
                     throw new InvalidOperationException();
-                return _currentElement!;
+                return ref _array[_index];
             }
         }
 
-        object? IEnumerator.Current => Current;
+        T IEnumerator<T>.Current => Current;
 
-        public object Clone()
-        {
-            return MemberwiseClone();
-        }
+        object? IEnumerator.Current => Current;
 
         public bool MoveNext()
         {
             if (_index < (_array!.Length - 1))
             {
                 _index++;
-                _currentElement = _array[_index];
                 return true;
             }
             else
@@ -120,7 +165,6 @@ public struct PooledArray<T> : IDisposable, IEnumerable<T>, ICloneable
 
         public void Reset()
         {
-            _currentElement = default;
             _index = -1;
         }
     }

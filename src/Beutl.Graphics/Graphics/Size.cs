@@ -1,11 +1,12 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
+using Beutl.Media;
 using Beutl.Utilities;
-using Beutl.Validation;
 
 namespace Beutl.Graphics;
 
@@ -13,7 +14,7 @@ namespace Beutl.Graphics;
 /// Defines a size.
 /// </summary>
 [JsonConverter(typeof(SizeJsonConverter))]
-[RangeValidatable(typeof(SizeRangeValidator))]
+[TypeConverter(typeof(SizeConverter))]
 public readonly struct Size
     : IEquatable<Size>,
       IParsable<Size>,
@@ -27,7 +28,8 @@ public readonly struct Size
       IAdditionOperators<Size, Size, Size>,
       ISubtractionOperators<Size, Size, Size>,
       IAdditionOperators<Size, Thickness, Size>,
-      ISubtractionOperators<Size, Thickness, Size>
+      ISubtractionOperators<Size, Thickness, Size>,
+      ITupleConvertible<Size, float>
 {
     /// <summary>
     /// A size representing infinity.
@@ -69,6 +71,8 @@ public readonly struct Size
     /// Gets a value indicating whether the Width and Height values are zero.
     /// </summary>
     public bool IsDefault => (Width == 0) && (Height == 0);
+
+    static int ITupleConvertible<Size, float>.TupleLength => 2;
 
     /// <summary>
     /// Checks for equality between two <see cref="Size"/>s.
@@ -263,6 +267,19 @@ public readonly struct Size
     }
 
     /// <summary>
+    /// Deflates the size by a <see cref="Thickness"/>.
+    /// </summary>
+    /// <param name="thickness">The thickness.</param>
+    /// <returns>The deflated size.</returns>
+    /// <remarks>The deflated size cannot be less than 0.</remarks>
+    public Size Deflate(float thickness)
+    {
+        return new Size(
+            MathF.Max(0, Width - (thickness * 2)),
+            MathF.Max(0, Height - (thickness * 2)));
+    }
+
+    /// <summary>
     /// Returns a boolean indicating whether the size is equal to the other given size (bitwise).
     /// </summary>
     /// <param name="other">The other size to test equality against.</param>
@@ -318,6 +335,18 @@ public readonly struct Size
     }
 
     /// <summary>
+    /// Inflates the size by a <see cref="Thickness"/>.
+    /// </summary>
+    /// <param name="thickness">The thickness.</param>
+    /// <returns>The inflated size.</returns>
+    public Size Inflate(float thickness)
+    {
+        return new Size(
+            Width + (thickness * 2),
+            Height + (thickness * 2));
+    }
+
+    /// <summary>
     /// Returns a new <see cref="Size"/> with the same height and the specified width.
     /// </summary>
     /// <param name="width">The width.</param>
@@ -335,6 +364,11 @@ public readonly struct Size
     public Size WithHeight(float height)
     {
         return new Size(Width, height);
+    }
+
+    public PixelSize Ceiling()
+    {
+        return new PixelSize((int)MathF.Ceiling(Width), (int)MathF.Ceiling(Height));
     }
 
     /// <summary>
@@ -376,5 +410,16 @@ public readonly struct Size
     static bool ISpanParsable<Size>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Size result)
     {
         return TryParse(s, out result);
+    }
+
+    static void ITupleConvertible<Size, float>.ConvertTo(Size self, Span<float> tuple)
+    {
+        tuple[0] = self.Width;
+        tuple[1] = self.Height;
+    }
+
+    static void ITupleConvertible<Size, float>.ConvertFrom(Span<float> tuple, out Size self)
+    {
+        self = new Size(tuple[0], tuple[1]);
     }
 }

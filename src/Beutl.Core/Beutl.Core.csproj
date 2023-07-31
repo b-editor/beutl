@@ -3,7 +3,6 @@
     <RootNameSpace>Beutl</RootNameSpace>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove="Collections\PooledArray.cs" />
     <Compile Remove="Collections\UnmanagedArray.cs" />
     <Compile Remove="Collections\UnmanagedList.cs" />
   </ItemGroup>
@@ -11,19 +10,12 @@
     <ProjectReference Include="..\Beutl.Utilities\Beutl.Utilities.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <None Update="Validation\RangeValidatorGen.tt">
-      <Generator>TextTemplatingFileGenerator</Generator>
-      <LastGenOutput>RangeValidatorGen.cs</LastGenOutput>
-    </None>
-    <Compile Update="Validation\RangeValidatorGen.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>RangeValidatorGen.tt</DependentUpon>
-    </Compile>
-  </ItemGroup>
-  <ItemGroup>
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
-  <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.DependencyInjection.props" />
-  <Import Project="$(RootDirectory)\build\props\System.Reactive.props" />
+
+  <ItemGroup>
+    <PackageReference Include="System.Reactive" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+
 </Project>

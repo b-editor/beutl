@@ -8,29 +8,24 @@ using Beutl.Utilities;
 
 namespace Beutl.NodeTree;
 
-public abstract class Node : Element
+public abstract class Node : Hierarchical
 {
     public static readonly CoreProperty<bool> IsExpandedProperty;
     public static readonly CoreProperty<(double X, double Y)> PositionProperty;
-    private readonly LogicalList<INodeItem> _items;
+    private readonly HierarchicalList<INodeItem> _items;
     private (double X, double Y) _position;
-    private NodeTreeSpace? _nodeTree;
+    private NodeTreeModel? _nodeTree;
 
     static Node()
     {
         IsExpandedProperty = ConfigureProperty<bool, Node>(nameof(Position))
             .DefaultValue(true)
-            .SerializeName("is-expanded")
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         PositionProperty = ConfigureProperty<(double X, double Y), Node>(nameof(Position))
             .Accessor(o => o.Position, (o, v) => o.Position = v)
             .DefaultValue((0, 0))
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
-
-        NameProperty.OverrideMetadata<Node>(new CorePropertyMetadata<string>("name"));
     }
 
     public Node()
@@ -74,6 +69,7 @@ public abstract class Node : Element
         set => SetValue(IsExpandedProperty, value);
     }
 
+    [NotAutoSerialized]
     public (double X, double Y) Position
     {
         get => _position;
@@ -407,81 +403,78 @@ public abstract class Node : Element
         return requestedLocalId;
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject obj)
+        if (json.TryGetPropertyValue(nameof(Position), out JsonNode? posNode)
+            && posNode is JsonValue posVal
+            && posVal.TryGetValue(out string? posStr))
         {
-            if (obj.TryGetPropertyValue("position", out JsonNode? posNode)
-                && posNode is JsonValue posVal
-                && posVal.TryGetValue(out string? posStr))
+            var tokenizer = new RefStringTokenizer(posStr);
+            if (tokenizer.TryReadDouble(out double x)
+                && tokenizer.TryReadDouble(out double y))
             {
-                var tokenizer = new RefStringTokenizer(posStr);
-                if (tokenizer.TryReadDouble(out double x)
-                    && tokenizer.TryReadDouble(out double y))
-                {
-                    Position = (x, y);
-                }
+                Position = (x, y);
             }
+        }
 
-            if (obj.TryGetPropertyValue("items", out var itemsNode)
-                && itemsNode is JsonArray itemsArray)
+        if (json.TryGetPropertyValue(nameof(Items), out var itemsNode)
+            && itemsNode is JsonArray itemsArray)
+        {
+            int index = 0;
+            foreach (JsonNode? item in itemsArray)
             {
-                int index = 0;
-                foreach (JsonNode? item in itemsArray)
+                if (item is JsonObject itemObj)
                 {
-                    if (item is JsonObject itemObj)
+                    int localId;
+                    if (itemObj.TryGetPropertyValue("LocalId", out var localIdNode)
+                        && localIdNode is JsonValue localIdValue
+                        && localIdValue.TryGetValue(out int actualLId))
                     {
-                        int localId;
-                        if (itemObj.TryGetPropertyValue("local-id", out var localIdNode)
-                            && localIdNode is JsonValue localIdValue
-                            && localIdValue.TryGetValue(out int actualLId))
-                        {
-                            localId = actualLId;
-                        }
-                        else
-                        {
-                            localId = index;
-                        }
-
-                        INodeItem? nodeItem = Items.FirstOrDefault(x => x.LocalId == localId);
-
-                        if (nodeItem is IJsonSerializable serializable)
-                        {
-                            serializable.ReadFromJson(itemObj);
-                        }
+                        localId = actualLId;
+                    }
+                    else
+                    {
+                        localId = index;
                     }
 
-                    index++;
+                    INodeItem? nodeItem = Items.FirstOrDefault(x => x.LocalId == localId);
+
+                    if (nodeItem is IJsonSerializable serializable)
+                    {
+                        serializable.ReadFromJson(itemObj);
+                    }
                 }
+
+                index++;
             }
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
-        json["position"] = $"{Position.X},{Position.Y}";
+        base.WriteToJson(json);
+        json[nameof(Position)] = $"{Position.X},{Position.Y}";
 
         var array = new JsonArray();
         foreach (INodeItem item in Items)
         {
-            JsonNode itemJson = new JsonObject();
+            var itemJson = new JsonObject();
             if (item is IJsonSerializable serializable)
             {
-                serializable.WriteToJson(ref itemJson);
-                itemJson["@type"] = TypeFormat.ToString(item.GetType());
+                serializable.WriteToJson(itemJson);
+                itemJson.WriteDiscriminator(item.GetType());
             }
             array.Add(itemJson);
         }
 
-        json["items"] = array;
+        json[nameof(Items)] = array;
     }
 
-    protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnAttachedToLogicalTree(args);
-        if (args.Parent is NodeTreeSpace nodeTree)
+        base.OnAttachedToHierarchy(args);
+        if (args.Parent is NodeTreeModel nodeTree)
         {
             _nodeTree = nodeTree;
             foreach (INodeItem item in _items.GetMarshal().Value)
@@ -491,10 +484,10 @@ public abstract class Node : Element
         }
     }
 
-    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        base.OnDetachedFromLogicalTree(args);
-        if (args.Parent is NodeTreeSpace nodeTree)
+        base.OnDetachedFromHierarchy(args);
+        if (args.Parent is NodeTreeModel nodeTree)
         {
             _nodeTree = null;
             foreach (INodeItem item in _items.GetMarshal().Value)

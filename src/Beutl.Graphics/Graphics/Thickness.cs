@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
@@ -12,6 +13,7 @@ namespace Beutl.Graphics;
 /// Describes the thickness of a frame around a rectangle.
 /// </summary>
 [JsonConverter(typeof(ThicknessJsonConverter))]
+[TypeConverter(typeof(ThicknessConverter))]
 public readonly struct Thickness
     : IEquatable<Thickness>,
       IParsable<Thickness>,
@@ -19,7 +21,8 @@ public readonly struct Thickness
       IEqualityOperators<Thickness, Thickness, bool>,
       IAdditionOperators<Thickness, Thickness, Thickness>,
       ISubtractionOperators<Thickness, Thickness, Thickness>,
-      IMultiplyOperators<Thickness, float, Thickness>
+      IMultiplyOperators<Thickness, float, Thickness>,
+      ITupleConvertible<Thickness, float>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="Thickness"/> structure.
@@ -90,6 +93,8 @@ public readonly struct Thickness
     /// Gets a value indicating whether the left, top, right and bottom thickness values are zero.
     /// </summary>
     public bool IsDefault => (Left == 0) && (Top == 0) && (Right == 0) && (Bottom == 0);
+
+    static int ITupleConvertible<Thickness, float>.TupleLength => 4;
 
     /// <summary>
     /// Compares two Thicknesses.
@@ -168,7 +173,7 @@ public readonly struct Thickness
     {
         return TryParse(s.AsSpan(), out thickness);
     }
-    
+
     /// <summary>
     /// Parses a <see cref="Thickness"/> string.
     /// </summary>
@@ -198,7 +203,7 @@ public readonly struct Thickness
     {
         return Parse(s.AsSpan());
     }
-    
+
     /// <summary>
     /// Parses a <see cref="Thickness"/> string.
     /// </summary>
@@ -354,5 +359,18 @@ public readonly struct Thickness
     static bool ISpanParsable<Thickness>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Thickness result)
     {
         return TryParse(s, out result);
+    }
+
+    static void ITupleConvertible<Thickness, float>.ConvertTo(Thickness self, Span<float> tuple)
+    {
+        tuple[0] = self.Left;
+        tuple[1] = self.Top;
+        tuple[2] = self.Right;
+        tuple[3] = self.Bottom;
+    }
+
+    static void ITupleConvertible<Thickness, float>.ConvertFrom(Span<float> tuple, out Thickness self)
+    {
+        self = new Thickness(tuple[0], tuple[1], tuple[2], tuple[3]);
     }
 }

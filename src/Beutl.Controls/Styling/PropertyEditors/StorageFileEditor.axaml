@@ -1,10 +1,12 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:icons="using:FluentIcons.FluentAvalonia"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
     <Design.PreviewWith>
         <Border Width="300">
             <StackPanel>
+                <local:StorageFileEditor EditorStyle="ListItem" Header="Property 1" />
                 <local:StorageFileEditor Header="Property 1" />
                 <local:StorageFileEditor Header="Property 2" KeyFrameCount="3" />
                 <local:StorageFileEditor Header="Property 2"
@@ -82,7 +84,8 @@
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
                                    ClipToBounds="False"
-                                   Text="{TemplateBinding Header}" />
+                                   Text="{TemplateBinding Header}"
+                                   TextTrimming="CharacterEllipsis" />
 
                         <Grid Grid.Column="1"
                               MinWidth="120"
@@ -173,6 +176,41 @@
             </Setter>
         </Style>
 
+        <Style Selector="^:list-item">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Name="PART_ReorderHandle" Theme="{StaticResource PropertyEditorReorderHandle}" />
+
+                            <TextBox x:Name="PART_InnerTextBox"
+                                     Grid.Column="1"
+                                     Margin="0,4"
+                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                     Text="{TemplateBinding Text, Mode=TwoWay}">
+                                <TextBox.InnerRightContent>
+                                    <Button Name="PART_Button"
+                                            FontSize="{TemplateBinding FontSize}"
+                                            Theme="{StaticResource TextBoxOpenButtonStyle}" />
+                                </TextBox.InnerRightContent>
+                            </TextBox>
+
+                            <Button Name="PART_DeleteButton"
+                                    Grid.Column="2"
+                                    Margin="4,0"
+                                    Padding="0"
+                                    Classes="size-24x24"
+                                    Theme="{StaticResource TransparentButton}">
+                                <icons:SymbolIcon Symbol="Delete" />
+                            </Button>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
 
         <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
             <Setter Property="IsEnabled" Value="False" />

@@ -13,8 +13,6 @@ public abstract class MatrixNode : Node
     {
         OperatorProperty = ConfigureProperty<MultiplicationOperator, MatrixNode>(o => o.Operator)
             .DefaultValue(MultiplicationOperator.Prepend)
-            .PropertyFlags(PropertyFlags.All)
-            .SerializeName("operator")
             .Register();
     }
 

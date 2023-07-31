@@ -1,10 +1,13 @@
 ﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
+
+using SkiaSharp;
 
 namespace Beutl.Graphics.Shapes;
 
@@ -17,6 +20,7 @@ public class TextBlock : Drawable
     public static readonly CoreProperty<float> SpacingProperty;
     public static readonly CoreProperty<string> TextProperty;
     public static readonly CoreProperty<Thickness> MarginProperty;
+    public static readonly CoreProperty<IPen?> PenProperty;
     public static readonly CoreProperty<TextElements?> ElementsProperty;
     private FontFamily _fontFamily = FontFamily.Default;
     private FontWeight _fontWeight = FontWeight.Regular;
@@ -25,139 +29,134 @@ public class TextBlock : Drawable
     private float _spacing;
     private string _text = string.Empty;
     private Thickness _margin;
+    private IPen? _pen = null;
     private TextElements? _elements;
 
     static TextBlock()
     {
         FontWeightProperty = ConfigureProperty<FontWeight, TextBlock>(nameof(FontWeight))
             .Accessor(o => o.FontWeight, (o, v) => o.FontWeight = v)
-            .Display(Strings.FontWeight)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(FontWeight.Regular)
-            .SerializeName("font-weight")
             .Register();
 
         FontStyleProperty = ConfigureProperty<FontStyle, TextBlock>(nameof(FontStyle))
             .Accessor(o => o.FontStyle, (o, v) => o.FontStyle = v)
-            .Display(Strings.FontStyle)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(FontStyle.Normal)
-            .SerializeName("font-style")
             .Register();
 
         FontFamilyProperty = ConfigureProperty<FontFamily, TextBlock>(nameof(FontFamily))
             .Accessor(o => o.FontFamily, (o, v) => o.FontFamily = v)
-            .Display(Strings.FontFamily)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(FontFamily.Default)
-            .SerializeName("font-family")
             .Register();
 
         SizeProperty = ConfigureProperty<float, TextBlock>(nameof(Size))
             .Accessor(o => o.Size, (o, v) => o.Size = v)
-            .Display(Strings.Size)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(0)
-            .Minimum(0)
-            .SerializeName("size")
             .Register();
 
         SpacingProperty = ConfigureProperty<float, TextBlock>(nameof(Spacing))
             .Accessor(o => o.Spacing, (o, v) => o.Spacing = v)
-            .Display(Strings.CharactorSpacing)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(0)
-            .SerializeName("spacing")
             .Register();
 
         TextProperty = ConfigureProperty<string, TextBlock>(nameof(Text))
             .Accessor(o => o.Text, (o, v) => o.Text = v)
-            .Display(Strings.Text)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(string.Empty)
-            .SerializeName("text")
             .Register();
 
         MarginProperty = ConfigureProperty<Thickness, TextBlock>(nameof(Margin))
             .Accessor(o => o.Margin, (o, v) => o.Margin = v)
-            .Display(Strings.Margin)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(new Thickness())
-            .SerializeName("margin")
+            .Register();
+
+        PenProperty = ConfigureProperty<IPen?, TextBlock>(nameof(Pen))
+            .Accessor(o => o.Pen, (o, v) => o.Pen = v)
             .Register();
 
         ElementsProperty = ConfigureProperty<TextElements?, TextBlock>(nameof(Elements))
             .Accessor(o => o.Elements, (o, v) => o.Elements = v)
-            .PropertyFlags(PropertyFlags.NotifyChanged | PropertyFlags.Styleable | PropertyFlags.Designable)
             .Register();
 
         AffectsRender<TextBlock>(ElementsProperty);
-        LogicalChild<TextBlock>(ElementsProperty);
     }
 
     public TextBlock()
     {
     }
 
-    public FontFamily FontFamily
-    {
-        get => _fontFamily;
-        set => SetAndRaise(FontFamilyProperty, ref _fontFamily, value);
-    }
-
+    [Display(Name = nameof(Strings.FontWeight), ResourceType = typeof(Strings))]
     public FontWeight FontWeight
     {
         get => _fontWeight;
         set => SetAndRaise(FontWeightProperty, ref _fontWeight, value);
     }
 
+    [Display(Name = nameof(Strings.FontStyle), ResourceType = typeof(Strings))]
     public FontStyle FontStyle
     {
         get => _fontStyle;
         set => SetAndRaise(FontStyleProperty, ref _fontStyle, value);
     }
 
+    [Display(Name = nameof(Strings.FontFamily), ResourceType = typeof(Strings))]
+    public FontFamily FontFamily
+    {
+        get => _fontFamily;
+        set => SetAndRaise(FontFamilyProperty, ref _fontFamily, value);
+    }
+
+    [Display(Name = nameof(Strings.Size), ResourceType = typeof(Strings))]
+    [Range(0, float.MaxValue)]
     public float Size
     {
         get => _size;
         set => SetAndRaise(SizeProperty, ref _size, value);
     }
 
+    [Display(Name = nameof(Strings.CharactorSpacing), ResourceType = typeof(Strings))]
     public float Spacing
     {
         get => _spacing;
         set => SetAndRaise(SpacingProperty, ref _spacing, value);
     }
 
+    [Display(Name = nameof(Strings.Text), ResourceType = typeof(Strings))]
     public string Text
     {
         get => _text;
         set => SetAndRaise(TextProperty, ref _text, value);
     }
 
+    [Display(Name = nameof(Strings.Margin), ResourceType = typeof(Strings))]
     public Thickness Margin
     {
         get => _margin;
         set => SetAndRaise(MarginProperty, ref _margin, value);
     }
 
+    public IPen? Pen
+    {
+        get => _pen;
+        set => SetAndRaise(PenProperty, ref _pen, value);
+    }
+
+    [NotAutoSerialized]
     public TextElements? Elements
     {
         get => _elements;
         set => SetAndRaise(ElementsProperty, ref _elements, value);
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject jobj
-            && jobj.TryGetPropertyValue("elements", out JsonNode? elmsNode)
+        if (json.TryGetPropertyValue("elements", out JsonNode? elmsNode)
             && elmsNode is JsonArray elnsArray)
         {
             var array = new TextElement[elnsArray.Count];
             for (int i = 0; i < elnsArray.Count; i++)
             {
-                if (elnsArray[i] is JsonNode elmNode)
+                if (elnsArray[i] is JsonObject elmNode)
                 {
                     var elm = new TextElement();
                     elm.ReadFromJson(elmNode);
@@ -169,20 +168,20 @@ public class TextBlock : Drawable
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
-        if (json is JsonObject jobj && _elements != null)
+        base.WriteToJson(json);
+        if (_elements != null)
         {
             var array = new JsonArray(_elements.Count);
             for (int i = 0; i < _elements.Count; i++)
             {
-                JsonNode node = new JsonObject();
-                _elements[i].WriteToJson(ref node);
+                var node = new JsonObject();
+                _elements[i].WriteToJson(node);
                 array[i] = node;
             }
 
-            jobj["elements"] = array;
+            json["elements"] = array;
         }
     }
 
@@ -204,6 +203,37 @@ public class TextBlock : Drawable
         return new Size(width, height);
     }
 
+    internal static SKPath ToSKPath(TextElements elements)
+    {
+        var skpath = new SKPath();
+
+        float prevBottom = 0;
+        foreach (Span<FormattedText> line in elements.Lines)
+        {
+            Size lineBounds = MeasureLine(line);
+            float ascent = MinAscent(line);
+            var point = new Point(0, prevBottom - ascent);
+
+            float prevRight = 0;
+            foreach (FormattedText item in line)
+            {
+                if (item.Text.Length > 0)
+                {
+                    point += new Point(prevRight, 0);
+                    Size elementBounds = item.Bounds;
+
+                    item.AddToSKPath(skpath, point);
+
+                    prevRight = elementBounds.Width + item.Margin.Right;
+                }
+            }
+
+            prevBottom += lineBounds.Height;
+        }
+
+        return skpath;
+    }
+
     protected override void OnDraw(ICanvas canvas)
     {
         if (_elements != null)
@@ -221,13 +251,14 @@ public class TextBlock : Drawable
                     {
                         if (item.Text.Length > 0)
                         {
-                            canvas.Translate(new(prevRight, 0));
-                            Size elementBounds = item.Bounds;
+                            using (canvas.PushTransform(Matrix.CreateTranslation(prevRight, 0)))
+                            {
+                                Size elementBounds = item.Bounds;
 
-                            using (item.Brush != null ? canvas.PushForeground(item.Brush) : default)
-                                canvas.DrawText(item);
+                                canvas.DrawText(item, item.Brush ?? Foreground, item.Pen ?? Pen);
 
-                            prevRight = elementBounds.Width + item.Margin.Right;
+                                prevRight += elementBounds.Width + item.Margin.Right;
+                            }
                         }
                     }
                 }
@@ -237,26 +268,18 @@ public class TextBlock : Drawable
         }
     }
 
-    protected override IEnumerable<ILogicalElement> OnEnumerateChildren()
-    {
-        foreach (ILogicalElement item in base.OnEnumerateChildren())
-        {
-            yield return item;
-        }
-
-        if (_elements != null)
-        {
-            foreach (TextElement item in _elements)
-            {
-                yield return item;
-            }
-        }
-    }
-
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args.PropertyName is nameof(Text) or nameof(Size) or nameof(FontFamily) or nameof(FontStyle) or nameof(FontWeight) or nameof(Foreground) or nameof(Spacing) or nameof(Margin))
+        if (args.PropertyName is nameof(Text)
+            or nameof(Size)
+            or nameof(FontFamily)
+            or nameof(FontStyle)
+            or nameof(FontWeight)
+            or nameof(Foreground)
+            or nameof(Spacing)
+            or nameof(Margin)
+            or nameof(Pen))
         {
             OnUpdateText();
         }
@@ -271,7 +294,8 @@ public class TextBlock : Drawable
             Size: _size,
             Brush: (Foreground as IMutableBrush)?.ToImmutable(),
             Space: _spacing,
-            Margin: _margin);
+            Margin: _margin,
+            Pen: _pen);
 
         var builder = new TextElementsBuilder(options);
         builder.AppendTokens(CollectionsMarshal.AsSpan(tokenizer.Result));

@@ -127,7 +127,7 @@ public sealed class MainViewModel : BasePageViewModel
 
         SaveAll.Subscribe(async () =>
         {
-            IWorkspace? project = _projectService.CurrentProject.Value;
+            Project? project = _projectService.CurrentProject.Value;
             int itemsCount = 0;
 
             try
@@ -329,10 +329,9 @@ public sealed class MainViewModel : BasePageViewModel
             {
                 SceneEditorExtension.Instance,
                 SceneOutputExtension.Instance,
-                SceneWorkspaceItemExtension.Instance,
+                SceneProjectItemExtension.Instance,
                 TimelineTabExtension.Instance,
                 ObjectPropertyTabExtension.Instance,
-                StyleEditorTabExtension.Instance,
                 SourceOperatorsTabExtension.Instance,
                 PropertyEditorExtension.Instance,
                 NodeTreeTabExtension.Instance,
@@ -394,6 +393,8 @@ public sealed class MainViewModel : BasePageViewModel
 
     public override void Dispose()
     {
+        _projectService.CloseProject();
+        _projectService.Application.Items.Clear();
     }
 
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)

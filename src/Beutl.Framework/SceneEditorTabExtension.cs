@@ -6,7 +6,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Framework;
 
-public interface IToolContext : IDisposable, IJsonSerializable
+public interface IToolContext : IDisposable, IJsonSerializable, IServiceProvider
 {
     ToolTabExtension Extension { get; }
 
@@ -31,7 +31,7 @@ public abstract class ToolTabExtension : ViewExtension
 
     public abstract bool TryCreateContent(
         IEditorContext editorContext,
-        [NotNullWhen(true)] out IControl? control);
+        [NotNullWhen(true)] out Control? control);
 
     public abstract bool TryCreateContext(
         IEditorContext editorContext,

@@ -8,7 +8,7 @@ internal interface ISupportSetValueNodeItem
     void SetThrough(INodeItem nodeItem);
 }
 
-public interface INodeItem : ICoreObject, ILogicalElement, IAffectsRender
+public interface INodeItem : ICoreObject, IHierarchical, IAffectsRender
 {
     int LocalId { get; }
 
@@ -26,7 +26,7 @@ public interface INodeItem : ICoreObject, ILogicalElement, IAffectsRender
 
     void PostEvaluate(EvaluationContext context);
 
-    void NotifyAttachedToNodeTree(NodeTreeSpace nodeTree);
+    void NotifyAttachedToNodeTree(NodeTreeModel nodeTree);
 
-    void NotifyDetachedFromNodeTree(NodeTreeSpace nodeTree);
+    void NotifyDetachedFromNodeTree(NodeTreeModel nodeTree);
 }

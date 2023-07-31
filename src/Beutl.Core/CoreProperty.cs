@@ -202,6 +202,17 @@ public class CoreProperty<T> : CoreProperty
 
     public new IObservable<CorePropertyChangedEventArgs<T>> Changed => _changed;
 
+    public void OverrideDefaultValue<TOverride>(Optional<T> defaultValue)
+         where TOverride : ICoreObject
+    {
+        OverrideMetadata<TOverride>(new CorePropertyMetadata<T>(defaultValue));
+    }
+
+    public void OverrideMetadata(Type type, Optional<T> defaultValue)
+    {
+        OverrideMetadata(type, new CorePropertyMetadata<T>(defaultValue));
+    }
+
     internal override bool HasObservers => _changed.HasObservers;
 
     internal override void NotifyChanged(CorePropertyChangedEventArgs e)
@@ -241,16 +252,16 @@ public class CoreProperty<T> : CoreProperty
         }
         else if (value is IJsonSerializable child)
         {
-            JsonNode jsonNode = new JsonObject();
-            child.WriteToJson(ref jsonNode!);
+            var jsonobj = new JsonObject();
+            child.WriteToJson(jsonobj!);
 
             Type objType = value.GetType();
-            if (objType != PropertyType && jsonNode is JsonObject)
+            if (objType != PropertyType)
             {
-                jsonNode["@type"] = TypeFormat.ToString(objType);
+                jsonobj.WriteDiscriminator(objType);
             }
 
-            return jsonNode;
+            return jsonobj;
         }
         else
         {
@@ -263,41 +274,36 @@ public class CoreProperty<T> : CoreProperty
     {
         var typedMetadata = (CorePropertyMetadata<T>)metadata;
         Type type = PropertyType;
+        JsonSerializerOptions? options;
 
         if (typedMetadata.JsonConverter is { } jsonConverter)
         {
-            var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
+            options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
 
             options.Converters.Add(jsonConverter);
             return JsonSerializer.Deserialize(node, type, options);
         }
-        else if (node is JsonObject jsonObject
-            && jsonObject.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-            && atTypeNode is JsonValue atTypeValue
-            && atTypeValue.TryGetValue(out string? atTypeStr)
-            && TypeFormat.ToType(atTypeStr) is Type realType
-            && realType.IsAssignableTo(typeof(IJsonSerializable)))
+        else if (node is JsonObject jsonObject)
         {
-            var sobj = (IJsonSerializable?)Activator.CreateInstance(realType);
-            sobj?.ReadFromJson(node!);
-
-            return sobj;
-        }
-        else if (type.IsAssignableTo(typeof(IJsonSerializable)))
-        {
-            var sobj = (IJsonSerializable?)Activator.CreateInstance(type);
-            if (sobj != null)
+            if (jsonObject.TryGetDiscriminator(out Type? realType)
+                && realType.IsAssignableTo(typeof(IJsonSerializable)))
             {
-                sobj.ReadFromJson(node!);
-            }
+                var sobj = (IJsonSerializable?)Activator.CreateInstance(realType);
+                sobj?.ReadFromJson(jsonObject!);
 
-            return sobj;
+                return sobj;
+            }
+            else if (type.IsAssignableTo(typeof(IJsonSerializable)))
+            {
+                var sobj = (IJsonSerializable?)Activator.CreateInstance(type);
+                sobj?.ReadFromJson(jsonObject!);
+
+                return sobj;
+            }
         }
-        else
-        {
-            var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
-            return JsonSerializer.Deserialize(node, type, options);
-        }
+
+        options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
+        return JsonSerializer.Deserialize(node, type, options);
     }
 
     protected override IObservable<CorePropertyChangedEventArgs> GetChanged()

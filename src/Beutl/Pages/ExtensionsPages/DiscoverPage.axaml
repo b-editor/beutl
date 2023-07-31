@@ -33,7 +33,7 @@
             <ScrollViewer Margin="0,8,0,0"
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Disabled">
-                <ItemsRepeater Items="{Binding Top10}">
+                <ItemsRepeater ItemsSource="{Binding Top10}">
                     <ItemsRepeater.Layout>
                         <UniformGridLayout MaximumRowsOrColumns="2"
                                            MinColumnSpacing="16"
@@ -143,7 +143,7 @@
             <ScrollViewer Margin="0,8,0,0"
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Disabled">
-                <ItemsRepeater Items="{Binding #RankingComboBox.SelectedItem.Tag}">
+                <ItemsRepeater ItemsSource="{Binding #RankingComboBox.SelectedItem.Tag}">
                     <ItemsRepeater.Layout>
                         <StackLayout Orientation="Horizontal" Spacing="16" />
                     </ItemsRepeater.Layout>
@@ -206,7 +206,7 @@
             <ScrollViewer Margin="0,8,0,0"
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Disabled">
-                <ItemsRepeater Items="{Binding RecentlyRanking}">
+                <ItemsRepeater ItemsSource="{Binding RecentlyRanking}">
                     <ItemsRepeater.Layout>
                         <StackLayout Orientation="Horizontal" Spacing="16" />
                     </ItemsRepeater.Layout>

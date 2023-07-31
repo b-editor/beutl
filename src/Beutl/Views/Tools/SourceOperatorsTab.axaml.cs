@@ -40,7 +40,7 @@ public sealed partial class SourceOperatorsTab : UserControl
 
                     if (found)
                     {
-                        IControl? ctrl = @this.itemsControl.ItemContainerGenerator.ContainerFromIndex(index);
+                        Control? ctrl = @this.itemsControl.ContainerFromIndex(index);
                         if (ctrl != null)
                         {
                             @this.scrollViewer.Offset = new Avalonia.Vector(@this.scrollViewer.Offset.X, ctrl.Bounds.Top);
@@ -55,9 +55,9 @@ public sealed partial class SourceOperatorsTab : UserControl
     {
         if (e.Data.Get("SourceOperator") is OperatorRegistry.RegistryItem item
             && DataContext is SourceOperatorsTabViewModel vm
-            && vm.Layer.Value is Layer layer)
+            && vm.Layer.Value is Element layer)
         {
-            layer.AddChild((SourceOperator)Activator.CreateInstance(item.Type)!)
+            layer.Operation.AddChild((SourceOperator)Activator.CreateInstance(item.Type)!)
                 .DoAndRecord(CommandRecorder.Default);
 
             e.Handled = true;

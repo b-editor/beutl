@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
@@ -16,12 +17,13 @@ namespace Beutl.Media;
 /// Represents a size in device pixels.
 /// </summary>
 [JsonConverter(typeof(PixelSizeJsonConverter))]
-[RangeValidatable(typeof(PixelSizeRangeValidator))]
+[TypeConverter(typeof(PixelSizeConverter))]
 public readonly struct PixelSize
     : IEquatable<PixelSize>,
       IParsable<PixelSize>,
       ISpanParsable<PixelSize>,
-      IEqualityOperators<PixelSize, PixelSize, bool>
+      IEqualityOperators<PixelSize, PixelSize, bool>,
+      ITupleConvertible<PixelSize, int>
 {
     /// <summary>
     /// A size representing zero
@@ -53,6 +55,8 @@ public readonly struct PixelSize
     /// Gets the height.
     /// </summary>
     public int Height { get; }
+
+    static int ITupleConvertible<PixelSize, int>.TupleLength => 2;
 
     /// <summary>
     /// Checks for equality between two <see cref="PixelSize"/>s.
@@ -258,5 +262,16 @@ public readonly struct PixelSize
     public override string ToString()
     {
         return FormattableString.Invariant($"{Width}, {Height}");
+    }
+
+    static void ITupleConvertible<PixelSize, int>.ConvertTo(PixelSize self, Span<int> tuple)
+    {
+        tuple[0] = self.Width;
+        tuple[1] = self.Height;
+    }
+
+    static void ITupleConvertible<PixelSize, int>.ConvertFrom(Span<int> tuple, out PixelSize self)
+    {
+        self = new PixelSize(tuple[0], tuple[1]);
     }
 }

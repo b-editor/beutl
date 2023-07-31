@@ -1,6 +1,7 @@
 ﻿using Beutl.Language;
 using Beutl.NodeTree.Nodes.Brushes;
-using Beutl.NodeTree.Nodes.Filters;
+using Beutl.NodeTree.Nodes.Effects;
+using Beutl.NodeTree.Nodes.Geometry;
 using Beutl.NodeTree.Nodes.Group;
 using Beutl.NodeTree.Nodes.Transform;
 
@@ -12,7 +13,13 @@ public static class NodesRegistrar
     {
         NodeRegistry.RegisterNode<LayerInputNode>("Layer input");
         NodeRegistry.RegisterNode<LayerOutputNode>("Layer output");
-        NodeRegistry.RegisterNode<RectNode>(Strings.Rectangle);
+        NodeRegistry.RegisterNode<GeometryShapeNode>("GeometryShape");
+
+        NodeRegistry.RegisterNodes("Geometry")
+            .Add<RectGeometryNode>(Strings.Rectangle)
+            .Add<EllipseGeometryNode>(Strings.Ellipse)
+            .Add<RoundedRectGeometryNode>(Strings.RoundedRect)
+            .Register();
 
         NodeRegistry.RegisterNodes("Group")
             .Add<GroupInput>("Group Input")
@@ -23,7 +30,7 @@ public static class NodesRegistrar
         NodeRegistry.RegisterNodes(Strings.ImageFilter)
             .Add<DropShadowNode>(Strings.DropShadow)
             .Register();
-        
+
         NodeRegistry.RegisterNodes("Brush")
             .Add<ForegroundNode>("Set Foreground")
             .Add<SolidColorBrushNode>("Solid Color Brush")
@@ -34,12 +41,12 @@ public static class NodesRegistrar
             .Register();
 
         NodeRegistry.RegisterNodes(Strings.Transform)
-            .Add<TransformNode>(Strings.Transform)
-            .Add<TranslateNode>(Strings.Translate)
-            .Add<RotationNode>(Strings.Rotation)
-            .Add<Rotation3DNode>(Strings.Rotation3D)
-            .Add<ScaleNode>(Strings.Scale)
-            .Add<SkewNode>(Strings.Skew)
+            .Add<MatrixTransformNode>(Strings.Transform)
+            .Add<TranslateTransformNode>(Strings.Translate)
+            .Add<RotationTransformNode>(Strings.Rotation)
+            .Add<Rotation3DTransformNode>(Strings.Rotation3D)
+            .Add<ScaleTransformNode>(Strings.Scale)
+            .Add<SkewTransformNode>(Strings.Skew)
             .Register();
 
         NodeRegistry.RegisterNodes("Utilities")

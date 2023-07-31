@@ -11,7 +11,6 @@ public sealed class SoundEffectGroup : SoundEffect
     {
         ChildrenProperty = ConfigureProperty<SoundEffects, SoundEffectGroup>(nameof(Children))
             .Accessor(o => o.Children, (o, v) => o.Children = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .Register();
         AffectsRender<SoundEffectGroup>(ChildrenProperty);
     }
@@ -22,6 +21,7 @@ public sealed class SoundEffectGroup : SoundEffect
         _children.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 
+    [NotAutoSerialized]
     public SoundEffects Children
     {
         get => _children;
@@ -41,56 +41,47 @@ public sealed class SoundEffectGroup : SoundEffect
         return count;
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject jobject)
+        if (json.TryGetPropertyValue(nameof(Children), out JsonNode? childrenNode)
+            && childrenNode is JsonArray childrenArray)
         {
-            if (jobject.TryGetPropertyValue("children", out JsonNode? childrenNode)
-                && childrenNode is JsonArray childrenArray)
-            {
-                _children.Clear();
-                _children.EnsureCapacity(childrenArray.Count);
+            _children.Clear();
+            _children.EnsureCapacity(childrenArray.Count);
 
-                foreach (JsonObject childJson in childrenArray.OfType<JsonObject>())
+            foreach (JsonObject childJson in childrenArray.OfType<JsonObject>())
+            {
+                if (childJson.TryGetDiscriminator(out Type? type)
+                    && type.IsAssignableTo(typeof(SoundEffect))
+                    && Activator.CreateInstance(type) is IMutableSoundEffect soundEffect)
                 {
-                    if (childJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-                        && atTypeNode is JsonValue atTypeValue
-                        && atTypeValue.TryGetValue(out string? atType)
-                        && TypeFormat.ToType(atType) is Type type
-                        && type.IsAssignableTo(typeof(SoundEffect))
-                        && Activator.CreateInstance(type) is IMutableSoundEffect soundEffect)
-                    {
-                        soundEffect.ReadFromJson(childJson);
-                        _children.Add(soundEffect);
-                    }
+                    soundEffect.ReadFromJson(childJson);
+                    _children.Add(soundEffect);
                 }
             }
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
+        base.WriteToJson(json);
 
-        if (json is JsonObject jobject)
+        var array = new JsonArray();
+
+        foreach (ISoundEffect item in _children.GetMarshal().Value)
         {
-            var array = new JsonArray();
-
-            foreach (ISoundEffect item in _children.GetMarshal().Value)
+            if (item is IMutableSoundEffect obj)
             {
-                if (item is IMutableSoundEffect obj)
-                {
-                    JsonNode node = new JsonObject();
-                    obj.WriteToJson(ref node);
-                    node["@type"] = TypeFormat.ToString(item.GetType());
+                var itemJson = new JsonObject();
+                obj.WriteToJson(itemJson);
+                itemJson.WriteDiscriminator(item.GetType());
 
-                    array.Add(node);
-                }
+                array.Add(itemJson);
             }
-
-            jobject["children"] = array;
         }
+
+        json[nameof(Children)] = array;
     }
 
     public override ISoundProcessor CreateProcessor()

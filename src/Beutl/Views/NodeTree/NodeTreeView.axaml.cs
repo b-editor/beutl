@@ -1,6 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Collections;
-using Avalonia.Collections.Pooled;
+using Beutl.Collections.Pooled;
 using Avalonia.Controls;
 using Avalonia.Controls.PanAndZoom;
 using Avalonia.Controls.Shapes;
@@ -14,11 +14,12 @@ namespace Beutl.Views.NodeTree;
 
 public partial class NodeTreeView : UserControl
 {
-    private IDisposable? _disposable;
+    private readonly CompositeDisposable _disposables = new();
     private Point _rightClickedPosition;
     internal Point _leftClickedPosition;
     private bool _rangeSelectionPressed;
     private List<(NodeView Node, bool IsSelectedOriginal)> _rangeSelection = new();
+    private bool _matrixUpdating;
 
     public NodeTreeView()
     {
@@ -60,6 +61,13 @@ public partial class NodeTreeView : UserControl
 
     private void OnZoomChanged(object sender, ZoomChangedEventArgs e)
     {
+        if (DataContext is NodeTreeViewModel viewModel)
+        {
+            _matrixUpdating = true;
+            viewModel.Matrix.Value = zoomBorder.Matrix;
+            _matrixUpdating = false;
+        }
+
         if (_rangeSelectionPressed)
         {
             UpdateRangeSelection();
@@ -79,7 +87,7 @@ public partial class NodeTreeView : UserControl
         _rangeSelection.Clear();
         Rect rect = overlay.SelectionRange.Normalize();
 
-        foreach (IControl item in canvas.Children)
+        foreach (Control item in canvas.Children)
         {
             if (item is NodeView { DataContext: NodeViewModel nodeViewModel } nodeView)
             {
@@ -129,7 +137,7 @@ public partial class NodeTreeView : UserControl
                 && e.Source is ZoomBorder)
             {
                 _rangeSelectionPressed = true;
-                overlay.SelectionRange = new(point.Position, Size.Empty);
+                overlay.SelectionRange = new(point.Position, default(Size));
                 e.Handled = true;
             }
         }
@@ -138,7 +146,7 @@ public partial class NodeTreeView : UserControl
     private void InitializeMenuItems()
     {
         var menulist = new AvaloniaList<MenuItem>();
-        addNode.Items = menulist;
+        addNode.ItemsSource = menulist;
 
         foreach (NodeRegistry.BaseRegistryItem item in NodeRegistry.GetRegistered())
         {
@@ -160,7 +168,7 @@ public partial class NodeTreeView : UserControl
     private void Add(MenuItem menuItem, NodeRegistry.GroupableRegistryItem list)
     {
         var alist = new AvaloniaList<MenuItem>();
-        menuItem.Items = alist;
+        menuItem.ItemsSource = alist;
         foreach (NodeRegistry.BaseRegistryItem item in list.Items)
         {
             var menuItem2 = new MenuItem
@@ -208,7 +216,7 @@ public partial class NodeTreeView : UserControl
 
     private void OnDataContextAttached(NodeTreeViewModel obj)
     {
-        _disposable = obj.Nodes.ForEachItem(
+        obj.Nodes.ForEachItem(
             node =>
             {
                 var control = new NodeView()
@@ -243,7 +251,7 @@ public partial class NodeTreeView : UserControl
             },
             node =>
             {
-                IControl? control = canvas.Children.FirstOrDefault(x => x.DataContext == node);
+                Control? control = canvas.Children.FirstOrDefault(x => x.DataContext == node);
                 if (control != null)
                 {
                     canvas.Children.Remove(control);
@@ -266,12 +274,17 @@ public partial class NodeTreeView : UserControl
                     }
                 }
             },
-            canvas.Children.Clear);
+            canvas.Children.Clear)
+            .DisposeWith(_disposables);
+
+        obj.Matrix.Where(_ => !_matrixUpdating)
+            .Subscribe(m => zoomBorder.SetMatrix(m, true))
+            .DisposeWith(_disposables);
     }
 
     private void OnDataContextDetached(NodeTreeViewModel obj)
     {
-        _disposable?.Dispose();
+        _disposables.Clear();
         canvas.Children.Clear();
     }
 }

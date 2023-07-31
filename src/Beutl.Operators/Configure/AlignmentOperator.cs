@@ -16,8 +16,8 @@ public sealed class AlignmentOperator : SourceStyler
 
     protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
-        initializing.Add(new Setter<AlignmentX>(Drawable.AlignmentXProperty, AlignmentX.Left));
-        initializing.Add(new Setter<AlignmentY>(Drawable.AlignmentYProperty, AlignmentY.Top));
-        initializing.Add(new Setter<RelativePoint>(Drawable.TransformOriginProperty, new RelativePoint(default, RelativeUnit.Relative)));
+        initializing.Add(new Setter<AlignmentX>(Drawable.AlignmentXProperty, AlignmentX.Center));
+        initializing.Add(new Setter<AlignmentY>(Drawable.AlignmentYProperty, AlignmentY.Center));
+        initializing.Add(new Setter<RelativePoint>(Drawable.TransformOriginProperty, RelativePoint.Center));
     }
 }

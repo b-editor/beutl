@@ -1,4 +1,5 @@
 ﻿using Beutl.Commands;
+using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes;
 using Beutl.ProjectSystem;
 
@@ -6,35 +7,37 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.NodeTree;
 
-public sealed class NodeTreeInputViewModel : IDisposable
+public sealed class NodeTreeInputViewModel : IDisposable, IServiceProvider
 {
     private readonly CompositeDisposable _disposables = new();
+    private NodeTreeInputTabViewModel _parent;
 
-    public NodeTreeInputViewModel(Layer layer)
+    public NodeTreeInputViewModel(Element layer, NodeTreeInputTabViewModel parent)
     {
         Model = layer;
+        _parent = parent;
 
-        UseNode = layer.GetObservable(Layer.UseNodeProperty)
+        UseNode = layer.GetObservable(Element.UseNodeProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
         UseNode.Skip(1)
             //.ObserveOnRendererThread()
-            .Subscribe(v => new ChangePropertyCommand<bool>(Model, Layer.UseNodeProperty, v, !v)
+            .Subscribe(v => new ChangePropertyCommand<bool>(Model, Element.UseNodeProperty, v, !v)
                                 .DoAndRecord(CommandRecorder.Default))
             .DisposeWith(_disposables);
 
-        layer.Space.Nodes.ForEachItem(
+        layer.NodeTree.Nodes.ForEachItem(
             (originalIdx, item) =>
             {
                 if (item is LayerInputNode layerInput)
                 {
                     int idx = ConvertFromOriginalIndex(originalIdx);
-                    Items.Insert(idx, new NodeInputViewModel(layerInput, originalIdx, Model.Space));
+                    Items.Insert(idx, new NodeInputViewModel(layerInput, originalIdx, this));
 
                     for (int i = idx; i < Items.Count; i++)
                     {
-                        Items[i].OriginalIndex = Model.Space.Nodes.IndexOf(Items[i].Node);
+                        Items[i].OriginalIndex = Model.NodeTree.Nodes.IndexOf(Items[i].Node);
                     }
                 }
             },
@@ -48,7 +51,7 @@ public sealed class NodeTreeInputViewModel : IDisposable
 
                     for (int i = idx; i < Items.Count; i++)
                     {
-                        Items[i].OriginalIndex = Model.Space.Nodes.IndexOf(Items[i].Node);
+                        Items[i].OriginalIndex = Model.NodeTree.Nodes.IndexOf(Items[i].Node);
                     }
                 }
             },
@@ -65,7 +68,7 @@ public sealed class NodeTreeInputViewModel : IDisposable
             .DisposeWith(_disposables);
     }
 
-    public Layer Model { get; }
+    public Element Model { get; }
 
     public ReactiveProperty<bool> UseNode { get; }
 
@@ -120,5 +123,14 @@ public sealed class NodeTreeInputViewModel : IDisposable
 
         Items.Clear();
         _disposables.Dispose();
+        _parent = null!;
+    }
+
+    public object? GetService(Type serviceType)
+    {
+        if (serviceType.IsAssignableTo(typeof(NodeTreeModel)))
+            return Model.NodeTree;
+
+        return _parent.GetService(serviceType);
     }
 }

@@ -14,30 +14,34 @@ namespace Beutl.Services;
 
 public sealed class ProjectService : IProjectService
 {
-    private readonly Subject<(IWorkspace? New, IWorkspace? Old)> _projectObservable = new();
-    private readonly ReactivePropertySlim<IWorkspace?> _currentProject = new();
+    private readonly Subject<(Project? New, Project? Old)> _projectObservable = new();
     private readonly ReadOnlyReactivePropertySlim<bool> _isOpened;
 
     public ProjectService()
     {
+        CurrentProject = Application.GetObservable(BeutlApplication.ProjectProperty)
+            .ToReadOnlyReactivePropertySlim();
         _isOpened = CurrentProject.Select(v => v != null).ToReadOnlyReactivePropertySlim();
     }
 
-    public IObservable<(IWorkspace? New, IWorkspace? Old)> ProjectObservable => _projectObservable;
+    public BeutlApplication Application { get; } = ServiceLocator.Current.GetRequiredService<BeutlApplication>();
 
-    public IReactiveProperty<IWorkspace?> CurrentProject => _currentProject;
+    public IObservable<(Project? New, Project? Old)> ProjectObservable => _projectObservable;
+
+    public IReadOnlyReactiveProperty<Project?> CurrentProject { get; }
 
     public IReadOnlyReactiveProperty<bool> IsOpened => _isOpened;
 
-    public IWorkspace? OpenProject(string file)
+    public Project? OpenProject(string file)
     {
         try
         {
+            CommandRecorder.Default.Clear();
             var project = new Project();
             project.Restore(file);
 
-            IWorkspace? old = CurrentProject.Value;
-            CurrentProject.Value = project;
+            Project? old = Application.Project;
+            Application.Project = project;
             // 値を発行
             _projectObservable.OnNext((New: project, old));
 
@@ -54,21 +58,23 @@ public sealed class ProjectService : IProjectService
 
     public void CloseProject()
     {
-        if (CurrentProject.Value is { } project)
+        if (Application.Project is { } project)
         {
+            CommandRecorder.Default.Clear();
             // 値を発行
             _projectObservable.OnNext((New: null, project));
-            CurrentProject.Value = null;
             project.Dispose();
+            Application.Project = null;
         }
     }
 
-    public IWorkspace? CreateProject(int width, int height, int framerate, int samplerate, string name, string location)
+    public Project? CreateProject(int width, int height, int framerate, int samplerate, string name, string location)
     {
         try
         {
+            CommandRecorder.Default.Clear();
             location = Path.Combine(location, name);
-            IWorkspaceItemContainer container = ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>();
+            IProjectItemContainer container = ServiceLocator.Current.GetRequiredService<IProjectItemContainer>();
             var scene = new Scene(width, height, name);
             container.Add(scene);
             var project = new Project()
@@ -89,8 +95,8 @@ public sealed class ProjectService : IProjectService
             project.Save(projectFile);
 
             // 値を発行
-            _projectObservable.OnNext((New: project, CurrentProject.Value));
-            CurrentProject.Value = project;
+            _projectObservable.OnNext((New: project, Application.Project));
+            Application.Project = project;
 
             AddToRecentProjects(projectFile);
 

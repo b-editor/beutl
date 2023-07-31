@@ -1,15 +1,14 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.LogicalTree;
 
 using Beutl.Animation;
 using Beutl.Framework;
-using Beutl.Operation;
-using Beutl.Styling;
+using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
 
@@ -28,15 +27,16 @@ public sealed partial class PropertyEditorMenu : UserControl
             {
                 button.ContextMenu?.Open();
             }
-            else if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel)
+            else if (viewModel.GetService<Scene>() is { } scene)
             {
+                var keyTime = scene.CurrentFrame;
                 if (symbolIcon.IsFilled)
                 {
-                    viewModel.RemoveKeyFrame(editViewModel.Scene.CurrentFrame);
+                    viewModel.RemoveKeyFrame(keyTime);
                 }
                 else
                 {
-                    viewModel.InsertKeyFrame(editViewModel.Scene.CurrentFrame);
+                    viewModel.InsertKeyFrame(keyTime);
                 }
             }
         }
@@ -44,13 +44,13 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
-            && DataContext is BaseEditorViewModel viewModel
-            && viewModel.WrappedProperty is IAbstractAnimatableProperty { Animation: IKeyFrameAnimation kfAnimation })
+        if (DataContext is BaseEditorViewModel viewModel
+            && viewModel.GetService<EditViewModel>() is { } editViewModel
+            && viewModel.GetAnimation() is IKeyFrameAnimation kfAnimation)
         {
             // タイムラインのタブを開く
             var anmTimelineViewModel = new GraphEditorTabViewModel();
-            anmTimelineViewModel.SelectedAnimation.Value = new GraphEditorViewModel(editViewModel, kfAnimation);
+            anmTimelineViewModel.SelectedAnimation.Value = new GraphEditorViewModel(editViewModel, kfAnimation, viewModel.GetService<Element>());
             editViewModel.OpenToolTab(anmTimelineViewModel);
         }
     }
@@ -59,32 +59,22 @@ public sealed partial class PropertyEditorMenu : UserControl
     {
         if (DataContext is BaseEditorViewModel viewModel
             && viewModel.WrappedProperty is IAbstractAnimatableProperty animatableProperty
-            && this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
-            && this.FindLogicalAncestorOfType<SourceOperatorsTab>()?.DataContext is SourceOperatorsTabViewModel { Layer.Value: { } layer }
+            && viewModel.GetService<EditViewModel>() is { } editViewModel
+            && viewModel.GetService<Element>() is { } layer
             && editViewModel.FindToolTab<TimelineViewModel>() is { } timeline)
         {
-            if (animatableProperty.Animation is not IKeyFrameAnimation)
+            if (animatableProperty.Animation is not IKeyFrameAnimation
+                && animatableProperty.GetCoreProperty() is { } coreProp)
             {
-                Type type = typeof(KeyFrameAnimation<>).MakeGenericType(animatableProperty.Property.PropertyType);
-                animatableProperty.Animation = Activator.CreateInstance(type, animatableProperty.Property) as IAnimation;
+                Type type = typeof(KeyFrameAnimation<>).MakeGenericType(animatableProperty.PropertyType);
+                animatableProperty.Animation = Activator.CreateInstance(type, coreProp) as IAnimation;
             }
 
-            // タイムラインのタブを開く
-            timeline.AttachInline(animatableProperty, layer);
-        }
-    }
-
-    private void DeleteSetter_Click(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is BaseEditorViewModel viewModel
-            && this.FindLogicalAncestorOfType<StyleEditor>()?.DataContext is StyleEditorViewModel parentViewModel
-            && viewModel.WrappedProperty is IStylingSetterPropertyImpl wrapper
-            && parentViewModel.Style.Value is Style style)
-        {
-            style.Setters.BeginRecord<ISetter>()
-                .Remove(wrapper.Setter)
-                .ToCommand()
-                .DoAndRecord(CommandRecorder.Default);
+            if (animatableProperty.Animation is IKeyFrameAnimation)
+            {
+                // タイムラインのタブを開く
+                timeline.AttachInline(animatableProperty, layer);
+            }
         }
     }
 }

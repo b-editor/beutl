@@ -16,7 +16,6 @@ public abstract class Transform : Animatable, IMutableTransform
         IsEnabledProperty = ConfigureProperty<bool, Transform>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
-            .SerializeName("is-enabled")
             .Register();
 
         AffectsRender<Transform>(IsEnabledProperty);
@@ -85,6 +84,12 @@ public abstract class Transform : Animatable, IMutableTransform
             if (e.Sender is T s)
             {
                 s.RaiseInvalidated(new RenderInvalidatedEventArgs(s, e.Property.Name));
+
+                if (e.OldValue is IAffectsRender oldAffectsRender)
+                    oldAffectsRender.Invalidated -= s.OnAffectsRenderInvalidated;
+
+                if (e.NewValue is IAffectsRender newAffectsRender)
+                    newAffectsRender.Invalidated += s.OnAffectsRenderInvalidated;
             }
         }
 
@@ -92,6 +97,11 @@ public abstract class Transform : Animatable, IMutableTransform
         property2?.Changed.Subscribe(onNext);
         property3?.Changed.Subscribe(onNext);
         property4?.Changed.Subscribe(onNext);
+    }
+
+    private void OnAffectsRenderInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    {
+        Invalidated?.Invoke(this, e);
     }
 
     protected static void AffectsRender<T>(params CoreProperty[] properties)
@@ -104,6 +114,12 @@ public abstract class Transform : Animatable, IMutableTransform
                 if (e.Sender is T s)
                 {
                     s.RaiseInvalidated(new RenderInvalidatedEventArgs(s, e.Property.Name));
+
+                    if (e.OldValue is IAffectsRender oldAffectsRender)
+                        oldAffectsRender.Invalidated -= s.OnAffectsRenderInvalidated;
+
+                    if (e.NewValue is IAffectsRender newAffectsRender)
+                        newAffectsRender.Invalidated += s.OnAffectsRenderInvalidated;
                 }
             });
         }

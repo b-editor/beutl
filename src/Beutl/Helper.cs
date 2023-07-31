@@ -22,17 +22,17 @@ internal static class Helper
         LayerHeight = (double)(Application.Current?.FindResource("LayerHeight") ?? 25);
     }
 
-    public static int GetFrameRate(this IWorkspace workspace)
+    public static int GetFrameRate(this Project project)
     {
-        return workspace.Variables.TryGetValue(ProjectVariableKeys.FrameRate, out string? value)
+        return project.Variables.TryGetValue(ProjectVariableKeys.FrameRate, out string? value)
             && int.TryParse(value, out int rate)
             ? rate
             : 30;
     }
 
-    public static int GetSampleRate(this IWorkspace workspace)
+    public static int GetSampleRate(this Project project)
     {
-        return workspace.Variables.TryGetValue(ProjectVariableKeys.SampleRate, out string? value)
+        return project.Variables.TryGetValue(ProjectVariableKeys.SampleRate, out string? value)
             && int.TryParse(value, out int rate)
             ? rate
             : 44100;

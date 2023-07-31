@@ -9,9 +9,7 @@ public sealed class BackupConfig : ConfigurationBase
     static BackupConfig()
     {
         BackupSettingsProperty = ConfigureProperty<bool, BackupConfig>(nameof(BackupSettings))
-            .SerializeName("backup-settings")
             .DefaultValue(true)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
     }
 

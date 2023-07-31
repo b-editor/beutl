@@ -185,31 +185,9 @@ public class CoreList<T> : ICoreList<T>
 
     public virtual void Replace(IList<T> source)
     {
-        static bool AreEquals(IList<T> items1, IList<T> items2)
-        {
-            bool result = items1.Count == items2.Count;
-            if (!result)
-            {
-                return result;
-            }
-
-            EqualityComparer<T> comparer = EqualityComparer<T>.Default;
-            for (int i = 0; i < items2.Count; i++)
-            {
-                result = comparer.Equals(items1[i], items2[i]);
-
-                if (!result)
-                {
-                    break;
-                }
-            }
-
-            return result;
-        }
-
         Span<T> span = CollectionsMarshal.AsSpan(Inner);
         T[] oldItems = Count > 0 ? span.ToArray() : Array.Empty<T>();
-        if (!AreEquals(oldItems, source))
+        if (!oldItems.SequenceEqual(source))
         {
             Inner.Clear();
             foreach (T? item in oldItems)
@@ -228,7 +206,8 @@ public class CoreList<T> : ICoreList<T>
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
                 NotifyCollectionChangedAction.Replace,
                 (IList)source,
-                oldItems));
+                oldItems,
+                0));
         }
     }
 

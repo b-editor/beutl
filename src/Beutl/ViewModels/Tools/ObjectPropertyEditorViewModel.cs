@@ -127,11 +127,16 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
         _disposables.Dispose();
     }
 
-    public void ReadFromJson(JsonNode json)
+    public void ReadFromJson(JsonObject json)
     {
     }
 
-    public void WriteToJson(ref JsonNode json)
+    public void WriteToJson(JsonObject json)
     {
+    }
+
+    public object? GetService(Type serviceType)
+    {
+        return _viewModel.GetService(serviceType);
     }
 }

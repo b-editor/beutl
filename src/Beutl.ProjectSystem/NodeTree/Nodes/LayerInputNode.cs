@@ -28,7 +28,6 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
 
         static LayerInputSocket()
         {
-            NameProperty.OverrideMetadata<LayerInputSocket<T>>(new CorePropertyMetadata<string>("name"));
         }
 
         public CoreProperty? AssociatedProperty { get; set; }
@@ -73,7 +72,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             {
                 if (property is IAbstractAnimatableProperty<T> { Animation: IAnimation<T> animation })
                 {
-                    Value = animation.Interpolate(context.Clock.CurrentTime);
+                    Value = animation.GetAnimatedValue(context.Clock);
                 }
                 else
                 {
@@ -82,15 +81,15 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             }
         }
 
-        public override void ReadFromJson(JsonNode json)
+        public override void ReadFromJson(JsonObject json)
         {
             base.ReadFromJson(json);
-            string name = (string)json["property"]!;
-            string owner = (string)json["target"]!;
+            string name = (string)json["Property"]!;
+            string owner = (string)json["Target"]!;
             Type ownerType = TypeFormat.ToType(owner)!;
 
             AssociatedProperty = PropertyRegistry.GetRegistered(ownerType)
-                .FirstOrDefault(x => x.GetMetadata<CorePropertyMetadata>(ownerType).SerializeName == name || x.Name == name);
+                .FirstOrDefault(x => x.Name == name);
 
             if (AssociatedProperty != null)
             {
@@ -100,17 +99,18 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             }
         }
 
-        public override void WriteToJson(ref JsonNode json)
+        public override void WriteToJson(JsonObject json)
         {
-            base.WriteToJson(ref json);
-            GetProperty()?.WriteToJson(ref json);
+            base.WriteToJson(json);
+            GetProperty()?.WriteToJson(json);
         }
     }
 
     public bool AddSocket(ISocket socket, [NotNullWhen(true)] out Connection? connection)
     {
         connection = null;
-        if (socket is IInputSocket { AssociatedType: { } valueType, Property.Property: { } property } inputSocket)
+        if (socket is IInputSocket { AssociatedType: { } valueType } inputSocket
+            && inputSocket.Property?.GetCoreProperty() is { } property)
         {
             Type type = typeof(LayerInputSocket<>).MakeGenericType(valueType);
 
@@ -136,42 +136,27 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         return false;
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject obj)
+        if (json.TryGetPropertyValue("Items", out JsonNode? itemsNode)
+            && itemsNode is JsonArray itemsArray)
         {
-            if (obj.TryGetPropertyValue("items", out JsonNode? itemsNode)
-                && itemsNode is JsonArray itemsArray)
+            int index = 0;
+            foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
             {
-                int index = 0;
-                foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
+                if (itemJson.TryGetDiscriminator(out Type? type)
+                    && Activator.CreateInstance(type) is ILayerInputSocket socket)
                 {
-                    if (itemJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-                        && atTypeNode is JsonValue atTypeValue
-                        && atTypeValue.TryGetValue(out string? atType))
-                    {
-                        var type = TypeFormat.ToType(atType);
-                        ILayerInputSocket? socket = null;
-
-                        if (type?.IsAssignableTo(typeof(ILayerInputSocket)) ?? false)
-                        {
-                            socket = Activator.CreateInstance(type) as ILayerInputSocket;
-                        }
-
-                        if (socket != null)
-                        {
-                            (socket as IJsonSerializable)?.ReadFromJson(itemJson);
-                            Items.Add(socket);
-                            ((NodeItem)socket).LocalId = index;
-                        }
-                    }
-
-                    index++;
+                    (socket as IJsonSerializable)?.ReadFromJson(itemJson);
+                    Items.Add(socket);
+                    ((NodeItem)socket).LocalId = index;
                 }
 
-                NextLocalId = index;
+                index++;
             }
+
+            NextLocalId = index;
         }
     }
 }

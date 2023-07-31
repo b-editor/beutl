@@ -24,8 +24,6 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
 
         ValueProperty = ConfigureProperty<T, KeyFrame<T>>(nameof(Value))
             .Accessor(o => o.Value, (o, v) => o.Value = v)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
-            .SerializeName("value")
             .Register();
     }
 
@@ -66,6 +64,14 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
             {
                 _validator = t.GetMetadata<CorePropertyMetadata<T>>(t.OwnerType).Validator;
                 base.Property = t;
+                if (_validator != null)
+                {
+                    T? coerced = Value;
+                    if (_validator.TryCoerce(new ValidationContext(null, Property), ref coerced))
+                    {
+                        Value = coerced!;
+                    }
+                }
             }
             else
             {

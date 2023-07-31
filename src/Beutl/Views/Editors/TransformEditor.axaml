@@ -1,0 +1,79 @@
+<UserControl x:Class="Beutl.Views.Editors.TransformEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:local="using:Beutl.Views.Editors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.ViewModels.Editors"
+             x:Name="root"
+             d:DesignHeight="300"
+             d:DesignWidth="300"
+             x:DataType="viewModel:TransformEditorViewModel"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,Auto">
+        <ToggleButton x:Name="expandToggle"
+                      Margin="8,4"
+                      IsChecked="{Binding IsExpanded.Value}"
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+            <ToggleButton.ContextFlyout>
+                <ui:FAMenuFlyout>
+                    <ui:MenuFlyoutSubItem x:Name="ChangeTypeMenu"
+                                          FontWeight="Normal"
+                                          IconSource="New"
+                                          Text="変更" />
+                    <ui:MenuFlyoutItem Click="SetNullClick"
+                                       FontWeight="Normal"
+                                       Text="Null" />
+                </ui:FAMenuFlyout>
+            </ToggleButton.ContextFlyout>
+            <ToggleButton.Tag>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <ToggleButton Padding="0"
+                                  Classes="size-24x24"
+                                  IsChecked="{Binding IsEnabled.Value}"
+                                  IsVisible="{Binding !IsGroupOrNull.Value}"
+                                  Theme="{StaticResource VisibilityToggleButtonStyle}" />
+
+                    <Button Padding="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Classes="size-24x24"
+                            Click="Tag_Click"
+                            Theme="{StaticResource TransparentButton}">
+                        <icons:SymbolIcon Classes.add="{Binding IsGroup.Value}">
+                            <icons:SymbolIcon.Styles>
+                                <Style Selector="icons|SymbolIcon">
+                                    <Setter Property="Symbol" Value="Compose" />
+                                </Style>
+                                <Style Selector="icons|SymbolIcon.add">
+                                    <Setter Property="Symbol" Value="Add" />
+                                </Style>
+                            </icons:SymbolIcon.Styles>
+                        </icons:SymbolIcon>
+                    </Button>
+                </StackPanel>
+            </ToggleButton.Tag>
+            <TextBlock FontWeight="DemiBold" Text="{Binding Header, FallbackValue=Transform}" />
+        </ToggleButton>
+
+        <Panel x:Name="content" Grid.Row="1">
+            <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="Nullです。" />
+
+            <local:PropertiesEditor Margin="16,0,0,0"
+                                    Padding="0"
+                                    DataContext="{Binding Properties.Value}"
+                                    IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
+                                                                  Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+            <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <local:ListItemEditor />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Panel>
+    </Grid>
+</UserControl>

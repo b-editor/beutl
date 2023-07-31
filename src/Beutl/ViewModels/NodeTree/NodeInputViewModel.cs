@@ -12,17 +12,19 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.NodeTree;
 
-public sealed class NodeInputViewModel : IDisposable
+public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider
 {
     private readonly CompositeDisposable _disposables = new();
-    private readonly NodeTreeSpace _nodeTree;
     private readonly string _defaultName;
+    private NodeTreeModel _nodeTree;
+    private NodeTreeInputViewModel _parent;
 
-    public NodeInputViewModel(LayerInputNode node, int originalIndex, NodeTreeSpace nodeTree)
+    public NodeInputViewModel(LayerInputNode node, int originalIndex, NodeTreeInputViewModel parent)
     {
         Node = node;
         OriginalIndex = originalIndex;
-        _nodeTree = nodeTree;
+        _parent = parent;
+        _nodeTree = parent.Model.NodeTree;
 
         Type nodeType = node.GetType();
         if (NodeRegistry.FindItem(nodeType) is { } regItem)
@@ -82,15 +84,17 @@ public sealed class NodeInputViewModel : IDisposable
         }
         Properties.Clear();
         _disposables.Dispose();
+
+        _parent = null!;
+        _nodeTree = null!;
     }
 
     private void InitializeProperties()
     {
-        var ctmp = new CoreProperty[1];
         var atmp = new IAbstractProperty[1];
         foreach (INodeItem item in Node.Items)
         {
-            Properties.Add(CreatePropertyContext(ctmp, atmp, item));
+            Properties.Add(CreatePropertyContext(atmp, item));
         }
 
         Node.Items.CollectionChanged += OnItemsCollectionChanged;
@@ -100,11 +104,10 @@ public sealed class NodeInputViewModel : IDisposable
     {
         void Add(int index, IList items)
         {
-            var ctmp = new CoreProperty[1];
             var atmp = new IAbstractProperty[1];
             foreach (INodeItem item in items)
             {
-                Properties.Insert(index++, CreatePropertyContext(ctmp, atmp, item));
+                Properties.Insert(index++, CreatePropertyContext(atmp, item));
             }
         }
 
@@ -144,7 +147,7 @@ public sealed class NodeInputViewModel : IDisposable
         }
     }
 
-    private static IPropertyEditorContext? CreatePropertyContext(CoreProperty[] ctmp, IAbstractProperty[] atmp, INodeItem item)
+    private IPropertyEditorContext? CreatePropertyContext(IAbstractProperty[] atmp, INodeItem item)
     {
         IPropertyEditorContext? context = null;
         if (item is LayerInputNode.ILayerInputSocket socket)
@@ -152,13 +155,26 @@ public sealed class NodeInputViewModel : IDisposable
             IAbstractProperty? aproperty = socket.GetProperty();
             if (aproperty != null)
             {
-                ctmp[0] = aproperty.Property;
                 atmp[0] = aproperty;
-                (_, PropertyEditorExtension ext) = PropertyEditorService.MatchProperty(ctmp);
+                (_, PropertyEditorExtension ext) = PropertyEditorService.MatchProperty(atmp);
                 ext?.TryCreateContext(atmp, out context);
+
+                context?.Accept(this);
             }
         }
 
         return context;
+    }
+
+    public object? GetService(Type serviceType)
+    {
+        if (serviceType.IsAssignableTo(typeof(LayerInputNode)))
+            return Node;
+
+        return _parent.GetService(serviceType);
+    }
+
+    public void Visit(IPropertyEditorContext context)
+    {
     }
 }

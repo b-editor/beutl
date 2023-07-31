@@ -1,10 +1,9 @@
-﻿using System.Buffers;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 
-using Avalonia.Collections.Pooled;
-using Avalonia.Layout;
+using Beutl.Collections.Pooled;
 
 using Beutl.Framework;
+using Beutl.Models;
 using Beutl.NodeTree;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
@@ -13,18 +12,18 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.NodeTree;
 
-public class NodeTreeNavigationItem : IDisposable
+public sealed class NodeTreeNavigationItem : IDisposable, IJsonSerializable
 {
-    internal readonly Lazy<NodeTreeViewModel> _lazyViewModel;
+    internal Lazy<NodeTreeViewModel> _lazyViewModel;
 
-    public NodeTreeNavigationItem(NodeTreeViewModel viewModel, ReadOnlyReactivePropertySlim<string> name, NodeTreeSpace nodeTree)
+    public NodeTreeNavigationItem(NodeTreeViewModel viewModel, ReadOnlyReactivePropertySlim<string> name, NodeTreeModel nodeTree)
     {
         _lazyViewModel = new Lazy<NodeTreeViewModel>(viewModel);
         Name = name;
         NodeTree = nodeTree;
     }
 
-    public NodeTreeNavigationItem(ReadOnlyReactivePropertySlim<string> name, NodeTreeSpace nodeTree)
+    public NodeTreeNavigationItem(ReadOnlyReactivePropertySlim<string> name, NodeTreeModel nodeTree)
     {
         NodeTree = nodeTree;
         _lazyViewModel = new Lazy<NodeTreeViewModel>(() => new NodeTreeViewModel(NodeTree));
@@ -35,7 +34,7 @@ public class NodeTreeNavigationItem : IDisposable
 
     public ReadOnlyReactivePropertySlim<string> Name { get; }
 
-    public NodeTreeSpace NodeTree { get; }
+    public NodeTreeModel NodeTree { get; private set; }
 
     public void Dispose()
     {
@@ -45,14 +44,27 @@ public class NodeTreeNavigationItem : IDisposable
         }
 
         Name.Dispose();
+        _lazyViewModel = null!;
+        NodeTree = null!;
+    }
+
+    public void WriteToJson(JsonObject json)
+    {
+        ViewModel.WriteToJson(json);
+    }
+
+    public void ReadFromJson(JsonObject json)
+    {
+        ViewModel.ReadFromJson(json);
     }
 }
 
 public sealed class NodeTreeTabViewModel : IToolContext
 {
     private readonly ReactiveProperty<bool> _isSelected = new(true);
-    private readonly EditViewModel _editViewModel;
     private readonly CompositeDisposable _disposables = new();
+    private EditViewModel _editViewModel;
+    private Element? _oldLayer;
 
     public NodeTreeTabViewModel(EditViewModel editViewModel)
     {
@@ -60,6 +72,12 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
         Layer.Subscribe(v =>
         {
+            if (_oldLayer != null)
+            {
+                SaveState(_oldLayer);
+            }
+            _oldLayer = v;
+
             foreach (NodeTreeNavigationItem item in Items)
             {
                 item.Dispose();
@@ -71,17 +89,19 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
             if (v != null)
             {
-                NodeTree.Value = new NodeTreeViewModel(v.Space);
+                NodeTree.Value = new NodeTreeViewModel(v.NodeTree);
                 IObservable<string> name = v.GetObservable(CoreObject.NameProperty);
-                IObservable<string> fileName = v.GetObservable(ProjectSystem.Layer.FileNameProperty)
+                IObservable<string> fileName = v.GetObservable(ProjectItem.FileNameProperty)
                     .Select(x => Path.GetFileNameWithoutExtension(x));
 
                 Items.Add(new NodeTreeNavigationItem(
                     viewModel: NodeTree.Value,
-                    nodeTree: v.Space,
+                    nodeTree: v.NodeTree,
                     name: name.CombineLatest(fileName)
                         .Select(x => string.IsNullOrWhiteSpace(x.First) ? x.Second : x.First)
                         .ToReadOnlyReactivePropertySlim()!));
+
+                RestoreState(v);
             }
         }).DisposeWith(_disposables);
     }
@@ -94,7 +114,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
     public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Bottom;
 
-    public ReactivePropertySlim<Layer?> Layer { get; } = new();
+    public ReactivePropertySlim<Element?> Layer { get; } = new();
 
     public ReactivePropertySlim<NodeTreeViewModel?> NodeTree { get; } = new();
 
@@ -102,8 +122,19 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
     public void Dispose()
     {
-        NodeTree.Value?.Dispose();
+        Layer.Value = null;
+
         _disposables.Dispose();
+        foreach (NodeTreeNavigationItem item in Items)
+        {
+            item.Dispose();
+        }
+
+        Items.Clear();
+        NodeTree.Dispose();
+        NodeTree.Value?.Dispose();
+        NodeTree.Value = null;
+        _editViewModel = null!;
     }
 
     public void NavigateTo(int index)
@@ -124,7 +155,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
         }
     }
 
-    public NodeTreeNavigationItem? FindItem(NodeTreeSpace nodeTree)
+    public NodeTreeNavigationItem? FindItem(NodeTreeModel nodeTree)
     {
         foreach (NodeTreeNavigationItem navItem in Items)
         {
@@ -137,22 +168,22 @@ public sealed class NodeTreeTabViewModel : IToolContext
         return null;
     }
 
-    public void NavigateTo(NodeTreeSpace nodeTree)
+    public void NavigateTo(NodeTreeModel nodeTree)
     {
-        using var stack = new PooledList<NodeTreeSpace>();
+        using var stack = new PooledList<NodeTreeModel>();
 
-        ILogicalElement? current = nodeTree;
+        IHierarchical? current = nodeTree;
 
         while (current != null)
         {
-            if (current is NodeTreeSpace curNodeTree)
+            if (current is NodeTreeModel curNodeTree)
             {
                 stack.Insert(0, curNodeTree);
             }
 
             try
             {
-                current = current?.LogicalParent;
+                current = current?.HierarchicalParent;
             }
             catch
             {
@@ -162,7 +193,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
         using var list = new PooledList<NodeTreeNavigationItem>(stack.Count);
 
-        foreach (NodeTreeSpace item in stack.Span)
+        foreach (NodeTreeModel item in stack.Span)
         {
             NodeTreeNavigationItem? foundItem = FindItem(item);
 
@@ -187,10 +218,75 @@ public sealed class NodeTreeTabViewModel : IToolContext
         }
     }
 
-    public void ReadFromJson(JsonNode json)
+    private static string ViewStateDirectory(Element layer)
+    {
+        string directory = Path.GetDirectoryName(layer.FileName)!;
+
+        directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
+        if (!Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        return directory;
+    }
+
+    private void SaveState(Element layer)
+    {
+        string viewStateDir = ViewStateDirectory(layer);
+
+        var itemsJson = new JsonObject();
+        foreach (NodeTreeNavigationItem item in Items.GetMarshal().Value)
+        {
+            var itemJson = new JsonObject();
+            item.WriteToJson(itemJson);
+            itemsJson[item.NodeTree.Id.ToString()] = itemJson;
+        }
+
+        var json = new JsonObject
+        {
+            [nameof(Items)] = itemsJson
+        };
+        if (NodeTree.Value != null)
+        {
+            json["Selected"] = NodeTree.Value.NodeTree.Id;
+        }
+
+        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.nodetree.config"));
+    }
+
+    private void RestoreState(Element layer)
+    {
+        string viewStateDir = ViewStateDirectory(layer);
+        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.nodetree.config");
+
+        if (File.Exists(viewStateFile))
+        {
+            using var stream = new FileStream(viewStateFile, FileMode.Open, FileAccess.Read, FileShare.Read);
+            JsonObject json = JsonNode.Parse(stream)!.AsObject();
+            Guid? selected = (Guid?)json["Selected"];
+            if (selected.HasValue
+                && layer.FindById(selected.Value) is NodeTreeModel selectedModel)
+            {
+                NavigateTo(selectedModel);
+            }
+
+            JsonObject itemsJson = json[nameof(Items)]!.AsObject();
+
+            foreach (NodeTreeNavigationItem item in Items)
+            {
+                if (itemsJson.TryGetPropertyValue(item.NodeTree.Id.ToString(), out JsonNode? itemJson))
+                {
+                    item.ReadFromJson(itemJson!.AsObject());
+                }
+            }
+        }
+    }
+
+    public void ReadFromJson(JsonObject json)
     {
         if (Layer.Value == null
-            && (json as JsonObject)?.TryGetPropertyValue("layer-filename", out JsonNode? filenameNode) == true
+            && json?.TryGetPropertyValue("layer-filename", out JsonNode? filenameNode) == true
             && (filenameNode as JsonValue)?.TryGetValue(out string? filename) == true
             && filename != null)
         {
@@ -198,11 +294,19 @@ public sealed class NodeTreeTabViewModel : IToolContext
         }
     }
 
-    public void WriteToJson(ref JsonNode json)
+    public void WriteToJson(JsonObject json)
     {
         if (Layer.Value is { FileName: { } filename })
         {
             json["layer-filename"] = filename;
         }
+    }
+
+    public object? GetService(Type serviceType)
+    {
+        if (serviceType == typeof(Element))
+            return Layer.Value;
+
+        return _editViewModel.GetService(serviceType);
     }
 }

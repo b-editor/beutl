@@ -1,5 +1,8 @@
-﻿using System.Diagnostics;
+﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
 
+using Beutl.Animation;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
@@ -7,7 +10,7 @@ using Beutl.Media.TextFormatting;
 namespace Beutl.Graphics.Shapes;
 
 [DebuggerDisplay("{Text}")]
-public class TextElement : Drawable
+public class TextElement : Animatable, IAffectsRender
 {
     public static readonly CoreProperty<FontWeight> FontWeightProperty;
     public static readonly CoreProperty<FontStyle> FontStyleProperty;
@@ -16,6 +19,8 @@ public class TextElement : Drawable
     public static readonly CoreProperty<float> SpacingProperty;
     public static readonly CoreProperty<string> TextProperty;
     public static readonly CoreProperty<Thickness> MarginProperty;
+    public static readonly CoreProperty<IBrush?> BrushProperty;
+    public static readonly CoreProperty<IPen?> PenProperty;
     public static readonly CoreProperty<bool> IgnoreLineBreaksProperty;
     private FontWeight _fontWeight;
     private FontStyle _fontStyle;
@@ -24,6 +29,8 @@ public class TextElement : Drawable
     private float _spacing;
     private string _text = string.Empty;
     private Thickness _margin;
+    private IBrush? _brush;
+    private IPen? _pen = null;
     private bool _ignoreLineBreaks;
     private FormattedText _formattedText;
 
@@ -31,125 +38,166 @@ public class TextElement : Drawable
     {
         FontWeightProperty = ConfigureProperty<FontWeight, TextElement>(nameof(FontWeight))
             .Accessor(o => o.FontWeight, (o, v) => o.FontWeight = v)
-            .Display(Strings.FontWeight)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(FontWeight.Regular)
-            .SerializeName("font-weight")
             .Register();
 
         FontStyleProperty = ConfigureProperty<FontStyle, TextElement>(nameof(FontStyle))
             .Accessor(o => o.FontStyle, (o, v) => o.FontStyle = v)
-            .Display(Strings.FontStyle)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(FontStyle.Normal)
-            .SerializeName("font-style")
             .Register();
 
         FontFamilyProperty = ConfigureProperty<FontFamily, TextElement>(nameof(FontFamily))
             .Accessor(o => o.FontFamily, (o, v) => o.FontFamily = v)
-            .Display(Strings.FontFamily)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(FontFamily.Default)
-            .SerializeName("font-family")
             .Register();
 
         SizeProperty = ConfigureProperty<float, TextElement>(nameof(Size))
             .Accessor(o => o.Size, (o, v) => o.Size = v)
-            .Display(Strings.Size)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(0)
-            .Minimum(0)
-            .SerializeName("size")
             .Register();
 
         SpacingProperty = ConfigureProperty<float, TextElement>(nameof(Spacing))
             .Accessor(o => o.Spacing, (o, v) => o.Spacing = v)
-            .Display(Strings.CharactorSpacing)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(0)
-            .SerializeName("spacing")
             .Register();
 
         TextProperty = ConfigureProperty<string, TextElement>(nameof(Text))
             .Accessor(o => o.Text, (o, v) => o.Text = v)
-            .Display(Strings.Text)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(string.Empty)
-            .SerializeName("text")
             .Register();
 
         MarginProperty = ConfigureProperty<Thickness, TextElement>(nameof(Margin))
             .Accessor(o => o.Margin, (o, v) => o.Margin = v)
-            .Display(Strings.Margin)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(new Thickness())
-            .SerializeName("margin")
+            .Register();
+
+        BrushProperty = ConfigureProperty<IBrush?, TextElement>(nameof(Brush))
+            .Accessor(o => o.Brush, (o, v) => o.Brush = v)
+            .Register();
+
+        PenProperty = ConfigureProperty<IPen?, TextElement>(nameof(Pen))
+            .Accessor(o => o.Pen, (o, v) => o.Pen = v)
             .Register();
 
         IgnoreLineBreaksProperty = ConfigureProperty<bool, TextElement>(nameof(IgnoreLineBreaks))
             .Accessor(o => o.IgnoreLineBreaks, (o, v) => o.IgnoreLineBreaks = v)
-            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(false)
-            .SerializeName("ignore-line-breaks")
             .Register();
-
-        AffectsRender<TextElement>(
-            FontWeightProperty,
-            FontStyleProperty,
-            FontFamilyProperty,
-            SizeProperty,
-            SpacingProperty,
-            TextProperty,
-            MarginProperty,
-            IgnoreLineBreaksProperty);
     }
 
+    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+
+    [Display(Name = nameof(Strings.FontWeight), ResourceType = typeof(Strings))]
     public FontWeight FontWeight
     {
         get => _fontWeight;
         set => SetAndRaise(FontWeightProperty, ref _fontWeight, value);
     }
 
+    [Display(Name = nameof(Strings.FontStyle), ResourceType = typeof(Strings))]
     public FontStyle FontStyle
     {
         get => _fontStyle;
         set => SetAndRaise(FontStyleProperty, ref _fontStyle, value);
     }
 
+    [Display(Name = nameof(Strings.FontFamily), ResourceType = typeof(Strings))]
     public FontFamily FontFamily
     {
         get => _fontFamily;
         set => SetAndRaise(FontFamilyProperty, ref _fontFamily, value);
     }
 
+    [Display(Name = nameof(Strings.Size), ResourceType = typeof(Strings))]
+    [Range(0, float.MaxValue)]
     public float Size
     {
         get => _size;
         set => SetAndRaise(SizeProperty, ref _size, value);
     }
 
+    [Display(Name = nameof(Strings.CharactorSpacing), ResourceType = typeof(Strings))]
     public float Spacing
     {
         get => _spacing;
         set => SetAndRaise(SpacingProperty, ref _spacing, value);
     }
 
+    [Display(Name = nameof(Strings.Text), ResourceType = typeof(Strings))]
     public string Text
     {
         get => _text;
         set => SetAndRaise(TextProperty, ref _text, value);
     }
 
+    [Display(Name = nameof(Strings.Margin), ResourceType = typeof(Strings))]
     public Thickness Margin
     {
         get => _margin;
         set => SetAndRaise(MarginProperty, ref _margin, value);
     }
 
+    public IBrush? Brush
+    {
+        get => _brush;
+        set => SetAndRaise(BrushProperty, ref _brush, value);
+    }
+
+    public IPen? Pen
+    {
+        get => _pen;
+        set => SetAndRaise(PenProperty, ref _pen, value);
+    }
+
     public bool IgnoreLineBreaks
     {
         get => _ignoreLineBreaks;
         set => SetAndRaise(IgnoreLineBreaksProperty, ref _ignoreLineBreaks, value);
+    }
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        base.OnPropertyChanged(args);
+        switch (args.PropertyName)
+        {
+            case nameof(Brush) when args is CorePropertyChangedEventArgs<IBrush?> args1:
+                if (args1.OldValue is IAffectsRender oldBrush)
+                    oldBrush.Invalidated -= OnAffectsRenderInvalidated;
+
+                if (args1.NewValue is IAffectsRender newBrush)
+                    newBrush.Invalidated += OnAffectsRenderInvalidated;
+
+                goto RaiseInvalidated;
+                
+            case nameof(Pen) when args is CorePropertyChangedEventArgs<IPen?> args2:
+                if (args2.OldValue is IAffectsRender oldPen)
+                    oldPen.Invalidated -= OnAffectsRenderInvalidated;
+
+                if (args2.NewValue is IAffectsRender newPen)
+                    newPen.Invalidated += OnAffectsRenderInvalidated;
+
+                goto RaiseInvalidated;
+
+            case nameof(FontWeight):
+            case nameof(FontStyle):
+            case nameof(FontFamily):
+            case nameof(Size):
+            case nameof(Spacing):
+            case nameof(Text):
+            case nameof(Margin):
+            case nameof(IgnoreLineBreaks):
+            RaiseInvalidated:
+                Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(args.PropertyName));
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    private void OnAffectsRenderInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    {
+        Invalidated?.Invoke(this, e);
     }
 
     internal int GetFormattedTexts(Span<FormattedText> span, bool startWithNewLine, out bool endWithNewLine)
@@ -228,13 +276,10 @@ public class TextElement : Drawable
         _formattedText.Size = _size;
         _formattedText.Spacing = _spacing;
         _formattedText.Text = s;
-        _formattedText.Brush = Foreground;
+        _formattedText.Brush = Brush;
+        _formattedText.Pen = Pen;
 
         text = _formattedText;
     }
-
-    protected override Size MeasureCore(Size availableSize) => throw new NotImplementedException();
-
-    protected override void OnDraw(ICanvas canvas) => throw new NotImplementedException();
 }
 

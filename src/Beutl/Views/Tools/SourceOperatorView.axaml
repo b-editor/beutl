@@ -13,8 +13,6 @@
     <Expander Padding="0" IsExpanded="{Binding IsExpanded.Value, Mode=TwoWay}">
         <Expander.Resources>
             <SolidColorBrush x:Key="ExpanderContentBackground" Color="Transparent" />
-            <StaticResource x:Key="ExpanderHeaderBackground" ResourceKey="CardBackgroundFillColorSecondaryBrush" />
-            <Thickness x:Key="ExpanderContentDownBorderThickness">0</Thickness>
         </Expander.Resources>
         <Expander.Header>
             <StackPanel Orientation="Horizontal">
@@ -35,15 +33,17 @@
                             <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
                         </Style>
                     </Border.Styles>
-                    <icons:SymbolIcon FontSize="16" Symbol="ReOrderDotsVertical" />
+                    <icons:SymbolIcon VerticalAlignment="Center"
+                                      FontSize="16"
+                                      Symbol="ReOrderDotsVertical" />
                 </Border>
 
-                <ToggleButton IsChecked="{Binding Model.IsEnabled}" Theme="{StaticResource VisibilityToggleButtonStyle}" />
+                <ToggleButton IsChecked="{Binding IsEnabled.Value}" Theme="{StaticResource VisibilityToggleButtonStyle}" />
 
                 <TextBlock x:Name="headerText" VerticalAlignment="Center" />
             </StackPanel>
         </Expander.Header>
 
-        <editors:PropertiesEditor />
+        <editors:PropertiesEditor Grid.IsSharedSizeScope="True" />
     </Expander>
 </UserControl>

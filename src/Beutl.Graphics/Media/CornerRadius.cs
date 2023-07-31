@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.ComponentModel;
+using System.Globalization;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
@@ -11,8 +12,8 @@ namespace Beutl.Media;
 /// Represents the radii of a rectangle's corners.
 /// </summary>
 [JsonConverter(typeof(CornerRadiusJsonConverter))]
-[RangeValidatable(typeof(CornerRadiusRangeValidator))]
-public readonly struct CornerRadius : IEquatable<CornerRadius>
+[TypeConverter(typeof(CornerRadiusConverter))]
+public readonly struct CornerRadius : IEquatable<CornerRadius>, ITupleConvertible<CornerRadius, float>
 {
     public CornerRadius(float uniformRadius)
     {
@@ -63,6 +64,8 @@ public readonly struct CornerRadius : IEquatable<CornerRadius>
     /// Gets a value indicating whether all corner radii are equal.
     /// </summary>
     public bool IsUniform => TopLeft.Equals(TopRight) && BottomLeft.Equals(BottomRight) && TopRight.Equals(BottomRight);
+
+    static int ITupleConvertible<CornerRadius, float>.TupleLength => 4;
 
     /// <summary>
     /// Returns a boolean indicating whether the corner radius is equal to the other given corner radius.
@@ -174,6 +177,19 @@ public readonly struct CornerRadius : IEquatable<CornerRadius>
     public CornerRadius WithBottom(float bottom)
     {
         return new CornerRadius(TopLeft, TopRight, bottom, bottom);
+    }
+
+    static void ITupleConvertible<CornerRadius, float>.ConvertTo(CornerRadius self, Span<float> tuple)
+    {
+        tuple[0] = self.TopLeft;
+        tuple[1] = self.TopRight;
+        tuple[2] = self.BottomRight;
+        tuple[3] = self.BottomLeft;
+    }
+
+    static void ITupleConvertible<CornerRadius, float>.ConvertFrom(Span<float> tuple, out CornerRadius self)
+    {
+        self = new CornerRadius(tuple[0], tuple[1], tuple[2], tuple[3]);
     }
 
     public static bool operator ==(CornerRadius left, CornerRadius right)

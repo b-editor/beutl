@@ -4,14 +4,14 @@ using System.Buffers;
 using System.Collections;
 using System.Text.Json.Nodes;
 
+using Beutl.Media;
 using Beutl.Media.TextFormatting;
 
 namespace Beutl.Graphics.Shapes;
 
-public class TextElements : IReadOnlyList<TextElement>, ILogicalElement
+public class TextElements : IReadOnlyList<TextElement>, IAffectsRender
 {
     private readonly TextElement[] _array;
-    private ILogicalElement? _parent;
 
     public TextElements(IEnumerable<TextElement> items)
         : this(items.ToArray())
@@ -22,6 +22,16 @@ public class TextElements : IReadOnlyList<TextElement>, ILogicalElement
     {
         _array = array;
         Lines = new LineEnumerable(array);
+
+        foreach (TextElement item in array)
+        {
+            item.Invalidated += OnItemInvalidated;
+        }
+    }
+
+    private void OnItemInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    {
+        Invalidated?.Invoke(sender, e);
     }
 
     public TextElement this[int index] => ((IReadOnlyList<TextElement>)_array)[index];
@@ -30,21 +40,7 @@ public class TextElements : IReadOnlyList<TextElement>, ILogicalElement
 
     public LineEnumerable Lines { get; }
 
-    ILogicalElement? ILogicalElement.LogicalParent => _parent;
-
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => _array;
-
-    event EventHandler<LogicalTreeAttachmentEventArgs> ILogicalElement.AttachedToLogicalTree
-    {
-        add { }
-        remove { }
-    }
-
-    event EventHandler<LogicalTreeAttachmentEventArgs> ILogicalElement.DetachedFromLogicalTree
-    {
-        add { }
-        remove { }
-    }
+    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
     public IEnumerator<TextElement> GetEnumerator()
     {
@@ -54,30 +50,6 @@ public class TextElements : IReadOnlyList<TextElement>, ILogicalElement
     IEnumerator IEnumerable.GetEnumerator()
     {
         return _array.GetEnumerator();
-    }
-
-    void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)
-    {
-        if (_parent is { })
-            throw new LogicalTreeException("This logical element already has a parent element.");
-
-        _parent = e.Parent;
-        foreach (TextElement item in _array)
-        {
-            (item as ILogicalElement).NotifyAttachedToLogicalTree(e);
-        }
-    }
-
-    void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
-    {
-        if (!ReferenceEquals(e.Parent, _parent))
-            throw new LogicalTreeException("The detach source element and the parent element do not match.");
-
-        _parent = null;
-        foreach (TextElement item in _array)
-        {
-            (item as ILogicalElement).NotifyDetachedFromLogicalTree(e);
-        }
     }
 
     public readonly struct LineEnumerable

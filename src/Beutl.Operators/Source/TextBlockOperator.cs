@@ -6,15 +6,8 @@ using Beutl.Styling;
 
 namespace Beutl.Operators.Source;
 
-public sealed class TextBlockOperator : StyledSourcePublisher
+public sealed class TextBlockOperator : DrawablePublishOperator<TextBlock>
 {
-    protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
-    {
-        var style = new Style<TextBlock>();
-        style.Setters.AddRange(setters());
-        return style;
-    }
-
     protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
         initializing.Add(new Setter<float>(TextBlock.SizeProperty, 24));

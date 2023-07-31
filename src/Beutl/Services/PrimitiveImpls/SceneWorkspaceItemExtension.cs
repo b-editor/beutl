@@ -14,13 +14,13 @@ using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 namespace Beutl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
-public sealed class SceneWorkspaceItemExtension : WorkspaceItemExtension
+public sealed class SceneProjectItemExtension : ProjectItemExtension
 {
-    public static readonly SceneWorkspaceItemExtension Instance = new();
+    public static readonly SceneProjectItemExtension Instance = new();
 
-    public override string Name => "Make the scene a workspace item.";
+    public override string Name => "Make the scene a project item.";
 
-    public override string DisplayName => "Make the scene a workspace item.";
+    public override string DisplayName => "Make the scene a project item.";
 
     public override FilePickerFileType GetFilePickerFileType()
     {
@@ -46,7 +46,7 @@ public sealed class SceneWorkspaceItemExtension : WorkspaceItemExtension
         return file.EndsWith($".{Constants.SceneFileExtension}");
     }
 
-    public override bool TryCreateItem(string file, [NotNullWhen(true)] out IWorkspaceItem? result)
+    public override bool TryCreateItem(string file, [NotNullWhen(true)] out ProjectItem? result)
     {
         result = null;
         if (file.EndsWith($".{Constants.SceneFileExtension}"))

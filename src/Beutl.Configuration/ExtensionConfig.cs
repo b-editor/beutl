@@ -28,33 +28,30 @@ public sealed class ExtensionConfig : ConfigurationBase
     // Keyには拡張子を含める
     public CoreDictionary<string, ICoreList<TypeLazy>> EditorExtensions { get; } = new();
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json is JsonObject jsonObject)
+        if (json.TryGetPropertyValue("editor-extensions", out JsonNode? eeNode)
+            && eeNode is JsonObject eeObject)
         {
-            if (jsonObject.TryGetPropertyValue("editor-extensions", out JsonNode? eeNode)
-                && eeNode is JsonObject eeObject)
+            EditorExtensions.Clear();
+            foreach (KeyValuePair<string, JsonNode?> item in eeObject)
             {
-                EditorExtensions.Clear();
-                foreach (KeyValuePair<string, JsonNode?> item in eeObject)
+                if (item.Value is JsonArray jsonArray)
                 {
-                    if (item.Value is JsonArray jsonArray)
-                    {
-                        EditorExtensions.Add(item.Key, new CoreList<TypeLazy>(jsonArray.OfType<JsonValue>()
-                            .Select(value => value.TryGetValue(out string? type) ? type : null)
-                            .Select(str => new TypeLazy(str!))
-                            .Where(type => type.FormattedTypeName != null)!));
-                    }
+                    EditorExtensions.Add(item.Key, new CoreList<TypeLazy>(jsonArray.OfType<JsonValue>()
+                        .Select(value => value.TryGetValue(out string? type) ? type : null)
+                        .Select(str => new TypeLazy(str!))
+                        .Where(type => type.FormattedTypeName != null)!));
                 }
             }
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
-        
+        base.WriteToJson(json);
+
         var eeObject = new JsonObject();
         foreach ((string key, ICoreList<TypeLazy> value) in EditorExtensions)
         {

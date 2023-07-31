@@ -8,18 +8,17 @@ public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
 {
     public IStyleInstance? Instance { get; private set; }
 
-    public virtual IRenderable? Publish(IClock clock)
+    public virtual Renderable? Publish(IClock clock)
     {
-        OnPrePublish();
-        IRenderable? renderable = Instance?.Target as IRenderable;
+        Renderable? renderable = Instance?.Target as Renderable;
         
         if (!ReferenceEquals(Style, Instance?.Source) || Instance?.Target == null)
         {
-            renderable = Activator.CreateInstance(Style.TargetType) as IRenderable;
-            if (renderable is IStyleable styleable)
+            renderable = Activator.CreateInstance(Style.TargetType) as Renderable;
+            if (renderable is ICoreObject coreObj)
             {
                 Instance?.Dispose();
-                Instance = Style.Instance(styleable);
+                Instance = Style.Instance(coreObj);
             }
             else
             {
@@ -27,6 +26,7 @@ public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
             }
         }
 
+        OnBeforeApplying();
         if (Instance != null && IsEnabled)
         {
             Instance.Begin();
@@ -34,16 +34,24 @@ public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
             Instance.End();
         }
 
-        OnPostPublish();
+        OnAfterApplying();
 
         return IsEnabled ? renderable : null;
     }
 
-    protected virtual void OnPrePublish()
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
+    {
+        base.OnDetachedFromHierarchy(args);
+        IStyleInstance? tmp = Instance;
+        Instance = null;
+        tmp?.Dispose();
+    }
+
+    protected virtual void OnBeforeApplying()
     {
     }
 
-    protected virtual void OnPostPublish()
+    protected virtual void OnAfterApplying()
     {
     }
 }

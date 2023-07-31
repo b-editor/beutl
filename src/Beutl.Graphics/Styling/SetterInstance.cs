@@ -6,10 +6,10 @@ namespace Beutl.Styling;
 
 public class SetterInstance<T> : ISetterInstance
 {
-    private IStyleable? _target;
+    private ICoreObject? _target;
     private Setter<T>? _setter;
 
-    public SetterInstance(Setter<T> setter, IStyleable target)
+    public SetterInstance(Setter<T> setter, ICoreObject target)
     {
         _setter = setter;
         _target = target;
@@ -19,7 +19,7 @@ public class SetterInstance<T> : ISetterInstance
 
     public Setter<T> Setter => _setter ?? throw new InvalidOperationException();
 
-    public IStyleable Target => _target ?? throw new InvalidOperationException();
+    public ICoreObject Target => _target ?? throw new InvalidOperationException();
 
     CoreProperty ISetterInstance.Property => Property;
 

@@ -63,12 +63,12 @@ public sealed class NodeTreeBackground : Control
         int hsplit = (int)Math.Ceiling(width / DotSize) + 1;
         int vsplit = (int)Math.Ceiling(height / DotSize) + 1;
 
-        double offsetX = _zoomBorder.OffsetX;
-        double offsetY = _zoomBorder.OffsetY;
+        double offsetX = _zoomBorder.OffsetX / _zoomBorder.ZoomX;
+        double offsetY = _zoomBorder.OffsetY / _zoomBorder.ZoomY;
         double amariX = offsetX % DotSize;
         double amariY = offsetY % DotSize;
 
-        using (context.PushPreTransform(Matrix.CreateTranslation(amariX, amariY) * Matrix.CreateScale(_zoomBorder.ZoomX, _zoomBorder.ZoomY)))
+        using (context.PushTransform(Matrix.CreateTranslation(amariX, amariY) * Matrix.CreateScale(_zoomBorder.ZoomX, _zoomBorder.ZoomY)))
         {
             IBrush brush = BorderBrush ?? Brushes.Gray;
             for (int i = -1; i < hsplit; i++)

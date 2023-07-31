@@ -107,7 +107,7 @@
                         <ScrollViewer Margin="16"
                                       HorizontalScrollBarVisibility="Visible"
                                       VerticalScrollBarVisibility="Disabled">
-                            <ItemsControl Items="{Binding Package.Screenshots.Value}">
+                            <ItemsControl ItemsSource="{Binding Package.Screenshots.Value}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <StackPanel Orientation="Horizontal" Spacing="8" />
@@ -165,7 +165,7 @@
                                 <ItemsRepeater Grid.Row="1"
                                                Grid.Column="1"
                                                Margin="4"
-                                               Items="{Binding Package.Tags.Value}">
+                                               ItemsSource="{Binding Package.Tags.Value}">
                                     <ItemsRepeater.Layout>
                                         <WrapLayout HorizontalSpacing="8"
                                                     Orientation="Horizontal"

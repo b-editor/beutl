@@ -20,21 +20,15 @@ public sealed class ViewConfig : ConfigurationBase
     static ViewConfig()
     {
         ThemeProperty = ConfigureProperty<ViewTheme, ViewConfig>("Theme")
-            .SerializeName("theme")
             .DefaultValue(ViewTheme.Dark)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         UICultureProperty = ConfigureProperty<CultureInfo, ViewConfig>("UICulture")
-            .SerializeName("ui-culture")
             .DefaultValue(CultureInfo.InstalledUICulture)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         IsMicaEffectEnabledProperty = ConfigureProperty<bool, ViewConfig>("IsMicaEffectEnabled")
-            .SerializeName("is-mica-enabled")
             .DefaultValue(false)
-            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         RecentFilesProperty = ConfigureProperty<CoreList<string>, ViewConfig>("RecentFiles")
@@ -64,18 +58,21 @@ public sealed class ViewConfig : ConfigurationBase
         set => SetValue(UICultureProperty, value);
     }
 
+    [Obsolete]
     public bool IsMicaEffectEnabled
     {
         get => GetValue(IsMicaEffectEnabledProperty);
         set => SetValue(IsMicaEffectEnabledProperty, value);
     }
 
+    [NotAutoSerialized()]
     public CoreList<string> RecentFiles
     {
         get => _recentFiles;
         set => _recentFiles.Replace(value);
     }
 
+    [NotAutoSerialized()]
     public CoreList<string> RecentProjects
     {
         get => _recentProjects;
@@ -90,27 +87,24 @@ public sealed class ViewConfig : ConfigurationBase
         System
     }
 
-    public override void ReadFromJson(JsonNode json)
+    public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
 
-        if (json is JsonObject jsonObject)
+        if (json["recent-files"] is JsonArray recentFiles)
         {
-            if (jsonObject["recent-files"] is JsonArray recentFiles)
-            {
-                _recentFiles.Replace(recentFiles.Select(i => (string?)i).Where(i => i != null && File.Exists(i)).ToArray()!);
-            }
+            _recentFiles.Replace(recentFiles.Select(i => (string?)i).Where(i => i != null && File.Exists(i)).ToArray()!);
+        }
 
-            if (jsonObject["recent-projects"] is JsonArray recentProjects)
-            {
-                _recentProjects.Replace(recentProjects.Select(i => (string?)i).Where(i => i != null && File.Exists(i)).ToArray()!);
-            }
+        if (json["recent-projects"] is JsonArray recentProjects)
+        {
+            _recentProjects.Replace(recentProjects.Select(i => (string?)i).Where(i => i != null && File.Exists(i)).ToArray()!);
         }
     }
 
-    public override void WriteToJson(ref JsonNode json)
+    public override void WriteToJson(JsonObject json)
     {
-        base.WriteToJson(ref json);
+        base.WriteToJson(json);
         json["recent-files"] = JsonSerializer.SerializeToNode(_recentFiles, JsonHelper.SerializerOptions);
         json["recent-projects"] = JsonSerializer.SerializeToNode(_recentProjects, JsonHelper.SerializerOptions);
     }

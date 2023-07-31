@@ -10,6 +10,7 @@ using Beutl.Audio.Effects;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Framework;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -27,7 +28,7 @@ public static class PropertyEditorService
         return (IAbstractProperty<T>)pi;
     }
 
-    public static (CoreProperty[] Properties, PropertyEditorExtension Extension) MatchProperty(IReadOnlyList<CoreProperty> properties)
+    public static (IAbstractProperty[] Properties, PropertyEditorExtension Extension) MatchProperty(IReadOnlyList<IAbstractProperty> properties)
     {
         ExtensionProvider extp = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
 
@@ -35,7 +36,7 @@ public static class PropertyEditorService
         for (int i = items.Length - 1; i >= 0; i--)
         {
             PropertyEditorExtension item = items[i];
-            CoreProperty[] array = item.MatchProperty(properties).ToArray();
+            IAbstractProperty[] array = item.MatchProperty(properties).ToArray();
             if (array.Length > 0)
             {
                 return (array, item);
@@ -47,47 +48,91 @@ public static class PropertyEditorService
 
     private static Control? CreateEnumEditor(IAbstractProperty s)
     {
-        Type type = typeof(EnumEditor<>).MakeGenericType(s.Property.PropertyType);
+        Type type = typeof(EnumEditor<>).MakeGenericType(s.PropertyType);
         return (Control?)Activator.CreateInstance(type);
     }
 
     private static BaseEditorViewModel? CreateEnumViewModel(IAbstractProperty s)
     {
-        Type type = typeof(EnumEditorViewModel<>).MakeGenericType(s.Property.PropertyType);
+        Type type = typeof(EnumEditorViewModel<>).MakeGenericType(s.PropertyType);
         return Activator.CreateInstance(type, s) as BaseEditorViewModel;
     }
 
     private static Control? CreateNavigationButton(IAbstractProperty s)
     {
         Type controlType = typeof(NavigateButton<>);
-        controlType = controlType.MakeGenericType(s.Property.PropertyType);
+        controlType = controlType.MakeGenericType(s.PropertyType);
         return Activator.CreateInstance(controlType) as Control;
     }
 
     private static BaseEditorViewModel? CreateNavigationButtonViewModel(IAbstractProperty s)
     {
         Type viewModelType = typeof(NavigationButtonViewModel<>);
-        viewModelType = viewModelType.MakeGenericType(s.Property.PropertyType);
+        viewModelType = viewModelType.MakeGenericType(s.PropertyType);
         return Activator.CreateInstance(viewModelType, s) as BaseEditorViewModel;
     }
 
     private static Control? CreateParsableEditor(IAbstractProperty s)
     {
         Type controlType = typeof(ParsableEditor<>);
-        controlType = controlType.MakeGenericType(s.Property.PropertyType);
+        controlType = controlType.MakeGenericType(s.PropertyType);
         return Activator.CreateInstance(controlType) as Control;
     }
 
     private static BaseEditorViewModel? CreateParsableEditorViewModel(IAbstractProperty s)
     {
         Type viewModelType = typeof(ParsableEditorViewModel<>);
-        viewModelType = viewModelType.MakeGenericType(s.Property.PropertyType);
+        viewModelType = viewModelType.MakeGenericType(s.PropertyType);
         return Activator.CreateInstance(viewModelType, s) as BaseEditorViewModel;
+    }
+
+    private static Control? CreateListEditor(IAbstractProperty s)
+    {
+        Type? itemtype = GetItemTypeFromListType(s.PropertyType);
+        if (itemtype != null)
+        {
+            Type controlType = typeof(ListEditor<>);
+            controlType = controlType.MakeGenericType(itemtype);
+            return Activator.CreateInstance(controlType) as Control;
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    private static BaseEditorViewModel? CreateListEditorViewModel(IAbstractProperty s)
+    {
+        Type? itemtype = GetItemTypeFromListType(s.PropertyType);
+        if (itemtype != null)
+        {
+            Type viewModelType = typeof(ListEditorViewModel<>);
+            viewModelType = viewModelType.MakeGenericType(itemtype);
+            return Activator.CreateInstance(viewModelType, s) as BaseEditorViewModel;
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    private static Type? GetItemTypeFromListType(Type listType)
+    {
+        Type? interfaceType = Array.Find(listType.GetInterfaces(), x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IList<>));
+        return interfaceType?.GenericTypeArguments?.FirstOrDefault();
     }
 
     internal sealed class PropertyEditorExtensionImpl : IPropertyEditorExtensionImpl
     {
         private record struct Editor(Func<IAbstractProperty, Control?> CreateEditor, Func<IAbstractProperty, BaseEditorViewModel?> CreateViewModel);
+
+        private record struct ListItemEditor(Func<IAbstractProperty, IListItemEditor?> CreateEditor, Func<IAbstractProperty, BaseEditorViewModel?> CreateViewModel);
+
+        private static readonly Dictionary<Type, ListItemEditor> s_listItemEditorsOverride = new()
+        {
+            { typeof(FilterEffect), new(_ => new FilterEffectListItemEditor(), s => new FilterEffectEditorViewModel(s.ToTyped<FilterEffect?>())) },
+            { typeof(ITransform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>())) }
+        };
 
         private static readonly Dictionary<int, Editor> s_editorsOverride = new()
         {
@@ -143,22 +188,26 @@ public static class PropertyEditorService
 
             { typeof(TimeSpan), new(_ => new TimeSpanEditor(), s => new TimeSpanEditorViewModel(s.ToTyped<TimeSpan>())) },
 
-            { typeof(IImageSource), new(_ => new ImageSourceEditor(), s=>new ImageSourceEditorViewModel(s.ToTyped<IImageSource?>())) },
-            { typeof(ISoundSource), new(_ => new SoundSourceEditor(), s=>new SoundSourceEditorViewModel(s.ToTyped<ISoundSource?>())) },
+            { typeof(IImageSource), new(_ => new ImageSourceEditor(), s => new ImageSourceEditorViewModel(s.ToTyped<IImageSource?>())) },
+            { typeof(ISoundSource), new(_ => new SoundSourceEditor(), s => new SoundSourceEditorViewModel(s.ToTyped<ISoundSource?>())) },
 
             { typeof(IBrush), new(_ => new BrushEditor(), s => new BrushEditorViewModel(s)) },
+            { typeof(IPen), new(_ => new PenEditor(), s => new PenEditorViewModel(s)) },
+            { typeof(FilterEffect), new(_ => new FilterEffectEditor(), s => new FilterEffectEditorViewModel(s.ToTyped<FilterEffect?>())) },
+            { typeof(ITransform), new(_ => new TransformEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>())) },
             { typeof(GradientStops), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<GradientStops>())) },
-            { typeof(IList), new(_ => new ListEditor(), s => new ListEditorViewModel(s)) },
+            { typeof(IList), new(CreateListEditor, CreateListEditorViewModel) },
             { typeof(ICoreObject), new(CreateNavigationButton, CreateNavigationButtonViewModel) },
             { typeof(IParsable<>), new(CreateParsableEditor, CreateParsableEditorViewModel) },
         };
 
-        public IEnumerable<CoreProperty> MatchProperty(IReadOnlyList<CoreProperty> properties)
+        public IEnumerable<IAbstractProperty> MatchProperty(IReadOnlyList<IAbstractProperty> properties)
         {
             for (int i = 0; i < properties.Count; i++)
             {
-                CoreProperty item = properties[i];
-                if (s_editorsOverride.ContainsKey(item.Id) || s_editors.ContainsKey(item.PropertyType))
+                IAbstractProperty item = properties[i];
+                if ((item.GetCoreProperty() is { Id: int id } && s_editorsOverride.ContainsKey(id))
+                    || s_editors.ContainsKey(item.PropertyType))
                 {
                     yield return item;
                     yield break;
@@ -179,12 +228,64 @@ public static class PropertyEditorService
 
         public bool TryCreateContext(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
         {
+            return TryCreateContextCore(extension, properties, out context);
+        }
+
+        public bool TryCreateContextForNode(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
+        {
+            return TryCreateContextCore(extension, properties, out context);
+        }
+
+        public bool TryCreateContextForListItem(PropertyEditorExtension extension, IAbstractProperty property, [NotNullWhen(true)] out IPropertyEditorContext? context)
+        {
+            BaseEditorViewModel? viewModel = null;
+            bool result = false;
+
+            if (s_listItemEditorsOverride.TryGetValue(property.PropertyType, out ListItemEditor editor))
+            {
+                viewModel = editor.CreateViewModel(property);
+                if (viewModel != null)
+                {
+                    viewModel.Extension = extension;
+                    result = true;
+                    goto Return;
+                }
+            }
+
+            foreach (KeyValuePair<Type, ListItemEditor> item in s_listItemEditorsOverride)
+            {
+                if (property.PropertyType.IsAssignableTo(item.Key))
+                {
+                    viewModel = item.Value.CreateViewModel(property);
+                    if (viewModel != null)
+                    {
+                        viewModel.Extension = extension;
+                        result = true;
+                        goto Return;
+                    }
+                }
+            }
+
+            if (!result && TryCreateContextCore(extension, new IAbstractProperty[] { property }, out IPropertyEditorContext? tmp1))
+            {
+                context = tmp1;
+                return true;
+            }
+
+        Return:
+            context = viewModel;
+            return result;
+        }
+
+        private static bool TryCreateContextCore(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
+        {
             BaseEditorViewModel? viewModel = null;
             bool result = false;
 
             if (properties.Count > 0 && properties[0] is { } property)
             {
-                if (s_editorsOverride.TryGetValue(property.Property.Id, out Editor editorOverrided))
+                if (property.GetCoreProperty() is CoreProperty { Id: int propId }
+                    && s_editorsOverride.TryGetValue(propId, out Editor editorOverrided))
                 {
                     viewModel = editorOverrided.CreateViewModel(property);
                     if (viewModel != null)
@@ -195,7 +296,7 @@ public static class PropertyEditorService
                     }
                 }
 
-                if (s_editors.TryGetValue(property.Property.PropertyType, out Editor editor))
+                if (s_editors.TryGetValue(property.PropertyType, out Editor editor))
                 {
                     viewModel = editor.CreateViewModel(property);
                     if (viewModel != null)
@@ -208,7 +309,7 @@ public static class PropertyEditorService
 
                 foreach (KeyValuePair<Type, Editor> item in s_editors)
                 {
-                    if (property.Property.PropertyType.IsAssignableTo(item.Key))
+                    if (property.PropertyType.IsAssignableTo(item.Key))
                     {
                         viewModel = item.Value.CreateViewModel(property);
                         if (viewModel != null)
@@ -226,23 +327,43 @@ public static class PropertyEditorService
             return result;
         }
 
-        public bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out IControl? control)
+        public bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
+        {
+            if (TryCreateControlCore(context, out var control1))
+            {
+                if (control1 is PropertyEditor editor)
+                {
+                    editor.MenuContent = new PropertyEditorMenu();
+                }
+
+                control = control1;
+                return true;
+            }
+            else if (context is PropertyEditorGroupContext)
+            {
+                control = new PropertyEditorGroup();
+                return true;
+            }
+            else
+            {
+                control = null;
+                return false;
+            }
+        }
+
+        public bool TryCreateControlForNode(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
+        {
+            return TryCreateControlCore(context, out control);
+        }
+
+        public bool TryCreateControlForListItem(IPropertyEditorContext context, [NotNullWhen(true)] out IListItemEditor? control)
         {
             control = null;
             try
             {
                 if (context is BaseEditorViewModel { WrappedProperty: { } property })
                 {
-                    if (s_editorsOverride.TryGetValue(property.Property.Id, out Editor editorOverrided))
-                    {
-                        control = editorOverrided.CreateEditor(property);
-                        if (control != null)
-                        {
-                            return true;
-                        }
-                    }
-
-                    if (s_editors.TryGetValue(property.Property.PropertyType, out Editor editor))
+                    if (s_listItemEditorsOverride.TryGetValue(property.PropertyType, out ListItemEditor editor))
                     {
                         control = editor.CreateEditor(property);
                         if (control != null)
@@ -251,9 +372,9 @@ public static class PropertyEditorService
                         }
                     }
 
-                    foreach (KeyValuePair<Type, Editor> item in s_editors)
+                    foreach (KeyValuePair<Type, ListItemEditor> item in s_listItemEditorsOverride)
                     {
-                        if (property.Property.PropertyType.IsAssignableTo(item.Key))
+                        if (property.PropertyType.IsAssignableTo(item.Key))
                         {
                             control = item.Value.CreateEditor(property);
                             if (control != null)
@@ -264,7 +385,15 @@ public static class PropertyEditorService
                     }
                 }
 
-                return false;
+                if (TryCreateControlCore(context, out Control? control1) && control1 is IListItemEditor control2)
+                {
+                    control = control2;
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
             }
             finally
             {
@@ -273,70 +402,22 @@ public static class PropertyEditorService
                     context.Accept(visitor);
                 }
 
-                if (control is PropertyEditor editor)
+                if (control is PropertyEditor pe)
                 {
-                    editor.MenuContent = new PropertyEditorMenu();
+                    pe.EditorStyle = PropertyEditorStyle.ListItem;
                 }
             }
         }
 
-        public bool TryCreateContextForNode(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
-        {
-            BaseEditorViewModel? viewModel = null;
-            bool result = false;
-
-            if (properties.Count > 0 && properties[0] is { } property)
-            {
-                if (s_editorsOverride.TryGetValue(property.Property.Id, out Editor editorOverrided))
-                {
-                    viewModel = editorOverrided.CreateViewModel(property);
-                    if (viewModel != null)
-                    {
-                        viewModel.Extension = extension;
-                        result = true;
-                        goto Return;
-                    }
-                }
-
-                if (s_editors.TryGetValue(property.Property.PropertyType, out Editor editor))
-                {
-                    viewModel = editor.CreateViewModel(property);
-                    if (viewModel != null)
-                    {
-                        viewModel.Extension = extension;
-                        result = true;
-                        goto Return;
-                    }
-                }
-
-                foreach (KeyValuePair<Type, Editor> item in s_editors)
-                {
-                    if (property.Property.PropertyType.IsAssignableTo(item.Key))
-                    {
-                        viewModel = item.Value.CreateViewModel(property);
-                        if (viewModel != null)
-                        {
-                            viewModel.Extension = extension;
-                            result = true;
-                            goto Return;
-                        }
-                    }
-                }
-            }
-
-        Return:
-            context = viewModel;
-            return result;
-        }
-
-        public bool TryCreateControlForNode(IPropertyEditorContext context, [NotNullWhen(true)] out IControl? control)
+        private static bool TryCreateControlCore(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
         {
             control = null;
             try
             {
                 if (context is BaseEditorViewModel { WrappedProperty: { } property })
                 {
-                    if (s_editorsOverride.TryGetValue(property.Property.Id, out Editor editorOverrided))
+                    if (property.GetCoreProperty() is CoreProperty { Id: int propId }
+                        && s_editorsOverride.TryGetValue(propId, out Editor editorOverrided))
                     {
                         control = editorOverrided.CreateEditor(property);
                         if (control != null)
@@ -345,7 +426,7 @@ public static class PropertyEditorService
                         }
                     }
 
-                    if (s_editors.TryGetValue(property.Property.PropertyType, out Editor editor))
+                    if (s_editors.TryGetValue(property.PropertyType, out Editor editor))
                     {
                         control = editor.CreateEditor(property);
                         if (control != null)
@@ -356,7 +437,7 @@ public static class PropertyEditorService
 
                     foreach (KeyValuePair<Type, Editor> item in s_editors)
                     {
-                        if (property.Property.PropertyType.IsAssignableTo(item.Key))
+                        if (property.PropertyType.IsAssignableTo(item.Key))
                         {
                             control = item.Value.CreateEditor(property);
                             if (control != null)

@@ -14,10 +14,13 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Beutl.Graphics\Beutl.Graphics.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" />
 
-  <Import Project="..\..\build\props\Avalonia.props" />
-  <Import Project="..\..\build\props\XamlNameReferenceGenerator.props" />
-
-  <!-- CS8032 -->
-  <Import Project="..\..\build\props\Microsoft.CodeAnalysis.Analyzers.props" />
+    <!-- CS8032 -->
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
+  </ItemGroup>
 </Project>

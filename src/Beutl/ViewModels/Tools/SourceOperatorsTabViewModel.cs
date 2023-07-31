@@ -16,15 +16,15 @@ namespace Beutl.ViewModels.Tools;
 public sealed class SourceOperatorsTabViewModel : IToolContext
 {
     private readonly IDisposable _disposable0;
-    private readonly EditViewModel _editViewModel;
+    private EditViewModel _editViewModel;
     private IDisposable? _disposable1;
-    private Layer? _oldLayer;
+    private Element? _oldLayer;
 
     public SourceOperatorsTabViewModel(EditViewModel editViewModel)
     {
         _editViewModel = editViewModel;
         Layer = editViewModel.SelectedObject
-            .Select(x => x as Layer)
+            .Select(x => x as Element)
             .ToReactiveProperty();
 
         _disposable0 = Layer.Subscribe(layer =>
@@ -40,8 +40,8 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
             {
                 _disposable1?.Dispose();
 
-                Items.AddRange(layer.Operators.Select(x => new SourceOperatorViewModel(x, _editViewModel)));
-                _disposable1 = layer.Operators.CollectionChangedAsObservable()
+                Items.AddRange(layer.Operation.Children.Select(x => new SourceOperatorViewModel(x, this)));
+                _disposable1 = layer.Operation.Children.CollectionChangedAsObservable()
                     .Subscribe(e =>
                     {
                         static void RemoveItems(CoreList<SourceOperatorViewModel> items, int index, int count)
@@ -58,7 +58,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
                             case NotifyCollectionChangedAction.Add:
                                 Items.InsertRange(e.NewStartingIndex, e.NewItems!
                                     .Cast<SourceOperator>()
-                                    .Select(x => new SourceOperatorViewModel(x, _editViewModel)));
+                                    .Select(x => new SourceOperatorViewModel(x, this)));
                                 break;
 
                             case NotifyCollectionChangedAction.Move:
@@ -81,7 +81,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
 
                                 Items.InsertRange(newIndex, e.NewItems!
                                     .Cast<SourceOperator>()
-                                    .Select(x => new SourceOperatorViewModel(x, _editViewModel)));
+                                    .Select(x => new SourceOperatorViewModel(x, this)));
                                 break;
 
                             case NotifyCollectionChangedAction.Remove:
@@ -111,7 +111,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
 
     public Action<SourceOperator>? RequestScroll { get; set; }
 
-    public ReactiveProperty<Layer?> Layer { get; }
+    public ReactiveProperty<Element?> Layer { get; }
 
     public CoreList<SourceOperatorViewModel> Items { get; } = new();
 
@@ -131,15 +131,17 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
         if (Layer.Value != null)
         {
             SaveState(Layer.Value);
+            Layer.Value = null;
         }
         _disposable0.Dispose();
         _disposable1?.Dispose();
-        ClearItems();
 
         Layer.Dispose();
+        _editViewModel = null!;
+        RequestScroll = null;
     }
 
-    private static string ViewStateDirectory(Layer layer)
+    private static string ViewStateDirectory(Element layer)
     {
         string directory = Path.GetDirectoryName(layer.FileName)!;
 
@@ -152,7 +154,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
         return directory;
     }
 
-    private void SaveState(Layer layer)
+    private void SaveState(Element layer)
     {
         string viewStateDir = ViewStateDirectory(layer);
         var json = new JsonArray();
@@ -164,7 +166,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
         json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.operators.config"));
     }
 
-    private void RestoreState(Layer layer)
+    private void RestoreState(Element layer)
     {
         string viewStateDir = ViewStateDirectory(layer);
         string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.operators.config");
@@ -195,11 +197,27 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
         Items.Clear();
     }
 
-    public void ReadFromJson(JsonNode json)
+    public void ReadFromJson(JsonObject json)
     {
+        if (Layer.Value != null)
+        {
+            RestoreState(Layer.Value);
+        }
     }
 
-    public void WriteToJson(ref JsonNode json)
+    public void WriteToJson(JsonObject json)
     {
+        if (Layer.Value != null)
+        {
+            SaveState(Layer.Value);
+        }
+    }
+
+    public object? GetService(Type serviceType)
+    {
+        if (serviceType == typeof(Element))
+            return Layer.Value;
+
+        return _editViewModel.GetService(serviceType);
     }
 }

@@ -13,16 +13,16 @@ public class SharedContentTemplate : ITemplate<SharedContent>
 
     public SharedContent Build()
     {
-        return (SharedContent)Load(Content!).Control;
+        return (SharedContent)Load(Content!).Result;
     }
 
     object ITemplate.Build() => Build().Content;
 
-    private static ControlTemplateResult Load(object templateContent)
+    private static TemplateResult<Control> Load(object templateContent)
     {
         if (templateContent is Func<IServiceProvider, object> direct)
         {
-            return (ControlTemplateResult)direct(null!);
+            return (TemplateResult<Control>)direct(null!);
         }
 
         throw new ArgumentException(null, nameof(templateContent));

@@ -7,12 +7,13 @@ using Beutl.Rendering;
 
 namespace Beutl.Audio;
 
+// Animationに対応させる (手動)
+
 public abstract class Sound : Renderable
 {
     public static readonly CoreProperty<float> GainProperty;
     public static readonly CoreProperty<ISoundEffect?> EffectProperty;
     private float _gain = 1;
-    private RenderLayerSpan? _layerSpan;
     private TimeRange _range;
     private TimeSpan _offset;
     private ISoundEffect? _effect;
@@ -23,16 +24,12 @@ public abstract class Sound : Renderable
     {
         GainProperty = ConfigureProperty<float, Sound>(nameof(Gain))
             .Accessor(o => o.Gain, (o, v) => o.Gain = v)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .DefaultValue(1)
-            .SerializeName("gain")
             .Register();
 
         EffectProperty = ConfigureProperty<ISoundEffect?, Sound>(nameof(Effect))
             .Accessor(o => o.Effect, (o, v) => o.Effect = v)
-            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .DefaultValue(null)
-            .SerializeName("effect")
             .Register();
 
         AffectsRender<Sound>(GainProperty, EffectProperty);
@@ -83,13 +80,7 @@ public abstract class Sound : Renderable
         }
     }
 
-    public override void Render(IRenderer renderer)
-    {
-        UpdateTime(renderer.Clock);
-        Record(renderer.Audio);
-    }
-
-    public void Record(IAudio audio)
+    public void Render(IAudio audio)
     {
         if (_effect is { IsEnabled: true } effect)
         {
@@ -125,50 +116,33 @@ public abstract class Sound : Renderable
 
     protected abstract TimeSpan TimeCore(TimeSpan available);
 
-    protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
-    {
-        base.OnAttachedToLogicalTree(args);
-        _layerSpan = args.Parent as RenderLayerSpan;
-    }
-
-    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
-    {
-        base.OnDetachedFromLogicalTree(args);
-        _layerSpan = null;
-    }
-
     private void UpdateTime(IClock clock)
     {
-        if (_layerSpan != null)
+        TimeSpan start = clock.AudioStartTime;
+        TimeSpan length;
+
+        if (start < TimeSpan.Zero)
         {
-            TimeSpan currentTime = clock.AudioStartTime;
-
-            TimeSpan start = currentTime - _layerSpan.Start;
-            TimeSpan length;
-
-            if (start < TimeSpan.Zero)
-            {
-                _offset = start.Negate();
-                length = s_second + start;
-                start = TimeSpan.Zero;
-            }
-            else
-            {
-                _offset = TimeSpan.Zero;
-                length = _layerSpan.Range.End - start;
-                if (length > s_second)
-                {
-                    length = s_second;
-                }
-            }
-
-            if (_range.Start > start)
-            {
-                InvalidateEffectProcessor();
-            }
-
-            _range = new TimeRange(start, length);
+            _offset = start.Negate();
+            length = s_second + start;
+            start = TimeSpan.Zero;
         }
+        else
+        {
+            _offset = TimeSpan.Zero;
+            length = clock.BeginTime + clock.DurationTime - start;
+            if (length > s_second)
+            {
+                length = s_second;
+            }
+        }
+
+        if (_range.Start > start)
+        {
+            InvalidateEffectProcessor();
+        }
+
+        _range = new TimeRange(start, length);
     }
 
     public override void ApplyAnimations(IClock clock)
