@@ -14,7 +14,6 @@ public sealed class EasingGraph : TemplatedControl
 
     private readonly Pen _pen = new()
     {
-        Brush = (IBrush)Application.Current?.FindResource("TextControlForeground")!,
         LineJoin = PenLineJoin.Round,
         LineCap = PenLineCap.Round,
         Thickness = 2.5,
@@ -34,6 +33,8 @@ public sealed class EasingGraph : TemplatedControl
     public override void Render(DrawingContext context)
     {
         base.Render(context);
+        _pen.Brush = BorderBrush;
+
         Easing? easing = Easing;
         Size size = Bounds.Size;
 

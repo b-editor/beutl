@@ -177,6 +177,7 @@
                                         BorderThickness="1">
                                     <anmeditors:EasingGraph Width="100"
                                                             Height="100"
+                                                            BorderBrush="{DynamicResource TextControlForeground}"
                                                             ClipToBounds="False"
                                                             Easing="{Binding}" />
                                 </Border>
