@@ -140,4 +140,12 @@ public static class JsonHelper
 
         return dic.ToDictionary(x => x.Key, x => ParseJsonElement(x.Value)!);
     }
+
+    public static bool TryGetPropertyValueAsJsonValue<T>(this JsonObject obj, string propertyName, [NotNullWhen(true)] out T? value)
+    {
+        value = default;
+        return obj.TryGetPropertyValue(propertyName, out var node)
+            && node is JsonValue val
+            && val.TryGetValue(out value);
+    }
 }

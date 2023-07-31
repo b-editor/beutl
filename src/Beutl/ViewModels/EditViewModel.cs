@@ -222,6 +222,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         };
 
         var bottomItems = new JsonArray();
+        int bottomSelectedIndex = 0;
+
         foreach (ToolTabViewModel? item in BottomTabItems.OrderBy(x => x.Order))
         {
             var itemJson = new JsonObject();
@@ -229,11 +231,21 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
 
             itemJson.WriteDiscriminator(item.Context.Extension.GetType());
             bottomItems.Add(itemJson);
+
+            if (item.Context.IsSelected.Value)
+            {
+                json["selected-bottom-item-index"] = bottomSelectedIndex;
+            }
+            else
+            {
+                bottomSelectedIndex++;
+            }
         }
 
         json["bottom-items"] = bottomItems;
 
         var rightItems = new JsonArray();
+        int rightSelectedIndex = 0;
         foreach (ToolTabViewModel? item in RightTabItems.OrderBy(x => x.Order))
         {
             var itemJson = new JsonObject();
@@ -241,6 +253,15 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
 
             itemJson.WriteDiscriminator(item.Context.Extension.GetType());
             rightItems.Add(itemJson);
+
+            if (item.Context.IsSelected.Value)
+            {
+                json["selected-right-item-index"] = rightSelectedIndex;
+            }
+            else
+            {
+                rightSelectedIndex++;
+            }
         }
 
         json["right-items"] = rightItems;
@@ -343,12 +364,24 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
                 && bottomNode is JsonArray bottomItems)
             {
                 RestoreTabItems(bottomItems, BottomTabItems);
+
+                if (jsonObject.TryGetPropertyValueAsJsonValue("selected-bottom-item-index", out int index)
+                    && 0 <= index && index < BottomTabItems.Count)
+                {
+                    BottomTabItems[index].Context.IsSelected.Value = true;
+                }
             }
 
             if (jsonObject.TryGetPropertyValue("right-items", out JsonNode? rightNode)
                 && rightNode is JsonArray rightItems)
             {
                 RestoreTabItems(rightItems, RightTabItems);
+
+                if (jsonObject.TryGetPropertyValueAsJsonValue("selected-right-item-index", out int index)
+                    && 0 <= index && index < RightTabItems.Count)
+                {
+                    RightTabItems[index].Context.IsSelected.Value = true;
+                }
             }
         }
         else
