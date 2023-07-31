@@ -27,10 +27,6 @@ public sealed class ElementViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        AllowOutflow = element.GetObservable(Element.AllowOutflowProperty)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(_disposables);
-
         UseNode = element.GetObservable(Element.UseNodeProperty)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
@@ -119,8 +115,6 @@ public sealed class ElementViewModel : IDisposable
     public Scene Scene => (Scene)Model.HierarchicalParent!;
 
     public ReadOnlyReactivePropertySlim<bool> IsEnabled { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> AllowOutflow { get; }
 
     public ReadOnlyReactivePropertySlim<bool> UseNode { get; }
 

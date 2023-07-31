@@ -80,15 +80,6 @@
                         <icons:SymbolIconSource Symbol="Delete" />
                     </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
-                <ui:ToggleMenuFlyoutItem Click="AllowOutflowClick"
-                                         IsChecked="{CompiledBinding AllowOutflow.Value, Mode=OneWay}"
-                                         Text="流入出を許可">
-                    <ui:ToggleMenuFlyoutItem.Styles>
-                        <Style Selector="ui|ToggleMenuFlyoutItem /template/ Viewbox#IconRoot">
-                            <Setter Property="Width" Value="0" />
-                        </Style>
-                    </ui:ToggleMenuFlyoutItem.Styles>
-                </ui:ToggleMenuFlyoutItem>
                 <ui:MenuFlyoutSeparator />
                 <ui:MenuFlyoutSubItem Text="{x:Static lang:Strings.Animation}">
                     <ui:MenuFlyoutItem Command="{CompiledBinding FinishEditingAnimation}" Text="{x:Static lang:Strings.FinishEditing}" />

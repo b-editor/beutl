@@ -156,9 +156,6 @@
   <data name="MakePublic" xml:space="preserve">
     <value>非公開にする</value>
   </data>
-  <data name="MicaEffect" xml:space="preserve">
-    <value>Mica効果</value>
-  </data>
   <data name="Storage" xml:space="preserve">
     <value>ストレージ</value>
   </data>

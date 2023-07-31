@@ -34,18 +34,6 @@
                 </ctrls:OptionsDisplayItem.ActionButton>
             </ctrls:OptionsDisplayItem>
 
-            <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.MicaEffect}">
-                <ctrls:OptionsDisplayItem.Icon>
-                    <icons:SymbolIcon Symbol="Cloud" />
-                </ctrls:OptionsDisplayItem.Icon>
-
-                <ctrls:OptionsDisplayItem.ActionButton>
-                    <ToggleSwitch Classes="left"
-                                  IsChecked="{CompiledBinding IsMicaEnabled.Value}"
-                                  Theme="{StaticResource CompactToggleSwitchStyle}" />
-                </ctrls:OptionsDisplayItem.ActionButton>
-            </ctrls:OptionsDisplayItem>
-
             <ctrls:OptionsDisplayItem Header="{x:Static lang:Strings.Language}">
                 <ctrls:OptionsDisplayItem.Icon>
                     <icons:SymbolIcon Symbol="LocalLanguage" />

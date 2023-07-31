@@ -164,13 +164,6 @@ public sealed partial class ElementView : UserControl
         command.DoAndRecord(CommandRecorder.Default);
     }
 
-    private void AllowOutflowClick(object? sender, RoutedEventArgs e)
-    {
-        var model = ViewModel.Model;
-        var command = new ChangePropertyCommand<bool>(model, Element.AllowOutflowProperty, !model.AllowOutflow, model.AllowOutflow);
-        command.DoAndRecord(CommandRecorder.Default);
-    }
-
     private void OnTextBoxLostFocus(object? sender, RoutedEventArgs e)
     {
         textBlock.IsVisible = true;

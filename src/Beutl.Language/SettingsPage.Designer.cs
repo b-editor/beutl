@@ -142,15 +142,6 @@ namespace Beutl.Language {
         }
         
         /// <summary>
-        ///   Mica Effect に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string MicaEffect {
-            get {
-                return ResourceManager.GetString("MicaEffect", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Sign in に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string SignIn {

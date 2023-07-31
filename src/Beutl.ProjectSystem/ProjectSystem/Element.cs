@@ -22,9 +22,6 @@ public class Element : ProjectItem
     public static readonly CoreProperty<int> ZIndexProperty;
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
-
-    [Obsolete]
-    public static readonly CoreProperty<bool> AllowOutflowProperty;
     public static readonly CoreProperty<SourceOperation> OperationProperty;
     public static readonly CoreProperty<ElementNodeTreeModel> NodeTreeProperty;
     public static readonly CoreProperty<bool> UseNodeProperty;
@@ -33,8 +30,6 @@ public class Element : ProjectItem
     private TimeSpan _length;
     private int _zIndex;
     private bool _isEnabled = true;
-    private bool _allowOutflow = false;
-    private IDisposable? _disposable;
     private bool _useNode;
 
     static Element()
@@ -87,58 +82,18 @@ public class Element : ProjectItem
                 layer.ForceRender();
             }
         });
-#pragma warning disable CS0612
-        AllowOutflowProperty = ConfigureProperty<bool, Element>(nameof(AllowOutflow))
-            .Accessor(o => o.AllowOutflow, (o, v) => o.AllowOutflow = v)
-            .DefaultValue(false)
-            .Register();
-
-        AllowOutflowProperty.Changed.Subscribe(args =>
-        {
-            if (args.Sender is Element layer)
-            {
-                layer.ForceRender();
-            }
-        });
-#pragma warning restore CS0612
     }
 
     public Element()
     {
         Operation = new SourceOperation();
         Operation.Invalidated += (_, _) => ForceRender();
-#if DEBUG
-        Operation.Children.CollectionChanged += OnOperatorsCollectionChanged;
-#endif
+
         NodeTree = new ElementNodeTreeModel();
         NodeTree.Invalidated += (_, _) => ForceRender();
 
         HierarchicalChildren.Add(Operation);
         HierarchicalChildren.Add(NodeTree);
-    }
-
-    private void OnOperatorsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        UpdateName();
-    }
-
-    [Conditional("DEBUG")]
-    private void UpdateName()
-    {
-        var sb = new StringBuilder();
-        for (int i = 0; i < Operation.Children.Count; i++)
-        {
-            SourceOperator op = Operation.Children[i];
-            if (op.IsEnabled)
-            {
-                Type type = op.GetType();
-                string name = OperatorRegistry.FindItem(type)?.DisplayName ?? type.Name;
-
-                sb.Append($"{name}, ");
-            }
-        }
-
-        Name = sb.ToString();
     }
 
     // 0以上
@@ -174,13 +129,6 @@ public class Element : ProjectItem
     {
         get => _isEnabled;
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
-    }
-
-    [Obsolete]
-    public bool AllowOutflow
-    {
-        get => _allowOutflow;
-        set => SetAndRaise(AllowOutflowProperty, ref _allowOutflow, value);
     }
 
     public SourceOperation Operation { get; }
