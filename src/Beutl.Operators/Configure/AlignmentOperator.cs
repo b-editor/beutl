@@ -7,17 +7,16 @@ namespace Beutl.Operators.Configure;
 
 public sealed class AlignmentOperator : SourceStyler
 {
+    public Setter<AlignmentX> AlignmentX { get; set; } = new(Drawable.AlignmentXProperty, Media.AlignmentX.Center);
+
+    public Setter<AlignmentY> AlignmentY { get; set; } = new(Drawable.AlignmentYProperty, Media.AlignmentY.Center);
+
+    public Setter<RelativePoint> TransformOrigin { get; set; } = new(Drawable.TransformOriginProperty, RelativePoint.Center);
+
     protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
     {
         var style = new Style<Drawable>();
         style.Setters.AddRange(setters());
         return style;
-    }
-
-    protected override void OnInitializeSetters(IList<ISetter> initializing)
-    {
-        initializing.Add(new Setter<AlignmentX>(Drawable.AlignmentXProperty, AlignmentX.Center));
-        initializing.Add(new Setter<AlignmentY>(Drawable.AlignmentYProperty, AlignmentY.Center));
-        initializing.Add(new Setter<RelativePoint>(Drawable.TransformOriginProperty, RelativePoint.Center));
     }
 }

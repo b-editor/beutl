@@ -34,26 +34,6 @@ public abstract class ConfigureOperator<TTarget, TValue> : StylingOperator, ISou
         return style;
     }
 
-    [Obsolete]
-    protected override void OnInitializeSetters(IList<ISetter> initializing)
-    {
-        base.OnInitializeSetters(initializing);
-        foreach (CoreProperty item in GetProperties())
-        {
-            Type setterType = typeof(Setter<>).MakeGenericType(item.PropertyType);
-            ICorePropertyMetadata metadata = item.GetMetadata<TValue, ICorePropertyMetadata>();
-            object? defaultValue = metadata.GetDefaultValue();
-            object? setter = defaultValue != null
-                ? Activator.CreateInstance(setterType, item, defaultValue)
-                : Activator.CreateInstance(setterType, item);
-
-            if (setter is ISetter setter1)
-            {
-                initializing.Add(setter1);
-            }
-        }
-    }
-
     public void Transform(IList<Renderable> value, IClock clock)
     {
         try
@@ -94,10 +74,4 @@ public abstract class ConfigureOperator<TTarget, TValue> : StylingOperator, ISou
     }
 
     protected abstract void Process(TTarget target, TValue value);
-
-    [Obsolete]
-    protected virtual IEnumerable<CoreProperty> GetProperties()
-    {
-        yield break;
-    }
 }

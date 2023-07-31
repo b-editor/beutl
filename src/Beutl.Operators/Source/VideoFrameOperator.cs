@@ -1,16 +1,15 @@
 ﻿using Beutl.Graphics.Drawables;
-using Beutl.Operation;
 using Beutl.Styling;
 
 namespace Beutl.Operators.Source;
 
 public sealed class VideoFrameOperator : DrawablePublishOperator<VideoFrame>
 {
-    protected override void OnInitializeSetters(IList<ISetter> initializing)
-    {
-        initializing.Add(new Setter<TimeSpan>(VideoFrame.OffsetPositionProperty, TimeSpan.Zero));
-        initializing.Add(new Setter<TimeSpan>(VideoFrame.PlaybackPositionProperty, TimeSpan.Zero));
-        initializing.Add(new Setter<VideoPositionMode>(VideoFrame.PositionModeProperty, VideoPositionMode.Automatic));
-        initializing.Add(new Setter<FileInfo?>(VideoFrame.SourceFileProperty, null));
-    }
+    public Setter<TimeSpan> OffsetPosition { get; set; } = new Setter<TimeSpan>(VideoFrame.OffsetPositionProperty, TimeSpan.Zero);
+
+    public Setter<TimeSpan> PlaybackPosition { get; set; } = new Setter<TimeSpan>(VideoFrame.PlaybackPositionProperty, TimeSpan.Zero);
+
+    public Setter<VideoPositionMode> PositionMode { get; set; } = new Setter<VideoPositionMode>(VideoFrame.PositionModeProperty, VideoPositionMode.Automatic);
+
+    public Setter<FileInfo?> SourceFile { get; set; } = new Setter<FileInfo?>(VideoFrame.SourceFileProperty, null);
 }

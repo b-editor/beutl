@@ -7,15 +7,12 @@ namespace Beutl.Operators.Configure;
 
 public sealed class OpacityMaskOperator : SourceStyler
 {
+    public Setter<IBrush?> OpacityMask { get; set; } = new(Drawable.OpacityMaskProperty, null);
+
     protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
     {
         var style = new Style<Drawable>();
         style.Setters.AddRange(setters());
         return style;
-    }
-
-    protected override void OnInitializeSetters(IList<ISetter> initializing)
-    {
-        initializing.Add(new Setter<IBrush?>(Drawable.OpacityMaskProperty, null));
     }
 }

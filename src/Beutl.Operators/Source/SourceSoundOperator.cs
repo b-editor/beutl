@@ -7,6 +7,9 @@ namespace Beutl.Operators.Source;
 
 public sealed class SourceSoundOperator : StyledSourcePublisher
 {
+    public Setter<ISoundSource?> Source { get; set; }
+        = new Setter<ISoundSource?>(SourceSound.SourceProperty, null);
+
     protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
     {
         var style = new Style<SourceSound>();
@@ -14,8 +17,22 @@ public sealed class SourceSoundOperator : StyledSourcePublisher
         return style;
     }
 
-    protected override void OnInitializeSetters(IList<ISetter> initializing)
+    protected override void OnBeforeApplying()
     {
-        initializing.Add(new Setter<ISoundSource?>(SourceSound.SourceProperty, null));
+        base.OnBeforeApplying();
+        if (Instance?.Target is SourceSound sound)
+        {
+            sound.BeginBatchUpdate();
+        }
+    }
+
+    protected override void OnAfterApplying()
+    {
+        base.OnAfterApplying();
+        if (Instance?.Target is SourceSound sound)
+        {
+            sound.Effect = null;
+            sound.Gain = 1;
+        }
     }
 }

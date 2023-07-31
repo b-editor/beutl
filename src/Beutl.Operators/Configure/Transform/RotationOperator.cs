@@ -1,11 +1,9 @@
 ﻿using Beutl.Graphics.Transformation;
+using Beutl.Styling;
 
 namespace Beutl.Operators.Configure.Transform;
 
 public sealed class RotationOperator : TransformOperator<RotationTransform>
 {
-    protected override IEnumerable<CoreProperty> GetProperties()
-    {
-        yield return RotationTransform.RotationProperty;
-    }
+    public Setter<float> Rotation { get; set; } = new(RotationTransform.RotationProperty);
 }

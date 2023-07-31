@@ -1,12 +1,11 @@
 ﻿using Beutl.Graphics.Transformation;
+using Beutl.Styling;
 
 namespace Beutl.Operators.Configure.Transform;
 
 public sealed class SkewOperator : TransformOperator<SkewTransform>
 {
-    protected override IEnumerable<CoreProperty> GetProperties()
-    {
-        yield return SkewTransform.SkewXProperty;
-        yield return SkewTransform.SkewYProperty;
-    }
+    public Setter<float> SkewX { get; set; } = new(SkewTransform.SkewXProperty);
+
+    public Setter<float> SkewY {get;set;}=new(SkewTransform.SkewYProperty);
 }

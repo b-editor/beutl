@@ -1,12 +1,11 @@
 ﻿using Beutl.Media;
 using Beutl.Models;
-using Beutl.ProjectSystem;
 using Beutl.Operation;
+using Beutl.ProjectSystem;
 
 using Reactive.Bindings;
 
 using AColor = Avalonia.Media.Color;
-using Beutl.Operators.Handler;
 
 namespace Beutl.ViewModels.Dialogs;
 

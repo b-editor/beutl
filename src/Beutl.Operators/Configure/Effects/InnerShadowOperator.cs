@@ -1,14 +1,17 @@
-﻿using Beutl.Graphics.Effects;
+﻿using Beutl.Graphics;
+using Beutl.Graphics.Effects;
+using Beutl.Media;
+using Beutl.Styling;
 
 namespace Beutl.Operators.Configure.Effects;
 
 public sealed class InnerShadowOperator : FilterEffectOperator<InnerShadow>
 {
-    protected override IEnumerable<CoreProperty> GetProperties()
-    {
-        yield return InnerShadow.PositionProperty;
-        yield return InnerShadow.SigmaProperty;
-        yield return InnerShadow.ColorProperty;
-        yield return InnerShadow.ShadowOnlyProperty;
-    }
+    public Setter<Point> Position { set; get; } = new(InnerShadow.PositionProperty, new(10, 10));
+
+    public Setter<Vector> Sigma { set; get; } = new(InnerShadow.SigmaProperty, new(10, 10));
+
+    public Setter<Color> Color { set; get; } = new(InnerShadow.ColorProperty, Colors.Black);
+
+    public Setter<bool> ShadowOnly { set; get; } = new(InnerShadow.ShadowOnlyProperty, false);
 }

@@ -223,25 +223,7 @@ public abstract class StylingOperator : SourceOperator
 
     protected StylingOperator()
     {
-        Style = OnInitializeStyle(() =>
-        {
-            ISetter[] setters = GetSetters(this);
-            if (setters.Length > 0)
-            {
-                return setters;
-            }
-            else
-            {
-                // 互換性のため
-                var list = new List<ISetter>();
-
-#pragma warning disable CS0612
-                OnInitializeSetters(list);
-#pragma warning restore CS0612
-
-                return list;
-            }
-        });
+        Style = OnInitializeStyle(() => GetSetters(this));
     }
 
     public Style Style
@@ -284,11 +266,6 @@ public abstract class StylingOperator : SourceOperator
 
     protected abstract Style OnInitializeStyle(Func<IList<ISetter>> setters);
 
-    [Obsolete]
-    protected virtual void OnInitializeSetters(IList<ISetter> initializing)
-    {
-    }
-
     private void OnInvalidated(object? s, EventArgs e)
     {
         RaiseInvalidated(new RenderInvalidatedEventArgs(this, nameof(Style)));
@@ -298,58 +275,35 @@ public abstract class StylingOperator : SourceOperator
     {
         base.ReadFromJson(json);
 
-        // 互換性のため
-        if (json.TryGetPropertyValue(nameof(Style), out JsonNode? styleNode)
-            && styleNode is JsonObject styleObj)
+        Definition[] defs = GetDefintions(GetType());
+        foreach (Definition item in defs.AsSpan())
         {
-            var style = StyleSerializer.ToStyle(styleObj);
-            if (style != null)
+            string name = item.Property.Name;
+            if (json.TryGetPropertyValue(name, out JsonNode? propNode)
+                && propNode != null)
             {
-                Style = style;
+                ISetter knownSetter = item.Getter.Invoke(this);
 
-                RaiseInvalidated(new RenderInvalidatedEventArgs(this));
-            }
-        }
-        else
-        {
-            Definition[] defs = GetDefintions(GetType());
-            foreach (Definition item in defs.AsSpan())
-            {
-                string name = item.Property.Name;
-                if (json.TryGetPropertyValue(name, out JsonNode? propNode)
-                    && propNode != null)
+                if (propNode.ToSetter(knownSetter.Property.Name, _style.TargetType) is ISetter setter)
                 {
-                    ISetter knownSetter = item.Getter.Invoke(this);
-
-                    if (propNode.ToSetter(knownSetter.Property.Name, _style.TargetType) is ISetter setter)
-                    {
-                        item.Setter.Invoke(this, setter);
-                    }
+                    item.Setter.Invoke(this, setter);
                 }
             }
-
-            Style = OnInitializeStyle(() => GetSetters(this));
-            RaiseInvalidated(new RenderInvalidatedEventArgs(this));
         }
+
+        Style = OnInitializeStyle(() => GetSetters(this));
+        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
     }
 
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
         Definition[] defs = GetDefintions(GetType());
-        if (defs.Length == 0)
+        foreach (Definition item in defs.AsSpan())
         {
-            // 互換性のため
-            json[nameof(Style)] = StyleSerializer.ToJson(Style);
-        }
-        else
-        {
-            foreach (Definition item in defs.AsSpan())
-            {
-                string name = item.Property.Name;
-                ISetter setter = item.Getter.Invoke(this);
-                json[name] = setter.ToJson(_style.TargetType).Item2;
-            }
+            string name = item.Property.Name;
+            ISetter setter = item.Getter.Invoke(this);
+            json[name] = setter.ToJson(_style.TargetType).Item2;
         }
     }
 
