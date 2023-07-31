@@ -2,6 +2,7 @@
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
+using Beutl.Animation;
 using Beutl.Framework;
 using Beutl.Operation;
 using Beutl.Styling;
@@ -21,9 +22,23 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void Button_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button button)
+        if (DataContext is BaseEditorViewModel viewModel)
         {
-            button.ContextMenu?.Open();
+            if (!viewModel.HasAnimation.Value && sender is Button button)
+            {
+                button.ContextMenu?.Open();
+            }
+            else if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel)
+            {
+                if (symbolIcon.IsFilled)
+                {
+                    viewModel.RemoveKeyFrame(editViewModel.Scene.CurrentFrame);
+                }
+                else
+                {
+                    viewModel.InsertKeyFrame(editViewModel.Scene.CurrentFrame);
+                }
+            }
         }
     }
 
@@ -31,29 +46,11 @@ public sealed partial class PropertyEditorMenu : UserControl
     {
         if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
             && DataContext is BaseEditorViewModel viewModel
-            && viewModel.WrappedProperty is IAbstractAnimatableProperty animatableProperty)
+            && viewModel.WrappedProperty is IAbstractAnimatableProperty { Animation: IKeyFrameAnimation kfAnimation })
         {
-            // 右側のタブを開く
-            AnimationTabViewModel anmViewModel
-                = editViewModel.FindToolTab<AnimationTabViewModel>()
-                    ?? new AnimationTabViewModel();
-
-            anmViewModel.Animation.Value = animatableProperty;
-
-            editViewModel.OpenToolTab(anmViewModel);
-
             // タイムラインのタブを開く
-            AnimationTimelineViewModel? anmTimelineViewModel =
-                editViewModel.FindToolTab<AnimationTimelineViewModel>(x => ReferenceEquals(x.WrappedProperty, animatableProperty));
-
-            anmTimelineViewModel ??= new AnimationTimelineViewModel(animatableProperty, editViewModel)
-            {
-                IsSelected =
-                {
-                    Value = true
-                }
-            };
-
+            var anmTimelineViewModel = new GraphEditorTabViewModel();
+            anmTimelineViewModel.SelectedAnimation.Value = new GraphEditorViewModel(editViewModel, kfAnimation);
             editViewModel.OpenToolTab(anmTimelineViewModel);
         }
     }
@@ -66,14 +63,11 @@ public sealed partial class PropertyEditorMenu : UserControl
             && this.FindLogicalAncestorOfType<SourceOperatorsTab>()?.DataContext is SourceOperatorsTabViewModel { Layer.Value: { } layer }
             && editViewModel.FindToolTab<TimelineViewModel>() is { } timeline)
         {
-            // 右側のタブを開く
-            AnimationTabViewModel anmViewModel
-                = editViewModel.FindToolTab<AnimationTabViewModel>()
-                    ?? new AnimationTabViewModel();
-
-            anmViewModel.Animation.Value = animatableProperty;
-
-            editViewModel.OpenToolTab(anmViewModel);
+            if (animatableProperty.Animation is not IKeyFrameAnimation)
+            {
+                Type type = typeof(KeyFrameAnimation<>).MakeGenericType(animatableProperty.Property.PropertyType);
+                animatableProperty.Animation = Activator.CreateInstance(type, animatableProperty.Property) as IAnimation;
+            }
 
             // タイムラインのタブを開く
             timeline.AttachInline(animatableProperty, layer);

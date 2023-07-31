@@ -72,7 +72,8 @@ public class StringEditor : PropertyEditor, IStyleable
             }
             else
             {
-                PseudoClasses.Remove(":compact");
+                if (!UseCompact)
+                    PseudoClasses.Remove(":compact");
             }
         }
 
@@ -94,6 +95,9 @@ public class StringEditor : PropertyEditor, IStyleable
 
     protected virtual void OnTextBoxTextChanged(string newValue, string oldValue)
     {
-        RaiseEvent(new PropertyEditorValueChangedEventArgs<string>(newValue, oldValue, ValueChangingEvent));
+        if (InnerTextBox?.IsKeyboardFocusWithin == true)
+        {
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<string>(newValue, oldValue, ValueChangingEvent));
+        }
     }
 }

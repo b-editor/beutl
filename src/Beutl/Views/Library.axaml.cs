@@ -26,6 +26,7 @@ public sealed partial class Library : UserControl
         searchResult.ItemContainerGenerator.Dematerialized += OnItemDematerialized;
 
         itemsControl.AddHandler(PointerPressedEvent, OnEasingsPointerPressed, RoutingStrategies.Tunnel);
+        splineEasing.AddHandler(PointerPressedEvent, OnSplineEasingPointerPressed, RoutingStrategies.Tunnel);
     }
 
     private void OnItemMaterialized(object? sender, ItemContainerEventArgs e)
@@ -109,6 +110,13 @@ public sealed partial class Library : UserControl
                 await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
             }
         }
+    }
+
+    private async void OnSplineEasingPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var data = new DataObject();
+        data.Set("Easing", new Animation.Easings.SplineEasing());
+        await DragDrop.DoDragDrop(e, data, DragDropEffects.Copy | DragDropEffects.Link);
     }
 
     private async void OnEasingsPointerPressed(object? sender, PointerPressedEventArgs e)

@@ -6,7 +6,10 @@
         <Border Width="300">
             <StackPanel>
                 <local:EnumEditor Header="Property 1" />
-                <local:EnumEditor Header="Property 2" />
+                <local:EnumEditor Header="Property 2" KeyFrameCount="3" />
+                <local:EnumEditor Header="Property 2"
+                                  KeyFrameCount="3"
+                                  UseCompact="True" />
             </StackPanel>
         </Border>
     </Design.PreviewWith>
@@ -27,14 +30,29 @@
                                    ClipToBounds="False"
                                    Text="{TemplateBinding Header}" />
 
-                        <ComboBox x:Name="PART_InnerComboBox"
-                                  Grid.Column="1"
-                                  MinWidth="120"
-                                  Margin="4"
-                                  HorizontalAlignment="Stretch"
-                                  IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                  Items="{TemplateBinding Items, Mode=TwoWay}"
-                                  SelectedIndex="{TemplateBinding SelectedIndex, Mode=TwoWay}" />
+                        <Grid Grid.Column="1"
+                              MinWidth="120"
+                              Margin="4"
+                              ColumnDefinitions="*,Auto">
+                            <ComboBox x:Name="PART_InnerComboBox"
+                                      HorizontalAlignment="Stretch"
+                                      IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                      Items="{TemplateBinding Items, Mode=TwoWay}"
+                                      SelectedIndex="{TemplateBinding SelectedIndex, Mode=TwoWay}" />
+
+                            <StackPanel Name="LeftRightButtons"
+                                        Grid.Column="1"
+                                        Margin="4,0,0,0"
+                                        Orientation="Horizontal">
+                                <Button Name="PART_LeftButton"
+                                        Classes="left"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                                <Button Name="PART_RightButton"
+                                        Classes="right"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                            </StackPanel>
+                        </Grid>
 
                         <ContentPresenter Name="PART_MenuContentPresenter"
                                           Grid.Column="2"
@@ -69,6 +87,18 @@
                                       Items="{TemplateBinding Items, Mode=TwoWay}"
                                       SelectedIndex="{TemplateBinding SelectedIndex, Mode=TwoWay}" />
 
+                            <StackPanel Name="LeftRightButtons"
+                                        Margin="0,0,4,0"
+                                        HorizontalAlignment="Right"
+                                        Orientation="Horizontal">
+                                <Button Name="PART_LeftButton"
+                                        Classes="left"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                                <Button Name="PART_RightButton"
+                                        Classes="right"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                            </StackPanel>
 
                             <ContentPresenter Name="PART_MenuContentPresenter"
                                               Grid.Row="1"
@@ -79,6 +109,18 @@
                     </Border>
                 </ControlTemplate>
             </Setter>
+        </Style>
+
+        <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^:not(:visible-right-button) /template/ Button#PART_RightButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^[KeyFrameCount=0]">
+            <Style Selector="^ /template/ StackPanel#LeftRightButtons">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
         </Style>
     </ControlTheme>
 

@@ -11,25 +11,25 @@ using AColor = Avalonia.Media.Color;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class ColorEditorViewModel : BaseEditorViewModel<Color>
+public sealed class ColorEditorViewModel : ValueEditorViewModel<Color>
 {
     public ColorEditorViewModel(IAbstractProperty<Color> property)
         : base(property)
     {
-        Value = property.GetObservable()
+        Value2 = Value
             .Select(x => x.ToAvalonia())
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
     }
 
-    public ReadOnlyReactivePropertySlim<AColor> Value { get; }
+    public ReadOnlyReactivePropertySlim<AColor> Value2 { get; }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
         if (visitor is ColorEditor editor)
         {
-            editor[!ColorEditor.ValueProperty] = Value.ToBinding();
+            editor[!ColorEditor.ValueProperty] = Value2.ToBinding();
             editor.ValueChanged += OnValueChanged;
         }
     }

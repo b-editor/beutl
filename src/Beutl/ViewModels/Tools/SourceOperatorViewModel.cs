@@ -11,12 +11,12 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Tools;
 
-public sealed class SourceOperatorViewModel : IDisposable
+public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContextVisitor, IProvideEditViewModel
 {
-    public SourceOperatorViewModel(SourceOperator model)
+    public SourceOperatorViewModel(SourceOperator model, EditViewModel editViewModel)
     {
         Model = model;
-
+        EditViewModel = editViewModel;
         Init();
 
         model.Properties.CollectionChanged += Properties_CollectionChanged;
@@ -34,6 +34,8 @@ public sealed class SourceOperatorViewModel : IDisposable
     }
 
     public SourceOperator Model { get; }
+
+    public EditViewModel EditViewModel { get; }
 
     public ReactiveProperty<bool> IsExpanded { get; } = new(true);
 
@@ -120,10 +122,15 @@ public sealed class SourceOperatorViewModel : IDisposable
                 if (extension.TryCreateContext(tmp, out IPropertyEditorContext? context))
                 {
                     Properties.Add(context);
+                    context.Accept(this);
                 }
 
                 props.RemoveMany(foundItems);
             }
         } while (foundItems != null && extension != null);
+    }
+
+    public void Visit(IPropertyEditorContext context)
+    {
     }
 }

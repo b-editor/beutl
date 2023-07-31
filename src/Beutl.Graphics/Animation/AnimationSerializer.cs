@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.Json.Nodes;
-using System.Threading.Tasks;
+﻿using System.Text.Json.Nodes;
 
 namespace Beutl.Animation;
 
@@ -11,18 +6,11 @@ internal static class AnimationSerializer
 {
     public static (string?, JsonNode?) ToJson(this IAnimation animation, Type targetType)
     {
-        if (animation.Children.Count > 0)
+        JsonNode? node = animation.ToJson();
+        string name = animation.Property.GetMetadata<CorePropertyMetadata>(targetType).SerializeName ?? animation.Property.Name;
+        if (node != null)
         {
-            var animations = new JsonArray();
-
-            foreach (IAnimationSpan item in animation.Children)
-            {
-                JsonNode anmNode = new JsonObject();
-                item.WriteToJson(ref anmNode);
-                animations.Add(anmNode);
-            }
-
-            return (animation.Property.GetMetadata<CorePropertyMetadata>(targetType).SerializeName ?? animation.Property.Name, animations);
+            return (name, node);
         }
         else
         {
@@ -30,64 +18,59 @@ internal static class AnimationSerializer
         }
     }
 
-    public static IAnimation? ToAnimation(this JsonNode json, string name, Type targetType)
+    public static JsonNode? ToJson(this IAnimation animation)
     {
-        if (json is JsonArray jsonArray)
+        JsonNode node = new JsonObject();
+        if (animation is IKeyFrameAnimation keyFrameAnimation)
         {
-            CoreProperty? property
-            = PropertyRegistry.GetRegistered(targetType).FirstOrDefault(
-                x => x.GetMetadata<CorePropertyMetadata>(targetType).SerializeName == name || x.Name == name);
-
-            if (property == null)
-                return null;
-
-            var helper = (IGenericHelper)typeof(GenericHelper<>)
-                .MakeGenericType(property.PropertyType)
-                .GetField("Instance")!
-                .GetValue(null)!;
-
-            var animations = new List<AnimationSpan>(jsonArray.Count);
-
-            foreach (JsonNode? item in jsonArray)
+            if (keyFrameAnimation.KeyFrames.Count > 0)
             {
-                if (item is JsonObject animationObj)
-                {
-                    animations.Add(helper.DeserializeAnimation(animationObj));
-                }
+                keyFrameAnimation.WriteToJson(ref node);
+                node["@type"] = TypeFormat.ToString(animation.GetType());
+                return node;
             }
-
-            return helper.InitializeAnimation(property, animations);
+            else
+            {
+                return default;
+            }
         }
         else
         {
+            animation.WriteToJson(ref node);
+            node["@type"] = TypeFormat.ToString(animation.GetType());
+            return node;
+        }
+    }
+
+    public static IAnimation? ToAnimation(this JsonNode json, string name, Type targetType)
+    {
+        CoreProperty? property
+            = PropertyRegistry.GetRegistered(targetType).FirstOrDefault(
+                x => x.GetMetadata<CorePropertyMetadata>(targetType).SerializeName == name || x.Name == name);
+
+        if (property == null)
             return null;
-        }
+
+        return json.ToAnimation(property);
     }
 
-    private interface IGenericHelper
+    public static IAnimation? ToAnimation(this JsonNode json, CoreProperty property)
     {
-        IAnimation InitializeAnimation(CoreProperty property, IEnumerable<AnimationSpan> animations);
-
-        AnimationSpan DeserializeAnimation(JsonObject json);
-    }
-
-    private sealed class GenericHelper<T> : IGenericHelper
-    {
-        public static readonly GenericHelper<T> Instance = new();
-
-        public IAnimation InitializeAnimation(CoreProperty property, IEnumerable<AnimationSpan> animations)
+        if (json is JsonObject obj)
         {
-            var animation = new Animation<T>((CoreProperty<T>)property);
-            animation.Children.AddRange(animations.OfType<AnimationSpan<T>>());
-
-            return animation;
+            if (obj.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
+                && atTypeNode is JsonValue atTypeValue
+                && atTypeValue.TryGetValue(out string? atType)
+                && atType != null
+                && TypeFormat.ToType(atType) is Type type
+                && Activator.CreateInstance(type, property) is IAnimation animation)
+            {
+                animation.ReadFromJson(json);
+                return animation;
+            }
         }
 
-        public AnimationSpan DeserializeAnimation(JsonObject json)
-        {
-            var anm = new AnimationSpan<T>();
-            anm.ReadFromJson(json);
-            return anm;
-        }
+        return null;
     }
+
 }

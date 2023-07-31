@@ -66,7 +66,8 @@ public class NumberEditor<TValue> : StringEditor
 
     protected override void OnTextBoxTextChanged(string newValue, string oldValue)
     {
-        if (TValue.TryParse(newValue, CultureInfo.CurrentUICulture, out TValue newValue2))
+        if (InnerTextBox?.IsKeyboardFocusWithin == true
+            && TValue.TryParse(newValue, CultureInfo.CurrentUICulture, out TValue newValue2))
         {
             bool invalidOldValue = !TValue.TryParse(oldValue, CultureInfo.CurrentUICulture, out TValue oldValue2);
             if (invalidOldValue)

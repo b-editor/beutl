@@ -171,7 +171,8 @@ public class RelativePointEditor : Vector2Editor
 
     private void OnInnerTextBoxTextChanged(TextBox sender, string newValue, string oldValue)
     {
-        if (TryParse(newValue, out float newValue2, out Graphics.RelativeUnit newUnit))
+        if (sender.IsKeyboardFocusWithin
+            && TryParse(newValue, out float newValue2, out Graphics.RelativeUnit newUnit))
         {
             bool invalidOldValue = !TryParse(oldValue, out float oldValue2, out Graphics.RelativeUnit oldUnit);
             if (invalidOldValue)

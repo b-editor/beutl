@@ -83,7 +83,8 @@ public class PercentageEditor : StringEditor
 
     protected override void OnTextBoxTextChanged(string newValue, string oldValue)
     {
-        if (TryParse(newValue, out float    newValue2))
+        if (InnerTextBox?.IsKeyboardFocusWithin == true
+            && TryParse(newValue, out float newValue2))
         {
             bool invalidOldValue = !TryParse(oldValue, out float oldValue2);
             if (invalidOldValue)

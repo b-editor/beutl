@@ -7,8 +7,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Beutl.ViewModels.Editors"
              VerticalAlignment="Center"
-             d:DesignHeight="100"
-             d:DesignWidth="100"
+             d:DesignHeight="500"
+             d:DesignWidth="500"
              x:CompileBindings="True"
              x:DataType="vm:BaseEditorViewModel"
              mc:Ignorable="d">
@@ -31,15 +31,16 @@
                           IsVisible="{Binding IsStylingSetter}" />
             </ContextMenu>
         </Button.ContextMenu>
-        <icons:SymbolIcon Classes.hasAnimation="{Binding HasAnimation.Value}">
+        <icons:SymbolIcon x:Name="symbolIcon"
+                          Classes.hasAnimation="{Binding HasAnimation.Value}"
+                          IsFilled="{Binding IsSymbolIconFilled.Value}">
             <icons:SymbolIcon.Styles>
                 <Style Selector="icons|SymbolIcon">
                     <Setter Property="Symbol" Value="MoreVertical" />
                 </Style>
                 <Style Selector="icons|SymbolIcon.hasAnimation">
-                    <Setter Property="Symbol" Value="Flow" />
-                    <Setter Property="IsFilled" Value="True" />
-                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
+                    <Setter Property="Symbol" Value="Diamond" />
+                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCaution}" />
                     <Setter Property="ToolTip.Tip" Value="{x:Static lang:Message.AnimationIsEnabled}" />
                 </Style>
             </icons:SymbolIcon.Styles>

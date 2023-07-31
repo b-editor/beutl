@@ -33,7 +33,7 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
     </UserControl.Styles>
-    <Grid Height="{DynamicResource LayerHeight}" ColumnDefinitions="14,Auto,Auto,Auto,Auto,*">
+    <Grid Height="{DynamicResource LayerHeight}" ColumnDefinitions="14,Auto,Auto,Auto,*">
 
         <Border x:Name="border"
                 Grid.Column="1"
@@ -44,17 +44,6 @@
                     <Setter Property="Cursor" Value="SizeNorthSouth" />
                 </Style>
             </Border.Styles>
-            <Border.ContextFlyout>
-                <ui:FAMenuFlyout>
-                    <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding ShowAnimationVisual.Value}" Text="{x:Static lang:Strings.ShowPreview}" />
-
-                    <ui:MenuFlyoutItem Click="OpenAnimationTimelineClick" Text="{x:Static lang:Strings.OpenTimeline}">
-                        <ui:MenuFlyoutItem.Icon>
-                            <icons:SymbolIcon Symbol="Open" />
-                        </ui:MenuFlyoutItem.Icon>
-                    </ui:MenuFlyoutItem>
-                </ui:FAMenuFlyout>
-            </Border.ContextFlyout>
             <icons:SymbolIcon FontSize="14" Symbol="ReOrderDotsVertical" />
         </Border>
 
@@ -66,15 +55,7 @@
             <icons:SymbolIcon Symbol="Dismiss" />
         </Button>
 
-        <ToggleButton x:Name="ExpandToggle"
-                      Grid.Column="3"
-                      Width="30"
-                      Padding="5"
-                      VerticalAlignment="Stretch"
-                      IsChecked="{CompiledBinding IsExpanded.Value}"
-                      Theme="{StaticResource ExpandCollapseToggleButtonStyle}" />
-
-        <Button Grid.Column="4"
+        <Button Grid.Column="3"
                 Width="30"
                 Classes="SmallButton"
                 Click="OpenTab_Click"
@@ -83,7 +64,7 @@
         </Button>
 
 
-        <TextBox Grid.Column="5"
+        <TextBox Grid.Column="4"
                  Classes="custom"
                  IsReadOnly="True"
                  Text="{CompiledBinding Header}" />

@@ -115,6 +115,19 @@
                                 <icons:SymbolIcon Symbol="Settings" />
                             </MenuItem.Icon>
                         </MenuItem>
+                        <MenuItem Header="拡大率" MenuItem.Click="ZoomClick">
+                            <MenuItem.Icon>
+                                <icons:SymbolIcon Symbol="ZoomIn" />
+                            </MenuItem.Icon>
+                            <MenuItem CommandParameter="2.0" Header="200%" />
+                            <MenuItem CommandParameter="1.7" Header="170%" />
+                            <MenuItem CommandParameter="1.5" Header="150%" />
+                            <MenuItem CommandParameter="1.2" Header="120%" />
+                            <MenuItem CommandParameter="1.0" Header="100%" />
+                            <MenuItem CommandParameter="0.7" Header="70%" />
+                            <MenuItem CommandParameter="0.5" Header="50%" />
+                            <MenuItem CommandParameter="0.2" Header="20%" />
+                        </MenuItem>
                     </ContextMenu>
                 </Panel.ContextMenu>
 

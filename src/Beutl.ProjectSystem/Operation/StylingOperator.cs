@@ -4,15 +4,11 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 
-using Avalonia.Collections.Pooled;
-
 using Beutl.Animation;
 using Beutl.Framework;
 using Beutl.Media;
 using Beutl.Reactive;
 using Beutl.Styling;
-
-using Reactive.Bindings.Extensions;
 
 namespace Beutl.Operation;
 
@@ -25,46 +21,38 @@ public interface IStylingSetterPropertyImpl : IAbstractProperty
 
 public sealed class StylingSetterPropertyImpl<T> : IAbstractAnimatableProperty<T>, IStylingSetterPropertyImpl
 {
-    private sealed class HasAnimationObservable : LightweightObservableBase<bool>
+    private sealed class AnimationObservable : LightweightObservableBase<IAnimation<T>?>
     {
-        private IDisposable? _disposable;
         private readonly Setter<T> _setter;
+        private IAnimation<T>? _prevAnimation;
 
-        public HasAnimationObservable(Setter<T> setter)
+        public AnimationObservable(Setter<T> setter)
         {
             _setter = setter;
         }
 
-        protected override void Subscribed(IObserver<bool> observer, bool first)
+        protected override void Subscribed(IObserver<IAnimation<T>?> observer, bool first)
         {
             base.Subscribed(observer, first);
-            observer.OnNext(_setter.Animation is { Children.Count: > 0 });
+            observer.OnNext(_setter.Animation);
         }
 
         protected override void Deinitialize()
         {
-            _disposable?.Dispose();
-            _disposable = null;
-
             _setter.Invalidated -= Setter_Invalidated;
         }
 
         protected override void Initialize()
         {
-            _disposable?.Dispose();
-
             _setter.Invalidated += Setter_Invalidated;
         }
 
         private void Setter_Invalidated(object? sender, EventArgs e)
         {
-            _disposable?.Dispose();
-            if (_setter.Animation is { } animation)
+            if (_prevAnimation != _setter.Animation)
             {
-                _disposable = _setter.Animation.Children
-                    .ObserveProperty(x => x.Count)
-                    .Select(x => x > 0)
-                    .Subscribe(x => PublishNext(x));
+                PublishNext(_setter.Animation);
+                _prevAnimation = _setter.Animation;
             }
         }
     }
@@ -74,7 +62,7 @@ public sealed class StylingSetterPropertyImpl<T> : IAbstractAnimatableProperty<T
         Property = setter.Property;
         Setter = setter;
         Style = style;
-        HasAnimation = new HasAnimationObservable(setter);
+        ObserveAnimation = new AnimationObservable(setter);
     }
 
     public CoreProperty<T> Property { get; }
@@ -83,16 +71,13 @@ public sealed class StylingSetterPropertyImpl<T> : IAbstractAnimatableProperty<T
 
     public Style Style { get; }
 
-    public Animation<T> Animation
+    public IAnimation<T>? Animation
     {
-        get
-        {
-            Setter.Animation ??= new Animation<T>(Property);
-            return Setter.Animation;
-        }
+        get => Setter.Animation;
+        set => Setter.Animation = value;
     }
 
-    public IObservable<bool> HasAnimation { get; }
+    public IObservable<IAnimation<T>?> ObserveAnimation { get; }
 
     public Type ImplementedType => Style.TargetType;
 

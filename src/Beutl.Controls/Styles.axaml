@@ -19,6 +19,7 @@
                 <ResourceInclude Source="/Styling/ListRadioButton.axaml" />
                 <ResourceInclude Source="/Styling/SegmentedControl.axaml" />
                 <ResourceInclude Source="/Styling/LiteNav.axaml" />
+                <ResourceInclude Source="/Styling/FlipButton.axaml" />
 
                 <ResourceInclude Source="/Styling/PropertyEditors/PropertyEditorResources.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/StringEditor.axaml" />

@@ -4,23 +4,16 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class TimeSpanEditorViewModel : BaseEditorViewModel<TimeSpan>
+public sealed class TimeSpanEditorViewModel : ValueEditorViewModel<TimeSpan>
 {
     public TimeSpanEditorViewModel(IAbstractProperty<TimeSpan> property)
         : base(property)
     {
-        IObservable<TimeSpan> observable = property.GetObservable();
-        Text = observable
+        Text = Value
             .Select(x => x.ToString() ?? "")
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables)!;
-
-        Value = observable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables)!;
     }
 
     public ReadOnlyReactivePropertySlim<string> Text { get; }
-
-    public ReadOnlyReactivePropertySlim<TimeSpan> Value { get; }
 }

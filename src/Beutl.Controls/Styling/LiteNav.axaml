@@ -2,20 +2,28 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     x:CompileBindings="True">
     <Design.PreviewWith>
-        <Border Width="300"
-                Padding="20"
-                Background="#1c1c1c">
-            <TabStrip Theme="{DynamicResource LiteNavTabStrip}">
-                <TabStrip.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <Grid ColumnDefinitions="*,*,*" />
-                    </ItemsPanelTemplate>
-                </TabStrip.ItemsPanel>
-                <TabStripItem Grid.Column="0">Item 1</TabStripItem>
-                <TabStripItem Grid.Column="1">Item 2</TabStripItem>
-                <TabStripItem Grid.Column="2">Item 3</TabStripItem>
-            </TabStrip>
-        </Border>
+        <StackPanel Width="300" Background="#1c1c1c">
+            <Border Padding="20">
+                <TabStrip Theme="{DynamicResource LiteNavTabStrip}">
+                    <TabStrip.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <Grid ColumnDefinitions="*,*,*" />
+                        </ItemsPanelTemplate>
+                    </TabStrip.ItemsPanel>
+                    <TabStripItem Grid.Column="0">Item 1</TabStripItem>
+                    <TabStripItem Grid.Column="1">Item 2</TabStripItem>
+                    <TabStripItem Grid.Column="2">Item 3</TabStripItem>
+                </TabStrip>
+            </Border>
+
+            <StackPanel Margin="20"
+                        HorizontalAlignment="Center"
+                        Orientation="Horizontal">
+                <RadioButton Content="AAA" Theme="{DynamicResource LiteNavRadioButton}" />
+                <RadioButton Content="BBB" Theme="{DynamicResource LiteNavRadioButton}" />
+                <RadioButton Content="CCC" Theme="{DynamicResource LiteNavRadioButton}" />
+            </StackPanel>
+        </StackPanel>
     </Design.PreviewWith>
 
     <ControlTheme x:Key="LiteNavTabStrip" TargetType="TabStrip">
@@ -109,6 +117,91 @@
         <Style Selector="^:not(:selected)">
             <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
                 <Setter Property="TextElement.Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Style>
+        </Style>
+
+    </ControlTheme>
+
+    <ControlTheme x:Key="LiteNavRadioButton" TargetType="RadioButton">
+        <Setter Property="FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        <Setter Property="Padding" Value="12,5,12,7" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel>
+                    <Border Name="PART_LayoutRoot"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Border.Transitions>
+                            <Transitions>
+                                <ThicknessTransition Easing="0,0 0,1"
+                                                     Property="Margin"
+                                                     Duration="00:00:00.167" />
+                            </Transitions>
+                        </Border.Transitions>
+                    </Border>
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Margin="0,3"
+                                      Padding="{TemplateBinding Padding}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      FontFamily="{TemplateBinding FontFamily}"
+                                      FontSize="{TemplateBinding FontSize}"
+                                      FontWeight="{TemplateBinding FontWeight}" />
+                    <Rectangle Name="PART_SelectedPipe"
+                               Width="0"
+                               Height="{DynamicResource TabItemPipeThickness}"
+                               VerticalAlignment="Bottom"
+                               Fill="{DynamicResource AccentFillColorDefaultBrush}"
+                               IsVisible="False"
+                               RadiusX="1"
+                               RadiusY="1">
+                        <Rectangle.Transitions>
+                            <Transitions>
+                                <!--<TransformOperationsTransition Easing="0,0 0,1"
+                                                               Property="RenderTransform"
+                                                               Duration="00:00:00.167" />-->
+                                <DoubleTransition Easing="0,0 0,1"
+                                                  Property="Width"
+                                                  Duration="00:00:00.167" />
+                            </Transitions>
+                        </Rectangle.Transitions>
+                    </Rectangle>
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:checked /template/ Rectangle#PART_SelectedPipe">
+            <Setter Property="IsVisible" Value="True" />
+            <Setter Property="Width" Value="16" />
+        </Style>
+
+        <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+
+        <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+        </Style>
+        <Style Selector="^:pressed /template/ Rectangle#PART_SelectedPipe">
+            <Setter Property="IsVisible" Value="True" />
+            <Setter Property="Width" Value="12" />
+        </Style>
+
+
+        <Style Selector="^:not(:checked)">
+            <!--<Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="TextElement.Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Style>-->
+            <Style Selector="^:pressed /template/ Rectangle#PART_SelectedPipe">
+                <Setter Property="Fill" Value="{DynamicResource TextFillColorTertiaryBrush}" />
             </Style>
         </Style>
 

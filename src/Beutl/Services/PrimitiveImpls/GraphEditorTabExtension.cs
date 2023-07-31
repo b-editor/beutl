@@ -4,26 +4,25 @@ using Avalonia.Controls;
 
 using Beutl.Framework;
 using Beutl.ViewModels;
-using Beutl.Views;
+using Beutl.Views.Tools;
 
 namespace Beutl.Services.PrimitiveImpls;
 
-[PrimitiveImpl]
-public sealed class AnimationTimelineTabExtension : ToolTabExtension
+public sealed class GraphEditorTabExtension : ToolTabExtension
 {
-    public static readonly AnimationTimelineTabExtension Instance = new();
-
-    public override string Name => "Animation Timeline";
-
-    public override string DisplayName => "Animation Timeline";
+    public static readonly GraphEditorTabExtension Instance = new();
 
     public override bool CanMultiple => true;
+
+    public override string Name => "Graph Editor Tab";
+
+    public override string DisplayName => "Graph Editor Tab";
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
     {
         if (editorContext is EditViewModel)
         {
-            control = new AnimationTimeline();
+            control = new GraphEditorTab();
             return true;
         }
         else
@@ -35,7 +34,6 @@ public sealed class AnimationTimelineTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        // EditorBadge.axaml.cs以外からは許可しない
         context = null;
         return false;
     }

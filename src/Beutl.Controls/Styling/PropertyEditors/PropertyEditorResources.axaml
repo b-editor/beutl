@@ -1,3 +1,12 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <x:Double x:Key="PropertyEditorMinWidth">200</x:Double>
+
+    <ControlTheme x:Key="PropertyEditorLeftRightButton"
+                  BasedOn="{StaticResource FlipButton}"
+                  TargetType="Button">
+        <Setter Property="Margin" Value="0,4" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="Background" Value="Transparent" />
+    </ControlTheme>
 </ResourceDictionary>

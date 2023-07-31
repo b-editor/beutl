@@ -106,7 +106,7 @@ public sealed partial class MainWindow : AppWindow
 
             color = color.LightenPercent(-0.8f);
 
-            Background = new ImmutableSolidColorBrush(color, 0.78);
+            Background = new ImmutableSolidColorBrush(color, 0.9);
         }
         else if (thm == FluentAvaloniaTheme.LightModeString)
         {
@@ -114,8 +114,6 @@ public sealed partial class MainWindow : AppWindow
             Color2 color = this.TryFindResource("SolidBackgroundFillColorBase", out object? value)
                 ? (Color)value!
                 : new Color2(243, 243, 243);
-
-            color = color.LightenPercent(0.5f);
 
             Background = new ImmutableSolidColorBrush(color, 0.9);
         }
@@ -139,8 +137,6 @@ public sealed partial class MainWindow : AppWindow
             Color2 color = this.TryFindResource("SolidBackgroundFillColorBase", out object? value)
                 ? (Color)value!
                 : new Color2(243, 243, 243);
-
-            color = color.LightenPercent(0.5f);
 
             Background = new ImmutableSolidColorBrush(color);
         }

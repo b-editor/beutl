@@ -8,22 +8,22 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class RelativePointEditorViewModel : BaseEditorViewModel<Graphics.RelativePoint>
+public sealed class RelativePointEditorViewModel : ValueEditorViewModel<Graphics.RelativePoint>
 {
     public RelativePointEditorViewModel(IAbstractProperty<Graphics.RelativePoint> property)
         : base(property)
     {
-        FirstValue = property.GetObservable()
+        FirstValue = Value
             .Select(x => x.Point.X)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
-        SecondValue = property.GetObservable()
+        SecondValue = Value
             .Select(x => x.Point.Y)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
-        UnitValue = property.GetObservable()
+        UnitValue = Value
             .Select(x => x.Unit)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
@@ -61,8 +61,7 @@ public sealed class RelativePointEditorViewModel : BaseEditorViewModel<Graphics.
         if (e is PropertyEditorValueChangedEventArgs<Graphics.RelativePoint> args
             && sender is RelativePointEditor editor)
         {
-            WrappedProperty.SetValue(args.NewValue);
-            Graphics.RelativePoint coerced = WrappedProperty.GetValue();
+            Graphics.RelativePoint coerced = SetCurrentValueAndGetCoerced(args.NewValue);
             editor.FirstValue = coerced.Point.X;
             editor.SecondValue = coerced.Point.Y;
             editor.Unit = coerced.Unit;

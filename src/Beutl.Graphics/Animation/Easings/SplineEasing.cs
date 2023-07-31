@@ -9,7 +9,7 @@ public class SplineEasing : Easing
         X1 = x1;
         Y1 = y1;
         X2 = x2;
-        Y1 = y2;
+        Y2 = y2;
     }
 
     public SplineEasing(KeySpline keySpline)
@@ -22,28 +22,46 @@ public class SplineEasing : Easing
         _internalKeySpline = new KeySpline();
     }
 
+    public event EventHandler? Changed;
+
     public float X1
     {
         get => _internalKeySpline.ControlPointX1;
-        set => _internalKeySpline.ControlPointX1 = value;
+        set
+        {
+            _internalKeySpline.ControlPointX1 = value;
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     public float Y1
     {
         get => _internalKeySpline.ControlPointY1;
-        set => _internalKeySpline.ControlPointY1 = value;
+        set
+        {
+            _internalKeySpline.ControlPointY1 = value;
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     public float X2
     {
         get => _internalKeySpline.ControlPointX2;
-        set => _internalKeySpline.ControlPointX2 = value;
+        set
+        {
+            _internalKeySpline.ControlPointX2 = value;
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     public float Y2
     {
         get => _internalKeySpline.ControlPointY2;
-        set => _internalKeySpline.ControlPointY2 = value;
+        set
+        {
+            _internalKeySpline.ControlPointY2 = value;
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     private readonly KeySpline _internalKeySpline;

@@ -1,28 +1,73 @@
-﻿using System.Collections;
-using System.Collections.Specialized;
-using System.Reactive.Subjects;
-
-using Avalonia;
+﻿using Avalonia;
 
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Framework;
 using Beutl.Reactive;
-using Beutl.Services;
-using Beutl.ViewModels.AnimationEditors;
 
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public sealed class InlineAnimationLayerViewModel : IDisposable
+public sealed class InlineAnimationLayerViewModel<T> : InlineAnimationLayerViewModel
+{
+    public InlineAnimationLayerViewModel(IAbstractAnimatableProperty<T> property, TimelineViewModel timeline, TimelineLayerViewModel layer)
+        : base(property, timeline, layer)
+    {
+    }
+
+    public override void InsertKeyFrame(Easing easing, TimeSpan keyTime)
+    {
+        if (Property.Animation is KeyFrameAnimation<T> kfAnimation
+            && !kfAnimation.KeyFrames.Any(x => x.KeyTime == keyTime))
+        {
+            var keyframe = new KeyFrame<T>()
+            {
+                Value = kfAnimation.Interpolate(keyTime),
+                Easing = easing,
+                KeyTime = keyTime
+            };
+
+            var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe);
+            command.DoAndRecord(CommandRecorder.Default);
+        }
+    }
+
+    private sealed class AddKeyFrameCommand : IRecordableCommand
+    {
+        private readonly KeyFrames _keyFrames;
+        private readonly IKeyFrame _keyFrame;
+
+        public AddKeyFrameCommand(KeyFrames keyFrames, IKeyFrame keyFrame)
+        {
+            _keyFrames = keyFrames;
+            _keyFrame = keyFrame;
+        }
+
+        public void Do()
+        {
+            _keyFrames.Add(_keyFrame, out _);
+        }
+
+        public void Redo()
+        {
+            Do();
+        }
+
+        public void Undo()
+        {
+            _keyFrames.Remove(_keyFrame);
+        }
+    }
+}
+
+public abstract class InlineAnimationLayerViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
-    private readonly Subject<double> _heightSubject = new();
-    private double _height;
     private LayerHeaderViewModel? _lastLayerHeader;
+    private IDisposable? _innerDisposable;
 
-    public InlineAnimationLayerViewModel(
+    protected InlineAnimationLayerViewModel(
         IAbstractAnimatableProperty property,
         TimelineViewModel timeline,
         TimelineLayerViewModel layer)
@@ -30,9 +75,6 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         Property = property;
         Timeline = timeline;
         Layer = layer;
-        _height = Helper.LayerHeight;
-
-        ObserveHeight = _heightSubject.ToReadOnlyReactivePropertySlim(_height).DisposeWith(_disposables);
 
         Layer.LayerHeader.Subscribe(OnLayerHeaderChanged).DisposeWith(_disposables);
 
@@ -44,7 +86,6 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             .DisposeWith(_disposables);
 
         // Widthプロパティを構成
-        property.Animation.Invalidated += OnAnimationInvalidated;
         Timeline.Options.Subscribe(_ => UpdateWidth()).DisposeWith(_disposables);
 
         CorePropertyMetadata metadata = property.Property.GetMetadata<CorePropertyMetadata>(property.ImplementedType);
@@ -54,23 +95,35 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             .WithSubscribe(() => Timeline.DetachInline(this))
             .DisposeWith(_disposables);
 
-        Property.Animation.Children.ForEachItem(
-            (idx, item) => Items.Insert(idx, new InlineAnimationEditorViewModel(item, this)),
-            (idx, _) =>
+        Property.ObserveAnimation.CombineWithPrevious()
+            .Subscribe(t =>
             {
-                InlineAnimationEditorViewModel item = Items[idx];
-                item.Dispose();
-                Items.RemoveAt(idx);
-            },
-            () =>
-            {
-                foreach (InlineAnimationEditorViewModel item in Items.GetMarshal().Value)
+                if (t.OldValue != null)
                 {
-                    item.Dispose();
+                    t.OldValue.Invalidated -= OnAnimationInvalidated;
+                    _innerDisposable?.Dispose();
+                    _innerDisposable = null;
+                    ClearItems();
                 }
 
-                Items.Clear();
-            });
+                if (t.NewValue != null)
+                {
+                    t.NewValue.Invalidated += OnAnimationInvalidated;
+                    if (t.NewValue is IKeyFrameAnimation kfAnimation)
+                    {
+                        _innerDisposable = kfAnimation.KeyFrames.ForEachItem(
+                            (idx, item) => Items.Insert(idx, new InlineKeyFrameViewModel(item, kfAnimation, this)),
+                            (idx, _) =>
+                            {
+                                InlineKeyFrameViewModel item = Items[idx];
+                                item.Dispose();
+                                Items.RemoveAt(idx);
+                            },
+                            ClearItems);
+                    }
+                }
+            })
+            .DisposeWith(_disposables);
     }
 
     public Func<Thickness, CancellationToken, Task>? AnimationRequested { get; set; }
@@ -81,7 +134,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
 
     public TimelineLayerViewModel Layer { get; }
 
-    public CoreList<InlineAnimationEditorViewModel> Items { get; } = new();
+    public CoreList<InlineKeyFrameViewModel> Items { get; } = new();
 
     public ReactiveProperty<Thickness> Margin { get; }
 
@@ -89,59 +142,13 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
 
     public ReactivePropertySlim<int> Index { get; } = new();
 
-    public ReactivePropertySlim<bool> IsExpanded { get; } = new();
-
-    public ReactivePropertySlim<bool> ShowAnimationVisual { get; } = new(true);
-
     public string Header { get; }
-
-    public double Height
-    {
-        get => _height;
-        set
-        {
-            if (_height != value)
-            {
-                double old = _height;
-                _height = value;
-                _heightSubject.OnNext(value);
-                HeightChanged?.Invoke(this, (old, value));
-            }
-        }
-    }
 
     public ReactiveCommand Close { get; }
 
-    public ReadOnlyReactivePropertySlim<double> ObserveHeight { get; }
-
     public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader => Layer.LayerHeader;
 
-    public event EventHandler<(double OldHeight, double NewHeight)>? HeightChanged;
-
-    public void AddAnimation(Easing easing)
-    {
-        CoreProperty? property = Property.Property;
-        Type type = typeof(AnimationSpan<>).MakeGenericType(property.PropertyType);
-
-        if (Property.Animation.Children is IList list
-            && Activator.CreateInstance(type) is IAnimationSpan animation)
-        {
-            animation.Easing = easing;
-            animation.Duration = TimeSpan.FromSeconds(2);
-            object? value = Property.GetValue();
-
-            if (value != null)
-            {
-                animation.Previous = value;
-                animation.Next = value;
-            }
-
-            list.BeginRecord()
-                .Add(animation)
-                .ToCommand()
-                .DoAndRecord(CommandRecorder.Default);
-        }
-    }
+    public abstract void InsertKeyFrame(Easing easing, TimeSpan keyTime);
 
     private void OnLayerHeaderChanged(LayerHeaderViewModel? obj)
     {
@@ -152,7 +159,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
 
     private void UpdateWidth()
     {
-        TimeSpan duration = Property.Animation.CalculateDuration();
+        TimeSpan duration = Property.Animation?.Duration ?? TimeSpan.Zero;
         Width.Value = duration.ToPixel(Timeline.Options.Value.Scale);
     }
 
@@ -185,8 +192,24 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
 
     public void Dispose()
     {
+        _innerDisposable?.Dispose();
         _disposables.Dispose();
-        Property.Animation.Invalidated -= OnAnimationInvalidated;
+        if (Property.Animation != null)
+            Property.Animation.Invalidated -= OnAnimationInvalidated;
+
+        ClearItems();
+
+        GC.SuppressFinalize(this);
+    }
+
+    private void ClearItems()
+    {
+        foreach (InlineKeyFrameViewModel item in Items.GetMarshal().Value)
+        {
+            item.Dispose();
+        }
+
+        Items.Clear();
     }
 
     public record struct PrepareAnimationContext(Thickness Margin);

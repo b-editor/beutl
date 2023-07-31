@@ -10,6 +10,7 @@ namespace Beutl.ViewModels.Editors;
 public sealed class BrushEditorViewModel : BaseEditorViewModel
 {
     private static readonly NullabilityInfoContext s_context = new();
+    private bool _accepted;
 
     public BrushEditorViewModel(IAbstractProperty property)
         : base(property)
@@ -38,8 +39,26 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 
         ChildContext = Value.Select(v => v as ICoreObject)
             .Select(x => x != null ? new PropertiesEditorViewModel(x, m => m.PropertyFlags.HasFlag(PropertyFlags.Designable)) : null)
+            .Do(AcceptChildren)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
+    }
+
+    private void AcceptChildren(PropertiesEditorViewModel? obj)
+    {
+        _accepted = false;
+
+        EditViewModel? editViewModel = GetEditViewModel();
+        if (obj != null && editViewModel != null)
+        {
+            var visitor = new Visitor(editViewModel);
+            foreach (IPropertyEditorContext item in obj.Properties)
+            {
+                item.Accept(visitor);
+            }
+
+            _accepted = true;
+        }
     }
 
     public ReadOnlyReactivePropertySlim<IBrush?> Value { get; }
@@ -67,6 +86,27 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         if (!EqualityComparer<IBrush>.Default.Equals(oldValue, newValue))
         {
             CommandRecorder.Default.DoAndPush(new SetCommand(WrappedProperty, oldValue, newValue));
+        }
+    }
+
+    public override void Accept(IPropertyEditorContextVisitor visitor)
+    {
+        base.Accept(visitor);
+        if (visitor is IProvideEditViewModel && !_accepted)
+        {
+            AcceptChildren(ChildContext.Value);
+        }
+    }
+
+    private EditViewModel? GetEditViewModel()
+    {
+        return ((IProvideEditViewModel)this).EditViewModel;
+    }
+
+    private sealed record Visitor(EditViewModel EditViewModel) : IProvideEditViewModel, IPropertyEditorContextVisitor
+    {
+        public void Visit(IPropertyEditorContext context)
+        {
         }
     }
 

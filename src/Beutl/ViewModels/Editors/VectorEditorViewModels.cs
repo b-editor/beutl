@@ -8,17 +8,17 @@ using Reactive.Bindings.Extensions;
 namespace Beutl.ViewModels.Editors
 {
     // Vector2
-    public sealed class PixelPointEditorViewModel : BaseEditorViewModel<Media.PixelPoint>
+    public sealed class PixelPointEditorViewModel : ValueEditorViewModel<Media.PixelPoint>
     {
         public PixelPointEditorViewModel(IAbstractProperty<Media.PixelPoint> property)
             : base(property)
         {
-            FirstValue = property.GetObservable()
+            FirstValue = Value
                 .Select(x => x.X)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            SecondValue = property.GetObservable()
+            SecondValue = Value
                 .Select(x => x.Y)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
@@ -55,24 +55,24 @@ namespace Beutl.ViewModels.Editors
         {
             if (sender is Vector2Editor<int> editor)
             {
-                WrappedProperty.SetValue(new Media.PixelPoint(editor.FirstValue, editor.SecondValue));
-                Media.PixelPoint coerced = WrappedProperty.GetValue();
+                Media.PixelPoint coerced = SetCurrentValueAndGetCoerced(
+                    new Media.PixelPoint(editor.FirstValue, editor.SecondValue));
                 editor.FirstValue = coerced.X;
                 editor.SecondValue = coerced.Y;
             }
         }
     }
-    public sealed class PixelSizeEditorViewModel : BaseEditorViewModel<Media.PixelSize>
+    public sealed class PixelSizeEditorViewModel : ValueEditorViewModel<Media.PixelSize>
     {
         public PixelSizeEditorViewModel(IAbstractProperty<Media.PixelSize> property)
             : base(property)
         {
-            FirstValue = property.GetObservable()
+            FirstValue = Value
                 .Select(x => x.Width)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            SecondValue = property.GetObservable()
+            SecondValue = Value
                 .Select(x => x.Height)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
@@ -109,24 +109,24 @@ namespace Beutl.ViewModels.Editors
         {
             if (sender is Vector2Editor<int> editor)
             {
-                WrappedProperty.SetValue(new Media.PixelSize(editor.FirstValue, editor.SecondValue));
-                Media.PixelSize coerced = WrappedProperty.GetValue();
+                Media.PixelSize coerced = SetCurrentValueAndGetCoerced(
+                    new Media.PixelSize(editor.FirstValue, editor.SecondValue));
                 editor.FirstValue = coerced.Width;
                 editor.SecondValue = coerced.Height;
             }
         }
     }
-    public sealed class PointEditorViewModel : BaseEditorViewModel<Graphics.Point>
+    public sealed class PointEditorViewModel : ValueEditorViewModel<Graphics.Point>
     {
         public PointEditorViewModel(IAbstractProperty<Graphics.Point> property)
             : base(property)
         {
-            FirstValue = property.GetObservable()
+            FirstValue = Value
                 .Select(x => x.X)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            SecondValue = property.GetObservable()
+            SecondValue = Value
                 .Select(x => x.Y)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
@@ -163,24 +163,24 @@ namespace Beutl.ViewModels.Editors
         {
             if (sender is Vector2Editor<float> editor)
             {
-                WrappedProperty.SetValue(new Graphics.Point(editor.FirstValue, editor.SecondValue));
-                Graphics.Point coerced = WrappedProperty.GetValue();
+                Graphics.Point coerced = SetCurrentValueAndGetCoerced(
+                    new Graphics.Point(editor.FirstValue, editor.SecondValue));
                 editor.FirstValue = coerced.X;
                 editor.SecondValue = coerced.Y;
             }
         }
     }
-    public sealed class SizeEditorViewModel : BaseEditorViewModel<Graphics.Size>
+    public sealed class SizeEditorViewModel : ValueEditorViewModel<Graphics.Size>
     {
         public SizeEditorViewModel(IAbstractProperty<Graphics.Size> property)
             : base(property)
         {
-            FirstValue = property.GetObservable()
+            FirstValue = Value
                 .Select(x => x.Width)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            SecondValue = property.GetObservable()
+            SecondValue = Value
                 .Select(x => x.Height)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
@@ -217,24 +217,24 @@ namespace Beutl.ViewModels.Editors
         {
             if (sender is Vector2Editor<float> editor)
             {
-                WrappedProperty.SetValue(new Graphics.Size(editor.FirstValue, editor.SecondValue));
-                Graphics.Size coerced = WrappedProperty.GetValue();
+                Graphics.Size coerced = SetCurrentValueAndGetCoerced(
+                    new Graphics.Size(editor.FirstValue, editor.SecondValue));
                 editor.FirstValue = coerced.Width;
                 editor.SecondValue = coerced.Height;
             }
         }
     }
-    public sealed class VectorEditorViewModel : BaseEditorViewModel<Graphics.Vector>
+    public sealed class VectorEditorViewModel : ValueEditorViewModel<Graphics.Vector>
     {
         public VectorEditorViewModel(IAbstractProperty<Graphics.Vector> property)
             : base(property)
         {
-            FirstValue = property.GetObservable()
+            FirstValue = Value
                 .Select(x => x.X)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            SecondValue = property.GetObservable()
+            SecondValue = Value
                 .Select(x => x.Y)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
@@ -271,24 +271,24 @@ namespace Beutl.ViewModels.Editors
         {
             if (sender is Vector2Editor<float> editor)
             {
-                WrappedProperty.SetValue(new Graphics.Vector(editor.FirstValue, editor.SecondValue));
-                Graphics.Vector coerced = WrappedProperty.GetValue();
+                Graphics.Vector coerced = SetCurrentValueAndGetCoerced(
+                    new Graphics.Vector(editor.FirstValue, editor.SecondValue));
                 editor.FirstValue = coerced.X;
                 editor.SecondValue = coerced.Y;
             }
         }
     }
-    public sealed class Vector2EditorViewModel : BaseEditorViewModel<System.Numerics.Vector2>
+    public sealed class Vector2EditorViewModel : ValueEditorViewModel<System.Numerics.Vector2>
     {
         public Vector2EditorViewModel(IAbstractProperty<System.Numerics.Vector2> property)
             : base(property)
         {
-            FirstValue = property.GetObservable()
+            FirstValue = Value
                 .Select(x => x.X)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            SecondValue = property.GetObservable()
+            SecondValue = Value
                 .Select(x => x.Y)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
@@ -325,8 +325,8 @@ namespace Beutl.ViewModels.Editors
         {
             if (sender is Vector2Editor<float> editor)
             {
-                WrappedProperty.SetValue(new System.Numerics.Vector2(editor.FirstValue, editor.SecondValue));
-                System.Numerics.Vector2 coerced = WrappedProperty.GetValue();
+                System.Numerics.Vector2 coerced = SetCurrentValueAndGetCoerced(
+                    new System.Numerics.Vector2(editor.FirstValue, editor.SecondValue));
                 editor.FirstValue = coerced.X;
                 editor.SecondValue = coerced.Y;
             }
@@ -334,22 +334,22 @@ namespace Beutl.ViewModels.Editors
     }
 
     // Vector3
-    public sealed class Vector3EditorViewModel : BaseEditorViewModel<System.Numerics.Vector3>
+    public sealed class Vector3EditorViewModel : ValueEditorViewModel<System.Numerics.Vector3>
     {
         public Vector3EditorViewModel(IAbstractProperty<System.Numerics.Vector3> property)
             : base(property)
         {
-            FirstValue = property.GetObservable()
+            FirstValue = Value
                 .Select(x => x.X)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            SecondValue = property.GetObservable()
+            SecondValue = Value
                 .Select(x => x.Y)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            ThirdValue = property.GetObservable()
+            ThirdValue = Value
                 .Select(x => x.Z)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
@@ -391,8 +391,8 @@ namespace Beutl.ViewModels.Editors
         {
             if (sender is Vector3Editor<float> editor)
             {
-                WrappedProperty.SetValue(new System.Numerics.Vector3(editor.FirstValue, editor.SecondValue, editor.ThirdValue));
-                System.Numerics.Vector3 coerced = WrappedProperty.GetValue();
+                System.Numerics.Vector3 coerced = SetCurrentValueAndGetCoerced(
+                    new System.Numerics.Vector3(editor.FirstValue, editor.SecondValue, editor.ThirdValue));
                 editor.FirstValue = coerced.X;
                 editor.SecondValue = coerced.Y;
                 editor.ThirdValue = coerced.Z;
@@ -401,27 +401,27 @@ namespace Beutl.ViewModels.Editors
     }
 
     // Vector4
-    public sealed class PixelRectEditorViewModel : BaseEditorViewModel<Media.PixelRect>
+    public sealed class PixelRectEditorViewModel : ValueEditorViewModel<Media.PixelRect>
     {
         public PixelRectEditorViewModel(IAbstractProperty<Media.PixelRect> property)
             : base(property)
         {
-            FirstValue = property.GetObservable()
+            FirstValue = Value
                 .Select(x => x.X)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            SecondValue = property.GetObservable()
+            SecondValue = Value
                 .Select(x => x.Y)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            ThirdValue = property.GetObservable()
+            ThirdValue = Value
                 .Select(x => x.Width)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            FourthValue = property.GetObservable()
+            FourthValue = Value
                 .Select(x => x.Height)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
@@ -467,8 +467,8 @@ namespace Beutl.ViewModels.Editors
         {
             if (sender is Vector4Editor<int> editor)
             {
-                WrappedProperty.SetValue(new Media.PixelRect(editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue));
-                Media.PixelRect coerced = WrappedProperty.GetValue();
+                Media.PixelRect coerced = SetCurrentValueAndGetCoerced(
+                    new Media.PixelRect(editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue));
                 editor.FirstValue = coerced.X;
                 editor.SecondValue = coerced.Y;
                 editor.ThirdValue = coerced.Width;
@@ -476,27 +476,27 @@ namespace Beutl.ViewModels.Editors
             }
         }
     }
-    public sealed class RectEditorViewModel : BaseEditorViewModel<Graphics.Rect>
+    public sealed class RectEditorViewModel : ValueEditorViewModel<Graphics.Rect>
     {
         public RectEditorViewModel(IAbstractProperty<Graphics.Rect> property)
             : base(property)
         {
-            FirstValue = property.GetObservable()
+            FirstValue = Value
                 .Select(x => x.X)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            SecondValue = property.GetObservable()
+            SecondValue = Value
                 .Select(x => x.Y)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            ThirdValue = property.GetObservable()
+            ThirdValue = Value
                 .Select(x => x.Width)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            FourthValue = property.GetObservable()
+            FourthValue = Value
                 .Select(x => x.Height)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
@@ -542,8 +542,8 @@ namespace Beutl.ViewModels.Editors
         {
             if (sender is Vector4Editor<float> editor)
             {
-                WrappedProperty.SetValue(new Graphics.Rect(editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue));
-                Graphics.Rect coerced = WrappedProperty.GetValue();
+                Graphics.Rect coerced = SetCurrentValueAndGetCoerced(
+                    new Graphics.Rect(editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue));
                 editor.FirstValue = coerced.X;
                 editor.SecondValue = coerced.Y;
                 editor.ThirdValue = coerced.Width;
@@ -551,27 +551,27 @@ namespace Beutl.ViewModels.Editors
             }
         }
     }
-    public sealed class Vector4EditorViewModel : BaseEditorViewModel<System.Numerics.Vector4>
+    public sealed class Vector4EditorViewModel : ValueEditorViewModel<System.Numerics.Vector4>
     {
         public Vector4EditorViewModel(IAbstractProperty<System.Numerics.Vector4> property)
             : base(property)
         {
-            FirstValue = property.GetObservable()
+            FirstValue = Value
                 .Select(x => x.X)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            SecondValue = property.GetObservable()
+            SecondValue = Value
                 .Select(x => x.Y)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            ThirdValue = property.GetObservable()
+            ThirdValue = Value
                 .Select(x => x.Z)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            FourthValue = property.GetObservable()
+            FourthValue = Value
                 .Select(x => x.W)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
@@ -617,8 +617,8 @@ namespace Beutl.ViewModels.Editors
         {
             if (sender is Vector4Editor<float> editor)
             {
-                WrappedProperty.SetValue(new System.Numerics.Vector4(editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue));
-                System.Numerics.Vector4 coerced = WrappedProperty.GetValue();
+                System.Numerics.Vector4 coerced = SetCurrentValueAndGetCoerced(
+                    new System.Numerics.Vector4(editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue));
                 editor.FirstValue = coerced.X;
                 editor.SecondValue = coerced.Y;
                 editor.ThirdValue = coerced.Z;

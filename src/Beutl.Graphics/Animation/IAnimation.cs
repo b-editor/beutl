@@ -1,17 +1,21 @@
-﻿using Beutl.Animation.Easings;
-using Beutl.Collections;
-using Beutl.Media;
-using Beutl.Styling;
+﻿using Beutl.Media;
 
 namespace Beutl.Animation;
 
-public interface IAnimation : IJsonSerializable
+public interface IAnimation : IJsonSerializable, IAffectsRender
 {
     CoreProperty Property { get; }
 
-    ICoreReadOnlyList<IAnimationSpan> Children { get; }
+    TimeSpan Duration { get; }
 
-    event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+    void ApplyAnimation(Animatable target, IClock clock);
+}
 
-    void ApplyTo(ICoreObject obj, TimeSpan ts);
+public interface IAnimation<T> : IAnimation
+{
+    new CoreProperty<T> Property { get; }
+
+    CoreProperty IAnimation.Property => Property;
+
+    T Interpolate(TimeSpan timeSpan);
 }

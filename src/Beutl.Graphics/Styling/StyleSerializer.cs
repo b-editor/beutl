@@ -27,7 +27,7 @@ public static class StyleSerializer
     public static (string, JsonNode?) ToJson(this ISetter setter, Type targetType)
     {
         string? owner = null;
-        JsonArray? animations = null;
+        JsonNode? animationNode = null;
         CorePropertyMetadata? metadata = setter.Property.GetMetadata<CorePropertyMetadata>(targetType);
         string? name = metadata.SerializeName ?? setter.Property.Name;
 
@@ -38,31 +38,23 @@ public static class StyleSerializer
 
         JsonNode? value = setter.Property.RouteWriteToJson(metadata, setter.Value, out bool isDefault);
 
-        if (setter.Animation is { } animation
-            && animation.Children.Count > 0)
+        if (setter.Animation is { } animation)
         {
             if (animation.Property != setter.Property)
             {
                 throw new InvalidOperationException("Setter.Animation.Property != Setter.Property");
             }
 
-            animations = new JsonArray();
-
-            foreach (IAnimationSpan item in animation.Children)
-            {
-                JsonNode anmNode = new JsonObject();
-                item.WriteToJson(ref anmNode);
-                animations.Add(anmNode);
-            }
+            animationNode = animation.ToJson();
         }
 
         if (value is JsonValue jsonValue
             && owner == null
-            && animations == null)
+            && animationNode == null)
         {
             return (name, jsonValue);
         }
-        else if (value == null && owner == null && animations == null)
+        else if (value == null && owner == null && animationNode == null)
         {
             return (name, null);
         }
@@ -73,8 +65,8 @@ public static class StyleSerializer
                 json["value"] = value;
             if (owner != null)
                 json["owner"] = owner;
-            if (animations != null)
-                json["animations"] = animations;
+            if (animationNode != null)
+                json["animation"] = animationNode;
 
             return (name, json);
         }
@@ -112,13 +104,13 @@ public static class StyleSerializer
 
     public static ISetter? ToSetter(this JsonNode json, string name, Type targetType)
     {
-        JsonArray? animationsNode = null;
+        JsonNode? animationNode = null;
         JsonNode? valueNode = null;
         Type ownerType = targetType;
 
         if (json is JsonValue jsonValue)
         {
-            animationsNode = null;
+            animationNode = null;
             valueNode = jsonValue;
         }
         else if (json is JsonObject jobj)
@@ -139,7 +131,7 @@ public static class StyleSerializer
 
             valueNode = jobj["value"];
 
-            animationsNode = jobj["animations"] as JsonArray;
+            animationNode = jobj["animation"];
         }
 
         CoreProperty? property
@@ -160,21 +152,7 @@ public static class StyleSerializer
             value = DeserializeValue(property, valueNode!, property.GetMetadata<CorePropertyMetadata>(ownerType));
         }
 
-        var animations = new List<AnimationSpan>();
-        if (animationsNode != null)
-        {
-            animations.EnsureCapacity(animationsNode.Count);
-
-            foreach (JsonNode? item in animationsNode)
-            {
-                if (item is JsonObject animationObj)
-                {
-                    animations.Add(helper.DeserializeAnimation(animationObj));
-                }
-            }
-        }
-
-        return helper.InitializeSetter(property, value, animations);
+        return helper.InitializeSetter(property, value, animationNode?.ToAnimation(property));
     }
 
     public static object? DeserializeValue(CoreProperty property, JsonNode jsonNode, CorePropertyMetadata metadata)
@@ -184,16 +162,14 @@ public static class StyleSerializer
 
     private interface IGenericHelper
     {
-        ISetter InitializeSetter(CoreProperty property, object? value, IEnumerable<AnimationSpan> animations);
-
-        AnimationSpan DeserializeAnimation(JsonObject json);
+        ISetter InitializeSetter(CoreProperty property, object? value, IAnimation? animation);
     }
 
     private sealed class GenericHelper<T> : IGenericHelper
     {
         public static readonly GenericHelper<T> Instance = new();
 
-        public ISetter InitializeSetter(CoreProperty property, object? value, IEnumerable<AnimationSpan> animations)
+        public ISetter InitializeSetter(CoreProperty property, object? value, IAnimation? animation)
         {
             var setter = new Setter<T>((CoreProperty<T>)property);
             if (value is T t)
@@ -201,18 +177,8 @@ public static class StyleSerializer
                 setter.Value = t;
             }
 
-            var animation = new Animation<T>(setter.Property);
-            animation.Children.AddRange(animations.OfType<AnimationSpan<T>>());
-
-            setter.Animation = animation;
+            setter.Animation = animation as IAnimation<T>;
             return setter;
-        }
-
-        public AnimationSpan DeserializeAnimation(JsonObject json)
-        {
-            var anm = new AnimationSpan<T>();
-            anm.ReadFromJson(json);
-            return anm;
         }
     }
 }

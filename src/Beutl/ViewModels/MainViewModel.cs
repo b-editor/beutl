@@ -331,15 +331,13 @@ public sealed class MainViewModel : BasePageViewModel
                 SceneOutputExtension.Instance,
                 SceneWorkspaceItemExtension.Instance,
                 TimelineTabExtension.Instance,
-                AnimationTimelineTabExtension.Instance,
                 ObjectPropertyTabExtension.Instance,
                 StyleEditorTabExtension.Instance,
                 SourceOperatorsTabExtension.Instance,
-                EasingsTabExtension.Instance,
-                AnimationTabExtension.Instance,
                 PropertyEditorExtension.Instance,
                 NodeTreeTabExtension.Instance,
                 NodeTreeInputTabExtension.Instance,
+                GraphEditorTabExtension.Instance,
             });
 
             foreach (LocalPackage item in await manager.GetPackages())

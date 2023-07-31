@@ -183,7 +183,7 @@ public sealed partial class Timeline : UserControl
             // 目盛りのスケールを変更
             float oldScale = viewModel.Options.Value.Scale;
             TimeSpan ts = offset.X.ToTimeSpanF(oldScale);
-            float deltaScale = (float)(e.Delta.Y / 120) * 10 * oldScale;
+            float deltaScale = (float)(e.Delta.Y / 10) * oldScale;
             scale = deltaScale + oldScale;
 
             offset.X = ts.ToPixelF(scale);
@@ -431,5 +431,35 @@ public sealed partial class Timeline : UserControl
     private TimelineLayer? FindLayerView(Layer layer)
     {
         return TimelinePanel.Children.FirstOrDefault(ctr => ctr.DataContext is TimelineLayerViewModel vm && vm.Model == layer) as TimelineLayer;
+    }
+
+    private void ZoomClick(object? sender, RoutedEventArgs e)
+    {
+        if (e.Source is MenuItem menuItem)
+        {
+            float zoom;
+            switch (menuItem.CommandParameter)
+            {
+                case string str:
+                    if (!float.TryParse(str, out zoom))
+                    {
+                        return;
+                    }
+                    break;
+                case double zoom1:
+                    zoom = (float)zoom1;
+                    break;
+                case float zoom2:
+                    zoom = zoom2;
+                    break;
+                default:
+                    return;
+            }
+
+            ViewModel.Options.Value = ViewModel.Options.Value with
+            {
+                Scale = zoom,
+            };
+        }
     }
 }

@@ -1,5 +1,7 @@
 ﻿using System.Numerics;
 
+using Beutl.Utilities;
+
 namespace Beutl.ProjectSystem;
 
 public readonly record struct TimelineOptions
@@ -28,7 +30,21 @@ public readonly record struct TimelineOptions
     public float Scale
     {
         get => _scale;
-        init => _scale = Math.Min(value, 1);
+        init
+        {
+            if (MathUtilities.AreClose(value, 1))
+                value = 1F;
+            else if (MathUtilities.AreClose(value, 2))
+                value = 2F;
+            else if (MathUtilities.AreClose(value, 0.75))
+                value = 0.75F;
+            else if (MathUtilities.AreClose(value, 0.50))
+                value = 0.50F;
+            else if (MathUtilities.AreClose(value, 0.25))
+                value = 0.25F;
+
+            _scale = Math.Min(value, 2);
+        }
     }
 
     public Vector2 Offset

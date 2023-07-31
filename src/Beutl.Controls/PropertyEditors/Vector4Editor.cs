@@ -169,7 +169,8 @@ public class Vector4Editor<TElement> : Vector4Editor
 
     private void OnInnerTextBoxTextChanged(TextBox sender, string newValue, string oldValue)
     {
-        if (TElement.TryParse(newValue, CultureInfo.CurrentUICulture, out TElement newValue2))
+        if (sender.IsKeyboardFocusWithin
+            && TElement.TryParse(newValue, CultureInfo.CurrentUICulture, out TElement newValue2))
         {
             bool invalidOldValue = !TElement.TryParse(oldValue, CultureInfo.CurrentUICulture, out TElement oldValue2);
             if (invalidOldValue)
