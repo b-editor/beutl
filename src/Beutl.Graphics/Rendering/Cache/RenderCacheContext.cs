@@ -135,7 +135,11 @@ public sealed class RenderCacheContext : IDisposable
 
         // nodeをキャッシュ
         Rect bounds = (node as ISupportRenderCache)?.TransformBoundsForCache(cache) ?? node.Bounds;
-        SKSurface surface = factory.CreateRenderTarget((int)Math.Ceiling(bounds.Width), (int)Math.Ceiling(bounds.Height));
+        PixelSize size = new((int)Math.Ceiling(bounds.Width), (int)Math.Ceiling(bounds.Height));
+        if (size.Width <= 0 || size.Height <= 0)
+            return;
+
+        SKSurface surface = factory.CreateRenderTarget(size.Width, size.Height);
 
         using (ImmediateCanvas canvas = factory.CreateCanvas(surface, true))
         {
