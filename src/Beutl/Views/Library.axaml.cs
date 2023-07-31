@@ -55,54 +55,48 @@ public sealed partial class Library : UserControl
 
     private async void TreeViewPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is TreeViewItem select
-            && select.DataContext is LibraryItemViewModel item)
+        LibraryItemViewModel? item;
+        if (e.GetCurrentPoint(OperatorTree).Properties.IsLeftButtonPressed)
         {
-            if (e.GetCurrentPoint(OperatorTree).Properties.IsLeftButtonPressed)
-            {
-                OperatorTree.SelectedItem = select;
-                await Task.Delay(10);
-            }
-            else if (e.GetCurrentPoint(NodeTreeView).Properties.IsLeftButtonPressed)
-            {
-                NodeTreeView.SelectedItem = select;
-                await Task.Delay(10);
-            }
-            else
-            {
-                return;
-            }
+            await Task.Delay(10);
+            item = OperatorTree.SelectedItem as LibraryItemViewModel;
+        }
+        else if (e.GetCurrentPoint(NodeTreeView).Properties.IsLeftButtonPressed)
+        {
+            await Task.Delay(10);
+            item = NodeTreeView.SelectedItem as LibraryItemViewModel;
+        }
+        else
+        {
+            return;
+        }
 
-            if (item.TryDragDrop(out string? format, out object? data))
-            {
-                var dataObject = new DataObject();
-                dataObject.Set(format, data);
-                await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
-            }
+        if (item?.TryDragDrop(out string? format, out object? data) == true)
+        {
+            var dataObject = new DataObject();
+            dataObject.Set(format, data);
+            await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
         }
     }
 
     private async void ListBoxItemPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is ListBoxItem select
-            && select.DataContext is KeyValuePair<int, LibraryItemViewModel> item)
+        KeyValuePair<int, LibraryItemViewModel>? item;
+        if (e.GetCurrentPoint(searchResult).Properties.IsLeftButtonPressed)
         {
-            if (e.GetCurrentPoint(searchResult).Properties.IsLeftButtonPressed)
-            {
-                searchResult.SelectedItem = select;
-                await Task.Delay(10);
-            }
-            else
-            {
-                return;
-            }
+            await Task.Delay(10);
+            item = searchResult.SelectedItem as KeyValuePair<int, LibraryItemViewModel>?;
+        }
+        else
+        {
+            return;
+        }
 
-            if (item.Value.TryDragDrop(out string? format, out object? data))
-            {
-                var dataObject = new DataObject();
-                dataObject.Set(format, data);
-                await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
-            }
+        if (item?.Value.TryDragDrop(out string? format, out object? data) == true)
+        {
+            var dataObject = new DataObject();
+            dataObject.Set(format, data);
+            await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
         }
     }
 
