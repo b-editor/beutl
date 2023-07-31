@@ -18,7 +18,8 @@ public static unsafe class SharedGRContext
         {
             RenderThread.Dispatcher.VerifyAccess();
             GLFW.Init();
-            ThrowGLFWError();
+            if (GLFW.GetError(out _) is not ErrorCode.NoError)
+                return null;
 
             GLFW.DefaultWindowHints();
             GLFW.WindowHint(WindowHintOpenGlProfile.OpenGlProfile, OpenGlProfile.Core);
@@ -27,9 +28,10 @@ public static unsafe class SharedGRContext
             GLFW.WindowHint(WindowHintInt.ContextVersionMinor, 3);
             GLFW.WindowHint(WindowHintBool.Visible, false);
             s_window = GLFW.CreateWindow(1, 1, string.Empty, null, null);
-
+                
             GLFW.MakeContextCurrent(s_window);
-            ThrowGLFWError();
+            if (GLFW.GetError(out _) is not ErrorCode.NoError)
+                return null;
 
             GRContext = GRContext.CreateGl();
         }
@@ -48,15 +50,5 @@ public static unsafe class SharedGRContext
                 GLFW.DestroyWindow(s_window);
             }
         });
-    }
-
-    private static void ThrowGLFWError()
-    {
-        var result = GLFW.GetError(out var description);
-
-        if (result is not ErrorCode.NoError)
-        {
-            throw new GraphicsException(description);
-        }
     }
 }
