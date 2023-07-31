@@ -52,10 +52,8 @@ public sealed class EllipseGeometry : Geometry
         var radius = new Size(radiusX, radiusY);
 
         context.MoveTo(new Point(radiusX, 0));
-        context.ArcTo(radius, 90, false, true, new Point(width, radiusY));
-        context.ArcTo(radius, 90, false, true, new Point(radiusX, height));
-        context.ArcTo(radius, 90, false, true, new Point(0, radiusY));
-        context.ArcTo(radius, 90, false, true, new Point(radiusX, 0));
+        context.ArcTo(radius, 0, true, false, new Point(radiusX, height));
+        context.ArcTo(radius, 0, true, false, new Point(radiusX, 0));
         context.Close();
     }
 }
