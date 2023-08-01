@@ -25,6 +25,16 @@ internal record FEItem_Skia<T>(
     }
 }
 
+internal record FEItem_SKColorFilter<T>(
+    T Data, Func<T, FilterEffectActivator, SKColorFilter?> Factory)
+    : FEItem<T>(Data, (_, rect) => rect), IFEItem_Skia
+{
+    public void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder)
+    {
+        builder.AppendSKColorFilter(Data, activator, Factory);
+    }
+}
+
 internal interface IFEItem_Skia
 {
     void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder);

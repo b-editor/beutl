@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Reactive;
 using System.Runtime.InteropServices;
 
 using Beutl.Collections.Pooled;
@@ -49,6 +50,13 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     {
         _items.Add(new FEItem_Skia<T>(data, factory, transformBounds));
         Bounds = transformBounds.Invoke(data, Bounds);
+    }
+
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public void AppendSKColorFilter<T>(T data, Func<T, FilterEffectActivator, SKColorFilter?> factory)
+        where T : IEquatable<T>
+    {
+        _items.Add(new FEItem_SKColorFilter<T>(data, factory));
     }
 
     public void DropShadowOnly(Point position, Vector sigma, Color color)
@@ -148,6 +156,107 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
                 return SKImageFilter.CreateBlendMode(SKBlendMode.SrcIn, sourceAlpha, f3);
             },
             transformBounds: static (_, bounds) => bounds);
+    }
+
+    public void Transform(Matrix matrix, BitmapInterpolationMode bitmapInterpolationMode)
+    {
+        AppendSkiaFilter(
+            (matrix, bitmapInterpolationMode),
+            (data, input, _) => SKImageFilter.CreateMatrix(data.matrix.ToSKMatrix(), data.bitmapInterpolationMode.ToSKFilterQuality(), input),
+            (data, rect) => rect.TransformToAABB(data.matrix));
+    }
+
+    public void MatrixConvolution(
+        PixelSize kernelSize,
+        float[] kernel,
+        float gain,
+        float bias,
+        PixelPoint kernelOffset,
+        GradientSpreadMethod spreadMethod,
+        bool convolveAlpha)
+    {
+        AppendSkiaFilter(
+            (kernelSize, kernel, gain, bias, kernelOffset, spreadMethod, convolveAlpha),
+            (data, input, _) => SKImageFilter.CreateMatrixConvolution(
+                data.kernelSize.ToSKSizeI(),
+                data.kernel,
+                data.gain,
+                data.bias,
+                data.kernelOffset.ToSKPointI(),
+                data.spreadMethod.ToSKShaderTileMode(),
+                data.convolveAlpha,
+                input),
+            (data, rect) =>
+            {
+                Rect dst = rect;
+                int w = data.kernelSize.Width - 1;
+                int h = data.kernelSize.Height - 1;
+
+                return rect.Inflate(new Thickness(
+                    data.kernelOffset.X - w,
+                    data.kernelOffset.Y - h,
+                    data.kernelOffset.X,
+                    data.kernelOffset.Y));
+            });
+    }
+
+    public void Erode(float radiusX, float radiusY)
+    {
+        AppendSkiaFilter(
+            (radiusX, radiusY),
+            (data, input, _) => SKImageFilter.CreateErode(data.radiusX, data.radiusY, input),
+            (data, rect) => rect);
+    }
+
+    public void Dilate(float radiusX, float radiusY)
+    {
+        AppendSkiaFilter(
+            (radiusX, radiusY),
+            (data, input, _) => SKImageFilter.CreateDilate(data.radiusX, data.radiusY, input),
+            (data, rect) => rect.Inflate(new Thickness(data.radiusX, data.radiusY)));
+    }
+
+    public void ColorMatrix(in ColorMatrix matrix)
+    {
+        AppendSKColorFilter(matrix, (m, _) => SKColorFilter.CreateColorMatrix(m.ToArray()));
+    }
+
+    public void HighContrast(bool grayscale, HighContrastInvertStyle invertStyle, float contrast)
+    {
+        AppendSKColorFilter(
+            (grayscale, invertStyle, contrast),
+            (data, _) => SKColorFilter.CreateHighContrast(data.grayscale, (SKHighContrastConfigInvertStyle)data.invertStyle, data.contrast));
+    }
+
+    public void Lighting(Color multiply, Color add)
+    {
+        AppendSKColorFilter(
+            (multiply, add),
+            (data, _) => SKColorFilter.CreateLighting(data.multiply.ToSKColor(), data.add.ToSKColor()));
+    }
+
+    public void LumaColor()
+    {
+        AppendSKColorFilter(Unit.Default, (_, _) => SKColorFilter.CreateLumaColor());
+    }
+
+    public void LookupTable(LookupTable table, float strength, int versionCounter = -1)
+    {
+        AppendSKColorFilter((table, strength, versionCounter), (data, _) =>
+        {
+            if (data.table.Dimension == LookupTableDimension.OneDimension)
+            {
+                return SKColorFilter.CreateTable(data.table.ToByteArray(data.strength, 0));
+            }
+            else
+            {
+                return SKColorFilter.CreateTable(
+                    Graphics.LookupTable.s_linear,
+                    data.table.ToByteArray(data.strength, 0),
+                    data.table.ToByteArray(data.strength, 1),
+                    data.table.ToByteArray(data.strength, 2));
+            }
+        });
     }
 
     public void Custom<T>(T data, Action<T, FilterEffectCustomOperationContext> action, Func<T, Rect, Rect> transformBounds)

@@ -33,6 +33,11 @@ internal static class SkiaSharpExtensions
     {
         return new SKPoint(p.X, p.Y);
     }
+    
+    public static SKPointI ToSKPointI(this PixelPoint p)
+    {
+        return new SKPointI(p.X, p.Y);
+    }
 
     public static SKRect ToSKRect(this in Rect r)
     {
@@ -42,6 +47,11 @@ internal static class SkiaSharpExtensions
     public static SKSize ToSKSize(this in Size s)
     {
         return new SKSize(s.Width, s.Height);
+    }
+
+    public static SKSizeI ToSKSizeI(this in PixelSize s)
+    {
+        return new SKSizeI(s.Width, s.Height);
     }
 
     public static Rect ToGraphicsRect(this in SKRect r)

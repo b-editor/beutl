@@ -2,7 +2,7 @@
 using System.Numerics;
 using System.Text.RegularExpressions;
 
-namespace BeUtl.Graphics;
+namespace Beutl.Graphics;
 
 public enum LookupTableDimension
 {
@@ -11,12 +11,14 @@ public enum LookupTableDimension
     ThreeDimension = 3,
 }
 
-public sealed unsafe class LookupTable : IDisposable
+public sealed unsafe partial class LookupTable : IDisposable
 {
-    private static readonly Regex s_lutSizeReg = new("^LUT_(?<dim>.*?)_SIZE (?<size>.*?)$");
-    private static readonly Regex s_titleReg = new("^TITLE \"(?<text>.*?)\"$");
-    private static readonly Regex s_domainMinReg = new("^DOMAIN_MIN (?<red>.*?) (?<green>.*?) (?<blue>.*?)$");
-    private static readonly Regex s_domainMaxReg = new("^DOMAIN_MAX (?<red>.*?) (?<green>.*?) (?<blue>.*?)$");
+    internal static readonly byte[] s_linear;
+
+    private static readonly Regex s_lutSizeReg = LUTSizeRegex();
+    private static readonly Regex s_titleReg = TitleRegex();
+    private static readonly Regex s_domainMinReg = DomainMinRegex();
+    private static readonly Regex s_domainMaxReg = DomainMaxRegex();
     private readonly float[][] _arrays;
 
     public LookupTable(int length = 256, int lutsize = 256, LookupTableDimension dim = LookupTableDimension.OneDimension)
@@ -32,6 +34,15 @@ public sealed unsafe class LookupTable : IDisposable
         Size = lutsize;
         Length = length;
         Dimension = dim;
+    }
+
+    static LookupTable()
+    {
+        s_linear = new byte[256];
+        for (int i = 0; i < 256; i++)
+        {
+            s_linear[i] = (byte)i;
+        }
     }
 
     ~LookupTable()
@@ -97,7 +108,7 @@ public sealed unsafe class LookupTable : IDisposable
 
         Parallel.For(0, 256, pos =>
         {
-            table.AsSpan()[pos] = Helper.Set255Round(((1f + (contrast / 255f)) * (pos - 128f)) + 128f) / 255f;
+            table.AsSpan()[pos] = Helper.Set255Round((1f + contrast / 255f) * (pos - 128f) + 128f) / 255f;
         });
 
         return table;
@@ -161,6 +172,26 @@ public sealed unsafe class LookupTable : IDisposable
     public Span<float> AsSpan(int dimension = 0)
     {
         return _arrays[dimension].AsSpan();
+    }
+
+    private int Near(float x)
+    {
+        return Math.Min((int)(x + 0.5), Size - 1);
+    }
+
+    public byte[] ToByteArray(float strength, int dimension = 0)
+    {
+        float[] src = _arrays[dimension];
+        byte[] dst = new byte[256];
+        for (int i = 0; i < 256; i++)
+        {
+            float r = i * Size / 256f;
+            float vec = src[Near(r)];
+
+            dst[i] = (byte)((((vec * 255) + 0.5) * strength) + (i * (1 - strength)));
+        }
+
+        return dst;
     }
 
     public void Dispose()
@@ -231,4 +262,16 @@ public sealed unsafe class LookupTable : IDisposable
 
         reader.BaseStream.Position = 0;
     }
+
+    [GeneratedRegex("^LUT_(?<dim>.*?)_SIZE (?<size>.*?)$")]
+    private static partial Regex LUTSizeRegex();
+
+    [GeneratedRegex("^TITLE \"(?<text>.*?)\"$")]
+    private static partial Regex TitleRegex();
+
+    [GeneratedRegex("^DOMAIN_MIN (?<red>.*?) (?<green>.*?) (?<blue>.*?)$")]
+    private static partial Regex DomainMinRegex();
+
+    [GeneratedRegex("^DOMAIN_MAX (?<red>.*?) (?<green>.*?) (?<blue>.*?)$")]
+    private static partial Regex DomainMaxRegex();
 }

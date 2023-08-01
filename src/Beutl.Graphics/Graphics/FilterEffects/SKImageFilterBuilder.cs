@@ -2,28 +2,50 @@
 
 namespace Beutl.Graphics.Effects;
 
-public class SKImageFilterBuilder : IDisposable
+public sealed class SKImageFilterBuilder : IDisposable
 {
     private SKImageFilter? _filter;
-
-    public void AppendSkiaFilter<T>(T data, Func<T, SKImageFilter?, SKImageFilter?> factory)
-    {
-        SKImageFilter? input = _filter;
-        _filter = factory(data, input);
-        input?.Dispose();
-    }
+    private SKColorFilter? _colorFilter;
 
     public void AppendSkiaFilter<T>(T data, FilterEffectActivator activator, Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> factory)
     {
-        SKImageFilter? input = _filter;
-        _filter = factory(data, input, activator);
-        input?.Dispose();
+        SKImageFilter? inner = GetFilter();
+        SKImageFilter? outer = factory(data, inner, activator);
+        if (outer != null)
+        {
+            _filter = outer;
+            inner?.Dispose();
+        }
     }
 
-    public bool HasFilter() => _filter != null;
+    public void AppendSKColorFilter<T>(T data, FilterEffectActivator activator, Func<T, FilterEffectActivator, SKColorFilter?> factory)
+    {
+        SKColorFilter? inner = _colorFilter;
+        SKColorFilter? outer = factory(data, activator);
+
+        if (outer != null && inner != null)
+        {
+            _colorFilter = SKColorFilter.CreateCompose(outer, inner);
+            inner.Dispose();
+            outer.Dispose();
+        }
+        else if (outer != null)
+        {
+            _colorFilter = outer;
+        }
+    }
+
+    public bool HasFilter() => _filter != null || _colorFilter != null;
 
     public SKImageFilter? GetFilter()
     {
+        if (_colorFilter != null)
+        {
+            SKImageFilter? inner = _filter;
+            _filter = SKImageFilter.CreateColorFilter(_colorFilter, inner);
+            inner?.Dispose();
+        }
+
         return _filter;
     }
 
@@ -31,6 +53,8 @@ public class SKImageFilterBuilder : IDisposable
     {
         _filter?.Dispose();
         _filter = null;
+        _colorFilter?.Dispose();
+        _colorFilter = null;
     }
 
     public void Dispose()
