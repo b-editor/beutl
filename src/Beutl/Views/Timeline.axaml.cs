@@ -18,6 +18,7 @@ using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
 using Beutl.Media;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views;
 
@@ -440,7 +441,7 @@ public sealed partial class Timeline : UserControl
 
     private void ZoomClick(object? sender, RoutedEventArgs e)
     {
-        if (e.Source is MenuItem menuItem)
+        if (e.Source is MenuFlyoutItem menuItem)
         {
             float zoom;
             switch (menuItem.CommandParameter)

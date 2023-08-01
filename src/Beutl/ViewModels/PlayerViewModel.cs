@@ -332,7 +332,7 @@ public sealed class PlayerViewModel : IDisposable
 
         RenderThread.Dispatcher.Dispatch(() =>
         {
-            if (renderer.RenderGraphics(timeSpan).Bitmap is { } bitmap)
+            if (IsPlaying.Value && renderer.RenderGraphics(timeSpan).Bitmap is { } bitmap)
             {
                 UpdateImage(bitmap);
                 bitmap.Dispose();

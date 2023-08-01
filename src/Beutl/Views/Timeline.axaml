@@ -102,36 +102,53 @@
                     <KeyBinding Command="{CompiledBinding Paste}" Gesture="{DynamicResource PasteKeyGesture}" />
                 </Panel.KeyBindings>
 
-                <Panel.ContextMenu>
-                    <ContextMenu>
-                        <MenuItem Click="AddElementClick" Header="{x:Static lang:Strings.AddElement}" />
-                        <MenuItem Command="{CompiledBinding Paste}"
-                                  Header="{x:Static lang:Strings.Paste}"
-                                  InputGesture="{DynamicResource PasteKeyGesture}">
-                            <MenuItem.Icon>
-                                <icons:SymbolIcon Symbol="ClipboardPaste" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Click="ShowSceneSettings" Header="{x:Static lang:Strings.Settings}">
-                            <MenuItem.Icon>
-                                <icons:SymbolIcon Symbol="Settings" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Header="拡大率" MenuItem.Click="ZoomClick">
-                            <MenuItem.Icon>
-                                <icons:SymbolIcon Symbol="ZoomIn" />
-                            </MenuItem.Icon>
-                            <MenuItem CommandParameter="2.0" Header="200%" />
-                            <MenuItem CommandParameter="1.7" Header="170%" />
-                            <MenuItem CommandParameter="1.5" Header="150%" />
-                            <MenuItem CommandParameter="1.2" Header="120%" />
-                            <MenuItem CommandParameter="1.0" Header="100%" />
-                            <MenuItem CommandParameter="0.7" Header="70%" />
-                            <MenuItem CommandParameter="0.5" Header="50%" />
-                            <MenuItem CommandParameter="0.2" Header="20%" />
-                        </MenuItem>
-                    </ContextMenu>
-                </Panel.ContextMenu>
+                <Panel.ContextFlyout>
+                    <ui:FAMenuFlyout>
+                        <ui:MenuFlyoutItem Click="AddElementClick" Text="{x:Static lang:Strings.AddElement}" />
+                        <ui:MenuFlyoutItem Command="{CompiledBinding Paste}"
+                                           InputGesture="{DynamicResource PasteKeyGesture}"
+                                           Text="{x:Static lang:Strings.Paste}">
+                            <ui:MenuFlyoutItem.IconSource>
+                                <icons:SymbolIconSource Symbol="ClipboardPaste" />
+                            </ui:MenuFlyoutItem.IconSource>
+                        </ui:MenuFlyoutItem>
+                        <ui:MenuFlyoutItem Click="ShowSceneSettings" Text="{x:Static lang:Strings.Settings}">
+                            <ui:MenuFlyoutItem.IconSource>
+                                <icons:SymbolIconSource Symbol="Settings" />
+                            </ui:MenuFlyoutItem.IconSource>
+                        </ui:MenuFlyoutItem>
+                        <ui:ToggleMenuFlyoutItem IsChecked="{Binding IsCacheEnabled.Value, Mode=TwoWay}" Text="描画キャッシュを有効化" />
+                        <ui:MenuFlyoutSubItem Text="拡大率">
+                            <ui:MenuFlyoutSubItem.IconSource>
+                                <icons:SymbolIconSource Symbol="ZoomIn" />
+                            </ui:MenuFlyoutSubItem.IconSource>
+                            <ui:MenuFlyoutItem Click="ZoomClick"
+                                               CommandParameter="2.0"
+                                               Text="200%" />
+                            <ui:MenuFlyoutItem Click="ZoomClick"
+                                               CommandParameter="1.7"
+                                               Text="170%" />
+                            <ui:MenuFlyoutItem Click="ZoomClick"
+                                               CommandParameter="1.5"
+                                               Text="150%" />
+                            <ui:MenuFlyoutItem Click="ZoomClick"
+                                               CommandParameter="1.2"
+                                               Text="120%" />
+                            <ui:MenuFlyoutItem Click="ZoomClick"
+                                               CommandParameter="1.0"
+                                               Text="100%" />
+                            <ui:MenuFlyoutItem Click="ZoomClick"
+                                               CommandParameter="0.7"
+                                               Text="70%" />
+                            <ui:MenuFlyoutItem Click="ZoomClick"
+                                               CommandParameter="0.5"
+                                               Text="50%" />
+                            <ui:MenuFlyoutItem Click="ZoomClick"
+                                               CommandParameter="0.2"
+                                               Text="20%" />
+                        </ui:MenuFlyoutSubItem>
+                    </ui:FAMenuFlyout>
+                </Panel.ContextFlyout>
 
                 <local:TimelineBackground BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                                           BorderThickness="0.5"

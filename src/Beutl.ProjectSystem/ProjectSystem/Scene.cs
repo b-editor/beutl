@@ -1,4 +1,5 @@
 ﻿using System.Collections.Specialized;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
@@ -7,6 +8,7 @@ using Beutl.Framework;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Rendering;
+using Beutl.Rendering.Cache;
 
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
@@ -21,6 +23,7 @@ public class Scene : ProjectItem
     public static readonly CoreProperty<TimeSpan> DurationProperty;
     public static readonly CoreProperty<TimeSpan> CurrentFrameProperty;
     public static readonly CoreProperty<IRenderer> RendererProperty;
+    public static readonly CoreProperty<RenderCacheOptions> CacheOptionsProperty;
     private readonly List<string> _includeElements = new()
     {
         "**/*.belm"
@@ -30,6 +33,7 @@ public class Scene : ProjectItem
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private TimeSpan _currentFrame;
     private IRenderer _renderer;
+    private RenderCacheOptions _cacheOptions = RenderCacheOptions.Default;
 
     public Scene()
         : this(1920, 1080, string.Empty)
@@ -68,6 +72,11 @@ public class Scene : ProjectItem
 
         RendererProperty = ConfigureProperty<IRenderer, Scene>(nameof(Renderer))
             .Accessor(o => o.Renderer, (o, v) => o.Renderer = v)
+            .Register();
+
+        CacheOptionsProperty = ConfigureProperty<RenderCacheOptions, Scene>(nameof(CacheOptions))
+            .Accessor(o => o.CacheOptions, (o, v) => o.CacheOptions = v)
+            .DefaultValue(RenderCacheOptions.Default)
             .Register();
 
         CurrentFrameProperty.Changed.Subscribe(e =>
@@ -124,6 +133,12 @@ public class Scene : ProjectItem
         private set => SetAndRaise(RendererProperty, ref _renderer, value);
     }
 
+    public RenderCacheOptions CacheOptions
+    {
+        get => _cacheOptions;
+        set => SetAndRaise(CacheOptionsProperty, ref _cacheOptions, value);
+    }
+
     [MemberNotNull(nameof(_renderer))]
     public void Initialize(int width, int height)
     {
@@ -134,6 +149,11 @@ public class Scene : ProjectItem
             _renderer?.Dispose();
             Renderer = new SceneRenderer(this, width, height);
             _renderer = Renderer;
+
+            if (_renderer.GetCacheContext() is { } cacheContext)
+            {
+                cacheContext.CacheOptions = CacheOptions;
+            }
         }
 
         OnPropertyChanged(new CorePropertyChangedEventArgs<int>(
@@ -311,6 +331,22 @@ public class Scene : ProjectItem
     protected override void RestoreCore(string filename)
     {
         this.JsonRestore(filename);
+    }
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        base.OnPropertyChanged(args);
+        if (args.PropertyName is nameof(CurrentFrame))
+        {
+            _renderer.RaiseInvalidated(CurrentFrame);
+        }
+        else if (args.PropertyName is nameof(CacheOptions))
+        {
+            if (_renderer.GetCacheContext() is { } cacheContext)
+            {
+                cacheContext.CacheOptions = CacheOptions;
+            }
+        }
     }
 
     private void SyncronizeFiles(IEnumerable<string> pathToElement)

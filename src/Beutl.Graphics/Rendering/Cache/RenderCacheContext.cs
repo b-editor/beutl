@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text.Json.Serialization;
 
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
@@ -102,7 +103,7 @@ public sealed class RenderCacheContext : IDisposable
         }
     }
 
-    // 再帰呼び出しだらけしてる
+    // 再帰呼び出し
     public void MakeCache(IGraphicNode node, IImmediateCanvasFactory factory)
     {
         if (!_cacheOptions.IsEnabled)
@@ -177,9 +178,14 @@ public sealed class RenderCacheContext : IDisposable
     }
 }
 
+[JsonSerializable(typeof(RenderCacheOptions))]
 public record RenderCacheOptions(
     bool IsEnabled = true,
-    RenderCacheRules Rules = new());
+    RenderCacheRules Rules = new())
+{
+    public static readonly RenderCacheOptions Default = new();
+    public static readonly RenderCacheOptions Disabled = new();
+}
 
 public readonly record struct RenderCacheRules(
     int MaxWidth = int.MaxValue,

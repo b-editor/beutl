@@ -458,7 +458,7 @@ public sealed class OutputViewModel : IOutputContext
                     if (cacheContext != null)
                     {
                         restoreCacheOptions = cacheContext.CacheOptions;
-                        cacheContext.CacheOptions = new RenderCacheOptions(false);
+                        cacheContext.CacheOptions = RenderCacheOptions.Disabled;
                     }
                     try
                     {

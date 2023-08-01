@@ -54,6 +54,14 @@ public sealed class TimelineViewModel : IToolContext
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
+        IsCacheEnabled = editViewModel.Scene.GetObservable(Scene.CacheOptionsProperty)
+            .Select(v => v.IsEnabled)
+            .ToReactiveProperty()
+            .AddTo(_disposables);
+        IsCacheEnabled.Skip(1)
+            .Subscribe(v => Scene.CacheOptions = Scene.CacheOptions with { IsEnabled = v })
+            .AddTo(_disposables);
+
         AddLayer.Subscribe(item =>
         {
             var sLayer = new Element()
@@ -108,6 +116,8 @@ public sealed class TimelineViewModel : IToolContext
     public EditViewModel EditorContext { get; private set; }
 
     public ReadOnlyReactivePropertySlim<double> PanelWidth { get; }
+    
+    public ReactiveProperty<bool> IsCacheEnabled { get; }
 
     public ReadOnlyReactivePropertySlim<Thickness> SeekBarMargin { get; }
 
