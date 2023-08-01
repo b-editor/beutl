@@ -69,9 +69,10 @@ public class GaussianBlur : FilterEffect
     {
         if (!data.FixImageSize)
         {
-            rect = rect.Inflate(new Thickness(0, 0, data.KernelSize.Width, data.KernelSize.Height));
+            int halfWidth = data.KernelSize.Width / 2;
+            int halfHeight = data.KernelSize.Height / 2;
+            rect = rect.Inflate(new Thickness(halfWidth, halfHeight));
         }
-
         return rect;
     }
 
@@ -119,11 +120,6 @@ public class GaussianBlur : FilterEffect
 
     public override Rect TransformBounds(Rect rect)
     {
-        if (!_fixImageSize)
-        {
-            rect = rect.Inflate(new Thickness(0, 0, _kernelSize.Width, _kernelSize.Height));
-        }
-
-        return rect;
+        return TransformBounds((KernelSize, Sigma, FixImageSize), rect);
     }
 }

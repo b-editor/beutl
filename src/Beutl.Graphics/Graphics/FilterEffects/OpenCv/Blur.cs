@@ -56,12 +56,9 @@ public class Blur : FilterEffect
     {
         if (!data.FixImageSize)
         {
-            rect = rect.Inflate(new Thickness(data.KernelSize.Width / 2, data.KernelSize.Height / 2, 0, 0));
-            //rect = rect.Inflate(new Thickness(0, 0, data.KernelSize.Width, data.KernelSize.Height));
-        }
-        else
-        {
-            //rect.Inflate()
+            int halfWidth = data.KernelSize.Width / 2;
+            int halfHeight = data.KernelSize.Height / 2;
+            rect = rect.Inflate(new Thickness(halfWidth, halfHeight));
         }
         return rect;
     }
@@ -110,11 +107,6 @@ public class Blur : FilterEffect
 
     public override Rect TransformBounds(Rect rect)
     {
-        if (!_fixImageSize)
-        {
-            rect = rect.Inflate(new Thickness(_kernelSize.Width / 2, _kernelSize.Height / 2, 0, 0));
-        }
-
-        return rect;
+        return TransformBounds((_kernelSize, _fixImageSize), rect);
     }
 }

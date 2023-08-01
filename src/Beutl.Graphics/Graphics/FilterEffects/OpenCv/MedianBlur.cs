@@ -55,9 +55,10 @@ public class MedianBlur : FilterEffect
     {
         if (!data.FixImageSize)
         {
-            rect = rect.Inflate(new Thickness(0, 0, data.KernelSize, data.KernelSize));
+            int halfWidth = data.KernelSize / 2;
+            int halfHeight = data.KernelSize / 2;
+            rect = rect.Inflate(new Thickness(halfWidth, halfHeight));
         }
-
         return rect;
     }
 
@@ -102,11 +103,6 @@ public class MedianBlur : FilterEffect
 
     public override Rect TransformBounds(Rect rect)
     {
-        if (!_fixImageSize)
-        {
-            rect = rect.Inflate(new Thickness(0, 0, _kernelSize, _kernelSize));
-        }
-
-        return rect;
+        return TransformBounds((KernelSize, FixImageSize), rect);
     }
 }

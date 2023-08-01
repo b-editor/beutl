@@ -58,7 +58,7 @@ public sealed class FilterEffectActivator : IDisposable
     {
         if (force || _builder.HasFilter())
         {
-            SKSurface surface = _canvas.CreateRenderTarget((int)_bounds.Width, (int)_bounds.Height);
+            SKSurface surface = _canvas.CreateRenderTarget((int)_originalBounds.Width, (int)_originalBounds.Height);
 
             using ImmediateCanvas canvas = _canvas.CreateCanvas(surface, true);
             using var paint = new SKPaint
@@ -66,19 +66,17 @@ public sealed class FilterEffectActivator : IDisposable
                 ImageFilter = _builder.GetFilter(),
             };
 
-            int restoreCount = surface.Canvas.SaveLayer(paint);
-            using (canvas.PushTransform(Matrix.CreateTranslation(-_bounds.X, -_bounds.Y)))
+            using (canvas.PushTransform(Matrix.CreateTranslation(-_originalBounds.X, -_originalBounds.Y)))
             {
+                int restoreCount = surface.Canvas.SaveLayer(paint);
                 _target.Draw(canvas);
+                surface.Canvas.RestoreToCount(restoreCount);
             }
 
-            surface.Canvas.RestoreToCount(restoreCount);
 
             _target?.Dispose();
-            _target = new EffectTarget(Ref<SKSurface>.Create(surface), _bounds.Size);
+            _target = new EffectTarget(Ref<SKSurface>.Create(surface), _originalBounds.Size);
             _builder.Clear();
-
-            _originalBounds = _bounds;
         }
     }
 
@@ -96,6 +94,7 @@ public sealed class FilterEffectActivator : IDisposable
                 {
                     skia.Accepts(this, _builder);
                     _bounds = item.TransformBounds(_bounds);
+                    _originalBounds = item.TransformBounds(_originalBounds);
                 }
                 else if (item is IFEItem_Custom custom)
                 {
@@ -108,6 +107,7 @@ public sealed class FilterEffectActivator : IDisposable
                         _target = customContext.Target;
                     }
                     _bounds = item.TransformBounds(_bounds);
+                    _originalBounds = _bounds.WithX(0).WithY(0);
                 }
             }
 

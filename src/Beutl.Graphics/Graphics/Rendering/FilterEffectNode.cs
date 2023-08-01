@@ -62,14 +62,14 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
         {
             activator.Apply(context, range);
 
-#if false
+#if true
             if (builder.HasFilter())
             {
                 using (var paint = new SKPaint())
                 {
                     paint.ImageFilter = builder.GetFilter();
-                    int count = canvas.Canvas.SaveLayer(Bounds.ToSKRect(), paint);
-                    canvas.Canvas.Translate(activator.OriginalBounds.X, activator.OriginalBounds.Y);
+                    canvas.Canvas.Translate(activator.Bounds.X - activator.OriginalBounds.X, activator.Bounds.Y - activator.OriginalBounds.Y);
+                    int count = canvas.Canvas.SaveLayer(paint);
 
                     activator.CurrentTarget.Draw(canvas);
 
@@ -78,9 +78,9 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
             }
             else
 #else
-            // 上のコードは、フレームバッファごと回転してしまう。
+            // 上のコードは、フレームバッファごと回転してしまうことがあった
             // (SaveLayerでlilmitを指定しても)
-            activator.Flush(true);
+            activator.Flush(false);
 #endif
             if (activator.CurrentTarget.Surface != null)
             {
