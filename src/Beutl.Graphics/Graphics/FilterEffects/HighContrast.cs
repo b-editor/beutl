@@ -20,7 +20,7 @@ public sealed class HighContrast : FilterEffect
             .Register();
 
         ContrastProperty = ConfigureProperty<float, HighContrast>(nameof(Contrast))
-                .Accessor(o => o.Contrast, (o, v) => o.Contrast = v)
+            .Accessor(o => o.Contrast, (o, v) => o.Contrast = v)
             .Register();
 
         AffectsRender<HighContrast>(GrayscaleProperty, InvertStyleProperty, ContrastProperty);
@@ -46,6 +46,6 @@ public sealed class HighContrast : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.HighContrast(Grayscale, InvertStyle, Contrast);
+        context.HighContrast(Grayscale, InvertStyle, Contrast / 100f);
     }
 }

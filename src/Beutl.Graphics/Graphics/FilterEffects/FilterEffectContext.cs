@@ -218,7 +218,46 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
 
     public void ColorMatrix(in ColorMatrix matrix)
     {
-        AppendSKColorFilter(matrix, (m, _) => SKColorFilter.CreateColorMatrix(m.ToArray()));
+        AppendSKColorFilter(matrix, (m, _) => SKColorFilter.CreateColorMatrix(m.ToArrayForSkia()));
+    }
+
+    public void Saturate(float amount)
+    {
+        AppendSKColorFilter(amount, (s, _) =>
+        {
+            float[] array = new float[20];
+            Graphics.ColorMatrix.CreateSaturateMatrix(s, array);
+            //M15,M25,M35,M45がゼロなので意味がない
+            //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+
+            return SKColorFilter.CreateColorMatrix(array);
+        });
+    }
+    
+    public void HueRotate(float degrees)
+    {
+        AppendSKColorFilter(degrees, (s, _) =>
+        {
+            float[] array = new float[20];
+            Graphics.ColorMatrix.CreateHueRotateMatrix(degrees, array);
+            //M15,M25,M35,M45がゼロなので意味がない
+            //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+
+            return SKColorFilter.CreateColorMatrix(array);
+        });
+    }
+
+    public void LuminanceToAlpha()
+    {
+        AppendSKColorFilter(Unit.Default, (_, _) =>
+        {
+            float[] array = new float[20];
+            Graphics.ColorMatrix.CreateLuminanceToAlphaMatrix(array);
+            //M15,M25,M35,M45がゼロなので意味がない
+            //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+
+            return SKColorFilter.CreateColorMatrix(array);
+        });
     }
 
     public void HighContrast(bool grayscale, HighContrastInvertStyle invertStyle, float contrast)
