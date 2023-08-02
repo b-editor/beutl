@@ -244,20 +244,18 @@ public class Vector4Editor<TElement> : Vector4Editor
             && textBox.IsKeyboardFocusWithin
             && TElement.TryParse(textBox.Text, CultureInfo.CurrentUICulture, out TElement value))
         {
+            TElement delta = TElement.CreateTruncating(10);
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+            {
+                delta = TElement.One;
+            }
+
             value = e.Delta.Y switch
             {
-                < 0 => value - TElement.CreateTruncating(10),
-                > 0 => value + TElement.CreateTruncating(10),
+                < 0 => value - delta,
+                > 0 => value + delta,
                 _ => value
             };
-
-            value = e.Delta.X switch
-            {
-                < 0 => value - TElement.One,
-                > 0 => value + TElement.One,
-                _ => value
-            };
-
 
             switch (textBox.Name)
             {

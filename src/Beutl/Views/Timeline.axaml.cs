@@ -197,7 +197,7 @@ public sealed partial class Timeline : UserControl
         else if (e.KeyModifiers == KeyModifiers.Shift)
         {
             // オフセット(Y) をスクロール
-            offset.Y -= (float)(e.Delta.X * 50);
+            offset.Y -= (float)(e.Delta.Y * 50);
         }
         else
         {

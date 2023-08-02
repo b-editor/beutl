@@ -103,17 +103,16 @@ public class NumberEditor<TValue> : StringEditor
             && InnerTextBox.IsKeyboardFocusWithin
             && TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentUICulture, out TValue value))
         {
+            TValue delta = TValue.CreateTruncating(10);
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+            {
+                delta = TValue.One;
+            }
+
             value = e.Delta.Y switch
             {
-                < 0 => value - TValue.CreateTruncating(10),
-                > 0 => value + TValue.CreateTruncating(10),
-                _ => value
-            };
-
-            value = e.Delta.X switch
-            {
-                < 0 => value - TValue.One,
-                > 0 => value + TValue.One,
+                < 0 => value - delta,
+                > 0 => value + delta,
                 _ => value
             };
 

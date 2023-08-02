@@ -120,17 +120,16 @@ public class PercentageEditor : StringEditor
             && InnerTextBox.IsKeyboardFocusWithin
             && TryParse(InnerTextBox.Text, out float value))
         {
+            float delta = 0.1f;
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+            {
+                delta = 0.01f;
+            }
+
             value = e.Delta.Y switch
             {
-                < 0 => value - 0.1f,
-                > 0 => value + 0.1f,
-                _ => value
-            };
-
-            value = e.Delta.X switch
-            {
-                < 0 => value - 0.01f,
-                > 0 => value + 0.01f,
+                < 0 => value - delta,
+                > 0 => value + delta,
                 _ => value
             };
 

@@ -142,7 +142,7 @@ public partial class GraphEditorView : UserControl
             else if (e.KeyModifiers == KeyModifiers.Shift)
             {
                 // オフセット(X) をスクロール
-                offset.X -= (float)(e.Delta.X * 50);
+                offset.X -= (float)(e.Delta.Y * 50);
             }
             else
             {

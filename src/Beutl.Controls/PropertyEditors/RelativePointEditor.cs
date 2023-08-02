@@ -238,17 +238,16 @@ public class RelativePointEditor : Vector2Editor
                 delta2 *= 0.01f;
             }
 
-            value = e.Delta.X switch
+            float delta3 = delta2;
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
-                < 0 => value - delta1,
-                > 0 => value + delta1,
-                _ => value
-            };
+                delta3 = delta1;
+            }
 
             value = e.Delta.Y switch
             {
-                < 0 => value - delta2,
-                > 0 => value + delta2,
+                < 0 => value - delta3,
+                > 0 => value + delta3,
                 _ => value
             };
 
