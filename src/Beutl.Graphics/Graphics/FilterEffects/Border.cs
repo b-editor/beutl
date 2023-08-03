@@ -181,6 +181,8 @@ public class Border : FilterEffect
         {
             using SKImage skimage = context.Target.Surface.Value.Snapshot();
             using var src = skimage.ToBitmap();
+            using var srcRef = Ref<IBitmap>.Create(src);
+            using var srcBitmapSource = new BitmapSource(srcRef, "Temp");
 
             // 縁取りの画像を生成
             using Bitmap<Bgra8888> border = RenderBorderBitmap(src);
@@ -189,9 +191,11 @@ public class Border : FilterEffect
             Rect canvasRect = rect.Union(borderBounds).Inflate(8);
             var borderRect = new Rect(0, 0, border.Width, border.Height);
 
-            ImmutableImageBrush? maskBrush = maskType != MaskTypes.None
-                ? new ImmutableImageBrush(new BitmapSource(Ref<IBitmap>.Create(src), "Temp"), stretch: Stretch.None)
-                : null;
+            ImmutableImageBrush? maskBrush = null;
+            if (maskType != MaskTypes.None)
+            {
+                maskBrush = new ImmutableImageBrush(srcBitmapSource, stretch: Stretch.None);
+            }
 
             using EffectTarget newTarget = context.CreateTarget((int)canvasRect.Width, (int)canvasRect.Height);
             using (ImmediateCanvas canvas = context.Open(newTarget))

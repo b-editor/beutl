@@ -33,7 +33,7 @@ public class Blur : FilterEffect
     }
 
     [Display(Name = nameof(Strings.KernelSize), ResourceType = typeof(Strings))]
-    [Range(typeof(PixelSize), "1,1", "max,max")]
+    [Range(typeof(PixelSize), "0,0", "max,max")]
     public PixelSize KernelSize
     {
         get => _kernelSize;
@@ -69,6 +69,9 @@ public class Blur : FilterEffect
         {
             int kwidth = data.KernelSize.Width;
             int kheight = data.KernelSize.Height;
+            if (kwidth <= 0 || kheight <= 0)
+                return;
+
             if (kwidth % 2 == 0)
                 kwidth++;
             if (kheight % 2 == 0)

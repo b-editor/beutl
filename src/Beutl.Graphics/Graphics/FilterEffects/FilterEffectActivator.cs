@@ -75,7 +75,9 @@ public sealed class FilterEffectActivator : IDisposable
 
 
             _target?.Dispose();
-            _target = new EffectTarget(Ref<SKSurface>.Create(surface), _originalBounds.Size);
+
+            using var surfaceRef = Ref<SKSurface>.Create(surface);
+            _target = new EffectTarget(surfaceRef, _originalBounds.Size);
             _builder.Clear();
         }
     }

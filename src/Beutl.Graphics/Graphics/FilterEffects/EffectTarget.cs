@@ -7,7 +7,9 @@ namespace Beutl.Graphics.Effects;
 
 public sealed class EffectTarget : IDisposable
 {
-    private object _target;
+    public static readonly EffectTarget Empty = new();
+
+    private object? _target;
 
     public EffectTarget(FilterEffectNode node)
     {
@@ -17,11 +19,15 @@ public sealed class EffectTarget : IDisposable
 
     public EffectTarget(Ref<SKSurface> surface, Size size)
     {
-        _target = surface;
+        _target = surface.Clone();
         Size = size;
     }
 
-    public Size Size { get; }
+    public EffectTarget()
+    {
+    }
+
+    public Size Size { get; private set; }
 
     public FilterEffectNode? Node => _target as FilterEffectNode;
 
@@ -33,15 +39,21 @@ public sealed class EffectTarget : IDisposable
         {
             return this;
         }
+        else if (Surface != null)
+        {
+            return new EffectTarget(Surface, Size);
+        }
         else
         {
-            return new EffectTarget(Surface!.Clone(), Size);
+            return this;
         }
     }
 
     public void Dispose()
     {
         Surface?.Dispose();
+        _target = null;
+        Size = default;
     }
 
     public void Draw(ImmediateCanvas canvas)

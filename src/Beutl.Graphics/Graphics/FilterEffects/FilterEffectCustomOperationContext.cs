@@ -36,8 +36,9 @@ public class FilterEffectCustomOperationContext
 
     public EffectTarget CreateTarget(int width, int height)
     {
-        var surface = _canvas.CreateRenderTarget(width, height);
-        return new EffectTarget(Ref<SKSurface>.Create(surface), new Size(width, height));
+        SKSurface surface = _canvas.CreateRenderTarget(width, height);
+        using var surfaceRef = Ref<SKSurface>.Create(surface);
+        return new EffectTarget(surfaceRef, new Size(width, height));
     }
 
     public ImmediateCanvas Open(EffectTarget target)

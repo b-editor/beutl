@@ -82,6 +82,9 @@ public class GaussianBlur : FilterEffect
         {
             int kwidth = data.KernelSize.Width;
             int kheight = data.KernelSize.Height;
+            if (kwidth <= 0 || kheight <= 0)
+                return;
+
             if (kwidth % 2 == 0)
                 kwidth++;
             if (kheight % 2 == 0)

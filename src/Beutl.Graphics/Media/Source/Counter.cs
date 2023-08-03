@@ -7,8 +7,18 @@ internal sealed class Counter<T>
     private Action? _onRelease;
     private volatile int _refs;
 
+    // Todo: Ref<SKSurface>がファイナライザーでDisposeされるとき、AccessViolationExceptionが発生したことがある。
+    // なのでどこで作成されたかの情報が欲しい。
+    // 可能性として考えられるのは、ImmediateCanvasにそのままのSKSurfaceを渡している点
+#if DEBUG
+    private readonly string _stackTrace;
+#endif
+
     public Counter(T value, Action? onRelease)
     {
+#if DEBUG
+        _stackTrace = Environment.StackTrace;
+#endif
         _value = value;
         _onRelease = onRelease;
         _refs = 1;

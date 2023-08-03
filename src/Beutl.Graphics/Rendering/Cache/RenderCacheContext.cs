@@ -157,7 +157,10 @@ public sealed class RenderCacheContext : IDisposable
             }
         }
 
-        cache.StoreCache(Ref<SKSurface>.Create(surface), bounds);
+        using (var surfaceRef = Ref<SKSurface>.Create(surface))
+        {
+            cache.StoreCache(surfaceRef, bounds);
+        }
 
         Debug.WriteLine($"[RenderCache:Created] '{node}'");
     }

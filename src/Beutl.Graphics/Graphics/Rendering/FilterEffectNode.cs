@@ -86,7 +86,8 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
             {
                 canvas.Canvas.DrawSurface(activator.CurrentTarget.Surface.Value, activator.Bounds.X, activator.Bounds.Y);
             }
-            else
+            else if (activator.CurrentTarget.Node == this
+                || activator.CurrentTarget != EffectTarget.Empty)
             {
                 base.Render(canvas);
             }

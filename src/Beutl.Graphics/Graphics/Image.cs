@@ -150,12 +150,6 @@ public static unsafe partial class Image
         return new Mat(self.Height, self.Width, MatType.CV_8UC4, self.Data);
     }
 
-    public static Mat ToMat(this SKBitmap self)
-    {
-        using var bmp = self.ToBitmap();
-        return bmp.ToMat();
-    }
-
     internal static EncodedImageFormat ToImageFormat(string filename)
     {
         string? ex = Path.GetExtension(filename);
