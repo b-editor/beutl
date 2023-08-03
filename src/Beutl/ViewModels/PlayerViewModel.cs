@@ -105,9 +105,9 @@ public sealed class PlayerViewModel : IDisposable
             .DisposeWith(_disposables);
     }
 
-    public Scene Scene { get; set; }
+    public Scene? Scene { get; set; }
 
-    public Project? Project => Scene.FindHierarchicalParent<Project>();
+    public Project? Project => Scene?.FindHierarchicalParent<Project>();
 
     public ReactivePropertySlim<IImage> PreviewImage { get; } = new();
 
@@ -131,7 +131,7 @@ public sealed class PlayerViewModel : IDisposable
 
     public async void Play()
     {
-        if (!_isEnabled.Value)
+        if (!_isEnabled.Value || Scene == null)
             return;
 
         IRenderer renderer = Scene.Renderer;
@@ -140,7 +140,7 @@ public sealed class PlayerViewModel : IDisposable
         IsPlaying.Value = true;
         int rate = GetFrameRate();
 
-        PlayAudio();
+        PlayAudio(Scene);
 
         TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
         TimeSpan curFrame = Scene.CurrentFrame;
@@ -172,17 +172,17 @@ public sealed class PlayerViewModel : IDisposable
         return rate;
     }
 
-    private async void PlayAudio()
+    private async void PlayAudio(Scene scene)
     {
         if (OperatingSystem.IsWindows())
         {
             using var audioContext = new XAudioContext();
-            await PlayWithXA2(audioContext);
+            await PlayWithXA2(audioContext, scene);
         }
         else
         {
             using var audioContext = new AudioContext();
-            PlayWithOpenAL(audioContext);
+            PlayWithOpenAL(audioContext, scene);
         }
     }
 
@@ -205,11 +205,11 @@ public sealed class PlayerViewModel : IDisposable
         y = temp;
     }
 
-    private async Task PlayWithXA2(XAudioContext audioContext)
+    private async Task PlayWithXA2(XAudioContext audioContext, Scene scene)
     {
-        IRenderer renderer = Scene.Renderer;
+        IRenderer renderer = scene.Renderer;
         int sampleRate = renderer.SampleRate;
-        TimeSpan cur = Scene.CurrentFrame;
+        TimeSpan cur = scene.CurrentFrame;
         var fmt = new WaveFormat(sampleRate, 32, 2);
         var source = new XAudioSource(audioContext);
         var primaryBuffer = new XAudioBuffer();
@@ -235,9 +235,10 @@ public sealed class PlayerViewModel : IDisposable
             source.Play();
 
             await Task.Delay(1000).ConfigureAwait(false);
+
             // primaryBufferが終了、secondaryが開始
 
-            while (cur < Scene.Duration)
+            while (cur < scene.Duration)
             {
                 if (!IsPlaying.Value)
                 {
@@ -263,12 +264,12 @@ public sealed class PlayerViewModel : IDisposable
         }
     }
 
-    private async void PlayWithOpenAL(AudioContext audioContext)
+    private async void PlayWithOpenAL(AudioContext audioContext, Scene scene)
     {
         audioContext.MakeCurrent();
 
-        IRenderer renderer = Scene.Renderer;
-        TimeSpan cur = Scene.CurrentFrame;
+        IRenderer renderer = scene.Renderer;
+        TimeSpan cur = scene.CurrentFrame;
         var buffers = AL.GenBuffers(2);
         var source = AL.GenSource();
 
@@ -307,7 +308,7 @@ public sealed class PlayerViewModel : IDisposable
                 processed--;
             }
 
-            if (cur > Scene.Duration)
+            if (cur > scene.Duration)
                 break;
         }
 
@@ -337,7 +338,8 @@ public sealed class PlayerViewModel : IDisposable
                 UpdateImage(bitmap);
                 bitmap.Dispose();
 
-                Scene.CurrentFrame = timeSpan;
+                if (Scene != null)
+                    Scene.CurrentFrame = timeSpan;
             }
         });
     }
@@ -376,6 +378,7 @@ public sealed class PlayerViewModel : IDisposable
         {
             RenderThread.Dispatcher.Dispatch(() =>
             {
+                if (Scene == null) return;
                 IRenderer.RenderResult result = renderer.RenderGraphics(Scene.CurrentFrame);
                 if (result.Bitmap is { } bitmap)
                 {
@@ -388,6 +391,7 @@ public sealed class PlayerViewModel : IDisposable
 
     private void UpdateCurrentFrame(TimeSpan timeSpan)
     {
+        if (Scene == null) return;
         if (Scene.CurrentFrame != timeSpan)
         {
             int rate = Project?.GetFrameRate() ?? 30;
@@ -397,6 +401,7 @@ public sealed class PlayerViewModel : IDisposable
 
     public void Dispose()
     {
+        Pause();
         _disposables.Dispose();
         PreviewInvalidated = null;
         Scene = null!;
