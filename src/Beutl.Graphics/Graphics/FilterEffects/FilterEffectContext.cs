@@ -81,9 +81,20 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
 
     public void Blur(Vector sigma)
     {
+        if (sigma.X < 0)
+            sigma = sigma.WithX(0);
+        if (sigma.Y < 0)
+            sigma = sigma.WithY(0);
+
         AppendSkiaFilter(
             data: sigma,
-            factory: static (sigma, input, _) => SKImageFilter.CreateBlur(sigma.X, sigma.Y, input),
+            factory: static (sigma, input, _) =>
+            {
+                if (sigma.X == 0 && sigma.Y == 0)
+                    return null;
+
+                return SKImageFilter.CreateBlur(sigma.X, sigma.Y, input);
+            },
             transformBounds: static (sigma, bounds) => bounds.Inflate(new Thickness(sigma.X * 3, sigma.Y * 3)));
     }
 
@@ -233,7 +244,7 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
             return SKColorFilter.CreateColorMatrix(array);
         });
     }
-    
+
     public void HueRotate(float degrees)
     {
         AppendSKColorFilter(degrees, (s, _) =>
@@ -279,10 +290,13 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
         AppendSKColorFilter(Unit.Default, (_, _) => SKColorFilter.CreateLumaColor());
     }
 
-    public void LookupTable(LookupTable table, float strength, int versionCounter = -1)
+    public void LookupTable(LookupTable table, float strength = 1, int versionCounter = -1)
     {
         AppendSKColorFilter((table, strength, versionCounter), (data, _) =>
         {
+            if (data.table.IsDisposed)
+                return null;
+
             if (data.table.Dimension == LookupTableDimension.OneDimension)
             {
                 return SKColorFilter.CreateTable(data.table.ToByteArray(data.strength, 0));
@@ -294,6 +308,29 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
                     data.table.ToByteArray(data.strength, 0),
                     data.table.ToByteArray(data.strength, 1),
                     data.table.ToByteArray(data.strength, 2));
+            }
+        });
+    }
+
+    public void LookupTable<T>(T data, Func<T, LookupTable> factory, float strength = 1)
+        where T : IEquatable<T>
+    {
+        AppendSKColorFilter((data, factory, strength), (data, _) =>
+        {
+            using (LookupTable table = data.factory.Invoke(data.data))
+            {
+                if (table.Dimension == LookupTableDimension.OneDimension)
+                {
+                    return SKColorFilter.CreateTable(table.ToByteArray(data.strength, 0));
+                }
+                else
+                {
+                    return SKColorFilter.CreateTable(
+                        Graphics.LookupTable.s_linear,
+                        table.ToByteArray(data.strength, 0),
+                        table.ToByteArray(data.strength, 1),
+                        table.ToByteArray(data.strength, 2));
+                }
             }
         });
     }
