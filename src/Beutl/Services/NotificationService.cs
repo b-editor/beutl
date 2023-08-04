@@ -1,27 +1,112 @@
 ﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Primitives;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Threading;
 
-using Beutl.Extensibility.Services;
 using Beutl.Views;
+
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Services;
 
 public sealed class NotificationService : INotificationService
 {
-    public void Show(Notification notification)
+    private static MainView? GetMainView()
     {
-        Dispatcher.UIThread.InvokeAsync(() =>
+        IApplicationLifetime? lifetime = Application.Current?.ApplicationLifetime;
+
+        if (lifetime is IClassicDesktopStyleApplicationLifetime desktopLifetime &&
+            desktopLifetime.MainWindow is MainWindow window)
         {
-            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime applicationLifetime &&
-                applicationLifetime.MainWindow is MainWindow window)
+            return window.mainView;
+        }
+        else if (lifetime is ISingleViewApplicationLifetime singleViewLifetime)
+        {
+            return singleViewLifetime.MainView as MainView;
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    private void Close(InfoBar infoBar)
+    {
+        if (GetMainView() is MainView mainView)
+        {
+            mainView.NotificationPanel.Children.Remove(infoBar);
+            mainView.HiddenNotificationPanel.Children.Remove(infoBar);
+        }
+    }
+
+    public async void Show(Notification notification)
+    {
+        await Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            if (GetMainView() is MainView mainView)
             {
-                window.NotificationManager.Show(new Avalonia.Controls.Notifications.Notification(
-                    notification.Title, notification.Message,
-                    (Avalonia.Controls.Notifications.NotificationType)notification.Type,
-                    notification.Expiration,
-                    notification.OnClick,
-                    notification.OnClose));
+                var infoBar = new InfoBar
+                {
+                    [!TemplatedControl.BackgroundProperty] = new DynamicResourceExtension("SolidBackgroundFillColorTertiaryBrush"),
+                    DataContext = notification,
+                    Title = notification.Title,
+                    Message = notification.Message,
+                    IsClosable = true,
+                    IsOpen = true,
+                    Width = 350,
+                    Severity = notification.Type switch
+                    {
+                        NotificationType.Success => InfoBarSeverity.Success,
+                        NotificationType.Warning => InfoBarSeverity.Warning,
+                        NotificationType.Error => InfoBarSeverity.Error,
+                        NotificationType.Information or _ => InfoBarSeverity.Informational,
+                    }
+                };
+
+                infoBar.CloseButtonClick += (s, _) =>
+                {
+                    if (s is InfoBar { DataContext: Notification n } infoBar)
+                    {
+                        n.OnClose?.Invoke();
+                        Close(infoBar);
+                    }
+                };
+
+                if (notification.OnActionButtonClick != null)
+                {
+                    var actionButton = new Button
+                    {
+                        Content = notification.ActionButtonText ?? "Action"
+                    };
+                    actionButton.Click += (s, _) =>
+                    {
+                        if (s is InfoBar { DataContext: Notification n } infoBar)
+                        {
+                            n.OnActionButtonClick?.Invoke();
+                            Close(infoBar);
+                        }
+                    };
+                }
+
+                mainView.NotificationPanel.Children.Add(infoBar);
+                await Task.Delay(notification.Expiration ?? TimeSpan.FromSeconds(3));
+                while (infoBar.IsPointerOver)
+                {
+                    await Task.Delay(3000);
+                }
+
+                if (infoBar.IsOpen)
+                {
+                    infoBar.IsOpen = false;
+                    // アニメーション待ち
+                    await Task.Delay(167);
+
+                    mainView.NotificationPanel.Children.Remove(infoBar);
+                    mainView.HiddenNotificationPanel.Children.Add(infoBar);
+                    infoBar.IsOpen = true;
+                }
             }
         });
     }

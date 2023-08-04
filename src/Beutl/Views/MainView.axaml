@@ -38,6 +38,12 @@
         <KeyBinding Command="{CompiledBinding Redo}" Gesture="{DynamicResource RedoKeyGesture}" />
     </UserControl.KeyBindings>
 
+    <UserControl.Styles>
+        <Style Selector="FlyoutPresenter.HiddenNotificationPadding0">
+            <Setter Property="Padding" Value="0" />
+        </Style>
+    </UserControl.Styles>
+
     <Grid RowDefinitions="Auto,*">
         <Grid x:Name="Titlebar" ColumnDefinitions="Auto,Auto,*">
             <Image MaxWidth="24"
@@ -181,13 +187,34 @@
                 </MenuItem>
             </Menu>
 
-            <TextBlock Grid.Column="2"
-                       Margin="0,0,16,0"
-                       HorizontalAlignment="Right"
-                       VerticalAlignment="Center"
-                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                       IsVisible="{CompiledBinding IsDebuggerAttached}"
-                       Text="Debug" />
+            <StackPanel Grid.Column="2"
+                        Margin="0,0,16,0"
+                        HorizontalAlignment="Right"
+                        Orientation="Horizontal"
+                        Spacing="8">
+
+                <TextBlock VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           IsVisible="{CompiledBinding IsDebuggerAttached}"
+                           Text="Debug" />
+
+                <Button x:Name="OpenNotificationsButton"
+                        Margin="0,4"
+                        VerticalAlignment="Stretch"
+                        wnd:AppWindow.AllowInteractionInTitleBar="True"
+                        Click="OpenNotificationsClick"
+                        IsVisible="{Binding !!#HiddenNotificationPanel.Children.Count}"
+                        Theme="{StaticResource TransparentButton}">
+                    <Button.Flyout>
+                        <Flyout FlyoutPresenterClasses="HiddenNotificationPadding8">
+                            <ScrollViewer>
+                                <StackPanel x:Name="HiddenNotificationPanel" Spacing="8" />
+                            </ScrollViewer>
+                        </Flyout>
+                    </Button.Flyout>
+                    <ui:InfoBadge Value="{Binding #HiddenNotificationPanel.Children.Count}" />
+                </Button>
+            </StackPanel>
         </Grid>
 
         <ui:NavigationView x:Name="Navi"
@@ -217,6 +244,54 @@
             <!--<TransitioningContentControl x:Name="NaviContent" />-->
             <Panel x:Name="NaviContent" />
         </ui:NavigationView>
+
+        <StackPanel x:Name="NotificationPanel"
+                    Grid.RowSpan="2"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Spacing="8">
+            <StackPanel.Styles>
+                <Style Selector="ui|InfoBar">
+                    <Style Selector="^">
+                        <Style.Animations>
+                            <Animation FillMode="Forward" Duration="00:00:00.250">
+                                <KeyFrame Cue="0%">
+                                    <Setter Property="Opacity" Value="0.0" />
+                                    <Setter Property="ScaleTransform.ScaleX" Value="1.05" />
+                                    <Setter Property="ScaleTransform.ScaleY" Value="1.05" />
+                                </KeyFrame>
+                                <KeyFrame Cue="100%" KeySpline="0,0 0,1">
+                                    <Setter Property="Opacity" Value="1.0" />
+                                    <Setter Property="ScaleTransform.ScaleX" Value="1.00" />
+                                    <Setter Property="ScaleTransform.ScaleY" Value="1.00" />
+                                </KeyFrame>
+                            </Animation>
+                        </Style.Animations>
+                    </Style>
+                    <Style Selector="^:hidden">
+                        <Style.Animations>
+                            <Animation FillMode="Backward" Duration="00:00:00.167">
+                                <KeyFrame Cue="0%">
+                                    <Setter Property="Opacity" Value="1.0" />
+                                    <Setter Property="ScaleTransform.ScaleX" Value="1.00" />
+                                    <Setter Property="ScaleTransform.ScaleY" Value="1.00" />
+                                </KeyFrame>
+                                <KeyFrame Cue="100%" KeySpline="0,0 0,1">
+                                    <Setter Property="Opacity" Value="0.0" />
+                                    <Setter Property="ScaleTransform.ScaleX" Value="1.05" />
+                                    <Setter Property="ScaleTransform.ScaleY" Value="1.05" />
+                                </KeyFrame>
+                            </Animation>
+                        </Style.Animations>
+
+                        <Style Selector="^ /template/ ui|FABorder#ContentRoot">
+                            <Setter Property="IsVisible" Value="True" />
+                        </Style>
+
+                    </Style>
+                </Style>
+            </StackPanel.Styles>
+        </StackPanel>
     </Grid>
 
 </UserControl>

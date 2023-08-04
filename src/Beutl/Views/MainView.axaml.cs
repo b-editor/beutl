@@ -1,8 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 
 using Avalonia;
@@ -11,7 +9,6 @@ using Avalonia.Animation.Easings;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -23,10 +20,7 @@ using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.Controls;
-using Beutl.Extensibility;
-using Beutl.Extensibility.Services;
 using Beutl.Models;
-using Beutl.Pages;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Utilities;
@@ -95,7 +89,7 @@ public sealed partial class MainView : UserControl
     private readonly CompositeDisposable _disposables = new();
     private readonly AvaloniaList<NavigationViewItem> _navigationItems = new();
     private readonly EditorService _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
-    private readonly IProjectService _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
+    private readonly ProjectService _projectService = ServiceLocator.Current.GetRequiredService<ProjectService>();
     private readonly INotificationService _notificationService = ServiceLocator.Current.GetRequiredService<INotificationService>();
     private readonly IProjectItemContainer _projectItemContainer = ServiceLocator.Current.GetRequiredService<IProjectItemContainer>();
     private readonly Avalonia.Animation.Animation _animation = new()
@@ -214,6 +208,8 @@ public sealed partial class MainView : UserControl
 
                 Titlebar.Margin = new Thickness(0, 0, titleBar.LeftInset, 0);
                 AppWindow.SetAllowInteractionInTitleBar(MenuBar, true);
+                AppWindow.SetAllowInteractionInTitleBar(OpenNotificationsButton, true);
+                NotificationPanel.Margin = new(0, titleBar.Height + 8, 8, 0);
             }
         }
     }
@@ -838,5 +834,14 @@ Error:
                     経過時間: {elapsed.TotalMilliseconds}ms
                     差: {str}
                     """));
+    }
+
+    private void OpenNotificationsClick(object? sender, RoutedEventArgs e)
+    {
+        if (HiddenNotificationPanel.Children.Count > 0
+            && sender is Button btn)
+        {
+            btn.Flyout?.ShowAt(btn);
+        }
     }
 }
