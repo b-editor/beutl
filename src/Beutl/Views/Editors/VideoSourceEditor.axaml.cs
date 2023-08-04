@@ -12,9 +12,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
 
-public partial class SoundSourceEditor : UserControl
+public partial class VideoSourceEditor : UserControl
 {
-    public SoundSourceEditor()
+    public VideoSourceEditor()
     {
         InitializeComponent();
         button.Click += Button_Click;
@@ -22,12 +22,12 @@ public partial class SoundSourceEditor : UserControl
 
     private async void Button_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (DataContext is not SoundSourceEditorViewModel vm || VisualRoot is not TopLevel topLevel) return;
+        if (DataContext is not VideoSourceEditorViewModel vm || VisualRoot is not TopLevel topLevel) return;
 
         ExtensionProvider provider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
 
         string[] fileExtensions = DecoderRegistry.EnumerateDecoder()
-            .SelectMany(x => x.AudioExtensions().Concat(x.VideoExtensions()))
+            .SelectMany(x => x.VideoExtensions().Concat(x.VideoExtensions()))
             .Distinct()
             .Select(x =>
             {
@@ -73,7 +73,7 @@ public partial class SoundSourceEditor : UserControl
             {
                 FileTypeFilter = new FilePickerFileType[]
                 {
-                    new FilePickerFileType("Audio File")
+                    new FilePickerFileType("Video File")
                     {
                         Patterns = fileExtensions
                     }
@@ -83,10 +83,10 @@ public partial class SoundSourceEditor : UserControl
             IReadOnlyList<IStorageFile> result = await topLevel.StorageProvider.OpenFilePickerAsync(options);
             if (result.Count > 0
                 && result[0].TryGetLocalPath() is string localPath
-                && MediaSourceManager.Shared.OpenSoundSource(localPath, out ISoundSource? soundSource))
+                && MediaSourceManager.Shared.OpenVideoSource(localPath, out IVideoSource? videoSource))
             {
-                ISoundSource? oldValue = vm.WrappedProperty.GetValue();
-                vm.SetValue(oldValue, soundSource);
+                IVideoSource? oldValue = vm.WrappedProperty.GetValue();
+                vm.SetValue(oldValue, videoSource);
                 oldValue?.Dispose();
             }
         }

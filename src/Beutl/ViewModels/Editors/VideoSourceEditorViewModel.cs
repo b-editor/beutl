@@ -4,9 +4,9 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSource?>
+public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSource?>
 {
-    public SoundSourceEditorViewModel(IAbstractProperty<ISoundSource?> property)
+    public VideoSourceEditorViewModel(IAbstractProperty<IVideoSource?> property)
         : base(property)
     {
         ShortName = Value.Select(x => Path.GetFileName(x?.Name))
