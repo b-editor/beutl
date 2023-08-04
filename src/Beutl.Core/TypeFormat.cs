@@ -11,7 +11,7 @@ namespace Beutl
         public static Type? ToType(string fullName)
         {
             List<Token> tokens = new TypeNameTokenizer(fullName).Tokenize();
-            return  new TypeNameParser(tokens).Parse();
+            return new TypeNameParser(tokens).Parse();
         }
 
         public static string ToString(Type type)
@@ -91,15 +91,32 @@ namespace Beutl
         internal class TypeNameParser
         {
             private readonly List<Token> _tokens;
-            private readonly Func<string, Assembly> _assemblyResolver;
+            private readonly Func<string, Assembly?> _assemblyResolver;
             private string? _assemblyName;
             private Assembly? _assembly;
             private string? _namespace;
 
-            public TypeNameParser(List<Token> tokens, Func<string, Assembly>? assemblyResolver = null)
+            public TypeNameParser(List<Token> tokens, Func<string, Assembly?>? assemblyResolver = null)
             {
+                Assembly? DefaultAssemblyResolver(string s)
+                {
+#if !DEBUG
+#warning TypeFormatの互換性コードが残っている
+#endif
+                    if (s is "Beutl.Graphics")
+                    {
+                        s = "Beutl.Engine";
+                    }
+                    else if (s is "Beutl.Framework")
+                    {
+                        s = "Beutl.Extensibility";
+                    }
+
+                    return AssemblyLoadContext.Default.Assemblies.FirstOrDefault(x => x.GetName().Name == s);
+                }
+
                 _tokens = tokens;
-                _assemblyResolver = assemblyResolver ?? (s => AssemblyLoadContext.Default.Assemblies.First(x => x.GetName().Name == s));
+                _assemblyResolver = assemblyResolver ?? DefaultAssemblyResolver;
             }
 
             public Type Parse()
