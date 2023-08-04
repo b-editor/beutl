@@ -1,8 +1,13 @@
 ﻿using Beutl.Animation;
-using Beutl.Graphics.Drawables;
 using Beutl.Media.Source;
 
 namespace Beutl.Graphics;
+
+public enum VideoPositionMode
+{
+    Manual,
+    Automatic
+}
 
 public class SourceVideo : Drawable
 {
