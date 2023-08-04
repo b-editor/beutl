@@ -119,7 +119,6 @@ public sealed partial class MainView : UserControl
         Duration = TimeSpan.FromSeconds(0.67),
         FillMode = FillMode.Forward
     };
-    private readonly TaskCompletionSource _windowOpenedTask = new();
     private Control? _settingsView;
 
     public MainView()
@@ -146,15 +145,51 @@ public sealed partial class MainView : UserControl
         }
     }
 
-    protected override async void OnDataContextChanged(EventArgs e)
+    protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
         _disposables.Clear();
         if (DataContext is MainViewModel viewModel)
         {
+            InitPages(viewModel);
+            InitCommands(viewModel);
+            InitRecentItems(viewModel);
+        }
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+
+        if (e.Root is TopLevel b)
+        {
+            b.Opened += OnParentWindowOpened;
+        }
+    }
+
+    private async void OnParentWindowOpened(object? sender, EventArgs e)
+    {
+        var topLevel = (TopLevel)sender!;
+        topLevel.Opened -= OnParentWindowOpened;
+
+        if (sender is AppWindow cw)
+        {
+            AppWindowTitleBar titleBar = cw.TitleBar;
+            if (titleBar != null)
+            {
+                titleBar.ExtendsContentIntoTitleBar = true;
+
+                Titlebar.Margin = new Thickness(0, 0, titleBar.LeftInset, 0);
+                AppWindow.SetAllowInteractionInTitleBar(MenuBar, true);
+                AppWindow.SetAllowInteractionInTitleBar(OpenNotificationsButton, true);
+                NotificationPanel.Margin = new(0, titleBar.Height + 8, 8, 0);
+            }
+        }
+
+        if (DataContext is MainViewModel viewModel)
+        {
             Task splachScreenTask = viewModel.RunSplachScreenTask(async items =>
             {
-                await _windowOpenedTask.Task;
                 return await Dispatcher.UIThread.InvokeAsync(async () =>
                 {
                     var dialog = new ContentDialog
@@ -172,44 +207,47 @@ public sealed partial class MainView : UserControl
                     return await dialog.ShowAsync() == ContentDialogResult.Primary;
                 });
             });
-            InitPages(viewModel);
-            InitCommands(viewModel);
-            InitRecentItems(viewModel);
 
             await splachScreenTask;
             InitExtMenuItems(viewModel);
-        }
-    }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        base.OnAttachedToVisualTree(e);
-
-        if (e.Root is TopLevel b)
-        {
-            b.Opened += OnParentWindowOpened;
-        }
-    }
-
-    private void OnParentWindowOpened(object? sender, EventArgs e)
-    {
-        _windowOpenedTask.SetResult();
-        if (sender is TopLevel window)
-        {
-            window.Opened -= OnParentWindowOpened;
-        }
-
-        if (sender is AppWindow cw)
-        {
-            AppWindowTitleBar titleBar = cw.TitleBar;
-            if (titleBar != null)
+            Api.CheckForUpdatesResponse? checkUpdateRes = await viewModel.CheckForUpdates();
+            if (checkUpdateRes != null)
             {
-                titleBar.ExtendsContentIntoTitleBar = true;
+                if (!checkUpdateRes.Is_latest)
+                {
+                    _notificationService.Show(new(
+                        "新しいバージョンがあります。",
+                        checkUpdateRes.Url,
+                        OnActionButtonClick: () =>
+                        {
+                            Process.Start(new ProcessStartInfo(checkUpdateRes.Url)
+                            {
+                                UseShellExecute = true,
+                                Verb = "open"
+                            });
+                        },
+                        ActionButtonText: "開く"));
+                }
+                else if (checkUpdateRes.Must_latest)
+                {
+                    var dialog = new ContentDialog
+                    {
+                        Title = "引き続き使用するにはアップグレードする必要があります",
+                        Content = "このバージョンは互換性のため、廃止されました。新しいバージョンにアップグレードしてください。",
+                        PrimaryButtonText = Strings.Yes,
+                        CloseButtonText = Strings.No,
+                    };
 
-                Titlebar.Margin = new Thickness(0, 0, titleBar.LeftInset, 0);
-                AppWindow.SetAllowInteractionInTitleBar(MenuBar, true);
-                AppWindow.SetAllowInteractionInTitleBar(OpenNotificationsButton, true);
-                NotificationPanel.Margin = new(0, titleBar.Height + 8, 8, 0);
+                    await dialog.ShowAsync();
+
+                    Process.Start(new ProcessStartInfo(checkUpdateRes.Url)
+                    {
+                        UseShellExecute = true,
+                        Verb = "open"
+                    });
+                    (topLevel as Window)?.Close();
+                }
             }
         }
     }

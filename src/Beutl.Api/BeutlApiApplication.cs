@@ -34,6 +34,7 @@ public class BeutlApiApplication
         Assets = new AssetsClient(httpClient) { BaseUrl = BaseUrl };
         Discover = new DiscoverClient(httpClient) { BaseUrl = BaseUrl };
         Library = new LibraryClient(httpClient) { BaseUrl = BaseUrl };
+        App = new AppClient(httpClient) { BaseUrl = BaseUrl };
 
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         httpClient.DefaultRequestHeaders.AcceptLanguage.Clear();
@@ -55,6 +56,8 @@ public class BeutlApiApplication
     public DiscoverClient Discover { get; }
 
     public LibraryClient Library { get; }
+    
+    public AppClient App { get; }
 
     public IReadOnlyReactiveProperty<AuthorizedUser?> AuthorizedUser => _authorizedUser;
 

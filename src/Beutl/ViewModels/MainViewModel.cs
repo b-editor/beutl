@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using System.Reflection;
+
+using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
@@ -365,6 +367,28 @@ public sealed class MainViewModel : BasePageViewModel
                 ErrorHandle(e);
             }
         });
+    }
+
+    public async ValueTask<CheckForUpdatesResponse?> CheckForUpdates()
+    {
+        try
+        {
+            AssemblyName asmName = typeof(MainViewModel).Assembly.GetName();
+            if (asmName is { Version: Version version })
+            {
+                string versionStr = version.ToString();
+                return await _beutlClients.App.CheckForUpdatesAsync(versionStr);
+            }
+            else
+            {
+                return null;
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorHandle(ex);
+            return null;
+        }
     }
 
     public ToolTabExtension[] GetToolTabExtensions()

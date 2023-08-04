@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
+using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Threading;
 
@@ -32,7 +33,7 @@ public sealed class NotificationService : INotificationService
         }
     }
 
-    private void Close(InfoBar infoBar)
+    private static void Close(InfoBar infoBar)
     {
         if (GetMainView() is MainView mainView)
         {
@@ -82,12 +83,16 @@ public sealed class NotificationService : INotificationService
                     };
                     actionButton.Click += (s, _) =>
                     {
-                        if (s is InfoBar { DataContext: Notification n } infoBar)
+                        if (s is Button { DataContext: Notification n } button)
                         {
                             n.OnActionButtonClick?.Invoke();
-                            Close(infoBar);
+
+                            InfoBar? infoBar = button.FindLogicalAncestorOfType<InfoBar>();
+                            if (infoBar != null)
+                                Close(infoBar);
                         }
                     };
+                    infoBar.ActionButton = actionButton;
                 }
 
                 mainView.NotificationPanel.Children.Add(infoBar);
