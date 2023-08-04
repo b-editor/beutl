@@ -1,5 +1,0 @@
-<Project>
-  <ItemGroup>
-    <PackageReference Include="ReactiveProperty" Version="8.2.0" />
-  </ItemGroup>
-</Project>

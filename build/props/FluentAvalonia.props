@@ -1,6 +1,0 @@
-<Project>
-  <ItemGroup>
-    <PackageReference Include="FluentAvaloniaUI" Version="2.0.0-preview4" />
-    <PackageReference Include="FluentAvalonia.UI.Windowing" Version="2.0.0-preview4" />
-  </ItemGroup>
-</Project>

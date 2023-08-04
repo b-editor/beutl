@@ -1,5 +1,0 @@
-<Project>
-  <ItemGroup>
-    <PackageReference Include="Avalonia.Svg.Skia" Version="11.0.0-preview3" />
-  </ItemGroup>
-</Project>
