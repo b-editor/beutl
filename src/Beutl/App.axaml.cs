@@ -1,18 +1,14 @@
 ﻿using System.Reflection;
 
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
-using Avalonia.Platform;
 using Avalonia.ReactiveUI;
 using Avalonia.Styling;
 using Avalonia.Threading;
 
 using Beutl.Configuration;
-using Beutl.Extensibility;
-using Beutl.Extensibility.Services;
 using Beutl.NodeTree.Nodes;
 using Beutl.Operators;
 using Beutl.Rendering;
@@ -22,8 +18,6 @@ using Beutl.Views;
 
 using FluentAvalonia.Core;
 using FluentAvalonia.Styling;
-
-using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -89,10 +83,9 @@ public sealed class App : Application
             .BindToSelfSingleton<EditorService>()
             .BindToSelfSingleton<OutputService>()
             .BindToSelfSingleton<HttpClient>()
-            .BindToSelfSingleton<BeutlApplication>()
+            .BindToSelfSingleton<ProjectService>()
             .Bind<IPropertyEditorExtensionImpl>().ToSingleton<PropertyEditorService.PropertyEditorExtensionImpl>()
             .BindToSelf<IProjectItemContainer>(new ProjectItemContainer())
-            .BindToSelf<IProjectService>(new ProjectService())
             .BindToSelf<INotificationService>(new NotificationService());
 
         GetMainViewModel().RegisterServices();

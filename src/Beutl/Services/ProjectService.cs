@@ -1,7 +1,6 @@
 ﻿using System.Reactive.Subjects;
 
 using Beutl.Configuration;
-using Beutl.Extensibility.Services;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 
@@ -11,19 +10,18 @@ using Reactive.Bindings;
 
 namespace Beutl.Services;
 
-public sealed class ProjectService : IProjectService
+public sealed class ProjectService
 {
     private readonly Subject<(Project? New, Project? Old)> _projectObservable = new();
     private readonly ReadOnlyReactivePropertySlim<bool> _isOpened;
+    private readonly BeutlApplication _app = BeutlApplication.Current;
 
     public ProjectService()
     {
-        CurrentProject = Application.GetObservable(BeutlApplication.ProjectProperty)
+        CurrentProject = _app.GetObservable(BeutlApplication.ProjectProperty)
             .ToReadOnlyReactivePropertySlim();
         _isOpened = CurrentProject.Select(v => v != null).ToReadOnlyReactivePropertySlim();
     }
-
-    public BeutlApplication Application { get; } = ServiceLocator.Current.GetRequiredService<BeutlApplication>();
 
     public IObservable<(Project? New, Project? Old)> ProjectObservable => _projectObservable;
 
@@ -39,8 +37,8 @@ public sealed class ProjectService : IProjectService
             var project = new Project();
             project.Restore(file);
 
-            Project? old = Application.Project;
-            Application.Project = project;
+            Project? old = _app.Project;
+            _app.Project = project;
             // 値を発行
             _projectObservable.OnNext((New: project, old));
 
@@ -57,13 +55,13 @@ public sealed class ProjectService : IProjectService
 
     public void CloseProject()
     {
-        if (Application.Project is { } project)
+        if (_app.Project is { } project)
         {
             CommandRecorder.Default.Clear();
             // 値を発行
             _projectObservable.OnNext((New: null, project));
             project.Dispose();
-            Application.Project = null;
+            _app.Project = null;
         }
     }
 
@@ -94,8 +92,8 @@ public sealed class ProjectService : IProjectService
             project.Save(projectFile);
 
             // 値を発行
-            _projectObservable.OnNext((New: project, Application.Project));
-            Application.Project = project;
+            _projectObservable.OnNext((New: project, _app.Project));
+            _app.Project = project;
 
             AddToRecentProjects(projectFile);
 

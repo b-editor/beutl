@@ -1,8 +1,8 @@
-﻿namespace Beutl.Extensibility.Services;
+﻿namespace Beutl.Services;
 
 public interface INotificationService
 {
-    public void Show(Notification notification);
+    void Show(Notification notification);
 }
 
 public enum NotificationType
@@ -13,10 +13,11 @@ public enum NotificationType
     Error = 3
 }
 
-public record struct Notification(
+public record Notification(
     string Title,
     string Message,
     NotificationType Type = NotificationType.Information,
     TimeSpan? Expiration = null,
-    Action? OnClick = null,
-    Action? OnClose = null);
+    Action? OnClose = null,
+    Action? OnActionButtonClick = null,
+    string? ActionButtonText = null);

@@ -1,7 +1,5 @@
 ﻿using System.Collections.Specialized;
 
-using Beutl.Extensibility;
-using Beutl.Extensibility.Services;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 
@@ -15,12 +13,12 @@ namespace Beutl.ViewModels;
 
 public sealed class EditPageViewModel : IPageContext
 {
-    private readonly IProjectService _projectService;
+    private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
 
     public EditPageViewModel()
     {
-        _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
+        _projectService = ServiceLocator.Current.GetRequiredService<ProjectService>();
         _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
         _projectService.ProjectObservable.Subscribe(item => ProjectChanged(item.New, item.Old));
     }
@@ -101,7 +99,7 @@ public sealed class EditPageViewModel : IPageContext
                     tab.Dispose();
                     break;
                 case TabOpenMode.YourSelf:
-                    _projectService.Application.Items.Add(item);
+                    BeutlApplication.Current.Items.Add(item);
                     //((IModifiableHierarchical)item).SetParent(null);
                     //((IModifiableHierarchical)item).SetParent(_projectService.Application);
                     break;
@@ -109,5 +107,7 @@ public sealed class EditPageViewModel : IPageContext
         }
     }
 
-    public void Dispose() => throw new NotImplementedException();
+    public void Dispose()
+    {
+    }
 }

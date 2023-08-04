@@ -1,10 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
 using Avalonia.Controls;
-using Avalonia.Media;
 using Avalonia.Platform.Storage;
-
-using Beutl.Extensibility.Services;
 
 using FluentAvalonia.UI.Controls;
 
@@ -59,10 +56,4 @@ public abstract class EditorExtension : ViewExtension
 
     // extはピリオドを含む
     public abstract bool MatchFileExtension(string ext);
-
-    // 'ServiceLocator'から'IProjectService'を取得し、Projectのインスタンスを取得します。
-    protected static Project? GetCurrentProject()
-    {
-        return ServiceLocator.Current.GetRequiredService<IProjectService>().CurrentProject.Value;
-    }
 }

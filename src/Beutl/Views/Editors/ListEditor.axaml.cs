@@ -1,7 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
-using Avalonia.Controls.Generators;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -12,8 +11,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
 
-using Beutl.Controls.Behaviors;
-using Beutl.Extensibility.Services;
+using Beutl.Services;
 using Beutl.ViewModels.Editors;
 
 using FluentAvalonia.UI.Controls;

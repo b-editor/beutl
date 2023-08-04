@@ -7,8 +7,6 @@ using Beutl.Api;
 using Beutl.Api.Services;
 
 using Beutl.Configuration;
-using Beutl.Extensibility;
-using Beutl.Extensibility.Services;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.ExtensionsPages;
@@ -25,7 +23,7 @@ namespace Beutl.ViewModels;
 
 public sealed class MainViewModel : BasePageViewModel
 {
-    private readonly IProjectService _projectService;
+    private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
     private readonly PageExtension[] _primitivePageExtensions;
     private readonly BeutlApiApplication _beutlClients;
@@ -55,7 +53,7 @@ public sealed class MainViewModel : BasePageViewModel
         _authorizedHttpClient = new HttpClient();
         _beutlClients = new BeutlApiApplication(_authorizedHttpClient);
 
-        _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
+        _projectService = ServiceLocator.Current.GetRequiredService<ProjectService>();
         _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
         _primitivePageExtensions = new PageExtension[]
         {
@@ -205,7 +203,7 @@ public sealed class MainViewModel : BasePageViewModel
 
         OpenRecentProject.Subscribe(file =>
         {
-            IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
+            ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
             INotificationService noticeService = ServiceLocator.Current.GetRequiredService<INotificationService>();
 
             if (!File.Exists(file))
@@ -393,7 +391,7 @@ public sealed class MainViewModel : BasePageViewModel
     public override void Dispose()
     {
         _projectService.CloseProject();
-        _projectService.Application.Items.Clear();
+        BeutlApplication.Current.Items.Clear();
     }
 
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)

@@ -23,7 +23,7 @@ public class JsonSerializationTest
     [Test]
     public void Serialize()
     {
-        var app = new BeutlApplication();
+        var app = BeutlApplication.Current;
         var proj = new Project();
 
         proj.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.bproj"));

@@ -9,5 +9,4 @@ global using Beutl.Extensibility;
 global using Beutl.Collections;
 global using Beutl.Language;
 
-global using Notification = Beutl.Extensibility.Services.Notification;
-
+global using Notification = Beutl.Services.Notification;

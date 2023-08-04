@@ -21,6 +21,8 @@ public class BeutlApplication : Hierarchical, IHierarchicalRoot
         Items = new HierarchicalList<ProjectItem>(this);
     }
 
+    public static BeutlApplication Current { get; } = new();
+
     public Project? Project
     {
         get => _project;

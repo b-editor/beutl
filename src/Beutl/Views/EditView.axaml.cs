@@ -4,33 +4,20 @@ using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Avalonia.Threading;
 
 using Beutl.Controls;
-using Beutl.Extensibility;
-using Beutl.Extensibility.Services;
-using Beutl.Media;
-using Beutl.Media.Pixel;
-using Beutl.ProjectSystem;
 using Beutl.ViewModels;
-
-using FluentAvalonia.UI.Controls;
-
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views;
 
 public sealed partial class EditView : UserControl
 {
-    private readonly SynchronizationContext _syncContext;
     private static readonly Binding s_isSelectedBinding = new("Context.IsSelected.Value", BindingMode.TwoWay);
     private static readonly Binding s_headerBinding = new("Context.Header");
     private readonly AvaloniaList<BcTabItem> _bottomTabItems = new();
     private readonly AvaloniaList<BcTabItem> _rightTabItems = new();
     private Image? _image;
-    //private FileSystemWatcher? _watcher;
     private IDisposable? _disposable1;
     private IDisposable? _disposable2;
     private IDisposable? _disposable3;
@@ -38,7 +25,6 @@ public sealed partial class EditView : UserControl
     public EditView()
     {
         InitializeComponent();
-        _syncContext = SynchronizationContext.Current!;
 
         // 下部のタブ
         BottomTabView.ItemsSource = _bottomTabItems;
@@ -99,46 +85,6 @@ public sealed partial class EditView : UserControl
                     break;
             }
         }
-    }
-
-    protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
-    {
-        //static object? DataContextFactory(string filename)
-        //{
-        //    IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
-        //    if (service.CurrentProject.Value != null)
-        //    {
-        //        foreach (IStorable item in service.CurrentProject.Value.EnumerateAllChildren<IStorable>())
-        //        {
-        //            if (item.FileName == filename)
-        //            {
-        //                return item;
-        //            }
-        //        }
-        //    }
-
-        //    return null;
-        //}
-
-        base.OnAttachedToLogicalTree(e);
-        IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
-        if (service.CurrentProject.Value != null)
-        {
-            //_watcher = new FileSystemWatcher(service.CurrentProject.Value.RootDirectory)
-            //{
-            //    EnableRaisingEvents = true,
-            //    IncludeSubdirectories = true,
-            //};
-            //Explorer.Content = new DirectoryTreeView(_watcher, DataContextFactory);
-        }
-    }
-
-    protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
-    {
-        base.OnDetachedFromLogicalTree(e);
-        //Explorer.Content = null;
-        //_watcher?.Dispose();
-        //_watcher = null;
     }
 
     protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)

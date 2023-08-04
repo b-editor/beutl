@@ -1,6 +1,5 @@
 ﻿using Avalonia;
 
-using Beutl.Extensibility.Services;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -17,7 +16,7 @@ public sealed class CreateNewSceneViewModel
 
     public CreateNewSceneViewModel()
     {
-        IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
+        ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
         _proj = service.CurrentProject.Value;
         CanAddToCurrentProject = service.CurrentProject.Select(i => i != null).ToReadOnlyReactivePropertySlim();
         AddToCurrentProject = new(_proj != null);
