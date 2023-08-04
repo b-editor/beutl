@@ -26,7 +26,7 @@ public static class TypefaceProvider
 
         foreach (string item in array)
         {
-            Stream? stream = asm.GetManifestResourceStream("Beutl.Graphics.UnitTests.Assets.Font." + item);
+            Stream? stream = asm.GetManifestResourceStream("Beutl.Engine.UnitTests.Assets.Font." + item);
 
             if (stream != null)
             {
