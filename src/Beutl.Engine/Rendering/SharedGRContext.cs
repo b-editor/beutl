@@ -12,7 +12,7 @@ public static unsafe class SharedGRContext
 
     public static GRContext? GRContext { get; private set; }
 
-    public static GRContext GetOrCreate()
+    public static GRContext? GetOrCreate()
     {
         if (GRContext == null)
         {
