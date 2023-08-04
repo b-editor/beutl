@@ -110,6 +110,25 @@ public sealed class DeferradCanvas : ICanvas
         ++_drawOperationindex;
     }
 
+    public void DrawVideoSource(IVideoSource source, TimeSpan frame, IBrush? fill, IPen? pen)
+    {
+        Rational rate = source.FrameRate;
+        double frameNum = frame.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
+        DrawVideoSource(source, (int)frameNum, fill, pen);
+    }
+
+    public void DrawVideoSource(IVideoSource source, int frame, IBrush? fill, IPen? pen)
+    {
+        VideoSourceNode? next = Next<VideoSourceNode>();
+
+        if (next == null || !next.Equals(source, frame, fill, pen))
+        {
+            Add(new VideoSourceNode(source, frame, ConvertBrush(fill), pen));
+        }
+
+        ++_drawOperationindex;
+    }
+
     public void DrawEllipse(Rect rect, IBrush? fill, IPen? pen)
     {
         EllipseNode? next = Next<EllipseNode>();

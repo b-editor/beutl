@@ -1,10 +1,14 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Serialization;
 
 namespace Beutl.Media.Source;
 
+[JsonConverter(typeof(VideoSourceJsonConverter))]
 public interface IVideoSource : IMediaSource
 {
     TimeSpan Duration { get; }
+
+    Rational FrameRate { get; }
 
     PixelSize FrameSize { get; }
 

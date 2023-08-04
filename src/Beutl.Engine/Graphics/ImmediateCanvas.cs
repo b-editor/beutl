@@ -245,6 +245,24 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         }
     }
 
+    public void DrawVideoSource(IVideoSource source, TimeSpan frame, IBrush? fill, IPen? pen)
+    {
+        Rational rate = source.FrameRate;
+        double frameNum = frame.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
+        DrawVideoSource(source, (int)frameNum, fill, pen);
+    }
+
+    public void DrawVideoSource(IVideoSource source, int frame, IBrush? fill, IPen? pen)
+    {
+        if (source.Read(frame, out IBitmap? bitmap))
+        {
+            using (bitmap)
+            {
+                DrawBitmap(bitmap, fill, pen);
+            }
+        }
+    }
+
     public void DrawEllipse(Rect rect, IBrush? fill, IPen? pen)
     {
         VerifyAccess();

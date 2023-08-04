@@ -22,6 +22,10 @@ public interface ICanvas : IDisposable
 
     void DrawImageSource(IImageSource source, IBrush? fill, IPen? pen);
 
+    void DrawVideoSource(IVideoSource source, TimeSpan frame, IBrush? fill, IPen? pen);
+
+    void DrawVideoSource(IVideoSource source, int frame, IBrush? fill, IPen? pen);
+
     void DrawEllipse(Rect rect, IBrush? fill, IPen? pen);
 
     void DrawRectangle(Rect rect, IBrush? fill, IPen? pen);
