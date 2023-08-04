@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31912.275
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Graphics", "src\Beutl.Graphics\Beutl.Graphics.csproj", "{DEACE4B5-6813-4F18-90F5-1F6335FB6BFB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Engine", "src\Beutl.Engine\Beutl.Engine.csproj", "{DEACE4B5-6813-4F18-90F5-1F6335FB6BFB}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Core", "src\Beutl.Core\Beutl.Core.csproj", "{9F23C275-4891-49F3-A9AE-54E05D0CCE8B}"
 EndProject
@@ -21,7 +21,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{791EB029
 		tests\Directory.Build.props = tests\Directory.Build.props
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Graphics.UnitTests", "tests\Beutl.Graphics.UnitTests\Beutl.Graphics.UnitTests.csproj", "{B459E4EB-3345-430C-9CAF-0D051D0F2898}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Engine.UnitTests", "tests\Beutl.Engine.UnitTests\Beutl.Engine.UnitTests.csproj", "{B459E4EB-3345-430C-9CAF-0D051D0F2898}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{BBF37951-9757-4F4A-9FEE-130C4A218B94}"
 EndProject

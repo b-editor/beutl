@@ -3,7 +3,7 @@
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Configuration/Beutl.Configuration.csproj" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Core/Beutl.Core.csproj" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Framework/Beutl.Framework.csproj" />
-    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Graphics/Beutl.Graphics.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Engine/Beutl.Engine.csproj" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Operators/Beutl.Operators.csproj" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.ProjectSystem/Beutl.ProjectSystem.csproj" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Utilities/Beutl.Utilities.csproj" />
