@@ -8,7 +8,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
-using Beutl.Framework;
+using Beutl.Extensibility;
 using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;

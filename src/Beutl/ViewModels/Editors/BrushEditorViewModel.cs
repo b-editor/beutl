@@ -1,8 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
-using Beutl.Framework;
 using Beutl.Media;
-using Beutl.ViewModels.Tools;
 
 using Reactive.Bindings;
 

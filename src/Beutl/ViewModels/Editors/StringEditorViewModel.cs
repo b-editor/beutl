@@ -1,7 +1,7 @@
 ﻿using Avalonia;
 
 using Beutl.Controls.PropertyEditors;
-using Beutl.Framework;
+using Beutl.Extensibility;
 
 namespace Beutl.ViewModels.Editors;
 

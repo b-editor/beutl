@@ -7,9 +7,8 @@ using Beutl.Api;
 using Beutl.Api.Services;
 
 using Beutl.Configuration;
-using Beutl.Framework;
-using Beutl.Framework.Service;
-using Beutl.Framework.Services;
+using Beutl.Extensibility;
+using Beutl.Extensibility.Services;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.ExtensionsPages;

@@ -1,5 +1,4 @@
-﻿using Beutl.Framework;
-using Beutl.Media.Source;
+﻿using Beutl.Media.Source;
 
 using Reactive.Bindings;
 

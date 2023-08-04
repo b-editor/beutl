@@ -1,5 +1,4 @@
 ﻿using Beutl.Commands;
-using Beutl.Framework;
 using Beutl.Media;
 using Beutl.Utilities;
 

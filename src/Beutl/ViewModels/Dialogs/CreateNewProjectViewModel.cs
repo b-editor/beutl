@@ -1,6 +1,6 @@
 ﻿using Avalonia;
 
-using Beutl.Framework.Services;
+using Beutl.Extensibility.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 

@@ -31,7 +31,7 @@
     <ProjectReference Include="..\..\src\Beutl.Controls\Beutl.Controls.csproj" Private="false" ExcludeAssets="runtime" />
     <ProjectReference Include="..\..\src\Beutl.Configuration\Beutl.Configuration.csproj" Private="false" ExcludeAssets="runtime" />
     <ProjectReference Include="..\..\src\Beutl.Core\Beutl.Core.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.Framework\Beutl.Framework.csproj" Private="false" ExcludeAssets="runtime" />
+    <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj" Private="false" ExcludeAssets="runtime" />
     <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" Private="false" ExcludeAssets="runtime" />
     <ProjectReference Include="..\..\src\Beutl.Language\Beutl.Language.csproj" Private="false" ExcludeAssets="runtime" />
     <ProjectReference Include="..\..\src\Beutl.Operators\Beutl.Operators.csproj" Private="false" ExcludeAssets="runtime" />

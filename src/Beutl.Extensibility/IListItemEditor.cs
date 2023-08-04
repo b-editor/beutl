@@ -2,7 +2,7 @@
 
 using Avalonia.Controls;
 
-namespace Beutl.Framework;
+namespace Beutl.Extensibility;
 
 public interface IListItemEditor : INotifyPropertyChanged
 {

@@ -4,7 +4,7 @@ using Avalonia.Controls;
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Beutl.Framework;
+namespace Beutl.Extensibility;
 
 internal interface IPropertyEditorExtensionImpl
 {
@@ -13,7 +13,7 @@ internal interface IPropertyEditorExtensionImpl
     bool TryCreateContext(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context);
 
     bool TryCreateContextForNode(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context);
-    
+
     bool TryCreateContextForListItem(PropertyEditorExtension extension, IAbstractProperty property, [NotNullWhen(true)] out IPropertyEditorContext? context);
 
     bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control);

@@ -11,9 +11,8 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 
 using Beutl.Configuration;
-using Beutl.Framework;
-using Beutl.Framework.Service;
-using Beutl.Framework.Services;
+using Beutl.Extensibility;
+using Beutl.Extensibility.Services;
 using Beutl.NodeTree.Nodes;
 using Beutl.Operators;
 using Beutl.Rendering;

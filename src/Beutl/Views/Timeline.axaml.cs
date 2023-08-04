@@ -9,8 +9,6 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
-
-using Beutl.Framework;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Operation;
@@ -19,6 +17,7 @@ using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
 using Beutl.Media;
 using FluentAvalonia.UI.Controls;
+using Beutl.Extensibility;
 
 namespace Beutl.Views;
 

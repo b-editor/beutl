@@ -1,7 +1,5 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
-
-using Beutl.Framework;
 using Beutl.Services;
 using Beutl.Operation;
 
@@ -10,6 +8,7 @@ using DynamicData;
 using Reactive.Bindings;
 using Beutl.ViewModels.Editors;
 using Microsoft.CodeAnalysis;
+using Beutl.Extensibility;
 
 namespace Beutl.ViewModels.Tools;
 

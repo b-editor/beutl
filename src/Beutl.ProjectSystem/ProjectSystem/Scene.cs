@@ -4,7 +4,6 @@ using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
-using Beutl.Framework;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Rendering;

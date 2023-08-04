@@ -1,7 +1,7 @@
 ﻿using Avalonia.Collections;
 
 using Beutl.Api.Services;
-using Beutl.Framework;
+using Beutl.Extensibility;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.ExtensionsPages;

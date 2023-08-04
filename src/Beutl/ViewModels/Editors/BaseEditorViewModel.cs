@@ -7,10 +7,8 @@ using Avalonia.Data;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
-using Beutl.Framework;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
-using Beutl.ViewModels.Tools;
 
 using Microsoft.Extensions.DependencyInjection;
 

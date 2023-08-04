@@ -2,7 +2,6 @@
 
 using Avalonia.Controls;
 
-using Beutl.Framework;
 using Beutl.ViewModels;
 using Beutl.Views;
 

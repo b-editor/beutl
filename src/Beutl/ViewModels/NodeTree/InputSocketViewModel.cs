@@ -1,4 +1,4 @@
-﻿using Beutl.Framework;
+﻿using Beutl.Extensibility;
 using Beutl.NodeTree;
 
 using Reactive.Bindings;

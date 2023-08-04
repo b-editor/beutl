@@ -1,9 +1,6 @@
 ﻿using Avalonia;
-using Avalonia.Platform.Storage;
-using Avalonia.Platform.Storage.FileIO;
 
 using Beutl.Controls.PropertyEditors;
-using Beutl.Framework;
 
 using Reactive.Bindings;
 

@@ -1,8 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 
 using Avalonia.Platform.Storage;
-
-using Beutl.Framework;
 using Beutl.Rendering;
 using Beutl.Media.Encoding;
 using Beutl.ProjectSystem;
@@ -17,6 +15,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Beutl.Rendering.Cache;
+using Beutl.Extensibility;
 
 namespace Beutl.ViewModels;
 

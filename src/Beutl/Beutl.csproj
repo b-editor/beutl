@@ -58,6 +58,13 @@
   <ItemGroup>
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Update="ViewModels\Editors\VectorEditorViewModels.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>VectorEditorViewModels.tt</DependentUpon>
+    </Compile>
+  </ItemGroup>
 
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.props" />
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.targets" />

@@ -1,12 +1,9 @@
 ﻿using System.Collections.Specialized;
-using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 
-using Beutl.Framework;
 using Beutl.Services;
 
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 

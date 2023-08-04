@@ -1,8 +1,7 @@
 ﻿using System.Reactive.Subjects;
 
 using Beutl.Configuration;
-using Beutl.Framework;
-using Beutl.Framework.Services;
+using Beutl.Extensibility.Services;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 

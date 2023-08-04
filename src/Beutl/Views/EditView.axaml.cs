@@ -9,8 +9,8 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 
 using Beutl.Controls;
-using Beutl.Framework;
-using Beutl.Framework.Services;
+using Beutl.Extensibility;
+using Beutl.Extensibility.Services;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;

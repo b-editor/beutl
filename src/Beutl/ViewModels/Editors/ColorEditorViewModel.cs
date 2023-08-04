@@ -1,7 +1,6 @@
 ﻿using Avalonia;
 
 using Beutl.Controls.PropertyEditors;
-using Beutl.Framework;
 using Beutl.Media;
 
 using Reactive.Bindings;

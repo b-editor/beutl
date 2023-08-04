@@ -7,7 +7,7 @@ using FluentAvalonia.UI.Controls;
 
 using Reactive.Bindings;
 
-namespace Beutl.Framework;
+namespace Beutl.Extensibility;
 
 public interface IOutputContext : IDisposable, IJsonSerializable
 {
@@ -16,7 +16,7 @@ public interface IOutputContext : IDisposable, IJsonSerializable
     string TargetFile { get; }
 
     IReadOnlyReactiveProperty<bool> IsIndeterminate { get; }
-    
+
     IReadOnlyReactiveProperty<bool> IsEncoding { get; }
 
     IReadOnlyReactiveProperty<double> Progress { get; }
@@ -33,7 +33,7 @@ public abstract class OutputExtension : Extension
     public abstract IconSource? GetIcon();
 
     public abstract bool TryCreateControl(string file, [NotNullWhen(true)] out Control? control);
-    
+
     public abstract bool TryCreateContext(string file, [NotNullWhen(true)] out IOutputContext? context);
 
     public virtual bool IsSupported(string file)

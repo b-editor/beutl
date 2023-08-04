@@ -2,12 +2,12 @@
 
 using Avalonia.Controls;
 
-using Beutl.Framework;
 using Beutl.ViewModels;
 using Beutl.Views.Tools;
 
 namespace Beutl.Services.PrimitiveImpls;
 
+[PrimitiveImpl]
 public sealed class GraphEditorTabExtension : ToolTabExtension
 {
     public static readonly GraphEditorTabExtension Instance = new();

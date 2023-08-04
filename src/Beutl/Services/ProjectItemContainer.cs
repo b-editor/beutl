@@ -2,8 +2,6 @@
 
 using Beutl.Api.Services;
 
-using Beutl.Framework;
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services;

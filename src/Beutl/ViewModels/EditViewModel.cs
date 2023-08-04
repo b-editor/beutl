@@ -2,8 +2,7 @@
 using System.Text.Json.Nodes;
 
 using Beutl.Api.Services;
-
-using Beutl.Framework;
+using Beutl.Extensibility;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;

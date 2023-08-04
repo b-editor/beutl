@@ -1,6 +1,6 @@
 ﻿using Reactive.Bindings;
 
-namespace Beutl.Framework.Services;
+namespace Beutl.Extensibility.Services;
 
 public interface IProjectService
 {

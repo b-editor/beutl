@@ -1,5 +1,5 @@
 ﻿using Beutl.Collections;
-using Beutl.Framework;
+using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.Rendering;
 

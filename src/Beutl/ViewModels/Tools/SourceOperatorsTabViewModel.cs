@@ -2,7 +2,6 @@
 using System.Text.Json.Nodes;
 
 using Beutl.Collections;
-using Beutl.Framework;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
@@ -10,6 +9,7 @@ using Beutl.Operation;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using Beutl.Extensibility;
 
 namespace Beutl.ViewModels.Tools;
 

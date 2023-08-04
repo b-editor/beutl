@@ -2,7 +2,7 @@
 
 using Beutl.Animation;
 using Beutl.Animation.Easings;
-using Beutl.Framework;
+using Beutl.Extensibility;
 using Beutl.Reactive;
 
 using Reactive.Bindings;

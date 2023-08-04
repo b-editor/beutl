@@ -3,7 +3,6 @@
 using Avalonia.Platform.Storage;
 
 using Beutl.Api.Services;
-using Beutl.Framework;
 using Beutl.Services;
 
 using DynamicData;

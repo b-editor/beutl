@@ -1,4 +1,4 @@
-﻿using Beutl.Framework;
+﻿using Beutl.Extensibility;
 using Beutl.Media.Decoding;
 
 namespace Beutl.Extensions.FFmpeg.Decoding;

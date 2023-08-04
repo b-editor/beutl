@@ -2,7 +2,7 @@
 using Avalonia.Interactivity;
 
 using Beutl.Animation;
-using Beutl.Framework;
+using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;

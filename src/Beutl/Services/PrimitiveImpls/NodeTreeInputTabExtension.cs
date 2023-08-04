@@ -2,13 +2,13 @@
 
 using Avalonia.Controls;
 
-using Beutl.Framework;
 using Beutl.ViewModels;
 using Beutl.ViewModels.NodeTree;
 using Beutl.Views.NodeTree;
 
 namespace Beutl.Services.PrimitiveImpls;
 
+[PrimitiveImpl]
 public sealed class NodeTreeInputTabExtension : ToolTabExtension
 {
     public static readonly NodeTreeInputTabExtension Instance = new();

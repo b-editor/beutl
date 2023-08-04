@@ -1,7 +1,7 @@
 ﻿using System.Collections.Specialized;
 
-using Beutl.Framework;
-using Beutl.Framework.Services;
+using Beutl.Extensibility;
+using Beutl.Extensibility.Services;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 

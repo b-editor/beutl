@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Text.Json.Nodes;
 
-using Beutl.Framework;
+using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.Media.Encoding;
 

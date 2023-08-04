@@ -3,9 +3,9 @@
     <RootNameSpace>Beutl</RootNameSpace>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Beutl.Graphics\Beutl.Graphics.csproj" />
+    <ProjectReference Include="..\Beutl.Engine\Beutl.Engine.csproj" />
     <ProjectReference Include="..\Beutl.Language\Beutl.Language.csproj" />
-    <ProjectReference Include="..\Beutl.Framework\Beutl.Framework.csproj" />
+    <ProjectReference Include="..\Beutl.Extensibility\Beutl.Extensibility.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" />

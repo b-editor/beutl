@@ -1,6 +1,6 @@
 ﻿using Beutl.Collections;
 using Beutl.Configuration;
-using Beutl.Framework;
+using Beutl.Extensibility;
 
 using static Beutl.Configuration.ExtensionConfig;
 

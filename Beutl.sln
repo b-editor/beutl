@@ -38,7 +38,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Configiration.UnitTes
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EnumerateFontFamilies", "tests\EnumerateFontFamilies\EnumerateFontFamilies.csproj", "{C009364B-6190-47E9-A902-6A17EC6FE4D2}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Framework", "src\Beutl.Framework\Beutl.Framework.csproj", "{87A937E5-F122-43E0-8D7F-0A3D635432FA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Extensibility", "src\Beutl.Extensibility\Beutl.Extensibility.csproj", "{87A937E5-F122-43E0-8D7F-0A3D635432FA}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Root", "Root", "{80264A90-CB12-4C61-A5A2-983650511ACE}"
 	ProjectSection(SolutionItems) = preProject

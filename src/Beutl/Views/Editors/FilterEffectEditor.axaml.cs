@@ -4,7 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 
-using Beutl.Framework.Service;
+using Beutl.Extensibility.Services;
 using Beutl.Graphics.Effects;
 using Beutl.ViewModels.Editors;
 

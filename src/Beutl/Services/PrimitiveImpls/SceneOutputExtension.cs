@@ -3,15 +3,11 @@
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 
-using Beutl.Framework;
-using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.Views;
 
 using FluentAvalonia.UI.Controls;
-
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services.PrimitiveImpls;
 

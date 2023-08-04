@@ -3,7 +3,7 @@
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 
-namespace Beutl.Framework;
+namespace Beutl.Extensibility;
 
 public interface IAbstractProperty
 {

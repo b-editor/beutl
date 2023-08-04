@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
-    <ProjectReference Include="..\Beutl.Framework\Beutl.Framework.csproj" />
+    <ProjectReference Include="..\Beutl.Extensibility\Beutl.Extensibility.csproj" />
   </ItemGroup>
 </Project>

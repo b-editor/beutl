@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
-using Beutl.Framework;
+using Beutl.Extensibility;
 using Beutl.Services.PrimitiveImpls;
 
 using Reactive.Bindings;

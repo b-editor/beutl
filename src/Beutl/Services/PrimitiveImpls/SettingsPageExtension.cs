@@ -1,7 +1,5 @@
 ﻿using Avalonia.Controls;
 
-using Beutl.Framework;
-
 using FluentAvalonia.UI.Controls;
 
 using Symbol = FluentIcons.Common.Symbol;

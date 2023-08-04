@@ -1,6 +1,6 @@
 ﻿using Beutl.Animation;
 using Beutl.Collections;
-using Beutl.Framework;
+using Beutl.Extensibility;
 using Beutl.Reactive;
 
 namespace Beutl.Operators.Configure;

@@ -1,6 +1,4 @@
-﻿using Beutl.Framework;
-
-using Reactive.Bindings;
+﻿using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 

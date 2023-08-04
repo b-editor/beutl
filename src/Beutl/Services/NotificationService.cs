@@ -2,7 +2,7 @@
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 
-using Beutl.Framework.Service;
+using Beutl.Extensibility.Services;
 using Beutl.Views;
 
 namespace Beutl.Services;

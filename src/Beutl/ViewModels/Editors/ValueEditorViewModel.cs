@@ -1,5 +1,5 @@
 ﻿using Beutl.Animation;
-using Beutl.Framework;
+using Beutl.Extensibility;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;

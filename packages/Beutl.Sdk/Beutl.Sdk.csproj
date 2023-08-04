@@ -9,7 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Configuration/Beutl.Configuration.csproj" PrivateAssets="All" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Core/Beutl.Core.csproj" PrivateAssets="All" />
-    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Framework/Beutl.Framework.csproj" PrivateAssets="All" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Extensibility/Beutl.Extensibility.csproj" PrivateAssets="All" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Engine/Beutl.Engine.csproj" PrivateAssets="All" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Language/Beutl.Language.csproj" PrivateAssets="All" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Operators/Beutl.Operators.csproj" PrivateAssets="All" />

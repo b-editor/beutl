@@ -5,7 +5,7 @@ using Avalonia.Data;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 
-using Beutl.Framework;
+using Beutl.Extensibility;
 
 using FluentAvalonia.UI.Controls;
 

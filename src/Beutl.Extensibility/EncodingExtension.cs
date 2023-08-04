@@ -1,6 +1,6 @@
 ﻿using Beutl.Media.Encoding;
 
-namespace Beutl.Framework;
+namespace Beutl.Extensibility;
 
 public abstract class EncodingExtension : Extension
 {

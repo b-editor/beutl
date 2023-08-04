@@ -1,5 +1,5 @@
 ﻿using Beutl.Api;
-using Beutl.Framework;
+using Beutl.Extensibility;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.SettingsPages;
 

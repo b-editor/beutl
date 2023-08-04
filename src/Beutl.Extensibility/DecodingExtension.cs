@@ -1,6 +1,6 @@
 ﻿using Beutl.Media.Decoding;
 
-namespace Beutl.Framework;
+namespace Beutl.Extensibility;
 
 public abstract class DecodingExtension : Extension
 {

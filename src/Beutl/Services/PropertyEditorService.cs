@@ -8,7 +8,6 @@ using Avalonia.Styling;
 using Beutl.Api.Services;
 using Beutl.Audio.Effects;
 using Beutl.Controls.PropertyEditors;
-using Beutl.Framework;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;

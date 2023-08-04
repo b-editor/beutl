@@ -1,6 +1,5 @@
 ﻿using Avalonia.Controls;
 
-using Beutl.Framework;
 using Beutl.ViewModels;
 
 using FluentAvalonia.UI.Controls;

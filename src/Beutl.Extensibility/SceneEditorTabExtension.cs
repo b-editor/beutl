@@ -4,7 +4,7 @@ using Avalonia.Controls;
 
 using Reactive.Bindings;
 
-namespace Beutl.Framework;
+namespace Beutl.Extensibility;
 
 public interface IToolContext : IDisposable, IJsonSerializable, IServiceProvider
 {

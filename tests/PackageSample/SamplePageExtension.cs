@@ -2,7 +2,7 @@
 
 using Avalonia.Controls;
 
-using Beutl.Framework;
+using Beutl.Extensibility;
 
 using FluentAvalonia.UI.Controls;
 

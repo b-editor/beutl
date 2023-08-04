@@ -3,7 +3,6 @@
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 
-using Beutl.Framework;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;

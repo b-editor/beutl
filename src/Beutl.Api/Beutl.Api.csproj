@@ -25,7 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
     <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
-    <ProjectReference Include="..\Beutl.Framework\Beutl.Framework.csproj" />
+    <ProjectReference Include="..\Beutl.Extensibility\Beutl.Extensibility.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,13 +1,6 @@
-﻿
-using System.Reactive;
-using System.Reactive.Linq;
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
-
-using Beutl.Framework;
-using Beutl.ProjectSystem;
 
 namespace Beutl;
 

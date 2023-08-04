@@ -4,7 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 
-using Beutl.Framework.Services;
+using Beutl.Extensibility.Services;
 
 using FluentAvalonia.UI.Controls;
 
@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
-namespace Beutl.Framework;
+namespace Beutl.Extensibility;
 
 public interface IEditorContext : IDisposable, IServiceProvider
 {

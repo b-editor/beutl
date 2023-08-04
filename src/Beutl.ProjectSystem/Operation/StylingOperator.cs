@@ -8,7 +8,7 @@ using System.Reflection;
 using System.Text.Json.Nodes;
 
 using Beutl.Animation;
-using Beutl.Framework;
+using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.Reactive;
 using Beutl.Styling;

@@ -1,4 +1,4 @@
-﻿using Beutl.Framework;
+﻿using Beutl.Extensibility;
 
 namespace Beutl.Operators.Configure;
 

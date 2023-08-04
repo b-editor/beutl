@@ -12,7 +12,7 @@
     <Compile Remove="$(MSBuildThisFileDirectory)\..\ArtifactProvider.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Beutl.Graphics\Beutl.Graphics.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />

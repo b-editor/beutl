@@ -5,7 +5,7 @@ using System.Text.Json.Nodes;
 
 using Avalonia;
 
-using Beutl.Framework;
+using Beutl.Extensibility;
 using Beutl.Models;
 using Beutl.Operation;
 using Beutl.ProjectSystem;

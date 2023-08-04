@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Beutl.Graphics\Beutl.Graphics.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="$(MSBuildThisFileDirectory)\..\ArtifactProvider.cs" />

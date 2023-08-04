@@ -2,7 +2,6 @@
 
 using Avalonia.Platform.Storage;
 
-using Beutl.Framework;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 

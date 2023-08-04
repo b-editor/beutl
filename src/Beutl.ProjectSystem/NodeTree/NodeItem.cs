@@ -1,5 +1,5 @@
 ﻿using Beutl.Animation;
-using Beutl.Framework;
+using Beutl.Extensibility;
 using Beutl.Media;
 
 namespace Beutl.NodeTree;

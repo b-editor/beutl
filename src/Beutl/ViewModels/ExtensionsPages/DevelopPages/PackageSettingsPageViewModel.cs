@@ -1,15 +1,7 @@
 ﻿using Avalonia.Collections;
 
-using Beutl.Api;
 using Beutl.Api.Objects;
-
-using Beutl.Framework.Service;
 using Beutl.ViewModels.Dialogs;
-using Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
-
-using Microsoft.Extensions.DependencyInjection;
-
-using Nito.Disposables;
 
 using Reactive.Bindings;
 

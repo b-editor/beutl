@@ -6,7 +6,7 @@ using Avalonia.Xaml.Interactivity;
 
 using Beutl.Animation;
 using Beutl.Controls.Behaviors;
-using Beutl.Framework;
+using Beutl.Extensibility;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 

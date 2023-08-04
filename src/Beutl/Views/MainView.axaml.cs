@@ -23,9 +23,8 @@ using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.Controls;
-using Beutl.Framework;
-using Beutl.Framework.Service;
-using Beutl.Framework.Services;
+using Beutl.Extensibility;
+using Beutl.Extensibility.Services;
 using Beutl.Models;
 using Beutl.Pages;
 using Beutl.ProjectSystem;

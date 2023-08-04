@@ -1,7 +1,6 @@
 ﻿using Avalonia;
 
-using Beutl.Framework;
-using Beutl.Framework.Services;
+using Beutl.Extensibility.Services;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;

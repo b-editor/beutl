@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 
-using Beutl.Framework;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;

@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Beutl.Graphics\Beutl.Graphics.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" />
     <ProjectReference Include="..\..\src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
   </ItemGroup>
 

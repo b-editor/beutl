@@ -1,14 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
-using Avalonia.Markup.Xaml.MarkupExtensions;
-using Avalonia.Media;
 
-using Beutl.Controls;
 using Beutl.Controls.Navigation;
 using Beutl.Pages.SettingsPages;
 using Beutl.ViewModels;
-using Beutl.ViewModels.SettingsPages;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;

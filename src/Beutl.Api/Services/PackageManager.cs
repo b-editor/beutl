@@ -3,8 +3,7 @@ using System.Reactive.Subjects;
 using System.Reflection;
 
 using Beutl.Api.Objects;
-
-using Beutl.Framework;
+using Beutl.Extensibility;
 using Beutl.Reactive;
 
 using NuGet.Packaging;

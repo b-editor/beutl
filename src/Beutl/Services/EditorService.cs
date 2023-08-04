@@ -3,7 +3,6 @@
 using Beutl.Api.Services;
 
 using Beutl.Configuration;
-using Beutl.Framework;
 
 using Microsoft.Extensions.DependencyInjection;
 

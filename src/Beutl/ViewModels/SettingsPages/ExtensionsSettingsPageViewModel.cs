@@ -2,7 +2,7 @@
 
 using Beutl.Configuration;
 using Beutl.Controls.Navigation;
-using Beutl.Framework;
+using Beutl.Extensibility;
 
 using Microsoft.Extensions.DependencyInjection;
 

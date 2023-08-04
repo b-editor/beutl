@@ -4,7 +4,7 @@ using Avalonia.Platform.Storage;
 
 using FluentAvalonia.UI.Controls;
 
-namespace Beutl.Framework;
+namespace Beutl.Extensibility;
 
 public abstract class ProjectItemExtension : Extension
 {

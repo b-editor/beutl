@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Beutl.Api;
 
 using Beutl.Controls.Navigation;
-using Beutl.Framework.Service;
+using Beutl.Extensibility.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 

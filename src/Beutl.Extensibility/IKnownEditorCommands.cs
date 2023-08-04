@@ -1,4 +1,4 @@
-﻿namespace Beutl.Framework;
+﻿namespace Beutl.Extensibility;
 
 public interface IKnownEditorCommands
 {

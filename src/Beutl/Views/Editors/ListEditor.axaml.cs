@@ -13,7 +13,7 @@ using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.Controls.Behaviors;
-using Beutl.Framework.Service;
+using Beutl.Extensibility.Services;
 using Beutl.ViewModels.Editors;
 
 using FluentAvalonia.UI.Controls;

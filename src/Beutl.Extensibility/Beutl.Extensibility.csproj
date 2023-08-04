@@ -2,7 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
-    <ProjectReference Include="..\Beutl.Graphics\Beutl.Graphics.csproj" />
+    <ProjectReference Include="..\Beutl.Engine\Beutl.Engine.csproj" />
   </ItemGroup>
 
   <ItemGroup>

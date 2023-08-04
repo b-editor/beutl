@@ -1,6 +1,4 @@
-﻿using Beutl.Framework;
-
-namespace Beutl.ViewModels.Editors;
+﻿namespace Beutl.ViewModels.Editors;
 
 public sealed class OpacityEditorViewModel : ValueEditorViewModel<float>
 {

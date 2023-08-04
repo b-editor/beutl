@@ -4,12 +4,12 @@ using Avalonia.Controls;
 
 using FluentAvalonia.UI.Controls;
 
-namespace Beutl.Framework;
+namespace Beutl.Extensibility;
 
 public abstract class PageExtension : Extension
 {
     public abstract Control CreateControl();
-    
+
     public abstract IPageContext CreateContext();
 
     public abstract IconSource GetFilledIcon();

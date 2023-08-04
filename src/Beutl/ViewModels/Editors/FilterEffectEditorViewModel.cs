@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Commands;
-using Beutl.Framework;
 using Beutl.Graphics.Effects;
 using Beutl.Operators.Configure;
 

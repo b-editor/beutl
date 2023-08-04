@@ -5,7 +5,7 @@ using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Layout;
 
-using Beutl.Framework;
+using Beutl.Extensibility;
 
 using Reactive.Bindings;
 

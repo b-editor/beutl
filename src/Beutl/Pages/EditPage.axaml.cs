@@ -6,11 +6,9 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Interactivity;
-using Avalonia.Media;
 using Avalonia.VisualTree;
 
 using Beutl.Controls;
-using Beutl.Framework;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.Views;
