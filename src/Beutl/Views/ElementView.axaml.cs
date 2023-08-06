@@ -472,29 +472,6 @@ public sealed partial class ElementView : UserControl
     {
         private bool _pressedWithModifier;
         private Thickness _snapshot;
-        private static readonly Avalonia.Animation.Animation s_animation1 = new()
-        {
-            Duration = TimeSpan.FromSeconds(0.083),
-            Children =
-            {
-                new KeyFrame
-                {
-                    Cue = new Cue(0),
-                    Setters =
-                    {
-                        new Setter(OpacityProperty, 1d),
-                    }
-                },
-                new KeyFrame
-                {
-                    Cue = new Cue(1),
-                    Setters =
-                    {
-                        new Setter(OpacityProperty, 0.8),
-                    }
-                }
-            }
-        };
 
         protected override void OnAttached()
         {
@@ -540,7 +517,7 @@ public sealed partial class ElementView : UserControl
             }
         }
 
-        private async void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
+        private void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
         {
             if (AssociatedObject is { _timeline: { } } obj)
             {
@@ -555,9 +532,6 @@ public sealed partial class ElementView : UserControl
                     }
                     else
                     {
-                        s_animation1.PlaybackDirection = PlaybackDirection.Normal;
-                        Task task1 = s_animation1.RunAsync(obj.border);
-
                         if (e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt)
                         {
                             EditViewModel editorContext = obj._timeline.ViewModel.EditorContext;
@@ -572,14 +546,13 @@ public sealed partial class ElementView : UserControl
                             _pressedWithModifier = true;
                         }
 
-                        await task1;
                         obj.border.Opacity = 0.8;
                     }
                 }
             }
         }
 
-        private async void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
+        private void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
             if (AssociatedObject is { _timeline: { } } obj)
             {
@@ -596,8 +569,6 @@ public sealed partial class ElementView : UserControl
                     _pressedWithModifier = false;
                 }
 
-                s_animation1.PlaybackDirection = PlaybackDirection.Reverse;
-                await s_animation1.RunAsync(obj.border);
                 obj.border.Opacity = 1;
             }
         }
