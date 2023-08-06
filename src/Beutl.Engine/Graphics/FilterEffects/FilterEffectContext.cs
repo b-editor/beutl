@@ -344,10 +344,14 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
 
     public void Apply(FilterEffect? filterEffect)
     {
-        if (filterEffect is { IsEnabled: true })
+        if (filterEffect != null)
         {
             _versions.Add((filterEffect, filterEffect.Version));
-            filterEffect.ApplyTo(this);
+
+            if (filterEffect is { IsEnabled: true })
+            {
+                filterEffect.ApplyTo(this);
+            }
         }
     }
 

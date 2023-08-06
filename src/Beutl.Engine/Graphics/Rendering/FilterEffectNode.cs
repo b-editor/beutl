@@ -67,13 +67,18 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
             {
                 using (var paint = new SKPaint())
                 {
+                    paint.BlendMode = (SKBlendMode)canvas.BlendMode;
                     paint.ImageFilter = builder.GetFilter();
-                    canvas.Canvas.Translate(activator.Bounds.X - activator.OriginalBounds.X, activator.Bounds.Y - activator.OriginalBounds.Y);
-                    int count = canvas.Canvas.SaveLayer(paint);
 
-                    activator.CurrentTarget.Draw(canvas);
+                    using (canvas.PushBlendMode(BlendMode.SrcOver))
+                    {
+                        canvas.Canvas.Translate(activator.Bounds.X - activator.OriginalBounds.X, activator.Bounds.Y - activator.OriginalBounds.Y);
+                        int count = canvas.Canvas.SaveLayer(paint);
 
-                    canvas.Canvas.RestoreToCount(count);
+                        activator.CurrentTarget.Draw(canvas);
+
+                        canvas.Canvas.RestoreToCount(count);
+                    }
                 }
             }
             else
