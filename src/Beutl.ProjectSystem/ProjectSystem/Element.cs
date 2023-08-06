@@ -1,9 +1,6 @@
-﻿using System.Collections.Specialized;
+﻿using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using System.Diagnostics;
-using System.Reactive;
 using System.Reactive.Linq;
-using System.Text;
 using System.Text.Json.Nodes;
 
 using Beutl.Animation;
@@ -207,9 +204,56 @@ public class Element : ProjectItem
             && scene != null
             && Start <= scene.CurrentFrame
             && scene.CurrentFrame < Start + Length
-            && scene.Renderer is { IsDisposed: false, IsGraphicsRendering: false })
+            && scene.Renderer is { IsDisposed: false })
         {
             scene.Renderer.RaiseInvalidated(scene.CurrentFrame);
+        }
+    }
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        base.OnPropertyChanged(args);
+
+        if (args is CorePropertyChangedEventArgs e)
+        {
+            TimeRange GetOldRange()
+            {
+                if (e.Property == StartProperty)
+                {
+                    return new TimeRange(((CorePropertyChangedEventArgs<TimeSpan>)args).OldValue, Length);
+                }
+                else if (e.Property == LengthProperty)
+                {
+                    return new TimeRange(Start, ((CorePropertyChangedEventArgs<TimeSpan>)args).OldValue);
+                }
+                else
+                {
+                    return default;
+                }
+            }
+
+            if (e.Property == StartProperty || e.Property == LengthProperty)
+            {
+                if (IsEnabled)
+                {
+                    Scene? scene = this.FindHierarchicalParent<Scene>();
+                    if (scene is { Renderer.IsDisposed: false } renderer)
+                    {
+                        TimeRange newRange = Range;
+                        TimeRange oldRange = GetOldRange();
+                        TimeSpan current = scene.CurrentFrame;
+
+                        if (newRange.Contains(current) || oldRange.Contains(current))
+                        {
+                            renderer.Renderer.RaiseInvalidated(scene.CurrentFrame);
+                        }
+                    }
+                }
+            }
+            else if (e.Property == ZIndexProperty)
+            {
+                ForceRender();
+            }
         }
     }
 

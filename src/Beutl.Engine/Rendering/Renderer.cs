@@ -2,7 +2,6 @@
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Rendering.Cache;
-using Beutl.Threading;
 
 using SkiaSharp;
 

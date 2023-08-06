@@ -77,14 +77,6 @@ public class Scene : ProjectItem
             .Accessor(o => o.CacheOptions, (o, v) => o.CacheOptions = v)
             .DefaultValue(RenderCacheOptions.Default)
             .Register();
-
-        CurrentFrameProperty.Changed.Subscribe(e =>
-        {
-            if (e.Sender is Scene scene)
-            {
-                scene._renderer.RaiseInvalidated(e.NewValue);
-            }
-        });
     }
 
     public int Width => Renderer.RenderScene.Size.Width;
@@ -396,8 +388,9 @@ public class Scene : ProjectItem
 
     private void Children_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (e.Action == NotifyCollectionChangedAction.Remove &&
-            e.OldItems != null)
+        bool shouldRender = false;
+        if (e.Action == NotifyCollectionChangedAction.Remove
+            && e.OldItems != null)
         {
             string dirPath = Path.GetDirectoryName(FileName)!;
             foreach (Element item in e.OldItems.OfType<Element>())
@@ -408,8 +401,23 @@ public class Scene : ProjectItem
                 {
                     _excludeElements.Add(rel);
                 }
+
+                if (item.Range.Contains(CurrentFrame))
+                    shouldRender = true;
             }
         }
+        else if (e.Action == NotifyCollectionChangedAction.Add
+            && e.NewItems != null)
+        {
+            foreach (Element item in e.NewItems.OfType<Element>())
+            {
+                if (item.Range.Contains(CurrentFrame))
+                    shouldRender = true;
+            }
+        }
+
+        if (shouldRender && Renderer is { IsDisposed: false })
+            Renderer.RaiseInvalidated(CurrentFrame);
     }
 
     private int NearestLayerNumber(Element element)

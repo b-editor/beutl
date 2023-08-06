@@ -256,11 +256,12 @@ public sealed class ElementViewModel : IDisposable
     private void OnDelete()
     {
         string fileName = Model.FileName;
-        Scene.RemoveChild(Model).Do();
         if (File.Exists(fileName))
         {
             File.Delete(fileName);
         }
+
+        Scene.RemoveChild(Model).Do();
     }
 
     private void OnBringAnimationToTop()
