@@ -796,4 +796,7 @@ and b-editor maintains the download URL.</value>
   <data name="Group" xml:space="preserve">
     <value>Group</value>
   </data>
+  <data name="SelectFilterEffect" xml:space="preserve">
+    <value>Select Filter Effect</value>
+  </data>
 </root>

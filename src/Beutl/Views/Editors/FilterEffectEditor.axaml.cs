@@ -7,7 +7,9 @@ using Avalonia.Interactivity;
 
 using Beutl.Graphics.Effects;
 using Beutl.Services;
+using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
+using Beutl.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
@@ -106,41 +108,25 @@ public partial class FilterEffectEditor : UserControl
 
     private static async Task<Type?> SelectType()
     {
-        Type[] availableTypes = await Task.Run(() =>
+        var viewModel = new SelectFilterEffectTypeViewModel();
+        var dialog = new SelectFilterEffectType
         {
-            Type itemType = typeof(FilterEffect);
-            return AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(x => x.GetTypes())
-                .Where(x => !x.IsAbstract
-                    && x.IsPublic
-                    && x.IsAssignableTo(itemType)
-                    && (itemType.GetConstructor(Array.Empty<Type>()) != null
-                    || itemType.GetConstructors().Length == 0))
-                .ToArray();
-        });
-
-        var combobox = new ComboBox
-        {
-            ItemsSource = availableTypes,
-            SelectedIndex = 0
-        };
-
-        var dialog = new ContentDialog
-        {
-            Content = combobox,
-            Title = Message.MultipleTypesAreAvailable,
-            PrimaryButtonText = Strings.OK,
-            CloseButtonText = Strings.Cancel
+            DataContext = viewModel
         };
 
         if (await dialog.ShowAsync() == ContentDialogResult.Primary)
         {
-            return combobox.SelectedItem as Type;
+            if (viewModel.SelectedItem.Value is SingleTypeLibraryItem single)
+            {
+                return single.ImplementationType;
+            }
+            else if (viewModel.SelectedItem.Value is MultipleTypeLibraryItem multi)
+            {
+                return multi.Types.GetValueOrDefault(KnownLibraryItemFormats.FilterEffect);
+            }
         }
-        else
-        {
-            return null;
-        }
+
+        return null;
     }
 
     private async void ChangeFilterTypeClick(object? sender, RoutedEventArgs e)

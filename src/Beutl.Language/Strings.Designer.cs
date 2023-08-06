@@ -1709,6 +1709,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Select Filter Effect に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SelectFilterEffect {
+            get {
+                return ResourceManager.GetString("SelectFilterEffect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Select image asset に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string SelectImageAsset {

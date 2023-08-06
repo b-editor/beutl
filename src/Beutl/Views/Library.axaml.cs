@@ -92,8 +92,8 @@ public sealed partial class Library : UserControl
         KeyValuePair<int, LibraryItemViewModel>? item;
         if (e.GetCurrentPoint(searchResult).Properties.IsLeftButtonPressed)
         {
-            await Task.Delay(10);
-            item = searchResult.SelectedItem as KeyValuePair<int, LibraryItemViewModel>?;
+            item = (e.Source as StyledElement)?.DataContext as KeyValuePair<int, LibraryItemViewModel>?;
+            searchResult.SelectedItem = item;
         }
         else
         {

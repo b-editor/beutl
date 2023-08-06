@@ -796,4 +796,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Group" xml:space="preserve">
     <value>グループ</value>
   </data>
+  <data name="SelectFilterEffect" xml:space="preserve">
+    <value>フィルタエフェクトを選択</value>
+  </data>
 </root>

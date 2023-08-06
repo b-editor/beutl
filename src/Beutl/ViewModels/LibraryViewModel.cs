@@ -75,7 +75,7 @@ public class LibraryItemViewModel
             DisplayName = registryItem.DisplayName,
             Description = registryItem.Description,
             Data = registryItem,
-            Type = Strings.SourceOperators,
+            Type = CreateTypeString(registryItem),
             FullDisplayName = parentFullName != null
                 ? $"{parentFullName} / {registryItem.DisplayName}"
                 : registryItem.DisplayName
@@ -163,6 +163,61 @@ public class LibraryItemViewModel
         }
 
         return result;
+    }
+
+    private static string CreateTypeString(LibraryItem item)
+    {
+        static string FormatToString(string str)
+        {
+            return str switch
+            {
+                // Todo: localize
+                KnownLibraryItemFormats.Transform => Strings.Transform,
+                KnownLibraryItemFormats.Sound => "Sound",
+                KnownLibraryItemFormats.Geometry => "Geometry",
+                KnownLibraryItemFormats.Drawable => "Drawable",
+                KnownLibraryItemFormats.Brush => "Brush",
+                KnownLibraryItemFormats.Easing => Strings.Easing,
+                KnownLibraryItemFormats.FilterEffect => "FilterEffect",
+                KnownLibraryItemFormats.Node => "Node",
+                KnownLibraryItemFormats.SoundEffect => "Node",
+                KnownLibraryItemFormats.SourceOperator => Strings.SourceOperators,
+                _ => string.Empty,
+            };
+        }
+
+        if (item is GroupLibraryItem)
+        {
+            return Strings.Group;
+        }
+        else if (item is SingleTypeLibraryItem single)
+        {
+            return FormatToString(single.Format);
+        }
+        else if (item is MultipleTypeLibraryItem multi)
+        {
+            string[] array = multi.Types.Keys
+                .Select(FormatToString)
+                .Where(v => !string.IsNullOrEmpty(v))
+                .ToArray();
+            Array.Sort(array);
+
+            var sb = new StringBuilder(multi.Types.Count * 12);
+            for (int i = 0; i < array.Length - 1; i++)
+            {
+                sb.Append(array[i]);
+                sb.Append(" | ");
+            }
+
+            if (array.Length > 0)
+                sb.Append(array[^1]);
+
+            return sb.ToString();
+        }
+        else
+        {
+            return string.Empty;
+        }
     }
 }
 

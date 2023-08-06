@@ -105,12 +105,12 @@ public partial class TransformEditor : UserControl
     {
         var items = new (KnownTransformType Tag, string Name, string? Icon)[]
         {
-            (KnownTransformType.Group,      "Group",       null),
-            (KnownTransformType.Translate,  "Translate",   "TranslateTransformIconData"),
-            (KnownTransformType.Rotation,   "Rotation",    "RotationTransformIconData"),
-            (KnownTransformType.Scale,      "Scale",       "ScaleTransformIconData"),
-            (KnownTransformType.Skew,       "Skew",        "SkewTransformIconData"),
-            (KnownTransformType.Rotation3D, "Rotation 3D", "Rotation3DTransformIconData"),
+            (KnownTransformType.Group,      Strings.Group,      null),
+            (KnownTransformType.Translate,  Strings.Translate,  "TranslateTransformIconData"),
+            (KnownTransformType.Rotation,   Strings.Rotation,   "RotationTransformIconData"),
+            (KnownTransformType.Scale,      Strings.Scale,      "ScaleTransformIconData"),
+            (KnownTransformType.Skew,       Strings.Skew,       "SkewTransformIconData"),
+            (KnownTransformType.Rotation3D, Strings.Rotation3D, "Rotation3DTransformIconData"),
         };
         return items.Select(x =>
             {
@@ -141,6 +141,7 @@ public partial class TransformEditor : UserControl
     {
         return s_flyout ??= new FAMenuFlyout()
         {
+            Placement = PlacementMode.BottomEdgeAlignedRight,
             ItemsSource = CreateMenuItems((s, e) => s_handler?.Invoke(s, e))
         };
     }
@@ -161,7 +162,7 @@ public partial class TransformEditor : UserControl
             if (viewModel.IsGroup.Value)
             {
                 FAMenuFlyout flyout = GetOrCreateFlyout();
-                flyout.ShowAt(this);
+                flyout.ShowAt(expandToggle);
 
                 s_handler += AddTransformClick;
                 flyout.Closed += Flyout_Closed;
