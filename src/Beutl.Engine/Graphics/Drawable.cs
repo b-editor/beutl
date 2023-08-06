@@ -5,7 +5,6 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using Beutl.Rendering;
 
 namespace Beutl.Graphics;
@@ -17,7 +16,7 @@ public abstract class Drawable : Renderable, IHierarchical
     public static readonly CoreProperty<AlignmentX> AlignmentXProperty;
     public static readonly CoreProperty<AlignmentY> AlignmentYProperty;
     public static readonly CoreProperty<RelativePoint> TransformOriginProperty;
-    public static readonly CoreProperty<IBrush?> ForegroundProperty;
+    public static readonly CoreProperty<IBrush?> FillProperty;
     public static readonly CoreProperty<IBrush?> OpacityMaskProperty;
     public static readonly CoreProperty<BlendMode> BlendModeProperty;
     private ITransform? _transform;
@@ -25,7 +24,7 @@ public abstract class Drawable : Renderable, IHierarchical
     private AlignmentX _alignX = AlignmentX.Center;
     private AlignmentY _alignY = AlignmentY.Center;
     private RelativePoint _transformOrigin = RelativePoint.Center;
-    private IBrush? _foreground = new SolidColorBrush(Colors.White);
+    private IBrush? _fill = new SolidColorBrush(Colors.White);
     private IBrush? _opacityMask;
     private BlendMode _blendMode = BlendMode.SrcOver;
 
@@ -56,8 +55,8 @@ public abstract class Drawable : Renderable, IHierarchical
             .DefaultValue(RelativePoint.Center)
             .Register();
 
-        ForegroundProperty = ConfigureProperty<IBrush?, Drawable>(nameof(Foreground))
-            .Accessor(o => o.Foreground, (o, v) => o.Foreground = v)
+        FillProperty = ConfigureProperty<IBrush?, Drawable>(nameof(Fill))
+            .Accessor(o => o.Fill, (o, v) => o.Fill = v)
             .Register();
 
         OpacityMaskProperty = ConfigureProperty<IBrush?, Drawable>(nameof(OpacityMask))
@@ -74,7 +73,7 @@ public abstract class Drawable : Renderable, IHierarchical
             TransformProperty, FilterEffectProperty,
             AlignmentXProperty, AlignmentYProperty,
             TransformOriginProperty,
-            ForegroundProperty, OpacityMaskProperty,
+            FillProperty, OpacityMaskProperty,
             BlendModeProperty);
     }
 
@@ -115,11 +114,11 @@ public abstract class Drawable : Renderable, IHierarchical
         set => SetAndRaise(TransformOriginProperty, ref _transformOrigin, value);
     }
 
-    [Display(Name = nameof(Strings.Foreground), ResourceType = typeof(Strings), GroupName = nameof(Strings.Foreground))]
-    public IBrush? Foreground
+    [Display(Name = nameof(Strings.Fill), ResourceType = typeof(Strings), GroupName = nameof(Strings.Fill))]
+    public IBrush? Fill
     {
-        get => _foreground;
-        set => SetAndRaise(ForegroundProperty, ref _foreground, value);
+        get => _fill;
+        set => SetAndRaise(FillProperty, ref _fill, value);
     }
 
     [Display(Name = nameof(Strings.OpacityMask), ResourceType = typeof(Strings))]
@@ -192,15 +191,6 @@ public abstract class Drawable : Renderable, IHierarchical
 
             Bounds = transformedBounds;
         }
-
-#if DEBUG
-        //Rect bounds = Bounds.Inflate(10);
-        //using (canvas.PushTransform(Matrix.CreateTranslation(bounds.Position)))
-        //using (canvas.PushStrokeWidth(5))
-        //{
-        //    canvas.DrawRect(bounds.Size);
-        //}
-#endif
     }
 
     public override void ApplyAnimations(IClock clock)
@@ -208,7 +198,7 @@ public abstract class Drawable : Renderable, IHierarchical
         base.ApplyAnimations(clock);
         (Transform as Animatable)?.ApplyAnimations(clock);
         (FilterEffect as Animatable)?.ApplyAnimations(clock);
-        (Foreground as Animatable)?.ApplyAnimations(clock);
+        (Fill as Animatable)?.ApplyAnimations(clock);
         (OpacityMask as Animatable)?.ApplyAnimations(clock);
     }
 

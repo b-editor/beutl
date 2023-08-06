@@ -111,7 +111,7 @@ public class SourceVideo : Drawable
             Rational rate = _source.FrameRate;
             double frameNum = pos.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
 
-            canvas.DrawVideoSource(_source, (int)frameNum, Foreground, null);
+            canvas.DrawVideoSource(_source, (int)frameNum, Fill, null);
         }
     }
 }

@@ -9,7 +9,7 @@ public sealed class TextBlockOperator : DrawablePublishOperator<TextBlock>
 {
     public Setter<float> Size { get; set; } = new Setter<float>(TextBlock.SizeProperty, 24);
 
-    public Setter<IBrush?> Foreground { get; set; } = new Setter<IBrush?>(Drawable.ForegroundProperty, new SolidColorBrush(Colors.White));
+    public Setter<IBrush?> Foreground { get; set; } = new Setter<IBrush?>(Drawable.FillProperty, new SolidColorBrush(Colors.White));
 
     public Setter<FontFamily> FontFamily { get; set; } = new Setter<FontFamily>(TextBlock.FontFamilyProperty, Media.FontFamily.Default);
 

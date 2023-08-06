@@ -54,13 +54,13 @@ public class StyleTests
 
         _obj2 = new RectShape
         {
-            Foreground = Brushes.White
+            Fill = Brushes.White
         };
         style1 = new Style<RectShape>
         {
             Setters =
             {
-                new Setter<IBrush>(Drawable.ForegroundProperty, new SolidColorBrush
+                new Setter<IBrush>(Drawable.FillProperty, new SolidColorBrush
                 {
                     Color = Colors.Red,
                     Opacity = 0.5F
@@ -71,7 +71,7 @@ public class StyleTests
         {
             Setters =
             {
-                new Setter<IBrush>(Drawable.ForegroundProperty, new SolidColorBrush
+                new Setter<IBrush>(Drawable.FillProperty, new SolidColorBrush
                 {
                     Color = Colors.White,
                     Opacity = 1
@@ -109,7 +109,7 @@ public class StyleTests
         using (SolidColorBrush.ColorProperty.Changed.Subscribe(e =>
         {
             // White -> Red -> White
-            if (e.Sender == _obj2.Foreground && ++count1 > 2)
+            if (e.Sender == _obj2.Fill && ++count1 > 2)
             {
                 Assert.Fail();
             }
@@ -117,12 +117,12 @@ public class StyleTests
         using (Brush.OpacityProperty.Changed.Subscribe(e =>
         {
             // 1.0 -> 0.5 -> 1.0
-            if (e.Sender == _obj2.Foreground && ++count2 > 2)
+            if (e.Sender == _obj2.Fill && ++count2 > 2)
             {
                 Assert.Fail();
             }
         }))
-        using (Drawable.ForegroundProperty.Changed.Subscribe(e =>
+        using (Drawable.FillProperty.Changed.Subscribe(e =>
         {
             // ImmutableSolidColorBrush(White) -> SolidColorBrush(Transparent)
             if (e.Sender == _obj2 && ++count3 > 1)
@@ -139,8 +139,8 @@ public class StyleTests
             instance.Apply(new Clock());
             instance.End();
 
-            Assert.AreEqual(Colors.White, ((ISolidColorBrush)_obj2.Foreground).Color);
-            Assert.AreEqual(1, _obj2.Foreground.Opacity);
+            Assert.AreEqual(Colors.White, ((ISolidColorBrush)_obj2.Fill).Color);
+            Assert.AreEqual(1, _obj2.Fill.Opacity);
         }
     }
 

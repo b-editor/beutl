@@ -5,9 +5,9 @@ using Beutl.Styling;
 
 namespace Beutl.Operators.Configure;
 
-public sealed class ForegroundOperator : SourceStyler
+public sealed class FillOperator : SourceStyler
 {
-    public Setter<IBrush?> Foreground { get; set; } = new(Drawable.ForegroundProperty, null);
+    public Setter<IBrush?> Fill { get; set; } = new(Drawable.FillProperty, null);
 
     protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
     {

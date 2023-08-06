@@ -247,7 +247,7 @@ public abstract class Shape : Drawable
 
         using (canvas.PushTransform(matrix))
         {
-            canvas.DrawGeometry(geometry, Foreground, Pen);
+            canvas.DrawGeometry(geometry, Fill, Pen);
         }
     }
 

@@ -20,7 +20,7 @@ public class ShapeTests
 
             Width = 100,
             Height = 100,
-            Foreground = Brushes.White
+            Fill = Brushes.White
         };
 
         using var canvas = new ImmediateCanvas(250, 250);
@@ -45,7 +45,7 @@ public class ShapeTests
             Width = 100,
             Height = 100,
 
-            Foreground = Brushes.Gray,
+            Fill = Brushes.Gray,
             Pen = new Pen()
             {
                 Brush = Brushes.White,
@@ -80,7 +80,7 @@ public class ShapeTests
 
             Width = 100,
             Height = 100,
-            Foreground = Brushes.White
+            Fill = Brushes.White
         };
 
         using var canvas = new ImmediateCanvas(250, 250);
@@ -106,7 +106,7 @@ public class ShapeTests
             Height = 100,
             CornerRadius = new CornerRadius(25),
 
-            Foreground = Brushes.White
+            Fill = Brushes.White
         };
 
         using var canvas = new ImmediateCanvas(250, 250);
@@ -135,7 +135,7 @@ public class ShapeTests
             Height = 100,
             CornerRadius = new CornerRadius(25),
 
-            Foreground = Brushes.Gray,
+            Fill = Brushes.Gray,
             Pen = new Pen()
             {
                 Brush = Brushes.White,
@@ -178,7 +178,7 @@ public class ShapeTests
             TransformOrigin = RelativePoint.Center,
 
             Data = geometry,
-            Foreground = Brushes.White
+            Fill = Brushes.White
         };
 
         using var canvas = new ImmediateCanvas(250, 250);
@@ -224,7 +224,7 @@ public class ShapeTests
 
             Data = geometry,
 
-            Foreground = Brushes.Gray,
+            Fill = Brushes.Gray,
             Pen = new Pen()
             {
                 Brush = Brushes.White,

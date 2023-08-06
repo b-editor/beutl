@@ -32,7 +32,7 @@ public static class NodesRegistrar
             .Register();
 
         NodeRegistry.RegisterNodes("Brush")
-            .Add<ForegroundNode>("Set Foreground")
+            .Add<FillNode>("Set Fill Brush")
             .Add<SolidColorBrushNode>("Solid Color Brush")
             .Add<LinearGradientBrushNode>("Linear Gradient Brush")
             .Add<RadialGradientBrushNode>("Radial Gradient Brush")

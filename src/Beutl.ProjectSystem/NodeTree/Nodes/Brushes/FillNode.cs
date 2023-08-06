@@ -3,11 +3,11 @@ using Beutl.Media;
 
 namespace Beutl.NodeTree.Nodes.Brushes;
 
-public class ForegroundNode : ConfigureNode
+public class FillNode : ConfigureNode
 {
     private readonly InputSocket<IBrush> _brushSocket;
 
-    public ForegroundNode()
+    public FillNode()
     {
         _brushSocket = AsInput<IBrush>("Brush");
     }
@@ -18,11 +18,11 @@ public class ForegroundNode : ConfigureNode
 
     protected override void Detach(Drawable drawable, object? state)
     {
-        drawable.Foreground = null;
+        drawable.Fill = null;
     }
 
     protected override void EvaluateCore(Drawable drawable, object? state)
     {
-        drawable.Foreground = _brushSocket.Value;
+        drawable.Fill = _brushSocket.Value;
     }
 }

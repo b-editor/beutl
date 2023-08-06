@@ -206,7 +206,7 @@ public static class LibraryRegistrar
 
             .AddSourceOperator<Configure.BlendOperator>(Strings.BlendMode)
 
-            .AddSourceOperator<Configure.ForegroundOperator>(Strings.Foreground)
+            .AddSourceOperator<Configure.FillOperator>(Strings.Foreground)
 
             .AddSourceOperator<Configure.OpacityMaskOperator>(Strings.OpacityMask)
         );

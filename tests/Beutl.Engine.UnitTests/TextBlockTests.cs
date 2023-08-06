@@ -41,7 +41,7 @@ public class TextBlockTests
             FontStyle = typeface.Style,
             FontWeight = typeface.Weight,
             Size = 100,
-            Foreground = Brushes.Black,
+            Fill = Brushes.Black,
             Spacing = 0,
             Text = str
         };
@@ -69,7 +69,7 @@ public class TextBlockTests
             FontStyle = typeface.Style,
             FontWeight = typeface.Weight,
             Size = 100,
-            Foreground = Brushes.White,
+            Fill = Brushes.White,
             Spacing = 0,
             Text = Case1
         };

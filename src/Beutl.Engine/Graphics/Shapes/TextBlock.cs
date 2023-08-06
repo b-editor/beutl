@@ -255,7 +255,7 @@ public class TextBlock : Drawable
                             {
                                 Size elementBounds = item.Bounds;
 
-                                canvas.DrawText(item, item.Brush ?? Foreground, item.Pen ?? Pen);
+                                canvas.DrawText(item, item.Brush ?? Fill, item.Pen ?? Pen);
 
                                 prevRight += elementBounds.Width + item.Margin.Right;
                             }
@@ -276,7 +276,7 @@ public class TextBlock : Drawable
             or nameof(FontFamily)
             or nameof(FontStyle)
             or nameof(FontWeight)
-            or nameof(Foreground)
+            or nameof(Fill)
             or nameof(Spacing)
             or nameof(Margin)
             or nameof(Pen))
@@ -292,7 +292,7 @@ public class TextBlock : Drawable
         var options = new FormattedTextInfo(
             Typeface: new Typeface(_fontFamily, _fontStyle, _fontWeight),
             Size: _size,
-            Brush: (Foreground as IMutableBrush)?.ToImmutable(),
+            Brush: (Fill as IMutableBrush)?.ToImmutable(),
             Space: _spacing,
             Margin: _margin,
             Pen: _pen);
