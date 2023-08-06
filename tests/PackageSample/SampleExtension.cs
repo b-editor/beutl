@@ -1,5 +1,6 @@
 ﻿using Beutl.Extensibility;
 using Beutl.Operation;
+using Beutl.Services;
 
 namespace PackageSample;
 
@@ -12,6 +13,6 @@ public sealed class SampleExtension : LayerExtension
 
     public override void Load()
     {
-        OperatorRegistry.RegisterOperation<SampleOp>("Sample Operator");
+        LibraryService.Current.Register<SampleOp>(KnownLibraryItemFormats.SourceOperator, "Sample Operator");
     }
 }
