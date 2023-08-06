@@ -2,6 +2,7 @@
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 
 using Beutl.Graphics.Effects;
@@ -39,6 +40,40 @@ public partial class FilterEffectEditor : UserControl
                     await s_transition.Start(content, null, localToken);
                 }
             });
+
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, DragOver);
+        AddHandler(DragDrop.DropEvent, Drop);
+    }
+
+    private void Drop(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Get(KnownLibraryItemFormats.FilterEffect) is Type type
+            && DataContext is FilterEffectEditorViewModel viewModel)
+        {
+            if (viewModel.IsGroup.Value)
+            {
+                viewModel.AddItem(type);
+            }
+            else
+            {
+                viewModel.ChangeFilterType(type);
+            }
+
+            e.Handled = true;
+        }
+    }
+
+    private void DragOver(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Contains(KnownLibraryItemFormats.FilterEffect))
+        {
+            e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
+        }
+        else
+        {
+            e.DragEffects = DragDropEffects.None;
+        }
     }
 
     private async void Tag_Click(object? sender, RoutedEventArgs e)

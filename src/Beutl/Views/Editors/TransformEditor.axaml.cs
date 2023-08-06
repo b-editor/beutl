@@ -2,9 +2,11 @@
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Data.Converters;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 
+using Beutl.Graphics.Transformation;
+using Beutl.Services;
 using Beutl.ViewModels.Editors;
 
 using FluentAvalonia.UI.Controls;
@@ -40,6 +42,62 @@ public partial class TransformEditor : UserControl
             });
 
         ChangeTypeMenu.ItemsSource = CreateMenuItems(TransformTypeClicked);
+
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, DragOver);
+        AddHandler(DragDrop.DropEvent, Drop);
+    }
+
+    private void Drop(object? sender, DragEventArgs e)
+    {
+        KnownTransformType ToKnownType(Type type)
+        {
+            if (type == typeof(TransformGroup))
+                return KnownTransformType.Group;
+            else if (type == typeof(TranslateTransform))
+                return KnownTransformType.Translate;
+            else if (type == typeof(RotationTransform))
+                return KnownTransformType.Rotation;
+            else if (type == typeof(ScaleTransform))
+                return KnownTransformType.Scale;
+            else if (type == typeof(SkewTransform))
+                return KnownTransformType.Skew;
+            else if (type == typeof(Rotation3DTransform))
+                return KnownTransformType.Rotation3D;
+            else
+                return KnownTransformType.Unknown;
+        }
+
+        if (e.Data.Get(KnownLibraryItemFormats.Transform) is Type type
+            && DataContext is TransformEditorViewModel viewModel)
+        {
+            KnownTransformType knownType = ToKnownType(type);
+            if (knownType == KnownTransformType.Unknown)
+                return;
+
+            if (viewModel.IsGroup.Value)
+            {
+                viewModel.AddItem(knownType);
+            }
+            else
+            {
+                viewModel.ChangeType(knownType);
+            }
+
+            e.Handled = true;
+        }
+    }
+
+    private void DragOver(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Contains(KnownLibraryItemFormats.Transform))
+        {
+            e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
+        }
+        else
+        {
+            e.DragEffects = DragDropEffects.None;
+        }
     }
 
     private static MenuFlyoutItem[] CreateMenuItems(EventHandler<RoutedEventArgs>? handler)
