@@ -83,51 +83,56 @@ public static class LibraryRegistrar
 
     public static void RegisterAll()
     {
-        LibraryService.Current.RegisterGroup(Strings.Source, group => group
+        LibraryService.Current
             .AddMultiple(Strings.Ellipse, m => m
                 .BindSourceOperator<Source.EllipseOperator>()
                 .BindDrawable<Graphics.Shapes.EllipseShape>()
                 .BindNode<NodeTree.Nodes.Geometry.EllipseGeometryNode>()
                 .BindGeometry<EllipseGeometry>()
-            )
+            );
 
+        LibraryService.Current
             .AddMultiple(Strings.Rectangle, m => m
                 .BindSourceOperator<Source.RectOperator>()
                 .BindDrawable<Graphics.Shapes.RectShape>()
                 .BindNode<NodeTree.Nodes.Geometry.RectGeometryNode>()
                 .BindGeometry<RectGeometry>()
-            )
+            );
 
+        LibraryService.Current
             .AddMultiple(Strings.RoundedRect, m => m
                 .BindSourceOperator<Source.RoundedRectOperator>()
                 .BindDrawable<Graphics.Shapes.RoundedRectShape>()
                 .BindNode<NodeTree.Nodes.Geometry.RoundedRectGeometryNode>()
                 .BindGeometry<RoundedRectGeometry>()
-            )
+            );
 
+        LibraryService.Current
             .AddMultiple(Strings.Text, m => m
                 .BindSourceOperator<Source.TextBlockOperator>()
                 .BindDrawable<Graphics.Shapes.TextBlock>()
-            )
+            );
 
+        LibraryService.Current
             .AddMultiple("SourceVideo", m => m
                 .BindSourceOperator<Source.SourceVideoOperator>()
                 .BindDrawable<SourceVideo>()
-            )
+            );
 
+        LibraryService.Current
             .AddMultiple("SourceImage", m => m
                 .BindSourceOperator<Source.SourceImageOperator>()
                 .BindDrawable<SourceImage>()
-            )
+            );
 
+        LibraryService.Current
             .AddMultiple("SourceSound", m => m
                 .BindSourceOperator<Source.SourceSoundOperator>()
                 .BindSound<SourceSound>()
-            )
-        );
+            );
 
-        LibraryService.Current.RegisterGroup(Strings.Configure, group => group
-            .AddGroup(Strings.Transform, g => g
+        LibraryService.Current
+            .RegisterGroup(Strings.Transform, g => g
                 .AddMultiple(Strings.Translate, m => m
                     .BindSourceOperator<Configure.Transform.TranslateOperator>()
                     .BindTransform<TranslateTransform>()
@@ -157,9 +162,10 @@ public static class LibraryRegistrar
                     .BindTransform<Rotation3DTransform>()
                     .BindNode<Rotation3DTransformNode>()
                 )
-            )
+            );
 
-            .AddGroup(Strings.ImageFilter, g => g
+        LibraryService.Current
+            .RegisterGroup(Strings.ImageFilter, g => g
                 .AddMultiple(Strings.Blur, m => m
                     .BindSourceOperator<Configure.Effects.BlurOperator>()
                     .BindFilterEffect<Blur>()
@@ -179,29 +185,82 @@ public static class LibraryRegistrar
                     .BindSourceOperator<Configure.Effects.BorderOperator>()
                     .BindFilterEffect<Border>()
                 )
+                
+                .AddMultiple(Strings.Clipping, m => m
+                    .BindSourceOperator<Configure.Effects.ClippingOperator>()
+                    .BindFilterEffect<Clipping>()
+                )
+                
+                .AddMultiple(Strings.Dilate, m => m
+                    .BindSourceOperator<Configure.Effects.DilateOperator>()
+                    .BindFilterEffect<Dilate>()
+                )
+                
+                .AddMultiple(Strings.Erode, m => m
+                    .BindSourceOperator<Configure.Effects.ErodeOperator>()
+                    .BindFilterEffect<Erode>()
+                )
+                
+                .AddMultiple(Strings.HighContrast, m => m
+                    .BindSourceOperator<Configure.Effects.HighContrastOperator>()
+                    .BindFilterEffect<HighContrast>()
+                )
+                
+                .AddMultiple(Strings.HueRotate, m => m
+                    .BindSourceOperator<Configure.Effects.HueRotateOperator>()
+                    .BindFilterEffect<HueRotate>()
+                )
+                
+                .AddMultiple(Strings.Lighting, m => m
+                    .BindSourceOperator<Configure.Effects.LightingOperator>()
+                    .BindFilterEffect<Lighting>()
+                )
+                
+                .AddMultiple(Strings.LumaColor, m => m
+                    .BindSourceOperator<Configure.Effects.LumaColorOperator>()
+                    .BindFilterEffect<LumaColor>()
+                )
+                
+                .AddMultiple(Strings.Saturate, m => m
+                    .BindSourceOperator<Configure.Effects.SaturateOperator>()
+                    .BindFilterEffect<Saturate>()
+                )
+                
+                .AddMultiple(Strings.Threshold, m => m
+                    .BindSourceOperator<Configure.Effects.ThresholdOperator>()
+                    .BindFilterEffect<Threshold>()
+                )
+                
+                .AddMultiple(Strings.Transform, m => m
+                    .BindSourceOperator<Configure.Effects.TransformEffectOperator>()
+                    .BindFilterEffect<TransformEffect>()
+                )
 
                 .AddGroup("OpenCV", gg => gg
-                    .AddMultiple(Strings.Blur, m => m
-                        .BindSourceOperator<Configure.Effects.CvBlurOperator>()
+                    .AddMultiple("CvBlur", m => m
+                        .BindSourceOperator<Configure.Effects.CvBlursOperator>()
                         .BindFilterEffect<Graphics.Effects.OpenCv.Blur>()
                     )
+                    .AddMultiple("CvGaussianBlur", m => m
+                        .BindSourceOperator<Configure.Effects.CvGaussianBlurOperator>()
+                        .BindFilterEffect<Graphics.Effects.OpenCv.GaussianBlur>()
+                    )
+                    .AddMultiple("CvMedianBlur", m => m
+                        .BindSourceOperator<Configure.Effects.CvMedianBlurOperator>()
+                        .BindFilterEffect<Graphics.Effects.OpenCv.MedianBlur>()
+                    )
                 )
-            )
+            );
 
-            .AddGroup("SoundEffect", g => g
+        LibraryService.Current
+            .RegisterGroup("SoundEffect", g => g
                 .AddMultiple("Delay", m => m
                     .BindSourceOperator<Configure.SoundEffect.DelayOperator>()
                     .BindSoundEffect<Delay>()
                 )
-            )
+            );
 
-            .AddGroup("SoundEffect", g => g
-                .AddMultiple("Delay", m => m
-                    .BindSourceOperator<Configure.SoundEffect.DelayOperator>()
-                    .BindSoundEffect<Delay>()
-                )
-            )
-
+        LibraryService.Current.RegisterGroup(Strings.Configure, group => group
             .AddSourceOperator<Configure.AlignmentOperator>(Strings.Alignment)
 
             .AddSourceOperator<Configure.BlendOperator>(Strings.BlendMode)

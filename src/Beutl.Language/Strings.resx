@@ -769,4 +769,31 @@ and b-editor maintains the download URL.</value>
   <data name="Library" xml:space="preserve">
     <value>Library</value>
   </data>
+  <data name="Clipping" xml:space="preserve">
+    <value>Clipping</value>
+  </data>
+  <data name="Dilate" xml:space="preserve">
+    <value>Dilate</value>
+  </data>
+  <data name="Erode" xml:space="preserve">
+    <value>Erode</value>
+  </data>
+  <data name="HueRotate" xml:space="preserve">
+    <value>Hue Rotate</value>
+  </data>
+  <data name="Lighting" xml:space="preserve">
+    <value>Lighting</value>
+  </data>
+  <data name="LumaColor" xml:space="preserve">
+    <value>LumaColor</value>
+  </data>
+  <data name="Saturate" xml:space="preserve">
+    <value>Saturate</value>
+  </data>
+  <data name="Threshold" xml:space="preserve">
+    <value>Threshold</value>
+  </data>
+  <data name="Group" xml:space="preserve">
+    <value>Group</value>
+  </data>
 </root>

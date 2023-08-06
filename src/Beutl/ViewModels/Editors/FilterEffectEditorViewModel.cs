@@ -3,6 +3,7 @@
 using Beutl.Commands;
 using Beutl.Graphics.Effects;
 using Beutl.Operators.Configure;
+using Beutl.Services;
 
 using Reactive.Bindings;
 
@@ -13,7 +14,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     public FilterEffectEditorViewModel(IAbstractProperty<FilterEffect?> property)
         : base(property)
     {
-        FilterName = Value.Select(v => v?.GetType().Name ?? "Null")
+        FilterName = Value.Select(v => (v != null ? LibraryService.Current.FindItem(v.GetType()) : null)?.DisplayName ?? "Null")
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 

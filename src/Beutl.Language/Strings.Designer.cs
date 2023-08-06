@@ -340,6 +340,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Clipping に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Clipping {
+            get {
+                return ResourceManager.GetString("Clipping", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Close に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Close {
@@ -584,6 +593,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Dilate に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Dilate {
+            get {
+                return ResourceManager.GetString("Dilate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Discard changes に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string DiscardChanges {
@@ -715,6 +733,15 @@ namespace Beutl.Language {
         public static string EndPoint {
             get {
                 return ResourceManager.GetString("EndPoint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Erode に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Erode {
+            get {
+                return ResourceManager.GetString("Erode", resourceCulture);
             }
         }
         
@@ -926,6 +953,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Group に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Group {
+            get {
+                return ResourceManager.GetString("Group", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Height に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Height {
@@ -949,6 +985,15 @@ namespace Beutl.Language {
         public static string HighContrast {
             get {
                 return ResourceManager.GetString("HighContrast", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Hue Rotate に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string HueRotate {
+            get {
+                return ResourceManager.GetString("HueRotate", resourceCulture);
             }
         }
         
@@ -1070,6 +1115,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Lighting に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Lighting {
+            get {
+                return ResourceManager.GetString("Lighting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Link に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Link {
@@ -1093,6 +1147,15 @@ namespace Beutl.Language {
         public static string Location {
             get {
                 return ResourceManager.GetString("Location", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   LumaColor に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string LumaColor {
+            get {
+                return ResourceManager.GetString("LumaColor", resourceCulture);
             }
         }
         
@@ -1547,6 +1610,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Saturate に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Saturate {
+            get {
+                return ResourceManager.GetString("Saturate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Save に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Save {
@@ -1894,6 +1966,15 @@ namespace Beutl.Language {
         public static string ThirdPartyLicenses {
             get {
                 return ResourceManager.GetString("ThirdPartyLicenses", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Threshold に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Threshold {
+            get {
+                return ResourceManager.GetString("Threshold", resourceCulture);
             }
         }
         

@@ -769,4 +769,31 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Library" xml:space="preserve">
     <value>ライブラリ</value>
   </data>
+  <data name="Clipping" xml:space="preserve">
+    <value>クリッピング</value>
+  </data>
+  <data name="Dilate" xml:space="preserve">
+    <value>膨張</value>
+  </data>
+  <data name="Erode" xml:space="preserve">
+    <value>収縮</value>
+  </data>
+  <data name="HueRotate" xml:space="preserve">
+    <value>色相調整</value>
+  </data>
+  <data name="Lighting" xml:space="preserve">
+    <value>明るさ調整</value>
+  </data>
+  <data name="LumaColor" xml:space="preserve">
+    <value>LumaColor</value>
+  </data>
+  <data name="Saturate" xml:space="preserve">
+    <value>彩度調整</value>
+  </data>
+  <data name="Threshold" xml:space="preserve">
+    <value>二階調化</value>
+  </data>
+  <data name="Group" xml:space="preserve">
+    <value>グループ</value>
+  </data>
 </root>

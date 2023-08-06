@@ -50,6 +50,20 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
             _ => null
         };
     }
+    
+    private static string ToDisplayName(KnownTransformType type)
+    {
+        return type switch
+        {
+            KnownTransformType.Group =>Strings.Group,
+            KnownTransformType.Translate => Strings.Translate,
+            KnownTransformType.Rotation => Strings.Rotation,
+            KnownTransformType.Scale => Strings.Scale,
+            KnownTransformType.Skew => Strings.Skew,
+            KnownTransformType.Rotation3D => Strings.Rotation3D,
+            _ => "Null"
+        };
+    }
 
     public TransformEditorViewModel(IAbstractProperty<ITransform?> property)
         : base(property)
@@ -58,7 +72,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        TransformName = Value.Select(v => v?.GetType().Name ?? "Null")
+        TransformName = TransformType.Select(ToDisplayName)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
