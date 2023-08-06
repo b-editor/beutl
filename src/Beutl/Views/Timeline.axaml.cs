@@ -146,7 +146,7 @@ public sealed partial class Timeline : UserControl
                     Vector2 offset = options.Offset;
                     ContentScroll.Offset = new(offset.X, offset.Y);
                     PaneScroll.Offset = new(0, offset.Y);
-                });
+                }, DispatcherPriority.MaxValue);
             })
             .DisposeWith(_disposables);
     }
@@ -176,6 +176,22 @@ public sealed partial class Timeline : UserControl
         ContentScroll.Offset = ContentScroll.Offset.WithY(PaneScroll.Offset.Y);
     }
 
+    private void UpdateZoom(PointerWheelEventArgs e, ref float scale, ref Vector2 offset)
+    {
+        float oldScale = scale;
+        Point pointerPos = e.GetCurrentPoint(TimelinePanel).Position;
+        double deltaLeft = pointerPos.X - offset.X;
+
+        const float ZoomSpeed = 1.2f;
+        float delta = (float)e.Delta.Y;
+        float realDelta = MathF.Sign(delta) * MathF.Abs(delta);
+
+        scale = MathF.Pow(ZoomSpeed, realDelta) * scale;
+        scale = Math.Min(scale, 2);
+
+        offset.X = (float)((pointerPos.X / oldScale * scale) - deltaLeft);
+    }
+
     // マウスホイールが動いた
     private void ContentScroll_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
@@ -187,12 +203,7 @@ public sealed partial class Timeline : UserControl
         if (e.KeyModifiers == KeyModifiers.Control)
         {
             // 目盛りのスケールを変更
-            float oldScale = viewModel.Options.Value.Scale;
-            TimeSpan ts = offset.X.ToTimeSpanF(oldScale);
-            float deltaScale = (float)(e.Delta.Y / 10) * oldScale;
-            scale = deltaScale + oldScale;
-
-            offset.X = ts.ToPixelF(scale);
+            UpdateZoom(e, ref scale, ref offset);
         }
         else if (e.KeyModifiers == KeyModifiers.Shift)
         {

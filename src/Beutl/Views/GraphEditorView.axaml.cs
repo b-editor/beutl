@@ -96,22 +96,34 @@ public partial class GraphEditorView : UserControl
             .DisposeWith(_disposables);
     }
 
-    private static float CoerceScaleX(float value)
+    private static float Zoom(float delta, float scale)
     {
-        if (MathUtilities.AreClose(value, 1))
-            value = 1F;
-        else if (MathUtilities.AreClose(value, 2))
-            value = 2F;
-        else if (MathUtilities.AreClose(value, 0.75))
-            value = 0.75F;
-        else if (MathUtilities.AreClose(value, 0.50))
-            value = 0.50F;
-        else if (MathUtilities.AreClose(value, 0.25))
-            value = 0.25F;
+        const float ZoomSpeed = 1.2f;
+        float realDelta = MathF.Sign(delta) * MathF.Abs(delta);
 
-        return Math.Min(value, 2);
+        return MathF.Pow(ZoomSpeed, realDelta) * scale;
+    }
+    
+    private static double Zoom(double delta, double scale)
+    {
+        const double ZoomSpeed = 1.2;
+        double realDelta = Math.Sign(delta) * Math.Abs(delta);
+
+        return Math.Pow(ZoomSpeed, realDelta) * scale;
     }
 
+    private void UpdateHorizontalZoom(PointerWheelEventArgs e, ref float scale, ref Vector2 offset)
+    {
+        float oldScale = scale;
+        Point pointerPos = e.GetCurrentPoint(graphPanel).Position;
+        double deltaLeft = pointerPos.X - offset.X;
+
+        float delta = (float)e.Delta.Y;
+        scale = Math.Min(Zoom(delta, scale), 2);
+
+        offset.X = (float)((pointerPos.X / oldScale * scale) - deltaLeft);
+    }
+   
     private void OnContentPointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         if (DataContext is GraphEditorViewModel viewModel)
@@ -123,17 +135,12 @@ public partial class GraphEditorView : UserControl
             if (e.KeyModifiers == KeyModifiers.Control)
             {
                 // 目盛りのスケールを変更
-                float oldScale = viewModel.Options.Value.Scale;
-                TimeSpan ts = offset.X.ToTimeSpanF(oldScale);
-                float deltaScale = (float)(e.Delta.Y / 10) * oldScale;
-                scale = CoerceScaleX(deltaScale + oldScale);
-
-                offset.X = ts.ToPixelF(scale);
+                UpdateHorizontalZoom(e, ref scale, ref offset);
             }
             else if (e.KeyModifiers.HasAllFlags(KeyModifiers.Control | KeyModifiers.Shift))
             {
                 double oldScale = viewModel.ScaleY.Value;
-                double scaleY = oldScale + (e.Delta.Y / 100);
+                double scaleY = Zoom(e.Delta.Y, oldScale);
                 scaleY = Math.Clamp(scaleY, 0.01, 8.75);
 
                 //offset.Y *= scaleY;
@@ -142,12 +149,12 @@ public partial class GraphEditorView : UserControl
             else if (e.KeyModifiers == KeyModifiers.Shift)
             {
                 // オフセット(X) をスクロール
-                offset.X -= (float)(e.Delta.Y * 50);
+                offset.Y -= (float)(e.Delta.Y * 50);
             }
             else
             {
                 // オフセット(Y) をスクロール
-                offset.Y -= (float)(e.Delta.Y * 50);
+                offset.X -= (float)(e.Delta.Y * 50);
             }
 
             Vector2 originalOffset = viewModel.Options.Value.Offset;
