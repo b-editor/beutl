@@ -62,9 +62,9 @@ public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
         return null;
     }
 
-    public void AddSocket(NodeRegistry.RegistryItem item, Point point)
+    public void AddSocket(Type type, Point point)
     {
-        var node = (Node)Activator.CreateInstance(item.Type)!;
+        var node = (Node)Activator.CreateInstance(type)!;
         node.Position = (point.X, point.Y);
         if (NodeTree is NodeGroup nodeGroup)
         {

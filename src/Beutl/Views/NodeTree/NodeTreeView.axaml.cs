@@ -40,7 +40,7 @@ public partial class NodeTreeView : UserControl
     private void OnDrop(object? sender, DragEventArgs e)
     {
         if (DataContext is NodeTreeViewModel viewModel
-            && e.Data.Get("Node") is NodeRegistry.RegistryItem item)
+            && e.Data.Get("Node") is Type item)
         {
             Point point = e.GetPosition(canvas) - new Point(215 / 2, 0);
             viewModel.AddSocket(item, point);
@@ -194,7 +194,7 @@ public partial class NodeTreeView : UserControl
         if (DataContext is NodeTreeViewModel viewModel
             && sender is MenuItem { DataContext: NodeRegistry.RegistryItem item })
         {
-            viewModel.AddSocket(item, _rightClickedPosition);
+            viewModel.AddSocket(item.Type, _rightClickedPosition);
         }
     }
 
