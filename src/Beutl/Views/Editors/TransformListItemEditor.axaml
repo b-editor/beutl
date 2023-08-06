@@ -18,7 +18,7 @@
                           IsChecked="{Binding IsExpanded.Value}"
                           Theme="{StaticResource ListEditorMiniExpanderToggleButton}">
                 <ToggleButton.Tag>
-                    <ui:FAPathIcon Data="{Binding TransformType.Value, Converter={StaticResource TransformTypeToIconConverter}}" RenderTransform="scale(70%)" />
+                    <ui:FAPathIcon Data="{Binding TransformType.Value, Converter={StaticResource TransformTypeToIconConverter}}" RenderTransform="scale(0.7)" />
                 </ToggleButton.Tag>
             </ToggleButton>
 

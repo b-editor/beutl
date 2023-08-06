@@ -84,6 +84,7 @@ public partial class TransformEditor : UserControl
                 viewModel.ChangeType(knownType);
             }
 
+            viewModel.IsExpanded.Value = true;
             e.Handled = true;
         }
     }
