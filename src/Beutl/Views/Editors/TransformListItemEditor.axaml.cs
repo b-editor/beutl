@@ -12,7 +12,7 @@ namespace Beutl.Views.Editors;
 
 public partial class TransformListItemEditor : UserControl, IListItemEditor
 {
-    private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
+    private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(167));
     private CancellationTokenSource? _lastTransitionCts;
 
     public TransformListItemEditor()

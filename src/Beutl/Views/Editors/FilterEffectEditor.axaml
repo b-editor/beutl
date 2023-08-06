@@ -10,6 +10,7 @@
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="viewModel:FilterEffectEditorViewModel"
+             Background="Transparent"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
         <ToggleButton x:Name="expandToggle"
@@ -62,8 +63,10 @@
             </WrapPanel>
         </ToggleButton>
 
-        <Panel x:Name="content" Grid.Row="1">
-            <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="フィルタががNullです。" />
+        <Panel x:Name="content"
+               Grid.Row="1"
+               MinHeight="32">
+            <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="フィルタがNullです。" />
 
             <local:PropertiesEditor Margin="16,0,0,0"
                                     Padding="0"

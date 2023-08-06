@@ -3,15 +3,16 @@
                     xmlns:i="using:Avalonia.Xaml.Interactions.Core"
                     xmlns:icons="using:FluentIcons.FluentAvalonia"
                     xmlns:intv="using:Avalonia.Xaml.Interactivity"
-                    xmlns:local="using:Beutl.Controls.Styling.PropertyEditors">
+                    xmlns:local="using:Beutl.Controls.Styling.PropertyEditors"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls">
     <Design.PreviewWith>
         <Border Width="300">
             <ToggleButton Margin="8,4"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Center"
                           Content="Header"
-                          Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
-                <ToggleButton.Tag>
+                          Theme="{DynamicResource ListEditorMiniExpanderToggleButton}">
+                <!--<ToggleButton.Tag>
 
                     <Button Width="24"
                             Height="24"
@@ -22,11 +23,134 @@
                         <icons:SymbolIcon Symbol="Compose" />
                     </Button>
 
-                </ToggleButton.Tag>
+                </ToggleButton.Tag>-->
             </ToggleButton>
         </Border>
     </Design.PreviewWith>
     <x:Double x:Key="PropertyEditorMinWidth">200</x:Double>
+
+    <ControlTheme x:Key="ListEditorMiniExpanderToggleButton" TargetType="ToggleButton">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+        <Setter Property="Tag">
+            <Template>
+                <icons:SymbolIcon Margin="0,1,0,0" Symbol="ReOrderDotsVertical" />
+            </Template>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Grid Name="PART_Grid"
+                      Background="{TemplateBinding Background}"
+                      ColumnDefinitions="Auto,*">
+                    <ui:FABorder Name="PART_Root"
+                                 Width="24"
+                                 Height="24"
+                                 Margin="8,0"
+                                 Padding="4"
+                                 BorderBrush="{TemplateBinding BorderBrush}"
+                                 BorderThickness="{TemplateBinding BorderThickness}"
+                                 CornerRadius="{TemplateBinding CornerRadius}">
+                        <ContentPresenter Name="TagContentPresenter" Content="{TemplateBinding Tag}" />
+                    </ui:FABorder>
+
+                    <ContentPresenter Name="ContentPresenter"
+                                      Grid.Column="1"
+                                      Margin="0,4"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Foreground="{TemplateBinding Foreground}" />
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^ /template/ ui|FABorder#PART_Root">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="00:00:00.083" />
+                </Transitions>
+            </Setter>
+        </Style>
+
+
+        <Style Selector="^:pointerover">
+            <Style Selector="^ /template/ ui|FABorder#PART_Root">
+                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundPointerOver}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushPointerOver}" />
+            </Style>
+            <Style Selector="^ /template/ ContentPresenter#TagContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundPointerOver}" />
+            </Style>
+        </Style>
+
+        <Style Selector="^:pressed">
+            <Style Selector="^ /template/ ui|FABorder#PART_Root">
+                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundPressed}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushPressed}" />
+            </Style>
+            <Style Selector="^ /template/ ContentPresenter#TagContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundPressed}" />
+            </Style>
+        </Style>
+
+        <Style Selector="^:disabled">
+            <Style Selector="^ /template/ ui|FABorder#PART_Root">
+                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundDisabled}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushDisabled}" />
+            </Style>
+            <Style Selector="^ /template/ ContentPresenter#TagContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundDisabled}" />
+            </Style>
+        </Style>
+
+        <Style Selector="^:checked">
+            <Style Selector="^ /template/ ui|FABorder#PART_Root">
+                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundChecked}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushChecked}" />
+            </Style>
+            <Style Selector="^ /template/ ContentPresenter#TagContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundChecked}" />
+            </Style>
+
+
+            <Style Selector="^:pointerover">
+                <Style Selector="^ /template/ ui|FABorder#PART_Root">
+                    <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundCheckedPointerOver}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushCheckedPointerOver}" />
+                </Style>
+                <Style Selector="^ /template/ ContentPresenter#TagContentPresenter">
+                    <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundCheckedPointerOver}" />
+                </Style>
+            </Style>
+
+            <Style Selector="^:pressed">
+                <Style Selector="^ /template/ ui|FABorder#PART_Root">
+                    <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundCheckedPressed}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushCheckedPressed}" />
+                </Style>
+                <Style Selector="^ /template/ ContentPresenter#TagContentPresenter">
+                    <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundCheckedPressed}" />
+                </Style>
+            </Style>
+
+            <Style Selector="^:disabled">
+                <Style Selector="^ /template/ ui|FABorder#PART_Root">
+                    <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundCheckedDisabled}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushCheckedDisabled}" />
+                </Style>
+                <Style Selector="^ /template/ ContentPresenter#TagContentPresenter">
+                    <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundCheckedDisabled}" />
+                </Style>
+            </Style>
+        </Style>
+    </ControlTheme>
 
     <ControlTheme x:Key="PropertyEditorLeftRightButton"
                   BasedOn="{StaticResource FlipButton}"

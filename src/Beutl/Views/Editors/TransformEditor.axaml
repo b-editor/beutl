@@ -58,7 +58,9 @@
             <TextBlock FontWeight="DemiBold" Text="{Binding Header, FallbackValue=Transform}" />
         </ToggleButton>
 
-        <Panel x:Name="content" Grid.Row="1">
+        <Panel x:Name="content"
+               Grid.Row="1"
+               MinHeight="32">
             <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="Nullです。" />
 
             <local:PropertiesEditor Margin="16,0,0,0"

@@ -10,29 +10,21 @@
              d:DesignWidth="400"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
-        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+        <Grid ColumnDefinitions="*,Auto,Auto">
             <ToggleButton x:Name="reorderHandle"
-                          Margin="8,0"
-                          Padding="4"
-                          Background="Transparent"
-                          BorderBrush="Transparent"
+                          Content="{Binding FilterName.Value}"
                           Cursor="SizeNorthSouth"
-                          IsChecked="{Binding IsExpanded.Value}">
-                <icons:SymbolIcon Symbol="ReOrderDotsVertical" />
-            </ToggleButton>
+                          IsChecked="{Binding IsExpanded.Value}"
+                          Theme="{StaticResource ListEditorMiniExpanderToggleButton}" />
 
-            <TextBlock Grid.Column="1"
-                       Margin="0,4"
-                       Text="{Binding FilterName.Value}" />
-
-            <ToggleButton Grid.Column="2"
+            <ToggleButton Grid.Column="1"
                           Margin="4,0,0,0"
                           Padding="0"
                           Classes="size-24x24"
                           IsChecked="{Binding IsEnabled.Value}"
                           Theme="{StaticResource VisibilityToggleButtonStyle}" />
 
-            <Button Grid.Column="3"
+            <Button Grid.Column="2"
                     Margin="4,0,8,0"
                     Padding="0"
                     Classes="size-24x24"
