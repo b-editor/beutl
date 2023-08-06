@@ -67,7 +67,7 @@ public sealed class EffectTarget : IDisposable
         }
         else if (Surface != null)
         {
-            canvas.Canvas.DrawSurface(Surface.Value, default);
+            canvas.DrawSurface(Surface.Value, default);
         }
     }
 }

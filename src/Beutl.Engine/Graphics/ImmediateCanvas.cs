@@ -151,6 +151,15 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         }
     }
 
+    public void DrawSurface(SKSurface surface, Point point)
+    {
+        _sharedFillPaint.Reset();
+        _sharedFillPaint.IsAntialias = true;
+        _sharedFillPaint.BlendMode = (SKBlendMode)BlendMode;
+
+        _canvas.DrawSurface(surface, point.X, point.Y, _sharedFillPaint);
+    }
+
     public void DrawNode(IGraphicNode node)
     {
         if (GetCacheContext() is { } context)
@@ -192,7 +201,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
                     {
                         using (Ref<SKSurface> surface = cache.UseCache(out Rect bounds))
                         {
-                            _canvas.DrawSurface(surface.Value, bounds.X, bounds.Y);
+                            DrawSurface(surface.Value, bounds.Position);
                         }
 
                         return;
@@ -522,7 +531,9 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     public PushedState PushBlendMode(BlendMode blendMode)
     {
         VerifyAccess();
-        _states.Push(new CanvasPushedState.BlendModePushedState(blendMode));
+        BlendMode tmp = BlendMode;
+        BlendMode = blendMode;
+        _states.Push(new CanvasPushedState.BlendModePushedState(tmp));
         return new PushedState(this, _states.Count);
     }
 

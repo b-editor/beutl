@@ -84,7 +84,7 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
 #endif
             if (activator.CurrentTarget.Surface != null)
             {
-                canvas.Canvas.DrawSurface(activator.CurrentTarget.Surface.Value, activator.Bounds.X, activator.Bounds.Y);
+                canvas.DrawSurface(activator.CurrentTarget.Surface.Value, activator.Bounds.Position);
             }
             else if (activator.CurrentTarget.Node == this
                 || activator.CurrentTarget != EffectTarget.Empty)
@@ -142,7 +142,7 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
         {
             if (context.CountItems() == minNumber)
             {
-                canvas.Canvas.DrawSurface(surface.Value, cacheBounds.X, cacheBounds.Y);
+                canvas.DrawSurface(surface.Value, cacheBounds.Position);
             }
             else
             {

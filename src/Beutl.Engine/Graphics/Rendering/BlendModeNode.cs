@@ -1,6 +1,8 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿using Beutl.Rendering.Cache;
 
-public sealed class BlendModeNode : ContainerNode
+namespace Beutl.Graphics.Rendering;
+
+public sealed class BlendModeNode : ContainerNode, ISupportRenderCache
 {
     public BlendModeNode(BlendMode blendMode)
     {
@@ -20,5 +22,25 @@ public sealed class BlendModeNode : ContainerNode
         {
             base.Render(canvas);
         }
+    }
+
+    void ISupportRenderCache.Accepts(RenderCache cache)
+    {
+        cache.ReportRenderCount(0);
+    }
+
+    void ISupportRenderCache.RenderForCache(ImmediateCanvas canvas, RenderCache cache)
+    {
+        Render(canvas);
+    }
+
+    void ISupportRenderCache.RenderWithCache(ImmediateCanvas canvas, RenderCache cache)
+    {
+        Render(canvas);
+    }
+
+    Rect ISupportRenderCache.TransformBoundsForCache(RenderCache cache)
+    {
+        return Bounds;
     }
 }
