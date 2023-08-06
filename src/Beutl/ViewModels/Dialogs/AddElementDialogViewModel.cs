@@ -19,7 +19,7 @@ public sealed class AddElementDialogViewModel
         _scene = scene;
         _description = desc;
 
-        Color.Value = (desc.InitialOperator == null ? Colors.Teal : desc.InitialOperator.AccentColor).ToAvalonia();
+        Color.Value = Colors.Teal.ToAvalonia();
         Layer.Value = desc.Layer;
         Start.Value = desc.Start;
         Duration.Value = desc.Length;
@@ -83,7 +83,7 @@ public sealed class AddElementDialogViewModel
 
             if (_description.InitialOperator != null)
             {
-                sLayer.Operation.AddChild((SourceOperator)Activator.CreateInstance(_description.InitialOperator.Type)!).Do();
+                sLayer.Operation.AddChild((SourceOperator)Activator.CreateInstance(_description.InitialOperator)!).Do();
             }
 
             sLayer.Save(sLayer.FileName);

@@ -766,4 +766,7 @@ and b-editor maintains the download URL.</value>
   <data name="Fill" xml:space="preserve">
     <value>Fill</value>
   </data>
+  <data name="Library" xml:space="preserve">
+    <value>Library</value>
+  </data>
 </root>

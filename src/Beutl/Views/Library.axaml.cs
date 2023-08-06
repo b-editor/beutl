@@ -19,8 +19,8 @@ public sealed partial class Library : UserControl
 
         NodeTreeView.ContainerPrepared += OnItemContainerPrepared;
         NodeTreeView.ContainerClearing += OnItemContainerClearing;
-        OperatorTree.ContainerPrepared += OnItemContainerPrepared;
-        OperatorTree.ContainerClearing += OnItemContainerClearing;
+        LibraryTree.ContainerPrepared += OnItemContainerPrepared;
+        LibraryTree.ContainerClearing += OnItemContainerClearing;
 
         searchResult.ContainerPrepared += OnItemContainerPrepared;
         searchResult.ContainerClearing += OnItemContainerClearing;
@@ -56,26 +56,34 @@ public sealed partial class Library : UserControl
     private async void TreeViewPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         LibraryItemViewModel? item;
-        if (e.GetCurrentPoint(OperatorTree).Properties.IsLeftButtonPressed)
+        if (e.GetCurrentPoint(LibraryTree).Properties.IsLeftButtonPressed)
         {
-            await Task.Delay(10);
-            item = OperatorTree.SelectedItem as LibraryItemViewModel;
+            item = (e.Source as StyledElement)?.DataContext as LibraryItemViewModel;
+            LibraryTree.SelectedItem = item;
         }
         else if (e.GetCurrentPoint(NodeTreeView).Properties.IsLeftButtonPressed)
         {
-            await Task.Delay(10);
-            item = NodeTreeView.SelectedItem as LibraryItemViewModel;
+            item = (e.Source as StyledElement)?.DataContext as LibraryItemViewModel;
+            NodeTreeView.SelectedItem = item;
         }
         else
         {
             return;
         }
 
-        if (item?.TryDragDrop(out string? format, out object? data) == true)
+        if (item != null)
         {
-            var dataObject = new DataObject();
-            dataObject.Set(format, data);
-            await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
+            (string, Type)[] arr = item.TryDragDrop().ToArray();
+            if (arr.Length > 0)
+            {
+                var dataObject = new DataObject();
+                foreach ((string format, Type type) in arr)
+                {
+                    dataObject.Set(format, type);
+                }
+
+                await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
+            }
         }
     }
 
@@ -92,11 +100,19 @@ public sealed partial class Library : UserControl
             return;
         }
 
-        if (item?.Value.TryDragDrop(out string? format, out object? data) == true)
+        if (item.HasValue)
         {
-            var dataObject = new DataObject();
-            dataObject.Set(format, data);
-            await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
+            (string, Type)[] arr = item.Value.Value.TryDragDrop().ToArray();
+            if (arr.Length > 0)
+            {
+                var dataObject = new DataObject();
+                foreach ((string format, Type type) in arr)
+                {
+                    dataObject.Set(format, type);
+                }
+
+                await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
+            }
         }
     }
 

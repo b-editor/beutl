@@ -18,6 +18,7 @@ using Beutl.Views.Dialogs;
 using Beutl.Media;
 using FluentAvalonia.UI.Controls;
 using Beutl.Extensibility;
+using Beutl.Services;
 
 namespace Beutl.Views;
 
@@ -331,27 +332,27 @@ public sealed partial class Timeline : UserControl
             .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
         viewModel.ClickedLayer = viewModel.ToLayerNumber(pt.Y);
 
-        if (e.Data.Get("SourceOperator") is OperatorRegistry.RegistryItem item2)
+        if (e.Data.Get(KnownLibraryItemFormats.SourceOperator) is Type type)
         {
             if (e.KeyModifiers == KeyModifiers.Control)
             {
                 var dialog = new AddElementDialog
                 {
-                    DataContext = new AddElementDialogViewModel(scene, new ElementDescription(viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.ClickedLayer, InitialOperator: item2))
+                    DataContext = new AddElementDialogViewModel(scene, new ElementDescription(viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.ClickedLayer, InitialOperator: type))
                 };
                 await dialog.ShowAsync();
             }
             else
             {
                 viewModel.AddLayer.Execute(new ElementDescription(
-                    viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.ClickedLayer, InitialOperator: item2));
+                    viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.ClickedLayer, InitialOperator: type));
             }
         }
     }
 
     private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains("SourceOperator")
+        if (e.Data.Contains(KnownLibraryItemFormats.SourceOperator)
             || (e.Data.GetFiles()?.Any() ?? false))
         {
             e.DragEffects = DragDropEffects.Copy;

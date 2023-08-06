@@ -90,7 +90,7 @@ public sealed class App : Application
 
         GetMainViewModel().RegisterServices();
 
-        OperatorsRegistrar.RegisterAll();
+        LibraryRegistrar.RegisterAll();
         NodesRegistrar.RegisterAll();
         ReactivePropertyScheduler.SetDefault(AvaloniaScheduler.Instance);
     }

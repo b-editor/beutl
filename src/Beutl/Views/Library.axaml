@@ -50,8 +50,8 @@
             </TabStripItem>
             <TabStripItem IsSelected="True">
                 <StackPanel>
-                    <icons:SymbolIcon Symbol="ArrowStepIn" />
-                    <TextBlock Text="{x:Static lang:Strings.SourceOperators}" />
+                    <icons:SymbolIcon Symbol="Library" />
+                    <TextBlock Text="{x:Static lang:Strings.Library}" />
                 </StackPanel>
             </TabStripItem>
             <TabStripItem>
@@ -187,8 +187,8 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <TreeView x:Name="OperatorTree"
-                      ItemsSource="{Binding Operators}"
+            <TreeView x:Name="LibraryTree"
+                      ItemsSource="{Binding LibraryItems}"
                       SelectionMode="Single">
                 <TreeView.ItemTemplate>
                     <TreeDataTemplate ItemsSource="{Binding Children}">

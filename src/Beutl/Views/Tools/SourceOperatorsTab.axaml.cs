@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Beutl.ProjectSystem;
 using Beutl.Operation;
 using Beutl.ViewModels.Tools;
+using Beutl.Services;
 
 namespace Beutl.Views.Tools;
 
@@ -53,11 +54,11 @@ public sealed partial class SourceOperatorsTab : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get("SourceOperator") is OperatorRegistry.RegistryItem item
+        if (e.Data.Get(KnownLibraryItemFormats.SourceOperator) is Type item
             && DataContext is SourceOperatorsTabViewModel vm
             && vm.Layer.Value is Element layer)
         {
-            layer.Operation.AddChild((SourceOperator)Activator.CreateInstance(item.Type)!)
+            layer.Operation.AddChild((SourceOperator)Activator.CreateInstance(item)!)
                 .DoAndRecord(CommandRecorder.Default);
 
             e.Handled = true;
@@ -66,7 +67,7 @@ public sealed partial class SourceOperatorsTab : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains("SourceOperator"))
+        if (e.Data.Contains(KnownLibraryItemFormats.SourceOperator))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
         }

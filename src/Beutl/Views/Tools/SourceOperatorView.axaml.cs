@@ -10,6 +10,7 @@ using Beutl.Controls.Behaviors;
 using Beutl.ProjectSystem;
 using Beutl.Operation;
 using Beutl.ViewModels.Tools;
+using Beutl.Services;
 
 namespace Beutl.Views.Tools;
 
@@ -43,7 +44,7 @@ public sealed partial class SourceOperatorView : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get("SourceOperator") is OperatorRegistry.RegistryItem item2
+        if (e.Data.Get(KnownLibraryItemFormats.SourceOperator) is Type item2
             && DataContext is SourceOperatorViewModel viewModel2)
         {
             SourceOperator operation = viewModel2.Model;
@@ -55,12 +56,12 @@ public sealed partial class SourceOperatorView : UserControl
 
             if (half < position.Y)
             {
-                layer.Operation.InsertChild(index + 1, (SourceOperator)Activator.CreateInstance(item2.Type)!)
+                layer.Operation.InsertChild(index + 1, (SourceOperator)Activator.CreateInstance(item2)!)
                     .DoAndRecord(CommandRecorder.Default);
             }
             else
             {
-                layer.Operation.InsertChild(index, (SourceOperator)Activator.CreateInstance(item2.Type)!)
+                layer.Operation.InsertChild(index, (SourceOperator)Activator.CreateInstance(item2)!)
                     .DoAndRecord(CommandRecorder.Default);
             }
 
@@ -70,7 +71,7 @@ public sealed partial class SourceOperatorView : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains("SourceOperator"))
+        if (e.Data.Contains(KnownLibraryItemFormats.SourceOperator))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
         }
@@ -87,7 +88,7 @@ public sealed partial class SourceOperatorView : UserControl
         {
             SourceOperator operation = viewModel2.Model;
             Type type = operation.GetType();
-            OperatorRegistry.RegistryItem? item = OperatorRegistry.FindItem(type);
+            LibraryItem? item = LibraryService.Current.FindItem(type);
 
             if (item != null)
             {

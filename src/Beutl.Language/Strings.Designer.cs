@@ -1043,6 +1043,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Library に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Library {
+            get {
+                return ResourceManager.GetString("Library", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   License に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string License {
