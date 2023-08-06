@@ -13,7 +13,7 @@ public sealed class SourceImageOperator : DrawablePublishOperator<SourceImage>
 
     public Setter<IImageSource?> Source { get; set; } = new(SourceImage.SourceProperty, null);
 
-    public Setter<ITransform?> Transform { get; set; } = new(Drawable.TransformProperty, null);
+    public Setter<ITransform?> Transform { get; set; } = new(Drawable.TransformProperty, new TransformGroup());
 
     public Setter<AlignmentX> AlignmentX { get; set; } = new(Drawable.AlignmentXProperty, Media.AlignmentX.Center);
 
@@ -23,7 +23,7 @@ public sealed class SourceImageOperator : DrawablePublishOperator<SourceImage>
 
     public Setter<IBrush?> Fill { get; set; } = new(Drawable.ForegroundProperty, new SolidColorBrush(Colors.White));
 
-    public Setter<FilterEffect?> FilterEffect { get; set; } = new(Drawable.FilterEffectProperty, null);
+    public Setter<FilterEffect?> FilterEffect { get; set; } = new(Drawable.FilterEffectProperty, new FilterEffectGroup());
 
     public Setter<BlendMode> BlendMode { get; set; } = new Setter<BlendMode>(Drawable.BlendModeProperty, Graphics.BlendMode.SrcOver);
 

@@ -19,7 +19,7 @@ public sealed class SourceVideoOperator : DrawablePublishOperator<SourceVideo>
 
     public Setter<IVideoSource?> Source { get; set; } = new(SourceVideo.SourceProperty, null);
 
-    public Setter<ITransform?> Transform { get; set; } = new(Drawable.TransformProperty, null);
+    public Setter<ITransform?> Transform { get; set; } = new(Drawable.TransformProperty, new TransformGroup());
 
     public Setter<AlignmentX> AlignmentX { get; set; } = new(Drawable.AlignmentXProperty, Media.AlignmentX.Center);
 
@@ -29,7 +29,7 @@ public sealed class SourceVideoOperator : DrawablePublishOperator<SourceVideo>
 
     public Setter<IBrush?> Fill { get; set; } = new(Drawable.ForegroundProperty, new SolidColorBrush(Colors.White));
 
-    public Setter<FilterEffect?> FilterEffect { get; set; } = new(Drawable.FilterEffectProperty, null);
+    public Setter<FilterEffect?> FilterEffect { get; set; } = new(Drawable.FilterEffectProperty, new FilterEffectGroup());
 
     public Setter<BlendMode> BlendMode { get; set; } = new Setter<BlendMode>(Drawable.BlendModeProperty, Graphics.BlendMode.SrcOver);
 
