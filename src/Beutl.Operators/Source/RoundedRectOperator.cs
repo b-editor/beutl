@@ -28,4 +28,6 @@ public sealed class RoundedRectOperator : DrawablePublishOperator<RoundedRectSha
     public Setter<IBrush?> Fill { get; set; } = new(Drawable.ForegroundProperty, new SolidColorBrush(Colors.White));
 
     public Setter<FilterEffect?> FilterEffect { get; set; } = new(Drawable.FilterEffectProperty, null);
+
+    public Setter<BlendMode> BlendMode { get; set; } = new Setter<BlendMode>(Drawable.BlendModeProperty, Graphics.BlendMode.SrcOver);
 }

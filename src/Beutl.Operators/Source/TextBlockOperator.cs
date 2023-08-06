@@ -22,4 +22,6 @@ public sealed class TextBlockOperator : DrawablePublishOperator<TextBlock>
     public Setter<Thickness> Margin { get; set; } = new Setter<Thickness>(TextBlock.MarginProperty, default);
 
     public Setter<string> Text { get; set; } = new Setter<string>(TextBlock.TextProperty, string.Empty);
+
+    public Setter<BlendMode> BlendMode { get; set; } = new Setter<BlendMode>(Drawable.BlendModeProperty, Graphics.BlendMode.SrcOver);
 }

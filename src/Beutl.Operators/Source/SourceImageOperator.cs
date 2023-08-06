@@ -25,6 +25,8 @@ public sealed class SourceImageOperator : DrawablePublishOperator<SourceImage>
 
     public Setter<FilterEffect?> FilterEffect { get; set; } = new(Drawable.FilterEffectProperty, null);
 
+    public Setter<BlendMode> BlendMode { get; set; } = new Setter<BlendMode>(Drawable.BlendModeProperty, Graphics.BlendMode.SrcOver);
+
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnDetachedFromHierarchy(args);

@@ -28,7 +28,7 @@ public abstract class DrawablePublishOperator<T> : StyledSourcePublisher
         base.OnAfterApplying();
         if (Instance?.Target is T drawable)
         {
-            drawable.BlendMode = BlendMode.SrcOver;
+            //drawable.BlendMode = BlendMode.SrcOver;
             //drawable.AlignmentX = AlignmentX.Left;
             //drawable.AlignmentY = AlignmentY.Top;
             //drawable.TransformOrigin = RelativePoint.TopLeft;
