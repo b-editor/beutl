@@ -29,6 +29,14 @@ public sealed class RenderScene : IDisposable
 
     public PixelSize Size { get; }
 
+    public void Clear()
+    {
+        foreach ((int _, RenderLayer value) in _layer)
+        {
+            value.Clear();
+        }
+    }
+
     public void Dispose()
     {
         foreach (RenderLayer item in _layer.Values)

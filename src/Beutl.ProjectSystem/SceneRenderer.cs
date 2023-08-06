@@ -38,7 +38,6 @@ internal sealed class SceneRenderer : Renderer
         {
             ExitSourceOperators(item);
             RenderLayer layer = RenderScene[item.ZIndex];
-            layer.Clear();
             layer.ClearAllNodeCache(GetCacheContext());
         }
 

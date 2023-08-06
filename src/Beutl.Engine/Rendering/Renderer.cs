@@ -81,6 +81,7 @@ public class Renderer : IRenderer
         {
             IsGraphicsRendering = true;
             _instanceClock.CurrentTime = timeSpan;
+            RenderScene.Clear();
             using (_fpsText.StartRender(_immediateCanvas))
             {
                 RenderGraphicsCore();
@@ -131,6 +132,7 @@ public class Renderer : IRenderer
             IsAudioRendering = true;
             _instanceClock.CurrentTime = timeSpan;
             _instanceClock.AudioStartTime = timeSpan;
+            RenderScene.Clear();
             using (_fpsText.StartRender(_immediateCanvas))
             {
                 RenderGraphicsCore();
@@ -159,7 +161,7 @@ public class Renderer : IRenderer
     SKSurface IImmediateCanvasFactory.CreateRenderTarget(int width, int height)
     {
         RenderThread.Dispatcher.VerifyAccess();
-        GRContext grcontext = SharedGRContext.GetOrCreate();
+        GRContext? grcontext = SharedGRContext.GetOrCreate();
         SKSurface? surface;
 
         if (grcontext != null)
