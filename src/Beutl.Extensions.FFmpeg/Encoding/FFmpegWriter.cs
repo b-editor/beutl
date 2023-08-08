@@ -11,7 +11,11 @@ using Beutl.Media.Pixel;
 
 using FFmpeg.AutoGen;
 
+#if FFMPEG_BUILD_IN
+namespace Beutl.Embedding.FFmpeg.Encoding;
+#else
 namespace Beutl.Extensions.FFmpeg.Encoding;
+#endif
 
 public sealed unsafe class FFmpegWriter : MediaWriter
 {

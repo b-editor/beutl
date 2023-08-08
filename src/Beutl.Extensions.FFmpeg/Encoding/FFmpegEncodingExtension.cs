@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 
 using Beutl.Extensibility;
 using Beutl.Media;
@@ -7,7 +6,11 @@ using Beutl.Media.Encoding;
 
 using FFmpeg.AutoGen;
 
+#if FFMPEG_BUILD_IN
+namespace Beutl.Embedding.FFmpeg.Encoding;
+#else
 namespace Beutl.Extensions.FFmpeg.Encoding;
+#endif
 
 [Export]
 public sealed class FFmpegEncodingExtension : EncodingExtension

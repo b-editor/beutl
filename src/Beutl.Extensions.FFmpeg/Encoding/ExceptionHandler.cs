@@ -3,7 +3,11 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#if FFMPEG_BUILD_IN
+namespace Beutl.Embedding.FFmpeg.Encoding;
+#else
 namespace Beutl.Extensions.FFmpeg.Encoding;
+#endif
 
 internal static class ExceptionHandler
 {

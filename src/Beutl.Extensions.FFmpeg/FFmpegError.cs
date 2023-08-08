@@ -1,12 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using FFmpeg.AutoGen;
 
-using FFmpeg.AutoGen;
-
+#if FFMPEG_BUILD_IN
+namespace Beutl.Embedding.FFmpeg;
+#else
 namespace Beutl.Extensions.FFmpeg;
+#endif
 
 public static class FFmpegError
 {

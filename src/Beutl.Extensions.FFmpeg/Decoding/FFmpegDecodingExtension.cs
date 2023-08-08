@@ -1,7 +1,11 @@
 ﻿using Beutl.Extensibility;
 using Beutl.Media.Decoding;
 
+#if FFMPEG_BUILD_IN
+namespace Beutl.Embedding.FFmpeg.Decoding;
+#else
 namespace Beutl.Extensions.FFmpeg.Decoding;
+#endif
 
 [Export]
 public class FFmpegDecodingExtension : DecodingExtension

@@ -6,38 +6,64 @@
     <Nullable>enable</Nullable>
 
     <RepositoryUrl>https://github.com/b-editor/beutl</RepositoryUrl>
-    <PackageId>Beutl.Extensions.FFmpeg</PackageId>
-    <Title>Beutl.Extensions.FFmpeg</Title>
     <Description>FFmpeg for beutl</Description>
     <PackageTags>ffmpeg;decoder;decoding;encoder;encoding;video;audio</PackageTags>
     <PackageLicenseExpression>GPL-2.0-only</PackageLicenseExpression>
     <Version>1.0.0</Version>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <Authors>b-editor</Authors>
-  </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
-    <EnableDynamicLoading>true</EnableDynamicLoading>
-    <OutputPath>$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))\.beutl\sideloads\$(AssemblyName)</OutputPath>
+    <!--<DefineConstants>$(DefineConstants);FFMPEG_BUILD_IN</DefineConstants>-->
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="FFmpeg.AutoGen" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\Beutl.Controls\Beutl.Controls.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.Configuration\Beutl.Configuration.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.Core\Beutl.Core.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.Language\Beutl.Language.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.Operators\Beutl.Operators.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.Threading\Beutl.Threading.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.Utilities\Beutl.Utilities.csproj" Private="false" ExcludeAssets="runtime" />
-  </ItemGroup>
+  <!--https://learn.microsoft.com/ja-jp/visualstudio/msbuild/msbuild-conditional-constructs?view=vs-2022#example-->
+  <Choose>
+    <When Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($(DefineConstants), '^(.*;)*FFMPEG_BUILD_IN(;.*)*$'))">
+
+      <PropertyGroup>
+        <AssemblyName>Beutl.Embedding.FFmpeg</AssemblyName>
+        <PackageId>Beutl.Embedding.FFmpeg</PackageId>
+        <Title>Beutl.Embedding.FFmpeg</Title>
+      </PropertyGroup>
+      
+      <ItemGroup>
+        <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj"  />
+      </ItemGroup>
+
+    </When>
+    <Otherwise>
+
+      <PropertyGroup>
+        <AssemblyName>Beutl.Extensions.FFmpeg</AssemblyName>
+        <PackageId>Beutl.Extensions.FFmpeg</PackageId>
+        <Title>Beutl.Extensions.FFmpeg</Title>
+      </PropertyGroup>
+
+      <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+        <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+        <OutputPath>$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))\.beutl\sideloads\$(AssemblyName)</OutputPath>
+      </PropertyGroup>
+
+      <ItemGroup>
+        <ProjectReference Include="..\..\src\Beutl.Controls\Beutl.Controls.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.Configuration\Beutl.Configuration.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.Core\Beutl.Core.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.Language\Beutl.Language.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.Operators\Beutl.Operators.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.Threading\Beutl.Threading.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.Utilities\Beutl.Utilities.csproj" Private="false" ExcludeAssets="runtime" />
+      </ItemGroup>
+
+    </Otherwise>
+  </Choose>
 
 </Project>

@@ -1,17 +1,20 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
-using System.Text;
 
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
-using Beutl.Media.Decoding;
 using Beutl.Media.Pixel;
 
 using FFmpeg.AutoGen;
 
+#if FFMPEG_BUILD_IN
+namespace Beutl.Embedding.FFmpeg.Decoding;
+#else
 namespace Beutl.Extensions.FFmpeg.Decoding;
+#endif
 
 public sealed unsafe class FFmpegReader : MediaReader
 {
