@@ -6,6 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
+
+    <FFmpegBuildIn Condition="'$(FFmpegBuildIn)' == ''">True</FFmpegBuildIn>
+    <DefineConstants Condition="'$(FFmpegBuildIn)'=='True'">$(DefineConstants);FFMPEG_BUILD_IN</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,8 +31,12 @@
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="FluentIcons.FluentAvalonia" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="PanelExtension" />
     <PackageReference Include="ReactiveProperty" />
+    <PackageReference Include="Serilog.Extensions.Logging" />
+    <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="Serilog.Sinks.Debug" />
     <PackageReference Include="System.Interactive" />
     <PackageReference Include="System.Interactive.Async" />
     <PackageReference Include="System.Reactive" />
@@ -45,6 +52,11 @@
     <ProjectReference Include="..\Beutl.PackageTools\Beutl.PackageTools.csproj" />
     <ProjectReference Include="..\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj" />
   </ItemGroup>
+
+  <ItemGroup Condition="'$(FFmpegBuildIn)'=='True'">
+    <ProjectReference Include="..\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj" />
+  </ItemGroup>
+  
   <ItemGroup>
     <None Update="ViewModels\Editors\VectorEditorViewModels.tt">
       <Generator>TextTemplatingFileGenerator</Generator>

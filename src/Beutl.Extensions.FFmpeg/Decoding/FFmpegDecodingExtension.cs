@@ -21,8 +21,8 @@ public class FFmpegDecodingExtension : DecodingExtension
 
     public override void Load()
     {
-        base.Load();
         FFmpegLoader.Initialize();
+        base.Load();
     }
 }
 

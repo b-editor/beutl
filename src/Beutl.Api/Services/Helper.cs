@@ -8,6 +8,8 @@ using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Protocol.Core.Types;
 
+using static Beutl.Api.Services.CoreLibraries;
+
 namespace Beutl.Api.Services;
 
 internal static class Helper
@@ -135,21 +137,6 @@ internal static class Helper
     public static string GetNuspecFilePath(string packageId, string version)
     {
         return Path.Combine(InstallPath, $"{packageId}.{version}", $"{packageId}.{version}.nuspec");
-    }
-
-    public static bool IsCoreLibraries(string name)
-    {
-        return name is "Beutl.Sdk"
-            or "Beutl.Configuration"
-            or "Beutl.Controls"
-            or "Beutl.Core"
-            or "Beutl.Framework"
-            or "Beutl.Graphics"
-            or "Beutl.Language"
-            or "Beutl.Operators"
-            or "Beutl.ProjectSystem"
-            or "Beutl.Threading"
-            or "Beutl.Utilities";
     }
 
     public static T? TryGetOrDefault<T>(Func<T> func)

@@ -34,22 +34,6 @@ public partial class PackageInstaller : IBeutlApiResource
 
     private readonly Subject<(PackageIdentity Package, EventType Type)> _subject = new();
 
-    private static readonly NuGetVersion s_beutlVersion = new("0.3.0");
-    private static readonly PackageIdentity[] s_preferredVersions =
-    {
-        new PackageIdentity("Beutl.Sdk", s_beutlVersion),
-        new PackageIdentity("Beutl.Configuration", s_beutlVersion),
-        new PackageIdentity("Beutl.Controls", s_beutlVersion),
-        new PackageIdentity("Beutl.Core", s_beutlVersion),
-        new PackageIdentity("Beutl.Extensibility", s_beutlVersion),
-        new PackageIdentity("Beutl.Engine", s_beutlVersion),
-        new PackageIdentity("Beutl.Language", s_beutlVersion),
-        new PackageIdentity("Beutl.Operators", s_beutlVersion),
-        new PackageIdentity("Beutl.ProjectSystem", s_beutlVersion),
-        new PackageIdentity("Beutl.Threading", s_beutlVersion),
-        new PackageIdentity("Beutl.Utilities", s_beutlVersion),
-    };
-
     private const string DefaultNuGetConfigContentTemplate = @"<?xml version=""1.0"" encoding=""utf-8""?>
 <configuration>
   <packageSources>
@@ -326,7 +310,7 @@ public partial class PackageInstaller : IBeutlApiResource
                     new[] { packageId },
                     Enumerable.Empty<string>(),
                     Enumerable.Empty<PackageReference>(),
-                    s_preferredVersions,
+                    CoreLibraries.PreferredVersions,
                     availablePackages,
                     repositories.Select(s => s.PackageSource),
                     logger);
@@ -346,7 +330,7 @@ public partial class PackageInstaller : IBeutlApiResource
                 foreach (SourcePackageDependencyInfo packageToInstall in packagesToInstall)
                 {
                     // Beutl.Sdkに含まれるライブラリの場合、飛ばす。
-                    if (Helper.IsCoreLibraries(packageToInstall.Id))
+                    if (CoreLibraries.IsCoreLibraries(packageToInstall.Id))
                     {
                         continue;
                     }

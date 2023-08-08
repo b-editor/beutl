@@ -26,8 +26,8 @@ public sealed class FFmpegEncodingExtension : EncodingExtension
 
     public override void Load()
     {
-        base.Load();
         FFmpegLoader.Initialize();
+        base.Load();
     }
 }
 

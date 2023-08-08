@@ -13,16 +13,16 @@
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <Authors>b-editor</Authors>
 
-    <!--<DefineConstants>$(DefineConstants);FFMPEG_BUILD_IN</DefineConstants>-->
+    <FFmpegBuildIn Condition="'$(FFmpegBuildIn)' == ''">True</FFmpegBuildIn>
+    <DefineConstants Condition="'$(FFmpegBuildIn)'=='True'">$(DefineConstants);FFMPEG_BUILD_IN</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="FFmpeg.AutoGen" />
   </ItemGroup>
 
-  <!--https://learn.microsoft.com/ja-jp/visualstudio/msbuild/msbuild-conditional-constructs?view=vs-2022#example-->
   <Choose>
-    <When Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($(DefineConstants), '^(.*;)*FFMPEG_BUILD_IN(;.*)*$'))">
+    <When Condition="'$(FFmpegBuildIn)'=='True'">
 
       <PropertyGroup>
         <AssemblyName>Beutl.Embedding.FFmpeg</AssemblyName>

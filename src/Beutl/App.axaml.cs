@@ -19,7 +19,11 @@ using Beutl.Views;
 using FluentAvalonia.Core;
 using FluentAvalonia.Styling;
 
+using Microsoft.Extensions.Logging;
+
 using Reactive.Bindings;
+
+using Serilog;
 
 namespace Beutl;
 
@@ -30,6 +34,8 @@ public sealed class App : Application
 
     public override void Initialize()
     {
+        SetupLogger();
+
         FAUISettings.SetAnimationsEnabledAtAppLevel(true);
 
         //PaletteColors
@@ -95,6 +101,24 @@ public sealed class App : Application
         ReactivePropertyScheduler.SetDefault(AvaloniaScheduler.Instance);
     }
 
+    private void SetupLogger()
+    {
+        string logFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "log", "log.txt");
+        const string OutputTemplate = "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SourceContext:l}] {Message:lj}{NewLine}{Exception}";
+        Log.Logger = new LoggerConfiguration()
+            .Enrich.FromLogContext()
+#if DEBUG
+            .MinimumLevel.Debug()
+            .WriteTo.Debug(outputTemplate: OutputTemplate)
+#else
+            .MinimumLevel.Debug()
+#endif
+            .WriteTo.File(logFile, rollingInterval: RollingInterval.Day, outputTemplate: OutputTemplate)
+            .CreateLogger();
+
+        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(builder => builder.AddSerilog(Log.Logger, true));
+    }
+
     public override void OnFrameworkInitializationCompleted()
     {
         _ = RenderThread.Dispatcher;
@@ -126,5 +150,6 @@ public sealed class App : Application
     private void Application_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
         GlobalConfiguration.Instance.Save(GlobalConfiguration.DefaultFilePath);
+        BeutlApplication.Current.LoggerFactory.Dispose();
     }
 }

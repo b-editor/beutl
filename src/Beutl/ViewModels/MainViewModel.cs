@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.CodeDom.Compiler;
+using System.Reflection;
 
 using Avalonia;
 using Avalonia.Collections;
@@ -21,10 +22,14 @@ using NuGet.Packaging.Core;
 
 using Reactive.Bindings;
 
+using Serilog;
+
 namespace Beutl.ViewModels;
 
+// Todo: StartupやMenuBarViewModelなど複数のクラスに分ける
 public sealed class MainViewModel : BasePageViewModel
 {
+    private readonly ILogger _logger;
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
     private readonly PageExtension[] _primitivePageExtensions;
@@ -52,6 +57,7 @@ public sealed class MainViewModel : BasePageViewModel
 
     public MainViewModel()
     {
+        _logger = Log.ForContext<MainViewModel>();
         _authorizedHttpClient = new HttpClient();
         _beutlClients = new BeutlApiApplication(_authorizedHttpClient);
 
@@ -108,14 +114,17 @@ public sealed class MainViewModel : BasePageViewModel
                     }
                     else
                     {
+                        Type type = item.Extension.Value.GetType();
+                        _logger.Error("{Extension} failed to save file", type.FullName ?? type.Name);
                         Notification.Show(new Notification(
                             string.Empty,
                             Message.OperationCouldNotBeExecuted,
                             NotificationType.Information));
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    _logger.Error(ex, "Failed to save file");
                     Notification.Show(new Notification(
                         string.Empty,
                         Message.OperationCouldNotBeExecuted,
@@ -136,10 +145,21 @@ public sealed class MainViewModel : BasePageViewModel
 
                 foreach (EditorTabItem? item in _editorService.TabItems)
                 {
-                    if (item.Commands.Value != null
-                        && await item.Commands.Value.OnSave())
+                    if (item.Commands.Value != null)
                     {
-                        itemsCount++;
+                        if (await item.Commands.Value.OnSave())
+                        {
+                            itemsCount++;
+                        }
+                        else
+                        {
+                            Type type = item.Extension.Value.GetType();
+                            _logger.Error("{Extension} failed to save file", type.FullName ?? type.Name);
+                            Notification.Show(new Notification(
+                                "ファイルを保存できません",
+                                item.FileName.Value,
+                                NotificationType.Error));
+                        }
                     }
                 }
 
@@ -148,8 +168,9 @@ public sealed class MainViewModel : BasePageViewModel
                     string.Format(Message.ItemsSaved, itemsCount.ToString()),
                     NotificationType.Success));
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.Error(ex, "Failed to save files");
                 Notification.Show(new Notification(
                     string.Empty,
                     Message.OperationCouldNotBeExecuted,
@@ -311,6 +332,84 @@ public sealed class MainViewModel : BasePageViewModel
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 
+    private void LoadPrimitiveExtensions(ExtensionProvider provider, IList<(LocalPackage, Exception)> failures)
+    {
+        provider._allExtensions.Add(LocalPackage.s_nextId++, _primitivePageExtensions);
+
+        // NOTE: ここでSceneEditorExtensionを登録しているので、
+        //       パッケージとして分離する場合ここを削除
+        provider._allExtensions.Add(LocalPackage.s_nextId++, new Extension[]
+        {
+            SceneEditorExtension.Instance,
+            SceneOutputExtension.Instance,
+            SceneProjectItemExtension.Instance,
+            TimelineTabExtension.Instance,
+            ObjectPropertyTabExtension.Instance,
+            SourceOperatorsTabExtension.Instance,
+            PropertyEditorExtension.Instance,
+            NodeTreeTabExtension.Instance,
+            NodeTreeInputTabExtension.Instance,
+            GraphEditorTabExtension.Instance,
+        });
+
+#if FFMPEG_BUILD_IN
+        // Beutl.Extensions.FFmpeg.csproj
+        var pkg = new LocalPackage
+        {
+            ShortDescription = "FFmpeg for beutl",
+            Name = "Beutl.Embedding.FFmpeg",
+            DisplayName = "Beutl.Embedding.FFmpeg",
+            InstalledPath = AppContext.BaseDirectory,
+            Tags = { "ffmpeg", "decoder", "decoding", "encoder", "encoding", "video", "audio" },
+            Version = "1.0.0",
+            WebSite = "https://github.com/b-editor/beutl",
+            Publisher = "b-editor"
+        };
+        try
+        {
+            var decoding = new Embedding.FFmpeg.Decoding.FFmpegDecodingExtension();
+            var encoding = new Embedding.FFmpeg.Encoding.FFmpegEncodingExtension();
+            decoding.Load();
+            encoding.Load();
+
+            provider._allExtensions.Add(pkg.LocalId, new Extension[]
+            {
+                decoding,
+                encoding
+            });
+        }
+        catch (Exception ex)
+        {
+            failures.Add((pkg, ex));
+        }
+#endif
+    }
+
+    private void LoadLocalPackages(PackageManager manager, IReadOnlyList<LocalPackage> packages, IList<(LocalPackage, Exception)> failures)
+    {
+        foreach (LocalPackage item in packages)
+        {
+            try
+            {
+                manager.Load(item);
+            }
+            catch (Exception e)
+            {
+                _logger.Error(e, "Failed to load package");
+                failures.Add((item, e));
+            }
+        }
+    }
+
+    private void InitializePages(ExtensionProvider provider)
+    {
+        IEnumerable<PageExtension> toAdd
+            = provider.AllExtensions.OfType<PageExtension>().Except(_primitivePageExtensions);
+
+        NavItemViewModel[] viewModels = toAdd.Select(item => new NavItemViewModel(item)).ToArray();
+        _ = Dispatcher.UIThread.InvokeAsync(() => Pages.AddRange(viewModels.AsSpan()), DispatcherPriority.Background);
+    }
+
     public Task RunSplachScreenTask(Func<IReadOnlyList<LocalPackage>, Task<bool>> showDialog)
     {
         return Task.Run(async () =>
@@ -319,44 +418,30 @@ public sealed class MainViewModel : BasePageViewModel
 
             PackageManager manager = _beutlClients.GetResource<PackageManager>();
             ExtensionProvider provider = _beutlClients.GetResource<ExtensionProvider>();
+            var failures = new List<(LocalPackage, Exception)>();
 
-            provider._allExtensions.Add(LocalPackage.s_nextId++, _primitivePageExtensions);
+            LoadPrimitiveExtensions(provider, failures);
+            // .beutl/packages/ 内のパッケージを読み込む
+            LoadLocalPackages(manager, await manager.GetPackages(), failures);
 
-            // NOTE: ここでSceneEditorExtensionを登録しているので、
-            //       パッケージとして分離する場合ここを削除
-            provider._allExtensions.Add(LocalPackage.s_nextId++, new Extension[]
-            {
-                SceneEditorExtension.Instance,
-                SceneOutputExtension.Instance,
-                SceneProjectItemExtension.Instance,
-                TimelineTabExtension.Instance,
-                ObjectPropertyTabExtension.Instance,
-                SourceOperatorsTabExtension.Instance,
-                PropertyEditorExtension.Instance,
-                NodeTreeTabExtension.Instance,
-                NodeTreeInputTabExtension.Instance,
-                GraphEditorTabExtension.Instance,
-            });
-
-            foreach (LocalPackage item in await manager.GetPackages())
-            {
-                manager.Load(item);
-            }
-
+            // .beutl/sideloads/ 内のパッケージを読み込む
             if (manager.GetSideLoadPackages() is { Count: > 0 } sideloads
                 && await showDialog(sideloads))
             {
-                foreach (LocalPackage item in sideloads)
-                {
-                    manager.Load(item);
-                }
+                LoadLocalPackages(manager, sideloads, failures);
             }
 
-            IEnumerable<PageExtension> toAdd
-                = provider.AllExtensions.OfType<PageExtension>().Except(_primitivePageExtensions);
+            if (failures.Count > 0)
+            {
+                Notification.Show(new Notification(
+                    "パッケージの読み込みに失敗しました。",
+                    $"{failures.Count}件のパッケージの読み込みに失敗しました",
+                    NotificationType.Error,
+                    OnActionButtonClick: () => ShowPackageLoadingError(failures),
+                    ActionButtonText: "詳細"));
+            }
 
-            NavItemViewModel[] viewModels = toAdd.Select(item => new NavItemViewModel(item)).ToArray();
-            _ = Dispatcher.UIThread.InvokeAsync(() => Pages.AddRange(viewModels.AsSpan()), DispatcherPriority.Background);
+            InitializePages(provider);
 
             try
             {
@@ -364,8 +449,48 @@ public sealed class MainViewModel : BasePageViewModel
             }
             catch (Exception e)
             {
+                _logger.Error(e, "An error occurred during authentication");
                 ErrorHandle(e);
             }
+        });
+    }
+
+    // ユーザー向けのテキストファイルを生成して、デフォルトのテキストエディタで表示する。
+    private static async void ShowPackageLoadingError(IReadOnlyList<(LocalPackage, Exception)> failures)
+    {
+        string file = Path.GetTempFileName();
+        file = Path.ChangeExtension(file, ".txt");
+
+        using (StreamWriter baseWriter = File.CreateText(file))
+        using (var writer = new IndentedTextWriter(baseWriter, "  "))
+        {
+            baseWriter.AutoFlush = false;
+            writer.WriteLine($"{failures.Count}件のパッケージの読み込みに失敗しました。\n");
+            foreach ((LocalPackage pkg, Exception ex) in failures)
+            {
+                writer.WriteLine("Package:");
+                writer.Indent++;
+                writer.WriteLine($"Name: '{pkg.Name}'");
+                writer.WriteLine($"DisplayName: '{pkg.DisplayName}'");
+                writer.WriteLine($"Version: '{pkg.Version}'");
+                writer.WriteLine($"Publisher: '{pkg.Publisher}'");
+                writer.WriteLine($"WebSite: '{pkg.WebSite}'");
+                writer.WriteLine($"Description: '{pkg.Description}");
+                writer.WriteLine($"ShortDescription: '{pkg.ShortDescription}'");
+                writer.WriteLine($"Tags: '{string.Join(',', pkg.Tags)}'");
+                writer.WriteLine($"InstalledPath: '{pkg.InstalledPath}'");
+                writer.Indent--;
+                writer.WriteLine(ex.ToString());
+                writer.WriteLine();
+            }
+
+            await writer.FlushAsync();
+        }
+
+        Process.Start(new ProcessStartInfo(file)
+        {
+            UseShellExecute = true,
+            Verb = "open"
         });
     }
 
@@ -386,6 +511,7 @@ public sealed class MainViewModel : BasePageViewModel
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "An error occurred while checking for updates");
             ErrorHandle(ex);
             return null;
         }

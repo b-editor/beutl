@@ -228,8 +228,6 @@ public sealed class PackageManager : PackageLoader
             ? Load(package.InstalledPath)
             : SideLoad(package.InstalledPath);
 
-        _loadedPackage.Add(package);
-
         var extensions = new List<Extension>();
 
         foreach (Assembly assembly in assemblies)
@@ -238,6 +236,8 @@ public sealed class PackageManager : PackageLoader
         }
 
         ExtensionProvider._allExtensions.Add(package.LocalId, extensions.ToArray());
+
+        _loadedPackage.Add(package);
 
         return assemblies;
     }

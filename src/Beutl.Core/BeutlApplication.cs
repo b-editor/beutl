@@ -2,12 +2,15 @@
 
 using Beutl.Collections;
 
+using Microsoft.Extensions.Logging;
+
 namespace Beutl;
 
 public class BeutlApplication : Hierarchical, IHierarchicalRoot
 {
     public static readonly CoreProperty<Project?> ProjectProperty;
     private Project? _project;
+    private ILoggerFactory? _loggerFactory;
 
     static BeutlApplication()
     {
@@ -22,6 +25,12 @@ public class BeutlApplication : Hierarchical, IHierarchicalRoot
     }
 
     public static BeutlApplication Current { get; } = new();
+
+    public ILoggerFactory LoggerFactory
+    {
+        get => _loggerFactory!;
+        internal set => _loggerFactory ??= value;
+    }
 
     public Project? Project
     {
