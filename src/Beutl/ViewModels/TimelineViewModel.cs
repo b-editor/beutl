@@ -12,6 +12,8 @@ using Beutl.ProjectSystem;
 using Beutl.Reactive;
 using Beutl.Services.PrimitiveImpls;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -89,11 +91,7 @@ public sealed class TimelineViewModel : IToolContext
             (idx, _) =>
             {
                 ElementViewModel layer = Layers[idx];
-                foreach (InlineAnimationLayerViewModel item in Inlines.Where(x => x.Layer == layer).ToArray())
-                {
-                    DetachInline(item);
-                }
-
+                this.GetService<ISupportCloseAnimation>()?.Close(layer.Model);
                 layer.Dispose();
                 Layers.RemoveAt(idx);
             },
@@ -117,7 +115,7 @@ public sealed class TimelineViewModel : IToolContext
     public EditViewModel EditorContext { get; private set; }
 
     public ReadOnlyReactivePropertySlim<double> PanelWidth { get; }
-    
+
     public ReactiveProperty<bool> IsCacheEnabled { get; }
 
     public ReadOnlyReactivePropertySlim<Thickness> SeekBarMargin { get; }

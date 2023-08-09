@@ -14,10 +14,18 @@ namespace Beutl.Operation;
 
 public sealed class SourceOperation : Hierarchical, IAffectsRender
 {
+    public static readonly CoreProperty<ICoreList<SourceOperator>> ChildrenProperty;
     private readonly HierarchicalList<SourceOperator> _children;
     private OperatorEvaluationContext[]? _contexts;
     private int _contextsLength;
     private bool _isDirty = true;
+
+    static SourceOperation()
+    {
+        ChildrenProperty = ConfigureProperty<ICoreList<SourceOperator>, SourceOperation>(nameof(Children))
+            .Accessor(o => o.Children)
+            .Register();
+    }
 
     public SourceOperation()
     {
@@ -29,6 +37,7 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
+    [NotAutoSerialized]
     public ICoreList<SourceOperator> Children => _children;
 
     public override void ReadFromJson(JsonObject json)

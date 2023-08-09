@@ -1,11 +1,15 @@
-﻿using System.Numerics;
+﻿using System.Collections;
+using System.Numerics;
 using System.Text.Json.Nodes;
 
+using Beutl.Animation;
 using Beutl.Api.Services;
 using Beutl.Extensibility;
 using Beutl.Models;
+using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
+using Beutl.ViewModels.Tools;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -31,7 +35,7 @@ public sealed class ToolTabViewModel : IDisposable
     }
 }
 
-public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
+public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, ISupportCloseAnimation
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly ExtensionProvider _extensionProvider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
@@ -54,6 +58,22 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         Offset = Options.Select(o => o.Offset);
 
         RestoreState();
+
+        SelectedObject.CombineWithPrevious()
+            .Subscribe(v =>
+            {
+                if (v.OldValue is IHierarchical oldHierarchical)
+                    oldHierarchical.DetachedFromHierarchy -= OnSelectedObjectDetachedFromHierarchy;
+
+                if (v.NewValue is IHierarchical newHierarchical)
+                    newHierarchical.DetachedFromHierarchy += OnSelectedObjectDetachedFromHierarchy;
+            })
+            .DisposeWith(_disposables);
+    }
+
+    private void OnSelectedObjectDetachedFromHierarchy(object? sender, HierarchyAttachmentEventArgs e)
+    {
+        SelectedObject.Value = null;
     }
 
     public Scene Scene { get; private set; }
@@ -405,7 +425,98 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         if (serviceType.IsAssignableTo(typeof(IEditorContext)))
             return this;
 
+        if (serviceType.IsAssignableTo(typeof(ISupportCloseAnimation)))
+            return this;
+
         return null;
+    }
+
+    void ISupportCloseAnimation.Close(object obj)
+    {
+        switch (obj)
+        {
+            case IAnimation animation:
+                {
+                    TimelineViewModel? timeline = FindToolTab<TimelineViewModel>();
+                    // Timelineのインライン表示を削除
+                    if (timeline != null)
+                    {
+                        InlineAnimationLayerViewModel? inline = timeline.Inlines.FirstOrDefault(x => x.Property.Animation == animation);
+                        inline?.Close.Execute();
+                    }
+
+                    // BottomTabItemsから削除する
+                    ToolTabViewModel? tab = BottomTabItems
+                        .Where(x => x.Context is GraphEditorTabViewModel)
+                        .FirstOrDefault(v => ((GraphEditorTabViewModel)v.Context).SelectedAnimation.Value?.Animation == animation);
+                    if (tab != null)
+                    {
+                        BottomTabItems.Remove(tab);
+                        tab.Dispose();
+                    }
+                    break;
+                }
+
+            case CoreObject coreObject:
+                foreach (CoreProperty? item in PropertyRegistry.GetRegistered(coreObject.GetType())
+                    .Where(x => !x.PropertyType.IsValueType))
+                {
+                    object? value = coreObject.GetValue(item);
+                    if (value != null)
+                    {
+                        (this as ISupportCloseAnimation).Close(value);
+                    }
+                }
+                break;
+
+            case Animations list:
+                {
+                    TimelineViewModel? timeline = FindToolTab<TimelineViewModel>();
+                    // Timelineのインライン表示を削除
+                    if (timeline != null)
+                    {
+                        foreach (InlineAnimationLayerViewModel? item in timeline.Inlines
+                            .IntersectBy(list, v => v.Property.Animation)
+                            .ToArray())
+                        {
+                            timeline.DetachInline(item);
+                        }
+                    }
+
+                    // BottomTabItemsから削除する
+                    foreach (ToolTabViewModel? item in BottomTabItems
+                        .Where(x => x.Context is GraphEditorTabViewModel)
+                        .IntersectBy(list, v => ((GraphEditorTabViewModel)v.Context).SelectedAnimation.Value?.Animation)
+                        .ToArray())
+                    {
+                        BottomTabItems.Remove(item);
+                        item.Dispose();
+                    }
+                    break;
+                }
+
+            case IEnumerable enm:
+                foreach (object? item in enm)
+                {
+                    (this as ISupportCloseAnimation).Close(item);
+                }
+                break;
+
+            case IAbstractProperty property:
+                {
+                    if (property is IAbstractAnimatableProperty { Animation: IAnimation animation })
+                    {
+                        (this as ISupportCloseAnimation).Close(animation);
+                    }
+
+                    if (!property.PropertyType.IsValueType
+                        && property.GetValue() is { } value)
+                    {
+                        (this as ISupportCloseAnimation).Close(value);
+                    }
+                }
+                break;
+        }
     }
 
     private sealed class KnownCommandsImpl : IKnownEditorCommands

@@ -1,7 +1,10 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 
+using Beutl.Animation;
 using Beutl.Services;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -163,14 +166,23 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
     {
         void Added(int index, TItem? obj)
         {
+            var visitor = new Visitor(this);
             var itemAccessor = new ListItemAccessorImpl<TItem?>(index, obj, List.Value!);
             var item = new ListItemEditorViewModel<TItem>(this, itemAccessor);
+
+            item.Context?.Accept(visitor);
             Items.Insert(index, item);
         }
 
         void Removed(int index)
         {
             ListItemEditorViewModel<TItem> item = Items[index];
+            if (this.GetService<ISupportCloseAnimation>() is { } service
+                && item.ItemAccessor.GetValue() is IAnimatable animatable)
+            {
+                service.Close(animatable);
+            }
+
             Items.RemoveAt(index);
             item.Dispose();
         }
@@ -355,6 +367,33 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
             json[nameof(Items)] = array;
         }
         catch
+        {
+        }
+    }
+
+    public override void Accept(IPropertyEditorContextVisitor visitor)
+    {
+        base.Accept(visitor);
+        AcceptChild();
+    }
+
+    private void AcceptChild()
+    {
+        var visitor = new Visitor(this);
+        foreach (ListItemEditorViewModel<TItem> item in Items)
+        {
+            item.Context?.Accept(visitor);
+        }
+    }
+
+    private sealed record Visitor(ListEditorViewModel<TItem> Obj) : IServiceProvider, IPropertyEditorContextVisitor
+    {
+        public object? GetService(Type serviceType)
+        {
+            return Obj.GetService(serviceType);
+        }
+
+        public void Visit(IPropertyEditorContext context)
         {
         }
     }

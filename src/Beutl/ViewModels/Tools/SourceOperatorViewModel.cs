@@ -1,14 +1,16 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
-using Beutl.Services;
+
 using Beutl.Operation;
+using Beutl.Services;
+using Beutl.ViewModels.Editors;
 
 using DynamicData;
 
-using Reactive.Bindings;
-using Beutl.ViewModels.Editors;
 using Microsoft.CodeAnalysis;
-using Beutl.Extensibility;
+using Microsoft.Extensions.DependencyInjection;
+
+using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Tools;
 

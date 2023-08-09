@@ -96,14 +96,14 @@ public class ItemDragBehavior : Behavior<Control>
 
     private static void AddTransforms(ItemsControl itemsControl)
     {
-        if (itemsControl?.Items == null)
+        if (itemsControl?.ItemsSource == null)
         {
             return;
         }
 
         int i = 0;
 
-        foreach (object _ in itemsControl.Items)
+        foreach (object _ in itemsControl.ItemsSource)
         {
             Control container = itemsControl.ContainerFromIndex(i);
             if (container != null)
@@ -117,14 +117,14 @@ public class ItemDragBehavior : Behavior<Control>
 
     private static void RemoveTransforms(ItemsControl itemsControl)
     {
-        if (itemsControl?.Items == null)
+        if (itemsControl?.ItemsSource == null)
         {
             return;
         }
 
         int i = 0;
 
-        foreach (object _ in itemsControl.Items)
+        foreach (object _ in itemsControl.ItemsSource)
         {
             Control container = itemsControl.ContainerFromIndex(i);
             if (container != null)
@@ -138,7 +138,7 @@ public class ItemDragBehavior : Behavior<Control>
 
     private static void MoveDraggedItem(ItemsControl itemsControl, int draggedIndex, int targetIndex)
     {
-        if (itemsControl?.Items is not IList items)
+        if (itemsControl?.ItemsSource is not IList items)
         {
             return;
         }
@@ -162,7 +162,7 @@ public class ItemDragBehavior : Behavior<Control>
 
     private void Moved(object sender, PointerEventArgs e)
     {
-        if (_itemsControl?.Items is null || _draggedContainer is null || !_enableDrag)
+        if (_itemsControl?.ItemsSource is null || _draggedContainer is null || !_enableDrag)
         {
             return;
         }
@@ -196,7 +196,7 @@ public class ItemDragBehavior : Behavior<Control>
 
         int i = 0;
 
-        foreach (object _ in _itemsControl.Items)
+        foreach (object _ in _itemsControl.ItemsSource)
         {
             Control targetContainer = _itemsControl.ContainerFromIndex(i);
             if (targetContainer?.RenderTransform is null || ReferenceEquals(targetContainer, _draggedContainer))

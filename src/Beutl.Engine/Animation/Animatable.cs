@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.ComponentModel;
+using System.Text.Json.Nodes;
 
 using Beutl.Media;
 
@@ -6,11 +7,22 @@ namespace Beutl.Animation;
 
 public abstract class Animatable : CoreObject, IAnimatable
 {
+    public static readonly CoreProperty<Animations> AnimationsProperty;
+
+    static Animatable()
+    {
+        AnimationsProperty = ConfigureProperty<Animations, Animatable>(nameof(Animations))
+            .Accessor(o => o.Animations)
+            .RegisterStatic();
+    }
+
     protected Animatable()
     {
         Animations = new();
     }
 
+    [NotAutoSerialized]
+    [Browsable(false)]
     public Animations Animations { get; }
 
     public event EventHandler<RenderInvalidatedEventArgs> AnimationInvalidated

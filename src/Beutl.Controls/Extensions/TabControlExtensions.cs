@@ -15,7 +15,7 @@ public static class TabControlExtensions
             else
             {
                 //var n_index = NewIndex(tabControl, tabItem);
-                ((IList)tabControl.Items).Remove(tabItem); //removes the tabitem itself
+                ((IList)tabControl.ItemsSource).Remove(tabItem); //removes the tabitem itself
                                                            //tabControl.SelectedIndex = n_index;
             }
         }
@@ -40,7 +40,7 @@ public static class TabControlExtensions
             {
                 //var item = (tabControl.Items as List<TabItem>).Select(x => x.IsSelected == true);
                 //tabControl.SelectedIndex = NewIndex(tabControl, index);
-                ((IList)tabControl.Items).RemoveAt(index);
+                ((IList)tabControl.ItemsSource).RemoveAt(index);
             }
         }
         catch (Exception e)
@@ -54,7 +54,7 @@ public static class TabControlExtensions
         try
         {
             //Thanks to Grokys this is possible
-            ((IList)tabControl.Items).Add(TabItemToAdd);
+            ((IList)tabControl.ItemsSource).Add(TabItemToAdd);
             switch (Focus)
             {
                 case true:

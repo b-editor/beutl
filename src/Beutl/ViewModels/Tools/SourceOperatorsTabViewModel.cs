@@ -1,15 +1,15 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 
-using Beutl.Collections;
 using Beutl.Models;
+using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
-using Beutl.Operation;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-using Beutl.Extensibility;
 
 namespace Beutl.ViewModels.Tools;
 
@@ -44,10 +44,12 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
                 _disposable1 = layer.Operation.Children.CollectionChangedAsObservable()
                     .Subscribe(e =>
                     {
-                        static void RemoveItems(CoreList<SourceOperatorViewModel> items, int index, int count)
+                        void RemoveItems(CoreList<SourceOperatorViewModel> items, int index, int count)
                         {
+                            ISupportCloseAnimation? closeAnm = this.GetService<ISupportCloseAnimation>();
                             foreach (SourceOperatorViewModel item in items.GetMarshal().Value.Slice(index, count))
                             {
+                                closeAnm?.Close(item.Model);
                                 item?.Dispose();
                             }
                             items.RemoveRange(index, count);
@@ -89,7 +91,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
                                 break;
 
                             case NotifyCollectionChangedAction.Reset:
-                                ClearItems();
+                                ClearItems(true);
                                 break;
                         }
                     });
@@ -188,10 +190,12 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
         }
     }
 
-    private void ClearItems()
+    private void ClearItems(bool closeAnm = false)
     {
+        ISupportCloseAnimation? closeService = closeAnm ? this.GetService<ISupportCloseAnimation>() : null;
         foreach (SourceOperatorViewModel? item in Items.GetMarshal().Value)
         {
+            closeService?.Close(item.Model);
             item?.Dispose();
         }
         Items.Clear();

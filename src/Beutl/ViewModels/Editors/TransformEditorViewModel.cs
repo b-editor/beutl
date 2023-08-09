@@ -1,12 +1,17 @@
 ﻿using System.Text.Json.Nodes;
 
+using Beutl.Animation;
 using Beutl.Commands;
 using Beutl.Extensibility;
 using Beutl.Graphics.Transformation;
 using Beutl.Operators.Configure;
 using Beutl.ViewModels.Tools;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
+
+using ReactiveUI;
 
 namespace Beutl.ViewModels.Editors;
 
@@ -50,12 +55,12 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
             _ => null
         };
     }
-    
+
     private static string ToDisplayName(KnownTransformType type)
     {
         return type switch
         {
-            KnownTransformType.Group =>Strings.Group,
+            KnownTransformType.Group => Strings.Group,
             KnownTransformType.Translate => Strings.Translate,
             KnownTransformType.Rotation => Strings.Rotation,
             KnownTransformType.Scale => Strings.Scale,
@@ -126,6 +131,12 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
                     command.DoAndRecord(CommandRecorder.Default);
                 }
             })
+            .DisposeWith(Disposables);
+
+        Value.CombineWithPrevious()
+            .Select(v => v.OldValue as IAnimatable)
+            .WhereNotNull()
+            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v))
             .DisposeWith(Disposables);
     }
 

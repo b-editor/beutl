@@ -1,5 +1,4 @@
 ﻿using Beutl.Animation;
-using Beutl.Extensibility;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;

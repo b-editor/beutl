@@ -14,11 +14,16 @@ public interface ISourceOperator : IAffectsRender
 
 public class SourceOperator : Hierarchical, ISourceOperator
 {
+    public static readonly CoreProperty<ICoreList<IAbstractProperty>> PropertiesProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
     private bool _isEnabled = true;
 
     static SourceOperator()
     {
+        PropertiesProperty = ConfigureProperty<ICoreList<IAbstractProperty>, SourceOperator>(nameof(Properties))
+            .Accessor(o => o.Properties)
+            .Register();
+
         IsEnabledProperty = ConfigureProperty<bool, SourceOperator>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
@@ -37,6 +42,7 @@ public class SourceOperator : Hierarchical, ISourceOperator
         }
     }
 
+    [NotAutoSerialized]
     public ICoreList<IAbstractProperty> Properties { get; } = new CoreList<IAbstractProperty>();
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;

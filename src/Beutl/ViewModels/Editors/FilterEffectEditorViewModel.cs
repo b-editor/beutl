@@ -5,7 +5,11 @@ using Beutl.Graphics.Effects;
 using Beutl.Operators.Configure;
 using Beutl.Services;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
+
+using ReactiveUI;
 
 namespace Beutl.ViewModels.Editors;
 
@@ -54,7 +58,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
                 .DisposeWith(Disposables))
             .DisposeWith(Disposables);
 
-        IsEnabled = Value.Select(x => (x as FilterEffect)?.GetObservable(FilterEffect.IsEnabledProperty) ?? Observable.Return(x?.IsEnabled ?? false))
+        IsEnabled = Value.Select(x => x?.GetObservable(FilterEffect.IsEnabledProperty) ?? Observable.Return(x?.IsEnabled ?? false))
             .Switch()
             .ToReactiveProperty()
             .DisposeWith(Disposables);
@@ -68,6 +72,12 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
                     command.DoAndRecord(CommandRecorder.Default);
                 }
             })
+            .DisposeWith(Disposables);
+
+        Value.CombineWithPrevious()
+            .Select(v => v.OldValue)
+            .WhereNotNull()
+            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v))
             .DisposeWith(Disposables);
     }
 
