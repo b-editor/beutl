@@ -378,8 +378,7 @@ public sealed class ListEditor<TItem> : ListEditor
             }
             catch (InvalidOperationException ex)
             {
-                ServiceLocator.Current.GetRequiredService<INotificationService>()
-                    .Show(new("Error", ex.Message, NotificationType.Error));
+                NotificationService.ShowError("Error", ex.Message);
             }
         }
     }
@@ -394,8 +393,7 @@ public sealed class ListEditor<TItem> : ListEditor
             }
             catch (InvalidOperationException ex)
             {
-                ServiceLocator.Current.GetRequiredService<INotificationService>()
-                    .Show(new("Error", ex.Message, NotificationType.Error));
+                NotificationService.ShowError("Error", ex.Message);
             }
         }
     }
@@ -476,8 +474,7 @@ public sealed class ListEditor<TItem> : ListEditor
                     }
                     else
                     {
-                        ServiceLocator.Current.GetRequiredService<INotificationService>()
-                            .Show(new("Error", "ListEditor<TItem>.OnAddClick", NotificationType.Error));
+                        NotificationService.ShowError("Error", "ListEditor<TItem>.OnAddClick");
                     }
                 });
 

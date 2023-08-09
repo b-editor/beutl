@@ -12,7 +12,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Services;
 
-public sealed class NotificationService : INotificationService
+public sealed class NotificationServiceHandler : INotificationServiceHandler
 {
     private static MainView? GetMainView()
     {

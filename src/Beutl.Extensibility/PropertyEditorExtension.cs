@@ -27,7 +27,14 @@ internal interface IPropertyEditorExtensionImpl
 public class PropertyEditorExtension : Extension
 {
     public static readonly PropertyEditorExtension Instance = new();
-    private IPropertyEditorExtensionImpl? _impl;
+
+    private static IPropertyEditorExtensionImpl? s_defaultHandler;
+
+    internal static IPropertyEditorExtensionImpl DefaultHandler
+    {
+        get => s_defaultHandler!;
+        set => s_defaultHandler ??= value;
+    }
 
     public override string Name => "";
 
@@ -35,48 +42,41 @@ public class PropertyEditorExtension : Extension
 
     public virtual IEnumerable<IAbstractProperty> MatchProperty(IReadOnlyList<IAbstractProperty> properties)
     {
-        _impl ??= ServiceLocator.Current.GetRequiredService<IPropertyEditorExtensionImpl>();
-        return _impl.MatchProperty(properties);
+        return DefaultHandler.MatchProperty(properties);
     }
 
     public virtual bool TryCreateContext(IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
     {
-        _impl ??= ServiceLocator.Current.GetRequiredService<IPropertyEditorExtensionImpl>();
-        return _impl.TryCreateContext(this, properties, out context);
+        return DefaultHandler.TryCreateContext(this, properties, out context);
     }
 
     public virtual bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
     {
-        _impl ??= ServiceLocator.Current.GetRequiredService<IPropertyEditorExtensionImpl>();
-        return _impl.TryCreateControl(context, out control);
+        return DefaultHandler.TryCreateControl(context, out control);
     }
 
     public virtual bool TryCreateContextForNode(IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
     {
-        _impl ??= ServiceLocator.Current.GetRequiredService<IPropertyEditorExtensionImpl>();
-        return _impl.TryCreateContextForNode(this, properties, out context);
+        return DefaultHandler.TryCreateContextForNode(this, properties, out context);
     }
 
     public virtual bool TryCreateControlForNode(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
     {
-        _impl ??= ServiceLocator.Current.GetRequiredService<IPropertyEditorExtensionImpl>();
-        return _impl.TryCreateControlForNode(context, out control);
+        return DefaultHandler.TryCreateControlForNode(context, out control);
     }
 
     public virtual bool TryCreateContextForListItem(
         IAbstractProperty property,
         [NotNullWhen(true)] out IPropertyEditorContext? context)
     {
-        _impl ??= ServiceLocator.Current.GetRequiredService<IPropertyEditorExtensionImpl>();
-        return _impl.TryCreateContextForListItem(this, property, out context);
+        return DefaultHandler.TryCreateContextForListItem(this, property, out context);
     }
 
     public virtual bool TryCreateControlForListItem(
         IPropertyEditorContext context,
         [NotNullWhen(true)] out IListItemEditor? control)
     {
-        _impl ??= ServiceLocator.Current.GetRequiredService<IPropertyEditorExtensionImpl>();
-        return _impl.TryCreateControlForListItem(context, out control);
+        return DefaultHandler.TryCreateControlForListItem(context, out control);
     }
 }
 

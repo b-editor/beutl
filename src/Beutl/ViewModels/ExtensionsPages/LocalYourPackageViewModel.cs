@@ -1,6 +1,7 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Services;
 
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
@@ -55,9 +56,9 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                 {
                     IsBusy.Value = true;
                     _queue.InstallQueue(_packageIdentity);
-                    Notification.Show(new Notification(
-                        Title: ExtensionsPage.PackageInstaller,
-                        Message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation, _packageIdentity)));
+                    NotificationService.ShowInformation(
+                        title: ExtensionsPage.PackageInstaller,
+                        message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation, _packageIdentity));
 
                     await Task.CompletedTask;
                 }
@@ -82,9 +83,9 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                     {
                         var packageId = new PackageIdentity(Package.Name, new NuGetVersion(LatestRelease.Value.Version.Value));
                         _queue.InstallQueue(packageId);
-                        Notification.Show(new Notification(
-                            Title: ExtensionsPage.PackageInstaller,
-                            Message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId)));
+                        NotificationService.ShowInformation(
+                            title: ExtensionsPage.PackageInstaller,
+                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId));
                     }
                 }
                 catch (Exception e)
@@ -107,9 +108,9 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                 {
                     IsBusy.Value = true;
                     _queue.UninstallQueue(_packageIdentity);
-                    Notification.Show(new Notification(
-                        Title: ExtensionsPage.PackageInstaller,
-                        Message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation, _packageIdentity)));
+                    NotificationService.ShowInformation(
+                        title: ExtensionsPage.PackageInstaller,
+                        message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation, _packageIdentity));
                 }
                 catch (Exception e)
                 {

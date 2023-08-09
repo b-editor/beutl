@@ -85,14 +85,10 @@ public sealed class App : Application
     public override void RegisterServices()
     {
         base.RegisterServices();
-        ServiceLocator.Current
-            .BindToSelfSingleton<EditorService>()
-            .BindToSelfSingleton<OutputService>()
-            .BindToSelfSingleton<HttpClient>()
-            .BindToSelfSingleton<ProjectService>()
-            .Bind<IPropertyEditorExtensionImpl>().ToSingleton<PropertyEditorService.PropertyEditorExtensionImpl>()
-            .BindToSelf<IProjectItemContainer>(new ProjectItemContainer())
-            .BindToSelf<INotificationService>(new NotificationService());
+        PropertyEditorExtension.DefaultHandler = new PropertyEditorService.PropertyEditorExtensionImpl();
+
+        ProjectItemContainer.Current.Generator = new ProjectItemGenerator();
+        NotificationService.Handler = new NotificationServiceHandler();
 
         GetMainViewModel().RegisterServices();
 

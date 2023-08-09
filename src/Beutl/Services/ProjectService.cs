@@ -23,6 +23,8 @@ public sealed class ProjectService
         _isOpened = CurrentProject.Select(v => v != null).ToReadOnlyReactivePropertySlim();
     }
 
+    public static ProjectService Current { get; } = new();
+
     public IObservable<(Project? New, Project? Old)> ProjectObservable => _projectObservable;
 
     public IReadOnlyReactiveProperty<Project?> CurrentProject { get; }
@@ -71,9 +73,8 @@ public sealed class ProjectService
         {
             CommandRecorder.Default.Clear();
             location = Path.Combine(location, name);
-            IProjectItemContainer container = ServiceLocator.Current.GetRequiredService<IProjectItemContainer>();
             var scene = new Scene(width, height, name);
-            container.Add(scene);
+            ProjectItemContainer.Current.Add(scene);
             var project = new Project()
             {
                 Items =

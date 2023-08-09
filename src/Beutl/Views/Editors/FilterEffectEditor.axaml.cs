@@ -94,8 +94,7 @@ public partial class FilterEffectEditor : UserControl
                     }
                     catch (Exception ex)
                     {
-                        ServiceLocator.Current.GetRequiredService<INotificationService>()
-                            .Show(new("Error", ex.Message, NotificationType.Error));
+                        NotificationService.ShowError("Error", ex.Message);
                     }
                 }
             }
@@ -142,8 +141,7 @@ public partial class FilterEffectEditor : UserControl
                 }
                 catch (Exception ex)
                 {
-                    ServiceLocator.Current.GetRequiredService<INotificationService>()
-                        .Show(new("Error", ex.Message, NotificationType.Error));
+                    NotificationService.ShowError("Error", ex.Message);
                 }
             }
         }

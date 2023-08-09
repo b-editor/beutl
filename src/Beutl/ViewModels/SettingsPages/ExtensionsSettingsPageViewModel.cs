@@ -13,7 +13,6 @@ namespace Beutl.ViewModels.SettingsPages;
 public sealed class ExtensionsSettingsPageViewModel : PageContext
 {
     private readonly ExtensionConfig _extensionConfig = GlobalConfiguration.Instance.ExtensionConfig;
-    private readonly ExtensionProvider _extensionProvider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
     private readonly EditorExtension[] _loadedEExt;
     private IDisposable? _disposable1;
 
@@ -21,7 +20,7 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext
 
     public ExtensionsSettingsPageViewModel()
     {
-        _loadedEExt = _extensionProvider.AllExtensions.OfType<EditorExtension>().ToArray();
+        _loadedEExt = ExtensionProvider.Current.AllExtensions.OfType<EditorExtension>().ToArray();
         FileExtensions.AddRange(_extensionConfig.EditorExtensions.Keys);
         SelectedFileExtension.Subscribe(fext =>
         {
@@ -41,7 +40,7 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext
 
                         if (type.Type != null)
                         {
-                            Extension? ext = _extensionProvider.AllExtensions.FirstOrDefault(item => item.GetType() == type.Type);
+                            Extension? ext = ExtensionProvider.Current.AllExtensions.FirstOrDefault(item => item.GetType() == type.Type);
                             displayName = ext?.DisplayName;
                             name = ext?.Name;
                         }

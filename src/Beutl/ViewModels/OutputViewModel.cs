@@ -164,6 +164,12 @@ public sealed class VideoOutputViewModel
 
     public JsonNode WriteToJson()
     {
+        JsonNode? options = null;
+        if (OptionsJson.Value?.ToJsonString() is string opt)
+        {
+            options = JsonNode.Parse(opt);
+        }
+
         return new JsonObject
         {
             [nameof(Width)] = Width.Value,
@@ -172,7 +178,7 @@ public sealed class VideoOutputViewModel
             [nameof(FrameRate)] = InputFrameRate.Value,
             [nameof(BitRate)] = BitRate.Value,
             [nameof(KeyFrameRate)] = KeyFrameRate.Value,
-            ["Options"] = OptionsJson.Value,
+            ["Options"] = options,
             [nameof(IsOptionsExpanded)] = IsOptionsExpanded.Value,
         };
     }
@@ -279,12 +285,18 @@ public sealed class AudioOutputViewModel
 
     public JsonNode WriteToJson()
     {
+        JsonNode? options = null;
+        if (OptionsJson.Value?.ToJsonString() is string opt)
+        {
+            options = JsonNode.Parse(opt);
+        }
+
         return new JsonObject
         {
             [nameof(SampleRate)] = SampleRate.Value,
             [nameof(Channels)] = Channels.Value,
             [nameof(BitRate)] = BitRate.Value,
-            ["Options"] = OptionsJson.Value,
+            ["Options"] = options,
             [nameof(IsOptionsExpanded)] = IsOptionsExpanded.Value,
         };
     }
@@ -302,7 +314,7 @@ public sealed class OutputViewModel : IOutputContext
     private readonly ReactivePropertySlim<double> _progress = new();
     private readonly ReadOnlyObservableCollection<IEncoderInfo> _encoders;
     private readonly IDisposable _disposable1;
-    private readonly IProjectItemContainer _itemContainer = ServiceLocator.Current.GetRequiredService<IProjectItemContainer>();
+    private readonly ProjectItemContainer _itemContainer = ProjectItemContainer.Current;
     private CancellationTokenSource? _lastCts;
 
     public OutputViewModel(SceneFile model)

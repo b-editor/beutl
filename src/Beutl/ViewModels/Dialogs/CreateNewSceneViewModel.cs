@@ -4,8 +4,6 @@ using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 
-using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
@@ -16,9 +14,8 @@ public sealed class CreateNewSceneViewModel
 
     public CreateNewSceneViewModel()
     {
-        ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
-        _proj = service.CurrentProject.Value;
-        CanAddToCurrentProject = service.CurrentProject.Select(i => i != null).ToReadOnlyReactivePropertySlim();
+        _proj = ProjectService.Current.CurrentProject.Value;
+        CanAddToCurrentProject = ProjectService.Current.CurrentProject.Select(i => i != null).ToReadOnlyReactivePropertySlim();
         AddToCurrentProject = new(_proj != null);
 
         Location.Value = GetInitialLocation();
@@ -61,20 +58,18 @@ public sealed class CreateNewSceneViewModel
         Create = new ReactiveCommand(CanCreate);
         Create.Subscribe(() =>
         {
-            IProjectItemContainer container = ServiceLocator.Current.GetRequiredService<IProjectItemContainer>();
-            EditorService editPage = ServiceLocator.Current.GetRequiredService<EditorService>();
             var scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value);
-            container.Add(scene);
+            ProjectItemContainer.Current.Add(scene);
             scene.Save(Path.Combine(Location.Value, Name.Value, $"{Name.Value}.{Constants.SceneFileExtension}"));
 
             if (_proj != null && AddToCurrentProject.Value)
             {
                 _proj.Items.Add(scene);
-                editPage.ActivateTabItem(scene.FileName, TabOpenMode.FromProject);
+                EditorService.Current.ActivateTabItem(scene.FileName, TabOpenMode.FromProject);
             }
             else
             {
-                editPage.ActivateTabItem(scene.FileName, TabOpenMode.YourSelf);
+                EditorService.Current.ActivateTabItem(scene.FileName, TabOpenMode.YourSelf);
             }
         });
     }

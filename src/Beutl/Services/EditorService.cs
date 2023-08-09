@@ -78,6 +78,8 @@ public sealed class EditorService
         };
     }
 
+    public static EditorService Current { get; } = new();
+
     public ICoreList<EditorTabItem> TabItems => _tabItems;
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } = new ReactiveProperty<EditorTabItem?>();
@@ -102,13 +104,11 @@ public sealed class EditorService
             }
             else
             {
-                ExtensionProvider extensionProvider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
-                OutputService output = ServiceLocator.Current.GetRequiredService<OutputService>();
-                EditorExtension? ext = extensionProvider.MatchEditorExtension(file);
+                EditorExtension? ext = ExtensionProvider.Current.MatchEditorExtension(file);
 
                 if (ext?.TryCreateContext(file, out IEditorContext? context) == true)
                 {
-                    context.IsEnabled.Value = !output.Items.Any(x => x.Context.TargetFile == file && x.Context.IsEncoding.Value);
+                    context.IsEnabled.Value = !OutputService.Current.Items.Any(x => x.Context.TargetFile == file && x.Context.IsEncoding.Value);
                     TabItems.Add(new EditorTabItem(context, tabOpenMode)
                     {
                         IsSelected =

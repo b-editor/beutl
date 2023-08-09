@@ -181,7 +181,7 @@ public sealed class Project : Hierarchical, IStorable
             _items.Remove(item);
         }
 
-        IProjectItemContainer resolver = ServiceLocator.Current.GetRequiredService<IProjectItemContainer>();
+        ProjectItemContainer resolver = ProjectItemContainer.Current;
         foreach (string item in toAddItems)
         {
             if (resolver.TryGetOrCreateItem(item, out ProjectItem? projectItem))

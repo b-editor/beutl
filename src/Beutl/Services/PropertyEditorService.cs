@@ -29,9 +29,7 @@ public static class PropertyEditorService
 
     public static (IAbstractProperty[] Properties, PropertyEditorExtension Extension) MatchProperty(IReadOnlyList<IAbstractProperty> properties)
     {
-        ExtensionProvider extp = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
-
-        PropertyEditorExtension[] items = extp.GetExtensions<PropertyEditorExtension>();
+        PropertyEditorExtension[] items = ExtensionProvider.Current.GetExtensions<PropertyEditorExtension>();
         for (int i = items.Length - 1; i >= 0; i--)
         {
             PropertyEditorExtension item = items[i];

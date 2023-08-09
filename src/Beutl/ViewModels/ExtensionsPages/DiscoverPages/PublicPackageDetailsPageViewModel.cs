@@ -1,11 +1,14 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Services;
 
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
 using Reactive.Bindings;
+
+using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
@@ -118,9 +121,9 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
                     Release release = await _library.GetPackage(Package);
                     var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
                     _queue.InstallQueue(packageId);
-                    Notification.Show(new Notification(
-                        Title: ExtensionsPage.PackageInstaller,
-                        Message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation, package)));
+                    NotificationService.ShowInformation(
+                        title: ExtensionsPage.PackageInstaller,
+                        message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation, package));
                 }
                 catch (Exception e)
                 {
@@ -143,9 +146,9 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
                     Release release = await _library.GetPackage(Package);
                     var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
                     _queue.InstallQueue(packageId);
-                    Notification.Show(new Notification(
-                        Title: ExtensionsPage.PackageInstaller,
-                        Message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId)));
+                    NotificationService.ShowInformation(
+                        title: ExtensionsPage.PackageInstaller,
+                        message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId));
                 }
                 catch (Exception e)
                 {
@@ -167,9 +170,9 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
                     foreach (PackageIdentity item in _installedPackageRepository.GetLocalPackages(Package.Name))
                     {
                         _queue.UninstallQueue(item);
-                        Notification.Show(new Notification(
-                            Title: ExtensionsPage.PackageInstaller,
-                            Message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation, item)));
+                        NotificationService.ShowInformation(
+                            title: ExtensionsPage.PackageInstaller,
+                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation, item));
                     }
                 }
                 catch (Exception e)

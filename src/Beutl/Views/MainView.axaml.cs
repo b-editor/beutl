@@ -88,10 +88,6 @@ public sealed partial class MainView : UserControl
     private readonly Cache<MenuItem> _menuItemCache = new(4);
     private readonly CompositeDisposable _disposables = new();
     private readonly AvaloniaList<NavigationViewItem> _navigationItems = new();
-    private readonly EditorService _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
-    private readonly ProjectService _projectService = ServiceLocator.Current.GetRequiredService<ProjectService>();
-    private readonly INotificationService _notificationService = ServiceLocator.Current.GetRequiredService<INotificationService>();
-    private readonly IProjectItemContainer _projectItemContainer = ServiceLocator.Current.GetRequiredService<IProjectItemContainer>();
     private readonly Avalonia.Animation.Animation _animation = new()
     {
         Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
@@ -216,10 +212,10 @@ public sealed partial class MainView : UserControl
             {
                 if (!checkUpdateRes.Is_latest)
                 {
-                    _notificationService.Show(new(
+                    NotificationService.ShowInformation(
                         "新しいバージョンがあります。",
                         checkUpdateRes.Url,
-                        OnActionButtonClick: () =>
+                        onActionButtonClick: () =>
                         {
                             Process.Start(new ProcessStartInfo(checkUpdateRes.Url)
                             {
@@ -227,7 +223,7 @@ public sealed partial class MainView : UserControl
                                 Verb = "open"
                             });
                         },
-                        ActionButtonText: "開く"));
+                        actionButtonText: "開く");
                 }
                 else if (checkUpdateRes.Must_latest)
                 {
@@ -263,7 +259,7 @@ public sealed partial class MainView : UserControl
 
     private bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
     {
-        if (_editorService.SelectedTabItem.Value?.Context.Value is EditViewModel editViewModel)
+        if (EditorService.Current.SelectedTabItem.Value?.Context.Value is EditViewModel editViewModel)
         {
             viewModel = editViewModel;
             return true;
@@ -469,7 +465,7 @@ Error:
                 if (result.Count > 0
                     && result[0].TryGetLocalPath() is string localPath)
                 {
-                    _projectService.OpenProject(localPath);
+                    ProjectService.Current.OpenProject(localPath);
                 }
             }
         }).AddTo(_disposables);
@@ -496,13 +492,13 @@ Error:
             if (files.Count > 0)
             {
                 bool? addToProject = null;
-                Project? project = _projectService.CurrentProject.Value;
+                Project? project = ProjectService.Current.CurrentProject.Value;
 
                 foreach (IStorageFile file in files)
                 {
                     if (file.TryGetLocalPath() is string path)
                     {
-                        if (project != null && _projectItemContainer.TryGetOrCreateItem(path, out ProjectItem? item))
+                        if (project != null && ProjectItemContainer.Current.TryGetOrCreateItem(path, out ProjectItem? item))
                         {
                             if (!addToProject.HasValue)
                             {
@@ -539,17 +535,17 @@ Error:
                                 if (result == ContentDialogResult.Primary)
                                 {
                                     project.Items.Add(item);
-                                    _editorService.ActivateTabItem(path, TabOpenMode.FromProject);
+                                    EditorService.Current.ActivateTabItem(path, TabOpenMode.FromProject);
                                 }
                             }
                             else if (addToProject.Value)
                             {
                                 project.Items.Add(item);
-                                _editorService.ActivateTabItem(path, TabOpenMode.FromProject);
+                                EditorService.Current.ActivateTabItem(path, TabOpenMode.FromProject);
                             }
                         }
 
-                        _editorService.ActivateTabItem(path, TabOpenMode.YourSelf);
+                        EditorService.Current.ActivateTabItem(path, TabOpenMode.YourSelf);
                     }
                 }
             }
@@ -557,8 +553,8 @@ Error:
 
         viewModel.AddToProject.Subscribe(() =>
         {
-            Project? project = _projectService.CurrentProject.Value;
-            EditorTabItem? selectedTabItem = _editorService.SelectedTabItem.Value;
+            Project? project = ProjectService.Current.CurrentProject.Value;
+            EditorTabItem? selectedTabItem = EditorService.Current.SelectedTabItem.Value;
 
             if (project != null && selectedTabItem != null)
             {
@@ -566,7 +562,7 @@ Error:
                 if (project.Items.Any(i => i.FileName == filePath))
                     return;
 
-                if (_projectItemContainer.TryGetOrCreateItem(filePath, out ProjectItem? workspaceItem))
+                if (ProjectItemContainer.Current.TryGetOrCreateItem(filePath, out ProjectItem? workspaceItem))
                 {
                     project.Items.Add(workspaceItem);
                 }
@@ -575,8 +571,8 @@ Error:
 
         viewModel.RemoveFromProject.Subscribe(async () =>
         {
-            Project? project = _projectService.CurrentProject.Value;
-            EditorTabItem? selectedTabItem = _editorService.SelectedTabItem.Value;
+            Project? project = ProjectService.Current.CurrentProject.Value;
+            EditorTabItem? selectedTabItem = EditorService.Current.SelectedTabItem.Value;
 
             if (project != null && selectedTabItem != null)
             {
@@ -734,7 +730,7 @@ Error:
 
             menuItem.Click += (s, e) =>
             {
-                if (_editorService.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
+                if (EditorService.Current.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
                     && s is MenuItem { DataContext: ToolTabExtension ext }
                     && ext.TryCreateContext(editorContext, out IToolContext? toolContext))
                 {
@@ -757,7 +753,7 @@ Error:
 
         viewMenuItem.SubmenuOpened += (s, e) =>
         {
-            EditorTabItem? selectedTab = _editorService.SelectedTabItem.Value;
+            EditorTabItem? selectedTab = EditorService.Current.SelectedTabItem.Value;
             if (selectedTab != null)
             {
                 foreach (MenuItem item in items2.OfType<MenuItem>())
@@ -782,7 +778,7 @@ Error:
 
             menuItem.Click += async (s, e) =>
             {
-                EditorTabItem? selectedTab = _editorService.SelectedTabItem.Value;
+                EditorTabItem? selectedTab = EditorService.Current.SelectedTabItem.Value;
                 if (s is MenuItem { DataContext: EditorExtension editorExtension } menuItem
                     && selectedTab != null)
                 {
@@ -800,12 +796,12 @@ Error:
                     }
                     else
                     {
-                        _notificationService.Show(new Notification(
-                            Title: Message.ContextNotCreated,
-                            Message: string.Format(
+                        NotificationService.ShowInformation(
+                            title: Message.ContextNotCreated,
+                            message: string.Format(
                                 format: Message.CouldNotOpenFollowingFileWithExtension,
                                 arg0: editorExtension.DisplayName,
-                                arg1: selectedTab.FileName.Value)));
+                                arg1: selectedTab.FileName.Value));
                     }
                 }
             };
@@ -866,12 +862,12 @@ Error:
         string str = StringFormats.ToHumanReadableSize(Math.Abs(deltaBytes));
         str = (deltaBytes >= 0 ? "+" : "-") + str;
 
-        _notificationService.Show(new Notification(
+        NotificationService.ShowInformation(
             "結果",
             $"""
                     経過時間: {elapsed.TotalMilliseconds}ms
                     差: {str}
-                    """));
+                    """);
     }
 
     private void OpenNotificationsClick(object? sender, RoutedEventArgs e)

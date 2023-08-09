@@ -24,8 +24,6 @@ public partial class SoundSourceEditor : UserControl
     {
         if (DataContext is not SoundSourceEditorViewModel vm || VisualRoot is not TopLevel topLevel) return;
 
-        ExtensionProvider provider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
-
         string[] fileExtensions = DecoderRegistry.EnumerateDecoder()
             .SelectMany(x => x.AudioExtensions().Concat(x.VideoExtensions()))
             .Distinct()

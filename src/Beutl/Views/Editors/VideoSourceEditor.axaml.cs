@@ -24,8 +24,6 @@ public partial class VideoSourceEditor : UserControl
     {
         if (DataContext is not VideoSourceEditorViewModel vm || VisualRoot is not TopLevel topLevel) return;
 
-        ExtensionProvider provider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
-
         string[] fileExtensions = DecoderRegistry.EnumerateDecoder()
             .SelectMany(x => x.VideoExtensions().Concat(x.VideoExtensions()))
             .Distinct()

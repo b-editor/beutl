@@ -5,7 +5,6 @@ using Beutl.Services;
 
 using FFmpeg.AutoGen;
 
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 #if FFMPEG_BUILD_IN
@@ -47,13 +46,11 @@ public static class FFmpegLoader
         }
         catch
         {
-            INotificationService ns = ServiceLocator.Current.GetRequiredService<INotificationService>();
-            ns.Show(new Notification(
+            NotificationService.ShowError(
                 "FFmpeg error",
                 "FFmpegがインストールされているかを確認してください。",
-                NotificationType.Error,
-                OnActionButtonClick: OpenDocumentUrl,
-                ActionButtonText: "ドキュメントを開く"));
+                onActionButtonClick: OpenDocumentUrl,
+                actionButtonText: "ドキュメントを開く");
 
             throw;
         }

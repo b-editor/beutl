@@ -112,7 +112,9 @@ namespace Beutl
                         s = "Beutl.Extensibility";
                     }
 
-                    return AssemblyLoadContext.Default.Assemblies.FirstOrDefault(x => x.GetName().Name == s);
+
+                    //AssemblyLoadContext.Default.Assemblies
+                    return AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(x => x.GetName().Name == s);
                 }
 
                 _tokens = tokens;

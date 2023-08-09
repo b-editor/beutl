@@ -30,8 +30,6 @@ namespace Beutl.ViewModels;
 public sealed class MainViewModel : BasePageViewModel
 {
     private readonly ILogger _logger;
-    private readonly ProjectService _projectService;
-    private readonly EditorService _editorService;
     private readonly PageExtension[] _primitivePageExtensions;
     private readonly BeutlApiApplication _beutlClients;
     private readonly HttpClient _authorizedHttpClient;
@@ -61,8 +59,6 @@ public sealed class MainViewModel : BasePageViewModel
         _authorizedHttpClient = new HttpClient();
         _beutlClients = new BeutlApiApplication(_authorizedHttpClient);
 
-        _projectService = ServiceLocator.Current.GetRequiredService<ProjectService>();
-        _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
         _primitivePageExtensions = new PageExtension[]
         {
             EditPageExtension.Instance,
@@ -71,13 +67,13 @@ public sealed class MainViewModel : BasePageViewModel
             SettingsPageExtension.Instance,
         };
 
-        IsProjectOpened = _projectService.IsOpened;
+        IsProjectOpened = ProjectService.Current.IsOpened;
 
-        IObservable<bool> isProjectOpenedAndTabOpened = _projectService.IsOpened
-            .CombineLatest(_editorService.SelectedTabItem)
+        IObservable<bool> isProjectOpenedAndTabOpened = ProjectService.Current.IsOpened
+            .CombineLatest(EditorService.Current.SelectedTabItem)
             .Select(i => i.First && i.Second != null);
 
-        IObservable<bool> isSceneOpened = _editorService.SelectedTabItem
+        IObservable<bool> isSceneOpened = EditorService.Current.SelectedTabItem
             .SelectMany(i => i?.Context ?? Observable.Empty<IEditorContext?>())
             .Select(v => v is EditViewModel);
 
@@ -89,16 +85,16 @@ public sealed class MainViewModel : BasePageViewModel
         CutLayer = new(isSceneOpened);
         CopyLayer = new(isSceneOpened);
         PasteLayer = new(isSceneOpened);
-        CloseFile = new(_editorService.SelectedTabItem.Select(i => i != null));
-        CloseProject = new(_projectService.IsOpened);
-        Save = new(_projectService.IsOpened);
-        SaveAll = new(_projectService.IsOpened);
-        Undo = new(_projectService.IsOpened);
-        Redo = new(_projectService.IsOpened);
+        CloseFile = new(EditorService.Current.SelectedTabItem.Select(i => i != null));
+        CloseProject = new(IsProjectOpened);
+        Save = new(IsProjectOpened);
+        SaveAll = new(IsProjectOpened);
+        Undo = new(IsProjectOpened);
+        Redo = new(IsProjectOpened);
 
         Save.Subscribe(async () =>
         {
-            EditorTabItem? item = _editorService.SelectedTabItem.Value;
+            EditorTabItem? item = EditorService.Current.SelectedTabItem.Value;
             if (item != null)
             {
                 try
@@ -107,35 +103,26 @@ public sealed class MainViewModel : BasePageViewModel
 
                     if (result)
                     {
-                        Notification.Show(new Notification(
-                            string.Empty,
-                            string.Format(Message.ItemSaved, item.FileName),
-                            NotificationType.Success));
+                        NotificationService.ShowSuccess(string.Empty, string.Format(Message.ItemSaved, item.FileName));
                     }
                     else
                     {
                         Type type = item.Extension.Value.GetType();
                         _logger.Error("{Extension} failed to save file", type.FullName ?? type.Name);
-                        Notification.Show(new Notification(
-                            string.Empty,
-                            Message.OperationCouldNotBeExecuted,
-                            NotificationType.Information));
+                        NotificationService.ShowInformation(string.Empty, Message.OperationCouldNotBeExecuted);
                     }
                 }
                 catch (Exception ex)
                 {
                     _logger.Error(ex, "Failed to save file");
-                    Notification.Show(new Notification(
-                        string.Empty,
-                        Message.OperationCouldNotBeExecuted,
-                        NotificationType.Error));
+                    NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
                 }
             }
         });
 
         SaveAll.Subscribe(async () =>
         {
-            Project? project = _projectService.CurrentProject.Value;
+            Project? project = ProjectService.Current.CurrentProject.Value;
             int itemsCount = 0;
 
             try
@@ -143,7 +130,7 @@ public sealed class MainViewModel : BasePageViewModel
                 project?.Save(project.FileName);
                 itemsCount++;
 
-                foreach (EditorTabItem? item in _editorService.TabItems)
+                foreach (EditorTabItem? item in EditorService.Current.TabItems)
                 {
                     if (item.Commands.Value != null)
                     {
@@ -155,50 +142,41 @@ public sealed class MainViewModel : BasePageViewModel
                         {
                             Type type = item.Extension.Value.GetType();
                             _logger.Error("{Extension} failed to save file", type.FullName ?? type.Name);
-                            Notification.Show(new Notification(
-                                "ファイルを保存できません",
-                                item.FileName.Value,
-                                NotificationType.Error));
+                            NotificationService.ShowError("ファイルを保存できません", item.FileName.Value);
                         }
                     }
                 }
 
-                Notification.Show(new Notification(
-                    string.Empty,
-                    string.Format(Message.ItemsSaved, itemsCount.ToString()),
-                    NotificationType.Success));
+                NotificationService.ShowSuccess(string.Empty, string.Format(Message.ItemsSaved, itemsCount.ToString()));
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, "Failed to save files");
-                Notification.Show(new Notification(
-                    string.Empty,
-                    Message.OperationCouldNotBeExecuted,
-                    NotificationType.Error));
+                NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             }
         });
 
         CloseFile.Subscribe(() =>
         {
-            EditorTabItem? tabItem = _editorService.SelectedTabItem.Value;
+            EditorTabItem? tabItem = EditorService.Current.SelectedTabItem.Value;
             if (tabItem != null)
             {
-                _editorService.CloseTabItem(
+                EditorService.Current.CloseTabItem(
                     tabItem.FilePath.Value,
                     tabItem.TabOpenMode);
             }
         });
-        CloseProject.Subscribe(() => _projectService.CloseProject());
+        CloseProject.Subscribe(() => ProjectService.Current.CloseProject());
 
         Undo.Subscribe(async () =>
         {
-            IKnownEditorCommands? commands = _editorService.SelectedTabItem.Value?.Commands.Value;
+            IKnownEditorCommands? commands = EditorService.Current.SelectedTabItem.Value?.Commands.Value;
             if (commands != null)
                 await commands.OnUndo();
         });
         Redo.Subscribe(async () =>
         {
-            IKnownEditorCommands? commands = _editorService.SelectedTabItem.Value?.Commands.Value;
+            IKnownEditorCommands? commands = EditorService.Current.SelectedTabItem.Value?.Commands.Value;
             if (commands != null)
                 await commands.OnRedo();
         });
@@ -222,24 +200,17 @@ public sealed class MainViewModel : BasePageViewModel
             item => RecentProjectItems.Remove(item),
             () => RecentProjectItems.Clear());
 
-        OpenRecentFile.Subscribe(file => _editorService.ActivateTabItem(file, TabOpenMode.YourSelf));
+        OpenRecentFile.Subscribe(file => EditorService.Current.ActivateTabItem(file, TabOpenMode.YourSelf));
 
         OpenRecentProject.Subscribe(file =>
         {
-            ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
-            INotificationService noticeService = ServiceLocator.Current.GetRequiredService<INotificationService>();
-
             if (!File.Exists(file))
             {
-                noticeService.Show(new Notification(
-                    Title: "",
-                    Message: Message.FileDoesNotExist));
+                NotificationService.ShowInformation("", Message.FileDoesNotExist);
             }
-            else if (service.OpenProject(file) == null)
+            else if (ProjectService.Current.OpenProject(file) == null)
             {
-                noticeService.Show(new Notification(
-                    Title: "",
-                    Message: Message.CouldNotOpenProject));
+                NotificationService.ShowInformation("", Message.CouldNotOpenProject);
             }
         });
     }
@@ -433,12 +404,11 @@ public sealed class MainViewModel : BasePageViewModel
 
             if (failures.Count > 0)
             {
-                Notification.Show(new Notification(
+                NotificationService.ShowError(
                     "パッケージの読み込みに失敗しました。",
                     $"{failures.Count}件のパッケージの読み込みに失敗しました",
-                    NotificationType.Error,
-                    OnActionButtonClick: () => ShowPackageLoadingError(failures),
-                    ActionButtonText: "詳細"));
+                    onActionButtonClick: () => ShowPackageLoadingError(failures),
+                    actionButtonText: "詳細");
             }
 
             InitializePages(provider);
@@ -529,8 +499,7 @@ public sealed class MainViewModel : BasePageViewModel
 
     public void RegisterServices()
     {
-        ServiceLocator.Current
-            .Bind<ExtensionProvider>().ToLazy(_beutlClients.GetResource<ExtensionProvider>);
+        ExtensionProvider.Current = _beutlClients.GetResource<ExtensionProvider>();
 
         if (Application.Current is { ApplicationLifetime: IControlledApplicationLifetime lifetime })
         {
@@ -540,7 +509,7 @@ public sealed class MainViewModel : BasePageViewModel
 
     public override void Dispose()
     {
-        _projectService.CloseProject();
+        ProjectService.Current.CloseProject();
         BeutlApplication.Current.Items.Clear();
     }
 

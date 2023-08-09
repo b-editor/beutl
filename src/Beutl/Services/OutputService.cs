@@ -26,8 +26,7 @@ public sealed class OutputQueueItem : IDisposable
 
     private void OnStarted(object? sender, EventArgs e)
     {
-        EditorService editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
-        if (editorService.TryGetTabItem(Context.TargetFile, out EditorTabItem? tabItem))
+        if (EditorService.Current.TryGetTabItem(Context.TargetFile, out EditorTabItem? tabItem))
         {
             tabItem.Context.Value.IsEnabled.Value = false;
         }
@@ -35,8 +34,7 @@ public sealed class OutputQueueItem : IDisposable
 
     private void OnFinished(object? sender, EventArgs e)
     {
-        EditorService editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
-        if (editorService.TryGetTabItem(Context.TargetFile, out EditorTabItem? tabItem))
+        if (EditorService.Current.TryGetTabItem(Context.TargetFile, out EditorTabItem? tabItem))
         {
             tabItem.Context.Value.IsEnabled.Value = true;
         }
@@ -70,7 +68,7 @@ public sealed class OutputQueueItem : IDisposable
 
             var extensionStr = obj["Extension"]!.AsValue().GetValue<string>();
             var extensionType = TypeFormat.ToType(extensionStr);
-            ExtensionProvider provider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
+            ExtensionProvider provider = ExtensionProvider.Current;
             OutputExtension? extension = Array.Find(provider.GetExtensions<OutputExtension>(), x => x.GetType() == extensionType);
 
             string file = obj["File"]!.AsValue().GetValue<string>();
@@ -109,6 +107,8 @@ public sealed class OutputService
         _filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "outputlist.json");
     }
 
+    public static OutputService Current { get; } = new();
+
     public ICoreList<OutputQueueItem> Items => _items;
 
     public IReactiveProperty<OutputQueueItem?> SelectedItem => _selectedItem;
@@ -131,7 +131,7 @@ public sealed class OutputService
 
     public OutputExtension[] GetExtensions(string file)
     {
-        return ServiceLocator.Current.GetRequiredService<ExtensionProvider>()
+        return ExtensionProvider.Current
             .GetExtensions<OutputExtension>()
             .Where(x => x.IsSupported(file)).ToArray();
     }

@@ -13,13 +13,11 @@ namespace Beutl.ViewModels;
 
 public sealed class EditPageViewModel : IPageContext
 {
-    private readonly ProjectService _projectService;
-    private readonly EditorService _editorService;
+    private readonly ProjectService _projectService = ProjectService.Current;
+    private readonly EditorService _editorService = EditorService.Current;
 
     public EditPageViewModel()
     {
-        _projectService = ServiceLocator.Current.GetRequiredService<ProjectService>();
-        _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
         _projectService.ProjectObservable.Subscribe(item => ProjectChanged(item.New, item.Old));
     }
 
@@ -100,8 +98,6 @@ public sealed class EditPageViewModel : IPageContext
                     break;
                 case TabOpenMode.YourSelf:
                     BeutlApplication.Current.Items.Add(item);
-                    //((IModifiableHierarchical)item).SetParent(null);
-                    //((IModifiableHierarchical)item).SetParent(_projectService.Application);
                     break;
             }
         }

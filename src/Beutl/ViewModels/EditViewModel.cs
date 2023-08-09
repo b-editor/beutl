@@ -38,7 +38,6 @@ public sealed class ToolTabViewModel : IDisposable
 public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, ISupportCloseAnimation
 {
     private readonly CompositeDisposable _disposables = new();
-    private readonly ExtensionProvider _extensionProvider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
 
     public EditViewModel(Scene scene)
     {
@@ -366,7 +365,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 {
                     if (item is JsonObject itemObject
                         && itemObject.TryGetDiscriminator(out Type? type)
-                        && _extensionProvider.AllExtensions.FirstOrDefault(x => x.GetType() == type) is ToolTabExtension extension
+                        && ExtensionProvider.Current.AllExtensions.FirstOrDefault(x => x.GetType() == type) is ToolTabExtension extension
                         && extension.TryCreateContext(this, out IToolContext? context))
                     {
                         context.ReadFromJson(itemObject);

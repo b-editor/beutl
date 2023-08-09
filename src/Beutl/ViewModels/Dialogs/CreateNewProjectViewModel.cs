@@ -76,9 +76,7 @@ public sealed class CreateNewProjectViewModel
         Create = new ReactiveCommand(CanCreate);
         Create.Subscribe(() =>
         {
-            ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
-
-            service.CreateProject(
+            ProjectService.Current.CreateProject(
                 Size.Value.Width, Size.Value.Height,
                 FrameRate.Value, SampleRate.Value,
                 Name.Value,

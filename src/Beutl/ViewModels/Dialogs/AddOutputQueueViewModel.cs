@@ -18,9 +18,6 @@ namespace Beutl.ViewModels.Dialogs;
 
 public sealed class AddOutputQueueViewModel : IDisposable
 {
-    private readonly OutputService _outputService;
-    private readonly EditorService _editorService;
-    private readonly ExtensionProvider _extensionProvider;
     private readonly OutputExtension[] _extensions;
     private readonly ReadOnlyObservableCollection<string> _suggestion;
     private readonly IDisposable _disposable1;
@@ -30,14 +27,11 @@ public sealed class AddOutputQueueViewModel : IDisposable
 
     public AddOutputQueueViewModel()
     {
-        _outputService = ServiceLocator.Current.GetRequiredService<OutputService>();
-        _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
-        _extensionProvider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
-        _extensions = _extensionProvider.GetExtensions<OutputExtension>();
+        _extensions = ExtensionProvider.Current.GetExtensions<OutputExtension>();
 
-        _disposable1 = _editorService.TabItems
+        _disposable1 = EditorService.Current.TabItems
             .ToObservableChangeSet<ICoreList<EditorTabItem>, EditorTabItem>()
-            .Filter(x => !_outputService.Items.Any(y => y.Context.TargetFile == x.FilePath.Value))
+            .Filter(x => !OutputService.Current.Items.Any(y => y.Context.TargetFile == x.FilePath.Value))
             .Transform(x => x.FilePath.Value)
             .Bind(out _suggestion)
             .Subscribe();
@@ -71,7 +65,7 @@ public sealed class AddOutputQueueViewModel : IDisposable
         if (SelectedFile.Value != null
             && SelectedExtension.Value != null)
         {
-            _outputService.AddItem(SelectedFile.Value, SelectedExtension.Value);
+            OutputService.Current.AddItem(SelectedFile.Value, SelectedExtension.Value);
         }
     }
 

@@ -1,15 +1,20 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-using Beutl.Api.Services;
+namespace Beutl;
 
-using Microsoft.Extensions.DependencyInjection;
-
-namespace Beutl.Services;
-
-public sealed class ProjectItemContainer : IProjectItemContainer
+public sealed class ProjectItemContainer
 {
     private readonly List<WeakReference<ProjectItem>> _items = new();
     private readonly BeutlApplication _app = BeutlApplication.Current;
+    private IProjectItemGenerator? _generator;
+
+    public static ProjectItemContainer Current { get; } = new();
+
+    public IProjectItemGenerator Generator
+    {
+        get => _generator!;
+        internal set => _generator ??= value;
+    }
 
     public bool IsCreated(string file)
     {
@@ -47,15 +52,11 @@ public sealed class ProjectItemContainer : IProjectItemContainer
             return true;
         }
 
-        var extensionProvider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
-        foreach (ProjectItemExtension ext in extensionProvider.MatchProjectItemExtensions(file))
+        if (Generator.TryCreateItem(file, out T? typed))
         {
-            if (ext.TryCreateItem(file, out ProjectItem? result) && result is T typed)
-            {
-                Add(typed);
-                item = typed;
-                return true;
-            }
+            Add(typed);
+            item = typed;
+            return true;
         }
 
         return false;
@@ -80,15 +81,11 @@ public sealed class ProjectItemContainer : IProjectItemContainer
             return true;
         }
 
-        var extensionProvider = ServiceLocator.Current.GetRequiredService<ExtensionProvider>();
-        foreach (ProjectItemExtension ext in extensionProvider.MatchProjectItemExtensions(file))
+        if (Generator.TryCreateItem(file, out ProjectItem? result))
         {
-            if (ext.TryCreateItem(file, out ProjectItem? result))
-            {
-                Add(result);
-                item = result;
-                return true;
-            }
+            Add(result);
+            item = result;
+            return true;
         }
 
         return false;

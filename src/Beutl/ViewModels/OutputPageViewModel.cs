@@ -18,7 +18,7 @@ public sealed class OutputPageViewModel : BasePageViewModel, IPageContext
 
     public OutputPageViewModel()
     {
-        _outputService = ServiceLocator.Current.GetRequiredService<OutputService>();
+        _outputService = OutputService.Current;
         CanRemove = SelectedItem
             .SelectMany(x => x?.Context?.IsEncoding?.Not() ?? Observable.Return(false))
             .ToReadOnlyReactivePropertySlim();
