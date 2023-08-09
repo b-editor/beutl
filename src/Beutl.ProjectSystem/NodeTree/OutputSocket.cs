@@ -6,7 +6,7 @@ using Beutl.Collections;
 
 namespace Beutl.NodeTree;
 
-file struct UnsafeBox<T> : IDisposable
+internal struct UnsafeBox<T> : IDisposable
 {
     public object? Object;
     private GCHandle _handle;

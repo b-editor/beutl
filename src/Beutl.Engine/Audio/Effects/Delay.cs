@@ -9,7 +9,7 @@ using Beutl.Media.Music.Samples;
 
 namespace Beutl.Audio.Effects;
 
-sealed unsafe file class SimpleCircularBuffer<T> : IDisposable
+internal sealed unsafe class SimpleCircularBuffer<T> : IDisposable
     where T : unmanaged
 {
     private readonly T* _buffer;
