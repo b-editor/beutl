@@ -24,7 +24,7 @@ public sealed class PlayerViewModel : IDisposable
     private static readonly TimeSpan s_second = TimeSpan.FromSeconds(1);
     private readonly CompositeDisposable _disposables = new();
     private readonly ReactivePropertySlim<bool> _isEnabled;
-    private bool _rendering;
+    private CancellationTokenSource? _cts;
 
     public PlayerViewModel(Scene scene, ReactivePropertySlim<bool> isEnabled)
     {
@@ -382,22 +382,23 @@ public sealed class PlayerViewModel : IDisposable
                 if (Scene is { Renderer: IRenderer renderer })
                 {
                     IRenderer.RenderResult result = renderer.RenderGraphics(Scene.CurrentFrame);
+
                     if (result.Bitmap is { } bitmap)
                     {
                         UpdateImage(bitmap);
                         bitmap.Dispose();
                     }
-
-                    _rendering = false;
                 }
             });
         }
 
-        if (!_rendering)
-        {
-            _rendering = true;
-            Avalonia.Threading.Dispatcher.UIThread.Post(RenderOnRenderThread, Avalonia.Threading.DispatcherPriority.Background);
-        }
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+            RenderOnRenderThread,
+            Avalonia.Threading.DispatcherPriority.Background,
+            _cts.Token);
     }
 
     private void UpdateCurrentFrame(TimeSpan timeSpan)
