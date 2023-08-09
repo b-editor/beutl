@@ -10,5 +10,5 @@ public interface IImmediateCanvasFactory
 
     ImmediateCanvas CreateCanvas(SKSurface surface, bool leaveOpen);
 
-    SKSurface CreateRenderTarget(int width, int height);
+    SKSurface? CreateRenderTarget(int width, int height);
 }

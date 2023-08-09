@@ -72,6 +72,8 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
     public ImmediateCanvas CreateCanvas(SKSurface surface, bool leaveOpen)
     {
+        ArgumentNullException.ThrowIfNull(surface);
+
         if (Factory != null)
         {
             return Factory.CreateCanvas(surface, leaveOpen);
@@ -85,7 +87,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         }
     }
 
-    public SKSurface CreateRenderTarget(int width, int height)
+    public SKSurface? CreateRenderTarget(int width, int height)
     {
         if (Factory != null)
         {

@@ -140,7 +140,8 @@ public sealed class RenderCacheContext : IDisposable
         if (size.Width <= 0 || size.Height <= 0)
             return;
 
-        SKSurface surface = factory.CreateRenderTarget(size.Width, size.Height);
+        // 上のreturnでガードされているのでnullableを消す
+        SKSurface surface = factory.CreateRenderTarget(size.Width, size.Height)!;
 
         using (ImmediateCanvas canvas = factory.CreateCanvas(surface, true))
         {

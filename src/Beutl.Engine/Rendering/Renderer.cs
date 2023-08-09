@@ -24,7 +24,9 @@ public class Renderer : IRenderer
         (_immediateCanvas, _surface) = RenderThread.Dispatcher.Invoke(() =>
         {
             var factory = (IImmediateCanvasFactory)this;
-            SKSurface surface = factory.CreateRenderTarget(width, height);
+            SKSurface? surface = factory.CreateRenderTarget(width, height)
+                ?? throw new InvalidOperationException($"Could not create a canvas of this size. (width: {width}, height: {height})");
+
             ImmediateCanvas canvas = factory.CreateCanvas(surface, false);
             return (canvas, surface);
         });
@@ -150,14 +152,16 @@ public class Renderer : IRenderer
 
     ImmediateCanvas IImmediateCanvasFactory.CreateCanvas(SKSurface surface, bool leaveOpen)
     {
+        ArgumentNullException.ThrowIfNull(surface);
         RenderThread.Dispatcher.VerifyAccess();
+
         return new ImmediateCanvas(surface, leaveOpen)
         {
             Factory = this
         };
     }
 
-    SKSurface IImmediateCanvasFactory.CreateRenderTarget(int width, int height)
+    SKSurface? IImmediateCanvasFactory.CreateRenderTarget(int width, int height)
     {
         RenderThread.Dispatcher.VerifyAccess();
         GRContext? grcontext = SharedGRContext.GetOrCreate();

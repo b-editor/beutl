@@ -200,13 +200,16 @@ public readonly struct BrushConstructor
         if (tileBrush is RenderSceneBrush sceneBrush)
         {
             RenderScene? scene = sceneBrush.Scene;
-            if(scene != null)
+            if (scene != null)
             {
                 surface = Factory.CreateRenderTarget(scene.Size.Width, scene.Size.Height);
-                using (ImmediateCanvas icanvas = Factory.CreateCanvas(surface, true))
-                using (icanvas.PushTransform(Matrix.CreateTranslation(-sceneBrush.Bounds.X, -sceneBrush.Bounds.Y)))
+                if (surface != null)
                 {
-                    scene.Render(icanvas);
+                    using (ImmediateCanvas icanvas = Factory.CreateCanvas(surface, true))
+                    using (icanvas.PushTransform(Matrix.CreateTranslation(-sceneBrush.Bounds.X, -sceneBrush.Bounds.Y)))
+                    {
+                        scene.Render(icanvas);
+                    }
                 }
 
                 pixelSize = scene.Size;
@@ -237,12 +240,16 @@ public readonly struct BrushConstructor
         if (surface == null && skbitmap == null)
             return;
 
+        SKSurface? intermediate = null;
         try
         {
             var calc = new TileBrushCalculator(tileBrush, pixelSize.ToSize(1), TargetSize);
             SKSizeI intermediateSize = calc.IntermediateSize.ToSKSize().ToSizeI();
 
-            using SKSurface intermediate = Factory.CreateRenderTarget(intermediateSize.Width, intermediateSize.Height);
+            intermediate = Factory.CreateRenderTarget(intermediateSize.Width, intermediateSize.Height);
+            if (intermediate == null)
+                return;
+
             SKCanvas canvas = intermediate.Canvas;
             using var ipaint = new SKPaint();
             {
@@ -297,6 +304,7 @@ public readonly struct BrushConstructor
         {
             surface?.Dispose();
             skbitmap?.Dispose();
+            intermediate?.Dispose();
         }
     }
 }
