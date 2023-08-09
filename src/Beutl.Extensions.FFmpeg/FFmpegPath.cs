@@ -17,20 +17,22 @@ namespace Beutl.Extensions.FFmpeg;
 public static class FFmpegLoader
 {
     private static readonly ILogger s_logger = BeutlApplication.Current.LoggerFactory.CreateLogger(typeof(FFmpegLoader));
-    private static bool _isInitialized;
-
-    static FFmpegLoader()
-    {
-        ffmpeg.RootPath = GetRootPath();
-        _isInitialized = true;
-    }
+    private static bool s_isInitialized;
 
     public static void Initialize()
     {
+        if (s_isInitialized)
+            return;
+
         try
         {
-            if (!_isInitialized)
-                throw new InvalidOperationException("Not initialized.");
+            DynamicallyLoadedBindings.ThrowErrorIfFunctionNotFound = true;
+            ffmpeg.RootPath = GetRootPath();
+
+            foreach (KeyValuePair<string, int> item in ffmpeg.LibraryVersionMap)
+            {
+                s_logger.LogInformation("{LibraryName} {Version}", item.Key, item.Value);
+            }
 
             s_logger.LogInformation("avcodec_license() {License}", ffmpeg.avcodec_license());
             s_logger.LogInformation("avdevice_license() {License}", ffmpeg.avdevice_license());
@@ -40,6 +42,8 @@ public static class FFmpegLoader
             s_logger.LogInformation("postproc_license() {License}", ffmpeg.postproc_license());
             s_logger.LogInformation("swresample_license() {License}", ffmpeg.swresample_license());
             s_logger.LogInformation("swscale_license() {License}", ffmpeg.swscale_license());
+
+            s_isInitialized = true;
         }
         catch
         {
