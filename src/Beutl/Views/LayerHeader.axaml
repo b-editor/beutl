@@ -46,7 +46,9 @@
                     <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
                 </Style>
             </Border.Styles>
-            <icons:SymbolIcon FontSize="14" Symbol="ReOrderDotsVertical" />
+            <icons:SymbolIcon VerticalAlignment="Center"
+                              FontSize="14"
+                              Symbol="ReOrderDotsVertical" />
         </Border>
 
         <ToggleButton Grid.Column="1"

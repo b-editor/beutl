@@ -332,7 +332,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 var keyframe = new KeyFrame<T>
                 {
                     Value = kfAnimation.Interpolate(keyTime),
-                    Easing = new LinearEasing(),
+                    Easing = new SplineEasing(),
                     KeyTime = keyTime
                 };
 

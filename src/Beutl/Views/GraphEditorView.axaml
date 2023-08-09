@@ -60,6 +60,14 @@
                    Background="Transparent">
                 <Panel.ContextMenu>
                     <ContextMenu>
+                        <MenuItem x:Name="deleteMenuItem"
+                                  Click="DeleteClick"
+                                  Header="削除"
+                                  IsEnabled="False">
+                            <MenuItem.Icon>
+                                <icons:SymbolIcon Symbol="Delete" />
+                            </MenuItem.Icon>
+                        </MenuItem>
                         <MenuItem Header="拡大率" MenuItem.Click="ZoomClick">
                             <MenuItem.Icon>
                                 <icons:SymbolIcon Symbol="ZoomIn" />

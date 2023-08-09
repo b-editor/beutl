@@ -29,7 +29,7 @@ public sealed partial class PropertyEditorMenu : UserControl
             }
             else if (viewModel.GetService<Scene>() is { } scene)
             {
-                var keyTime = scene.CurrentFrame;
+                TimeSpan keyTime = scene.CurrentFrame;
                 if (symbolIcon.IsFilled)
                 {
                     viewModel.RemoveKeyFrame(keyTime);
@@ -45,12 +45,23 @@ public sealed partial class PropertyEditorMenu : UserControl
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is BaseEditorViewModel viewModel
-            && viewModel.GetService<EditViewModel>() is { } editViewModel
-            && viewModel.GetAnimation() is IKeyFrameAnimation kfAnimation)
+            && viewModel.WrappedProperty is IAbstractAnimatableProperty animatableProperty
+            && viewModel.GetService<EditViewModel>() is { } editViewModel)
         {
+            if (animatableProperty.Animation is not IKeyFrameAnimation
+                && animatableProperty.GetCoreProperty() is { } coreProp)
+            {
+                Type type = typeof(KeyFrameAnimation<>).MakeGenericType(animatableProperty.PropertyType);
+                animatableProperty.Animation = Activator.CreateInstance(type, coreProp) as IAnimation;
+            }
+
             // タイムラインのタブを開く
             var anmTimelineViewModel = new GraphEditorTabViewModel();
-            anmTimelineViewModel.SelectedAnimation.Value = new GraphEditorViewModel(editViewModel, kfAnimation, viewModel.GetService<Element>());
+
+            Type viewModelType = typeof(GraphEditorViewModel<>).MakeGenericType(animatableProperty.PropertyType);
+            anmTimelineViewModel.SelectedAnimation.Value = (GraphEditorViewModel)Activator.CreateInstance(
+                viewModelType, editViewModel, animatableProperty.Animation, viewModel.GetService<Element>())!;
+
             editViewModel.OpenToolTab(anmTimelineViewModel);
         }
     }

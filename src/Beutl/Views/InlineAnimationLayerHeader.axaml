@@ -44,7 +44,9 @@
                     <Setter Property="Cursor" Value="SizeNorthSouth" />
                 </Style>
             </Border.Styles>
-            <icons:SymbolIcon FontSize="14" Symbol="ReOrderDotsVertical" />
+            <icons:SymbolIcon VerticalAlignment="Center"
+                              FontSize="14"
+                              Symbol="ReOrderDotsVertical" />
         </Border>
 
         <Button Grid.Column="2"

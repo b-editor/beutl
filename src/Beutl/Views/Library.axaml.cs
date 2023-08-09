@@ -4,6 +4,7 @@ using Avalonia.Controls.Generators;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
+using Beutl.Services;
 using Beutl.ViewModels;
 
 namespace Beutl.Views;
@@ -119,7 +120,7 @@ public sealed partial class Library : UserControl
     private async void OnSplineEasingPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var data = new DataObject();
-        data.Set("Easing", new Animation.Easings.SplineEasing());
+        data.Set(KnownLibraryItemFormats.Easing, new Animation.Easings.SplineEasing());
         await DragDrop.DoDragDrop(e, data, DragDropEffects.Copy | DragDropEffects.Link);
     }
 
@@ -134,7 +135,7 @@ public sealed partial class Library : UserControl
                 if (control?.IsPointerOver == true)
                 {
                     var data = new DataObject();
-                    data.Set("Easing", item);
+                    data.Set(KnownLibraryItemFormats.Easing, item);
                     await DragDrop.DoDragDrop(e, data, DragDropEffects.Copy | DragDropEffects.Link);
                     return;
                 }

@@ -3,12 +3,14 @@ using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Generators;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.Animation.Easings;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Beutl.ViewModels;
 
 namespace Beutl.Views;
@@ -33,21 +35,18 @@ public partial class InlineAnimationLayer : UserControl
 
     private void OnDrap(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get("Easing") is Easing easing
-            && DataContext is InlineAnimationLayerViewModel { Timeline: { Options.Value.Scale: { } scale, Scene: { } scene } } viewModel)
+        if (e.Data.Get(KnownLibraryItemFormats.Easing) is Easing easing
+            && DataContext is InlineAnimationLayerViewModel { Timeline: { Options.Value.Scale: { } scale } } viewModel)
         {
-            Project? proj = scene.FindHierarchicalParent<Project>();
-            int rate = proj?.GetFrameRate() ?? 30;
-
-            TimeSpan time = e.GetPosition(this).X.ToTimeSpan(scale).RoundToRate(rate);
-            viewModel.InsertKeyFrame(easing, time);
+            TimeSpan time = e.GetPosition(this).X.ToTimeSpan(scale);
+            viewModel.DropEasing(easing, time);
             e.Handled = true;
         }
     }
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains("Easing"))
+        if (e.Data.Contains(KnownLibraryItemFormats.Easing))
         {
             e.DragEffects = DragDropEffects.Copy;
             e.Handled = true;
@@ -135,6 +134,15 @@ public partial class InlineAnimationLayer : UserControl
                 await Task.WhenAll(task1, task2);
             });
         };
+    }
+
+    private void DeleteClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is InlineAnimationLayerViewModel viewModel
+            && sender is MenuItem { DataContext: InlineKeyFrameViewModel itemViewModel })
+        {
+            viewModel.RemoveKeyFrame(itemViewModel.Model);
+        }
     }
 
     private sealed class _DragBehavior : Behavior<Control>

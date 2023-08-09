@@ -1,10 +1,8 @@
-﻿using System.Collections;
-using System.Collections.Specialized;
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Threading;
 
 using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Commands;
 using Beutl.ProjectSystem;
 
@@ -12,18 +10,92 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public sealed class GraphEditorViewModel : IDisposable
+public sealed class GraphEditorViewModel<T> : GraphEditorViewModel
+{
+    public GraphEditorViewModel(EditViewModel editViewModel, KeyFrameAnimation<T> animation, Element? layer)
+        : base(editViewModel, animation, layer)
+    {
+    }
+
+    public override void DropEasing(Easing easing, TimeSpan keyTime)
+    {
+        var originalKeyTime = keyTime;
+        keyTime = ConvertKeyTime(keyTime);
+        Project? proj = Scene.FindHierarchicalParent<Project>();
+        int rate = proj?.GetFrameRate() ?? 30;
+
+        TimeSpan threshold = TimeSpan.FromSeconds(1d / rate) * 3;
+
+        IKeyFrame? keyFrame = Animation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
+        if (keyFrame != null)
+        {
+            new ChangePropertyCommand<Easing>(keyFrame, KeyFrame.EasingProperty, easing, keyFrame.Easing)
+                .DoAndRecord(CommandRecorder.Default);
+        }
+        else
+        {
+            InsertKeyFrame(easing, originalKeyTime);
+        }
+    }
+
+    public override void InsertKeyFrame(Easing easing, TimeSpan keyTime)
+    {
+        keyTime = ConvertKeyTime(keyTime);
+        var kfAnimation = (KeyFrameAnimation<T>)Animation;
+        if (!kfAnimation.KeyFrames.Any(x => x.KeyTime == keyTime))
+        {
+            var keyframe = new KeyFrame<T>
+            {
+                Value = kfAnimation.Interpolate(keyTime),
+                Easing = easing,
+                KeyTime = keyTime
+            };
+
+            var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe);
+            command.DoAndRecord(CommandRecorder.Default);
+        }
+    }
+
+    private sealed class AddKeyFrameCommand : IRecordableCommand
+    {
+        private readonly KeyFrames _keyFrames;
+        private readonly IKeyFrame _keyFrame;
+
+        public AddKeyFrameCommand(KeyFrames keyFrames, IKeyFrame keyFrame)
+        {
+            _keyFrames = keyFrames;
+            _keyFrame = keyFrame;
+        }
+
+        public void Do()
+        {
+            _keyFrames.Add(_keyFrame, out _);
+        }
+
+        public void Redo()
+        {
+            Do();
+        }
+
+        public void Undo()
+        {
+            _keyFrames.Remove(_keyFrame);
+        }
+    }
+}
+
+public abstract class GraphEditorViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly EditViewModel _editViewModel;
     private readonly GraphEditorViewViewModelFactory[] _factories;
-    private Element? _layer;
+    protected Element? Layer;
     private bool _editting;
 
-    public GraphEditorViewModel(EditViewModel editViewModel, IKeyFrameAnimation animation, Element? layer)
+    protected GraphEditorViewModel(EditViewModel editViewModel, IKeyFrameAnimation animation, Element? layer)
     {
         _editViewModel = editViewModel;
-        _layer = layer;
+        Layer = layer;
         Animation = animation;
 
         UseGlobalClock = ((CoreObject)animation).GetObservable(KeyFrameAnimation.UseGlobalClockProperty)
@@ -31,7 +103,7 @@ public sealed class GraphEditorViewModel : IDisposable
             .DisposeWith(_disposables);
 
         Margin = UseGlobalClock.Select(v => !v
-            ? _layer?.GetObservable(Element.StartProperty)
+            ? Layer?.GetObservable(Element.StartProperty)
                 .CombineLatest(Options)
                 .Select(item => new Thickness(item.First.ToPixel(item.Second.Scale), 0, 0, 0))
             : null)
@@ -154,6 +226,34 @@ public sealed class GraphEditorViewModel : IDisposable
         }
     }
 
+    public TimeSpan ConvertKeyTime(TimeSpan globalkeyTime)
+    {
+        TimeSpan localKeyTime = Layer != null ? globalkeyTime - Layer.Start : globalkeyTime;
+        TimeSpan keyTime = Animation.UseGlobalClock ? globalkeyTime : localKeyTime;
+
+        Project? proj = Scene.FindHierarchicalParent<Project>();
+        int rate = proj?.GetFrameRate() ?? 30;
+
+        return keyTime.RoundToRate(rate);
+    }
+
+    public abstract void DropEasing(Easing easing, TimeSpan time);
+
+    public abstract void InsertKeyFrame(Easing easing, TimeSpan keyTime);
+
+    public void RemoveKeyFrame(TimeSpan keyTime)
+    {
+        keyTime = ConvertKeyTime(keyTime);
+        IKeyFrame? keyframe = Animation.KeyFrames.FirstOrDefault(x => x.KeyTime == keyTime);
+        if (keyframe != null)
+        {
+            Animation.KeyFrames.BeginRecord<IKeyFrame>()
+                .Remove(keyframe)
+                .ToCommand()
+                .DoAndRecord(CommandRecorder.Default);
+        }
+    }
+
     public void Dispose()
     {
         _disposables.Dispose();
@@ -163,6 +263,7 @@ public sealed class GraphEditorViewModel : IDisposable
             item.Dispose();
         }
 
-        _layer = null;
+        Layer = null;
+        GC.SuppressFinalize(this);
     }
 }

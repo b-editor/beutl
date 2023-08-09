@@ -2,6 +2,7 @@
 
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Commands;
 using Beutl.Extensibility;
 using Beutl.Reactive;
 
@@ -16,14 +17,28 @@ public sealed class InlineAnimationLayerViewModel<T> : InlineAnimationLayerViewM
     {
     }
 
-    private TimeSpan ConvertKeyTime(TimeSpan globalkeyTime, IAnimation animation)
+    public override void DropEasing(Easing easing, TimeSpan keyTime)
     {
-        TimeSpan localKeyTime = globalkeyTime - Layer.Model.Start;
-        TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
+        if (Property.Animation is KeyFrameAnimation<T> kfAnimation)
+        {
+            var originalKeyTime = keyTime;
+            keyTime = ConvertKeyTime(originalKeyTime, kfAnimation);
+            Project? proj = Timeline.Scene.FindHierarchicalParent<Project>();
+            int rate = proj?.GetFrameRate() ?? 30;
 
-        int rate = Timeline.Scene?.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+            var threshold = TimeSpan.FromSeconds(1d / rate) * 3;
 
-        return keyTime.RoundToRate(rate);
+            var keyFrame = kfAnimation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
+            if (keyFrame != null)
+            {
+                new ChangePropertyCommand<Easing>(keyFrame, KeyFrame.EasingProperty, easing, keyFrame.Easing)
+                    .DoAndRecord(CommandRecorder.Default);
+            }
+            else
+            {
+                InsertKeyFrame(easing, originalKeyTime);
+            }
+        }
     }
 
     public override void InsertKeyFrame(Easing easing, TimeSpan keyTime)
@@ -172,7 +187,30 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader => Layer.LayerHeader;
 
+    public abstract void DropEasing(Easing easing, TimeSpan keyTime);
+
     public abstract void InsertKeyFrame(Easing easing, TimeSpan keyTime);
+
+    public TimeSpan ConvertKeyTime(TimeSpan globalkeyTime, IAnimation animation)
+    {
+        TimeSpan localKeyTime = globalkeyTime - Layer.Model.Start;
+        TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
+
+        int rate = Timeline.Scene?.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+
+        return keyTime.RoundToRate(rate);
+    }
+
+    public void RemoveKeyFrame(IKeyFrame keyFrame)
+    {
+        if (Property.Animation is IKeyFrameAnimation kfAnimation)
+        {
+            kfAnimation.KeyFrames.BeginRecord<IKeyFrame>()
+                .Remove(keyFrame)
+                .ToCommand()
+                .DoAndRecord(CommandRecorder.Default);
+        }
+    }
 
     private void OnLayerHeaderChanged(LayerHeaderViewModel? obj)
     {

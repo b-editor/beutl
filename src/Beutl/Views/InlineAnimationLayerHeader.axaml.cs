@@ -28,11 +28,15 @@ public partial class InlineAnimationLayerHeader : UserControl
     {
         if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
             && DataContext is InlineAnimationLayerViewModel viewModel
-            && viewModel.Property is IAbstractAnimatableProperty { Animation: IKeyFrameAnimation kfAnimation })
+            && viewModel.Property is IAbstractAnimatableProperty { Animation: IKeyFrameAnimation kfAnimation, PropertyType: Type propType })
         {
             // タイムラインのタブを開く
             var anmTimelineViewModel = new GraphEditorTabViewModel();
-            anmTimelineViewModel.SelectedAnimation.Value = new GraphEditorViewModel(editViewModel, kfAnimation, viewModel.Layer.Model);
+
+            Type viewModelType = typeof(GraphEditorViewModel<>).MakeGenericType(propType);
+            anmTimelineViewModel.SelectedAnimation.Value = (GraphEditorViewModel)Activator.CreateInstance(
+                viewModelType, editViewModel, kfAnimation, viewModel.Layer.Model)!;
+
             editViewModel.OpenToolTab(anmTimelineViewModel);
         }
     }

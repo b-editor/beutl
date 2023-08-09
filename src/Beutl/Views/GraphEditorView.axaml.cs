@@ -9,7 +9,9 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 
 using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Beutl.Utilities;
 using Beutl.ViewModels;
 
@@ -24,6 +26,7 @@ namespace Beutl.Views;
 public partial class GraphEditorView : UserControl
 {
     private bool _pressed;
+    private TimeSpan _lastRightClickPoint;
     private TimeSpan _pointerFrame;
     private CompositeDisposable _disposables = new();
 
@@ -41,6 +44,8 @@ public partial class GraphEditorView : UserControl
         graphPanel.PointerMoved += OnGraphPanelPointerMoved;
         graphPanel.PointerReleased += OnGraphPanelPointerReleased;
 
+        scroll.PointerPressed += OnScrollPointerPressed;
+
         scale.AddHandler(PointerWheelChangedEvent, OnContentPointerWheelChanged, RoutingStrategies.Tunnel);
         graphPanel.AddHandler(PointerWheelChangedEvent, OnContentPointerWheelChanged, RoutingStrategies.Tunnel);
 
@@ -50,6 +55,34 @@ public partial class GraphEditorView : UserControl
 
         views.ContainerPrepared += OnContainerPrepared;
         views.ContainerClearing += OnContainerClearing;
+
+        DragDrop.SetAllowDrop(graphPanel, true);
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        AddHandler(DragDrop.DropEvent, OnDrap);
+    }
+
+    private void OnDrap(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Get(KnownLibraryItemFormats.Easing) is Easing easing
+            && DataContext is GraphEditorViewModel { Options.Value.Scale: { } scale } viewModel)
+        {
+            TimeSpan time = e.GetPosition(graphPanel).X.ToTimeSpan(scale);
+            viewModel.DropEasing(easing, time);
+            e.Handled = true;
+        }
+    }
+
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Contains(KnownLibraryItemFormats.Easing))
+        {
+            e.DragEffects = DragDropEffects.Copy;
+            e.Handled = true;
+        }
+        else
+        {
+            e.DragEffects = DragDropEffects.None;
+        }
     }
 
     private void OnContainerPrepared(object? sender, ContainerPreparedEventArgs e)
@@ -103,7 +136,7 @@ public partial class GraphEditorView : UserControl
 
         return MathF.Pow(ZoomSpeed, realDelta) * scale;
     }
-    
+
     private static double Zoom(double delta, double scale)
     {
         const double ZoomSpeed = 1.2;
@@ -123,7 +156,7 @@ public partial class GraphEditorView : UserControl
 
         offset.X = (float)((pointerPos.X / oldScale * scale) - deltaLeft);
     }
-   
+
     private void OnContentPointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         if (DataContext is GraphEditorViewModel viewModel)
@@ -432,6 +465,23 @@ public partial class GraphEditorView : UserControl
         }
     }
 
+    private void OnScrollPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is GraphEditorViewModel viewModel)
+        {
+            PointerPoint pointerPt = e.GetCurrentPoint(graphPanel);
+
+            if (pointerPt.Properties.IsRightButtonPressed)
+            {
+                _lastRightClickPoint = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale)
+                    .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
+                TimeSpan localTime = viewModel.ConvertKeyTime(_lastRightClickPoint);
+
+                deleteMenuItem.IsEnabled = viewModel.Animation.KeyFrames.Any(x => x.KeyTime == localTime);
+            }
+        }
+    }
+
     private void OnKeyTimePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (DataContext is GraphEditorViewModel viewModel
@@ -467,6 +517,14 @@ public partial class GraphEditorView : UserControl
         if (DataContext is GraphEditorViewModel viewModel)
         {
             viewModel.UpdateUseGlobalClock(!viewModel.UseGlobalClock.Value);
+        }
+    }
+
+    private void DeleteClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is GraphEditorViewModel viewModel)
+        {
+            viewModel.RemoveKeyFrame(_lastRightClickPoint);
         }
     }
 }
