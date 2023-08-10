@@ -60,7 +60,7 @@ public sealed class NodeTreeNavigationItem : IDisposable, IJsonSerializable
 
 public sealed class NodeTreeTabViewModel : IToolContext
 {
-    private readonly ReactiveProperty<bool> _isSelected = new(true);
+    private readonly ReactiveProperty<bool> _isSelected = new(false);
     private readonly CompositeDisposable _disposables = new();
     private EditViewModel _editViewModel;
     private Element? _oldLayer;
