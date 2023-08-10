@@ -8,10 +8,16 @@
             <StackPanel>
                 <local:StringEditor EditorStyle="ListItem" Header="Property 1" />
                 <local:StringEditor Header="Property 1" KeyFrameCount="3" />
+                <local:StringEditor Classes="multiline"
+                                    Header="Multiline"
+                                    KeyFrameCount="3" />
                 <local:StringEditor Header="Property 2" KeyFrameCount="0" />
-                <local:StringEditor Header="Property 3"
-                                    KeyFrameCount="3"
-                                    UseCompact="True" />
+                <local:StringEditor Classes="multiline"
+                                    Header="Multiline"
+                                    KeyFrameCount="0" />
+                <local:StringEditor EditorStyle="Compact"
+                                    Header="Property 3"
+                                    KeyFrameCount="3" />
             </StackPanel>
         </Border>
     </Design.PreviewWith>
@@ -72,6 +78,49 @@
                 </Border>
             </ControlTemplate>
         </Setter>
+
+        <Style Selector="^.multiline">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,*">
+                            <TextBlock Grid.Row="0"
+                                       Margin="4,0,0,0"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"
+                                       Text="{TemplateBinding Header}" />
+
+                            <TextBox x:Name="PART_InnerTextBox"
+                                     Grid.Row="2"
+                                     Margin="4"
+                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                     Text="{TemplateBinding Text, Mode=TwoWay}" />
+
+                            <StackPanel Name="LeftRightButtons"
+                                        Margin="0,0,4,0"
+                                        HorizontalAlignment="Right"
+                                        Orientation="Horizontal">
+                                <Button Name="PART_LeftButton"
+                                        Classes="left"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                                <Button Name="PART_RightButton"
+                                        Classes="right"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                            </StackPanel>
+
+                            <ContentPresenter Grid.Row="2"
+                                              Grid.Column="1"
+                                              Content="{TemplateBinding MenuContent}"
+                                              ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
 
         <Style Selector="^:compact">
             <Setter Property="Template">
@@ -140,7 +189,7 @@
                                     Padding="0"
                                     Classes="size-24x24"
                                     Theme="{StaticResource TransparentButton}">
-                                <icons:SymbolIcon Symbol="Delete" />
+                                <icons:SymbolIcon VerticalAlignment="Center" Symbol="Delete" />
                             </Button>
                         </Grid>
                     </Border>
@@ -158,6 +207,10 @@
             <Style Selector="^ /template/ StackPanel#LeftRightButtons">
                 <Setter Property="IsVisible" Value="False" />
             </Style>
+        </Style>
+
+        <Style Selector="^.multiline /template/ TextBox#PART_InnerTextBox">
+            <Setter Property="AcceptsReturn" Value="True" />
         </Style>
     </ControlTheme>
 

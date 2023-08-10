@@ -170,7 +170,7 @@
         <Setter Property="Cursor" Value="SizeNorthSouth" />
         <Setter Property="Child">
             <Template>
-                <icons:SymbolIcon Symbol="ReOrderDotsVertical" />
+                <icons:SymbolIcon VerticalAlignment="Center" Symbol="ReOrderDotsVertical" />
             </Template>
         </Setter>
 
