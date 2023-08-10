@@ -18,7 +18,6 @@ public class TextElement : Animatable, IAffectsRender
     public static readonly CoreProperty<float> SizeProperty;
     public static readonly CoreProperty<float> SpacingProperty;
     public static readonly CoreProperty<string> TextProperty;
-    public static readonly CoreProperty<Thickness> MarginProperty;
     public static readonly CoreProperty<IBrush?> BrushProperty;
     public static readonly CoreProperty<IPen?> PenProperty;
     public static readonly CoreProperty<bool> IgnoreLineBreaksProperty;
@@ -28,7 +27,6 @@ public class TextElement : Animatable, IAffectsRender
     private float _size;
     private float _spacing;
     private string _text = string.Empty;
-    private Thickness _margin;
     private IBrush? _brush;
     private IPen? _pen = null;
     private bool _ignoreLineBreaks;
@@ -64,11 +62,6 @@ public class TextElement : Animatable, IAffectsRender
         TextProperty = ConfigureProperty<string, TextElement>(nameof(Text))
             .Accessor(o => o.Text, (o, v) => o.Text = v)
             .DefaultValue(string.Empty)
-            .Register();
-
-        MarginProperty = ConfigureProperty<Thickness, TextElement>(nameof(Margin))
-            .Accessor(o => o.Margin, (o, v) => o.Margin = v)
-            .DefaultValue(new Thickness())
             .Register();
 
         BrushProperty = ConfigureProperty<IBrush?, TextElement>(nameof(Brush))
@@ -130,13 +123,6 @@ public class TextElement : Animatable, IAffectsRender
         set => SetAndRaise(TextProperty, ref _text, value);
     }
 
-    [Display(Name = nameof(Strings.Margin), ResourceType = typeof(Strings))]
-    public Thickness Margin
-    {
-        get => _margin;
-        set => SetAndRaise(MarginProperty, ref _margin, value);
-    }
-
     public IBrush? Brush
     {
         get => _brush;
@@ -184,7 +170,6 @@ public class TextElement : Animatable, IAffectsRender
             case nameof(Size):
             case nameof(Spacing):
             case nameof(Text):
-            case nameof(Margin):
             case nameof(IgnoreLineBreaks):
             RaiseInvalidated:
                 Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(args.PropertyName));

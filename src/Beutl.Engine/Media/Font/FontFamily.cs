@@ -10,7 +10,7 @@ namespace Beutl.Media;
 
 [JsonConverter(typeof(FontFamilyJsonConverter))]
 [TypeConverter(typeof(FontFamilyConverter))]
-public class FontFamily : IEquatable<FontFamily>
+public class FontFamily : IEquatable<FontFamily?>
 {
     public static readonly FontFamily Default = new(GetDefaultFontFamily());
 
@@ -69,12 +69,12 @@ public class FontFamily : IEquatable<FontFamily>
         }
     }
 
-    public static bool operator ==(FontFamily left, FontFamily right)
+    public static bool operator ==(FontFamily? left, FontFamily? right)
     {
         return left?.Name == right?.Name;
     }
 
-    public static bool operator !=(FontFamily left, FontFamily right)
+    public static bool operator !=(FontFamily? left, FontFamily? right)
     {
         return !(left == right);
     }

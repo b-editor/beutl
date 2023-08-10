@@ -76,8 +76,6 @@ public struct FormattedText : IEquatable<FormattedText>
     
     public IPen? Pen { get; set; }
 
-    public Thickness Margin { get; set; } = new();
-
     public FontMetrics Metrics => MeasureAndSetField().Metrics;
 
     public Size Bounds => MeasureAndSetField().Bounds;
@@ -157,7 +155,7 @@ public struct FormattedText : IEquatable<FormattedText>
 
     public bool Equals(FormattedText other)
     {
-        return Weight == other.Weight && Style == other.Style && Font.Equals(other.Font) && Size == other.Size && Spacing == other.Spacing && Text.Equals(other.Text) && BeginOnNewLine == other.BeginOnNewLine && EqualityComparer<IBrush>.Default.Equals(Brush, other.Brush) && Margin.Equals(other.Margin);
+        return Weight == other.Weight && Style == other.Style && Font.Equals(other.Font) && Size == other.Size && Spacing == other.Spacing && Text.Equals(other.Text) && BeginOnNewLine == other.BeginOnNewLine && EqualityComparer<IBrush>.Default.Equals(Brush, other.Brush);
     }
 
     public override int GetHashCode()
@@ -171,7 +169,6 @@ public struct FormattedText : IEquatable<FormattedText>
         hash.Add(Text);
         hash.Add(BeginOnNewLine);
         hash.Add(Brush);
-        hash.Add(Margin);
         return hash.ToHashCode();
     }
 

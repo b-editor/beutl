@@ -81,10 +81,6 @@ public static class FormattedTextParser
         {
             return TagType.CharSpace;
         }
-        else if (span.SequenceEqual("/margin"))
-        {
-            return TagType.Margin;
-        }
         else if (span.SequenceEqual("/weight"))
         {
             return TagType.FontWeight;
@@ -151,10 +147,6 @@ public static class FormattedTextParser
         {
             return TagType.CharSpace;
         }
-        else if (span.SequenceEqual("margin"))
-        {
-            return TagType.Margin;
-        }
         else if (span.SequenceEqual("weight"))
         {
             return TagType.FontWeight;
@@ -187,7 +179,7 @@ public static class FormattedTextParser
         return TagType.Invalid;
     }
 
-    public record struct TagInfo(StringSpan Value, TagType Type)
+    public readonly record struct TagInfo(StringSpan Value, TagType Type)
     {
         public static readonly TagInfo Invalid = new(StringSpan.Empty, TagType.Invalid);
 
@@ -331,16 +323,18 @@ public static class FormattedTextParser
             return false;
         }
 
-        public bool TryGetFont([NotNullWhen(true)] out FontFamily? font)
+        public bool TryGetFont(out FontFamily? font)
         {
             if (Type == TagType.Font)
             {
                 ReadOnlySpan<char> str = RemoveQuotation(Value);
                 font = new FontFamily(str.ToString());
-                if (FontManager.Instance.FontFamilies.Contains(font))
+                if (!FontManager.Instance.FontFamilies.Contains(font))
                 {
-                    return true;
+                    font = null;
                 }
+
+                return true;
             }
 
             font = null;
@@ -368,18 +362,6 @@ public static class FormattedTextParser
             }
 
             space = 0;
-            return false;
-        }
-
-        public bool TryGetMargin(out Thickness margin)
-        {
-            if (Type is TagType.Margin &&
-                Thickness.TryParse(RemoveQuotation(Value), out margin))
-            {
-                return true;
-            }
-
-            margin = default;
             return false;
         }
 
@@ -486,7 +468,6 @@ public static class FormattedTextParser
         FontWeight,
         FontStyle,
         FontStyleItalic,
-        Margin,
         NoParse,
         SingleLine
     }

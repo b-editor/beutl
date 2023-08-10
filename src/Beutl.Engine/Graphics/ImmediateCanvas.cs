@@ -325,24 +325,17 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     public void DrawText(FormattedText text, IBrush? fill, IPen? pen)
     {
         VerifyAccess();
+
+        // SKPathに変換
         var typeface = new Typeface(text.Font, text.Style, text.Weight);
-        Size size = text.Bounds;
         SKTypeface sktypeface = typeface.ToSkia();
-        ConfigureFillPaint(size, fill);
+        _sharedFillPaint.Reset();
         _sharedFillPaint.TextSize = text.Size;
         _sharedFillPaint.Typeface = sktypeface;
 
-        bool enableStroke = pen != null && pen.Thickness != 0;
-
-        if (enableStroke)
-        {
-            ConfigureStrokePaint(new Rect(size), pen);
-            _sharedStrokePaint.TextSize = text.Size;
-            _sharedStrokePaint.Typeface = sktypeface;
-        }
-
         Span<char> sc = stackalloc char[1];
         float prevRight = 0;
+        using var path = new SKPath();
 
         foreach (char item in text.Text.AsSpan())
         {
@@ -350,46 +343,20 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
             var bounds = default(SKRect);
             float w = _sharedFillPaint.MeasureText(sc, ref bounds);
 
-            _canvas.Save();
-            _canvas.Translate(prevRight + bounds.Left, 0);
-
-            SKPath skPath = _sharedFillPaint.GetTextPath(
+            using SKPath skPath = _sharedFillPaint.GetTextPath(
                 sc,
                 (bounds.Width / 2) - bounds.MidX,
                 0/*-_paint.FontMetrics.Ascent*/);
 
-            _canvas.DrawPath(skPath, _sharedFillPaint);
-            if (enableStroke)
-            {
-                switch (pen!.StrokeAlignment)
-                {
-                    case StrokeAlignment.Center:
-                        _canvas.DrawPath(skPath, _sharedStrokePaint);
-                        break;
-
-                    case StrokeAlignment.Inside:
-                        _canvas.Save();
-                        _canvas.ClipPath(skPath, SKClipOperation.Intersect, true);
-                        _canvas.DrawPath(skPath, _sharedStrokePaint);
-                        _canvas.Restore();
-                        break;
-
-                    case StrokeAlignment.Outside:
-                        _canvas.Save();
-                        _canvas.ClipPath(skPath, SKClipOperation.Difference, true);
-                        _canvas.DrawPath(skPath, _sharedStrokePaint);
-                        _canvas.Restore();
-                        break;
-                }
-            }
-
-            skPath.Dispose();
+            path.AddPath(skPath, prevRight + bounds.Left, 0);
 
             prevRight += text.Spacing;
             prevRight += w;
-
-            _canvas.Restore();
         }
+
+        // キャンバスに描画
+        Size size = text.Bounds;
+        DrawSKPath(path, false, fill, pen);
     }
 
     internal void DrawSKPath(SKPath skPath, bool strokeOnly, IBrush? fill, IPen? pen)

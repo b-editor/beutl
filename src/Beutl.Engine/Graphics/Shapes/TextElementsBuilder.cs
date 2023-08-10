@@ -27,7 +27,6 @@ public class TextElementsBuilder
     private IBrush? _curBrush;
     private IPen? _curPen;
     private float _curSpacing;
-    private Thickness _curMargin;
     private bool _singleLine;
 
     public TextElementsBuilder(FormattedTextInfo initialOptions)
@@ -40,15 +39,17 @@ public class TextElementsBuilder
         _curBrush = initialOptions.Brush;
         _curPen = initialOptions.Pen;
         _curSpacing = initialOptions.Space;
-        _curMargin = initialOptions.Margin;
     }
 
     public ReadOnlySpan<TextElement> Items => CollectionsMarshal.AsSpan(_elements);
 
-    public void PushFontFamily(FontFamily font)
+    public void PushFontFamily(FontFamily? font)
     {
-        _fontFamily.Push(_curFontFamily);
-        _curFontFamily = font;
+        if (font != null)
+        {
+            _fontFamily.Push(_curFontFamily);
+            _curFontFamily = font;
+        }
     }
 
     public void PushFontWeight(FontWeight weight)
@@ -87,12 +88,6 @@ public class TextElementsBuilder
         _curSpacing = value;
     }
 
-    public void PushMargin(Thickness margin)
-    {
-        _margin.Push(_curMargin);
-        _curMargin = margin;
-    }
-
     public void PushSingleLine()
     {
         _singleLine = true;
@@ -123,9 +118,6 @@ public class TextElementsBuilder
             case Options.Spacing:
                 _curSpacing = _spacing.PopOrDefault(_initialOptions.Space);
                 break;
-            case Options.Margin:
-                _curMargin = _margin.PopOrDefault(_initialOptions.Margin);
-                break;
             case Options.SingleLine:
                 _singleLine = false;
                 break;
@@ -145,7 +137,6 @@ public class TextElementsBuilder
             Size = _curSize,
             Brush = _curBrush,
             Spacing = _curSpacing,
-            Margin = _curMargin,
             IgnoreLineBreaks = _singleLine,
             Pen = _curPen,
         });
@@ -171,8 +162,6 @@ public class TextElementsBuilder
                     PushPen(pen1);
                 else if (tag.TryGetCharSpace(out float space1))
                     PushSpacing(space1);
-                else if (tag.TryGetMargin(out Thickness margin1))
-                    PushMargin(margin1);
                 else if (tag.TryGetFontStyle(out FontStyle fontStyle1))
                     PushFontStyle(fontStyle1);
                 else if (tag.TryGetFontWeight(out FontWeight fontWeight1))
@@ -181,8 +170,6 @@ public class TextElementsBuilder
                     noParse = true;
                 else if (tag.Type == TagType.SingleLine)
                     PushSingleLine();
-                else
-                    throw new Exception($"{tag.Value} is invalid tag.");
 
                 continue;
             }
@@ -218,10 +205,8 @@ public class TextElementsBuilder
             TagType.CharSpace => Options.Spacing,
             TagType.FontWeightBold or TagType.FontWeight => Options.FontWeight,
             TagType.FontStyle or TagType.FontStyleItalic => Options.FontStyle,
-            TagType.Margin => Options.Margin,
             TagType.SingleLine => Options.SingleLine,
-            TagType.Invalid => throw new Exception($"{text} is invalid tag."),
-            TagType.NoParse or _ => throw new InvalidOperationException(),
+            _ => Options.Unknown
         };
     }
 
@@ -234,7 +219,7 @@ public class TextElementsBuilder
         Brush,
         Pen,
         Spacing,
-        Margin,
         SingleLine,
+        Unknown
     }
 }

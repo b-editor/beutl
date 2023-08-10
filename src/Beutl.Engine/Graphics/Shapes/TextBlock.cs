@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 
@@ -19,7 +18,6 @@ public class TextBlock : Drawable
     public static readonly CoreProperty<float> SizeProperty;
     public static readonly CoreProperty<float> SpacingProperty;
     public static readonly CoreProperty<string> TextProperty;
-    public static readonly CoreProperty<Thickness> MarginProperty;
     public static readonly CoreProperty<IPen?> PenProperty;
     public static readonly CoreProperty<TextElements?> ElementsProperty;
     private FontFamily _fontFamily = FontFamily.Default;
@@ -28,9 +26,9 @@ public class TextBlock : Drawable
     private float _size;
     private float _spacing;
     private string _text = string.Empty;
-    private Thickness _margin;
     private IPen? _pen = null;
     private TextElements? _elements;
+    private bool _isDirty;
 
     static TextBlock()
     {
@@ -64,11 +62,6 @@ public class TextBlock : Drawable
             .DefaultValue(string.Empty)
             .Register();
 
-        MarginProperty = ConfigureProperty<Thickness, TextBlock>(nameof(Margin))
-            .Accessor(o => o.Margin, (o, v) => o.Margin = v)
-            .DefaultValue(new Thickness())
-            .Register();
-
         PenProperty = ConfigureProperty<IPen?, TextBlock>(nameof(Pen))
             .Accessor(o => o.Pen, (o, v) => o.Pen = v)
             .Register();
@@ -77,11 +70,20 @@ public class TextBlock : Drawable
             .Accessor(o => o.Elements, (o, v) => o.Elements = v)
             .Register();
 
-        AffectsRender<TextBlock>(ElementsProperty);
+        AffectsRender<TextBlock>(
+            FontWeightProperty,
+            FontStyleProperty,
+            FontFamilyProperty,
+            SizeProperty,
+            SpacingProperty,
+            TextProperty,
+            PenProperty,
+            ElementsProperty);
     }
 
     public TextBlock()
     {
+        Invalidated += OnInvalidated;
     }
 
     [Display(Name = nameof(Strings.FontWeight), ResourceType = typeof(Strings))]
@@ -121,19 +123,14 @@ public class TextBlock : Drawable
     }
 
     [Display(Name = nameof(Strings.Text), ResourceType = typeof(Strings))]
+    [DataType(DataType.MultilineText)]
     public string Text
     {
         get => _text;
         set => SetAndRaise(TextProperty, ref _text, value);
     }
 
-    [Display(Name = nameof(Strings.Margin), ResourceType = typeof(Strings))]
-    public Thickness Margin
-    {
-        get => _margin;
-        set => SetAndRaise(MarginProperty, ref _margin, value);
-    }
-
+    [Display(GroupName = "Pen")]
     public IPen? Pen
     {
         get => _pen;
@@ -171,6 +168,7 @@ public class TextBlock : Drawable
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
+        OnUpdateText();
         if (_elements != null)
         {
             var array = new JsonArray(_elements.Count);
@@ -187,6 +185,7 @@ public class TextBlock : Drawable
 
     protected override Size MeasureCore(Size availableSize)
     {
+        OnUpdateText();
         float width = 0;
         float height = 0;
 
@@ -219,12 +218,12 @@ public class TextBlock : Drawable
             {
                 if (item.Text.Length > 0)
                 {
-                    point += new Point(prevRight, 0);
+                    point += new Point(prevRight + item.Spacing / 2, 0);
                     Size elementBounds = item.Bounds;
 
                     item.AddToSKPath(skpath, point);
 
-                    prevRight = elementBounds.Width + item.Margin.Right;
+                    prevRight = elementBounds.Width + item.Spacing;
                 }
             }
 
@@ -236,6 +235,7 @@ public class TextBlock : Drawable
 
     protected override void OnDraw(ICanvas canvas)
     {
+        OnUpdateText();
         if (_elements != null)
         {
             float prevBottom = 0;
@@ -251,13 +251,13 @@ public class TextBlock : Drawable
                     {
                         if (item.Text.Length > 0)
                         {
-                            using (canvas.PushTransform(Matrix.CreateTranslation(prevRight, 0)))
+                            using (canvas.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, 0)))
                             {
                                 Size elementBounds = item.Bounds;
 
                                 canvas.DrawText(item, item.Brush ?? Fill, item.Pen ?? Pen);
 
-                                prevRight += elementBounds.Width + item.Margin.Right;
+                                prevRight += elementBounds.Width + item.Spacing;
                             }
                         }
                     }
@@ -268,38 +268,31 @@ public class TextBlock : Drawable
         }
     }
 
-    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    private void OnInvalidated(object? sender, RenderInvalidatedEventArgs e)
     {
-        base.OnPropertyChanged(args);
-        if (args.PropertyName is nameof(Text)
-            or nameof(Size)
-            or nameof(FontFamily)
-            or nameof(FontStyle)
-            or nameof(FontWeight)
-            or nameof(Fill)
-            or nameof(Spacing)
-            or nameof(Margin)
-            or nameof(Pen))
-        {
-            OnUpdateText();
-        }
+        if (e.PropertyName is not nameof(Elements))
+            _isDirty = true;
     }
 
     private void OnUpdateText()
     {
-        var tokenizer = new FormattedTextTokenizer(_text);
-        tokenizer.Tokenize();
-        var options = new FormattedTextInfo(
-            Typeface: new Typeface(_fontFamily, _fontStyle, _fontWeight),
-            Size: _size,
-            Brush: (Fill as IMutableBrush)?.ToImmutable(),
-            Space: _spacing,
-            Margin: _margin,
-            Pen: _pen);
+        if (_isDirty)
+        {
+            var tokenizer = new FormattedTextTokenizer(_text);
+            tokenizer.Tokenize();
+            var options = new FormattedTextInfo(
+                Typeface: new Typeface(_fontFamily, _fontStyle, _fontWeight),
+                Size: _size,
+                Brush: (Fill as IMutableBrush)?.ToImmutable(),
+                Space: _spacing,
+                Pen: _pen);
 
-        var builder = new TextElementsBuilder(options);
-        builder.AppendTokens(CollectionsMarshal.AsSpan(tokenizer.Result));
-        Elements = new TextElements(builder.Items.ToArray());
+            var builder = new TextElementsBuilder(options);
+            builder.AppendTokens(CollectionsMarshal.AsSpan(tokenizer.Result));
+            Elements = new TextElements(builder.Items.ToArray());
+
+            _isDirty = false;
+        }
     }
 
     private static Size MeasureLine(Span<FormattedText> items)
@@ -313,9 +306,9 @@ public class TextBlock : Drawable
             {
                 Size bounds = element.Bounds;
                 width += bounds.Width;
-                width += element.Margin.Left + element.Margin.Right;
+                width += element.Spacing;
 
-                height = MathF.Max(bounds.Height + element.Margin.Top + element.Margin.Bottom, height);
+                height = MathF.Max(bounds.Height, height);
             }
         }
 
