@@ -60,41 +60,34 @@ public sealed class FilterEffectActivator : IDisposable
         {
             SKSurface? surface = _canvas.CreateRenderTarget((int)_originalBounds.Width, (int)_originalBounds.Height);
 
-            try
+            if (surface != null)
             {
-                if (surface != null)
+                using ImmediateCanvas canvas = _canvas.CreateCanvas(surface, true);
+                using var paint = new SKPaint
                 {
-                    using ImmediateCanvas canvas = _canvas.CreateCanvas(surface, true);
-                    using var paint = new SKPaint
-                    {
-                        ImageFilter = _builder.GetFilter(),
-                    };
+                    ImageFilter = _builder.GetFilter(),
+                };
 
-                    using (canvas.PushTransform(Matrix.CreateTranslation(-_originalBounds.X, -_originalBounds.Y)))
-                    {
-                        int restoreCount = surface.Canvas.SaveLayer(paint);
-                        _target.Draw(canvas);
-                        surface.Canvas.RestoreToCount(restoreCount);
-                    }
-
-                    _target?.Dispose();
-
-                    using var surfaceRef = Ref<SKSurface>.Create(surface);
-                    _target = new EffectTarget(surfaceRef, _originalBounds.Size);
-                }
-                else
+                using (canvas.PushTransform(Matrix.CreateTranslation(-_originalBounds.X, -_originalBounds.Y)))
                 {
-                    _target?.Dispose();
-
-                    _target = EffectTarget.Empty;
+                    int restoreCount = surface.Canvas.SaveLayer(paint);
+                    _target.Draw(canvas);
+                    surface.Canvas.RestoreToCount(restoreCount);
                 }
 
-                _builder.Clear();
+                _target?.Dispose();
+
+                using var surfaceRef = Ref<SKSurface>.Create(surface);
+                _target = new EffectTarget(surfaceRef, _originalBounds.Size);
             }
-            finally
+            else
             {
-                surface?.Dispose();
+                _target?.Dispose();
+
+                _target = EffectTarget.Empty;
             }
+
+            _builder.Clear();
         }
     }
 
