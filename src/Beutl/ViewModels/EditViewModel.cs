@@ -458,7 +458,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
             case CoreObject coreObject:
                 foreach (CoreProperty? item in PropertyRegistry.GetRegistered(coreObject.GetType())
-                    .Where(x => !x.PropertyType.IsValueType))
+                    .Where(x => !x.PropertyType.IsValueType && x != Hierarchical.HierarchicalParentProperty))
                 {
                     object? value = coreObject.GetValue(item);
                     if (value != null)
