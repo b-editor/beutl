@@ -97,7 +97,7 @@ public sealed class App : Application
         ReactivePropertyScheduler.SetDefault(AvaloniaScheduler.Instance);
     }
 
-    private void SetupLogger()
+    private static void SetupLogger()
     {
         string logFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "log", "log.txt");
         const string OutputTemplate = "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SourceContext:l}] {Message:lj}{NewLine}{Exception}";
@@ -109,7 +109,7 @@ public sealed class App : Application
 #else
             .MinimumLevel.Debug()
 #endif
-            .WriteTo.File(logFile, rollingInterval: RollingInterval.Day, outputTemplate: OutputTemplate)
+            .WriteTo.Async(b => b.File(logFile, outputTemplate: OutputTemplate, shared: true, rollingInterval: RollingInterval.Day))
             .CreateLogger();
 
         BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(builder => builder.AddSerilog(Log.Logger, true));
