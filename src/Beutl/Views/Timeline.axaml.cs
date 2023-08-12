@@ -72,7 +72,7 @@ public sealed partial class Timeline : UserControl
 
         var minHeightBinding = new Binding("Options.Value")
         {
-            Converter = new FuncValueConverter<TimelineOptions, double>(x => x.MaxLayerCount * Helper.LayerHeight)
+            Converter = new FuncValueConverter<TimelineOptions, double>(x => x.MaxLayerCount * FrameNumberHelper.LayerHeight)
         };
         TimelinePanel[!MinHeightProperty] = minHeightBinding;
         LeftPanel[!MinHeightProperty] = minHeightBinding;
@@ -105,7 +105,7 @@ public sealed partial class Timeline : UserControl
                             layer.Start = ViewModel.ClickedFrame;
                             layer.ZIndex = ViewModel.ClickedLayer;
 
-                            layer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.ElementFileExtension));
+                            layer.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.ElementFileExtension));
 
                             ViewModel.Scene.AddChild(layer).DoAndRecord(CommandRecorder.Default);
                         }

@@ -1,6 +1,4 @@
-﻿using System.Security;
-
-using Reactive.Bindings;
+﻿using Reactive.Bindings;
 
 namespace Beutl;
 

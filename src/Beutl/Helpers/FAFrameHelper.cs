@@ -3,7 +3,7 @@ using FluentAvalonia.UI.Navigation;
 
 namespace Beutl;
 
-public static class FrameHelper
+public static class FAFrameHelper
 {
     public static void RemoveAllStack(this Frame frame, Func<object, bool> func)
     {

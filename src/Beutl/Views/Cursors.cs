@@ -1,6 +1,6 @@
 ﻿using Avalonia.Input;
 
-namespace Beutl;
+namespace Beutl.Views;
 
 public static class Cursors
 {

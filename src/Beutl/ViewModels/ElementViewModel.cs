@@ -316,7 +316,7 @@ public sealed class ElementViewModel : IDisposable
         backwardLayer.Start = absTime;
         backwardLayer.Length = backwardLength;
 
-        backwardLayer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension));
+        backwardLayer.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension));
         Scene.AddChild(backwardLayer).DoAndRecord(CommandRecorder.Default);
     }
 

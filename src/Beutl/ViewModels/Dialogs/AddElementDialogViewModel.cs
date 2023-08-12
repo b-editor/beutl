@@ -78,7 +78,7 @@ public sealed class AddElementDialogViewModel
                 Length = Duration.Value,
                 ZIndex = Layer.Value,
                 AccentColor = new(Color.Value.A, Color.Value.R, Color.Value.G, Color.Value.B),
-                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(_scene.FileName)!, Constants.ElementFileExtension)
+                FileName = RandomFileNameGenerator.Generate(Path.GetDirectoryName(_scene.FileName)!, Constants.ElementFileExtension)
             };
 
             if (_description.InitialOperator != null)

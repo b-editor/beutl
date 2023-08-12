@@ -71,7 +71,7 @@ public sealed class TimelineViewModel : IToolContext
                 Start = item.Start,
                 Length = item.Length,
                 ZIndex = item.Layer,
-                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension)
+                FileName = RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension)
             };
 
             if (item.InitialOperator != null)
@@ -247,7 +247,7 @@ public sealed class TimelineViewModel : IToolContext
         for (int i = 0; i < LayerHeaders.Count; i++)
         {
             LayerHeaderViewModel cur = LayerHeaders[i];
-            double top = thickness.Top + (Helper.LayerHeight / 2);
+            double top = thickness.Top + (FrameNumberHelper.LayerHeight / 2);
             if (sum <= top && top <= (sum += cur.Height.Value))
             {
                 return i;

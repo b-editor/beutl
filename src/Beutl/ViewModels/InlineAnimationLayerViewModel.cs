@@ -240,7 +240,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         if (LayerHeader.Value is { } layerHeader)
         {
             Index.Value = layerHeader.Inlines.IndexOf(this);
-            double top = layerHeader.CalculateInlineTop(Index.Value) + Helper.LayerHeight;
+            double top = layerHeader.CalculateInlineTop(Index.Value) + FrameNumberHelper.LayerHeight;
             Thickness newMargin = new Thickness(0, top, 0, 0) + layerMargin;
             Thickness newLeftMargin = Property.Animation?.UseGlobalClock == true ? default : leftMargin;
 
@@ -348,7 +348,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             {
                 _prevIndex = _prevLayerHeader.Inlines.IndexOf(_inline);
 
-                double value = _prevLayerHeader.CalculateInlineTop(_prevIndex) + Helper.LayerHeight;
+                double value = _prevLayerHeader.CalculateInlineTop(_prevIndex) + FrameNumberHelper.LayerHeight;
                 if (observer == null)
                 {
                     PublishNext(value);

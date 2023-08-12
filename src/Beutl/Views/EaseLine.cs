@@ -154,7 +154,7 @@ public sealed class EaseLine : Line
             else if (easing != null)
             {
                 float widthF = (float)width;
-                float increment = (float)(Helper.SecondWidth / 30);
+                float increment = (float)(FrameNumberHelper.SecondWidth / 30);
                 for (float x = 0F; MathUtilities.LessThanOrClose(x, widthF); x += increment)
                 {
                     float progress = x / widthF;

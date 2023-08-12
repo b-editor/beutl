@@ -54,12 +54,12 @@ public sealed class LayerHeaderViewModel : IDisposable
         Inlines.ForEachItem(
             (idx, x) =>
             {
-                Height.Value += Helper.LayerHeight;
+                Height.Value += FrameNumberHelper.LayerHeight;
                 x.Index.Value = idx;
             },
             (_, x) =>
             {
-                Height.Value -= Helper.LayerHeight;
+                Height.Value -= FrameNumberHelper.LayerHeight;
                 x.Index.Value = -1;
             },
             () => { })
@@ -127,7 +127,7 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<bool> HasItems { get; }
 
-    public ReactiveProperty<double> Height { get; } = new(Helper.LayerHeight);
+    public ReactiveProperty<double> Height { get; } = new(FrameNumberHelper.LayerHeight);
 
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = new() { ResetBehavior = ResetBehavior.Remove };
 
@@ -149,6 +149,6 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public double CalculateInlineTop(int index)
     {
-        return Helper.LayerHeight * index;
+        return FrameNumberHelper.LayerHeight * index;
     }
 }

@@ -137,7 +137,7 @@ public sealed class GraphEditorBackground : Control
             }
         }
 
-        double PixelsPerSecond = Helper.SecondWidth;
+        double PixelsPerSecond = FrameNumberHelper.SecondWidth;
         double right = viewport.Right;
         double originX = Math.Floor(viewport.X / PixelsPerSecond) * PixelsPerSecond;
         for (double x = originX; x < right; x += PixelsPerSecond)

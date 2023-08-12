@@ -20,7 +20,7 @@ public partial class InlineAnimationLayer : UserControl
     public InlineAnimationLayer()
     {
         InitializeComponent();
-        Height = Helper.LayerHeight;
+        Height = FrameNumberHelper.LayerHeight;
         this.SubscribeDataContextChange<InlineAnimationLayerViewModel>(
             OnDataContextAttached,
             OnDataContextDetached);
