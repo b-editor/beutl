@@ -33,7 +33,7 @@
     <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
     <PackageVersion Include="NuGet.ProjectModel" Version="6.7.0" />
     <PackageVersion Include="NuGet.Protocol" Version="6.7.0" />
-    <PackageVersion Include="NuGet.Resolver" Version="6.6.1" />
+    <PackageVersion Include="NuGet.Resolver" Version="6.7.0" />
     <PackageVersion Include="NUnit" Version="3.13.3" />
     <PackageVersion Include="NUnit3TestAdapter" Version="4.5.0" />
     <PackageVersion Include="OpenCvSharp4" Version="4.8.0.20230708" />
