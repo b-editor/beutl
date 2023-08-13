@@ -24,7 +24,7 @@ public abstract class Drawable : Renderable, IHierarchical
     private AlignmentX _alignX = AlignmentX.Center;
     private AlignmentY _alignY = AlignmentY.Center;
     private RelativePoint _transformOrigin = RelativePoint.Center;
-    private IBrush? _fill = new SolidColorBrush(Colors.White);
+    private IBrush? _fill = null;
     private IBrush? _opacityMask;
     private BlendMode _blendMode = BlendMode.SrcOver;
 
