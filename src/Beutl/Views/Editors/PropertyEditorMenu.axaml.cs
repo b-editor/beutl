@@ -19,13 +19,19 @@ public sealed partial class PropertyEditorMenu : UserControl
         InitializeComponent();
     }
 
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        toggleLivePreview.IsVisible = DataContext is IConfigureLivePreview;
+    }
+
     private void Button_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is BaseEditorViewModel viewModel)
         {
             if (!viewModel.HasAnimation.Value && sender is Button button)
             {
-                button.ContextMenu?.Open();
+                button.ContextFlyout?.ShowAt(button);
             }
             else if (viewModel.GetService<Scene>() is { } scene)
             {

@@ -33,7 +33,9 @@
                                               Grid.Column="1"
                                               Margin="4,2"
                                               HorizontalAlignment="Right"
+                                              CustomPaletteColors="{DynamicResource PaletteColors}"
                                               IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                              ShowAcceptDismissButtons="{TemplateBinding IsLivePreviewEnabled, Converter={x:Static BoolConverters.Not}}"
                                               UseColorPalette="True"
                                               Color="{Binding Value, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
 
@@ -73,7 +75,9 @@
                                                   Grid.Column="1"
                                                   Margin="4,2"
                                                   HorizontalAlignment="Right"
+                                                  CustomPaletteColors="{DynamicResource PaletteColors}"
                                                   IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                                  ShowAcceptDismissButtons="{TemplateBinding IsLivePreviewEnabled, Converter={x:Static BoolConverters.Not}}"
                                                   UseColorPalette="True"
                                                   Color="{Binding Value, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
 

@@ -5,6 +5,7 @@
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.Editors"
              Margin="0,0,4,0"
              VerticalAlignment="Center"
@@ -20,15 +21,20 @@
             Background="Transparent"
             BorderThickness="0"
             Click="Button_Click">
-        <Button.ContextMenu>
-            <ContextMenu>
-                <MenuItem Command="{Binding Reset}"
-                          Header="{x:Static lang:Strings.Reset}"
-                          IsEnabled="{Binding CanReset}" />
-                <MenuItem Click="EditAnimation_Click" Header="{x:Static lang:Strings.EditAnimation}" />
-                <MenuItem Click="EditInlineAnimation_Click" Header="アニメーションを編集(Inline)" />
-            </ContextMenu>
-        </Button.ContextMenu>
+        <Button.ContextFlyout>
+            <ui:FAMenuFlyout>
+                <ui:MenuFlyoutItem Command="{Binding Reset}"
+                                   IsEnabled="{Binding CanReset}"
+                                   Text="{x:Static lang:Strings.Reset}" />
+                <ui:MenuFlyoutItem Click="EditAnimation_Click" Text="{x:Static lang:Strings.EditAnimation}" />
+                <ui:MenuFlyoutItem Click="EditInlineAnimation_Click" Text="アニメーションを編集(Inline)" />
+                <ui:ToggleMenuFlyoutItem x:Name="toggleLivePreview"
+                                         IsChecked="{ReflectionBinding IsLivePreviewEnabled.Value,
+                                                                       Mode=TwoWay}"
+                                         IsVisible="False"
+                                         Text="ライブプレビューを有効化" />
+            </ui:FAMenuFlyout>
+        </Button.ContextFlyout>
         <icons:SymbolIcon x:Name="symbolIcon"
                           Classes.hasAnimation="{Binding HasAnimation.Value}"
                           IsFilled="{Binding IsSymbolIconFilled.Value}">

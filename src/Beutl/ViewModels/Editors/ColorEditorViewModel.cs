@@ -10,7 +10,7 @@ using AColor = Avalonia.Media.Color;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class ColorEditorViewModel : ValueEditorViewModel<Color>
+public sealed class ColorEditorViewModel : ValueEditorViewModel<Color>, IConfigureLivePreview
 {
     public ColorEditorViewModel(IAbstractProperty<Color> property)
         : base(property)
@@ -23,13 +23,25 @@ public sealed class ColorEditorViewModel : ValueEditorViewModel<Color>
 
     public ReadOnlyReactivePropertySlim<AColor> Value2 { get; }
 
+    public ReactivePropertySlim<bool> IsLivePreviewEnabled { get; } = new(true);
+
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
         if (visitor is ColorEditor editor)
         {
             editor[!ColorEditor.ValueProperty] = Value2.ToBinding();
+            editor[!ColorEditor.IsLivePreviewEnabledProperty] = IsLivePreviewEnabled.ToBinding();
             editor.ValueChanged += OnValueChanged;
+            editor.ValueChanging += OnValueChanging;
+        }
+    }
+
+    private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+    {
+        if (sender is ColorEditor editor)
+        {
+            editor.Value = SetCurrentValueAndGetCoerced(editor.Value.ToMedia()).ToAvalonia();
         }
     }
 
