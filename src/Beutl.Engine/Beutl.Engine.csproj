@@ -4,9 +4,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Graphics\VertexMode.cs" />
-    <Compile Remove="Media\Cmyk.cs" />
-    <Compile Remove="Media\Hsv.cs" />
-    <Compile Remove="Media\YCbCr.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />

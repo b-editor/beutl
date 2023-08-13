@@ -133,4 +133,34 @@ public class ColorTests
     {
         Assert.False(Color.TryParse("#ff808g80", out _));
     }
+
+    // テストケースは適当です。
+    // I chose test case randomly.
+    [Test]
+    [TestCase("Aqua")]
+    [TestCase("DeepPink")]
+    [TestCase("Blue")]
+    [TestCase("Gold")]
+    public void ToHsv(string color)
+    {
+        var expected = Color.Parse(color);
+        var hsv = expected.ToHsv();
+        var actual = hsv.ToColor();
+
+        Assert.AreEqual(expected, actual);
+    }
+
+    [Test]
+    [TestCase("Aqua")]
+    [TestCase("DeepPink")]
+    [TestCase("Blue")]
+    [TestCase("Gold")]
+    public void ToCmyk(string color)
+    {
+        var expected = Color.Parse(color);
+        var cmyk = expected.ToCmyk();
+        var actual = cmyk.ToColor();
+
+        Assert.AreEqual(expected, actual);
+    }
 }

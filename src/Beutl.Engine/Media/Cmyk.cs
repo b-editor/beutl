@@ -1,13 +1,15 @@
-﻿namespace BeUtl.Media;
+﻿namespace Beutl.Media;
 
-public struct Cmyk : IEquatable<Cmyk>
+public readonly struct Cmyk : IEquatable<Cmyk>
 {
-    public Cmyk(double c, double m, double y, double k)
+    // 0-1
+    public Cmyk(float c, float m, float y, float k, float a)
     {
         C = c;
         M = m;
         Y = y;
         K = k;
+        A = a;
     }
 
     public Cmyk(Color rgb)
@@ -20,18 +22,15 @@ public struct Cmyk : IEquatable<Cmyk>
         this = hsv.ToCmyk();
     }
 
-    public Cmyk(YCbCr yc)
-    {
-        this = yc.ToCmyk();
-    }
+    public float C { get; }
 
-    public double C { readonly get; set; }
+    public float M { get; }
 
-    public double M { readonly get; set; }
+    public float Y { get; }
 
-    public double Y { readonly get; set; }
-
-    public double K { readonly get; set; }
+    public float K { get; }
+    
+    public float A { get; }
 
     public static bool operator ==(Cmyk left, Cmyk right)
     {
@@ -43,31 +42,28 @@ public struct Cmyk : IEquatable<Cmyk>
         return !(left == right);
     }
 
-    public readonly Color ToColor()
+    public Color ToColor()
     {
-        var cc = C / 100.0;
-        var mm = M / 100.0;
-        var yy = Y / 100.0;
-        var kk = K / 100.0;
+        float c = C;
+        float m = M;
+        float y = Y;
+        float k = K;
 
-        var r = (1.0 - cc) * (1.0 - kk);
-        var g = (1.0 - mm) * (1.0 - kk);
-        var b = (1.0 - yy) * (1.0 - kk);
-        r = Math.Round(r * 255.0);
-        g = Math.Round(g * 255.0);
-        b = Math.Round(b * 255.0);
+        float r = (1.0F - c) * (1.0F - k);
+        float g = (1.0F - m) * (1.0F - k);
+        float b = (1.0F - y) * (1.0F - k);
+        float a = A;
+        r = MathF.Round(r * 255.0F);
+        g = MathF.Round(g * 255.0F);
+        b = MathF.Round(b * 255.0F);
+        a = MathF.Round(a * 255.0F);
 
-        return Color.FromArgb(255, (byte)r, (byte)g, (byte)b);
+        return Color.FromArgb((byte)a, (byte)r, (byte)g, (byte)b);
     }
 
-    public readonly Hsv ToHsv()
+    public Hsv ToHsv()
     {
         return ToColor().ToHsv();
-    }
-
-    public readonly YCbCr ToYCbCr()
-    {
-        return ToColor().ToYCbCr();
     }
 
     public override bool Equals(object? obj)
@@ -80,11 +76,12 @@ public struct Cmyk : IEquatable<Cmyk>
         return C == other.C &&
                M == other.M &&
                Y == other.Y &&
-               K == other.K;
+               K == other.K &&
+               A == other.A;
     }
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(C, M, Y, K);
+        return HashCode.Combine(C, M, Y, K, A);
     }
 }
