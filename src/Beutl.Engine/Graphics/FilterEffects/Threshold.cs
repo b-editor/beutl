@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
+using SkiaSharp;
+
 namespace Beutl.Graphics.Effects;
 
 public sealed class Threshold : FilterEffect
@@ -43,17 +45,19 @@ public sealed class Threshold : FilterEffect
         int threshold = Math.Clamp((int)(_value / 100f * 255), 0, 255);
 
         context.HighContrast(true, HighContrastInvertStyle.NoInvert, 0);
-        context.LookupTable(threshold, (threshold) =>
+        context.AppendSKColorFilter((threshold, strength: (_strength / 100)), (data, _) =>
         {
             var lut = new LookupTable();
             Span<float> span = lut.AsSpan();
 
-            for (int i = threshold; i < 256; i++)
+            for (int i = data.threshold; i < 256; i++)
             {
                 span[i] = 1;
             }
 
-            return lut;
-        }, _strength / 100);
+            byte[] array = lut.ToByteArray(data.strength, 0);
+
+            return SKColorFilter.CreateTable(array);
+        });
     }
 }
