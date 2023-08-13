@@ -127,6 +127,18 @@ public sealed unsafe partial class LookupTable : IDisposable
         return table;
     }
 
+    public static LookupTable Invert()
+    {
+        var table = new LookupTable();
+
+        Parallel.For(0, 256, pos =>
+        {
+            table.AsSpan()[pos] = 1f - (pos / 255f);
+        });
+
+        return table;
+    }
+
     public static LookupTable FromStream(Stream stream)
     {
         using var reader = new StreamReader(stream);

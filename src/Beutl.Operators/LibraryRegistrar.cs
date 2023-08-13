@@ -231,6 +231,21 @@ public static class LibraryRegistrar
                     .BindFilterEffect<Threshold>()
                 )
                 
+                .AddMultiple("Brightness", m => m
+                    .BindSourceOperator<Configure.Effects.BrightnessOperator>()
+                    .BindFilterEffect<Brightness>()
+                )
+                
+                .AddMultiple("Gamma", m => m
+                    .BindSourceOperator<Configure.Effects.GammaOperator>()
+                    .BindFilterEffect<Gamma>()
+                )
+                
+                .AddMultiple("Invert", m => m
+                    .BindSourceOperator<Configure.Effects.InvertOperator>()
+                    .BindFilterEffect<Invert>()
+                )
+                
                 .AddMultiple(Strings.Transform, m => m
                     .BindSourceOperator<Configure.Effects.TransformEffectOperator>()
                     .BindFilterEffect<TransformEffect>()

@@ -66,3 +66,20 @@ public sealed class TransformEffectOperator : FilterEffectOperator<TransformEffe
 {
     public new Setter<ITransform?> Transform { get; set; } = new(TransformEffect.TransformProperty, null);
 }
+
+public sealed class BrightnessOperator : FilterEffectOperator<Brightness>
+{
+    public Setter<float> Amount { get; set; } = new(Brightness.AmountProperty, 100);
+}
+
+public sealed class GammaOperator : FilterEffectOperator<Gamma>
+{
+    public Setter<float> Amount { get; set; } = new(Gamma.AmountProperty, 100);
+
+    public Setter<float> Strength { get; set; } = new(Gamma.StrengthProperty, 100);
+}
+
+public sealed class InvertOperator : FilterEffectOperator<Invert>
+{
+    public Setter<float> Amount { get; set; } = new(Invert.AmountProperty, 100);
+}

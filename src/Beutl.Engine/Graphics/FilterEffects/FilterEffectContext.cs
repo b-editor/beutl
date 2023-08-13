@@ -232,6 +232,14 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
         AppendSKColorFilter(matrix, (m, _) => SKColorFilter.CreateColorMatrix(m.ToArrayForSkia()));
     }
 
+    public void ColorMatrix<T>(T data, Func<T, ColorMatrix> factory)
+        where T : IEquatable<T>
+    {
+        AppendSKColorFilter(
+            (data, factory),
+            (t, _) => SKColorFilter.CreateColorMatrix((t.factory.Invoke(t.data)).ToArrayForSkia()));
+    }
+
     public void Saturate(float amount)
     {
         AppendSKColorFilter(amount, (s, _) =>
@@ -264,6 +272,19 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
         {
             float[] array = new float[20];
             Graphics.ColorMatrix.CreateLuminanceToAlphaMatrix(array);
+            //M15,M25,M35,M45がゼロなので意味がない
+            //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+
+            return SKColorFilter.CreateColorMatrix(array);
+        });
+    }
+
+    public void Brightness(float amount)
+    {
+        AppendSKColorFilter(amount, (s, _) =>
+        {
+            float[] array = new float[20];
+            Graphics.ColorMatrix.CreateBrightness(amount, array);
             //M15,M25,M35,M45がゼロなので意味がない
             //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
 
@@ -321,7 +342,12 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
             {
                 if (table.Dimension == LookupTableDimension.OneDimension)
                 {
-                    return SKColorFilter.CreateTable(table.ToByteArray(data.strength, 0));
+                    byte[] array = table.ToByteArray(data.strength, 0);
+                    return SKColorFilter.CreateTable(
+                        Graphics.LookupTable.s_linear,
+                        array,
+                        array,
+                        array);
                 }
                 else
                 {

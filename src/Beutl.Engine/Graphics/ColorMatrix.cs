@@ -134,6 +134,14 @@ public readonly struct ColorMatrix : IEquatable<ColorMatrix>
 
         return CreateFromSpan(span);
     }
+    
+    public static ColorMatrix CreateBrightness(float amount)
+    {
+        Span<float> span = stackalloc float[20];
+        CreateBrightness(amount, span);
+
+        return CreateFromSpan(span);
+    }
 
     public float[] ToArray()
     {
@@ -298,6 +306,12 @@ public readonly struct ColorMatrix : IEquatable<ColorMatrix>
         span[15] = 0.2125F;
         span[16] = 0.7154F;
         span[17] = 0.0721F;
+    }
+
+    internal static void CreateBrightness(float amount, Span<float> span)
+    {
+        span[0] = span[6] = span[12] = amount;
+        span[18] = 1;
     }
 
     internal static void ToSkiaColorMatrix(Span<float> array)

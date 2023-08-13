@@ -6,7 +6,7 @@ using Beutl.Operation;
 
 namespace Beutl.Operators.Configure.Effects;
 
-public abstract class FilterEffectOperator<T> : ConfigureOperator<Drawable, T>, ISourceTransformer
+public abstract class FilterEffectOperator<T> : ConfigureOperator<Drawable, T>
     where T : FilterEffect, new()
 {
     private readonly ConditionalWeakTable<Drawable, CombinedFilterEffect> _table = new();
