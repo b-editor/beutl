@@ -18,7 +18,18 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     public FilterEffectEditorViewModel(IAbstractProperty<FilterEffect?> property)
         : base(property)
     {
-        FilterName = Value.Select(v => (v != null ? LibraryService.Current.FindItem(v.GetType()) : null)?.DisplayName ?? "Null")
+        FilterName = Value.Select(v =>
+            {
+                if (v != null)
+                {
+                    Type type = v.GetType();
+                    return LibraryService.Current.FindItem(type)?.DisplayName ?? type.Name;
+                }
+                else
+                {
+                    return "Null";
+                }
+            })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
