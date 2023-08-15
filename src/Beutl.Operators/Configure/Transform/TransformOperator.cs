@@ -1,7 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 
 using Beutl.Graphics;
-using Beutl.Graphics.Transformation;
+using Beutl.Graphics.Effects;
 
 namespace Beutl.Operators.Configure.Transform;
 
@@ -11,7 +11,7 @@ using Transform = Graphics.Transformation.Transform;
 public abstract class TransformOperator<T> : ConfigureOperator<Drawable, T>
     where T : Transform, new()
 {
-    private readonly ConditionalWeakTable<Drawable, MultiTransform> _table = new();
+    private readonly ConditionalWeakTable<Drawable, CombinedFilterEffect> _table = new();
 
     protected override void PreProcess(Drawable target, T value)
     {
@@ -20,12 +20,20 @@ public abstract class TransformOperator<T> : ConfigureOperator<Drawable, T>
 
     protected override void Process(Drawable target, T value)
     {
-        MultiTransform multi = _table.GetValue(target, _ => new MultiTransform());
-        if (target.Transform != multi)
+        CombinedFilterEffect composed = _table.GetValue(target, _ => new CombinedFilterEffect());
+        if (target.FilterEffect != composed)
         {
-            multi.Left = value;
-            multi.Right = target.Transform;
-            target.Transform = multi;
+            if (composed.Second is not TransformEffect transformEffect)
+            {
+                transformEffect = new TransformEffect();
+                composed.Second = transformEffect;
+            }
+
+            transformEffect.Transform = value;
+
+            composed.Second = transformEffect;
+            composed.First = target.FilterEffect;
+            target.FilterEffect = composed;
         }
     }
 

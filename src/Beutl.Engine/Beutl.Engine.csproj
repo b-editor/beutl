@@ -4,9 +4,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Graphics\VertexMode.cs" />
-    <Compile Remove="Media\Cmyk.cs" />
-    <Compile Remove="Media\Hsv.cs" />
-    <Compile Remove="Media\YCbCr.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
@@ -18,6 +15,8 @@
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="ILGPU" />
+    <PackageReference Include="Microsoft.Extensions.ObjectPool" />
     <PackageReference Include="OpenCvSharp4" />
     <PackageReference Include="OpenCvSharp4.runtime.centos7-x64" />
     <PackageReference Include="OpenCvSharp4.runtime.osx.10.15-x64" />

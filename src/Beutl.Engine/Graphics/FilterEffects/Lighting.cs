@@ -6,13 +6,14 @@ public sealed class Lighting : FilterEffect
 {
     public static readonly CoreProperty<Color> MultiplyProperty;
     public static readonly CoreProperty<Color> AddProperty;
-    private Color _multiply;
+    private Color _multiply = Colors.White;
     private Color _add;
 
     static Lighting()
     {
         MultiplyProperty = ConfigureProperty<Color, Lighting>(nameof(Multiply))
             .Accessor(o => o.Multiply, (o, v) => o.Multiply = v)
+            .DefaultValue(Colors.White)
             .Register();
 
         AddProperty = ConfigureProperty<Color, Lighting>(nameof(Add))

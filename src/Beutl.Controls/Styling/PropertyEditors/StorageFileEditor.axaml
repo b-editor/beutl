@@ -37,7 +37,7 @@
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
                                    FontSize="{StaticResource TextBoxIconFontSize}"
-                                   Foreground="{StaticResource TextControlButtonForeground}"
+                                   Foreground="{DynamicResource TextControlButtonForeground}"
                                    Symbol="Open" />
                 </Border>
             </ControlTemplate>

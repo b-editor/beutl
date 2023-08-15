@@ -1,19 +1,20 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace BeUtl.Media;
+namespace Beutl.Media;
 
 [StructLayout(LayoutKind.Sequential)]
-public struct Hsv : IEquatable<Hsv>
+public readonly struct Hsv : IEquatable<Hsv>
 {
     // Hue 0 - 360
     // Saturation 0-100%
     // Value 0-100%
 
-    public Hsv(double h, double s, double v)
+    public Hsv(float h, float s, float v, float a)
     {
         H = h;
         S = s;
         V = v;
+        A = a;
     }
 
     public Hsv(Color rgb)
@@ -26,16 +27,13 @@ public struct Hsv : IEquatable<Hsv>
         this = cmyk.ToHsv();
     }
 
-    public Hsv(YCbCr yc)
-    {
-        this = yc.ToHsv();
-    }
+    public float H { get; }
 
-    public double H { readonly get; set; }
+    public float S { get; }
 
-    public double S { readonly get; set; }
+    public float V { get; }
 
-    public double V { readonly get; set; }
+    public float A { get; }
 
     public static bool operator ==(Hsv left, Hsv right)
     {
@@ -47,29 +45,30 @@ public struct Hsv : IEquatable<Hsv>
         return !(left == right);
     }
 
-    public readonly Color ToColor()
+    public Color ToColor()
     {
-        double r;
-        double g;
-        double b;
+        float r;
+        float g;
+        float b;
+        float a=A;
         if (S == 0)
         {
-            r = g = b = Math.Round(V * 2.55);
+            r = g = b = MathF.Round(V * 2.55F);
             return Color.FromArgb(255, (byte)r, (byte)g, (byte)b);
         }
 
-        var hh = H;
-        var ss = S / 100.0;
-        var vv = V / 100.0;
-        if (hh >= 360.0)
-            hh = 0.0;
-        hh /= 60.0;
+        float hh = H;
+        float ss = S / 100.0F;
+        float vv = V / 100.0F;
+        if (hh >= 360.0F)
+            hh = 0.0F;
+        hh /= 60.0F;
 
-        var i = (long)hh;
-        var ff = hh - i;
-        var p = vv * (1.0 - ss);
-        var q = vv * (1.0 - ss * ff);
-        var t = vv * (1.0 - ss * (1.0 - ff));
+        float i = (long)hh;
+        float ff = hh - i;
+        float p = vv * (1.0F - ss);
+        float q = vv * (1.0F - ss * ff);
+        float t = vv * (1.0F - ss * (1.0F - ff));
 
         switch ((int)i)
         {
@@ -105,21 +104,17 @@ public struct Hsv : IEquatable<Hsv>
                 break;
         }
 
-        r = Math.Round(r * 255.0);
-        g = Math.Round(g * 255.0);
-        b = Math.Round(b * 255.0);
+        r = MathF.Round(r * 255.0F);
+        g = MathF.Round(g * 255.0F);
+        b = MathF.Round(b * 255.0F);
+        a = MathF.Round(a * 255.0F);
 
-        return Color.FromArgb(255, (byte)r, (byte)g, (byte)b);
+        return Color.FromArgb((byte)a, (byte)r, (byte)g, (byte)b);
     }
 
-    public readonly Cmyk ToCmyk()
+    public Cmyk ToCmyk()
     {
         return ToColor().ToCmyk();
-    }
-
-    public readonly YCbCr ToYCbCr()
-    {
-        return ToColor().ToYCbCr();
     }
 
     public override bool Equals(object? obj)
@@ -131,11 +126,12 @@ public struct Hsv : IEquatable<Hsv>
     {
         return H == other.H &&
                S == other.S &&
-               V == other.V;
+               V == other.V &&
+               A == other.A;
     }
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(H, S, V);
+        return HashCode.Combine(H, S, V, A);
     }
 }

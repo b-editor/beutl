@@ -4,15 +4,45 @@ using System.Runtime.InteropServices;
 
 using Beutl.Collections.Pooled;
 using Beutl.Media;
-
+using Microsoft.Extensions.ObjectPool;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
+
+internal sealed class ArrayPooledObjectPolicy<T> : IPooledObjectPolicy<T[]>
+{
+    private readonly int _length;
+
+    public ArrayPooledObjectPolicy(int length)
+    {
+        _length = length;
+    }
+
+    public T[] Create()
+    {
+        return new T[_length];
+    }
+
+    public bool Return(T[] obj)
+    {
+        Array.Clear(obj);
+        return true;
+    }
+}
 
 public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectContext>
 {
     private readonly PooledList<(FilterEffect FE, int Version)> _versions;
     internal readonly PooledList<IFEItem> _items;
+
+    internal static readonly ObjectPool<byte[]> s_lutPool;
+    internal static readonly ObjectPool<float[]> s_colorMatPool;
+
+    static FilterEffectContext()
+    {
+        s_lutPool = new DefaultObjectPool<byte[]>(new ArrayPooledObjectPolicy<byte>(256));
+        s_colorMatPool = new DefaultObjectPool<float[]>(new ArrayPooledObjectPolicy<float>(20));
+    }
 
     public FilterEffectContext(Rect bounds)
     {
@@ -229,19 +259,58 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
 
     public void ColorMatrix(in ColorMatrix matrix)
     {
-        AppendSKColorFilter(matrix, (m, _) => SKColorFilter.CreateColorMatrix(m.ToArrayForSkia()));
+        AppendSKColorFilter(matrix, (m, _) =>
+        {
+            float[] array = s_colorMatPool.Get();
+            try
+            {
+                m.ToArrayForSkia(array);
+                return SKColorFilter.CreateColorMatrix(array);
+            }
+            finally
+            {
+                s_colorMatPool.Return(array);
+            }
+        });
+    }
+
+    public void ColorMatrix<T>(T data, Func<T, ColorMatrix> factory)
+        where T : IEquatable<T>
+    {
+        AppendSKColorFilter(
+            (data, factory),
+            (t, _) =>
+            {
+                float[] array = s_colorMatPool.Get();
+                try
+                {
+                    t.factory.Invoke(t.data).ToArrayForSkia(array);
+                    return SKColorFilter.CreateColorMatrix(array);
+                }
+                finally
+                {
+                    s_colorMatPool.Return(array);
+                }
+            });
     }
 
     public void Saturate(float amount)
     {
         AppendSKColorFilter(amount, (s, _) =>
         {
-            float[] array = new float[20];
-            Graphics.ColorMatrix.CreateSaturateMatrix(s, array);
-            //M15,M25,M35,M45がゼロなので意味がない
-            //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+            float[] array = s_colorMatPool.Get();
+            try
+            {
+                Graphics.ColorMatrix.CreateSaturateMatrix(s, array);
+                //M15,M25,M35,M45がゼロなので意味がない
+                //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
 
-            return SKColorFilter.CreateColorMatrix(array);
+                return SKColorFilter.CreateColorMatrix(array);
+            }
+            finally
+            {
+                s_colorMatPool.Return(array);
+            }
         });
     }
 
@@ -249,12 +318,19 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     {
         AppendSKColorFilter(degrees, (s, _) =>
         {
-            float[] array = new float[20];
-            Graphics.ColorMatrix.CreateHueRotateMatrix(degrees, array);
-            //M15,M25,M35,M45がゼロなので意味がない
-            //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+            float[] array = s_colorMatPool.Get();
+            try
+            {
+                Graphics.ColorMatrix.CreateHueRotateMatrix(degrees, array);
+                //M15,M25,M35,M45がゼロなので意味がない
+                //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
 
-            return SKColorFilter.CreateColorMatrix(array);
+                return SKColorFilter.CreateColorMatrix(array);
+            }
+            finally
+            {
+                s_colorMatPool.Return(array);
+            }
         });
     }
 
@@ -262,12 +338,39 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     {
         AppendSKColorFilter(Unit.Default, (_, _) =>
         {
-            float[] array = new float[20];
-            Graphics.ColorMatrix.CreateLuminanceToAlphaMatrix(array);
-            //M15,M25,M35,M45がゼロなので意味がない
-            //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+            float[] array = s_colorMatPool.Get();
+            try
+            {
+                Graphics.ColorMatrix.CreateLuminanceToAlphaMatrix(array);
+                //M15,M25,M35,M45がゼロなので意味がない
+                //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
 
-            return SKColorFilter.CreateColorMatrix(array);
+                return SKColorFilter.CreateColorMatrix(array);
+            }
+            finally
+            {
+                s_colorMatPool.Return(array);
+            }
+        });
+    }
+
+    public void Brightness(float amount)
+    {
+        AppendSKColorFilter(amount, (s, _) =>
+        {
+            float[] array = s_colorMatPool.Get();
+            try
+            {
+                Graphics.ColorMatrix.CreateBrightness(amount, array);
+                //M15,M25,M35,M45がゼロなので意味がない
+                //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+
+                return SKColorFilter.CreateColorMatrix(array);
+            }
+            finally
+            {
+                s_colorMatPool.Return(array);
+            }
         });
     }
 
@@ -290,47 +393,56 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
         AppendSKColorFilter(Unit.Default, (_, _) => SKColorFilter.CreateLumaColor());
     }
 
-    public void LookupTable(LookupTable table, float strength = 1, int versionCounter = -1)
+    public void LookupTable<T>(
+        T data,
+        float strength,
+        Action<T, (byte[] A, byte[] R, byte[] G, byte[] B)> factory)
+        where T : IEquatable<T>
     {
-        AppendSKColorFilter((table, strength, versionCounter), (data, _) =>
+        AppendSKColorFilter((data, strength, factory), (data, _) =>
         {
-            if (data.table.IsDisposed)
-                return null;
+            byte[] a = s_lutPool.Get();
+            byte[] r = s_lutPool.Get();
+            byte[] g = s_lutPool.Get();
+            byte[] b = s_lutPool.Get();
 
-            if (data.table.Dimension == LookupTableDimension.OneDimension)
+            try
             {
-                return SKColorFilter.CreateTable(data.table.ToByteArray(data.strength, 0));
+                data.factory(data.data, (a, r, g, b));
+
+                Graphics.LookupTable.SetStrength(data.strength, (a, r, g, b));
+                return SKColorFilter.CreateTable(a, r, g, b);
             }
-            else
+            finally
             {
-                return SKColorFilter.CreateTable(
-                    Graphics.LookupTable.s_linear,
-                    data.table.ToByteArray(data.strength, 0),
-                    data.table.ToByteArray(data.strength, 1),
-                    data.table.ToByteArray(data.strength, 2));
+                s_lutPool.Return(a);
+                s_lutPool.Return(r);
+                s_lutPool.Return(g);
+                s_lutPool.Return(b);
             }
         });
     }
 
-    public void LookupTable<T>(T data, Func<T, LookupTable> factory, float strength = 1)
+    public void LookupTable<T>(
+        T data,
+        float strength,
+        Action<T, byte[]> factory)
         where T : IEquatable<T>
     {
-        AppendSKColorFilter((data, factory, strength), (data, _) =>
+        AppendSKColorFilter((data, strength, factory), (data, _) =>
         {
-            using (LookupTable table = data.factory.Invoke(data.data))
+            byte[] array = s_lutPool.Get();
+
+            try
             {
-                if (table.Dimension == LookupTableDimension.OneDimension)
-                {
-                    return SKColorFilter.CreateTable(table.ToByteArray(data.strength, 0));
-                }
-                else
-                {
-                    return SKColorFilter.CreateTable(
-                        Graphics.LookupTable.s_linear,
-                        table.ToByteArray(data.strength, 0),
-                        table.ToByteArray(data.strength, 1),
-                        table.ToByteArray(data.strength, 2));
-                }
+                data.factory(data.data, array);
+
+                Graphics.LookupTable.SetStrength(data.strength, array);
+                return SKColorFilter.CreateTable(array);
+            }
+            finally
+            {
+                s_lutPool.Return(array);
             }
         });
     }

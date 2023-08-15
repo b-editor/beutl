@@ -21,6 +21,7 @@
     <PackageVersion Include="FluentAvaloniaUI" Version="2.0.1" />
     <PackageVersion Include="FluentIcons.FluentAvalonia" Version="1.1.209" />
     <PackageVersion Include="FluentTextTable" Version="1.0.0" />
+    <PackageVersion Include="ILGPU" Version="1.4.0" />
     <PackageVersion Include="Kokuban" Version="0.2.0" />
     <PackageVersion Include="Kurukuru" Version="1.4.2" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
@@ -29,6 +30,7 @@
     <PackageVersion Include="Microsoft.Extensions.FileSystemGlobbing" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="7.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="7.0.10" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.7.0" />
     <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
     <PackageVersion Include="NuGet.ProjectModel" Version="6.7.0" />

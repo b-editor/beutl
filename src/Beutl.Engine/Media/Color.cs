@@ -288,6 +288,79 @@ public readonly struct Color
     }
 
     /// <summary>
+    /// Converts this 32Bit color to HSV.
+    /// </summary>
+    /// <returns>Returns the HSV.</returns>
+    public Hsv ToHsv()
+    {
+        float h = default;
+        float s;
+        float v;
+        float a = A / 255F;
+        float min = Math.Min(Math.Min(R, G), B);
+        float max = Math.Max(Math.Max(R, G), B);
+
+        float delta = max - min;
+
+        v = 100.0F * max / 255.0F;
+
+        if (max == 0.0F)
+        {
+            s = 0;
+        }
+        else
+        {
+            s = 100.0F * delta / max;
+        }
+
+        if (s == 0)
+        {
+            h = 0;
+        }
+        else
+        {
+            if (R == max)
+            {
+                h = 60.0F * (G - B) / delta;
+            }
+            else if (G == max)
+            {
+                h = 120.0F + (60.0F * (B - R) / delta);
+            }
+            else if (B == max)
+            {
+                h = 240.0F + (60.0F * (R - G) / delta);
+            }
+
+            if (h < 0.0)
+            {
+                h += 360.0F;
+            }
+        }
+
+        return new Hsv(h, s, v, a);
+    }
+
+    /// <summary>
+    /// Converts this 32Bit color to CMYK.
+    /// </summary>
+    /// <returns>Returns the CMYK.</returns>
+    public Cmyk ToCmyk()
+    {
+        float rr = R / 255.0F;
+        float gg = G / 255.0F;
+        float bb = B / 255.0F;
+        float aa = A / 255.0F;
+
+        float k = 1.0F - Math.Max(Math.Max(rr, gg), bb);
+        float c = (1.0F - rr - k) / (1.0F - k);
+        float m = (1.0F - gg - k) / (1.0F - k);
+        float y = (1.0F - bb - k) / (1.0F - k);
+
+        return new Cmyk(c, m, y, k, aa);
+    }
+
+    /// <summary>
     /// Check if two colors are equal.
     /// </summary>
     public bool Equals(Color other)
