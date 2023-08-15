@@ -246,6 +246,11 @@ public static class LibraryRegistrar
                     .BindFilterEffect<Invert>()
                 )
                 
+                .AddMultiple("LUT (Cube File)", m => m
+                    .BindSourceOperator<Configure.Effects.LutEffectOperator>()
+                    .BindFilterEffect<LutEffect>()
+                )
+                
                 .AddMultiple(Strings.Transform, m => m
                     .BindSourceOperator<Configure.Effects.TransformEffectOperator>()
                     .BindFilterEffect<TransformEffect>()

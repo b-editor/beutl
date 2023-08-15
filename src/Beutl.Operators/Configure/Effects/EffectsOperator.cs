@@ -83,3 +83,10 @@ public sealed class InvertOperator : FilterEffectOperator<Invert>
 {
     public Setter<float> Amount { get; set; } = new(Invert.AmountProperty, 100);
 }
+
+public sealed class LutEffectOperator : FilterEffectOperator<LutEffect>
+{
+    public Setter<FileInfo?> Source { get; set; } = new(LutEffect.SourceProperty, null);
+
+    public Setter<float> Strength { get; set; } = new(LutEffect.StrengthProperty, 100);
+}

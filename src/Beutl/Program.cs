@@ -49,6 +49,7 @@ internal static class Program
         }
         finally
         {
+            SharedGPUContext.Shutdown();
             SharedGRContext.Shutdown();
             RenderThread.Dispatcher.Stop();
         }

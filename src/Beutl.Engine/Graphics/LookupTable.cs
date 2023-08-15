@@ -38,6 +38,8 @@ public static partial class LookupTable
 
     public static void SetStrength(float strength, byte[] data)
     {
+        if (strength == 1) return;
+
         if (data.Length != 256)
             throw new ArgumentException("配列の長さが無効です", nameof(data));
 
@@ -50,6 +52,8 @@ public static partial class LookupTable
 
     public static void SetStrength(float strength, (byte[] A, byte[] R, byte[] G, byte[] B) data)
     {
+        if (strength == 1) return;
+
         if (data.A.Length != 256
             || data.R.Length != 256
             || data.G.Length != 256

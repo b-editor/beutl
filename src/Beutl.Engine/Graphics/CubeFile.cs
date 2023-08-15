@@ -1,9 +1,11 @@
 ﻿using System.Numerics;
 using System.Text.RegularExpressions;
 
+using OpenCvSharp;
+
 namespace Beutl.Graphics;
 
-public partial class CubeFile
+public partial class CubeFile : IEquatable<CubeFile>
 {
     private static readonly Regex s_lutSizeReg = LUTSizeRegex();
     private static readonly Regex s_titleReg = TitleRegex();
@@ -25,6 +27,72 @@ public partial class CubeFile
     private int Near(float x)
     {
         return Math.Min((int)x, Size - 1);
+    }
+
+    // https://shizenkarasuzon.hatenablog.com/entry/2020/08/13/185223#1DLUT%E3%81%A83DLUT
+    public Vector3 TrilinearInterplate(Vec3b color)
+    {
+        Span<byte> pos = stackalloc byte[3]; // 0~33
+        Span<float> delta = stackalloc float[3]; //
+        int lut_size = Size;
+        int lut_size_2 = lut_size * lut_size;
+
+        pos[0] = (byte)(color[0] * lut_size / 256);
+        pos[1] = (byte)(color[1] * lut_size / 256);
+        pos[2] = (byte)(color[2] * lut_size / 256);
+
+        delta[0] = color[0] * lut_size / 256.0f - pos[0];
+        delta[1] = color[1] * lut_size / 256.0f - pos[1];
+        delta[2] = color[2] * lut_size / 256.0f - pos[2];
+
+        Span<Vector3> vertex_color = stackalloc Vector3[8];
+        Span<Vector3> surf_color = stackalloc Vector3[4];
+        Span<Vector3> line_color = stackalloc Vector3[2];
+        Vector3 out_color;
+
+        int index = pos[0] + pos[1] * lut_size + pos[2] * lut_size_2;
+
+        Span<int> next_index = stackalloc int[3]
+        {
+            1,
+            lut_size,
+            lut_size_2
+        };
+
+        if (index % lut_size == lut_size - 1)
+        {
+            next_index[0] = 0;
+        }
+        if (index / lut_size % lut_size == lut_size - 1)
+        {
+            next_index[1] = 0;
+        }
+        if (index / lut_size_2 % lut_size == lut_size - 1)
+        {
+            next_index[2] = 0;
+        }
+
+        // https://en.wikipedia.org/wiki/Trilinear_interpolation
+        vertex_color[0] = Data[index];
+        vertex_color[1] = Data[index + next_index[0]];
+        vertex_color[2] = Data[index + next_index[0] + next_index[1]];
+        vertex_color[3] = Data[index + next_index[1]];
+        vertex_color[4] = Data[index + next_index[2]];
+        vertex_color[5] = Data[index + next_index[0] + next_index[2]];
+        vertex_color[6] = Data[index + next_index[0] + next_index[1] + next_index[2]];
+        vertex_color[7] = Data[index + next_index[1] + next_index[2]];
+
+        surf_color[0] = vertex_color[0] * (1.0f - delta[2]) + vertex_color[4] * delta[2];
+        surf_color[1] = vertex_color[1] * (1.0f - delta[2]) + vertex_color[5] * delta[2];
+        surf_color[2] = vertex_color[2] * (1.0f - delta[2]) + vertex_color[6] * delta[2];
+        surf_color[3] = vertex_color[3] * (1.0f - delta[2]) + vertex_color[7] * delta[2];
+
+        line_color[0] = surf_color[0] * (1.0f - delta[0]) + surf_color[1] * delta[0];
+        line_color[1] = surf_color[2] * (1.0f - delta[0]) + surf_color[3] * delta[0];
+
+        out_color = line_color[0] * (1.0f - delta[1]) + line_color[1] * delta[1];
+
+        return out_color;
     }
 
     private Vector3 LinearInterplate(float p)
@@ -192,4 +260,19 @@ public partial class CubeFile
 
     [GeneratedRegex("^DOMAIN_MAX (?<red>.*?) (?<green>.*?) (?<blue>.*?)$")]
     private static partial Regex DomainMaxRegex();
+
+    public bool Equals(CubeFile? other)
+    {
+        return ReferenceEquals(this, other);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as CubeFile);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Title, Dimention, Size, Min, Max, Data);
+    }
 }
