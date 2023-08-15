@@ -45,19 +45,16 @@ public sealed class Threshold : FilterEffect
         int threshold = Math.Clamp((int)(_value / 100f * 255), 0, 255);
 
         context.HighContrast(true, HighContrastInvertStyle.NoInvert, 0);
-        context.AppendSKColorFilter((threshold, strength: (_strength / 100)), (data, _) =>
-        {
-            var lut = new LookupTable();
-            Span<float> span = lut.AsSpan();
 
-            for (int i = data.threshold; i < 256; i++)
+        context.LookupTable(
+            threshold,
+            _strength / 100,
+            (int data, byte[] array) =>
             {
-                span[i] = 1;
-            }
-
-            byte[] array = lut.ToByteArray(data.strength, 0);
-
-            return SKColorFilter.CreateTable(array);
-        });
+                for (int i = data; i < array.Length; i++)
+                {
+                    array[i] = 255;
+                }
+            });
     }
 }

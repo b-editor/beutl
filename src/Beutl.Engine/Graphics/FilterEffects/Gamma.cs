@@ -44,7 +44,7 @@ public sealed class Gamma : FilterEffect
 
         context.LookupTable(
             amount,
-            LookupTable.Gamma,
-            _strength / 100);
+            _strength / 100,
+            (float data, byte[] array) => LookupTable.Gamma(array, data));
     }
 }

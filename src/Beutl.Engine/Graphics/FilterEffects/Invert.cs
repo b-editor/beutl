@@ -29,7 +29,7 @@ public sealed class Invert : FilterEffect
     {
         context.LookupTable(
             Unit.Default,
-            _ => LookupTable.Invert(),
-            _amount / 100);
+            _amount / 100,
+            (Unit _, byte[] array) => LookupTable.Invert(array));
     }
 }

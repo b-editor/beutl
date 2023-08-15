@@ -134,7 +134,7 @@ public readonly struct ColorMatrix : IEquatable<ColorMatrix>
 
         return CreateFromSpan(span);
     }
-    
+
     public static ColorMatrix CreateBrightness(float amount)
     {
         Span<float> span = stackalloc float[20];
@@ -154,15 +154,34 @@ public readonly struct ColorMatrix : IEquatable<ColorMatrix>
         };
     }
 
-    internal float[] ToArrayForSkia()
+    internal void ToArrayForSkia(float[] array)
     {
-        return new float[]
-        {
-            M11, M12, M13, M14, M15 * 255,
-            M21, M22, M23, M24, M25 * 255,
-            M31, M32, M33, M34, M35 * 255,
-            M41, M42, M43, M44, M45 * 255,
-        };
+        if (array.Length != 20)
+            throw new ArgumentException("配列の長さが無効です。");
+
+        array[0] = M11;
+        array[1] = M12;
+        array[2] = M13;
+        array[3] = M14;
+        array[4] = M15 * 255;
+
+        array[5] = M21;
+        array[6] = M22;
+        array[7] = M23;
+        array[8] = M24;
+        array[9] = M25 * 255;
+
+        array[10] = M31;
+        array[11] = M32;
+        array[12] = M33;
+        array[13] = M34;
+        array[14] = M35 * 255;
+
+        array[15] = M41;
+        array[16] = M42;
+        array[17] = M43;
+        array[18] = M44;
+        array[19] = M45 * 255;
     }
 
     public static bool operator ==(in ColorMatrix value1, in ColorMatrix value2) => value1.Equals(value2);
