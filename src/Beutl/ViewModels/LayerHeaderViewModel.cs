@@ -1,4 +1,5 @@
 ﻿using System.Collections.Specialized;
+using System.Text.Json.Nodes;
 
 using Avalonia.Media;
 
@@ -11,7 +12,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels;
 
-public sealed class LayerHeaderViewModel : IDisposable
+public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
 {
     private readonly CompositeDisposable _disposables = new();
 
@@ -19,6 +20,7 @@ public sealed class LayerHeaderViewModel : IDisposable
     {
         Number = new(num);
         Timeline = timeline;
+        Name.Value = num.ToString();
 
         HasItems = ItemsCount.Select(i => i > 0)
             .ToReadOnlyReactivePropertySlim()
@@ -48,9 +50,6 @@ public sealed class LayerHeaderViewModel : IDisposable
 
         Height.Subscribe(_ => Timeline.RaiseLayerHeightChanged(this)).DisposeWith(_disposables);
 
-#if DEBUG
-        Name = Number.Select(x => x.ToString()).ToReactiveProperty()!;
-#endif
         Inlines.ForEachItem(
             (idx, x) =>
             {
@@ -66,8 +65,8 @@ public sealed class LayerHeaderViewModel : IDisposable
             .DisposeWith(_disposables);
 
         Inlines.CollectionChangedAsObservable()
-                .Subscribe(OnInlinesCollectionChanged)
-                .AddTo(_disposables);
+            .Subscribe(OnInlinesCollectionChanged)
+            .AddTo(_disposables);
     }
 
     private void OnInlinesCollectionChanged(NotifyCollectionChangedEventArgs e)
@@ -150,5 +149,63 @@ public sealed class LayerHeaderViewModel : IDisposable
     public double CalculateInlineTop(int index)
     {
         return FrameNumberHelper.LayerHeight * index;
+    }
+
+    public bool ShouldSaveState()
+    {
+        return Number.Value.ToString() != Name.Value;
+    }
+
+    public void WriteToJson(JsonObject obj)
+    {
+        obj[nameof(Name)] = Name.Value;
+        obj[nameof(Color)] = Color.Value.ToString();
+    }
+
+    public void ReadFromJson(JsonObject obj)
+    {
+        if (obj.TryGetPropertyValueAsJsonValue(nameof(Name), out string? name))
+        {
+            Name.Value = name;
+        }
+
+        if (obj.TryGetPropertyValueAsJsonValue(nameof(Color), out string? colorStr)
+            && Avalonia.Media.Color.TryParse(colorStr, out Color color))
+        {
+            Color.Value = color;
+        }
+    }
+
+    public void SetColor(Color color)
+    {
+        new SetColorCommand(this, color)
+            .DoAndRecord(CommandRecorder.Default);
+    }
+
+    private sealed class SetColorCommand : IRecordableCommand
+    {
+        private readonly LayerHeaderViewModel _viewModel;
+        private Color _color;
+
+        public SetColorCommand(LayerHeaderViewModel viewModel, Color color)
+        {
+            _viewModel = viewModel;
+            _color = color;
+        }
+
+        public void Do()
+        {
+            (_color, _viewModel.Color.Value) = (_viewModel.Color.Value, _color);
+        }
+
+        public void Redo()
+        {
+            Do();
+        }
+
+        public void Undo()
+        {
+            Do();
+        }
     }
 }

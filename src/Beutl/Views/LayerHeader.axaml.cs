@@ -8,6 +8,9 @@ using Avalonia.Media;
 
 using Beutl.ViewModels;
 
+using FluentAvalonia.Core;
+using FluentAvalonia.UI.Controls;
+
 using static Beutl.Views.Timeline;
 
 using TLVM = Beutl.ViewModels.ElementViewModel;
@@ -122,6 +125,14 @@ public sealed partial class LayerHeader : UserControl
         }
 
         translate.Y = PositionY;
+    }
+
+    private void OnColorChanged(ColorPickerButton sender, ColorButtonColorChangedEventArgs args)
+    {
+        if (DataContext is LayerHeaderViewModel viewModel && args.NewColor.HasValue)
+        {
+            viewModel.SetColor(args.NewColor.Value);
+        }
     }
 
     private sealed class MoveLayerCommand : IRecordableCommand

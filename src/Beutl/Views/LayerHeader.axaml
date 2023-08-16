@@ -7,14 +7,15 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels"
-             Height="{CompiledBinding Height.Value}"
+             Height="{Binding Height.Value}"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Top"
              VerticalContentAlignment="Top"
              d:DesignHeight="450"
              d:DesignWidth="800"
+             x:CompileBindings="True"
              x:DataType="vm:LayerHeaderViewModel"
-             PositionY="{CompiledBinding PosY.Value}"
+             PositionY="{Binding PosY.Value}"
              mc:Ignorable="d">
     <Grid RowDefinitions="25,*">
         <Grid.ColumnDefinitions>
@@ -52,52 +53,44 @@
         </Border>
 
         <ToggleButton Grid.Column="1"
-                      IsChecked="{CompiledBinding IsEnabled.Value}"
+                      IsChecked="{Binding IsEnabled.Value}"
                       Theme="{StaticResource VisibilityToggleButtonStyle}" />
 
         <ui:ColorPickerButton Grid.Column="2"
                               MinHeight="{DynamicResource LayerHeight}"
                               CustomPaletteColors="{StaticResource PaletteColors}"
+                              FlyoutConfirmed="OnColorChanged"
                               IsAlphaEnabled="False"
                               UseColorPalette="True"
-                              Color="{CompiledBinding Color.Value}">
+                              Color="{Binding Color.Value, Mode=OneWay}">
             <ui:ColorPickerButton.Styles>
-                <Style Selector="ui|ColorPickerButton /template/ Button#MainButton">
-                    <Setter Property="Background" Value="Transparent" />
-                    <Setter Property="BorderThickness" Value="0" />
-                </Style>
                 <Style Selector="ui|ColorPickerButton">
                     <Setter Property="Template">
                         <ControlTemplate>
-                            <Panel>
-                                <Button Name="MainButton"
-                                        Padding="0,0,32,0"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        CornerRadius="{TemplateBinding CornerRadius}">
+                            <Button Name="ShowFlyoutButton"
+                                    Padding="0"
+                                    HorizontalContentAlignment="Stretch"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    CornerRadius="{TemplateBinding CornerRadius}">
+                                <Grid ColumnDefinitions="*,Auto">
                                     <Border MinWidth="18"
                                             MinHeight="18"
-                                            Margin="5"
-                                            HorizontalAlignment="Stretch"
-                                            VerticalAlignment="Stretch"
+                                            Margin="5,4"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center"
                                             Background="{TemplateBinding Color, Converter={StaticResource ColorBrushConv}}"
                                             BorderBrush="{DynamicResource ColorPickerButtonOutline}"
                                             BorderThickness="1"
-                                            CornerRadius="{TemplateBinding CornerRadius}">
-                                        <ui:FAColorPicker Name="ColorPicker" IsVisible="False" />
-                                    </Border>
-                                </Button>
+                                            CornerRadius="{TemplateBinding CornerRadius}" />
 
-                                <Viewbox Name="Chevron"
-                                         Width="18"
-                                         Height="18"
-                                         Margin="0,0,8,0"
-                                         HorizontalAlignment="Right"
-                                         VerticalAlignment="Center"
-                                         IsHitTestVisible="False">
-                                    <icons:SymbolIcon Symbol="ChevronDown" />
-                                </Viewbox>
-                            </Panel>
+                                    <ui:SymbolIcon Grid.Column="1"
+                                                   Margin="0,0,8,0"
+                                                   HorizontalAlignment="Right"
+                                                   FontSize="18"
+                                                   Symbol="ChevronDown" />
+                                </Grid>
+                            </Button>
                         </ControlTemplate>
                     </Setter>
                 </Style>

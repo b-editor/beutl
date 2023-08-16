@@ -12,6 +12,8 @@ using Beutl.ProjectSystem;
 using Beutl.Reactive;
 using Beutl.Services.PrimitiveImpls;
 
+using DynamicData;
+
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
@@ -176,10 +178,38 @@ public sealed class TimelineViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
+        if (json.TryGetPropertyValue(nameof(LayerHeaders), out var layersNode)
+            && layersNode is JsonArray layersArray)
+        {
+            foreach ((LayerHeaderViewModel layer, JsonObject item) in layersArray.OfType<JsonObject>()
+                .Select(v => v.TryGetPropertyValueAsJsonValue(nameof(LayerHeaderViewModel.Number), out int number) ? (number, v) : (-1, null))
+                .Where(v => v.Item2 != null)
+                .Join(
+                    LayerHeaders,
+                    x => x.Item1,
+                    y => y.Number.Value,
+                    (x, y) => (y, x.Item2!)))
+            {
+                layer.ReadFromJson(item);
+            }
+        }
     }
 
     public void WriteToJson(JsonObject json)
     {
+        var array = new JsonArray();
+        array.AddRange(LayerHeaders.Where(v => v.ShouldSaveState())
+            .Select(v =>
+            {
+                var obj = new JsonObject
+                {
+                    [nameof(LayerHeaderViewModel.Number)] = v.Number.Value
+                };
+                v.WriteToJson(obj);
+                return obj;
+            }));
+
+        json[nameof(LayerHeaders)] = array;
     }
 
     public void AttachInline(IAbstractAnimatableProperty property, Element layer)
