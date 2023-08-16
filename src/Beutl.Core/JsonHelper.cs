@@ -47,11 +47,12 @@ public static class JsonHelper
 
     public static void JsonSave(this IJsonSerializable serializable, string filename)
     {
-        using var stream = new FileStream(filename, FileMode.Create, FileAccess.Write, FileShare.Write);
-        using var writer = new Utf8JsonWriter(stream, WriterOptions);
         var json = new JsonObject();
 
         serializable.WriteToJson(json);
+
+        using var stream = new FileStream(filename, FileMode.Create, FileAccess.Write, FileShare.Write);
+        using var writer = new Utf8JsonWriter(stream, WriterOptions);
         json.WriteTo(writer, SerializerOptions);
     }
 
