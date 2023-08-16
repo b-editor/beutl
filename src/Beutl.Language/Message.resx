@@ -210,4 +210,13 @@ because the new name conflicts with an existing folder.</value>
   <data name="Could_not_load_scene" xml:space="preserve">
     <value>Could not load scene.</value>
   </data>
+  <data name="An_exception_occurred_during_audio_playback" xml:space="preserve">
+    <value>An exception occurred during audio playback.</value>
+  </data>
+  <data name="An_exception_occurred_while_drawing_frame" xml:space="preserve">
+    <value>An exception occurred while drawing the frame.</value>
+  </data>
+  <data name="An_exception_occurred_during_output" xml:space="preserve">
+    <value>An exception occurred during output.</value>
+  </data>
 </root>

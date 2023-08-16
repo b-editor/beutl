@@ -16,6 +16,8 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Beutl.Rendering.Cache;
 using Beutl.Extensibility;
+using Serilog;
+using Beutl.Services;
 
 namespace Beutl.ViewModels;
 
@@ -309,6 +311,7 @@ public sealed class AudioOutputViewModel
 
 public sealed class OutputViewModel : IOutputContext
 {
+    private readonly ILogger _logger = Log.ForContext<OutputViewModel>();
     private readonly ReactiveProperty<bool> _isIndeterminate = new();
     private readonly ReactiveProperty<bool> _isEncoding = new();
     private readonly ReactivePropertySlim<double> _progress = new();
@@ -442,6 +445,7 @@ public sealed class OutputViewModel : IOutputContext
                 _isIndeterminate.Value = true;
                 if (!_itemContainer.TryGetOrCreateItem(TargetFile, out Scene? scene))
                 {
+                    // シーンの読み込みに失敗。
                     ProgressText.Value = Message.Could_not_load_scene;
                 }
                 else
@@ -458,70 +462,33 @@ public sealed class OutputViewModel : IOutputContext
                     ProgressMax.Value = frames + samples;
 
                     MediaWriter? writer = SelectedEncoder.Value!.Create(DestinationFile.Value!, videoSettings, audioSettings);
-                    if (writer == null)
-                    {
-                        return;
-                    }
+                    if (writer == null) return;
 
-                    IRenderer renderer = scene.Renderer;
-                    RenderCacheContext? cacheContext = renderer.GetCacheContext();
-                    RenderCacheOptions? restoreCacheOptions = null;
-                    if (cacheContext != null)
-                    {
-                        restoreCacheOptions = cacheContext.CacheOptions;
-                        cacheContext.CacheOptions = RenderCacheOptions.Disabled;
-                    }
                     try
                     {
-                        for (double i = 0; i < frames; i++)
-                        {
-                            if (_lastCts.IsCancellationRequested)
-                                break;
+                        IRenderer renderer = scene.Renderer;
+                        OutputVideo(frames, frameRateD, renderer, writer);
 
-                            var ts = TimeSpan.FromSeconds(i / frameRateD);
-                            IRenderer.RenderResult result = renderer.RenderGraphics(ts);
-
-                            writer.AddVideo(result.Bitmap!);
-                            result.Bitmap!.Dispose();
-
-                            ProgressValue.Value++;
-                            _progress.Value = ProgressValue.Value / ProgressMax.Value;
-                            ProgressText.Value = $"{Strings.OutputtingVideo}: {ts:hh\\:mm\\:ss\\.ff}";
-                        }
+                        OutputAudio(samples, renderer, writer);
                     }
                     finally
                     {
-                        if (cacheContext != null && restoreCacheOptions != null)
-                        {
-                            cacheContext.CacheOptions = restoreCacheOptions;
-                        }
+                        _isIndeterminate.Value = true;
+                        writer.Dispose();
+                        _isIndeterminate.Value = false;
                     }
-
-                    for (double i = 0; i < samples; i++)
-                    {
-                        if (_lastCts.IsCancellationRequested)
-                            break;
-
-                        var ts = TimeSpan.FromSeconds(i);
-                        IRenderer.RenderResult result = renderer.RenderAudio(ts);
-
-                        writer.AddAudio(result.Audio!);
-                        result.Audio!.Dispose();
-
-                        ProgressValue.Value++;
-                        _progress.Value = ProgressValue.Value / ProgressMax.Value;
-                        ProgressText.Value = $"{Strings.OutputtingAudio}: {ts:hh\\:mm\\:ss\\.ff}";
-                    }
-
-                    _isIndeterminate.Value = true;
-                    writer.Dispose();
-                    _isIndeterminate.Value = false;
                 }
             });
+
+            ProgressText.Value = Strings.Completed;
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError(Message.An_exception_occurred_during_output, ex.Message);
+            _logger.Error(ex, "An exception occurred during output.");
         }
         finally
         {
-            ProgressText.Value = Strings.Completed;
             _progress.Value = 0;
             ProgressMax.Value = 0;
             ProgressValue.Value = 0;
@@ -529,6 +496,62 @@ public sealed class OutputViewModel : IOutputContext
             _isEncoding.Value = false;
             _lastCts = null;
             Finished?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private void OutputVideo(double frames, double frameRate, IRenderer renderer, MediaWriter writer)
+    {
+        RenderCacheContext? cacheContext = renderer.GetCacheContext();
+        RenderCacheOptions? restoreCacheOptions = null;
+
+        if (cacheContext != null)
+        {
+            restoreCacheOptions = cacheContext.CacheOptions;
+            cacheContext.CacheOptions = RenderCacheOptions.Disabled;
+        }
+        try
+        {
+            for (double i = 0; i < frames; i++)
+            {
+                if (_lastCts!.IsCancellationRequested)
+                    break;
+
+                var ts = TimeSpan.FromSeconds(i / frameRate);
+                IRenderer.RenderResult result = renderer.RenderGraphics(ts);
+
+                writer.AddVideo(result.Bitmap!);
+                result.Bitmap!.Dispose();
+
+                ProgressValue.Value++;
+                _progress.Value = ProgressValue.Value / ProgressMax.Value;
+                ProgressText.Value = $"{Strings.OutputtingVideo}: {ts:hh\\:mm\\:ss\\.ff}";
+            }
+        }
+        finally
+        {
+            if (cacheContext != null && restoreCacheOptions != null)
+            {
+                cacheContext.CacheOptions = restoreCacheOptions;
+            }
+        }
+    }
+
+    private void OutputAudio(double samples, IRenderer renderer, MediaWriter writer)
+    {
+        for (double i = 0; i < samples; i++)
+        {
+            if (_lastCts!.IsCancellationRequested)
+                break;
+
+            var ts = TimeSpan.FromSeconds(i);
+            IRenderer.RenderResult result = renderer.RenderAudio(ts);
+
+            writer.AddAudio(result.Audio!);
+            result.Audio!.Dispose();
+
+            ProgressValue.Value++;
+            _progress.Value = ProgressValue.Value / ProgressMax.Value;
+            ProgressText.Value = $"{Strings.OutputtingAudio}: {ts:hh\\:mm\\:ss\\.ff}";
         }
     }
 

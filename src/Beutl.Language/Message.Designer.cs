@@ -61,6 +61,33 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   An exception occurred during audio playback. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string An_exception_occurred_during_audio_playback {
+            get {
+                return ResourceManager.GetString("An_exception_occurred_during_audio_playback", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   An exception occurred during output. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string An_exception_occurred_during_output {
+            get {
+                return ResourceManager.GetString("An_exception_occurred_during_output", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   An exception occurred while drawing the frame. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string An_exception_occurred_while_drawing_frame {
+            get {
+                return ResourceManager.GetString("An_exception_occurred_while_drawing_frame", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   An exception occurred while loading the asset. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string An_exception_occurred_while_loading_the_asset {

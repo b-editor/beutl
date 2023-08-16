@@ -10,10 +10,13 @@ using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;
+using Beutl.Services;
 
 using OpenTK.Audio.OpenAL;
 
 using Reactive.Bindings;
+
+using Serilog;
 
 using Vortice.Multimedia;
 
@@ -22,6 +25,7 @@ namespace Beutl.ViewModels;
 public sealed class PlayerViewModel : IDisposable
 {
     private static readonly TimeSpan s_second = TimeSpan.FromSeconds(1);
+    private readonly ILogger _logger = Log.ForContext<PlayerViewModel>();
     private readonly CompositeDisposable _disposables = new();
     private readonly ReactivePropertySlim<bool> _isEnabled;
     private CancellationTokenSource? _cts;
@@ -257,6 +261,12 @@ public sealed class PlayerViewModel : IDisposable
                 await Task.Delay(1000).ConfigureAwait(false);
             }
         }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_during_audio_playback);
+            _logger.Error(ex, "An exception occurred during audio playback.");
+            IsPlaying.Value = false;
+        }
         finally
         {
             source.Dispose();
@@ -267,37 +277,19 @@ public sealed class PlayerViewModel : IDisposable
 
     private async void PlayWithOpenAL(AudioContext audioContext, Scene scene)
     {
-        audioContext.MakeCurrent();
-
-        IRenderer renderer = scene.Renderer;
-        TimeSpan cur = scene.CurrentFrame;
-        var buffers = AL.GenBuffers(2);
-        var source = AL.GenSource();
-
-        foreach (var buffer in buffers)
+        try
         {
-            using var pcmf = FillAudioData(cur, renderer);
-            cur += s_second;
-            if (pcmf != null)
+            audioContext.MakeCurrent();
+
+            IRenderer renderer = scene.Renderer;
+            TimeSpan cur = scene.CurrentFrame;
+            var buffers = AL.GenBuffers(2);
+            var source = AL.GenSource();
+
+            foreach (var buffer in buffers)
             {
-                using var pcm = pcmf.Convert<Stereo16BitInteger>();
-
-                AL.BufferData<Stereo16BitInteger>(buffer, ALFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
-            }
-
-            AL.SourceQueueBuffer(source, buffer);
-        }
-
-        AL.SourcePlay(source);
-
-        while (IsPlaying.Value)
-        {
-            AL.GetSource(source, ALGetSourcei.BuffersProcessed, out var processed);
-            while (processed > 0)
-            {
-                using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, renderer);
+                using var pcmf = FillAudioData(cur, renderer);
                 cur += s_second;
-                int buffer = AL.SourceUnqueueBuffer(source);
                 if (pcmf != null)
                 {
                     using var pcm = pcmf.Convert<Stereo16BitInteger>();
@@ -306,20 +298,47 @@ public sealed class PlayerViewModel : IDisposable
                 }
 
                 AL.SourceQueueBuffer(source, buffer);
-                processed--;
             }
 
-            if (cur > scene.Duration)
-                break;
-        }
+            AL.SourcePlay(source);
 
-        while (AL.GetSourceState(source) == ALSourceState.Playing)
+            while (IsPlaying.Value)
+            {
+                AL.GetSource(source, ALGetSourcei.BuffersProcessed, out var processed);
+                while (processed > 0)
+                {
+                    using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, renderer);
+                    cur += s_second;
+                    int buffer = AL.SourceUnqueueBuffer(source);
+                    if (pcmf != null)
+                    {
+                        using var pcm = pcmf.Convert<Stereo16BitInteger>();
+
+                        AL.BufferData<Stereo16BitInteger>(buffer, ALFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
+                    }
+
+                    AL.SourceQueueBuffer(source, buffer);
+                    processed--;
+                }
+
+                if (cur > scene.Duration)
+                    break;
+            }
+
+            while (AL.GetSourceState(source) == ALSourceState.Playing)
+            {
+                await Task.Delay(100);
+            }
+
+            AL.DeleteBuffers(buffers);
+            AL.DeleteSource(source);
+        }
+        catch (Exception ex)
         {
-            await Task.Delay(100);
+            NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_during_audio_playback);
+            _logger.Error(ex, "An exception occurred during audio playback.");
+            IsPlaying.Value = false;
         }
-
-        AL.DeleteBuffers(buffers);
-        AL.DeleteSource(source);
     }
 
     public void Pause()
@@ -334,13 +353,22 @@ public sealed class PlayerViewModel : IDisposable
 
         RenderThread.Dispatcher.Dispatch(() =>
         {
-            if (IsPlaying.Value && renderer.RenderGraphics(timeSpan).Bitmap is { } bitmap)
+            try
             {
-                UpdateImage(bitmap);
-                bitmap.Dispose();
+                if (IsPlaying.Value && renderer.RenderGraphics(timeSpan).Bitmap is { } bitmap)
+                {
+                    UpdateImage(bitmap);
+                    bitmap.Dispose();
 
-                if (Scene != null)
-                    Scene.CurrentFrame = timeSpan;
+                    if (Scene != null)
+                        Scene.CurrentFrame = timeSpan;
+                }
+            }
+            catch (Exception ex)
+            {
+                NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_while_drawing_frame);
+                _logger.Error(ex, "An exception occurred while drawing the frame.");
+                IsPlaying.Value = false;
             }
         });
     }
@@ -379,15 +407,23 @@ public sealed class PlayerViewModel : IDisposable
         {
             RenderThread.Dispatcher.Dispatch(() =>
             {
-                if (Scene is { Renderer: IRenderer renderer })
+                try
                 {
-                    IRenderer.RenderResult result = renderer.RenderGraphics(Scene.CurrentFrame);
-
-                    if (result.Bitmap is { } bitmap)
+                    if (Scene is { Renderer: IRenderer renderer })
                     {
-                        UpdateImage(bitmap);
-                        bitmap.Dispose();
+                        IRenderer.RenderResult result = renderer.RenderGraphics(Scene.CurrentFrame);
+
+                        if (result.Bitmap is { } bitmap)
+                        {
+                            UpdateImage(bitmap);
+                            bitmap.Dispose();
+                        }
                     }
+                }
+                catch (Exception ex)
+                {
+                    NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_while_drawing_frame);
+                    _logger.Error(ex, "An exception occurred while drawing the frame.");
                 }
             });
         }
