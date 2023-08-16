@@ -5,12 +5,15 @@ using Beutl.ViewModels.Dialogs;
 
 using Reactive.Bindings;
 
+using Serilog;
+
 using static Beutl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
 
 namespace Beutl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class ReleasePageViewModel : BasePageViewModel
 {
+    private readonly ILogger _logger = Log.ForContext<ReleasePageViewModel>();
     private readonly CompositeDisposable _disposables = new();
     private readonly AuthorizedUser _user;
 
@@ -65,6 +68,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel
                 catch (Exception ex)
                 {
                     ErrorHandle(ex);
+                    _logger.Error(ex, "An unexpected error has occurred.");
                 }
             })
             .DisposeWith(_disposables);
@@ -72,12 +76,20 @@ public sealed class ReleasePageViewModel : BasePageViewModel
         DiscardChanges = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
-                Title.Value = Release.Title.Value;
-                Body.Value = Release.Body.Value;
-                if (Asset.Value?.Id != Release.AssetId.Value)
+                try
                 {
-                    await _user.RefreshAsync();
-                    Asset.Value = await Release.GetAssetAsync();
+                    Title.Value = Release.Title.Value;
+                    Body.Value = Release.Body.Value;
+                    if (Asset.Value?.Id != Release.AssetId.Value)
+                    {
+                        await _user.RefreshAsync();
+                        Asset.Value = await Release.GetAssetAsync();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandle(ex);
+                    _logger.Error(ex, "An unexpected error has occurred.");
                 }
             })
             .DisposeWith(_disposables);
@@ -93,6 +105,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel
                 catch (Exception ex)
                 {
                     ErrorHandle(ex);
+                    _logger.Error(ex, "An unexpected error has occurred.");
                 }
             })
             .DisposeWith(_disposables);
@@ -108,6 +121,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel
                 catch (Exception ex)
                 {
                     ErrorHandle(ex);
+                    _logger.Error(ex, "An unexpected error has occurred.");
                 }
             })
             .DisposeWith(_disposables);
@@ -123,6 +137,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel
                 catch (Exception ex)
                 {
                     ErrorHandle(ex);
+                    _logger.Error(ex, "An unexpected error has occurred.");
                 }
             })
             .DisposeWith(_disposables);
@@ -139,6 +154,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel
                 catch (Exception ex)
                 {
                     ErrorHandle(ex);
+                    _logger.Error(ex, "An unexpected error has occurred.");
                 }
                 finally
                 {

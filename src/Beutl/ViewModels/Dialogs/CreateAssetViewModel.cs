@@ -5,10 +5,13 @@ using Beutl.Api.Objects;
 
 using Reactive.Bindings;
 
+using Serilog;
+
 namespace Beutl.ViewModels.Dialogs;
 
 public class CreateAssetViewModel
 {
+    private readonly ILogger _logger=Log.ForContext<CreateAssetViewModel>(); 
     private readonly AuthorizedUser _user;
     private CancellationTokenSource? _cts;
 
@@ -177,9 +180,9 @@ public class CreateAssetViewModel
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
+            _logger.Error(e, "Failed to upload a file.");
             ProgressStatus.Value = Message.AnUnexpectedErrorHasOccurred;
-            // Todo: 例外
-            Error.Value = "Error";
+            Error.Value = e.Message;
         }
         finally
         {

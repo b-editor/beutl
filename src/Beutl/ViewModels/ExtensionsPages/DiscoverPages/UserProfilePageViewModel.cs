@@ -4,10 +4,13 @@ using Beutl.Api.Objects;
 
 using Reactive.Bindings;
 
+using Serilog;
+
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 public sealed class UserProfilePageViewModel : BasePageViewModel
 {
+    private readonly ILogger _logger = Log.ForContext<UserProfilePageViewModel>();
     private readonly CompositeDisposable _disposables = new();
 
     public UserProfilePageViewModel(Profile profile)
@@ -25,6 +28,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -46,6 +50,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {

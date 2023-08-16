@@ -1,13 +1,14 @@
-﻿using Avalonia.Media.Imaging;
-
-using Beutl.Api.Objects;
+﻿using Beutl.Api.Objects;
 
 using Reactive.Bindings;
+
+using Serilog;
 
 namespace Beutl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class PackageDetailsPageViewModel : BasePageViewModel
 {
+    private readonly ILogger _logger = Log.ForContext<PackageDetailsPageViewModel>();
     private readonly CompositeDisposable _disposables = new();
     private readonly AuthorizedUser _user;
 
@@ -32,6 +33,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel
             catch (Exception ex)
             {
                 ErrorHandle(ex);
+                _logger.Error(ex, "An unexpected error has occurred.");
             }
             finally
             {

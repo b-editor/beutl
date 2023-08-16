@@ -39,7 +39,7 @@ public sealed class MainViewModel : BasePageViewModel
         public NavItemViewModel(PageExtension extension)
         {
             Extension = extension;
-            Context = extension.CreateContext() ?? throw new Exception("コンテキストを作成できませんでした。");
+            Context = extension.CreateContext() ?? throw new Exception("Could not create context.");
         }
 
         public NavItemViewModel(PageExtension extension, IPageContext context)
@@ -142,7 +142,7 @@ public sealed class MainViewModel : BasePageViewModel
                         {
                             Type type = item.Extension.Value.GetType();
                             _logger.Error("{Extension} failed to save file", type.FullName ?? type.Name);
-                            NotificationService.ShowError("ファイルを保存できません", item.FileName.Value);
+                            NotificationService.ShowError(Message.Unable_to_save_file, item.FileName.Value);
                         }
                     }
                 }
@@ -405,10 +405,10 @@ public sealed class MainViewModel : BasePageViewModel
             if (failures.Count > 0)
             {
                 NotificationService.ShowError(
-                    "パッケージの読み込みに失敗しました。",
-                    $"{failures.Count}件のパッケージの読み込みに失敗しました",
+                    Message.Failed_to_load_package,
+                    string.Format(Message.Failed_to_load_N_packages, failures.Count),
                     onActionButtonClick: () => ShowPackageLoadingError(failures),
-                    actionButtonText: "詳細");
+                    actionButtonText: Strings.Details);
             }
 
             InitializePages(provider);
@@ -435,7 +435,8 @@ public sealed class MainViewModel : BasePageViewModel
         using (var writer = new IndentedTextWriter(baseWriter, "  "))
         {
             baseWriter.AutoFlush = false;
-            writer.WriteLine($"{failures.Count}件のパッケージの読み込みに失敗しました。\n");
+            writer.WriteLine(string.Format(Message.Failed_to_load_N_packages, failures.Count));
+            writer.WriteLine();
             foreach ((LocalPackage pkg, Exception ex) in failures)
             {
                 writer.WriteLine("Package:");

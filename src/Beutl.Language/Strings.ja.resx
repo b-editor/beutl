@@ -799,4 +799,31 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="SelectFilterEffect" xml:space="preserve">
     <value>フィルタエフェクトを選択</value>
   </data>
+  <data name="IsNotValid" xml:space="preserve">
+    <value>{0}は無効です。</value>
+  </data>
+  <data name="Queue" xml:space="preserve">
+    <value>キュー</value>
+  </data>
+  <data name="GraphEditor" xml:space="preserve">
+    <value>グラフエディタ</value>
+  </data>
+  <data name="Unknown" xml:space="preserve">
+    <value>不明</value>
+  </data>
+  <data name="InvalidJson" xml:space="preserve">
+    <value>無効なJsonです。</value>
+  </data>
+  <data name="Details" xml:space="preserve">
+    <value>詳細</value>
+  </data>
+  <data name="OutputtingVideo" xml:space="preserve">
+    <value>動画を出力中</value>
+  </data>
+  <data name="OutputtingAudio" xml:space="preserve">
+    <value>音声を出力中</value>
+  </data>
+  <data name="Completed" xml:space="preserve">
+    <value>完了しました</value>
+  </data>
 </root>

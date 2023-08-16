@@ -6,10 +6,13 @@ using Beutl.Api.Services;
 
 using Reactive.Bindings;
 
+using Serilog;
+
 namespace Beutl.ViewModels.ExtensionsPages;
 
 public sealed class LibraryPageViewModel : BasePageViewModel
 {
+    private readonly ILogger _logger = Log.ForContext<LibraryPageViewModel>();
     private readonly AuthorizedUser _user;
     private readonly BeutlApiApplication _clients;
     private readonly CompositeDisposable _disposables = new();
@@ -34,6 +37,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -56,6 +60,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -100,6 +105,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {

@@ -6,10 +6,13 @@ using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 using Reactive.Bindings;
 
+using Serilog;
+
 namespace Beutl.ViewModels.ExtensionsPages;
 
 public sealed class DiscoverPageViewModel : BasePageViewModel
 {
+    private readonly ILogger _logger = Log.ForContext<DiscoverPageViewModel>();
     private readonly BeutlApiApplication _clients;
     private readonly DiscoverService _discoverService;
 
@@ -61,6 +64,7 @@ public sealed class DiscoverPageViewModel : BasePageViewModel
             catch (Exception ex)
             {
                 ErrorHandle(ex);
+                _logger.Error(ex, "An unexpected error has occurred.");
             }
             finally
             {

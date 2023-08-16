@@ -13,7 +13,7 @@
              mc:Ignorable="d">
     <Grid ColumnDefinitions="400,*" RowDefinitions="Auto,*">
         <TextBlock Margin="8"
-                   Text="キュー"
+                   Text="{x:Static lang:Strings.Queue}"
                    Theme="{StaticResource SubtitleTextBlockStyle}" />
         <ui:CommandBar Grid.Column="1"
                        Margin="2,0,0,0"
@@ -23,12 +23,12 @@
             <ui:CommandBar.PrimaryCommands>
                 <ui:CommandBarButton Click="OnAddClick"
                                      IconSource="Add"
-                                     Label="追加" />
+                                     Label="{x:Static lang:Strings.Add}" />
                 <ui:CommandBarSeparator />
                 <ui:CommandBarButton Click="OnRemoveClick"
                                      IconSource="Dismiss"
                                      IsEnabled="{Binding CanRemove.Value}"
-                                     Label="閉じる" />
+                                     Label="{x:Static lang:Strings.Close}" />
             </ui:CommandBar.PrimaryCommands>
         </ui:CommandBar>
 

@@ -8,12 +8,15 @@ using NuGet.Versioning;
 
 using Reactive.Bindings;
 
+using Serilog;
+
 using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages;
 
 public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageViewModel
 {
+    private readonly ILogger _logger=Log.ForContext<RemoteYourPackageViewModel>();
     private readonly CompositeDisposable _disposables = new();
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly PackageChangesQueue _queue;
@@ -68,6 +71,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -93,6 +97,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -118,6 +123,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -137,6 +143,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -159,6 +166,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {

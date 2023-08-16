@@ -223,7 +223,7 @@ public sealed class AudioOutputViewModel
 
         SampleRate.SetValidateNotifyError(ValidateLessThanOrEqualToZero);
         BitRate.SetValidateNotifyError(ValidateLessThanOrEqualToZero);
-        Channels.SetValidateNotifyError(x => x is >= 1 and <= 2 ? null : "Invalid choice.");
+        Channels.SetValidateNotifyError(x => x is >= 1 and <= 2 ? null : Message.Invalid_choice);
         OptionsString.SetValidateNotifyError(x =>
         {
             try
@@ -442,7 +442,7 @@ public sealed class OutputViewModel : IOutputContext
                 _isIndeterminate.Value = true;
                 if (!_itemContainer.TryGetOrCreateItem(TargetFile, out Scene? scene))
                 {
-                    ProgressText.Value = "シーンを読み込めませんでした。";
+                    ProgressText.Value = Message.Could_not_load_scene;
                 }
                 else
                 {
@@ -486,7 +486,7 @@ public sealed class OutputViewModel : IOutputContext
 
                             ProgressValue.Value++;
                             _progress.Value = ProgressValue.Value / ProgressMax.Value;
-                            ProgressText.Value = $"動画を出力: {ts:hh\\:mm\\:ss\\.ff}";
+                            ProgressText.Value = $"{Strings.OutputtingVideo}: {ts:hh\\:mm\\:ss\\.ff}";
                         }
                     }
                     finally
@@ -510,7 +510,7 @@ public sealed class OutputViewModel : IOutputContext
 
                         ProgressValue.Value++;
                         _progress.Value = ProgressValue.Value / ProgressMax.Value;
-                        ProgressText.Value = $"音声を出力: {ts:hh\\:mm\\:ss\\.ff}";
+                        ProgressText.Value = $"{Strings.OutputtingAudio}: {ts:hh\\:mm\\:ss\\.ff}";
                     }
 
                     _isIndeterminate.Value = true;
@@ -521,7 +521,7 @@ public sealed class OutputViewModel : IOutputContext
         }
         finally
         {
-            ProgressText.Value = "完了しました";
+            ProgressText.Value = Strings.Completed;
             _progress.Value = 0;
             ProgressMax.Value = 0;
             ProgressValue.Value = 0;

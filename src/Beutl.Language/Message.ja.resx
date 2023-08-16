@@ -212,4 +212,22 @@
   <data name="DoYouWantToLoadSideloadExtensions" xml:space="preserve">
     <value>サイドロード拡張機能を読み込みますか？</value>
   </data>
+  <data name="An_exception_occurred_while_loading_the_asset" xml:space="preserve">
+    <value>アセットの読み込み中に例外が発生しました。</value>
+  </data>
+  <data name="Unable_to_save_file" xml:space="preserve">
+    <value>ファイルを保存できません。</value>
+  </data>
+  <data name="Failed_to_load_package" xml:space="preserve">
+    <value>パッケージの読み込みに失敗しました。</value>
+  </data>
+  <data name="Failed_to_load_N_packages" xml:space="preserve">
+    <value>{0}件のパッケージの読み込みに失敗しました。</value>
+  </data>
+  <data name="Invalid_choice" xml:space="preserve">
+    <value>無効な選択です。</value>
+  </data>
+  <data name="Could_not_load_scene" xml:space="preserve">
+    <value>シーンを読み込めませんでした。</value>
+  </data>
 </root>

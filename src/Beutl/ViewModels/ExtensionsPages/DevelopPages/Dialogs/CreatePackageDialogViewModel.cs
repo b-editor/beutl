@@ -6,10 +6,13 @@ using Beutl.Api.Services;
 
 using Reactive.Bindings;
 
+using Serilog;
+
 namespace Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 public sealed class CreatePackageDialogViewModel
 {
+    private readonly ILogger _logger = Log.ForContext<CreatePackageDialogViewModel>();
     private readonly AuthorizedUser _user;
     private LocalPackage? _localPackage;
 
@@ -36,8 +39,8 @@ public sealed class CreatePackageDialogViewModel
                     using (Stream stream = await file.OpenReadAsync().ConfigureAwait(false))
                     {
                         _localPackage = nuspec
-                            ? Api.Services.Helper.ReadLocalPackageFromNuspecFile(stream)
-                            : Api.Services.Helper.ReadLocalPackageFromNupkgFile(stream);
+                            ? Helper.ReadLocalPackageFromNuspecFile(stream)
+                            : Helper.ReadLocalPackageFromNupkgFile(stream);
 
                         if (_localPackage != null)
                         {
@@ -45,6 +48,11 @@ public sealed class CreatePackageDialogViewModel
                         }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                Error.Value = Message.AnUnexpectedErrorHasOccurred;
+                _logger.Error(ex, "An unexpected error has occurred.");
             }
             finally
             {
@@ -111,6 +119,13 @@ public sealed class CreatePackageDialogViewModel
         catch (BeutlApiException<ApiErrorResponse> e)
         {
             Error.Value = e.Result.Message;
+            _logger.Error(e, "API error occurred.");
+            return null;
+        }
+        catch (Exception e)
+        {
+            Error.Value = Message.AnUnexpectedErrorHasOccurred;
+            _logger.Error(e, "An unexpected error has occurred.");
             return null;
         }
     }

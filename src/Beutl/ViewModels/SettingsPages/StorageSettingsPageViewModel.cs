@@ -6,15 +6,19 @@ using Beutl.Api.Objects;
 using Beutl.Configuration;
 using Beutl.Controls.Navigation;
 using Beutl.Utilities;
+using Beutl.ViewModels.ExtensionsPages;
 
 using FluentIcons.Common;
 
 using Reactive.Bindings;
 
+using Serilog;
+
 namespace Beutl.ViewModels.SettingsPages;
 
-public sealed class StorageSettingsPageViewModel : PageContext
+public sealed class StorageSettingsPageViewModel : BasePageViewModel
 {
+    private readonly ILogger _logger= Log.ForContext<StorageSettingsPageViewModel>();
     private readonly BackupConfig _config;
     private readonly IReadOnlyReactiveProperty<AuthorizedUser?> _user;
     private readonly ReactivePropertySlim<StorageUsageResponse?> _storageUsageResponse = new();
@@ -127,9 +131,10 @@ public sealed class StorageSettingsPageViewModel : PageContext
                 await _user.Value.RefreshAsync();
                 _storageUsageResponse.Value = await _user.Value.StorageUsageAsync();
             }
-            catch
+            catch (Exception ex)
             {
-                // Todo
+                ErrorHandle(ex);
+                _logger.Error(ex, "An unexpected error has occurred.");
             }
             finally
             {
@@ -199,6 +204,10 @@ public sealed class StorageSettingsPageViewModel : PageContext
         Details.Add(DetailItem.Text);
         Details.Add(DetailItem.Font);
         Details.Add(DetailItem.Other);
+    }
+
+    public override void Dispose()
+    {
     }
 
     public record DetailItem(KnownType Type, string UsedCapacity, long Size, double Percent)

@@ -9,7 +9,7 @@ namespace Beutl.ViewModels.Tools;
 
 public sealed class GraphEditorTabViewModel : IToolContext
 {
-    public string Header => "Graph Editor";
+    public string Header => Strings.GraphEditor;
 
     public ToolTabExtension Extension => GraphEditorTabExtension.Instance;
 

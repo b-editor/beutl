@@ -22,7 +22,6 @@ public sealed class NodeTreeInputViewModel : IDisposable, IServiceProvider
             .DisposeWith(_disposables);
 
         UseNode.Skip(1)
-            //.ObserveOnRendererThread()
             .Subscribe(v => new ChangePropertyCommand<bool>(Model, Element.UseNodeProperty, v, !v)
                                 .DoAndRecord(CommandRecorder.Default))
             .DisposeWith(_disposables);
@@ -63,8 +62,7 @@ public sealed class NodeTreeInputViewModel : IDisposable, IServiceProvider
                 }
 
                 Items.Clear();
-            }/*,
-            scheduler: UIDispatcherScheduler.Default*/)
+            })
             .DisposeWith(_disposables);
     }
 

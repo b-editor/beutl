@@ -1,18 +1,13 @@
-﻿using System.Collections;
-using System.Numerics;
+﻿using System.Numerics;
 using System.Text.Json.Nodes;
 
 using Beutl.Animation;
 using Beutl.Api.Services;
-using Beutl.Extensibility;
 using Beutl.Models;
-using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Tools;
-
-using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 

@@ -359,4 +359,7 @@ To apply the package changes, exit Beutl.</value>
   <data name="OpenSettings" xml:space="preserve">
     <value>Open Settings</value>
   </data>
+  <data name="Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
 </root>

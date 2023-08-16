@@ -4,9 +4,10 @@ using Beutl.Configuration;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 
-using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
+
+using Serilog;
+using Serilog.Context;
 
 namespace Beutl.Services;
 
@@ -15,6 +16,7 @@ public sealed class ProjectService
     private readonly Subject<(Project? New, Project? Old)> _projectObservable = new();
     private readonly ReadOnlyReactivePropertySlim<bool> _isOpened;
     private readonly BeutlApplication _app = BeutlApplication.Current;
+    private readonly ILogger _logger = Log.ForContext<ProjectService>();
 
     public ProjectService()
     {
@@ -48,9 +50,9 @@ public sealed class ProjectService
 
             return project;
         }
-        catch
+        catch(Exception ex)
         {
-            Debug.Fail("Unable to open the project.");
+            _logger.Error(ex, "Unable to open the project.");
             return null;
         }
     }

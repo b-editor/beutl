@@ -799,4 +799,31 @@ and b-editor maintains the download URL.</value>
   <data name="SelectFilterEffect" xml:space="preserve">
     <value>Select Filter Effect</value>
   </data>
+  <data name="IsNotValid" xml:space="preserve">
+    <value>{0} is not a valid.</value>
+  </data>
+  <data name="Queue" xml:space="preserve">
+    <value>Queue</value>
+  </data>
+  <data name="GraphEditor" xml:space="preserve">
+    <value>Graph Editor</value>
+  </data>
+  <data name="Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="InvalidJson" xml:space="preserve">
+    <value>Invalid Json.</value>
+  </data>
+  <data name="Details" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="OutputtingVideo" xml:space="preserve">
+    <value>Outputting video</value>
+  </data>
+  <data name="OutputtingAudio" xml:space="preserve">
+    <value>Outputting audio</value>
+  </data>
+  <data name="Completed" xml:space="preserve">
+    <value>Completed</value>
+  </data>
 </root>

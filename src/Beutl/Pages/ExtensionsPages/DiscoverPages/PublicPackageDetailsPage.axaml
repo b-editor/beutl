@@ -128,7 +128,7 @@
                 <Border Classes="card">
                     <StackPanel>
                         <TextBlock Margin="16,8"
-                                   Text="説明"
+                                   Text="{x:Static lang:ExtensionsPage.Description}"
                                    Theme="{StaticResource BodyStrongTextBlockStyle}" />
                         <Border Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
 

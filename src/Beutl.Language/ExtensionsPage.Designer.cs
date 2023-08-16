@@ -171,6 +171,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Description に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Description {
+            get {
+                return ResourceManager.GetString("Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Documents に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Documents {

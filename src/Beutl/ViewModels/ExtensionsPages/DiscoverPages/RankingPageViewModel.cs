@@ -2,7 +2,10 @@
 
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+
 using Reactive.Bindings;
+
+using Serilog;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
@@ -18,6 +21,7 @@ public record RankingModel(string DisplayName, RankingType Type);
 
 public sealed class RankingPageViewModel : BasePageViewModel
 {
+    private readonly ILogger _logger = Log.ForContext<RankingPageViewModel>();
     private readonly CompositeDisposable _disposables = new();
     private readonly DiscoverService _discover;
 
@@ -51,6 +55,7 @@ public sealed class RankingPageViewModel : BasePageViewModel
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -80,6 +85,7 @@ public sealed class RankingPageViewModel : BasePageViewModel
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {

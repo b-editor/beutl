@@ -30,7 +30,7 @@ public sealed class AvaloniaPixelSizeConverter : IValueConverter
             }
             catch
             {
-                return new BindingNotification(new FormatException($"'{str}' is not a valid."), BindingErrorType.Error, str);
+                return new BindingNotification(new FormatException(string.Format(Strings.IsNotValid, str)), BindingErrorType.Error, str);
             }
         }
 

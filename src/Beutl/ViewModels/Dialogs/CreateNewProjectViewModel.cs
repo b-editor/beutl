@@ -2,8 +2,6 @@
 
 using Beutl.Services;
 
-using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;

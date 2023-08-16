@@ -370,4 +370,16 @@ URLが不審な場合、開かないことをお勧めします。</value>
   <data name="AuthorizationIsRequired" xml:space="preserve">
     <value>認証が必要です。</value>
   </data>
+  <data name="Description" xml:space="preserve">
+    <value>説明</value>
+  </data>
+  <data name="GotoSettings_Account" xml:space="preserve">
+    <value>"設定 &gt; アカウント"に移動して、サインイン。</value>
+  </data>
+  <data name="OpenSettings" xml:space="preserve">
+    <value>設定を開く</value>
+  </data>
+  <data name="AnAccountIsRequiredToGetExtension" xml:space="preserve">
+    <value>拡張機能を取得するにはアカウントが必要です。</value>
+  </data>
 </root>

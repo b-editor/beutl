@@ -8,10 +8,13 @@ using NuGet.Versioning;
 
 using Reactive.Bindings;
 
+using Serilog;
+
 namespace Beutl.ViewModels.ExtensionsPages;
 
 public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewModel
 {
+    private readonly ILogger _logger = Log.ForContext<LocalYourPackageViewModel>();
     private readonly CompositeDisposable _disposables = new();
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly PackageChangesQueue _queue;
@@ -65,6 +68,7 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -91,6 +95,7 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -115,6 +120,7 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -134,6 +140,7 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {

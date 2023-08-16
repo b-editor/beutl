@@ -46,8 +46,8 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext
                         }
 
                         return new EditorExtensionWrapper(
-                            displayName ?? "Unknown",
-                            name ?? "Unknown",
+                            displayName ?? Strings.Unknown,
+                            name ?? Strings.Unknown,
                             typeName);
                     }));
                 }
@@ -99,7 +99,7 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext
         {
             if (string.IsNullOrWhiteSpace(str))
             {
-                return "Please enter a file extension";
+                return SettingsPage.Please_enter_a_file_extension;
             }
             else if (str.Contains('"')
                 || str.Contains('>')
@@ -111,14 +111,14 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext
                 || str.Contains('\\')
                 || str.Contains('/'))
             {
-                return "The following characters are not allowed (\" > < | : ? * \\ /)";
+                return SettingsPage.The_following_characters_are_not_allowed;
             }
             else
             {
                 string str1 = str.StartsWith('.') ? str : $".{str}";
                 if (_extensionConfig.EditorExtensions.ContainsKey(str1))
                 {
-                    return "This file extension already exists";
+                    return SettingsPage.This_file_extension_already_exists;
                 }
             }
 

@@ -3,13 +3,17 @@ using Beutl.Api.Objects;
 
 using Beutl.Controls.Navigation;
 using Beutl.ViewModels.Dialogs;
+using Beutl.ViewModels.ExtensionsPages;
 
 using Reactive.Bindings;
 
+using Serilog;
+
 namespace Beutl.ViewModels.SettingsPages;
 
-public sealed class AccountSettingsPageViewModel : PageContext, IDisposable
+public sealed class AccountSettingsPageViewModel : BasePageViewModel
 {
+    private readonly ILogger _logger = Log.ForContext<AccountSettingsPageViewModel>();
     private readonly CompositeDisposable _disposables = new();
     private readonly BeutlApiApplication _clients;
     private readonly ReactivePropertySlim<CancellationTokenSource?> _cts = new();
@@ -74,9 +78,10 @@ public sealed class AccountSettingsPageViewModel : PageContext, IDisposable
                     await user.Profile.RefreshAsync();
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Todo: エラー説明
+                ErrorHandle(ex);
+                _logger.Error(ex, "An unexpected error has occurred.");
             }
             finally
             {
@@ -113,7 +118,7 @@ public sealed class AccountSettingsPageViewModel : PageContext, IDisposable
 
     public AsyncReactiveCommand Refresh { get; }
 
-    public void Dispose()
+    public override void Dispose()
     {
         _disposables.Dispose();
     }
@@ -125,11 +130,19 @@ public sealed class AccountSettingsPageViewModel : PageContext, IDisposable
 
     public async Task UpdateAvatarImage(Asset asset)
     {
-        if (_clients.AuthorizedUser.Value is { } user)
+        try
         {
-            await user.RefreshAsync();
-            await asset.UpdateAsync(true);
-            await user.Profile.UpdateAsync(avatarId: asset.Id);
+            if (_clients.AuthorizedUser.Value is { } user)
+            {
+                await user.RefreshAsync();
+                await asset.UpdateAsync(true);
+                await user.Profile.UpdateAsync(avatarId: asset.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorHandle(ex);
+            _logger.Error(ex, "An unexpected error has occurred.");
         }
     }
 

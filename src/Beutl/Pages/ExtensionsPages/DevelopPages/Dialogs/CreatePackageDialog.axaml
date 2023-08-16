@@ -27,7 +27,7 @@
         <FileInputArea x:Name="fileInput"
                        Margin="0,8,0,0"
                        SelectedFile="{Binding SelectedFile.Value}"
-                       Text="ファイルを開くには、ここにファイルをドロップするか、ここをクリックします。">
+                       Text="{x:Static lang:ExtensionsPage.To_open_a_file_drop_the_file_here_or_click_here}">
             <ProgressBar IsIndeterminate="{Binding IsFileLoading.Value}" IsVisible="{Binding IsFileLoading.Value}" />
         </FileInputArea>
 

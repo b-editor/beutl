@@ -171,4 +171,13 @@
   <data name="Theme_Tip" xml:space="preserve">
     <value>表示するアプリのテーマを選択します。</value>
   </data>
+  <data name="Please_enter_a_file_extension" xml:space="preserve">
+    <value>ファイルの拡張子を入力してください。</value>
+  </data>
+  <data name="The_following_characters_are_not_allowed" xml:space="preserve">
+    <value>以下の文字は使用できません (" &gt; &lt; | : ? * \ /)</value>
+  </data>
+  <data name="This_file_extension_already_exists" xml:space="preserve">
+    <value>この拡張子は既に存在しています。</value>
+  </data>
 </root>

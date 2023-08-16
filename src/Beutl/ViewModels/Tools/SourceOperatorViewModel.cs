@@ -8,7 +8,6 @@ using Beutl.ViewModels.Editors;
 using DynamicData;
 
 using Microsoft.CodeAnalysis;
-using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -204,7 +203,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
             int index = sourceOperation.Children.IndexOf(Model);
             if (index < 0) return;
 
-            const string message = "無効なJsonです";
+            string message = Strings.InvalidJson;
             _ = str ?? throw new Exception(message);
             JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
 

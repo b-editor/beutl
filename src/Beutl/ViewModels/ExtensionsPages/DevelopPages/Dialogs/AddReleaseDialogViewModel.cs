@@ -3,10 +3,13 @@ using Beutl.Api.Objects;
 
 using Reactive.Bindings;
 
+using Serilog;
+
 namespace Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 public sealed class AddReleaseDialogViewModel
 {
+    private readonly ILogger _logger = Log.ForContext<AddReleaseDialogViewModel>();
     private readonly AuthorizedUser _user;
     private readonly Package _package;
 
@@ -54,6 +57,13 @@ public sealed class AddReleaseDialogViewModel
         catch (BeutlApiException<ApiErrorResponse> e)
         {
             Error.Value = e.Result.Message;
+            _logger.Error(e, "API error occurred.");
+            return null;
+        }
+        catch (Exception e)
+        {
+            Error.Value = Message.AnUnexpectedErrorHasOccurred;
+            _logger.Error(e, "An unexpected error has occurred.");
             return null;
         }
     }

@@ -5,10 +5,13 @@ using Beutl.ViewModels.Dialogs;
 
 using Reactive.Bindings;
 
+using Serilog;
+
 namespace Beutl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class PackageSettingsPageViewModel : BasePageViewModel
 {
+    private readonly ILogger _logger = Log.ForContext<PackageSettingsPageViewModel>();
     private readonly CompositeDisposable _disposables = new();
     private readonly AuthorizedUser _user;
     private readonly ReactivePropertySlim<bool> _screenshotsChange = new();
@@ -72,6 +75,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
                 catch (Exception ex)
                 {
                     ErrorHandle(ex);
+                    _logger.Error(ex, "An unexpected error has occurred.");
                 }
             })
             .DisposeWith(_disposables);
@@ -98,6 +102,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
                 catch (Exception ex)
                 {
                     ErrorHandle(ex);
+                    _logger.Error(ex, "An unexpected error has occurred.");
                 }
             })
             .DisposeWith(_disposables);
@@ -113,6 +118,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
                 catch (Exception ex)
                 {
                     ErrorHandle(ex);
+                    _logger.Error(ex, "An unexpected error has occurred.");
                 }
             })
             .DisposeWith(_disposables);
@@ -128,6 +134,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
                 catch (Exception ex)
                 {
                     ErrorHandle(ex);
+                    _logger.Error(ex, "An unexpected error has occurred.");
                 }
             })
             .DisposeWith(_disposables);
@@ -144,6 +151,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
                 catch (Exception ex)
                 {
                     ErrorHandle(ex);
+                    _logger.Error(ex, "An unexpected error has occurred.");
                 }
                 finally
                 {

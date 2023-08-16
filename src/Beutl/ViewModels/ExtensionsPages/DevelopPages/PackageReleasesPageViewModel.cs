@@ -4,10 +4,13 @@ using Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using Reactive.Bindings;
 
+using Serilog;
+
 namespace Beutl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class PackageReleasesPageViewModel : BasePageViewModel
 {
+    private readonly ILogger _logger = Log.ForContext<PackageReleasesPageViewModel>();
     private readonly AuthorizedUser _user;
 
     public PackageReleasesPageViewModel(AuthorizedUser user, Package package)
@@ -39,6 +42,7 @@ public sealed class PackageReleasesPageViewModel : BasePageViewModel
             catch (Exception ex)
             {
                 ErrorHandle(ex);
+                _logger.Error(ex, "An unexpected error has occurred.");
             }
             finally
             {
@@ -68,6 +72,7 @@ public sealed class PackageReleasesPageViewModel : BasePageViewModel
         catch (Exception ex)
         {
             ErrorHandle(ex);
+            _logger.Error(ex, "An unexpected error has occurred.");
         }
     }
 

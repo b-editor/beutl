@@ -1,23 +1,21 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Avalonia.Collections;
+﻿using Avalonia.Collections;
 
 using Beutl.Api.Objects;
 
 using Beutl.Controls.Navigation;
 using Beutl.Utilities;
 using Beutl.ViewModels.Dialogs;
+using Beutl.ViewModels.ExtensionsPages;
 
 using Reactive.Bindings;
 
+using Serilog;
+
 namespace Beutl.ViewModels.SettingsPages;
 
-public class StorageDetailPageViewModel : PageContext
+public sealed class StorageDetailPageViewModel : BasePageViewModel
 {
+    private readonly ILogger _logger = Log.ForContext<StorageDetailPageViewModel>();
     private readonly AuthorizedUser _user;
 
     public StorageDetailPageViewModel(AuthorizedUser user, StorageSettingsPageViewModel.KnownType type)
@@ -46,9 +44,10 @@ public class StorageDetailPageViewModel : PageContext
                     count += items.Length;
                 } while (prevCount == 30);
             }
-            catch
+            catch (Exception ex)
             {
-                // Todo
+                ErrorHandle(ex);
+                _logger.Error(ex, "An unexpected error has occurred.");
             }
             finally
             {
@@ -58,7 +57,7 @@ public class StorageDetailPageViewModel : PageContext
 
         Refresh.Execute();
 
-        NavigateParent.Subscribe(async() =>
+        NavigateParent.Subscribe(async () =>
         {
             INavigationProvider nav = await GetNavigation();
             await nav.NavigateAsync<StorageSettingsPageViewModel>();
@@ -84,6 +83,10 @@ public class StorageDetailPageViewModel : PageContext
     {
         await asset.Model.DeleteAsync();
         Items.Remove(asset);
+    }
+
+    public override void Dispose()
+    {
     }
 
     public record AssetViewModel(Asset Model, string UsedCapacity)

@@ -3,8 +3,6 @@
 using Beutl.Controls.Navigation;
 using Beutl.Services;
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Beutl.ViewModels.ExtensionsPages;
 
 public abstract class BasePageViewModel : PageContext, IDisposable

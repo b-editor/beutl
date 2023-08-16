@@ -61,6 +61,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   An exception occurred while loading the asset. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string An_exception_occurred_while_loading_the_asset {
+            get {
+                return ResourceManager.GetString("An_exception_occurred_while_loading_the_asset", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Animation is enabled に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string AnimationIsEnabled {
@@ -112,6 +121,15 @@ namespace Beutl.Language {
         public static string ContextNotCreated {
             get {
                 return ResourceManager.GetString("ContextNotCreated", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Could not load scene. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Could_not_load_scene {
+            get {
+                return ResourceManager.GetString("Could_not_load_scene", resourceCulture);
             }
         }
         
@@ -216,11 +234,38 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Failed to load {0} packages. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Failed_to_load_N_packages {
+            get {
+                return ResourceManager.GetString("Failed_to_load_N_packages", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Failed to load package. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Failed_to_load_package {
+            get {
+                return ResourceManager.GetString("Failed_to_load_package", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   File does not exist. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string FileDoesNotExist {
             get {
                 return ResourceManager.GetString("FileDoesNotExist", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Invalid choice. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Invalid_choice {
+            get {
+                return ResourceManager.GetString("Invalid_choice", resourceCulture);
             }
         }
         
@@ -320,6 +365,15 @@ namespace Beutl.Language {
         public static string RememberThisChoice {
             get {
                 return ResourceManager.GetString("RememberThisChoice", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Unable to save file. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Unable_to_save_file {
+            get {
+                return ResourceManager.GetString("Unable_to_save_file", resourceCulture);
             }
         }
         

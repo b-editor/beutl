@@ -192,4 +192,22 @@ because the new name conflicts with an existing folder.</value>
   <data name="DoYouWantToLoadSideloadExtensions" xml:space="preserve">
     <value>Do you want to load sideload extensions?</value>
   </data>
+  <data name="An_exception_occurred_while_loading_the_asset" xml:space="preserve">
+    <value>An exception occurred while loading the asset.</value>
+  </data>
+  <data name="Unable_to_save_file" xml:space="preserve">
+    <value>Unable to save file.</value>
+  </data>
+  <data name="Failed_to_load_package" xml:space="preserve">
+    <value>Failed to load package.</value>
+  </data>
+  <data name="Failed_to_load_N_packages" xml:space="preserve">
+    <value>Failed to load {0} packages.</value>
+  </data>
+  <data name="Invalid_choice" xml:space="preserve">
+    <value>Invalid choice.</value>
+  </data>
+  <data name="Could_not_load_scene" xml:space="preserve">
+    <value>Could not load scene.</value>
+  </data>
 </root>

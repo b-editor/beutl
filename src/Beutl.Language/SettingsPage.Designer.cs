@@ -142,6 +142,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Please enter a file extension. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Please_enter_a_file_extension {
+            get {
+                return ResourceManager.GetString("Please_enter_a_file_extension", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Sign in に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string SignIn {
@@ -214,11 +223,29 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   The following characters are not allowed (&quot; &gt; &lt; | : ? * \ /) に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string The_following_characters_are_not_allowed {
+            get {
+                return ResourceManager.GetString("The_following_characters_are_not_allowed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Select the theme of the app you want to display. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Theme_Tip {
             get {
                 return ResourceManager.GetString("Theme_Tip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   This file extension already exists. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string This_file_extension_already_exists {
+            get {
+                return ResourceManager.GetString("This_file_extension_already_exists", resourceCulture);
             }
         }
     }

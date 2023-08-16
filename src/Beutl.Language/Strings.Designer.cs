@@ -376,6 +376,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Completed に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Completed {
+            get {
+                return ResourceManager.GetString("Completed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Configure に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Configure {
@@ -589,6 +598,15 @@ namespace Beutl.Language {
         public static string DestinationToSaveTo_Tip {
             get {
                 return ResourceManager.GetString("DestinationToSaveTo_Tip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Details に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Details {
+            get {
+                return ResourceManager.GetString("Details", resourceCulture);
             }
         }
         
@@ -953,6 +971,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Graph Editor に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string GraphEditor {
+            get {
+                return ResourceManager.GetString("GraphEditor", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Group に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Group {
@@ -1039,6 +1066,24 @@ namespace Beutl.Language {
         public static string Internal {
             get {
                 return ResourceManager.GetString("Internal", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Invalid Json. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string InvalidJson {
+            get {
+                return ResourceManager.GetString("InvalidJson", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   {0} is not a valid. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string IsNotValid {
+            get {
+                return ResourceManager.GetString("IsNotValid", resourceCulture);
             }
         }
         
@@ -1367,6 +1412,24 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Outputting audio に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string OutputtingAudio {
+            get {
+                return ResourceManager.GetString("OutputtingAudio", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Outputting video に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string OutputtingVideo {
+            get {
+                return ResourceManager.GetString("OutputtingVideo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Output Video に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string OutputVideo {
@@ -1462,6 +1525,15 @@ namespace Beutl.Language {
         public static string Public {
             get {
                 return ResourceManager.GetString("Public", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Queue に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Queue {
+            get {
+                return ResourceManager.GetString("Queue", resourceCulture);
             }
         }
         
@@ -2065,6 +2137,15 @@ namespace Beutl.Language {
         public static string Unimplemented {
             get {
                 return ResourceManager.GetString("Unimplemented", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Unknown に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Unknown {
+            get {
+                return ResourceManager.GetString("Unknown", resourceCulture);
             }
         }
         

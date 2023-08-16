@@ -44,7 +44,7 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
         IsExpanded = node.GetObservable(Beutl.NodeTree.Node.IsExpandedProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        IsExpanded//.ObserveOnRendererThread()
+        IsExpanded
             .Subscribe(v => Node.IsExpanded = v)
             .DisposeWith(_disposables);
 

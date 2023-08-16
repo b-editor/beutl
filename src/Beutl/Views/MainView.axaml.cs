@@ -465,7 +465,10 @@ Error:
                 if (result.Count > 0
                     && result[0].TryGetLocalPath() is string localPath)
                 {
-                    ProjectService.Current.OpenProject(localPath);
+                    if (ProjectService.Current.OpenProject(localPath) == null)
+                    {
+                        NotificationService.ShowInformation("", Message.CouldNotOpenProject);
+                    }
                 }
             }
         }).AddTo(_disposables);

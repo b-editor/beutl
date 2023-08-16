@@ -21,12 +21,12 @@
                 <ctrls:OptionsDisplayItem.Content>
                     <Grid Margin="32,16" ColumnDefinitions="*,*">
                         <StackPanel>
-                            <ui:HyperlinkButton Content="{x:Static lang:Strings.SourceCode}" NavigateUri="https://github.com/b-editor/Beutl" />
+                            <ui:HyperlinkButton Content="{x:Static lang:Strings.SourceCode}" NavigateUri="https://github.com/b-editor/beutl" />
                         </StackPanel>
 
                         <StackPanel Grid.Column="1">
-                            <ui:HyperlinkButton Content="{x:Static lang:Strings.License}" NavigateUri="https://github.com/b-editor/Beutl/blob/main/LICENSE" />
-                            <ui:HyperlinkButton Content="{x:Static lang:Strings.ThirdPartyLicenses}" />
+                            <ui:HyperlinkButton Content="{x:Static lang:Strings.License}" NavigateUri="https://github.com/b-editor/beutl/blob/main/LICENSE" />
+                            <ui:HyperlinkButton Content="{x:Static lang:Strings.ThirdPartyLicenses}" NavigateUri="https://github.com/b-editor/beutl/blob/main/THIRD_PARTY_NOTICES.md" />
                         </StackPanel>
                     </Grid>
                 </ctrls:OptionsDisplayItem.Content>

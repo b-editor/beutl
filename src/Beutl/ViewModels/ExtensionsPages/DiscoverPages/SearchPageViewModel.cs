@@ -2,12 +2,16 @@
 
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+
 using Reactive.Bindings;
+
+using Serilog;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 public sealed class SearchPageViewModel : BasePageViewModel
 {
+    private readonly ILogger _logger = Log.ForContext<SearchPageViewModel>();
     private readonly CompositeDisposable _disposables = new();
     private readonly DiscoverService _discoverService;
 
@@ -30,6 +34,7 @@ public sealed class SearchPageViewModel : BasePageViewModel
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -52,6 +57,7 @@ public sealed class SearchPageViewModel : BasePageViewModel
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -77,6 +83,7 @@ public sealed class SearchPageViewModel : BasePageViewModel
                 catch (Exception e)
                 {
                     ErrorHandle(e);
+                    _logger.Error(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
