@@ -4,8 +4,6 @@ using System.Text.Json.Nodes;
 
 using Beutl.Collections;
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Beutl;
 
 public static class ProjectVariableKeys
@@ -14,7 +12,6 @@ public static class ProjectVariableKeys
     public const string SampleRate = "samplerate";
 }
 
-// Todo: IResourceProviderを実装
 public sealed class Project : Hierarchical, IStorable
 {
     public static readonly CoreProperty<Version> AppVersionProperty;

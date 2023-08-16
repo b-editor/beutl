@@ -3,7 +3,6 @@ using Beutl.Rendering;
 
 namespace Beutl;
 
-// Todo:
 public class EvaluationContext
 {
     internal IList<Renderable> _renderables;

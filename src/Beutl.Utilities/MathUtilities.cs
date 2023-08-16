@@ -17,6 +17,16 @@ public static class MathUtilities
         return radians * (180.0f / MathF.PI);
     }
 
+    public static long GreatestCommonDivisor(long left, long right)
+    {
+        return right == 0 ? left : GreatestCommonDivisor(right, left % right);
+    }
+
+    public static long LeastCommonDenominator(long left, long right)
+    {
+        return left * right / GreatestCommonDivisor(left, right);
+    }
+
     /// <summary>
     /// AreClose - Returns whether or not two doubles are "close".  That is, whether or 
     /// not they are within epsilon of each other.

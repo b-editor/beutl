@@ -62,7 +62,6 @@ public sealed class RenderLayer : IDisposable
         _currentFrame.Clear();
         _currentFrame.EnsureCapacity(elements.Count);
 
-        // Todo: Drawable, Renderableを統合する予定
         foreach (Renderable element in elements)
         {
             if (!_cache.TryGetValue(element, out Entry? entry))

@@ -52,7 +52,6 @@ public abstract class NodeTreeModel : Hierarchical, IAffectsRender
                 if (nodeJson.TryGetDiscriminator(out Type? type)
                     && Activator.CreateInstance(type) is Node node)
                 {
-                    // Todo: 型が見つからない場合、SourceOperatorと同じようにする
                     node.ReadFromJson(nodeJson);
                     Nodes.Add(node);
                 }

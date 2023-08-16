@@ -2,6 +2,8 @@
 using System.Numerics;
 using System.Text;
 
+using static Beutl.Utilities.MathUtilities;
+
 namespace Beutl;
 
 public readonly partial struct Rational
@@ -239,18 +241,6 @@ public readonly partial struct Rational
 
         left = new Rational(leftNum, lcd);
         right = new Rational(rightNum, lcd);
-    }
-
-    // Todo: MathUtillitiesに移動
-    private static long GreatestCommonDivisor(long left, long right)
-    {
-        return right == 0 ? left : GreatestCommonDivisor(right, left % right);
-    }
-
-    // Todo: MathUtillitiesに移動
-    private static long LeastCommonDenominator(long left, long right)
-    {
-        return left * right / GreatestCommonDivisor(left, right);
     }
 
     public Rational Simplify()
