@@ -5,11 +5,13 @@ using System.Text.Json.Nodes;
 
 using Avalonia;
 
+using Beutl.Animation;
 using Beutl.Extensibility;
 using Beutl.Models;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Reactive;
+using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 
 using DynamicData;
@@ -193,6 +195,36 @@ public sealed class TimelineViewModel : IToolContext
                 layer.ReadFromJson(item);
             }
         }
+
+        if (json.TryGetPropertyValue(nameof(Inlines), out JsonNode? inlinesNode)
+            && inlinesNode is JsonArray inlinesArray)
+        {
+            static (Guid ElementId, Guid AnimationId) GetIds(JsonObject v)
+            {
+                return v.TryGetPropertyValueAsJsonValue("ElementId", out Guid elementId)
+                    && v.TryGetPropertyValueAsJsonValue("AnimationId", out Guid anmId)
+                        ? (elementId, anmId)
+                        : (Guid.Empty, Guid.Empty);
+            }
+
+            foreach ((Element element, Guid anmId) in inlinesArray.OfType<JsonObject>()
+                .Select(GetIds)
+                .Where(x => x.AnimationId != Guid.Empty && x.ElementId != Guid.Empty)
+                .Join(Scene.Children,
+                    x => x.ElementId,
+                    y => y.Id,
+                    (x, y) => (y, x.AnimationId)))
+            {
+                var searcher = new ObjectSearcher(
+                    element,
+                    v => v is IAbstractAnimatableProperty { Animation: KeyFrameAnimation kfAnm } && kfAnm.Id == anmId);
+
+                if (searcher.Search() is IAbstractAnimatableProperty prop)
+                {
+                    AttachInline(prop, element);
+                }
+            }
+        }
     }
 
     public void WriteToJson(JsonObject json)
@@ -210,6 +242,23 @@ public sealed class TimelineViewModel : IToolContext
             }));
 
         json[nameof(LayerHeaders)] = array;
+
+        var inlines = new JsonArray();
+        foreach (InlineAnimationLayerViewModel item in Inlines.OrderBy(v => v.Index.Value))
+        {
+            if (item.Property.Animation is KeyFrameAnimation { Id: Guid anmId })
+            {
+                Guid elementId = item.Layer.Model.Id;
+
+                inlines.Add(new JsonObject
+                {
+                    ["AnimationId"] = anmId,
+                    ["ElementId"] = elementId
+                });
+            }
+        }
+
+        json[nameof(Inlines)] = inlines;
     }
 
     public void AttachInline(IAbstractAnimatableProperty property, Element layer)

@@ -8,6 +8,7 @@ using Beutl.Extensibility;
 using Beutl.Models;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Tools;
 
@@ -432,89 +433,29 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     void ISupportCloseAnimation.Close(object obj)
     {
-        switch (obj)
+        var searcher = new ObjectSearcher(obj, v => v is IAnimation);
+
+        IAnimation[] animations = searcher.SearchAll().OfType<IAnimation>().ToArray();
+        TimelineViewModel? timeline = FindToolTab<TimelineViewModel>();
+        // Timelineのインライン表示を削除
+        if (timeline != null)
         {
-            case IAnimation animation:
-                {
-                    TimelineViewModel? timeline = FindToolTab<TimelineViewModel>();
-                    // Timelineのインライン表示を削除
-                    if (timeline != null)
-                    {
-                        InlineAnimationLayerViewModel? inline = timeline.Inlines.FirstOrDefault(x => x.Property.Animation == animation);
-                        inline?.Close.Execute();
-                    }
+            foreach (InlineAnimationLayerViewModel? item in timeline.Inlines
+                .IntersectBy(animations, v => v.Property.Animation)
+                .ToArray())
+            {
+                timeline.DetachInline(item);
+            }
+        }
 
-                    // BottomTabItemsから削除する
-                    ToolTabViewModel? tab = BottomTabItems
-                        .Where(x => x.Context is GraphEditorTabViewModel)
-                        .FirstOrDefault(v => ((GraphEditorTabViewModel)v.Context).SelectedAnimation.Value?.Animation == animation);
-                    if (tab != null)
-                    {
-                        BottomTabItems.Remove(tab);
-                        tab.Dispose();
-                    }
-                    break;
-                }
-
-            case CoreObject coreObject:
-                foreach (CoreProperty? item in PropertyRegistry.GetRegistered(coreObject.GetType())
-                    .Where(x => !x.PropertyType.IsValueType && x != Hierarchical.HierarchicalParentProperty))
-                {
-                    object? value = coreObject.GetValue(item);
-                    if (value != null)
-                    {
-                        (this as ISupportCloseAnimation).Close(value);
-                    }
-                }
-                break;
-
-            case Animations list:
-                {
-                    TimelineViewModel? timeline = FindToolTab<TimelineViewModel>();
-                    // Timelineのインライン表示を削除
-                    if (timeline != null)
-                    {
-                        foreach (InlineAnimationLayerViewModel? item in timeline.Inlines
-                            .IntersectBy(list, v => v.Property.Animation)
-                            .ToArray())
-                        {
-                            timeline.DetachInline(item);
-                        }
-                    }
-
-                    // BottomTabItemsから削除する
-                    foreach (ToolTabViewModel? item in BottomTabItems
-                        .Where(x => x.Context is GraphEditorTabViewModel)
-                        .IntersectBy(list, v => ((GraphEditorTabViewModel)v.Context).SelectedAnimation.Value?.Animation)
-                        .ToArray())
-                    {
-                        BottomTabItems.Remove(item);
-                        item.Dispose();
-                    }
-                    break;
-                }
-
-            case IEnumerable enm:
-                foreach (object? item in enm)
-                {
-                    (this as ISupportCloseAnimation).Close(item);
-                }
-                break;
-
-            case IAbstractProperty property:
-                {
-                    if (property is IAbstractAnimatableProperty { Animation: IAnimation animation })
-                    {
-                        (this as ISupportCloseAnimation).Close(animation);
-                    }
-
-                    if (!property.PropertyType.IsValueType
-                        && property.GetValue() is { } value)
-                    {
-                        (this as ISupportCloseAnimation).Close(value);
-                    }
-                }
-                break;
+        // BottomTabItemsから削除する
+        foreach (ToolTabViewModel? item in BottomTabItems
+            .Where(x => x.Context is GraphEditorTabViewModel)
+            .IntersectBy(animations, v => ((GraphEditorTabViewModel)v.Context).SelectedAnimation.Value?.Animation)
+            .ToArray())
+        {
+            BottomTabItems.Remove(item);
+            item.Dispose();
         }
     }
 

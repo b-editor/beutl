@@ -169,6 +169,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public TimelineViewModel Timeline { get; }
 
+    // Todo: Rename to Element
     public ElementViewModel Layer { get; }
 
     public CoreList<InlineKeyFrameViewModel> Items { get; } = new();
