@@ -56,7 +56,7 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
                     @operator = Activator.CreateInstance(type) as SourceOperator;
                 }
 
-                @operator ??= new SourceOperator();
+                @operator ??= new DummySourceOperator();
                 @operator.ReadFromJson(operatorJson);
                 Children.Add(@operator);
             }
@@ -76,7 +76,10 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
             {
                 var itemJson = new JsonObject();
                 item.WriteToJson(itemJson);
-                itemJson.WriteDiscriminator(item.GetType());
+
+                // DummySourceOperatorはReadFromJsonで取得した、Jsonをリレーするので型名は書かない。
+                if (item is not DummySourceOperator)
+                    itemJson.WriteDiscriminator(item.GetType());
 
                 array.Add(itemJson);
             }
