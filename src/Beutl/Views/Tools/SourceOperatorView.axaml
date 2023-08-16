@@ -6,11 +6,14 @@
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModel="using:Beutl.ViewModels.Tools"
              d:DesignHeight="450"
              d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="viewModel:SourceOperatorViewModel"
              DragDrop.AllowDrop="True"
              mc:Ignorable="d">
-    <Expander Padding="0" IsExpanded="{Binding IsExpanded.Value, Mode=TwoWay}">
+    <Expander Padding="0" IsExpanded="{Binding IsExpanded.Value, Mode=TwoWay, FallbackValue=True}">
         <Expander.Resources>
             <SolidColorBrush x:Key="ExpanderContentBackground" Color="Transparent" />
         </Expander.Resources>
@@ -44,6 +47,9 @@
             </StackPanel>
         </Expander.Header>
 
-        <editors:PropertiesEditor Grid.IsSharedSizeScope="True" />
+        <Panel x:Name="panel">
+            <!--  ここに何か追加する場合、OnDataContextChangedでIndex、Countをハードコードしているので、考慮する  -->
+            <editors:PropertiesEditor Grid.IsSharedSizeScope="True" />
+        </Panel>
     </Expander>
 </UserControl>

@@ -1,16 +1,16 @@
 ﻿using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Xaml.Interactivity;
 
-using Beutl.Commands;
 using Beutl.Controls.Behaviors;
-using Beutl.ProjectSystem;
 using Beutl.Operation;
-using Beutl.ViewModels.Tools;
+using Beutl.ProjectSystem;
 using Beutl.Services;
+using Beutl.ViewModels.Tools;
 
 namespace Beutl.Views.Tools;
 
@@ -84,15 +84,32 @@ public sealed partial class SourceOperatorView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (DataContext is SourceOperatorViewModel viewModel2)
+        if (DataContext is SourceOperatorViewModel viewModel)
         {
-            SourceOperator operation = viewModel2.Model;
-            Type type = operation.GetType();
-            LibraryItem? item = LibraryService.Current.FindItem(type);
-
-            if (item != null)
+            if (!viewModel.IsDummy)
             {
-                headerText.Text = item.DisplayName;
+                SourceOperator operation = viewModel.Model;
+                Type type = operation.GetType();
+                LibraryItem? item = LibraryService.Current.FindItem(type);
+
+                if (item != null)
+                {
+                    headerText.Text = item.DisplayName;
+                }
+
+                if (panel.Children.Count == 2)
+                {
+                    panel.Children.RemoveAt(1);
+                }
+            }
+            else
+            {
+                headerText.Text = "不明";
+
+                if (panel.Children.Count == 1)
+                {
+                    panel.Children.Add(new UnknownSourceOperatorView());
+                }
             }
         }
     }

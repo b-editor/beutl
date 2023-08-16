@@ -50,6 +50,25 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
     public CoreList<IPropertyEditorContext?> Properties { get; } = new();
 
+    public bool IsDummy => Model is DummySourceOperator;
+
+    public string ActualTypeName
+    {
+        get
+        {
+            if (Model is DummySourceOperator { Json: { } json }
+                && json.TryGetPropertyValueAsJsonValue("$type", out string? typeName)
+                && typeName != null)
+            {
+                return typeName;
+            }
+            else
+            {
+                return TypeFormat.ToString(Model.GetType());
+            }
+        }
+    }
+
     public void RestoreState(JsonNode json)
     {
         if (json is JsonObject obj)
@@ -176,5 +195,63 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
             return Model;
 
         return _parent.GetService(serviceType);
+    }
+
+    public void SetJson(string? str)
+    {
+        if (Model.HierarchicalParent is SourceOperation sourceOperation)
+        {
+            int index = sourceOperation.Children.IndexOf(Model);
+            if (index < 0) return;
+
+            const string message = "無効なJsonです";
+            _ = str ?? throw new Exception(message);
+            JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
+
+            Type? type = json.GetDiscriminator();
+            SourceOperator? @operator = null;
+            if (type?.IsAssignableTo(typeof(SourceOperator)) ?? false)
+            {
+                @operator = Activator.CreateInstance(type) as SourceOperator;
+            }
+
+            if (@operator == null) throw new Exception(message);
+
+            @operator.ReadFromJson(json);
+
+            var command = new ReplaceItemCommand(sourceOperation.Children, index, @operator, Model);
+            command.DoAndRecord(CommandRecorder.Default);
+        }
+    }
+
+    private sealed class ReplaceItemCommand : IRecordableCommand
+    {
+        private readonly IList<SourceOperator> _list;
+        private readonly int _index;
+        private readonly SourceOperator _newItem;
+        private readonly SourceOperator _oldItem;
+
+        public ReplaceItemCommand(IList<SourceOperator> list, int index, SourceOperator item, SourceOperator oldItem)
+        {
+            _list = list;
+            _index = index;
+            _newItem = item;
+            _oldItem = oldItem;
+        }
+
+        public void Do()
+        {
+            _list[_index] = _newItem;
+        }
+
+        public void Redo()
+        {
+            Do();
+        }
+
+        public void Undo()
+        {
+            _list[_index] = _oldItem;
+        }
     }
 }

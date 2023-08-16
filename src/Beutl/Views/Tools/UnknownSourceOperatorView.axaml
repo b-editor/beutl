@@ -1,0 +1,43 @@
+<UserControl x:Class="Beutl.Views.Tools.UnknownSourceOperatorView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:editors="using:Beutl.Views.Editors"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.ViewModels.Tools"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="viewModel:SourceOperatorViewModel"
+             mc:Ignorable="d">
+    <StackPanel Margin="8"
+                IsVisible="{Binding IsDummy}"
+                Spacing="8"
+                TextBlock.TextWrapping="WrapWithOverflow">
+
+        <TextBlock Text="型が見つからないため、復元できませんでした。" />
+        <SelectableTextBlock Text="{Binding ActualTypeName}" />
+
+        <WrapPanel Margin="-6">
+            <ui:CommandBar DefaultLabelPosition="Right">
+                <ui:CommandBar.PrimaryCommands>
+                    <ui:CommandBarToggleButton x:Name="editJsonToggle"
+                                               IconSource="Edit"
+                                               Label="Jsonを編集" />
+
+                    <ui:CommandBarButton x:Name="jsonSaveButton"
+                                         IconSource="Save"
+                                         Label="保存" />
+                </ui:CommandBar.PrimaryCommands>
+            </ui:CommandBar>
+        </WrapPanel>
+        <TextBox x:Name="jsonTextBox"
+                 MinHeight="80"
+                 AcceptsReturn="True"
+                 AcceptsTab="True"
+                 TextWrapping="NoWrap" />
+    </StackPanel>
+</UserControl>
