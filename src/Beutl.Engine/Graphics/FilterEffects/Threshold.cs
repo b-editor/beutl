@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
+using Beutl.Language;
+
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -26,6 +28,7 @@ public sealed class Threshold : FilterEffect
         AffectsRender<Threshold>(ValueProperty, StrengthProperty);
     }
 
+    [Display(Name = nameof(Strings.Amount), ResourceType = typeof(Strings))]
     [Range(0, 100)]
     public float Value
     {
@@ -33,6 +36,7 @@ public sealed class Threshold : FilterEffect
         set => SetAndRaise(ValueProperty, ref _value, value);
     }
 
+    [Display(Name = nameof(Strings.Strength), ResourceType = typeof(Strings))]
     [Range(0, 100)]
     public float Strength
     {

@@ -3,6 +3,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Rendering;
 
@@ -69,6 +70,7 @@ public sealed class LutEffect : FilterEffect
         }
     }
 
+    [Display(Name = nameof(Strings.Strength), ResourceType = typeof(Strings))]
     [Range(0, 100)]
     public float Strength
     {

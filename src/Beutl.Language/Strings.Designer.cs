@@ -88,6 +88,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Addition に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Addition {
+            get {
+                return ResourceManager.GetString("Addition", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Additional Options に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string AdditionalOptions {
@@ -156,6 +165,15 @@ namespace Beutl.Language {
         public static string All {
             get {
                 return ResourceManager.GetString("All", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Amount に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Amount {
+            get {
+                return ResourceManager.GetString("Amount", resourceCulture);
             }
         }
         
@@ -286,6 +304,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Brightness に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Brightness {
+            get {
+                return ResourceManager.GetString("Brightness", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Bring to the top に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string BringToTop {
@@ -399,6 +426,15 @@ namespace Beutl.Language {
         public static string ContentType {
             get {
                 return ResourceManager.GetString("ContentType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Contrast に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Contrast {
+            get {
+                return ResourceManager.GetString("Contrast", resourceCulture);
             }
         }
         
@@ -836,6 +872,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Filter Effect に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FilterEffect {
+            get {
+                return ResourceManager.GetString("FilterEffect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Finish editing に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string FinishEditing {
@@ -953,6 +998,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Gamma に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Gamma {
+            get {
+                return ResourceManager.GetString("Gamma", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Gradient Origin に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string GradientOrigin {
@@ -976,6 +1030,15 @@ namespace Beutl.Language {
         public static string GraphEditor {
             get {
                 return ResourceManager.GetString("GraphEditor", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Grayscale に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Grayscale {
+            get {
+                return ResourceManager.GetString("Grayscale", resourceCulture);
             }
         }
         
@@ -1021,6 +1084,15 @@ namespace Beutl.Language {
         public static string HueRotate {
             get {
                 return ResourceManager.GetString("HueRotate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Image に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Image {
+            get {
+                return ResourceManager.GetString("Image", resourceCulture);
             }
         }
         
@@ -1075,6 +1147,24 @@ namespace Beutl.Language {
         public static string InvalidJson {
             get {
                 return ResourceManager.GetString("InvalidJson", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Invert に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Invert {
+            get {
+                return ResourceManager.GetString("Invert", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Invert Style に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string InvertStyle {
+            get {
+                return ResourceManager.GetString("InvertStyle", resourceCulture);
             }
         }
         
@@ -1205,6 +1295,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   LUT (Cube File) に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string LUT_Cube_File {
+            get {
+                return ResourceManager.GetString("LUT_Cube_File", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Margin に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Margin {
@@ -1246,6 +1345,15 @@ namespace Beutl.Language {
         public static string MoveOneFront {
             get {
                 return ResourceManager.GetString("MoveOneFront", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Multiplication に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Multiplication {
+            get {
+                return ResourceManager.GetString("Multiplication", resourceCulture);
             }
         }
         
@@ -1543,6 +1651,24 @@ namespace Beutl.Language {
         public static string Radius {
             get {
                 return ResourceManager.GetString("Radius", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Radius X に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RadiusX {
+            get {
+                return ResourceManager.GetString("RadiusX", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Radius Y に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RadiusY {
+            get {
+                return ResourceManager.GetString("RadiusY", resourceCulture);
             }
         }
         
@@ -1862,6 +1988,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Sound に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Sound {
+            get {
+                return ResourceManager.GetString("Sound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Source に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Source {
@@ -1957,6 +2092,15 @@ namespace Beutl.Language {
         public static string Stereo {
             get {
                 return ResourceManager.GetString("Stereo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Strength に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Strength {
+            get {
+                return ResourceManager.GetString("Strength", resourceCulture);
             }
         }
         

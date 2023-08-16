@@ -16,14 +16,8 @@ public sealed class LocalizeService
         return _supported.Contains(ci.Name);
     }
 
-    public Uri GetUri(CultureInfo ci)
-    {
-        if (!IsSupportedCulture(ci)) throw new InvalidOperationException();
-        return new Uri($"avares://Beutl.Language/{ci.Name}/CommonResources.axaml");
-    }
-
     public IEnumerable<CultureInfo> SupportedCultures()
     {
-        return _supported.Select(n => CultureInfo.GetCultureInfo(n));
+        return _supported.Select(CultureInfo.GetCultureInfo);
     }
 }

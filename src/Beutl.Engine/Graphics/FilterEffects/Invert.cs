@@ -1,6 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Reactive;
 
+using Beutl.Language;
+
 namespace Beutl.Graphics.Effects;
 
 public sealed class Invert : FilterEffect
@@ -19,6 +21,7 @@ public sealed class Invert : FilterEffect
     }
 
     [Range(0, 100)]
+    [Display(Name = nameof(Strings.Amount), ResourceType = typeof(Strings))]
     public float Amount
     {
         get => _amount;

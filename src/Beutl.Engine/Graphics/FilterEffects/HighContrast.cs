@@ -1,4 +1,8 @@
-﻿namespace Beutl.Graphics.Effects;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Language;
+
+namespace Beutl.Graphics.Effects;
 
 public sealed class HighContrast : FilterEffect
 {
@@ -26,18 +30,21 @@ public sealed class HighContrast : FilterEffect
         AffectsRender<HighContrast>(GrayscaleProperty, InvertStyleProperty, ContrastProperty);
     }
 
+    [Display(Name = nameof(Strings.Grayscale), ResourceType = typeof(Strings))]
     public bool Grayscale
     {
         get => _grayscale;
         set => SetAndRaise(GrayscaleProperty, ref _grayscale, value);
     }
 
+    [Display(Name = nameof(Strings.InvertStyle), ResourceType = typeof(Strings))]
     public HighContrastInvertStyle InvertStyle
     {
         get => _invertStyle;
         set => SetAndRaise(InvertStyleProperty, ref _invertStyle, value);
     }
 
+    [Display(Name = nameof(Strings.Contrast), ResourceType = typeof(Strings))]
     public float Contrast
     {
         get => _contrast;

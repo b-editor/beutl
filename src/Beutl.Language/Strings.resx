@@ -826,4 +826,52 @@ and b-editor maintains the download URL.</value>
   <data name="Completed" xml:space="preserve">
     <value>Completed</value>
   </data>
+  <data name="Image" xml:space="preserve">
+    <value>Image</value>
+  </data>
+  <data name="Sound" xml:space="preserve">
+    <value>Sound</value>
+  </data>
+  <data name="FilterEffect" xml:space="preserve">
+    <value>Filter Effect</value>
+  </data>
+  <data name="Brightness" xml:space="preserve">
+    <value>Brightness</value>
+  </data>
+  <data name="Gamma" xml:space="preserve">
+    <value>Gamma</value>
+  </data>
+  <data name="Invert" xml:space="preserve">
+    <value>Invert</value>
+  </data>
+  <data name="LUT_Cube_File" xml:space="preserve">
+    <value>LUT (Cube File)</value>
+  </data>
+  <data name="Amount" xml:space="preserve">
+    <value>Amount</value>
+  </data>
+  <data name="RadiusX" xml:space="preserve">
+    <value>Radius X</value>
+  </data>
+  <data name="RadiusY" xml:space="preserve">
+    <value>Radius Y</value>
+  </data>
+  <data name="Strength" xml:space="preserve">
+    <value>Strength</value>
+  </data>
+  <data name="Grayscale" xml:space="preserve">
+    <value>Grayscale</value>
+  </data>
+  <data name="InvertStyle" xml:space="preserve">
+    <value>Invert Style</value>
+  </data>
+  <data name="Contrast" xml:space="preserve">
+    <value>Contrast</value>
+  </data>
+  <data name="Addition" xml:space="preserve">
+    <value>Addition</value>
+  </data>
+  <data name="Multiplication" xml:space="preserve">
+    <value>Multiplication</value>
+  </data>
 </root>

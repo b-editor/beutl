@@ -1,4 +1,8 @@
-﻿namespace Beutl.Graphics.Effects;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Language;
+
+namespace Beutl.Graphics.Effects;
 
 public sealed class Erode : FilterEffect
 {
@@ -20,12 +24,14 @@ public sealed class Erode : FilterEffect
         AffectsRender<Erode>(RadiusXProperty, RadiusYProperty);
     }
 
+    [Display(Name = nameof(Strings.RadiusX), ResourceType = typeof(Strings))]
     public float RadiusX
     {
         get => _radiusX;
         set => SetAndRaise(RadiusXProperty, ref _radiusX, value);
     }
 
+    [Display(Name = nameof(Strings.RadiusY), ResourceType = typeof(Strings))]
     public float RadiusY
     {
         get => _radiusY;

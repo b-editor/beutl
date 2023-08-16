@@ -1,4 +1,8 @@
-﻿namespace Beutl.Graphics.Effects;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Language;
+
+namespace Beutl.Graphics.Effects;
 
 public sealed class Saturate : FilterEffect
 {
@@ -15,6 +19,7 @@ public sealed class Saturate : FilterEffect
         AffectsRender<Saturate>(AmountProperty);
     }
 
+    [Display(Name = nameof(Strings.Amount), ResourceType = typeof(Strings))]
     public float Amount
     {
         get => _amount;

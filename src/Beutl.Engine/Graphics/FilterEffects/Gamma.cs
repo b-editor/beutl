@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
+using Beutl.Language;
+
 namespace Beutl.Graphics.Effects;
 
 public sealed class Gamma : FilterEffect
@@ -24,6 +26,7 @@ public sealed class Gamma : FilterEffect
         AffectsRender<Gamma>(AmountProperty, StrengthProperty);
     }
 
+    [Display(Name = nameof(Strings.Amount), ResourceType = typeof(Strings))]
     [Range(1, 300)]
     public float Amount
     {
@@ -31,6 +34,7 @@ public sealed class Gamma : FilterEffect
         set => SetAndRaise(AmountProperty, ref _amount, value);
     }
 
+    [Display(Name = nameof(Strings.Strength), ResourceType = typeof(Strings))]
     [Range(0, 100)]
     public float Strength
     {

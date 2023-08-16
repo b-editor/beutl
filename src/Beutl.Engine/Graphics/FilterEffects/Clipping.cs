@@ -1,4 +1,8 @@
-﻿using SkiaSharp;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Language;
+
+using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -16,6 +20,7 @@ public sealed class Clipping : FilterEffect
         AffectsRender<Clipping>(ThicknessProperty);
     }
 
+    [Display(Name = nameof(Strings.Thickness), ResourceType = typeof(Strings))]
     public Thickness Thickness
     {
         get => _thickness;

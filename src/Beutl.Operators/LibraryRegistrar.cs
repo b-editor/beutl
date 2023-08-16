@@ -114,19 +114,19 @@ public static class LibraryRegistrar
             );
 
         LibraryService.Current
-            .AddMultiple("SourceVideo", m => m
+            .AddMultiple(Strings.Video, m => m
                 .BindSourceOperator<Source.SourceVideoOperator>()
                 .BindDrawable<SourceVideo>()
             );
 
         LibraryService.Current
-            .AddMultiple("SourceImage", m => m
+            .AddMultiple(Strings.Image, m => m
                 .BindSourceOperator<Source.SourceImageOperator>()
                 .BindDrawable<SourceImage>()
             );
 
         LibraryService.Current
-            .AddMultiple("SourceSound", m => m
+            .AddMultiple(Strings.Sound, m => m
                 .BindSourceOperator<Source.SourceSoundOperator>()
                 .BindSound<SourceSound>()
             );
@@ -165,7 +165,7 @@ public static class LibraryRegistrar
             );
 
         LibraryService.Current
-            .RegisterGroup(Strings.ImageFilter, g => g
+            .RegisterGroup(Strings.FilterEffect, g => g
                 .AddMultiple(Strings.Blur, m => m
                     .BindSourceOperator<Configure.Effects.BlurOperator>()
                     .BindFilterEffect<Blur>()
@@ -231,22 +231,22 @@ public static class LibraryRegistrar
                     .BindFilterEffect<Threshold>()
                 )
                 
-                .AddMultiple("Brightness", m => m
+                .AddMultiple(Strings.Brightness, m => m
                     .BindSourceOperator<Configure.Effects.BrightnessOperator>()
                     .BindFilterEffect<Brightness>()
                 )
                 
-                .AddMultiple("Gamma", m => m
+                .AddMultiple(Strings.Gamma, m => m
                     .BindSourceOperator<Configure.Effects.GammaOperator>()
                     .BindFilterEffect<Gamma>()
                 )
                 
-                .AddMultiple("Invert", m => m
+                .AddMultiple(Strings.Invert, m => m
                     .BindSourceOperator<Configure.Effects.InvertOperator>()
                     .BindFilterEffect<Invert>()
                 )
                 
-                .AddMultiple("LUT (Cube File)", m => m
+                .AddMultiple(Strings.LUT_Cube_File, m => m
                     .BindSourceOperator<Configure.Effects.LutEffectOperator>()
                     .BindFilterEffect<LutEffect>()
                 )

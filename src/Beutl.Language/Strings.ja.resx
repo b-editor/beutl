@@ -826,4 +826,52 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Completed" xml:space="preserve">
     <value>完了しました</value>
   </data>
+  <data name="Image" xml:space="preserve">
+    <value>画像</value>
+  </data>
+  <data name="Sound" xml:space="preserve">
+    <value>サウンド</value>
+  </data>
+  <data name="FilterEffect" xml:space="preserve">
+    <value>フィルタエフェクト</value>
+  </data>
+  <data name="Brightness" xml:space="preserve">
+    <value>明るさ</value>
+  </data>
+  <data name="Gamma" xml:space="preserve">
+    <value>ガンマ</value>
+  </data>
+  <data name="Invert" xml:space="preserve">
+    <value>反転</value>
+  </data>
+  <data name="LUT_Cube_File" xml:space="preserve">
+    <value>LUT (Cubeファイル)</value>
+  </data>
+  <data name="Amount" xml:space="preserve">
+    <value>量</value>
+  </data>
+  <data name="RadiusX" xml:space="preserve">
+    <value>半径X</value>
+  </data>
+  <data name="RadiusY" xml:space="preserve">
+    <value>半径Y</value>
+  </data>
+  <data name="Strength" xml:space="preserve">
+    <value>強さ</value>
+  </data>
+  <data name="Grayscale" xml:space="preserve">
+    <value>グレースケール</value>
+  </data>
+  <data name="InvertStyle" xml:space="preserve">
+    <value>反転モード</value>
+  </data>
+  <data name="Contrast" xml:space="preserve">
+    <value>コントラスト</value>
+  </data>
+  <data name="Addition" xml:space="preserve">
+    <value>加算</value>
+  </data>
+  <data name="Multiplication" xml:space="preserve">
+    <value>乗算</value>
+  </data>
 </root>

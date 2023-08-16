@@ -1,4 +1,8 @@
-﻿namespace Beutl.Graphics.Effects;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Language;
+
+namespace Beutl.Graphics.Effects;
 
 public sealed class HueRotate : FilterEffect
 {
@@ -14,6 +18,7 @@ public sealed class HueRotate : FilterEffect
         AffectsRender<HueRotate>(AngleProperty);
     }
 
+    [Display(Name = nameof(Strings.Angle), ResourceType = typeof(Strings))]
     public float Angle
     {
         get => _angle;
