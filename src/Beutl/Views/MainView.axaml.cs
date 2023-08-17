@@ -26,14 +26,13 @@ using Beutl.Services;
 using Beutl.Utilities;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
+using Beutl.ViewModels.Tools;
 using Beutl.Views.Dialogs;
 
 using DynamicData;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
-
-using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -129,15 +128,19 @@ public sealed partial class MainView : UserControl
         recentProjects.ItemsSource = _rawRecentProjItems;
     }
 
-    private async void SceneSettings_Click(object? sender, RoutedEventArgs e)
+    private void SceneSettings_Click(object? sender, RoutedEventArgs e)
     {
         if (TryGetSelectedEditViewModel(out EditViewModel? viewModel))
         {
-            var dialog = new SceneSettings()
+            SceneSettingsTabViewModel? tab = viewModel.FindToolTab<SceneSettingsTabViewModel>();
+            if (tab != null)
             {
-                DataContext = new SceneSettingsViewModel(viewModel.Scene)
-            };
-            await dialog.ShowAsync();
+                tab.IsSelected.Value = true;
+            }
+            else
+            {
+                viewModel.OpenToolTab(new SceneSettingsTabViewModel(viewModel));
+            }
         }
     }
 

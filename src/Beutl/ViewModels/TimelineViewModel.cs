@@ -108,8 +108,6 @@ public sealed class TimelineViewModel : IToolContext
                 Layers.Clear();
             })
             .AddTo(_disposables);
-
-        Header = new ReactivePropertySlim<string>(Strings.Timeline);
     }
 
     public Scene Scene { get; private set; }
@@ -146,11 +144,11 @@ public sealed class TimelineViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-    public IReadOnlyReactiveProperty<string> Header { get; }
-
     public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Bottom;
 
     public IObservable<LayerHeaderViewModel> LayerHeightChanged => _layerHeightChanged;
+
+    public string Header => Strings.Timeline;
 
     public void Dispose()
     {

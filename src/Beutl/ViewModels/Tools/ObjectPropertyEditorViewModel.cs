@@ -20,7 +20,6 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
     public ObjectPropertyEditorViewModel(EditViewModel viewModel)
     {
         _viewModel = viewModel;
-        Header = new ReactivePropertySlim<string>(Strings.Properties);
 
         _viewModel.SelectedObject
             .Subscribe(obj => NavigateCore(obj, false))
@@ -37,7 +36,7 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-    public IReadOnlyReactiveProperty<string> Header { get; }
+    public string Header => Strings.Properties;
 
     public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Right;
 

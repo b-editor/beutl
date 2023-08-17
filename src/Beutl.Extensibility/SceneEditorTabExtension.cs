@@ -12,7 +12,7 @@ public interface IToolContext : IDisposable, IJsonSerializable, IServiceProvider
 
     IReactiveProperty<bool> IsSelected { get; }
 
-    string Header => Extension.Header ?? "";
+    string Header { get; }
 
     ToolTabExtension.TabPlacement Placement { get; }
 }

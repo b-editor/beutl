@@ -117,7 +117,7 @@ public sealed class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        RenderThread.Dispatcher.Invoke(SharedGPUContext.Create);
+        RenderThread.Dispatcher.Dispatch(SharedGPUContext.Create, Threading.DispatchPriority.High);
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {

@@ -321,6 +321,7 @@ public sealed class MainViewModel : BasePageViewModel
             NodeTreeTabExtension.Instance,
             NodeTreeInputTabExtension.Instance,
             GraphEditorTabExtension.Instance,
+            SceneSettingsTabExtension.Instance,
         });
 
 #if FFMPEG_BUILD_IN

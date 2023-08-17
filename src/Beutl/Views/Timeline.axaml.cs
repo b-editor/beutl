@@ -9,16 +9,17 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+
+using Beutl.Media;
 using Beutl.Models;
 using Beutl.ProjectSystem;
-using Beutl.Operation;
+using Beutl.Services;
 using Beutl.ViewModels;
+using Beutl.ViewModels.Tools;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
-using Beutl.Media;
+
 using FluentAvalonia.UI.Controls;
-using Beutl.Extensibility;
-using Beutl.Services;
 
 namespace Beutl.Views;
 
@@ -38,7 +39,6 @@ public sealed partial class Timeline : UserControl
     private readonly CompositeDisposable _disposables = new();
     private ElementView? _selectedLayer;
     private readonly List<(ElementViewModel Layer, bool IsSelectedOriginal)> _rangeSelection = new();
-
     public Timeline()
     {
         InitializeComponent();
@@ -385,13 +385,18 @@ public sealed partial class Timeline : UserControl
         await dialog.ShowAsync();
     }
 
-    private async void ShowSceneSettings(object? sender, RoutedEventArgs e)
+    private void ShowSceneSettings(object? sender, RoutedEventArgs e)
     {
-        var dialog = new SceneSettings()
+        EditViewModel editorContext = ViewModel.EditorContext;
+        SceneSettingsTabViewModel? tab = editorContext.FindToolTab<SceneSettingsTabViewModel>();
+        if (tab != null)
         {
-            DataContext = new SceneSettingsViewModel(ViewModel.Scene)
-        };
-        await dialog.ShowAsync();
+            tab.IsSelected.Value = true;
+        }
+        else
+        {
+            editorContext.OpenToolTab(new SceneSettingsTabViewModel(editorContext));
+        }
     }
 
     // 要素を追加
