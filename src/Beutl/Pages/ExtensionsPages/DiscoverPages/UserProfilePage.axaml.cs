@@ -28,16 +28,22 @@ public partial class UserProfilePage : UserControl
     private void OnActualThemeVariantChanged(object? sender, EventArgs e)
     {
         ThemeVariant theme = ActualThemeVariant;
-        if (theme == ThemeVariant.Light || theme == FluentAvaloniaTheme.HighContrastTheme)
+        void SetImage(string darkTheme, string lightTheme, BitmapIcon image)
         {
-            githubLightLogo.IsVisible = true;
-            githubDarkLogo.IsVisible = false;
+            image.UriSource = theme == ThemeVariant.Light || theme == FluentAvaloniaTheme.HighContrastTheme
+                ? new Uri(lightTheme)
+                : new Uri(darkTheme);
         }
-        else
-        {
-            githubLightLogo.IsVisible = false;
-            githubDarkLogo.IsVisible = true;
-        }
+
+        SetImage(
+            darkTheme: "avares://Beutl/Assets/social/GitHub-Mark-Light-120px-plus.png",
+            lightTheme: "avares://Beutl/Assets/social/GitHub-Mark-120px-plus.png",
+            image: githubLogo);
+
+        SetImage(
+            darkTheme: "avares://Beutl/Assets/social/x-logo-white.png",
+            lightTheme: "avares://Beutl/Assets/social/x-logo-black.png",
+            image: xLogo);
     }
 
     private void OnNavigatedTo(object? sender, NavigationEventArgs e)

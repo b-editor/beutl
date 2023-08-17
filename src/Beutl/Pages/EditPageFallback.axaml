@@ -140,27 +140,20 @@
             <Button Click="SocialClick"
                     Tag="GitHub"
                     ToolTip.Tip="GitHub">
-                <Panel>
-                    <Image x:Name="githubLightLogo"
-                           IsVisible="False"
-                           Source="/Assets/social/GitHub-Mark-120px-plus.png" />
-                    <Image x:Name="githubDarkLogo"
-                           IsVisible="False"
-                           Source="/Assets/social/GitHub-Mark-Light-120px-plus.png" />
-                </Panel>
+                <ui:BitmapIcon x:Name="githubLogo" />
             </Button>
             <Button Click="SocialClick"
                     Tag="Twitter"
                     ToolTip.Tip="Twitter">
-                <Image Source="/Assets/social/TwitterSocialIconsCircleBlue.png" />
+                <ui:BitmapIcon x:Name="xLogo" Margin="2" />
             </Button>
             <Button Click="SocialClick"
                     Tag="Url"
                     ToolTip.Tip="Project">
-                <icons:SymbolIcon Width="24"
-                                  Height="24"
-                                  FontSize="20"
-                                  Symbol="Link" />
+                <ui:SymbolIcon Width="24"
+                               Height="24"
+                               FontSize="20"
+                               Symbol="Link" />
             </Button>
         </StackPanel>
     </Grid>

@@ -85,20 +85,13 @@
                                 IsVisible="{Binding GitHubUrl.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                 Tag="GitHub"
                                 ToolTip.Tip="{Binding GitHubUrl.Value}">
-                            <Panel>
-                                <Image x:Name="githubLightLogo"
-                                       IsVisible="False"
-                                       Source="/Assets/social/GitHub-Mark-120px-plus.png" />
-                                <Image x:Name="githubDarkLogo"
-                                       IsVisible="False"
-                                       Source="/Assets/social/GitHub-Mark-Light-120px-plus.png" />
-                            </Panel>
+                            <ui:BitmapIcon x:Name="githubLogo" />
                         </Button>
                         <Button Click="OpenSocial_Click"
                                 IsVisible="{Binding TwitterUrl.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                 Tag="Twitter"
                                 ToolTip.Tip="{Binding TwitterUrl.Value}">
-                            <Image Source="/Assets/social/TwitterSocialIconsCircleBlue.png" />
+                            <ui:BitmapIcon x:Name="xLogo" Margin="2" />
                         </Button>
                         <Button Click="OpenSocial_Click"
                                 IsVisible="{Binding YouTubeUrl.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
