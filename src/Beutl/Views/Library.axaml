@@ -85,7 +85,7 @@
                                             <Setter Property="FontSize" Value="12" />
                                         </Style>
                                     </WrapPanel.Styles>
-                                    <TextBlock IsVisible="{Binding !!Description}" Text="{Binding Description}" />
+                                    <TextBlock IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding Description}" />
                                     <TextBlock Text=" | ">
                                         <TextBlock.IsVisible>
                                             <MultiBinding Converter="{x:Static BoolConverters.And}">
@@ -94,7 +94,7 @@
                                             </MultiBinding>
                                         </TextBlock.IsVisible>
                                     </TextBlock>
-                                    <TextBlock IsVisible="{Binding !!Type}" Text="{Binding Type}" />
+                                    <TextBlock IsVisible="{Binding Type, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding Type}" />
                                 </WrapPanel>
                             </StackPanel>
                         </DataTemplate>

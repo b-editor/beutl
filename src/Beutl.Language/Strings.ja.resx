@@ -874,4 +874,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Multiplication" xml:space="preserve">
     <value>乗算</value>
   </data>
+  <data name="Number_of_Layers" xml:space="preserve">
+    <value>レイヤーの数</value>
+  </data>
 </root>

@@ -104,7 +104,7 @@ public sealed class App : Application
         Log.Logger = new LoggerConfiguration()
             .Enrich.FromLogContext()
 #if DEBUG
-            .MinimumLevel.Debug()
+            .MinimumLevel.Verbose()
             .WriteTo.Debug(outputTemplate: OutputTemplate)
 #else
             .MinimumLevel.Debug()

@@ -34,7 +34,6 @@ public sealed partial class Timeline : UserControl
 
     internal MouseFlags _mouseFlag = MouseFlags.Free;
     internal TimeSpan _pointerFrame;
-    internal int _pointerLayer;
     private TimelineViewModel? _viewModel;
     private readonly CompositeDisposable _disposables = new();
     private ElementView? _selectedLayer;
@@ -70,13 +69,6 @@ public sealed partial class Timeline : UserControl
     {
         _viewModel = vm;
 
-        var minHeightBinding = new Binding("Options.Value")
-        {
-            Converter = new FuncValueConverter<TimelineOptions, double>(x => x.MaxLayerCount * FrameNumberHelper.LayerHeight)
-        };
-        TimelinePanel[!MinHeightProperty] = minHeightBinding;
-        LeftPanel[!MinHeightProperty] = minHeightBinding;
-
         vm.Layers.ForEachItem(
             AddElement,
             RemoveElement,
@@ -103,7 +95,7 @@ public sealed partial class Timeline : UserControl
                             var layer = new Element();
                             layer.ReadFromJson(JsonNode.Parse(json)!.AsObject());
                             layer.Start = ViewModel.ClickedFrame;
-                            layer.ZIndex = ViewModel.ClickedLayer;
+                            layer.ZIndex = ViewModel.CalculateClickedLayer();
 
                             layer.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.ElementFileExtension));
 
@@ -149,6 +141,8 @@ public sealed partial class Timeline : UserControl
                 }, DispatcherPriority.MaxValue);
             })
             .DisposeWith(_disposables);
+
+        ContentScroll.ScrollChanged += ContentScroll_ScrollChanged;
     }
 
     internal TimelineViewModel ViewModel => _viewModel!;
@@ -174,6 +168,19 @@ public sealed partial class Timeline : UserControl
     private void PaneScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         ContentScroll.Offset = ContentScroll.Offset.WithY(PaneScroll.Offset.Y);
+    }
+
+    // PaneScrollがスクロールされた
+    private void ContentScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        TimelineViewModel viewModel = ViewModel;
+        Avalonia.Vector aOffset = ContentScroll.Offset;
+        var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);
+
+        viewModel.Options.Value = viewModel.Options.Value with
+        {
+            Offset = offset
+        };
     }
 
     private void UpdateZoom(PointerWheelEventArgs e, ref float scale, ref Vector2 offset)
@@ -232,11 +239,6 @@ public sealed partial class Timeline : UserControl
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
         _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale)
             .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
-
-        if (ReferenceEquals(sender, TimelinePanel))
-        {
-            _pointerLayer = viewModel.ToLayerNumber(pointerPt.Position.Y);
-        }
 
         if (_mouseFlag == MouseFlags.SeekBarPressed)
         {
@@ -303,10 +305,7 @@ public sealed partial class Timeline : UserControl
         viewModel.ClickedFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale)
             .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
 
-        if (ReferenceEquals(sender, TimelinePanel))
-        {
-            viewModel.ClickedLayer = viewModel.ToLayerNumber(pointerPt.Position.Y);
-        }
+        viewModel.ClickedPosition = pointerPt.Position;
 
         TimelinePanel.Focus();
 
@@ -341,7 +340,7 @@ public sealed partial class Timeline : UserControl
 
         viewModel.ClickedFrame = pt.X.ToTimeSpan(viewModel.Options.Value.Scale)
             .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
-        viewModel.ClickedLayer = viewModel.ToLayerNumber(pt.Y);
+        viewModel.ClickedPosition = pt;
 
         if (e.Data.Get(KnownLibraryItemFormats.SourceOperator) is Type type)
         {
@@ -349,14 +348,20 @@ public sealed partial class Timeline : UserControl
             {
                 var dialog = new AddElementDialog
                 {
-                    DataContext = new AddElementDialogViewModel(scene, new ElementDescription(viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.ClickedLayer, InitialOperator: type))
+                    DataContext = new AddElementDialogViewModel(
+                        scene,
+                        new ElementDescription(
+                            viewModel.ClickedFrame,
+                            TimeSpan.FromSeconds(5),
+                            viewModel.CalculateClickedLayer(),
+                            InitialOperator: type))
                 };
                 await dialog.ShowAsync();
             }
             else
             {
                 viewModel.AddLayer.Execute(new ElementDescription(
-                    viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.ClickedLayer, InitialOperator: type));
+                    viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(), InitialOperator: type));
             }
         }
     }
@@ -380,7 +385,7 @@ public sealed partial class Timeline : UserControl
         var dialog = new AddElementDialog
         {
             DataContext = new AddElementDialogViewModel(ViewModel.Scene,
-                new ElementDescription(ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.ClickedLayer))
+                new ElementDescription(ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.CalculateClickedLayer()))
         };
         await dialog.ShowAsync();
     }

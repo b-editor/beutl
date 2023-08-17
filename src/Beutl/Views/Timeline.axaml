@@ -86,6 +86,7 @@
             <Panel x:Name="TimelinePanel"
                    Width="{CompiledBinding PanelWidth.Value}"
                    MinWidth="{Binding #ContentScroll.Bounds.Width}"
+                   MinHeight="{Binding #LeftPanel.Bounds.Height}"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Top"
                    Background="Transparent"

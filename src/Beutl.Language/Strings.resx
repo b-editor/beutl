@@ -874,4 +874,7 @@ and b-editor maintains the download URL.</value>
   <data name="Multiplication" xml:space="preserve">
     <value>Multiplication</value>
   </data>
+  <data name="Number_of_Layers" xml:space="preserve">
+    <value>Number of Layers</value>
+  </data>
 </root>

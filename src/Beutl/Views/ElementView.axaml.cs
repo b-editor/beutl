@@ -444,16 +444,16 @@ public sealed partial class ElementView : UserControl
                     }
                     else
                     {
-                        float scale = viewModel.Timeline.Options.Value.Scale;
-                        int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-                        TimeSpan newStart = viewModel.BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate);
-                        int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
-                        TimeSpan deltaStart = newStart - viewModel.Model.Start;
-                        int deltaIndex = newIndex - viewModel.Model.ZIndex;
-
                         var animations = viewModel.Timeline.GetSelected(viewModel).Append(viewModel)
                             .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
                             .ToArray();
+
+                        float scale = viewModel.Timeline.Options.Value.Scale;
+                        int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+                        TimeSpan newStart = viewModel.BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate);
+                        TimeSpan deltaStart = newStart - viewModel.Model.Start;
+                        int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
+                        int deltaIndex = newIndex - viewModel.Model.ZIndex;
 
                         viewModel.Scene.MoveChildren(deltaIndex, deltaStart, elems.ToArray())
                             .DoAndRecord(CommandRecorder.Default);

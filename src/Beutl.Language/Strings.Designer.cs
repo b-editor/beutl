@@ -1412,6 +1412,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Number of Layers に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Number_of_Layers {
+            get {
+                return ResourceManager.GetString("Number_of_Layers", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Object に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Object {

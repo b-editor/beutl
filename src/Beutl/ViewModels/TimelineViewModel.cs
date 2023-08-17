@@ -6,7 +6,6 @@ using System.Text.Json.Nodes;
 using Avalonia;
 
 using Beutl.Animation;
-using Beutl.Extensibility;
 using Beutl.Models;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
@@ -20,6 +19,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+
+using Serilog;
 
 namespace Beutl.ViewModels;
 
@@ -36,6 +37,7 @@ public interface ITimelineOptionsProvider
 
 public sealed class TimelineViewModel : IToolContext
 {
+    private readonly ILogger _logger = Log.ForContext<TimelineViewModel>();
     private readonly CompositeDisposable _disposables = new();
     private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
 
@@ -89,9 +91,14 @@ public sealed class TimelineViewModel : IToolContext
             Scene.AddChild(sLayer).DoAndRecord(CommandRecorder.Default);
         }).AddTo(_disposables);
 
-        LayerHeaders.AddRange(Enumerable.Range(0, 100).Select(num => new LayerHeaderViewModel(num, this)));
+        TimelineOptions options = editViewModel.Options.Value;
+        LayerHeaders.AddRange(Enumerable.Range(0, options.MaxLayerCount).Select(num => new LayerHeaderViewModel(num, this)));
         Scene.Children.ForEachItem(
-            (idx, item) => Layers.Insert(idx, new ElementViewModel(item, this)),
+            (idx, item) =>
+            {
+                AddLayerHeaders(item.ZIndex + 1);
+                Layers.Insert(idx, new ElementViewModel(item, this));
+            },
             (idx, _) =>
             {
                 ElementViewModel layer = Layers[idx];
@@ -108,6 +115,10 @@ public sealed class TimelineViewModel : IToolContext
                 Layers.Clear();
             })
             .AddTo(_disposables);
+
+        editViewModel.Options.Select(x => x.MaxLayerCount)
+            .DistinctUntilChanged()
+            .Subscribe(TryApplyLayerCount);
     }
 
     public Scene Scene { get; private set; }
@@ -136,7 +147,7 @@ public sealed class TimelineViewModel : IToolContext
 
     public TimeSpan ClickedFrame { get; set; }
 
-    public int ClickedLayer { get; set; }
+    public Point ClickedPosition { get; set; }
 
     public IReactiveProperty<TimelineOptions> Options => EditorContext.Options;
 
@@ -174,6 +185,65 @@ public sealed class TimelineViewModel : IToolContext
         Scene = null!;
         Player = null!;
         EditorContext = null!;
+    }
+
+    // ClickedPositionから最後にクリックしたレイヤーを計算します。
+    public int CalculateClickedLayer()
+    {
+        return ToLayerNumber(ClickedPosition.Y);
+    }
+
+    // zindexまでLayerHeaderを追加します。
+    private void AddLayerHeaders(int count)
+    {
+        if (LayerHeaders.Count != 0)
+        {
+            LayerHeaderViewModel last = LayerHeaders[LayerHeaders.Count - 1];
+
+            for (int i = last.Number.Value + 1; i < count; i++)
+            {
+                LayerHeaders.Add(new LayerHeaderViewModel(i, this));
+            }
+
+            if (Options.Value.MaxLayerCount != LayerHeaders.Count)
+            {
+                Options.Value = Options.Value with
+                {
+                    MaxLayerCount = LayerHeaders.Count
+                };
+
+                _logger.Debug("The number of layers has been changed. ({Count})", count);
+            }
+        }
+    }
+
+    private void TryApplyLayerCount(int count)
+    {
+        if (LayerHeaders.Count > count)
+        {
+            for (int i = LayerHeaders.Count - 1; i >= count; i--)
+            {
+                LayerHeaderViewModel item = LayerHeaders[i];
+                if (item.ItemsCount.Value > 0)
+                    break;
+
+                LayerHeaders.RemoveAt(i);
+            }
+
+            if (Options.Value.MaxLayerCount != LayerHeaders.Count)
+            {
+                Options.Value = Options.Value with
+                {
+                    MaxLayerCount = LayerHeaders.Count
+                };
+
+                _logger.Debug("The number of layers has been changed. ({Count})", LayerHeaders.Count);
+            }
+        }
+        else
+        {
+            AddLayerHeaders(count);
+        }
     }
 
     public void ReadFromJson(JsonObject json)
@@ -292,6 +362,8 @@ public sealed class TimelineViewModel : IToolContext
 
     public double CalculateLayerTop(int layer)
     {
+        AddLayerHeaders(layer + 1);
+
         double sum = 0;
         for (int i = 0; i < layer; i++)
         {
@@ -314,7 +386,12 @@ public sealed class TimelineViewModel : IToolContext
             }
         }
 
-        return -1;
+        double delta = pixel - sum;
+        int addCount = (int)Math.Ceiling(delta / FrameNumberHelper.LayerHeight);
+        int zIndex = addCount + LayerHeaders.Count;
+        AddLayerHeaders(zIndex + 1);
+
+        return zIndex;
     }
 
     public int ToLayerNumber(Thickness thickness)
@@ -331,7 +408,12 @@ public sealed class TimelineViewModel : IToolContext
             }
         }
 
-        return -1;
+        double delta = thickness.Top - sum;
+        int addCount = (int)Math.Ceiling(delta / FrameNumberHelper.LayerHeight);
+        int zIndex = addCount + LayerHeaders.Count;
+        AddLayerHeaders(zIndex + 1);
+
+        return zIndex;
     }
 
     public bool AnySelected(ElementViewModel? exclude = null)

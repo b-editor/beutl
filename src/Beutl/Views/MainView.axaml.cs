@@ -616,7 +616,7 @@ Error:
                 var dialog = new AddElementDialog
                 {
                     DataContext = new AddElementDialogViewModel(viewModel.Scene,
-                        new ElementDescription(timeline.ClickedFrame, TimeSpan.FromSeconds(5), timeline.ClickedLayer))
+                        new ElementDescription(timeline.ClickedFrame, TimeSpan.FromSeconds(5), timeline.CalculateClickedLayer()))
                 };
                 await dialog.ShowAsync();
             }

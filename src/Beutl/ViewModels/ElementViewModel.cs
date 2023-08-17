@@ -211,9 +211,9 @@ public sealed class ElementViewModel : IDisposable
 
         float scale = Timeline.Options.Value.Scale;
         int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-        int zindex = Timeline.ToLayerNumber(Margin.Value);
         TimeSpan start = BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate);
         TimeSpan length = Width.Value.ToTimeSpan(scale).RoundToRate(rate);
+        int zindex = Timeline.ToLayerNumber(Margin.Value);
         Scene.MoveChild(zindex, start, length, Model)
             .DoAndRecord(CommandRecorder.Default);
 

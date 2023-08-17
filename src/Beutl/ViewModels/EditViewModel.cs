@@ -225,7 +225,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         string viewStateDir = ViewStateDirectory();
         var json = new JsonObject
         {
-            ["selected-layer"] = (SelectedObject.Value as Element)?.ZIndex ?? -1,
+            ["selected-object"] = SelectedObject.Value?.Id,
             ["max-layer-count"] = Options.Value.MaxLayerCount,
             ["scale"] = Options.Value.Scale,
             ["offset"] = new JsonObject
@@ -297,17 +297,11 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
             try
             {
-                int layer = (int?)json["selected-layer"] ?? -1;
-                if (layer >= 0)
+                Guid? id = (Guid?)json["selected-object"];
+                if (id.HasValue)
                 {
-                    foreach (Element item in Scene.Children.GetMarshal().Value)
-                    {
-                        if (item.ZIndex == layer)
-                        {
-                            SelectedObject.Value = item;
-                            break;
-                        }
-                    }
+                    var searcher = new ObjectSearcher(Scene, o => o is CoreObject obj && obj.Id == id.Value);
+                    SelectedObject.Value = searcher.Search() as CoreObject;
                 }
             }
             catch { }

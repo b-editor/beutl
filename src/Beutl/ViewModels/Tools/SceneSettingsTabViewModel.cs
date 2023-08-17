@@ -1,5 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
+using Avalonia;
+
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 
@@ -10,23 +12,29 @@ namespace Beutl.ViewModels.Tools;
 public sealed class SceneSettingsTabViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposable = new();
+    private EditViewModel _editViewModel;
     private Scene _scene;
 
     public SceneSettingsTabViewModel(EditViewModel editViewModel)
     {
+        _editViewModel = editViewModel;
         _scene = editViewModel.Scene;
         Width = _scene.GetObservable(Scene.WidthProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposable);
-        Height = _scene.GetObservable(Scene.WidthProperty)
+        Height = _scene.GetObservable(Scene.HeightProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposable);
         Duration = _scene.GetObservable(Scene.DurationProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposable);
+        LayerCount = editViewModel.Options.Select(x => x.MaxLayerCount)
+            .ToReactiveProperty()
+            .DisposeWith(_disposable);
 
         Width.SetValidateNotifyError(ValidateSize);
         Height.SetValidateNotifyError(ValidateSize);
+        LayerCount.SetValidateNotifyError(ValidateSize);
         Duration.SetValidateNotifyError(time =>
         {
             if (time <= TimeSpan.Zero)
@@ -39,7 +47,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
             }
         });
 
-        CanApply = Width.CombineLatest(Height, Duration).Select(t =>
+        CanApply = Width.CombineLatest(Height, Duration, LayerCount).Select(t =>
             {
                 int width = t.First;
                 int height = t.Second;
@@ -47,7 +55,8 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                 TimeSpan time = t.Third;
                 return width > 0 &&
                     height > 0 &&
-                    time > TimeSpan.Zero;
+                    time > TimeSpan.Zero &&
+                    t.Fourth > 0;
             })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
@@ -55,8 +64,18 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         Apply = new ReactiveCommand(CanApply)
             .WithSubscribe(() =>
             {
-                _scene.Initialize(Width.Value, Height.Value);
-                _scene.Duration = Duration.Value;
+                if (Width.Value != _scene.Width
+                    || Height.Value != _scene.Height
+                    || Duration.Value != _scene.Duration)
+                {
+                    new UpdateSceneSettingsCommand(new(Width.Value, Height.Value), Duration.Value, _scene)
+                                    .DoAndRecord(CommandRecorder.Default);
+                }
+
+                _editViewModel.Options.Value = _editViewModel.Options.Value with
+                {
+                    MaxLayerCount = LayerCount.Value
+                };
             })
             .DisposeWith(_disposable);
 
@@ -66,6 +85,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                 Width.Value = _scene.Width;
                 Height.Value = _scene.Height;
                 Duration.Value = _scene.Duration;
+                LayerCount.Value = _editViewModel.Options.Value.MaxLayerCount;
             })
             .DisposeWith(_disposable);
     }
@@ -79,6 +99,8 @@ public sealed class SceneSettingsTabViewModel : IToolContext
     public ReactiveProperty<int> Height { get; }
 
     public ReactiveProperty<TimeSpan> Duration { get; }
+
+    public ReactiveProperty<int> LayerCount { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanApply { get; }
 
@@ -98,6 +120,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
     public void Dispose()
     {
         _disposable.Dispose();
+        _editViewModel = null!;
         _scene = null!;
     }
 
@@ -112,5 +135,40 @@ public sealed class SceneSettingsTabViewModel : IToolContext
     public object? GetService(Type serviceType)
     {
         return null;
+    }
+
+    private sealed class UpdateSceneSettingsCommand : IRecordableCommand
+    {
+        private readonly PixelSize _newSize;
+        private readonly PixelSize _oldSize;
+        private readonly TimeSpan _newDuration;
+        private readonly TimeSpan _oldDuration;
+        private readonly Scene _scene;
+
+        public UpdateSceneSettingsCommand(PixelSize newSize, TimeSpan newDuration, Scene scene)
+        {
+            _newSize = newSize;
+            _oldSize = new(scene.Width, scene.Height);
+            _newDuration = newDuration;
+            _oldDuration = scene.Duration;
+            _scene = scene;
+        }
+
+        public void Do()
+        {
+            _scene.Initialize(_newSize.Width, _newSize.Height);
+            _scene.Duration = _newDuration;
+        }
+
+        public void Redo()
+        {
+            Do();
+        }
+
+        public void Undo()
+        {
+            _scene.Initialize(_oldSize.Width, _oldSize.Height);
+            _scene.Duration = _oldDuration;
+        }
     }
 }
