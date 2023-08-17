@@ -10,8 +10,10 @@ namespace Beutl.Graphics.Effects;
 public sealed class TransformEffect : FilterEffect
 {
     public static readonly CoreProperty<ITransform?> TransformProperty;
+    public static readonly CoreProperty<RelativePoint> TransformOriginProperty;
     public static readonly CoreProperty<BitmapInterpolationMode> BitmapInterpolationModeProperty;
     private ITransform? _transform;
+    private RelativePoint _transformOrigin = RelativePoint.Center;
     private BitmapInterpolationMode _interpolationMode;
 
     static TransformEffect()
@@ -21,12 +23,17 @@ public sealed class TransformEffect : FilterEffect
             .DefaultValue(null)
             .Register();
 
+        TransformOriginProperty = ConfigureProperty<RelativePoint, TransformEffect>(nameof(TransformOrigin))
+            .Accessor(o => o.TransformOrigin, (o, v) => o.TransformOrigin = v)
+            .DefaultValue(RelativePoint.Center)
+            .Register();
+
         BitmapInterpolationModeProperty = ConfigureProperty<BitmapInterpolationMode, TransformEffect>(nameof(BitmapInterpolationMode))
             .Accessor(o => o.BitmapInterpolationMode, (o, v) => o.BitmapInterpolationMode = v)
             .DefaultValue(BitmapInterpolationMode.Default)
             .Register();
 
-        AffectsRender<TransformEffect>(TransformProperty, BitmapInterpolationModeProperty);
+        AffectsRender<TransformEffect>(TransformProperty, TransformOriginProperty, BitmapInterpolationModeProperty);
     }
 
     [Display(Name = nameof(Strings.Transform), ResourceType = typeof(Strings))]
@@ -34,6 +41,13 @@ public sealed class TransformEffect : FilterEffect
     {
         get => _transform;
         set => SetAndRaise(TransformProperty, ref _transform, value);
+    }
+
+    [Display(Name = nameof(Strings.TransformOrigin), ResourceType = typeof(Strings))]
+    public RelativePoint TransformOrigin
+    {
+        get => _transformOrigin;
+        set => SetAndRaise(TransformOriginProperty, ref _transformOrigin, value);
     }
 
     [Display(Name = nameof(Strings.BitmapInterpolationMode), ResourceType = typeof(Strings))]
@@ -47,14 +61,22 @@ public sealed class TransformEffect : FilterEffect
     {
         if (_transform is { IsEnabled: true, Value: Matrix mat })
         {
+            Vector origin = TransformOrigin.ToPixels(context.Bounds.Size);
+            Matrix offset = Matrix.CreateTranslation(origin);
+
+            mat = (-offset) * mat * offset;
             context.Transform(mat, BitmapInterpolationMode);
         }
     }
 
     public override Rect TransformBounds(Rect bounds)
     {
+        Vector origin = TransformOrigin.ToPixels(bounds.Size);
+        Matrix offset = Matrix.CreateTranslation(origin);
+
         if (_transform is { IsEnabled: true, Value: Matrix mat })
         {
+            mat = (-offset) * mat * offset;
             return bounds.TransformToAABB(mat);
         }
 

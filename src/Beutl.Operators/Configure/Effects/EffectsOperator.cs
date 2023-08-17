@@ -65,6 +65,10 @@ public sealed class ThresholdOperator : FilterEffectOperator<Threshold>
 public sealed class TransformEffectOperator : FilterEffectOperator<TransformEffect>
 {
     public new Setter<ITransform?> Transform { get; set; } = new(TransformEffect.TransformProperty, null);
+
+    public Setter<RelativePoint> TransformOrigin { get; set; } = new(TransformEffect.TransformOriginProperty, RelativePoint.Center);
+
+    public Setter<BitmapInterpolationMode> BitmapInterpolationMode { get; set; } = new(TransformEffect.BitmapInterpolationModeProperty);
 }
 
 public sealed class BrightnessOperator : FilterEffectOperator<Brightness>
