@@ -51,9 +51,11 @@
                 <DataTemplate>
                     <Grid MaxHeight="64" ColumnDefinitions="Auto,*,2*,Auto,Auto">
                         <icons:SymbolIcon Margin="0,0,16,0"
+                                          VerticalAlignment="Center"
                                           IsVisible="{CompiledBinding IsPublic.Value}"
                                           Symbol="Eye" />
                         <icons:SymbolIcon Margin="0,0,16,0"
+                                          VerticalAlignment="Center"
                                           IsVisible="{CompiledBinding !IsPublic.Value}"
                                           Symbol="EyeOff" />
 

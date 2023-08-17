@@ -55,8 +55,12 @@
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Grid ColumnDefinitions="Auto,16,*,Auto">
-                            <icons:SymbolIcon IsVisible="{CompiledBinding IsPublic.Value}" Symbol="Eye" />
-                            <icons:SymbolIcon IsVisible="{CompiledBinding !IsPublic.Value}" Symbol="EyeOff" />
+                            <icons:SymbolIcon VerticalAlignment="Center"
+                                              IsVisible="{CompiledBinding IsPublic.Value}"
+                                              Symbol="Eye" />
+                            <icons:SymbolIcon VerticalAlignment="Center"
+                                              IsVisible="{CompiledBinding !IsPublic.Value}"
+                                              Symbol="EyeOff" />
 
                             <StackPanel Grid.Column="2"
                                         VerticalAlignment="Center"
