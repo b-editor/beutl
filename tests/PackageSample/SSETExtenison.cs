@@ -52,7 +52,7 @@ public sealed class SSETExtenison : ToolTabExtension
 
         public IReactiveProperty<bool> IsSelected { get; }
 
-        public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>("Sample tab");
+        public string Header => "Sample tab";
 
         public TabPlacement Placement => TabPlacement.Bottom;
 
