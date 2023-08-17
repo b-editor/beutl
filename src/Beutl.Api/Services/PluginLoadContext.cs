@@ -25,7 +25,7 @@ public class PluginLoadContext : AssemblyLoadContext
             return LoadFromAssemblyPath(assemblyPath);
         }
 
-        if (!CoreLibraries.IsCoreLibraries(name.Name!))
+        if (!CoreLibraries.IncludedInRuntimeDependencies(name.Name!, name.Version))
         {
             assemblyPath = _pluginResolver.ResolveAssemblyToPath(name);
             if (assemblyPath != null)

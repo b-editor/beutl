@@ -310,7 +310,7 @@ public partial class PackageInstaller : IBeutlApiResource
                     new[] { packageId },
                     Enumerable.Empty<string>(),
                     Enumerable.Empty<PackageReference>(),
-                    CoreLibraries.PreferredVersions,
+                    CoreLibraries.GetPreferredVersions(),
                     availablePackages,
                     repositories.Select(s => s.PackageSource),
                     logger);
@@ -330,7 +330,7 @@ public partial class PackageInstaller : IBeutlApiResource
                 foreach (SourcePackageDependencyInfo packageToInstall in packagesToInstall)
                 {
                     // Beutl.Sdkに含まれるライブラリの場合、飛ばす。
-                    if (CoreLibraries.IsCoreLibraries(packageToInstall.Id))
+                    if (CoreLibraries.IncludedInPackageDependencies(packageToInstall.Id, packageToInstall.Version))
                     {
                         continue;
                     }

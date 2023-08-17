@@ -96,8 +96,9 @@
         </Setter>
     </Style>
 
-    <Style Selector=":is(Visual).transparent">
+    <Style Selector=":is(InputElement).transparent">
         <Setter Property="Opacity" Value="0" />
+        <Setter Property="IsHitTestVisible" Value="False" />
     </Style>
 
     <Style Selector="ToggleSwitch">

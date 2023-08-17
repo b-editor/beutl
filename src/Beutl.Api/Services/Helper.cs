@@ -55,7 +55,7 @@ internal static class Helper
         ISet<SourcePackageDependencyInfo> availablePackages,
         CancellationToken cancellationToken = default)
     {
-        if (availablePackages.Contains(package) || IsCoreLibraries(package.Id)) return;
+        if (availablePackages.Contains(package) || IncludedInPackageDependencies(package.Id, package.Version)) return;
 
         foreach (SourceRepository sourceRepository in repositories)
         {
@@ -70,11 +70,11 @@ internal static class Helper
 
             if (dependencyInfo == null) continue;
 
-            if (dependencyInfo.Dependencies.Any(x => IsCoreLibraries(x.Id)))
+            if (dependencyInfo.Dependencies.Any(x => IncludedInPackageDependencies(x.Id, x.VersionRange)))
             {
                 dependencyInfo = new SourcePackageDependencyInfo(
                     dependencyInfo,
-                    dependencyInfo.Dependencies.Where(x => !IsCoreLibraries(x.Id)),
+                    dependencyInfo.Dependencies.Where(x => !IncludedInPackageDependencies(x.Id, x.VersionRange)),
                     dependencyInfo.Listed,
                     dependencyInfo.Source,
                     dependencyInfo.DownloadUri,
@@ -102,7 +102,7 @@ internal static class Helper
         NuGetFramework framework,
         ISet<PackageDependencyInfo> availablePackages)
     {
-        if (availablePackages.Contains(package) || IsCoreLibraries(package.Id)) return;
+        if (availablePackages.Contains(package) || IncludedInPackageDependencies(package.Id, package.Version)) return;
 
         availablePackages.Add(package);
 
