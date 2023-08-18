@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 
+using Beutl.Animation;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
@@ -324,5 +325,11 @@ public class TextBlock : Drawable
         }
 
         return ascent;
+    }
+
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        (Pen as Animatable)?.ApplyAnimations(clock);
     }
 }
