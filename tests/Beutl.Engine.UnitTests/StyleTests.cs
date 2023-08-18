@@ -63,7 +63,7 @@ public class StyleTests
                 new Setter<IBrush>(Drawable.FillProperty, new SolidColorBrush
                 {
                     Color = Colors.Red,
-                    Opacity = 0.5F
+                    Opacity = 50
                 })
             }
         };
@@ -74,7 +74,7 @@ public class StyleTests
                 new Setter<IBrush>(Drawable.FillProperty, new SolidColorBrush
                 {
                     Color = Colors.White,
-                    Opacity = 1
+                    Opacity = 100
                 })
             }
         };
@@ -140,7 +140,7 @@ public class StyleTests
             instance.End();
 
             Assert.AreEqual(Colors.White, ((ISolidColorBrush)_obj2.Fill).Color);
-            Assert.AreEqual(1, _obj2.Fill.Opacity);
+            Assert.AreEqual(100, _obj2.Fill.Opacity);
         }
     }
 

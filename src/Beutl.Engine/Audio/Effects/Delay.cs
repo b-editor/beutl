@@ -177,6 +177,10 @@ public sealed class Delay : SoundEffect
         public void Process(in Pcm<Stereo32BitFloat> src, out Pcm<Stereo32BitFloat> dst)
         {
             int sampleRate = src.SampleRate;
+            float delayTime = _delay._delayTime;
+            float feedback = _delay._feedback / 100f;
+            float dryMix = _delay._dryMix / 100f;
+            float wetMix = _delay._wetMix / 100f;
 
             Initialize(src);
             Span<Stereo32BitFloat> channel_data = src.DataSpan;
@@ -185,11 +189,11 @@ public sealed class Delay : SoundEffect
             {
                 ref Vector2 input = ref Unsafe.As<Stereo32BitFloat, Vector2>(ref channel_data[sample]);
 
-                Vector2 delay = _delayBuffer.Read((int)(_delay._delayTime * sampleRate));
+                Vector2 delay = _delayBuffer.Read((int)(delayTime * sampleRate));
 
-                _delayBuffer.Write(input + (_delay._feedback * delay));
+                _delayBuffer.Write(input + (feedback * delay));
 
-                input = ((_delay._dryMix) * input) + (_delay._wetMix * delay);
+                input = (dryMix * input) + (wetMix * delay);
             }
 
             dst = src;

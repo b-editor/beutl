@@ -8,7 +8,7 @@ public class ImmutableLinearGradientBrush : ImmutableGradientBrush, ILinearGradi
 {
     public ImmutableLinearGradientBrush(
         IReadOnlyList<ImmutableGradientStop> gradientStops,
-        float opacity = 1,
+        float opacity = 100,
         ImmutableTransform? transform = null,
         RelativePoint? transformOrigin = null,
         GradientSpreadMethod spreadMethod = GradientSpreadMethod.Pad,

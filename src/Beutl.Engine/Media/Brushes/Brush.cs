@@ -15,7 +15,7 @@ public abstract class Brush : Animatable, IMutableBrush
     public static readonly CoreProperty<float> OpacityProperty;
     public static readonly CoreProperty<ITransform?> TransformProperty;
     public static readonly CoreProperty<RelativePoint> TransformOriginProperty;
-    private float _opacity = 1;
+    private float _opacity = 100;
     private ITransform? _transform;
     private RelativePoint _transformOrigin;
 
@@ -23,7 +23,7 @@ public abstract class Brush : Animatable, IMutableBrush
     {
         OpacityProperty = ConfigureProperty<float, Brush>(nameof(Opacity))
             .Accessor(o => o.Opacity, (o, v) => o.Opacity = v)
-            .DefaultValue(1f)
+            .DefaultValue(100f)
             .Register();
 
         TransformProperty = ConfigureProperty<ITransform?, Brush>(nameof(Transform))
@@ -48,6 +48,7 @@ public abstract class Brush : Animatable, IMutableBrush
     /// Gets or sets the opacity of the brush.
     /// </summary>
     [Display(Name = nameof(Strings.Opacity), ResourceType = typeof(Strings))]
+    [Range(0, 100)]
     public float Opacity
     {
         get => _opacity;

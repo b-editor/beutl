@@ -7,7 +7,7 @@ public class ImmutableRadialGradientBrush : ImmutableGradientBrush, IRadialGradi
 {
     public ImmutableRadialGradientBrush(
         IReadOnlyList<ImmutableGradientStop> gradientStops,
-        float opacity = 1,
+        float opacity = 100,
         ImmutableTransform? transform = null,
         RelativePoint? transformOrigin = null,
         GradientSpreadMethod spreadMethod = GradientSpreadMethod.Pad,

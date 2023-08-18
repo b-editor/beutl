@@ -5,7 +5,7 @@ namespace Beutl.Media.Immutable;
 
 public class ImmutableSolidColorBrush : ISolidColorBrush, IEquatable<ISolidColorBrush?>
 {
-    public ImmutableSolidColorBrush(Color color, float opacity = 1, ImmutableTransform? transform = null, RelativePoint origin = default)
+    public ImmutableSolidColorBrush(Color color, float opacity = 100, ImmutableTransform? transform = null, RelativePoint origin = default)
     {
         Color = color;
         Opacity = opacity;

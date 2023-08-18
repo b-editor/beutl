@@ -54,8 +54,8 @@ public class TransformParser
         var transform = Transform.Parse(data) as ScaleTransform;
 
         Assert.NotNull(transform);
-        Assert.AreEqual(x, transform!.ScaleX);
-        Assert.AreEqual(y, transform.ScaleY);
+        Assert.AreEqual(x, transform!.ScaleX / 100);
+        Assert.AreEqual(y, transform.ScaleY / 100);
     }
 
     [Test]

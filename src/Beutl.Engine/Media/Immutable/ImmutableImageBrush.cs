@@ -12,7 +12,7 @@ public class ImmutableImageBrush : ImmutableTileBrush, IImageBrush, IEquatable<I
         AlignmentX alignmentX = AlignmentX.Center,
         AlignmentY alignmentY = AlignmentY.Center,
         RelativeRect? destinationRect = null,
-        float opacity = 1,
+        float opacity = 100,
         ImmutableTransform? transform = null,
         RelativePoint transformOrigin = new RelativePoint(),
         RelativeRect? sourceRect = null,

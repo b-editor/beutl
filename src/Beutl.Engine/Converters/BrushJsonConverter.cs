@@ -31,11 +31,7 @@ internal sealed class BrushJsonConverter : JsonConverter<IBrush>
 
     public override void Write(Utf8JsonWriter writer, IBrush value, JsonSerializerOptions options)
     {
-        if (value is ISolidColorBrush { Opacity: 1 } solidColorBrush)
-        {
-            writer.WriteStringValue(solidColorBrush.Color.ToString());
-        }
-        else if (value is IJsonSerializable jsonSerializable)
+        if (value is IJsonSerializable jsonSerializable)
         {
             var json = new JsonObject();
             jsonSerializable.WriteToJson(json);

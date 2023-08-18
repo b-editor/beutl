@@ -664,7 +664,7 @@ internal static class TransformParser
             {
                 DataType.Translate => new TranslateTransform(Translate.X, Translate.Y),
                 DataType.Rotate => new RotationTransform(MathUtilities.Rad2Deg(Rotate.Angle)),
-                DataType.Scale => new ScaleTransform(Scale.X, Scale.Y),
+                DataType.Scale => new ScaleTransform(Scale.X * 100f, Scale.Y * 100f),
                 DataType.Skew => new SkewTransform(MathUtilities.Rad2Deg(Skew.X), MathUtilities.Rad2Deg(Skew.Y)),
                 DataType.Matrix => new MatrixTransform(Matrix.Value),
                 DataType.Identity => Transform.Identity,

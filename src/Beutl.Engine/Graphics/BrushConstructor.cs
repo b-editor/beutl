@@ -27,7 +27,7 @@ public readonly struct BrushConstructor
 
     public void ConfigurePaint(SKPaint paint)
     {
-        float opacity = Brush?.Opacity ?? 0;
+        float opacity = (Brush?.Opacity ?? 0) / 100f;
         paint.IsAntialias = true;
         paint.BlendMode = (SKBlendMode)BlendMode;
 

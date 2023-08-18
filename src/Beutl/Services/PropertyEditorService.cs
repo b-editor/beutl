@@ -16,8 +16,6 @@ using Beutl.Media.Source;
 using Beutl.ViewModels.Editors;
 using Beutl.Views.Editors;
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Beutl.Services;
 
 public static class PropertyEditorService
@@ -133,13 +131,7 @@ public static class PropertyEditorService
 
         private static readonly Dictionary<int, Editor> s_editorsOverride = new()
         {
-            { Brush.OpacityProperty.Id, new(_ => new OpacityEditor(), s => new OpacityEditorViewModel(s.ToTyped<float>())) },
-            { ScaleTransform.ScaleProperty.Id, new(_ => new PercentageEditor(), s => new PercentageEditorViewModel(s.ToTyped<float>())) },
-            { ScaleTransform.ScaleXProperty.Id, new(_ => new PercentageEditor(), s => new PercentageEditorViewModel(s.ToTyped<float>())) },
-            { ScaleTransform.ScaleYProperty.Id, new(_ => new PercentageEditor(), s => new PercentageEditorViewModel(s.ToTyped<float>())) },
-            { Delay.FeedbackProperty.Id, new(_ => new PercentageEditor(), s => new PercentageEditorViewModel(s.ToTyped<float>())) },
-            { Delay.DryMixProperty.Id, new(_ => new PercentageEditor(), s => new PercentageEditorViewModel(s.ToTyped<float>())) },
-            { Delay.WetMixProperty.Id, new(_ => new PercentageEditor(), s => new PercentageEditorViewModel(s.ToTyped<float>())) },
+            // プロパティのIdから、プロパティエディタを作成
         };
 
         // IList<StreamOperator>
