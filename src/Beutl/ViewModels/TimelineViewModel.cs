@@ -1,4 +1,5 @@
-﻿using System.Collections.Specialized;
+﻿using System.Buffers;
+using System.Collections.Specialized;
 using System.Numerics;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
@@ -8,6 +9,7 @@ using Avalonia;
 using Beutl.Animation;
 using Beutl.Models;
 using Beutl.Operation;
+using Beutl.Operators.Configure;
 using Beutl.ProjectSystem;
 using Beutl.Reactive;
 using Beutl.Services;
@@ -267,29 +269,86 @@ public sealed class TimelineViewModel : IToolContext
         if (json.TryGetPropertyValue(nameof(Inlines), out JsonNode? inlinesNode)
             && inlinesNode is JsonArray inlinesArray)
         {
-            static (Guid ElementId, Guid AnimationId) GetIds(JsonObject v)
+            RestoreInlineAnimation(inlinesArray);
+        }
+    }
+
+    private void RestoreInlineAnimation(JsonArray inlinesArray)
+    {
+        static (Guid ElementId, Guid AnimationId) GetIds(JsonObject v)
+        {
+            return v.TryGetPropertyValueAsJsonValue("ElementId", out Guid elementId)
+                && v.TryGetPropertyValueAsJsonValue("AnimationId", out Guid anmId)
+                    ? (elementId, anmId)
+                    : (Guid.Empty, Guid.Empty);
+        }
+
+        foreach ((Element element, Guid anmId) in inlinesArray.OfType<JsonObject>()
+            .Select(GetIds)
+            .Where(x => x.AnimationId != Guid.Empty && x.ElementId != Guid.Empty)
+            .Join(Scene.Children,
+                x => x.ElementId,
+                y => y.Id,
+                (x, y) => (y, x.AnimationId)))
+        {
+            IAbstractAnimatableProperty? anmProp = null;
+            Animatable? animatable = null;
+
+            void FindAndSetAncestor(Span<object> span, KeyFrameAnimation kfAnm)
             {
-                return v.TryGetPropertyValueAsJsonValue("ElementId", out Guid elementId)
-                    && v.TryGetPropertyValueAsJsonValue("AnimationId", out Guid anmId)
-                        ? (elementId, anmId)
-                        : (Guid.Empty, Guid.Empty);
+                for (int i = 0; i < span.Length; i++)
+                {
+                    switch (span[i])
+                    {
+                        case IAbstractAnimatableProperty anmProp2 when ReferenceEquals(anmProp2.Animation, kfAnm):
+                            anmProp = anmProp2;
+                            return;
+                        case Animatable animatable2:
+                            animatable = animatable2;
+                            return;
+                    }
+                }
             }
 
-            foreach ((Element element, Guid anmId) in inlinesArray.OfType<JsonObject>()
-                .Select(GetIds)
-                .Where(x => x.AnimationId != Guid.Empty && x.ElementId != Guid.Empty)
-                .Join(Scene.Children,
-                    x => x.ElementId,
-                    y => y.Id,
-                    (x, y) => (y, x.AnimationId)))
+            bool Predicate(Stack<object> stack, object obj)
             {
-                var searcher = new ObjectSearcher(
-                    element,
-                    v => v is IAbstractAnimatableProperty { Animation: KeyFrameAnimation kfAnm } && kfAnm.Id == anmId);
-
-                if (searcher.Search() is IAbstractAnimatableProperty prop)
+                if (obj is KeyFrameAnimation kfAnm && kfAnm.Id == anmId)
                 {
-                    AttachInline(prop, element);
+                    using var pooledArray = new PooledArray<object>(stack.Count);
+                    // 同じものが見つかった時に、上の階層から、IAbstractPropertyやAnimatableを探す。
+                    stack.CopyTo(pooledArray._array, 0);
+                    FindAndSetAncestor(pooledArray.Span, kfAnm);
+                    return true;
+                }
+
+                return false;
+            }
+
+            var searcher = new ObjectSearcher(element, Predicate);
+
+            //このコードは例えばPenの中にあるアニメーションなどには対応できない。
+            //var searcher = new ObjectSearcher(
+            //    element,
+            //    v => v is IAbstractAnimatableProperty { Animation: KeyFrameAnimation kfAnm } && kfAnm.Id == anmId);
+
+            if (searcher.Search() is KeyFrameAnimation anm)
+            {
+                if (anmProp != null)
+                {
+                    AttachInline(anmProp, element);
+                }
+                else if (animatable != null)
+                {
+                    try
+                    {
+                        Type type = typeof(AnimatableCorePropertyImpl<>).MakeGenericType(anm.Property.PropertyType);
+                        var createdProp = (IAbstractAnimatableProperty)Activator.CreateInstance(type, anm.Property, animatable)!;
+                        AttachInline(createdProp!, element);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "An exception occurred while restoring the UI.");
+                    }
                 }
             }
         }

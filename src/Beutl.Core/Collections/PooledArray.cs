@@ -69,6 +69,24 @@ public struct PooledArray<T> : IDisposable, IEnumerable<T>
 
     public bool IsDisposed { get; private set; }
 
+    public Span<T> Span
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return _array.AsSpan(0, Length);
+        }
+    }
+
+    public T[] Array
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return _array;
+        }
+    }
+
     public ref T this[int index]
     {
         get

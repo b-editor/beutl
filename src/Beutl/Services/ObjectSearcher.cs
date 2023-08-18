@@ -5,11 +5,19 @@ namespace Beutl.Services;
 public class ObjectSearcher
 {
     private readonly HashSet<object> _hashSet = new();
-    private readonly Predicate<object> _predicate;
+    private readonly Stack<object>? _stack;
+    private readonly Func<Stack<object>, object, bool> _predicate;
     private readonly object _obj;
 
     public ObjectSearcher(object obj, Predicate<object> predicate)
     {
+        _predicate = (_, o) => predicate(o);
+        _obj = obj;
+    }
+
+    public ObjectSearcher(object obj, Func<Stack<object>, object, bool> predicate)
+    {
+        _stack = new();
         _predicate = predicate;
         _obj = obj;
     }
@@ -17,6 +25,7 @@ public class ObjectSearcher
     public void Reset()
     {
         _hashSet.Clear();
+        _stack?.Clear();
     }
 
     public object? Search()
@@ -36,56 +45,65 @@ public class ObjectSearcher
         if (!_hashSet.Add(obj))
             return null;
 
-        if (_predicate(obj))
+        if (_predicate(_stack!, obj))
             return obj;
 
-        switch (obj)
+        try
         {
-            case CoreObject coreObject:
-                foreach (CoreProperty? item in PropertyRegistry.GetRegistered(coreObject.GetType())
-                    .Where(x => !x.PropertyType.IsValueType && x != Hierarchical.HierarchicalParentProperty))
-                {
-                    object? value = coreObject.GetValue(item);
-                    if (value != null
-                        && SearchRecursive(value) is { } result)
-                    {
-                        return result;
-                    }
-                }
-                break;
+            _stack?.Push(obj);
 
-            case IEnumerable enm:
-                {
-                    foreach (object? item in enm)
+            switch (obj)
+            {
+                case CoreObject coreObject:
+                    foreach (CoreProperty? item in PropertyRegistry.GetRegistered(coreObject.GetType())
+                        .Where(x => !x.PropertyType.IsValueType && x != Hierarchical.HierarchicalParentProperty))
                     {
-                        if (item != null
-                            && SearchRecursive(item) is { } result)
+                        object? value = coreObject.GetValue(item);
+                        if (value != null
+                            && SearchRecursive(value) is { } result)
                         {
                             return result;
                         }
                     }
-                }
-                break;
+                    break;
 
-            case IAbstractProperty property:
-                {
-                    if (!property.PropertyType.IsValueType
-                        && property.GetValue() is { } value
-                        && SearchRecursive(value) is { } result1)
+                case IEnumerable enm:
                     {
-                        return result1;
+                        foreach (object? item in enm)
+                        {
+                            if (item != null
+                                && SearchRecursive(item) is { } result)
+                            {
+                                return result;
+                            }
+                        }
                     }
+                    break;
 
-                    if (property is IAbstractAnimatableProperty { Animation: { } animation }
-                        && SearchRecursive(animation) is { } result2)
+                case IAbstractProperty property:
                     {
-                        return result2;
+                        if (!property.PropertyType.IsValueType
+                            && property.GetValue() is { } value
+                            && SearchRecursive(value) is { } result1)
+                        {
+                            return result1;
+                        }
+
+                        if (property is IAbstractAnimatableProperty { Animation: { } animation }
+                            && SearchRecursive(animation) is { } result2)
+                        {
+                            return result2;
+                        }
                     }
-                }
-                break;
+                    break;
+            }
+
+            return null;
         }
-
-        return null;
+        finally
+        {
+            _stack?.Pop();
+        }
     }
 
     private void SearchAllRecursive(object obj, List<object> list)
@@ -93,45 +111,54 @@ public class ObjectSearcher
         if (!_hashSet.Add(obj))
             return;
 
-        if (_predicate(obj))
+        if (_predicate(_stack!, obj))
             list.Add(obj);
 
-        switch (obj)
+        try
         {
-            case CoreObject coreObject:
-                foreach (object? item in PropertyRegistry.GetRegistered(coreObject.GetType())
-                    .Where(x => !x.PropertyType.IsValueType && x != Hierarchical.HierarchicalParentProperty)
-                    .Select(coreObject.GetValue)
-                    .Where(x => x != null))
-                {
-                    SearchAllRecursive(item!, list);
-                }
-                break;
+            _stack?.Push(obj);
 
-            case IEnumerable enm:
-                {
-                    foreach (object? item in enm)
+            switch (obj)
+            {
+                case CoreObject coreObject:
+                    foreach (object? item in PropertyRegistry.GetRegistered(coreObject.GetType())
+                        .Where(x => !x.PropertyType.IsValueType && x != Hierarchical.HierarchicalParentProperty)
+                        .Select(coreObject.GetValue)
+                        .Where(x => x != null))
                     {
-                        if (item != null)
-                            SearchAllRecursive(item, list);
+                        SearchAllRecursive(item!, list);
                     }
-                }
-                break;
+                    break;
 
-            case IAbstractProperty property:
-                {
-                    if (!property.PropertyType.IsValueType
-                        && property.GetValue() is { } value)
+                case IEnumerable enm:
                     {
-                        SearchAllRecursive(value, list);
+                        foreach (object? item in enm)
+                        {
+                            if (item != null)
+                                SearchAllRecursive(item, list);
+                        }
                     }
+                    break;
 
-                    if (property is IAbstractAnimatableProperty { Animation: { } animation })
+                case IAbstractProperty property:
                     {
-                        SearchAllRecursive(animation, list);
+                        if (!property.PropertyType.IsValueType
+                            && property.GetValue() is { } value)
+                        {
+                            SearchAllRecursive(value, list);
+                        }
+
+                        if (property is IAbstractAnimatableProperty { Animation: { } animation })
+                        {
+                            SearchAllRecursive(animation, list);
+                        }
                     }
-                }
-                break;
+                    break;
+            }
+        }
+        finally
+        {
+            _stack?.Pop();
         }
     }
 }
