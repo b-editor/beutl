@@ -366,11 +366,8 @@ public abstract class CoreObject : ICoreObject
             CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(ownerType);
             if (metadata.ShouldSerialize && (item is not IStaticProperty sprop || sprop.CanWrite))
             {
-                JsonNode? valueNode = item.RouteWriteToJson(metadata, GetValue(item), out bool isDefault);
-                if (!isDefault)
-                {
-                    json[item.Name] = valueNode;
-                }
+                JsonNode? valueNode = item.RouteWriteToJson(metadata, GetValue(item));
+                json[item.Name] = valueNode;
             }
         }
     }
@@ -386,8 +383,7 @@ public abstract class CoreObject : ICoreObject
             CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(ownerType);
             if (metadata.ShouldSerialize
                 && (item is not IStaticProperty sprop || sprop.CanWrite)
-                && json.TryGetPropertyValue(item.Name, out JsonNode? jsonNode)
-                && jsonNode != null)
+                && json.TryGetPropertyValue(item.Name, out JsonNode? jsonNode))
             {
                 if (item.RouteReadFromJson(metadata, jsonNode) is { } value)
                 {

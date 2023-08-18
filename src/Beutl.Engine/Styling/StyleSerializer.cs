@@ -36,7 +36,7 @@ public static class StyleSerializer
             owner = TypeFormat.ToString(setter.Property.OwnerType);
         }
 
-        JsonNode? value = setter.Property.RouteWriteToJson(metadata, setter.Value, out _);
+        JsonNode? value = setter.Property.RouteWriteToJson(metadata, setter.Value);
 
         if (setter.Animation is { } animation)
         {
@@ -102,7 +102,7 @@ public static class StyleSerializer
         return null;
     }
 
-    public static ISetter? ToSetter(this JsonNode json, string name, Type targetType)
+    public static ISetter? ToSetter(this JsonNode? json, string name, Type targetType)
     {
         JsonNode? animationNode = null;
         JsonNode? valueNode = null;

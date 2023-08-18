@@ -70,9 +70,9 @@ public abstract class CoreProperty : ICoreProperty
 
     internal abstract void NotifyChanged(CorePropertyChangedEventArgs e);
 
-    internal abstract JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value, out bool isDefault);
+    internal abstract JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value);
 
-    internal abstract object? RouteReadFromJson(CorePropertyMetadata metadata, JsonNode node);
+    internal abstract object? RouteReadFromJson(CorePropertyMetadata metadata, JsonNode? node);
 
     protected abstract IObservable<CorePropertyChangedEventArgs> GetChanged();
 
@@ -237,12 +237,10 @@ public class CoreProperty<T> : CoreProperty
         return o.GetValue<T>(this);
     }
 
-    internal override JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value, out bool isDefault)
+    internal override JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value)
     {
         var typedMetadata = (CorePropertyMetadata<T>)metadata;
-        object? def = typedMetadata.GetDefaultValue();
-        // デフォルトの値と取得した値が同じ場合、保存しない
-        isDefault = RuntimeHelpers.Equals(def, value);
+
         if (typedMetadata.JsonConverter is { } jsonConverter)
         {
             var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
@@ -270,7 +268,7 @@ public class CoreProperty<T> : CoreProperty
         }
     }
 
-    internal override object? RouteReadFromJson(CorePropertyMetadata metadata, JsonNode node)
+    internal override object? RouteReadFromJson(CorePropertyMetadata metadata, JsonNode? node)
     {
         var typedMetadata = (CorePropertyMetadata<T>)metadata;
         Type type = PropertyType;
@@ -300,6 +298,10 @@ public class CoreProperty<T> : CoreProperty
 
                 return sobj;
             }
+        }
+        else if (node == null)
+        {
+            return typedMetadata.DefaultValue;
         }
 
         options = new JsonSerializerOptions(JsonHelper.SerializerOptions);

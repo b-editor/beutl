@@ -279,9 +279,13 @@ public abstract class StylingOperator : SourceOperator
         foreach (Definition item in defs.AsSpan())
         {
             string name = item.Property.Name;
-            if (json.TryGetPropertyValue(name, out JsonNode? propNode)
-                && propNode != null)
+            if (json.TryGetPropertyValue(name, out JsonNode? propNode))
             {
+                if (propNode == null)
+                {
+
+                }
+
                 ISetter knownSetter = item.Getter.Invoke(this);
 
                 if (propNode.ToSetter(knownSetter.Property.Name, _style.TargetType) is ISetter setter)
