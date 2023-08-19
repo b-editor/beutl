@@ -9,6 +9,7 @@
 
     <FFmpegBuildIn Condition="'$(FFmpegBuildIn)' == ''">True</FFmpegBuildIn>
     <DefineConstants Condition="'$(FFmpegBuildIn)'=='True'">$(DefineConstants);FFMPEG_BUILD_IN</DefineConstants>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
