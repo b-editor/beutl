@@ -74,12 +74,6 @@ public sealed class App : Application
                 }
             });
         });
-
-#if DEBUG
-        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
-        {
-        };
-#endif
     }
 
     public override void RegisterServices()
@@ -125,8 +119,6 @@ public sealed class App : Application
             {
                 DataContext = GetMainViewModel(),
             };
-
-            desktop.Exit += Application_Exit;
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
@@ -142,11 +134,5 @@ public sealed class App : Application
     private MainViewModel GetMainViewModel()
     {
         return _mainViewModel ??= new MainViewModel();
-    }
-
-    private void Application_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
-    {
-        GlobalConfiguration.Instance.Save(GlobalConfiguration.DefaultFilePath);
-        BeutlApplication.Current.LoggerFactory.Dispose();
     }
 }

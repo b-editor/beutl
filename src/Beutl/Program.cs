@@ -1,7 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.ReactiveUI;
 
-using Beutl.Rendering;
+using Beutl.Services;
 
 namespace Beutl;
 
@@ -42,17 +42,13 @@ internal static class Program
             process?.Kill();
         }
 
-        try
-        {
-            BuildAvaloniaApp()
-                .StartWithClassicDesktopLifetime(args);
-        }
-        finally
-        {
-            SharedGPUContext.Shutdown();
-            SharedGRContext.Shutdown();
-            RenderThread.Dispatcher.Stop();
-        }
+        UnhandledExceptionHandler.Initialize();
+
+        BuildAvaloniaApp()
+            .StartWithClassicDesktopLifetime(args);
+
+        // 正常に終了した
+        UnhandledExceptionHandler.Exit();
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.
