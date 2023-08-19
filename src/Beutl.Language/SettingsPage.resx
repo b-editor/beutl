@@ -151,10 +151,10 @@
     <value>Storage</value>
   </data>
   <data name="MakePrivate" xml:space="preserve">
-    <value>Make public</value>
+    <value>Make private</value>
   </data>
   <data name="MakePublic" xml:space="preserve">
-    <value>Make private</value>
+    <value>Make public</value>
   </data>
   <data name="ChangeVisibility" xml:space="preserve">
     <value>Change the visibility of this file to "{0}".</value>

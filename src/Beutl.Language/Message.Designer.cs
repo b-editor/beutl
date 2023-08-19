@@ -124,6 +124,18 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   It seems that an error occurred and the program terminated last time.
+        ///Do you want to run in restricted mode because the cause is unknown?
+        ///
+        ///Restricted mode does not load extensions. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Ask_if_you_want_to_run_in_restricted_mode {
+            get {
+                return ResourceManager.GetString("Ask_if_you_want_to_run_in_restricted_mode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Cannot display this context. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string CannotDisplayThisContext {
@@ -338,6 +350,15 @@ namespace Beutl.Language {
         public static string ItemsSaved {
             get {
                 return ResourceManager.GetString("ItemsSaved", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks like it ended with an error last time. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Looks_like_it_ended_with_an_error_last_time {
+            get {
+                return ResourceManager.GetString("Looks_like_it_ended_with_an_error_last_time", resourceCulture);
             }
         }
         

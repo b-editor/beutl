@@ -124,7 +124,7 @@ namespace Beutl.Language {
         }
         
         /// <summary>
-        ///   Make public に類似しているローカライズされた文字列を検索します。
+        ///   Make private に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string MakePrivate {
             get {
@@ -133,7 +133,7 @@ namespace Beutl.Language {
         }
         
         /// <summary>
-        ///   Make private に類似しているローカライズされた文字列を検索します。
+        ///   Make public に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string MakePublic {
             get {

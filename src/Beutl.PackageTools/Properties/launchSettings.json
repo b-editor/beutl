@@ -6,11 +6,11 @@
     },
     "Install": {
       "commandName": "Project",
-      "commandLineArgs": "--installs SamplePackage/1.0.0 --verbose"
+      "commandLineArgs": "--installs Beutl.Sample.Extension/1.0.0 --verbose"
     },
     "Uninstall": {
       "commandName": "Project",
-      "commandLineArgs": "--uninstalls SamplePackage/1.0.0 --verbose --clean"
+      "commandLineArgs": "--uninstalls Beutl.Sample.Extension/1.0.0 --verbose --clean"
     },
     "Clean": {
       "commandName": "Project",

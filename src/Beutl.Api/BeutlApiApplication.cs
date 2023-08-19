@@ -85,6 +85,7 @@ public class BeutlApiApplication
         Register(() => new DiscoverService(this));
         Register(() => GetResource<PackageManager>().ExtensionProvider);
         Register(() => new InstalledPackageRepository());
+        Register(() => new AcceptedLicenseManager());
         Register(() => new PackageChangesQueue());
         Register(() => new LibraryService(this));
         Register(() => new PackageInstaller(new HttpClient(), GetResource<InstalledPackageRepository>()));

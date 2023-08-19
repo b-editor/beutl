@@ -3,6 +3,8 @@ using System.CommandLine.Invocation;
 
 using Beutl.PackageTools.Properties;
 
+using NuGet.Packaging;
+
 namespace Beutl.PackageTools;
 
 public sealed class UpdateCommand : Command
@@ -153,12 +155,24 @@ public partial class InstallerCommands
                     await _installer.ResolveDependencies(context, verbose ? ConsoleLogger.Instance : NullLogger.Instance, _cancellationToken);
                 });
 
-                _installedPackageRepository.UpgradePackages(package);
-
-                if (File.Exists(context.NuGetPackageFile))
+                // 同意が必要なライセンスの内、未同意のものがある場合、同意させる
+                var licensesRequiringApproval = context.LicensesRequiringApproval
+                    .Where(x => !_acceptedLicenseManager.Accepted.ContainsKey(x.Item1))
+                    .ToArray();
+                if (licensesRequiringApproval.Length > 0)
                 {
-                    File.Delete(context.NuGetPackageFile);
+                    PackageDisplay.ShowLicenses(licensesRequiringApproval);
+                    if (!Prompt.Confirm(Resources.PleaseAcceptTheAboveLicense))
+                    {
+                        // 同意しなかった場合、何もしない
+                        return;
+                    }
                 }
+
+                // 同意したことを記録
+                _acceptedLicenseManager.Accepts(licensesRequiringApproval);
+
+                _installedPackageRepository.UpgradePackages(package);
 
                 Console.WriteLine(Chalk.BrightGreen[string.Format(Resources.UpdatedXXX, package.Id)]);
             }

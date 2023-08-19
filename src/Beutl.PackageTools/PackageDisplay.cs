@@ -1,5 +1,9 @@
 ﻿using Beutl.PackageTools.Properties;
 
+using FluentTextTable;
+
+using NuGet.Packaging;
+
 namespace Beutl.PackageTools;
 
 public static class PackageDisplay
@@ -41,5 +45,32 @@ public static class PackageDisplay
                 Console.WriteLine($"  {package}");
             }
         }
+    }
+
+    public static void ShowLicenses((PackageIdentity, LicenseMetadata)[] licenses)
+    {
+        static string LicenseToString(LicenseMetadata license)
+        {
+            if (license.Type == LicenseType.Expression)
+            {
+                return $"{license.LicenseExpression} ({license.LicenseUrl})";
+            }
+            else
+            {
+                return license.License;
+            }
+        }
+        Console.WriteLine();
+
+        var items = licenses
+            .Select(x => (x.Item1.Id, x.Item1.Version.ToString(), LicenseToString(x.Item2)))
+            .ToArray();
+        
+        Build
+            .TextTable<(string PackageId, string Version, string License)>(builder =>
+                builder.Columns.Add(x => x.PackageId).NameAs(Resources.PackageId)
+                    .Columns.Add(x => x.Version).NameAs(Resources.Version)
+                    .Columns.Add(x => x.License).NameAs(Resources.License))
+            .WriteLine(items);
     }
 }

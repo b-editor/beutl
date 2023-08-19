@@ -286,6 +286,15 @@ namespace Beutl.PackageTools.Properties {
         }
         
         /// <summary>
+        ///   License に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string License {
+            get {
+                return ResourceManager.GetString("License", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Enumerate installed packages, packages with updates, and packages that are not needed. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string ListCommandDescription {
@@ -367,11 +376,29 @@ namespace Beutl.PackageTools.Properties {
         }
         
         /// <summary>
+        ///   Package Id に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string PackageId {
+            get {
+                return ResourceManager.GetString("PackageId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Perform the above operations. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string PerformTheAboveOperations {
             get {
                 return ResourceManager.GetString("PerformTheAboveOperations", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Please accept the above license. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string PleaseAcceptTheAboveLicense {
+            get {
+                return ResourceManager.GetString("PleaseAcceptTheAboveLicense", resourceCulture);
             }
         }
         
@@ -643,6 +670,15 @@ namespace Beutl.PackageTools.Properties {
         internal static string VerifyingHashValues {
             get {
                 return ResourceManager.GetString("VerifyingHashValues", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Version に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Version {
+            get {
+                return ResourceManager.GetString("Version", resourceCulture);
             }
         }
         

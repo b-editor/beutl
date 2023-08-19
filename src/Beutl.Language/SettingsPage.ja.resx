@@ -151,10 +151,10 @@
     <value>下</value>
   </data>
   <data name="MakePrivate" xml:space="preserve">
-    <value>公開する</value>
+    <value>非公開する</value>
   </data>
   <data name="MakePublic" xml:space="preserve">
-    <value>非公開にする</value>
+    <value>公開する</value>
   </data>
   <data name="Storage" xml:space="preserve">
     <value>ストレージ</value>

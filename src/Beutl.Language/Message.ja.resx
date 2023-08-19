@@ -239,4 +239,13 @@
   <data name="An_exception_occurred_during_output" xml:space="preserve">
     <value>出力中に例外が発生しました。</value>
   </data>
+  <data name="Ask_if_you_want_to_run_in_restricted_mode" xml:space="preserve">
+    <value>前回エラーが発生して終了したようです。
+原因か不明なため、制限モードで実行しますか。
+
+制限モードでは拡張機能を読み込みません。</value>
+  </data>
+  <data name="Looks_like_it_ended_with_an_error_last_time" xml:space="preserve">
+    <value>前回エラーが発生して終了したようです</value>
+  </data>
 </root>

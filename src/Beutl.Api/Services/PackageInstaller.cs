@@ -288,7 +288,7 @@ public partial class PackageInstaller : IBeutlApiResource
                 package = new PackageIdentity(packageId, NuGetVersion.Parse(version));
 
 #if DEBUG
-                logger ??= new ConsoleLogger();
+                logger ??= ConsoleLogger.Instance;
 #else
                 logger ??= NullLogger.Instance;
 #endif
@@ -361,6 +361,17 @@ public partial class PackageInstaller : IBeutlApiResource
                         installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
                         if (installedPath != null)
                         {
+                            var reader = new PackageFolderReader(installedPath);
+                            NuspecReader nuspec = reader.NuspecReader;
+
+                            // GetLicenseMetadataの戻り値はNullの可能性があるので、
+                            // https://github.com/NuGet/NuGet.Client/blob/e873b496daa6839a86f4b820d15945a9aad98e3d/src/NuGet.Core/NuGet.Packaging/NuspecReader.cs#L434
+                            if (nuspec.GetRequireLicenseAcceptance()
+                                && nuspec.GetLicenseMetadata() is { } license)
+                            {
+                                context.LicensesRequiringApproval.Add((packageToInstall, license));
+                            }
+
                             installedPaths.Add(installedPath);
                         }
                     }
@@ -368,7 +379,6 @@ public partial class PackageInstaller : IBeutlApiResource
 
                 context.Phase = PackageInstallPhase.ResolvedDependencies;
                 context.InstalledPaths = installedPaths;
-                _installedPackageRepository.AddPackage(package);
             }
         }
         finally

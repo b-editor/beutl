@@ -2,6 +2,10 @@
 
 using Beutl.Api.Objects;
 
+using NuGet.Packaging;
+using NuGet.Packaging.Core;
+using NuGet.Packaging.Licenses;
+
 namespace Beutl.Api.Services;
 
 public enum PackageInstallPhase
@@ -55,6 +59,8 @@ public class PackageInstallContext
         get => _installedPaths ?? throw new InvalidOperationException("ResolvedDependencies <= Phase");
         internal set => _installedPaths = value;
     }
+
+    public IList<(PackageIdentity, LicenseMetadata)> LicensesRequiringApproval { get; } = new List<(PackageIdentity, LicenseMetadata)>();
 
     internal Asset? Asset { get; set; }
 }
