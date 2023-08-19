@@ -8,7 +8,7 @@ namespace System.Runtime.Loader
 {
     internal partial struct LibraryNameVariation
     {
-        private const string LibraryNamePrefix = "lib";
+        private static readonly string LibraryNamePrefix = "lib";
         //#if TARGET_OSX || TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
         //        private const string LibraryNameSuffix = ".dylib";
         //#else
@@ -24,6 +24,11 @@ namespace System.Runtime.Loader
                 || OperatingSystem.IsTvOS())
             {
                 LibraryNameSuffix = ".dylib";
+            }
+            else if(OperatingSystem.IsWindows())
+            {
+                LibraryNameSuffix = ".dll";
+                LibraryNamePrefix = "";
             }
             else
             {
