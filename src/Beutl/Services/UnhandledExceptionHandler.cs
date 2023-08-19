@@ -37,6 +37,11 @@ public static class UnhandledExceptionHandler
             }
 
             PrivateExit();
+
+            Process.Start(new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "Beutl.ExceptionHandler"))
+            {
+                UseShellExecute = true,
+            });
         }
         catch
         {

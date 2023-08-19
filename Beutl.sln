@@ -100,6 +100,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Extensions.FFmpeg", "
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PropertyEditorViewTests", "tests\PropertyEditorViewTests\PropertyEditorViewTests.csproj", "{EED4AB04-13CD-4382-BD1A-64D7A258957F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beutl.ExceptionHandler", "src\Beutl.ExceptionHandler\Beutl.ExceptionHandler.csproj", "{AD5AED68-C003-4131-B883-A013AA1C0DDF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -332,6 +334,14 @@ Global
 		{EED4AB04-13CD-4382-BD1A-64D7A258957F}.Release|Any CPU.Build.0 = Release|Any CPU
 		{EED4AB04-13CD-4382-BD1A-64D7A258957F}.Release|x64.ActiveCfg = Release|Any CPU
 		{EED4AB04-13CD-4382-BD1A-64D7A258957F}.Release|x64.Build.0 = Release|Any CPU
+		{AD5AED68-C003-4131-B883-A013AA1C0DDF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD5AED68-C003-4131-B883-A013AA1C0DDF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AD5AED68-C003-4131-B883-A013AA1C0DDF}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{AD5AED68-C003-4131-B883-A013AA1C0DDF}.Debug|x64.Build.0 = Debug|Any CPU
+		{AD5AED68-C003-4131-B883-A013AA1C0DDF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AD5AED68-C003-4131-B883-A013AA1C0DDF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AD5AED68-C003-4131-B883-A013AA1C0DDF}.Release|x64.ActiveCfg = Release|Any CPU
+		{AD5AED68-C003-4131-B883-A013AA1C0DDF}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,0 +1,102 @@
+<Window x:Class="Beutl.ExceptionHandler.MainWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:lang="using:Beutl.ExceptionHandler.Properties"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ui="using:FluentAvalonia.UI.Controls"
+        xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
+        Title="Beutl.ExceptionHandler"
+        Width="400"
+        MinWidth="{DynamicResource TaskDialogMinWidth}"
+        MinHeight="{DynamicResource TaskDialogMinHeight}"
+        MaxWidth="{DynamicResource TaskDialogMaxWidth}"
+        MaxHeight="{DynamicResource TaskDialogMaxHeight}"
+        d:DesignHeight="450"
+        d:DesignWidth="400"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterScreen"
+        mc:Ignorable="d">
+    <!--  https://github.com/amwx/FluentAvalonia/blob/4d847a8403b914d558baa79351a7866a02ec0b3e/src/FluentAvalonia/Styling/ControlThemes/FAControls/TaskDialog/TaskDialogStyles.axaml  -->
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+        <Panel Grid.Row="0">
+            <Viewbox Width="{StaticResource TaskDialogIconSize}"
+                     Height="{StaticResource TaskDialogIconSize}"
+                     Margin="{DynamicResource TaskDialogIconMargin}"
+                     HorizontalAlignment="Left"
+                     VerticalAlignment="Center">
+                <ui:FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}"
+                             Foreground="{DynamicResource InfoBarErrorSeverityIconBackground}"
+                             Glyph="&#xE783;" />
+            </Viewbox>
+            <TextBlock Margin="{DynamicResource TaskDialogHeaderPadding}"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Center"
+                       FontSize="{DynamicResource TaskDialogHeaderFontSize}"
+                       FontWeight="{StaticResource TaskDialogHeaderFontWeight}"
+                       Text="{Binding Header}"
+                       TextWrapping="Wrap" />
+        </Panel>
+
+        <ScrollViewer Grid.Row="2"
+                      Margin="{StaticResource TaskDialogContentMargin}"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="18">
+                <TextBlock Grid.Row="2"
+                           HorizontalAlignment="Stretch"
+                           VerticalAlignment="Stretch"
+                           Text="{Binding Content.Value}"
+                           TextWrapping="Wrap" />
+
+                <ProgressBar Name="ProgressBar"
+                             Grid.Row="3"
+                             IsVisible="{Binding IsBusy.Value}"
+                             Maximum="100"
+                             Value="{Binding Progress.Value}" />
+
+                <ItemsControl Name="CommandsHost" Grid.Row="4">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="2" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+
+                <StackPanel Grid.Row="5">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Name="MoreDetailsButton"
+                                Classes="TaskDialog_MoreDetails"
+                                Click="OnMoreDetailsButtonClick"
+                                Content="{x:Static lang:Resources.MoreDetails}"
+                                Theme="{StaticResource TaskDialogMoreDetailsButton}" />
+                        <Button Classes="TaskDialog_MoreDetails"
+                                Command="{Binding ShowLog}"
+                                Content="{x:Static lang:Resources.ShowLog}"
+                                Theme="{StaticResource TaskDialogMoreDetailsButton}" />
+                    </StackPanel>
+                    <SelectableTextBlock Name="FooterHost"
+                                         HorizontalAlignment="Stretch"
+                                         VerticalAlignment="Top"
+                                         IsVisible="False"
+                                         Text="{Binding Footer}"
+                                         TextWrapping="Wrap" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Name="ButtonBorder"
+                Grid.Row="3"
+                Padding="{StaticResource TaskDialogButtonHostMargin}"
+                Background="{DynamicResource TaskDialogButtonAreaBackground}">
+            <uip:TaskDialogButtonsPanel KeyboardNavigation.TabNavigation="Continue" Spacing="8">
+                <uip:TaskDialogButtonHost Classes="accent"
+                                          Command="{Binding SendLog}"
+                                          Content="{x:Static lang:Resources.SendLog}"
+                                          IsVisible="{Binding !Sent.Value}" />
+
+                <uip:TaskDialogButtonHost x:Name="CloseButton" Click="OnCloseClick" />
+            </uip:TaskDialogButtonsPanel>
+        </Border>
+    </Grid>
+</Window>

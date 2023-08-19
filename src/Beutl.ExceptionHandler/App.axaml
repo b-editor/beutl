@@ -1,0 +1,21 @@
+<Application x:Class="Beutl.ExceptionHandler.App"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sty="using:FluentAvalonia.Styling">
+    <Application.Styles>
+        <sty:FluentAvaloniaTheme PreferUserAccentColor="True" />
+    </Application.Styles>
+    <Application.Resources>
+        <ResourceDictionary>
+            <ControlTheme x:Key="{x:Type SelectableTextBlock}" TargetType="SelectableTextBlock">
+                <Setter Property="SelectionBrush" Value="{DynamicResource TextControlSelectionHighlightColor}" />
+
+                <Style Selector="^[IsEnabled=true]">
+                    <Setter Property="Cursor" Value="IBeam" />
+                    <!--  Defined in TextBoxStyles  -->
+                    <Setter Property="ContextFlyout" Value="{StaticResource DefaultTextBoxContextFlyout}" />
+                </Style>
+            </ControlTheme>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

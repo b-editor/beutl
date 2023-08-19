@@ -121,7 +121,7 @@ namespace Beutl
                 _assemblyResolver = assemblyResolver ?? DefaultAssemblyResolver;
             }
 
-            public Type Parse()
+            public Type? Parse()
             {
                 Token[] asmTokens = TakeAssemblyTokens(_tokens).ToArray();
                 _assemblyName = string.Concat(asmTokens
@@ -267,7 +267,7 @@ namespace Beutl
                 if (tokens.Length == 0)
                     return Array.Empty<Type>();
 
-                var list = new List<Type>();
+                var list = new List<Type?>();
 
                 if (tokens is [{ Type: TokenType.BeginGenericArguments }, .. var generics, { Type: TokenType.EndGenericArguments }])
                 {
@@ -298,7 +298,7 @@ namespace Beutl
                 if (list.Any(x => x == null))
                     throw new InvalidOperationException($"Invalid Tokens: {ConcatTokens(tokens)}");
 
-                return list.ToArray();
+                return list.ToArray()!;
             }
 
             // ":List<[System.Runtime]:Int32>"を解析
@@ -319,22 +319,22 @@ namespace Beutl
                 }
             }
 
-            private Type ParseNestedType(Span<Token> tokens)
+            private Type? ParseNestedType(Span<Token> tokens)
             {
                 string typeName = TakeTypeNameTokens(tokens, out Span<Token> genericTokens, out Span<Token> parents);
                 Type[] genericArgs = ParseGenericTypes(genericTokens);
                 string suffix = genericArgs.Length > 0 ? $"`{genericArgs.Length}" : "";
 
-                Type type;
+                Type? type;
                 if (parents.Length != 0)
                 {
-                    Type parent = ParseNestedType(parents);
+                    Type? parent = ParseNestedType(parents);
                     const BindingFlags flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-                    type = parent.GetNestedType($"{typeName}{suffix}", flags)!;
+                    type = parent?.GetNestedType($"{typeName}{suffix}", flags)!;
                 }
                 else
                 {
-                    type = _assembly!.GetType($"{_namespace ?? ""}.{typeName}{suffix}")!;
+                    type = _assembly?.GetType($"{_namespace ?? ""}.{typeName}{suffix}")!;
                 }
 
                 if (genericArgs.Length > 0)
