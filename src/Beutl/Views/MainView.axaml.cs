@@ -166,6 +166,28 @@ public sealed partial class MainView : UserControl
         }
     }
 
+    // 最後に実行したとき、例外が発生して終了した場合、
+    // 制限モード (拡張機能を読み込まない) で起動するかを尋ねる。
+    private async ValueTask<bool> AsksRunInRestrictedMode()
+    {
+        if (UnhandledExceptionHandler.LastExecutionExceptionWasThrown())
+        {
+            var dialog = new ContentDialog()
+            {
+                Title = Message.Looks_like_it_ended_with_an_error_last_time,
+                Content = Message.Ask_if_you_want_to_run_in_restricted_mode,
+                PrimaryButtonText = Strings.Yes,
+                CloseButtonText = Strings.No
+            };
+
+            return await dialog.ShowAsync() == ContentDialogResult.Primary;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
     private async void OnParentWindowOpened(object? sender, EventArgs e)
     {
         var topLevel = (TopLevel)sender!;
@@ -187,6 +209,8 @@ public sealed partial class MainView : UserControl
 
         if (DataContext is MainViewModel viewModel)
         {
+            bool restrictedMode = await AsksRunInRestrictedMode();
+
             Task splachScreenTask = viewModel.RunSplachScreenTask(async items =>
             {
                 return await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -205,7 +229,7 @@ public sealed partial class MainView : UserControl
 
                     return await dialog.ShowAsync() == ContentDialogResult.Primary;
                 });
-            });
+            }, restrictedMode);
 
             await splachScreenTask;
             InitExtMenuItems(viewModel);

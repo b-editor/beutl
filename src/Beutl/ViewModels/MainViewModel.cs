@@ -382,7 +382,7 @@ public sealed class MainViewModel : BasePageViewModel
         _ = Dispatcher.UIThread.InvokeAsync(() => Pages.AddRange(viewModels.AsSpan()), DispatcherPriority.Background);
     }
 
-    public Task RunSplachScreenTask(Func<IReadOnlyList<LocalPackage>, Task<bool>> showDialog)
+    public Task RunSplachScreenTask(Func<IReadOnlyList<LocalPackage>, Task<bool>> showDialog, bool restrictedMode)
     {
         return Task.Run(async () =>
         {
@@ -394,7 +394,8 @@ public sealed class MainViewModel : BasePageViewModel
 
             LoadPrimitiveExtensions(provider, failures);
             // .beutl/packages/ 内のパッケージを読み込む
-            LoadLocalPackages(manager, await manager.GetPackages(), failures);
+            if (!restrictedMode)
+                LoadLocalPackages(manager, await manager.GetPackages(), failures);
 
             // .beutl/sideloads/ 内のパッケージを読み込む
             if (manager.GetSideLoadPackages() is { Count: > 0 } sideloads
