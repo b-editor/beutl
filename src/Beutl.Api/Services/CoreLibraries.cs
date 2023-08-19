@@ -76,6 +76,7 @@ internal static class CoreLibraries
                             case "Beutl.Utilities":
                             case "Beutl.WaitingDialog":
                             case "bpt":
+                            case "Beutl.ExceptionHandler":
                                 version = assembly.GetName().Version!.ToString();
                                 break;
                             default:
@@ -83,7 +84,8 @@ internal static class CoreLibraries
                         }
                     }
 
-                    library.Add(new Dependency(fileName, version!));
+                    if (version != null)
+                        library.Add(new Dependency(fileName, version));
                 }
             }
         }

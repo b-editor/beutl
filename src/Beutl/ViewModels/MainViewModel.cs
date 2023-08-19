@@ -524,7 +524,7 @@ public sealed class MainViewModel : BasePageViewModel
 
         if (installs.Length > 0 || uninstalls.Length > 0)
         {
-            var startInfo = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "bpt"))
+            var startInfo = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? "bpt.exe" : "bpt"))
             {
                 UseShellExecute = true,
             };
@@ -549,6 +549,9 @@ public sealed class MainViewModel : BasePageViewModel
 
             startInfo.ArgumentList.Add("--verbose");
             startInfo.ArgumentList.Add("--stay-open");
+
+            if (Debugger.IsAttached)
+                startInfo.ArgumentList.Add("--launch-debugger");
 
             Process.Start(startInfo);
         }

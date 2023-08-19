@@ -52,6 +52,7 @@
     <ProjectReference Include="..\Beutl.Controls\Beutl.Controls.csproj" />
     <ProjectReference Include="..\Beutl.PackageTools\Beutl.PackageTools.csproj" />
     <ProjectReference Include="..\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj" />
+    <ProjectReference Include="..\Beutl.ExceptionHandler\Beutl.ExceptionHandler.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(FFmpegBuildIn)'=='True'">
