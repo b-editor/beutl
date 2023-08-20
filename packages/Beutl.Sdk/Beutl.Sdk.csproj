@@ -1,11 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
-    <Version>0.3.0</Version>
-    <AssemblyVersion>0.3.0.0</AssemblyVersion>
-  </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Configuration/Beutl.Configuration.csproj" PrivateAssets="All" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/Beutl.Core/Beutl.Core.csproj" PrivateAssets="All" />

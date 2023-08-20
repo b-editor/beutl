@@ -1,10 +1,13 @@
 <Project>
+
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)\ArtifactProvider.cs" />
   </ItemGroup>
+
 </Project>

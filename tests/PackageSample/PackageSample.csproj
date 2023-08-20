@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
+    <!--Directory.Build.props-->
+    <!--<TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+    <Nullable>enable</Nullable>-->
 
     <RepositoryUrl>https://github.com/b-editor/beutl</RepositoryUrl>
     <PackageId>Beutl.Extensions.SamplePackage</PackageId>
@@ -28,7 +29,7 @@
   </ItemGroup>
 
   <!--<ItemGroup>
-    <PackageReference Include="Beutl.Sdk" Version="0.3.0-preview1" />
+    <PackageReference Include="Beutl.Sdk" Version="0.3.0" />
   </ItemGroup>-->
   
   <ItemGroup>

@@ -1,14 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net7.0</TargetFramework>
-    <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="..\ArtifactProvider.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Remove=".gitignore" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Beutl.Controls\Beutl.Controls.csproj" />

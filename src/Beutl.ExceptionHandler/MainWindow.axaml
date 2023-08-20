@@ -6,6 +6,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:ui="using:FluentAvalonia.UI.Controls"
         xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
+        xmlns:viewModel="using:Beutl.ExceptionHandler"
         Title="Beutl.ExceptionHandler"
         Width="400"
         MinWidth="{DynamicResource TaskDialogMinWidth}"
@@ -14,6 +15,8 @@
         MaxHeight="{DynamicResource TaskDialogMaxHeight}"
         d:DesignHeight="450"
         d:DesignWidth="400"
+        x:CompileBindings="True"
+        x:DataType="viewModel:MainWindowViewModel"
         SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
         mc:Ignorable="d">
