@@ -82,7 +82,7 @@
                       VerticalAlignment="Center"
                       Background="Transparent"
                       BorderBrush="Transparent"
-                      SelectedIndex="0">
+                      SelectedIndex="1">
                 <ComboBoxItem Content="{x:Static lang:Strings.All}" />
                 <ComboBoxItem Content="{x:Static lang:Strings.Projects}" />
                 <ComboBoxItem Content="{x:Static lang:Strings.Files}" />

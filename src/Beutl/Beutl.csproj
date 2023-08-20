@@ -48,9 +48,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />
     <ProjectReference Include="..\Beutl.Controls\Beutl.Controls.csproj" />
-    <ProjectReference Include="..\Beutl.PackageTools\Beutl.PackageTools.csproj" />
-    <ProjectReference Include="..\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj" />
-    <ProjectReference Include="..\Beutl.ExceptionHandler\Beutl.ExceptionHandler.csproj" />
+    <ProjectReference Condition="'$(NukePublish)'!='True'" Include="..\Beutl.PackageTools\Beutl.PackageTools.csproj" />
+    <ProjectReference Condition="'$(NukePublish)'!='True'" Include="..\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj" />
+    <ProjectReference Condition="'$(NukePublish)'!='True'" Include="..\Beutl.ExceptionHandler\Beutl.ExceptionHandler.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(FFmpegBuildIn)'=='True'">

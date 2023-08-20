@@ -354,3 +354,4 @@ tools/*
 !tools/packages.config
 
 !packages/BeUtl.Sdk/
+/output
