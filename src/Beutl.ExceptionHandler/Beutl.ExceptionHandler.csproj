@@ -20,7 +20,7 @@
     <PackageReference Include="ReactiveProperty" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />
+    <ProjectReference Include="..\Beutl.Api.Generated\Beutl.Api.Generated.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Update="Properties\Resources.Designer.cs">
