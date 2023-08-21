@@ -6,7 +6,6 @@ using Beutl.Controls.Navigation;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
-
 public sealed class FontSettingsPageViewModel : PageContext
 {
     public FontSettingsPageViewModel()

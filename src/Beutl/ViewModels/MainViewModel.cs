@@ -58,6 +58,7 @@ public sealed class MainViewModel : BasePageViewModel
         _logger = Log.ForContext<MainViewModel>();
         _authorizedHttpClient = new HttpClient();
         _beutlClients = new BeutlApiApplication(_authorizedHttpClient);
+        ExtensionProvider.Current = _beutlClients.GetResource<ExtensionProvider>();
 
         _primitivePageExtensions = new PageExtension[]
         {
@@ -502,8 +503,6 @@ public sealed class MainViewModel : BasePageViewModel
 
     public void RegisterServices()
     {
-        ExtensionProvider.Current = _beutlClients.GetResource<ExtensionProvider>();
-
         if (Application.Current is { ApplicationLifetime: IControlledApplicationLifetime lifetime })
         {
             lifetime.Exit += OnExit;

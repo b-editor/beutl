@@ -180,4 +180,7 @@
   <data name="This_file_extension_already_exists" xml:space="preserve">
     <value>This file extension already exists.</value>
   </data>
+  <data name="CopyVersionInfo" xml:space="preserve">
+    <value>Copy version info</value>
+  </data>
 </root>

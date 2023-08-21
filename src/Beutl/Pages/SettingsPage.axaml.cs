@@ -47,14 +47,22 @@ public sealed partial class SettingsPage : UserControl
         });
     }
 
-    //protected override async void OnDataContextChanged(EventArgs e)
-    //{
-    //    base.OnDataContextChanged(e);
-    //    if (DataContext is SettingsPageViewModel settingsPage)
-    //    {
-    //        await _navigationProvider.NavigateAsync(_ => true, () => settingsPage.Account);
-    //    }
-    //}
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        if (DataContext is SettingsPageViewModel settingsPage)
+        {
+            settingsPage.NavigateRequested.Subscribe(OnNavigateRequested);
+        }
+    }
+
+    private void OnNavigateRequested(object obj)
+    {
+        Type pageType = _pageResolver.GetPageType(obj.GetType());
+
+        NavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
+        frame.Navigate(pageType, obj, transitionInfo);
+    }
 
     private static List<NavigationViewItem> GetItems()
     {
@@ -136,15 +144,16 @@ public sealed partial class SettingsPage : UserControl
             && DataContext is SettingsPageViewModel settingsPage)
         {
             NavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
-            object? parameter = null;
-            if (typ == typeof(AccountSettingsPage))
+            object? parameter = typ.Name switch
             {
-                parameter = settingsPage.Account;
-            }
-            else if (typ == typeof(StorageSettingsPage))
-            {
-                parameter = settingsPage.Storage;
-            }
+                "AccountSettingsPage" => settingsPage.Account,
+                "ViewSettingsPage" => settingsPage.View,
+                "FontSettingsPage" => settingsPage.Font,
+                "ExtensionsSettingsPage" => settingsPage.ExtensionsPage,
+                "StorageSettingsPage" => settingsPage.Storage,
+                "InfomationPage" => settingsPage.Infomation,
+                _ => null,
+            };
 
             frame.Navigate(typ, parameter, transitionInfo);
         }

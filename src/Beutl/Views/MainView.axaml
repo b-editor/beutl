@@ -184,6 +184,7 @@
                     <MenuItem Click="GC_Collect_Click"
                               Header="GC.Collect"
                               IsVisible="{Binding IsDebuggerAttached}" />
+                    <MenuItem Click="GoToInfomationPage" Header="{x:Static lang:Strings.Info}" />
                 </MenuItem>
             </Menu>
 

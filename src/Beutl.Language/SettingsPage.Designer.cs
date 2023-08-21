@@ -97,6 +97,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Copy version info に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CopyVersionInfo {
+            get {
+                return ResourceManager.GetString("CopyVersionInfo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Editor Extension Priority に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Editor_Extension_Priority {

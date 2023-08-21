@@ -900,6 +900,15 @@ Error:
                     """);
     }
 
+    private void GoToInfomationPage(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+        {
+            viewModel.SelectedPage.Value = viewModel.SettingsPage;
+            (viewModel.SettingsPage.Context as SettingsPageViewModel)?.GoToSettingsPage();
+        }
+    }
+
     private void OpenNotificationsClick(object? sender, RoutedEventArgs e)
     {
         if (HiddenNotificationPanel.Children.Count > 0
