@@ -7,7 +7,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        rid: [linux-x64, win-x64, osx-x64]
+        rid: [linux_x64, win_x64, osx_x64]
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -19,14 +19,17 @@ jobs:
       with:
         dotnet-version: 7.0.x
 
-    - name: Restore dependencies
-      run: dotnet restore Beutl.sln
+    - name: Restore
+      run: ./build.cmd Restore
 
     - name: Build
-      run: dotnet publish ./src/Beutl/Beutl.csproj -c Release -r ${{matrix.rid}} --no-self-contained
+      run: ./build.cmd Publish --rntime ${{matrix.rid}} --skip Restore
+      
+    - name: Zip
+      run: ./build.cmd Zip --rntime ${{matrix.rid}} --skip Publish
 
     - name: Save
       uses: actions/upload-artifact@v3
       with:
         name: beutl_${{matrix.rid}}
-        path: ./src/Beutl/bin/Release/net7.0/${{matrix.rid}}/publish
+        path: ./artifacts/
