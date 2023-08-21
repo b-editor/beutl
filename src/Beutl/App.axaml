@@ -45,6 +45,7 @@
             <KeyGesture x:Key="StartKeyGesture">Home</KeyGesture>
             <KeyGesture x:Key="EndKeyGesture">End</KeyGesture>
             <KeyGesture x:Key="LayerDeleteKeyGesture">Ctrl+Delete</KeyGesture>
+            <KeyGesture x:Key="RenameKeyGesture">F2</KeyGesture>
         </ResourceDictionary>
     </Application.Resources>
     <Application.Styles>

@@ -877,6 +877,9 @@ and b-editor maintains the download URL.</value>
   <data name="Number_of_Layers" xml:space="preserve">
     <value>Number of Layers</value>
   </data>
+  <data name="ChangeColor" xml:space="preserve">
+    <value>Change color</value>
+  </data>
   <data name="EditAnimationInInlineView" xml:space="preserve">
     <value>Edit animation in inline view</value>
   </data>

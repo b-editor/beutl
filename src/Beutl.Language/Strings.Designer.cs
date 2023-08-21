@@ -340,6 +340,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Change color に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ChangeColor {
+            get {
+                return ResourceManager.GetString("ChangeColor", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Channels に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Channels {

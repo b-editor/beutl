@@ -14,6 +14,8 @@ using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.NodeTree;
 
+using FluentAvalonia.UI.Controls;
+
 using Setter = Avalonia.Styling.Setter;
 
 namespace Beutl.Views;
@@ -30,6 +32,7 @@ public sealed partial class ElementView : UserControl
     private Timeline? _timeline;
     private TimeSpan _pointerPosition;
     private IDisposable? _disposable1;
+    private static ColorPickerFlyout? s_colorPickerFlyout;
 
     public ElementView()
     {
@@ -162,6 +165,54 @@ public sealed partial class ElementView : UserControl
     {
         textBlock.IsVisible = true;
         textBox.IsVisible = false;
+    }
+
+    private void Rename_Click(object? sender, RoutedEventArgs e)
+    {
+        textBlock.IsVisible = false;
+        textBox.IsVisible = true;
+        textBox.SelectAll();
+        textBox.Focus();
+    }
+
+    private void ChangeColor_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is ElementViewModel viewModel)
+        {
+            // ContextMenuから開いているので、閉じるのを待つ
+            s_colorPickerFlyout ??= new ColorPickerFlyout();
+            s_colorPickerFlyout.ColorPicker.Color = viewModel.Color.Value;
+            s_colorPickerFlyout.ColorPicker.IsAlphaEnabled = false;
+            s_colorPickerFlyout.ColorPicker.UseColorPalette = true;
+            s_colorPickerFlyout.ColorPicker.IsCompact = true;
+            s_colorPickerFlyout.ColorPicker.IsMoreButtonVisible = true;
+            s_colorPickerFlyout.Placement = PlacementMode.Top;
+
+            if (this.TryFindResource("PaletteColors", out object? colors)
+                && colors is IEnumerable<Color> tcolors)
+            {
+                s_colorPickerFlyout.ColorPicker.CustomPaletteColors = tcolors;
+            }
+
+            s_colorPickerFlyout.Confirmed += OnColorPickerFlyoutConfirmed;
+            s_colorPickerFlyout.Closed += OnColorPickerFlyoutClosed;
+
+            s_colorPickerFlyout.ShowAt(border);
+        }
+    }
+
+    private void OnColorPickerFlyoutClosed(object? sender, EventArgs e)
+    {
+        s_colorPickerFlyout!.Confirmed -= OnColorPickerFlyoutConfirmed;
+        s_colorPickerFlyout!.Closed -= OnColorPickerFlyoutClosed;
+    }
+
+    private void OnColorPickerFlyoutConfirmed(ColorPickerFlyout sender, EventArgs args)
+    {
+        if (DataContext is ElementViewModel viewModel)
+        {
+            viewModel.Color.Value = sender.ColorPicker.Color;
+        }
     }
 
     private void OpenNodeTree_Click(object? sender, RoutedEventArgs e)
@@ -523,6 +574,7 @@ public sealed partial class ElementView : UserControl
                         obj.textBlock.IsVisible = false;
                         obj.textBox.IsVisible = true;
                         obj.textBox.SelectAll();
+                        obj.textBox.Focus();
                     }
                     else
                     {

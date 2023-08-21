@@ -877,6 +877,9 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Number_of_Layers" xml:space="preserve">
     <value>レイヤーの数</value>
   </data>
+  <data name="ChangeColor" xml:space="preserve">
+    <value>色を変更</value>
+  </data>
   <data name="EditAnimationInInlineView" xml:space="preserve">
     <value>インライン表示でアニメーションを編集</value>
   </data>
