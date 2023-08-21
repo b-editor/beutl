@@ -883,6 +883,9 @@ and b-editor maintains the download URL.</value>
   <data name="EnableLivePreview" xml:space="preserve">
     <value>Enable Live Preview</value>
   </data>
+  <data name="ExcludeAlphaChannel" xml:space="preserve">
+    <value>Exclude Alpha channel</value>
+  </data>
   <data name="OpenNodeTree" xml:space="preserve">
     <value>Open Node Tree</value>
   </data>

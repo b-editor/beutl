@@ -827,6 +827,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Exclude Alpha channel に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ExcludeAlphaChannel {
+            get {
+                return ResourceManager.GetString("ExcludeAlphaChannel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Exit に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Exit {

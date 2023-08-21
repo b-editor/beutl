@@ -883,6 +883,9 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="EnableLivePreview" xml:space="preserve">
     <value>ライブプレビューを有効化</value>
   </data>
+  <data name="ExcludeAlphaChannel" xml:space="preserve">
+    <value>Alphaチャンネルを除外</value>
+  </data>
   <data name="OpenNodeTree" xml:space="preserve">
     <value>ノードツリーを開く</value>
   </data>
