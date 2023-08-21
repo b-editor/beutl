@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Media;
 using Avalonia.ReactiveUI;
 
 using Beutl.Services;
@@ -68,6 +69,10 @@ internal static class Program
             .With(new Win32PlatformOptions()
             {
                 WinUICompositionBackdropCornerRadius = 8f
+            })
+            .With(new FontManagerOptions
+            {
+                DefaultFamilyName = Media.FontManager.Instance.DefaultTypeface.FontFamily.Name
             })
             .LogToTrace();
     }
