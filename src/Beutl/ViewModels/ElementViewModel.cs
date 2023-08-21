@@ -15,6 +15,12 @@ namespace Beutl.ViewModels;
 
 public sealed class ElementViewModel : IDisposable
 {
+    private static readonly Graphics.ColorMatrix s_grayscale = new(
+        0.21f, 0.72f, 0.07f, 0, 0,
+        0.21f, 0.72f, 0.07f, 0, 0,
+        0.21f, 0.72f, 0.07f, 0, 0,
+        0.000f, 0.000f, 0.000f, 1, 0);
+    private static readonly Graphics.ColorMatrix s_contrast100 = Graphics.ColorMatrix.CreateContrast(100);
     private readonly CompositeDisposable _disposables = new();
     private IClipboard? _clipboard;
 
@@ -61,7 +67,14 @@ public sealed class ElementViewModel : IDisposable
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        TextColor = Color.Select(c => c.ToHsv().V >= 0.5 ? Avalonia.Media.Colors.White : Avalonia.Media.Colors.Black)
+        TextColor = Color.Select(c =>
+            {
+                //filter: invert(100 %) grayscale(100 %) contrast(100);
+                var cc = new Media.Color(c.A, (byte)(255 - c.R), (byte)(255 - c.G), (byte)(255 - c.B));
+                cc = s_grayscale * cc;
+                cc = s_contrast100 * cc;
+                return cc.ToAvalonia();
+            })
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
@@ -138,7 +151,7 @@ public sealed class ElementViewModel : IDisposable
     public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader { get; set; } = new();
 
     public ReactiveProperty<Avalonia.Media.Color> Color { get; }
-    
+
     public ReadOnlyReactivePropertySlim<Avalonia.Media.Color> TextColor { get; }
 
     public ReactiveCommand<Func<TimeSpan>?> Split { get; } = new();

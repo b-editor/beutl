@@ -143,6 +143,14 @@ public readonly struct ColorMatrix : IEquatable<ColorMatrix>
         return CreateFromSpan(span);
     }
 
+    public static ColorMatrix CreateContrast(float contrast)
+    {
+        Span<float> span = stackalloc float[20];
+        CreateContrast(contrast, span);
+
+        return CreateFromSpan(span);
+    }
+
     public float[] ToArray()
     {
         return new float[]
@@ -331,6 +339,28 @@ public readonly struct ColorMatrix : IEquatable<ColorMatrix>
     {
         span[0] = span[6] = span[12] = amount;
         span[18] = 1;
+    }
+
+    internal static void CreateContrast(float contrast, Span<float> span)
+    {
+        //https://dobon.net/vb/dotnet/graphics/contrast.html
+        float scale = (100f + contrast) / 100f;
+        scale *= scale;
+        float append = 0.5f * (1f - scale);
+
+        span[0] = scale;
+        span[6] = scale;
+        span[12] = scale;
+        span[18] = 1;
+        span[4] = span[9] = span[14] = append;
+
+        //float contrastFactor = (1 + contrast) / (1.0001f - contrast);
+
+        //span[0] = contrastFactor;
+        //span[6] = contrastFactor;
+        //span[12] = contrastFactor;
+        //span[4] = span[9] = span[14] = (1.0f - contrastFactor) * 0.5f;
+        //span[18] = 1;
     }
 
     internal static void ToSkiaColorMatrix(Span<float> array)
