@@ -17,6 +17,14 @@ public static class FFmpegLoader
 {
     private static readonly ILogger s_logger = BeutlApplication.Current.LoggerFactory.CreateLogger(typeof(FFmpegLoader));
     private static bool s_isInitialized;
+    private static readonly string s_defaultFFmpegExePath;
+    private static readonly string s_defaultFFmpegPath;
+
+    static FFmpegLoader()
+    {
+        s_defaultFFmpegPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "ffmpeg");
+        s_defaultFFmpegExePath = Path.Combine(s_defaultFFmpegPath, OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg");
+    }
 
     public static void Initialize()
     {
@@ -67,72 +75,78 @@ public static class FFmpegLoader
 
     public static string GetExecutable()
     {
-        if (Environment.GetEnvironmentVariable("FFMPEG_PATH") is string exePath
-            && File.Exists(exePath))
+        var paths = new List<string>
         {
-            return exePath;
+            s_defaultFFmpegExePath,
+            Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg")
+        };
+
+        if (OperatingSystem.IsLinux())
+        {
+            paths.Add("/usr/bin/ffmpeg");
         }
 
-        if (OperatingSystem.IsWindows())
+        foreach (string item in paths)
         {
-            exePath = Path.Combine(
-                Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName,
-                "runtimes",
-                Environment.Is64BitProcess ? "win-x64" : "win-x86",
-                "native",
-                "ffmpeg.exe");
-        }
-        else if (OperatingSystem.IsLinux())
-        {
-            exePath = "/usr/bin/ffmpeg";
-        }
-        else
-        {
-            exePath = null!;
+            if (File.Exists(item))
+            {
+                return item;
+            }
         }
 
-        if (!File.Exists(exePath))
-        {
-            throw new InvalidOperationException();
-        }
-        else
-        {
-            return exePath;
-        }
+        throw new InvalidOperationException();
     }
 
     public static string GetRootPath()
     {
-        if (Environment.GetEnvironmentVariable("FFMPEG_ROOT_PATH") is string rootPath
-            && Directory.Exists(rootPath))
+        var paths = new List<string>
         {
-            return rootPath;
-        }
+            s_defaultFFmpegPath,
+            Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName,
+            AppContext.BaseDirectory
+        };
 
         if (OperatingSystem.IsWindows())
         {
-            rootPath = Path.Combine(
-                Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName,
+            paths.Add(Path.Combine(Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName,
                 "runtimes",
                 Environment.Is64BitProcess ? "win-x64" : "win-x86",
-                "native");
+                "native"));
+
+            paths.Add(Path.Combine(AppContext.BaseDirectory,
+                "runtimes",
+                Environment.Is64BitProcess ? "win-x64" : "win-x86",
+                "native"));
         }
         else if (OperatingSystem.IsLinux())
         {
-            rootPath = $"/usr/lib/{(Environment.Is64BitProcess ? "x86_64" : "x86")}-linux-gnu";
-        }
-        else
-        {
-            rootPath = null!;
+            paths.Add($"/usr/lib/{(Environment.Is64BitProcess ? "x86_64" : "x86")}-linux-gnu");
         }
 
-        if (!Directory.Exists(rootPath))
+        foreach (string item in paths)
         {
-            throw new InvalidOperationException();
+            if (LibrariesExists(item))
+            {
+                return item;
+            }
         }
-        else
+
+        throw new InvalidOperationException();
+    }
+
+    private static bool LibrariesExists(string basePath)
+    {
+        if (!Directory.Exists(basePath)) return false;
+
+        string[] files = Directory.GetFiles(basePath);
+        foreach (KeyValuePair<string, int> item in ffmpeg.LibraryVersionMap)
         {
-            return rootPath;
+            if (!files.Any(x => x.Contains(item.Key)))
+            {
+                return false;
+            }
         }
+
+        return true;
     }
 }
