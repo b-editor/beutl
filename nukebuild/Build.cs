@@ -92,6 +92,7 @@ partial class Build : NukeBuild
             {
                 AbsolutePath output = OutputDirectory / item;
                 DotNetPublish(s => s
+                    .When(Runtime != null, s => s.SetRuntime(Runtime).SetSelfContained(SelfContained))
                     .EnableNoRestore()
                     .SetConfiguration(Configuration)
                     .SetProject(SourceDirectory / item / $"{item}.csproj")
@@ -100,6 +101,25 @@ partial class Build : NukeBuild
                 GlobFiles(output, $"**/{item}.*")
                     .Select(p => (Source: p, Target: mainOutput / output.GetRelativePathTo(p)))
                     .ForEach(t => CopyFile(t.Source, t.Target));
+            }
+
+            string[] asmsToCopy = new string[]
+            {
+                "FluentTextTable",
+                "Kokuban",
+                "Kurukuru",
+                "Sharprompt",
+                "DeviceId",
+            };
+            foreach (string asm in asmsToCopy)
+            {
+                foreach (string item in subProjects)
+                {
+                    AbsolutePath output = OutputDirectory / asm;
+                    GlobFiles(output, $"**/{asm}.*")
+                        .Select(p => (Source: p, Target: mainOutput / output.GetRelativePathTo(p)))
+                        .ForEach(t => CopyFile(t.Source, t.Target));
+                }
             }
         });
 
