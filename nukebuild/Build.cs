@@ -98,7 +98,7 @@ partial class Build : NukeBuild
                     .SetProject(SourceDirectory / item / $"{item}.csproj")
                     .SetOutput(output));
 
-                GlobFiles(output, $"**/{item}.*")
+                output.GlobFiles($"**/{item}.*")
                     .Select(p => (Source: p, Target: mainOutput / output.GetRelativePathTo(p)))
                     .ForEach(t => CopyFile(t.Source, t.Target));
             }
@@ -116,7 +116,7 @@ partial class Build : NukeBuild
                 foreach (string item in subProjects)
                 {
                     AbsolutePath output = OutputDirectory / asm;
-                    GlobFiles(output, $"**/{asm}.*")
+                    output.GlobFiles($"**/{asm}.*")
                         .Select(p => (Source: p, Target: mainOutput / output.GetRelativePathTo(p)))
                         .ForEach(t => CopyFile(t.Source, t.Target));
                 }
