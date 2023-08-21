@@ -63,6 +63,7 @@ internal static class CoreLibraries
                         {
                             case "Beutl":
                             case "Beutl.Api":
+                            case "Beutl.Api.Generated":
                             case "Beutl.Configuration":
                             case "Beutl.Controls":
                             case "Beutl.Core":
