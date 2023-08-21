@@ -5,6 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Xml.Linq;
 
+using Serilog;
+
 partial class Build : NukeBuild
 {
     /// Support plugins are available for:
@@ -18,10 +20,10 @@ partial class Build : NukeBuild
     [Parameter()]
     Configuration Configuration = Configuration.Release;
 
-    [Parameter(Name = "--runtime")]
+    [Parameter()]
     DotNetRuntimeIdentifier Runtime = null;
 
-    [Parameter(Name = "--self-contained")]
+    [Parameter()]
     bool SelfContained = false;
 
     [Solution] readonly Solution Solution;
@@ -56,10 +58,6 @@ partial class Build : NukeBuild
             DotNetBuild(s => s
                 .SetProjectFile(Solution)
                 .SetConfiguration(Configuration)
-                .SetVersion(GitVersion.SemVer)
-                .SetAssemblyVersion(GitVersion.AssemblySemVer)
-                .SetFileVersion(GitVersion.AssemblySemFileVer)
-                .SetInformationalVersion(GitVersion.InformationalVersion)
                 .EnableNoRestore());
         });
 
@@ -77,12 +75,7 @@ partial class Build : NukeBuild
             var mainOutput = OutputDirectory / "Beutl";
 
             DotNetPublish(s => s
-                .SetVersion(GitVersion.SemVer)
-                .SetAssemblyVersion(GitVersion.AssemblySemVer)
-                .SetFileVersion(GitVersion.AssemblySemFileVer)
-                .SetInformationalVersion(GitVersion.InformationalVersion)
                 .EnableNoRestore()
-
                 .When(Runtime != null, s => s.SetRuntime(Runtime).SetSelfContained(SelfContained))
                 .SetConfiguration(Configuration)
                 .SetProject(mainProj)
@@ -99,12 +92,7 @@ partial class Build : NukeBuild
             {
                 AbsolutePath output = OutputDirectory / item;
                 DotNetPublish(s => s
-                    .SetVersion(GitVersion.SemVer)
-                    .SetAssemblyVersion(GitVersion.AssemblySemVer)
-                    .SetFileVersion(GitVersion.AssemblySemFileVer)
-                    .SetInformationalVersion(GitVersion.InformationalVersion)
                     .EnableNoRestore()
-
                     .SetConfiguration(Configuration)
                     .SetProject(SourceDirectory / item / $"{item}.csproj")
                     .SetOutput(output));
@@ -113,6 +101,13 @@ partial class Build : NukeBuild
                     .Select(p => (Source: p, Target: mainOutput / output.GetRelativePathTo(p)))
                     .ForEach(t => CopyFile(t.Source, t.Target));
             }
+        });
+
+    Target Zip => _ => _
+        .DependsOn(Publish)
+        .Executes(() =>
+        {
+            AbsolutePath mainOutput = OutputDirectory / "Beutl";
 
             // Eg: Beutl-main-0.0.0+0000.zip
             var fileName = new StringBuilder();

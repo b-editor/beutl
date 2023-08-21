@@ -5,6 +5,7 @@
     <AssemblyName>bpt</AssemblyName>
     <NeutralLanguage>en</NeutralLanguage>
     <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
+    <SelfContained>false</SelfContained>
   </PropertyGroup>
 
   <ItemGroup>

@@ -6,47 +6,6 @@
     "build": {
       "type": "object",
       "properties": {
-        "--runtime": {
-          "type": "string",
-          "enum": [
-            "linux_arm",
-            "linux_arm64",
-            "linux_musl_x64",
-            "linux_x64",
-            "osx_10_10_x64",
-            "osx_10_11_x64",
-            "osx_10_12_x64",
-            "osx_10_13_x64",
-            "osx_10_14_x64",
-            "osx_10_15_x64",
-            "osx_11_0_arm64",
-            "osx_11_0_x64",
-            "osx_12_arm64",
-            "osx_12_x64",
-            "osx_x64",
-            "rhel_6_x64",
-            "rhel_x64",
-            "tizen",
-            "tizen_4_0_0",
-            "tizen_5_0_0",
-            "win_arm",
-            "win_arm64",
-            "win_x64",
-            "win_x86",
-            "win10_arm",
-            "win10_arm64",
-            "win10_x64",
-            "win10_x86",
-            "win7_x64",
-            "win7_x86",
-            "win81_arm",
-            "win81_x64",
-            "win81_x86"
-          ]
-        },
-        "--self-contained": {
-          "type": "boolean"
-        },
         "Configuration": {
           "type": "string",
           "enum": [
@@ -106,6 +65,47 @@
           "type": "string",
           "description": "Root directory during build execution"
         },
+        "Runtime": {
+          "type": "string",
+          "enum": [
+            "linux_arm",
+            "linux_arm64",
+            "linux_musl_x64",
+            "linux_x64",
+            "osx_10_10_x64",
+            "osx_10_11_x64",
+            "osx_10_12_x64",
+            "osx_10_13_x64",
+            "osx_10_14_x64",
+            "osx_10_15_x64",
+            "osx_11_0_arm64",
+            "osx_11_0_x64",
+            "osx_12_arm64",
+            "osx_12_x64",
+            "osx_x64",
+            "rhel_6_x64",
+            "rhel_x64",
+            "tizen",
+            "tizen_4_0_0",
+            "tizen_5_0_0",
+            "win_arm",
+            "win_arm64",
+            "win_x64",
+            "win_x86",
+            "win10_arm",
+            "win10_arm64",
+            "win10_x64",
+            "win10_x86",
+            "win7_x64",
+            "win7_x86",
+            "win81_arm",
+            "win81_x64",
+            "win81_x86"
+          ]
+        },
+        "SelfContained": {
+          "type": "boolean"
+        },
         "Skip": {
           "type": "array",
           "description": "List of targets to be skipped. Empty list skips all dependencies",
@@ -115,7 +115,8 @@
               "Clean",
               "Compile",
               "Publish",
-              "Restore"
+              "Restore",
+              "Zip"
             ]
           }
         },
@@ -132,7 +133,8 @@
               "Clean",
               "Compile",
               "Publish",
-              "Restore"
+              "Restore",
+              "Zip"
             ]
           }
         },
