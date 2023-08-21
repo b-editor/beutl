@@ -71,13 +71,10 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
                     paint.ImageFilter = builder.GetFilter();
 
                     using (canvas.PushBlendMode(BlendMode.SrcOver))
+                    using (canvas.PushTransform(Matrix.CreateTranslation(activator.Bounds.X - activator.OriginalBounds.X, activator.Bounds.Y - activator.OriginalBounds.Y)))
+                    using (canvas.PushPaint(paint))
                     {
-                        canvas.Canvas.Translate(activator.Bounds.X - activator.OriginalBounds.X, activator.Bounds.Y - activator.OriginalBounds.Y);
-                        int count = canvas.Canvas.SaveLayer(paint);
-
                         activator.CurrentTarget.Draw(canvas);
-
-                        canvas.Canvas.RestoreToCount(count);
                     }
                 }
             }

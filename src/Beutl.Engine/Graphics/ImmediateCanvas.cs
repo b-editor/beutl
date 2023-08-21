@@ -333,7 +333,11 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         _sharedFillPaint.TextSize = text.Size;
         _sharedFillPaint.Typeface = sktypeface;
 
+#if DEBUG
+        Span<char> sc = new char[1];
+#else
         Span<char> sc = stackalloc char[1];
+#endif
         float prevRight = 0;
         using var path = new SKPath();
 
@@ -346,7 +350,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
             using SKPath skPath = _sharedFillPaint.GetTextPath(
                 sc,
                 (bounds.Width / 2) - bounds.MidX,
-                0/*-_paint.FontMetrics.Ascent*/);
+                0);
 
             path.AddPath(skPath, prevRight + bounds.Left, 0);
 
@@ -439,6 +443,19 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     {
         VerifyAccess();
         int count = _canvas.Save();
+
+        _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
+        return new PushedState(this, _states.Count);
+    }
+
+    internal PushedState PushPaint(SKPaint paint, Rect? rect = null)
+    {
+        VerifyAccess();
+        int count;
+        if (rect.HasValue)
+            count = _canvas.SaveLayer(rect.Value.ToSKRect(), paint);
+        else
+            count = _canvas.SaveLayer(paint);
 
         _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
         return new PushedState(this, _states.Count);

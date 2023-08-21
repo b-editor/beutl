@@ -69,10 +69,9 @@ public sealed class FilterEffectActivator : IDisposable
                 };
 
                 using (canvas.PushTransform(Matrix.CreateTranslation(-_originalBounds.X, -_originalBounds.Y)))
+                using (canvas.PushPaint(paint))
                 {
-                    int restoreCount = surface.Canvas.SaveLayer(paint);
                     _target.Draw(canvas);
-                    surface.Canvas.RestoreToCount(restoreCount);
                 }
 
                 _target?.Dispose();
