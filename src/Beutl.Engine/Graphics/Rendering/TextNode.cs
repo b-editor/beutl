@@ -7,7 +7,7 @@ namespace Beutl.Graphics.Rendering;
 public sealed class TextNode : BrushDrawNode
 {
     public TextNode(FormattedText text, IBrush? fill, IPen? pen)
-        : base(fill, pen, new(text.Bounds))
+        : base(fill, pen, new(new Point(0, text.Metrics.Ascent), text.Bounds))
     {
         Text = text;
     }
