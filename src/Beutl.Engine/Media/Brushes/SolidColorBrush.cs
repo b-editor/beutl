@@ -43,7 +43,7 @@ public class SolidColorBrush : Brush, ISolidColorBrush, IEquatable<ISolidColorBr
     /// </summary>
     /// <param name="color">The color to use.</param>
     /// <param name="opacity">The opacity of the brush.</param>
-    public SolidColorBrush(Color color, float opacity = 1)
+    public SolidColorBrush(Color color, float opacity = 100)
     {
         Color = color;
         Opacity = opacity;

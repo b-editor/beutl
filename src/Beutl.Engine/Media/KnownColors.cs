@@ -64,7 +64,7 @@ internal static class KnownColors
         {
             if (!s_knownBrushes.TryGetValue(color, out ISolidColorBrush? brush))
             {
-                brush = new ImmutableSolidColorBrush(color.ToColor(), 1);
+                brush = new ImmutableSolidColorBrush(color.ToColor(), 100);
                 s_knownBrushes.Add(color, brush);
             }
 

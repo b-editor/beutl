@@ -11,7 +11,7 @@ public static class ColorExtensions
     
     public static ISolidColorBrush ToImmutableBrush(this Color color)
     {
-        return new ImmutableSolidColorBrush(color, 1);
+        return new ImmutableSolidColorBrush(color, 100);
     }
 
 #if false
