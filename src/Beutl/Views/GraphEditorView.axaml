@@ -224,7 +224,7 @@
                                                         <Path HorizontalAlignment="Left"
                                                               VerticalAlignment="Top"
                                                               Classes.decreasing="{Binding Decreasing.Value}"
-                                                              Fill="Yellow"
+                                                              Fill="{DynamicResource SystemFillColorCaution}"
                                                               PointerPressed="OnKeyTimePointerPressed">
                                                             <Path.RenderTransform>
                                                                 <TranslateTransform X="{Binding RightTop.Value.X}" Y="{Binding RightTop.Value.Y}" />

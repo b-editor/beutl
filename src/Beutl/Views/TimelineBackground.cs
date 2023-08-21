@@ -10,7 +10,7 @@ public sealed class TimelineBackground : TemplatedControl
 
     static TimelineBackground()
     {
-        AffectsRender<TimelineBackground>(ItemHeightProperty);
+        AffectsRender<TimelineBackground>(ItemHeightProperty, BorderBrushProperty);
     }
 
     public double ItemHeight
@@ -29,7 +29,7 @@ public sealed class TimelineBackground : TemplatedControl
         var pen = new Pen()
         {
             Brush = BorderBrush,
-            Thickness = BorderThickness.Top + BorderThickness.Bottom
+            Thickness = 0.2,
         };
         for (double y = 0; y < height; y += itemHeight)
         {

@@ -220,7 +220,7 @@
 
             <Style Selector="^[IsSelected=True] /template/ Border#PART_Container">
                 <Setter Property="BorderBrush" Value="{DynamicResource TabViewSelectedItemBorderBrush}" />
-                <Setter Property="Background" Value="{DynamicResource TabViewItemHeaderBackgroundSelected}" />
+                <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
             </Style>
             <Style Selector="^[IsSelected=False] /template/ Border#PART_Container">
                 <Setter Property="Background" Value="Transparent" />

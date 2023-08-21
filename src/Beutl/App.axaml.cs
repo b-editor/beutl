@@ -72,7 +72,7 @@ public sealed class App : Application
                         _theme.PreferSystemTheme = true;
                         break;
                 }
-            });
+            }, DispatcherPriority.Send);
         });
     }
 

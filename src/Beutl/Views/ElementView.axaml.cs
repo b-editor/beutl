@@ -1,7 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
-using Avalonia.Collections.Pooled;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -12,13 +11,8 @@ using Avalonia.Xaml.Interactivity;
 
 using Beutl.Commands;
 using Beutl.ProjectSystem;
-using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Beutl.ViewModels.NodeTree;
-
-using NuGet.Frameworks;
-
-using static Beutl.Views.Timeline;
 
 using Setter = Avalonia.Styling.Setter;
 

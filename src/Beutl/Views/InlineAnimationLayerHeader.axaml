@@ -31,6 +31,10 @@
             <Setter Property="Padding" Value="10,0,6,0" />
             <Setter Property="MinHeight" Value="{DynamicResource LayerHeight}" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
+
+            <Style Selector="^:pointerover /template/ Border#PART_BorderElement">
+                <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+            </Style>
         </Style>
     </UserControl.Styles>
     <Grid Height="{DynamicResource LayerHeight}" ColumnDefinitions="14,Auto,Auto,Auto,*">
@@ -40,7 +44,7 @@
                 CornerRadius="{DynamicResource ControlCornerRadius}">
             <Border.Styles>
                 <Style Selector="Border#border:pointerover">
-                    <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                    <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
                     <Setter Property="Cursor" Value="SizeNorthSouth" />
                 </Style>
             </Border.Styles>
@@ -54,7 +58,7 @@
                 Classes="SmallButton"
                 Command="{CompiledBinding Close}"
                 Theme="{StaticResource TransparentButton}">
-            <icons:SymbolIcon Symbol="Dismiss" />
+            <icons:SymbolIcon VerticalAlignment="Center" Symbol="Dismiss" />
         </Button>
 
         <Button Grid.Column="3"
@@ -62,7 +66,7 @@
                 Classes="SmallButton"
                 Click="OpenTab_Click"
                 Theme="{StaticResource TransparentButton}">
-            <icons:SymbolIcon Symbol="Open" />
+            <icons:SymbolIcon VerticalAlignment="Center" Symbol="Open" />
         </Button>
 
 

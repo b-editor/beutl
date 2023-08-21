@@ -18,21 +18,21 @@
             Height="24"
             Padding="0"
             HorizontalAlignment="Center"
-            Background="Transparent"
             BorderThickness="0"
-            Click="Button_Click">
+            Click="Button_Click"
+            Theme="{StaticResource TransparentButton}">
         <Button.ContextFlyout>
             <ui:FAMenuFlyout>
                 <ui:MenuFlyoutItem Command="{Binding Reset}"
                                    IsEnabled="{Binding CanReset}"
                                    Text="{x:Static lang:Strings.Reset}" />
                 <ui:MenuFlyoutItem Click="EditAnimation_Click" Text="{x:Static lang:Strings.EditAnimation}" />
-                <ui:MenuFlyoutItem Click="EditInlineAnimation_Click" Text="アニメーションを編集(Inline)" />
+                <ui:MenuFlyoutItem Click="EditInlineAnimation_Click" Text="{x:Static lang:Strings.EditAnimationInInlineView}" />
                 <ui:ToggleMenuFlyoutItem x:Name="toggleLivePreview"
                                          IsChecked="{ReflectionBinding IsLivePreviewEnabled.Value,
                                                                        Mode=TwoWay}"
                                          IsVisible="False"
-                                         Text="ライブプレビューを有効化" />
+                                         Text="{x:Static lang:Strings.EnableLivePreview}" />
             </ui:FAMenuFlyout>
         </Button.ContextFlyout>
         <icons:SymbolIcon x:Name="symbolIcon"

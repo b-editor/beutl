@@ -728,6 +728,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Edit animation in inline view に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string EditAnimationInInlineView {
+            get {
+                return ResourceManager.GetString("EditAnimationInInlineView", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Editors に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Editors {
@@ -751,6 +760,15 @@ namespace Beutl.Language {
         public static string Ellipse {
             get {
                 return ResourceManager.GetString("Ellipse", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Enable Live Preview に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string EnableLivePreview {
+            get {
+                return ResourceManager.GetString("EnableLivePreview", resourceCulture);
             }
         }
         
@@ -1498,6 +1516,15 @@ namespace Beutl.Language {
         public static string OpenAFileYouHaveAlreadyCreated {
             get {
                 return ResourceManager.GetString("OpenAFileYouHaveAlreadyCreated", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Open Node Tree に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string OpenNodeTree {
+            get {
+                return ResourceManager.GetString("OpenNodeTree", resourceCulture);
             }
         }
         
@@ -2299,6 +2326,15 @@ namespace Beutl.Language {
         public static string Unknown {
             get {
                 return ResourceManager.GetString("Unknown", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   UseNode に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string UseNode {
+            get {
+                return ResourceManager.GetString("UseNode", resourceCulture);
             }
         }
         

@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 
+using Beutl.Commands;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 
@@ -60,6 +61,10 @@ public sealed class ElementViewModel : IDisposable
             .ToReactiveProperty()
             .AddTo(_disposables);
 
+        TextColor = Color.Select(c => c.ToHsv().V >= 0.5 ? Avalonia.Media.Colors.White : Avalonia.Media.Colors.Black)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
         // コマンドを構成
         Split.Where(func => func != null)
             .Subscribe(func => OnSplit(func!()))
@@ -77,7 +82,9 @@ public sealed class ElementViewModel : IDisposable
         Delete.Subscribe(OnDelete)
             .AddTo(_disposables);
 
-        Color.Subscribe(c => Model.AccentColor = Media.Color.FromArgb(c.A, c.R, c.G, c.B))
+        Color.Skip(1)
+            .Subscribe(c => new ChangePropertyCommand<Media.Color>(Model, Element.AccentColorProperty, c.ToMedia(), Model.AccentColor)
+                .DoAndRecord(CommandRecorder.Default))
             .AddTo(_disposables);
 
         FinishEditingAnimation.Subscribe(OnFinishEditingAnimation)
@@ -131,6 +138,8 @@ public sealed class ElementViewModel : IDisposable
     public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader { get; set; } = new();
 
     public ReactiveProperty<Avalonia.Media.Color> Color { get; }
+    
+    public ReadOnlyReactivePropertySlim<Avalonia.Media.Color> TextColor { get; }
 
     public ReactiveCommand<Func<TimeSpan>?> Split { get; } = new();
 

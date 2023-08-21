@@ -53,6 +53,7 @@
                             Padding="0"
                             HorizontalContentAlignment="Stretch"
                             VerticalContentAlignment="Stretch"
+                            Background="Transparent"
                             Click="UpdateProfileImage_Click"
                             CornerRadius="32">
                         <Button.Styles>
@@ -64,7 +65,7 @@
                                                 Background="Gray"
                                                 CornerRadius="32"
                                                 Opacity="0.8">
-                                            <icons:SymbolIcon Symbol="Edit" />
+                                            <icons:SymbolIcon VerticalAlignment="Center" Symbol="Edit" />
                                         </Border>
                                     </Template>
                                 </Setter>

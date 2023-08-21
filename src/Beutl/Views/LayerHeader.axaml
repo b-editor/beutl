@@ -34,6 +34,10 @@
                 <Setter Property="Padding" Value="10,0,6,0" />
                 <Setter Property="MinHeight" Value="{DynamicResource LayerHeight}" />
                 <Setter Property="VerticalContentAlignment" Value="Center" />
+
+                <Style Selector="^:pointerover /template/ Border#PART_BorderElement">
+                    <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                </Style>
             </Style>
         </Grid.Styles>
         <Border x:Name="border"
@@ -44,7 +48,7 @@
                 PointerReleased="Border_PointerReleased">
             <Border.Styles>
                 <Style Selector="Border:pointerover">
-                    <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                    <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
                 </Style>
             </Border.Styles>
             <icons:SymbolIcon VerticalAlignment="Center"
@@ -70,9 +74,9 @@
                             <Button Name="ShowFlyoutButton"
                                     Padding="0"
                                     HorizontalContentAlignment="Stretch"
-                                    Background="Transparent"
                                     BorderThickness="0"
-                                    CornerRadius="{TemplateBinding CornerRadius}">
+                                    CornerRadius="{TemplateBinding CornerRadius}"
+                                    Theme="{StaticResource TransparentButton}">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <Border MinWidth="18"
                                             MinHeight="18"

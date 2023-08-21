@@ -877,4 +877,16 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Number_of_Layers" xml:space="preserve">
     <value>レイヤーの数</value>
   </data>
+  <data name="EditAnimationInInlineView" xml:space="preserve">
+    <value>インライン表示でアニメーションを編集</value>
+  </data>
+  <data name="EnableLivePreview" xml:space="preserve">
+    <value>ライブプレビューを有効化</value>
+  </data>
+  <data name="OpenNodeTree" xml:space="preserve">
+    <value>ノードツリーを開く</value>
+  </data>
+  <data name="UseNode" xml:space="preserve">
+    <value>ノードを使う</value>
+  </data>
 </root>

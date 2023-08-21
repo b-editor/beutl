@@ -108,25 +108,31 @@ public partial class GraphEditorView : UserControl
 
     private void OnDataContextAttached(GraphEditorViewModel obj)
     {
-        obj.ScrollOffset.Subscribe(offset => scroll.Offset = offset)
-            .DisposeWith(_disposables);
-        scroll.GetObservable(ScrollViewer.OffsetProperty)
-            .Subscribe(offset => obj.ScrollOffset.Value = offset)
-            .DisposeWith(_disposables);
-
         obj.MinHeight
             .CombineLatest(scroll.GetObservable(BoundsProperty))
             .ObserveOnUIDispatcher()
             .Subscribe(v => graphPanel.Height = Math.Max(v.First, v.Second.Height))
             .DisposeWith(_disposables);
+    }
 
-        obj.SelectedView
-            .CombineWithPrevious()
-            .Subscribe(t =>
-            {
-
-            })
+    protected override void OnLoaded(RoutedEventArgs e)
+    {
+        base.OnLoaded(e);
+        if(DataContext is GraphEditorViewModel viewModel)
+        {
+            viewModel.ScrollOffset.Subscribe(offset => scroll.Offset = offset)
             .DisposeWith(_disposables);
+        }
+
+        scroll.ScrollChanged += OnScrollChanged;
+    }
+
+    private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        if (DataContext is GraphEditorViewModel viewModel)
+        {
+            viewModel.ScrollOffset.Value = scroll.Offset;
+        }
     }
 
     private static float Zoom(float delta, float scale)

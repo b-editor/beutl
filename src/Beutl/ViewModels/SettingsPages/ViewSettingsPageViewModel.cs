@@ -12,16 +12,19 @@ public sealed class ViewSettingsPageViewModel
     public ViewSettingsPageViewModel()
     {
         _config = GlobalConfiguration.Instance.ViewConfig;
-        SelectedTheme.Value = (int)_config.Theme;
+        SelectedTheme = _config.GetObservable(ViewConfig.ThemeProperty).Select(x => (int)x)
+            .ToReactiveProperty();
         SelectedTheme.Subscribe(v => _config.Theme = (ViewConfig.ViewTheme)v);
 
-        SelectedLanguage.Value = _config.UICulture;
+        SelectedLanguage = _config.GetObservable(ViewConfig.UICultureProperty)
+            .ToReactiveProperty()!;
+
         SelectedLanguage.Subscribe(ci => _config.UICulture = ci);
     }
 
-    public ReactivePropertySlim<int> SelectedTheme { get; } = new();
+    public ReactiveProperty<int> SelectedTheme { get; }
 
-    public ReactivePropertySlim<CultureInfo> SelectedLanguage { get; } = new();
+    public ReactiveProperty<CultureInfo> SelectedLanguage { get; }
 
     public IEnumerable<CultureInfo> Cultures { get; } = LocalizeService.Instance.SupportedCultures();
 }

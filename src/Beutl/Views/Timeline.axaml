@@ -151,9 +151,7 @@
                     </ui:FAMenuFlyout>
                 </Panel.ContextFlyout>
 
-                <local:TimelineBackground BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                                          BorderThickness="0.5"
-                                          ItemHeight="{DynamicResource LayerHeight}" />
+                <local:TimelineBackground BorderBrush="{DynamicResource TextFillColorTertiaryBrush}" ItemHeight="{DynamicResource LayerHeight}" />
 
                 <local:TimelineOverlay x:Name="overlay"
                                        VerticalAlignment="Stretch"

@@ -26,42 +26,6 @@
 
                     <Grid Grid.Row="1" RowDefinitions="Auto,Auto">
                         <Grid.Styles>
-                            <Style Selector="Button">
-                                <Setter Property="BorderThickness" Value="0" />
-                                <Setter Property="Background" Value="Transparent" />
-                            </Style>
-                            <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="Transparent" />
-                            </Style>
-                            <Style Selector="RepeatButton">
-                                <Setter Property="BorderThickness" Value="0" />
-                                <Setter Property="Background" Value="Transparent" />
-                                <Setter Property="Delay" Value="300" />
-                                <Setter Property="Interval" Value="25" />
-                            </Style>
-                            <Style Selector="RepeatButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="Transparent" />
-                            </Style>
-                            <Style Selector="ToggleButton">
-                                <Setter Property="BorderThickness" Value="0" />
-                                <Setter Property="Background" Value="Transparent" />
-                            </Style>
-                            <Style Selector="ToggleButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="Transparent" />
-                            </Style>
-
-                            <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForeground}" />
-                            </Style>
-                            <Style Selector="ToggleButton:checked:pointerover /template/ Border#BorderElement">
-                                <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushPointerOver}" />
-                            </Style>
-                            <Style Selector="ToggleButton:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundPointerOver}" />
-                                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForegroundPointerOver}" />
-                            </Style>
-
                             <Style Selector="icons|SymbolIcon">
                                 <Setter Property="FontSize" Value="20" />
                             </Style>
@@ -92,17 +56,22 @@
                                     HorizontalAlignment="Center"
                                     Orientation="Horizontal">
 
-                            <Button Name="PART_StartButton" Grid.Column="1">
+                            <Button Name="PART_StartButton"
+                                    Grid.Column="1"
+                                    Theme="{StaticResource TransparentButton}">
                                 <icons:SymbolIcon Symbol="Previous" />
                             </Button>
 
-                            <RepeatButton Name="PART_PreviousButton" Grid.Column="2">
+                            <RepeatButton Name="PART_PreviousButton"
+                                          Grid.Column="2"
+                                          Theme="{StaticResource TransparentButton}">
                                 <icons:SymbolIcon Symbol="Rewind" />
                             </RepeatButton>
 
                             <ToggleButton Name="PART_PlayButton"
                                           Grid.Column="3"
-                                          IsChecked="{TemplateBinding IsPlaying, Mode=OneWay}">
+                                          IsChecked="{TemplateBinding IsPlaying, Mode=OneWay}"
+                                          Theme="{StaticResource TransparentToggleButton}">
                                 <ToggleButton.Styles>
                                     <Style Selector="ToggleButton">
                                         <Setter Property="Content">
@@ -121,11 +90,15 @@
                                 </ToggleButton.Styles>
                             </ToggleButton>
 
-                            <RepeatButton Name="PART_NextButton" Grid.Column="4">
+                            <RepeatButton Name="PART_NextButton"
+                                          Grid.Column="4"
+                                          Theme="{StaticResource TransparentButton}">
                                 <icons:SymbolIcon Symbol="FastForward" />
                             </RepeatButton>
 
-                            <Button Name="PART_EndButton" Grid.Column="5">
+                            <Button Name="PART_EndButton"
+                                    Grid.Column="5"
+                                    Theme="{StaticResource TransparentButton}">
                                 <icons:SymbolIcon Symbol="Next" />
                             </Button>
                         </StackPanel>

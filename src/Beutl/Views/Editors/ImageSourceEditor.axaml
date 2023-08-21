@@ -28,7 +28,9 @@
             <Grid ColumnDefinitions="*,Auto">
                 <TextBlock VerticalAlignment="Center" Text="{Binding ShortName.Value, Mode=OneWay}" />
 
-                <icons:SymbolIcon Grid.Column="1" Symbol="Open" />
+                <icons:SymbolIcon Grid.Column="1"
+                                  VerticalAlignment="Center"
+                                  Symbol="Open" />
             </Grid>
         </Button>
 

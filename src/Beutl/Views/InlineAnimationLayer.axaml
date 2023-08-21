@@ -4,6 +4,7 @@
              xmlns:convert="using:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Beutl.ViewModels"
              Height="{DynamicResource LayerHeight}"
@@ -40,10 +41,10 @@
                     <Path Margin="{Binding Left.Value, ConverterParameter='Left', Converter={x:Static convert:AvaloniaThicknessConverter.Instance}}"
                           HorizontalAlignment="Left"
                           VerticalAlignment="Center"
-                          Fill="Yellow">
+                          Fill="{DynamicResource SystemFillColorCaution}">
                         <Path.ContextMenu>
                             <ContextMenu>
-                                <MenuItem Click="DeleteClick" Header="削除">
+                                <MenuItem Click="DeleteClick" Header="{x:Static lang:Strings.Delete}">
                                     <MenuItem.Icon>
                                         <icons:SymbolIcon Symbol="Delete" />
                                     </MenuItem.Icon>

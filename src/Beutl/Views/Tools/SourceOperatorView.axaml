@@ -33,7 +33,7 @@
                         Cursor="SizeNorthSouth">
                     <Border.Styles>
                         <Style Selector="Border:pointerover">
-                            <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
                         </Style>
                     </Border.Styles>
                     <icons:SymbolIcon VerticalAlignment="Center"
