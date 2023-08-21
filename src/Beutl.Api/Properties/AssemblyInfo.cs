@@ -1,4 +1,4 @@
 ﻿using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("Beutl")]
-[assembly: InternalsVisibleTo("bpt")]
+[assembly: InternalsVisibleTo("Beutl.PackageTools")]

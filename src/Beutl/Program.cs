@@ -14,7 +14,7 @@ internal static class Program
     public static void Main(string[] args)
     {
         // STAThread属性がついている時に 'async Task Main' にするとDrag and Dropが動作しなくなる。
-        Process[] processes = Process.GetProcessesByName("bpt");
+        Process[] processes = Process.GetProcessesByName("Beutl.PackageTools");
         if (processes.Length > 0)
         {
             var startInfo = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "Beutl.WaitingDialog"))

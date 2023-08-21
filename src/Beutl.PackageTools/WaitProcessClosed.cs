@@ -12,7 +12,7 @@ public static class WaitForProcessExited
     static WaitForProcessExited()
     {
         s_beutlProcesses = Process.GetProcessesByName("Beutl");
-        s_bptProcesses = Process.GetProcessesByName("bpt");
+        s_bptProcesses = Process.GetProcessesByName("Beutl.PackageTools");
     }
 
     public static int Count => s_beutlProcesses.Length;

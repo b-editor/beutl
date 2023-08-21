@@ -75,7 +75,7 @@ internal static class CoreLibraries
                             case "Beutl.Threading":
                             case "Beutl.Utilities":
                             case "Beutl.WaitingDialog":
-                            case "bpt":
+                            case "Beutl.PackageTools":
                             case "Beutl.ExceptionHandler":
                                 version = assembly.GetName().Version!.ToString();
                                 break;

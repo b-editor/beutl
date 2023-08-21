@@ -523,7 +523,8 @@ public sealed class MainViewModel : BasePageViewModel
 
         if (installs.Length > 0 || uninstalls.Length > 0)
         {
-            var startInfo = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? "bpt.exe" : "bpt"))
+            const string ExeName = "Beutl.PackageTools";
+            var startInfo = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? $"{ExeName}.exe" : ExeName))
             {
                 UseShellExecute = true,
             };
