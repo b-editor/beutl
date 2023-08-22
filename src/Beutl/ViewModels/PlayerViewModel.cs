@@ -182,12 +182,12 @@ public sealed class PlayerViewModel : IDisposable
         if (OperatingSystem.IsWindows())
         {
             using var audioContext = new XAudioContext();
-            await PlayWithXA2(audioContext, scene);
+            await PlayWithXA2(audioContext, scene).ConfigureAwait(false);
         }
         else
         {
             using var audioContext = new AudioContext();
-            PlayWithOpenAL(audioContext, scene);
+            await PlayWithOpenAL(audioContext, scene).ConfigureAwait(false);
         }
     }
 
@@ -275,7 +275,7 @@ public sealed class PlayerViewModel : IDisposable
         }
     }
 
-    private async void PlayWithOpenAL(AudioContext audioContext, Scene scene)
+    private async Task PlayWithOpenAL(AudioContext audioContext, Scene scene)
     {
         try
         {
@@ -321,13 +321,14 @@ public sealed class PlayerViewModel : IDisposable
                     processed--;
                 }
 
+                await Task.Delay(1000).ConfigureAwait(false);
                 if (cur > scene.Duration)
                     break;
             }
 
             while (AL.GetSourceState(source) == ALSourceState.Playing)
             {
-                await Task.Delay(100);
+                await Task.Delay(100).ConfigureAwait(false);
             }
 
             AL.DeleteBuffers(buffers);
