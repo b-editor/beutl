@@ -1,6 +1,34 @@
 assembly-versioning-scheme: MajorMinorPatch
 mode: ContinuousDelivery
-branches: {}
+next-version: 1.0.0
+legacy-semver-padding: 1
+branches:
+  develop:
+    mode: ContinuousDeployment
+    tag: preview
+    increment: Minor
+    prevent-increment-of-merged-branch-version: false
+    track-merge-target: true
+    regex: ^dev(elop)?(ment)?$
+    source-branches: []
+    tracks-release-branches: true
+    is-release-branch: false
+    is-mainline: false
+    pre-release-weight: 0
+  main:
+    mode: ContinuousDelivery
+    tag: ""
+    increment: Patch
+    prevent-increment-of-merged-branch-version: true
+    track-merge-target: false
+    regex: ^master$|^main$
+    source-branches:
+      - develop
+      - release
+    tracks-release-branches: false
+    is-release-branch: false
+    is-mainline: true
+    pre-release-weight: 55000
 ignore:
   sha: []
 merge-message-formats: {}
