@@ -10,20 +10,34 @@
 [![Daily build](https://github.com/b-editor/beutl/actions/workflows/daily-build.yml/badge.svg)](https://github.com/b-editor/beutl/actions/workflows/daily-build.yml)
 [![Discord](https://img.shields.io/discord/868076100511760385.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/Bm3pnVc928)
 
-Beutlはクロスプラットフォームで動作する動画編集ソフトウェアです。  
+Beutlはクロスプラットフォームで動作する動画編集 (コンポジット) ソフトウェアです。  
 
 [古いバージョン(BEditor)のソースコード](https://github.com/b-editor/beutl/tree/old/main)
 
 ![](https://raw.github.com/b-editor/beutl/main/assets/screenshots/screenshot-light-dark.png)
+_画像は開発中のバージョンです。_
 
-## 📖 Feature
+## 📖 機能
 
 ✅ ダークモード  
 ✅ クロスプラットフォーム (0.1.0から)  
 ✅ アニメーション機能  
 ✅ アカウント機能  
-🚧 プラグイン機能  
+✅ プラグイン機能  
+✅ 描画キャッシュ
 🚧 シーン機能  
+
+## BEditorとの違い
+Beutl は BEditorを再構築したものです。
+Skiaをベースにした[描画エンジン](https://github.com/b-editor/beutl-docs/blob/main/ja/プロセス.md)を搭載しており、
+BEditorに比べて高速に動作します。
+また、Beutlではルールに従って[描画をキャッシュ](https://github.com/b-editor/beutl-docs/blob/main/ja/キャッシュ.md)します。
+
+Beutlには拡張機能ストア(仮名)があり、
+皆様が開発した拡張機能を簡単に公開することができます。
+
+アニメーション機能では新しくグラフエディタが追加され、
+曲線をコントロールポイントで編集できるようになりました。
 
 ## ブランチ
 | 名前 | 目標 |
