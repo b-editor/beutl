@@ -35,7 +35,7 @@ internal static class CoreLibraries
             library.Add(new(lib.Name, lib.Version));
         }
 
-        library.Add(new("Beutl.Sdk", "0.3.0"));
+        library.Add(new("Beutl.Sdk", GitVersionInformation.NuGetVersionV2));
 
         return library;
     }
@@ -78,7 +78,7 @@ internal static class CoreLibraries
                             case "Beutl.WaitingDialog":
                             case "Beutl.PackageTools":
                             case "Beutl.ExceptionHandler":
-                                version = assembly.GetName().Version!.ToString();
+                                version = GitVersionInformation.AssemblySemVer;
                                 break;
                             default:
                                 break;

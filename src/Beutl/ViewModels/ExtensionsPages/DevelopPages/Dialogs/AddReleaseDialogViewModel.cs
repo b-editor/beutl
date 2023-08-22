@@ -1,6 +1,8 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
 
+using NuGet.Versioning;
+
 using Reactive.Bindings;
 
 using Serilog;
@@ -18,7 +20,7 @@ public sealed class AddReleaseDialogViewModel
         _user = user;
         _package = package;
 
-        Version.SetValidateNotifyError(str => System.Version.TryParse(str, out _) ? null : Message.InvalidString);
+        Version.SetValidateNotifyError(str => NuGetVersion.TryParse(str, out _) ? null : Message.InvalidString);
 
         IsValid = Version.ObserveHasErrors
             .Not()

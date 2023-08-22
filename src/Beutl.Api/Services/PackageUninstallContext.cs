@@ -13,7 +13,7 @@ public class PackageUninstallContext
         Id = packageIdentity;
         PackageId = Id.Id;
         Version = Id.Version.ToString();
-        InstalledPath = installedPath??Helper.PackagePathResolver.GetInstalledPath(packageIdentity);
+        InstalledPath = installedPath ?? Helper.PackagePathResolver.GetInstalledPath(packageIdentity);
     }
 
     public PackageIdentity Id { get; }

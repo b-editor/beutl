@@ -82,7 +82,8 @@ public sealed class PackageManager : PackageLoader
         for (int i = 0; i < packages.Length; i++)
         {
             PackageIdentity pkg = packages[i];
-            string version = pkg.Version.ToString();
+            NuGetVersion version = pkg.Version;
+            string versionStr = version.ToString();
             try
             {
                 Package remotePackage = await discover.GetPackage(pkg.Id).ConfigureAwait(false);
@@ -90,9 +91,9 @@ public sealed class PackageManager : PackageLoader
                 foreach (Release? item in await remotePackage.GetReleasesAsync().ConfigureAwait(false))
                 {
                     // 降順
-                    if (item.Version.Value.CompareTo(version) > 0)
+                    if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
                     {
-                        Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(version))
+                        Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(versionStr))
                             .ConfigureAwait(false);
                         updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
                         break;
@@ -115,6 +116,8 @@ public sealed class PackageManager : PackageLoader
         for (int i = 0; i < _loadedPackage.Count; i++)
         {
             LocalPackage pkg = _loadedPackage[i];
+            string versionStr = pkg.Version;
+            var version = new NuGetVersion(versionStr);
             if (!pkg.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(pkg.Name == name))
             {
                 Package remotePackage = await discover.GetPackage(pkg.Name).ConfigureAwait(false);
@@ -122,7 +125,7 @@ public sealed class PackageManager : PackageLoader
                 foreach (Release? item in await remotePackage.GetReleasesAsync().ConfigureAwait(false))
                 {
                     // 降順
-                    if (item.Version.Value.CompareTo(pkg.Version) > 0)
+                    if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
                     {
                         Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(pkg.Version))
                             .ConfigureAwait(false);

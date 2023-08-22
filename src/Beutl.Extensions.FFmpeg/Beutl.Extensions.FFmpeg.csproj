@@ -5,8 +5,6 @@
     <Description>FFmpeg for beutl</Description>
     <PackageTags>ffmpeg;decoder;decoding;encoder;encoding;video;audio</PackageTags>
     <PackageLicenseExpression>GPL-2.0-only</PackageLicenseExpression>
-    <Version>0.3.0</Version>
-    <AssemblyVersion>0.3.0.0</AssemblyVersion>
     <Authors>b-editor</Authors>
 
     <FFmpegBuildIn Condition="'$(FFmpegBuildIn)' == ''">True</FFmpegBuildIn>

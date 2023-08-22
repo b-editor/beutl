@@ -98,7 +98,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
             {
                 if (x.First is { } latest && x.Second is { } current)
                 {
-                    return latest.Version.Value.CompareTo(current.Version.Value) > 0;
+                    return NuGetVersion.Parse(latest.Version.Value).CompareTo(NuGetVersion.Parse(current.Version.Value)) > 0;
                 }
                 else
                 {

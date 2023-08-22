@@ -16,7 +16,7 @@ namespace Beutl.ViewModels.ExtensionsPages;
 
 public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageViewModel
 {
-    private readonly ILogger _logger=Log.ForContext<RemoteYourPackageViewModel>();
+    private readonly ILogger _logger = Log.ForContext<RemoteYourPackageViewModel>();
     private readonly CompositeDisposable _disposables = new();
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly PackageChangesQueue _queue;

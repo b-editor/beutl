@@ -4,6 +4,8 @@ using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 
+using NuGet.Versioning;
+
 using Reactive.Bindings;
 
 using Serilog;
@@ -164,7 +166,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel
             if (dict.TryGetValue(item.Name, out LocalPackage? localPackage))
             {
                 // itemのほうが新しいバージョン
-                if (item.Version.CompareTo(localPackage.Version) >= 0)
+                if (NuGetVersion.Parse(item.Version).CompareTo(NuGetVersion.Parse(localPackage.Version)) >= 0)
                 {
                     dict[item.Name] = item;
                 }

@@ -14,8 +14,8 @@ public static class ProjectVariableKeys
 
 public sealed class Project : Hierarchical, IStorable
 {
-    public static readonly CoreProperty<Version> AppVersionProperty;
-    public static readonly CoreProperty<Version> MinAppVersionProperty;
+    public static readonly CoreProperty<string> AppVersionProperty;
+    public static readonly CoreProperty<string> MinAppVersionProperty;
     private string? _rootDirectory;
     private string? _fileName;
     private EventHandler? _saved;
@@ -25,19 +25,19 @@ public sealed class Project : Hierarchical, IStorable
 
     static Project()
     {
-        AppVersionProperty = ConfigureProperty<Version, Project>(nameof(AppVersion))
+        AppVersionProperty = ConfigureProperty<string, Project>(nameof(AppVersion))
             .Accessor(o => o.AppVersion)
             .Register();
 
-        MinAppVersionProperty = ConfigureProperty<Version, Project>(nameof(MinAppVersion))
+        MinAppVersionProperty = ConfigureProperty<string, Project>(nameof(MinAppVersion))
             .Accessor(o => o.MinAppVersion)
-            .DefaultValue(new Version(0, 3))
+            .DefaultValue("1.0.0-preview1")
             .Register();
     }
 
     public Project()
     {
-        MinAppVersion = new Version(0, 3);
+        MinAppVersion = "1.0.0-preview1";
         _items = new HierarchicalList<ProjectItem>(this);
         _items.CollectionChanged += Items_CollectionChanged;
     }
@@ -58,9 +58,9 @@ public sealed class Project : Hierarchical, IStorable
 
     public string FileName => _fileName ?? throw new Exception("The file name is not set.");
 
-    public Version AppVersion { get; private set; } = Assembly.GetEntryAssembly()!.GetName().Version ?? new Version();
+    public string AppVersion { get; private set; } = GitVersionInformation.NuGetVersionV2;
 
-    public Version MinAppVersion { get; private set; }
+    public string MinAppVersion { get; private set; }
 
     public DateTime LastSavedTime { get; private set; }
 
@@ -96,13 +96,13 @@ public sealed class Project : Hierarchical, IStorable
         base.ReadFromJson(json);
 
         if (json.TryGetPropertyValue("appVersion", out JsonNode? versionNode)
-            && versionNode!.AsValue().TryGetValue(out Version? version))
+            && versionNode!.AsValue().TryGetValue(out string? version))
         {
             AppVersion = version;
         }
 
         if (json.TryGetPropertyValue("minAppVersion", out JsonNode? minVersionNode)
-            && minVersionNode!.AsValue().TryGetValue(out Version? minVersion))
+            && minVersionNode!.AsValue().TryGetValue(out string? minVersion))
         {
             MinAppVersion = minVersion;
         }
@@ -129,8 +129,8 @@ public sealed class Project : Hierarchical, IStorable
     {
         base.WriteToJson(json);
 
-        json["appVersion"] = JsonValue.Create(AppVersion);
-        json["minAppVersion"] = JsonValue.Create(MinAppVersion);
+        json["appVersion"] = AppVersion;
+        json["minAppVersion"] = MinAppVersion;
 
         var items = new JsonArray();
         foreach (ProjectItem item in Items)
