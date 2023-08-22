@@ -133,16 +133,16 @@
                     </Transitions>
                 </Setter>
             </Style>
+            <Style Selector="^ /template/ Border#LayoutRoot:pointerover">
+                <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPointerOver}" />
+            </Style>
+            <Style Selector="^:pressed /template/ Border#LayoutRoot:pointerover">
+                <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPressed}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPressed}" />
+            </Style>
 
             <Style Selector="^:navigates">
-                <Style Selector="^ /template/ Border#LayoutRoot:pointerover">
-                    <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
-                    <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPointerOver}" />
-                </Style>
-                <Style Selector="^:pressed /template/ Border#LayoutRoot:pointerover">
-                    <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPressed}" />
-                    <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPressed}" />
-                </Style>
                 <Style Selector="^ /template/ ui|SymbolIcon#Chevron">
                     <Setter Property="IsVisible" Value="True" />
                     <Setter Property="Symbol" Value="ChevronRight" />
@@ -154,15 +154,6 @@
             </Style>
 
             <Style Selector="^:expands">
-                <Style Selector="^ /template/ Border#LayoutRoot:pointerover">
-                    <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
-                    <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPointerOver}" />
-                </Style>
-                <Style Selector="^:pressed /template/ Border#LayoutRoot">
-                    <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPressed}" />
-                    <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPressed}" />
-                </Style>
-
                 <Style Selector="^ /template/ ui|SymbolIcon#Chevron">
                     <Setter Property="IsVisible" Value="True" />
                     <Setter Property="Symbol" Value="ChevronDown" />
@@ -237,6 +228,13 @@
                         </Border>
                     </ControlTemplate>
                 </Setter>
+            </Style>
+
+            <!--  LayoutRoot  -->
+            <Style Selector="^:disabled /template/ Border#LayoutRoot">
+                <Setter Property="Background" Value="{DynamicResource ControlFillColorDisabledBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDisabledBrush}" />
+                <Setter Property="TextElement.Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
             </Style>
         </ControlTheme>
     </Styles.Resources>
