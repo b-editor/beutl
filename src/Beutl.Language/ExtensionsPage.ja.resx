@@ -270,36 +270,8 @@ URLが不審な場合、開かないことをお勧めします。</value>
   <data name="Package_LatestVersion" xml:space="preserve">
     <value>最新のバージョン</value>
   </data>
-  <data name="QueryExample_1" xml:space="preserve">
-    <value>- display_name:とても良きパッケージ名</value>
-  </data>
-  <data name="QueryExample_2" xml:space="preserve">
-    <value>  [表示名は</value>
-  </data>
-  <data name="QueryExample_3" xml:space="preserve">
-    <value>'とても良きパッケージ名'</value>
-  </data>
-  <data name="QueryExample_4" xml:space="preserve">
-    <value>]</value>
-  </data>
-  <data name="Query_WildcardsAreAvailable_Body" xml:space="preserve">
-    <value>デフォルトは完全一致検索です。
-部分一致が必要な場合は、ワイルドカードを使用します。</value>
-  </data>
   <data name="Ranking" xml:space="preserve">
     <value>ランキング</value>
-  </data>
-  <data name="Lucene_queries_are_available_for_search_queries" xml:space="preserve">
-    <value>検索クエリにLuceneクエリを使用できます。</value>
-  </data>
-  <data name="QueryExample" xml:space="preserve">
-    <value>クエリーの例</value>
-  </data>
-  <data name="Query_AvailableFields" xml:space="preserve">
-    <value>利用可能なフィールド</value>
-  </data>
-  <data name="Query_WildcardsAreAvailable" xml:space="preserve">
-    <value>ワイルドカードが使用可能です。</value>
   </data>
   <data name="Search_Packages" xml:space="preserve">
     <value>パッケージ</value>

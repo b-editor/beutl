@@ -51,12 +51,6 @@ public partial class SearchPage : UserControl
         return ((ExtensionsPageViewModel)this.FindLogicalAncestorOfType<ExtensionsPage>()!.DataContext!).Discover.DataContextFactory;
     }
 
-    private void ShowQueryTip_Click(object? sender, RoutedEventArgs e)
-    {
-        QueryTip.Target = ShowQueryTip;
-        QueryTip.IsOpen = true;
-    }
-
     private void Package_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { DataContext: Package package }
