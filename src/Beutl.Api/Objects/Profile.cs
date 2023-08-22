@@ -50,7 +50,7 @@ public class Profile
 
     public IReadOnlyReactiveProperty<string> BlogUrl { get; }
 
-    public IReadOnlyReactiveProperty<string> AvatarUrl { get; }
+    public IReadOnlyReactiveProperty<string?> AvatarUrl { get; }
 
     public IReadOnlyReactiveProperty<int> PublicPackages { get; }
 

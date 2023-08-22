@@ -36,6 +36,8 @@ public class LibraryService : IBeutlApiResource
     public async Task<Release> GetPackage(Package package)
     {
         GotPackageResponse response = await _clients.Library.GetPackageAsync(new GetPackageRequest(package.Id));
+        if (response.Latest_release == null)
+            throw new Exception("No release");
 
         return await package.GetReleaseAsync(response.Latest_release.Version);
     }

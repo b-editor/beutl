@@ -51,7 +51,7 @@ public class Package
 
     public IReadOnlyReactiveProperty<string?> LogoUrl { get; }
 
-    public IReadOnlyReactiveProperty<IDictionary<string, string>> Screenshots { get; }
+    public IReadOnlyReactiveProperty<IDictionary<string, string>?> Screenshots { get; }
 
     public IReadOnlyReactiveProperty<bool> IsPublic { get; }
 

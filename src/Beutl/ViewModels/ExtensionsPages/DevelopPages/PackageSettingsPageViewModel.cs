@@ -248,13 +248,16 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
         return new SelectImageAssetViewModel(_user);
     }
 
-    private async ValueTask ResetScreenshots(IDictionary<string, string> items)
+    private async ValueTask ResetScreenshots(IDictionary<string, string>? items)
     {
         Screenshots.Clear();
-        foreach ((string key, string _) in items)
+        if (items != null)
         {
-            long id = long.Parse(key);
-            Screenshots.Add(await Package.Owner.GetAssetAsync(id));
+            foreach ((string key, string _) in items)
+            {
+                long id = long.Parse(key);
+                Screenshots.Add(await Package.Owner.GetAssetAsync(id));
+            }
         }
 
         _screenshotsChange.Value = false;
