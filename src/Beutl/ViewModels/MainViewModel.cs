@@ -1,5 +1,6 @@
-﻿using System.CodeDom.Compiler;
-using System.Reflection;
+﻿#pragma warning disable CS0436
+
+using System.CodeDom.Compiler;
 
 using Avalonia;
 using Avalonia.Collections;
@@ -15,8 +16,6 @@ using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.ExtensionsPages;
 
 using DynamicData;
-
-using Microsoft.Extensions.DependencyInjection;
 
 using NuGet.Packaging.Core;
 
@@ -334,7 +333,7 @@ public sealed class MainViewModel : BasePageViewModel
             DisplayName = "Beutl.Embedding.FFmpeg",
             InstalledPath = AppContext.BaseDirectory,
             Tags = { "ffmpeg", "decoder", "decoding", "encoder", "encoding", "video", "audio" },
-            Version = "1.0.0",
+            Version = GitVersionInformation.NuGetVersionV2,
             WebSite = "https://github.com/b-editor/beutl",
             Publisher = "b-editor"
         };
@@ -472,16 +471,7 @@ public sealed class MainViewModel : BasePageViewModel
     {
         try
         {
-            AssemblyName asmName = typeof(MainViewModel).Assembly.GetName();
-            if (asmName is { Version: Version version })
-            {
-                string versionStr = version.ToString();
-                return await _beutlClients.App.CheckForUpdatesAsync(versionStr);
-            }
-            else
-            {
-                return null;
-            }
+            return await _beutlClients.App.CheckForUpdatesAsync(GitVersionInformation.NuGetVersion);
         }
         catch (Exception ex)
         {
