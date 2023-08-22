@@ -78,7 +78,7 @@ internal sealed class PluginDependencyResolver
         if (availablePackages.Contains(package)) return;
 
         IEnumerable<PackageDependencyGroup> deps = reader.GetPackageDependencies();
-        NuGetFramework nearest = Helper.FrameworkReducer.GetNearest(
+        NuGetFramework? nearest = Helper.FrameworkReducer.GetNearest(
             framework,
             deps.Select(x => x.TargetFramework));
 

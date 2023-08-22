@@ -28,7 +28,7 @@ public partial class PackageInstaller
                 var reader = new PackageFolderReader(directory);
 
                 IEnumerable<PackageDependencyGroup> deps = reader.GetPackageDependencies();
-                NuGetFramework nearest = Helper.FrameworkReducer.GetNearest(
+                NuGetFramework? nearest = Helper.FrameworkReducer.GetNearest(
                     framework,
                     deps.Select(x => x.TargetFramework));
 

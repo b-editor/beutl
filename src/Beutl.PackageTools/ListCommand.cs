@@ -139,7 +139,7 @@ public sealed class ListCommand : Command
             var reader = new PackageFolderReader(directory);
 
             IEnumerable<PackageDependencyGroup> deps = reader.GetPackageDependencies();
-            NuGetFramework nearest = Helper.FrameworkReducer.GetNearest(
+            NuGetFramework? nearest = Helper.FrameworkReducer.GetNearest(
                 framework,
                 deps.Select(x => x.TargetFramework));
 
@@ -175,7 +175,7 @@ public sealed class ListCommand : Command
                     var reader = new PackageFolderReader(directory);
 
                     IEnumerable<PackageDependencyGroup> deps = reader.GetPackageDependencies();
-                    NuGetFramework nearest = Helper.FrameworkReducer.GetNearest(
+                    NuGetFramework? nearest = Helper.FrameworkReducer.GetNearest(
                         framework,
                         deps.Select(x => x.TargetFramework));
 
