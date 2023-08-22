@@ -15,6 +15,7 @@
              x:DataType="viewModel:UserProfilePageViewModel"
              Focusable="True"
              IsEnabled="{Binding !IsBusy.Value}"
+             RenderOptions.BitmapInterpolationMode="HighQuality"
              mc:Ignorable="d">
 
     <UserControl.Styles>
