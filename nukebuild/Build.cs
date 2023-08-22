@@ -38,10 +38,10 @@ partial class Build : NukeBuild
     Target Clean => _ => _
         .Executes(() =>
         {
-            SourceDirectory.GlobDirectories("**/bin", "**/obj").ForEach(DeleteDirectory);
-            TestsDirectory.GlobDirectories("**/bin", "**/obj").ForEach(DeleteDirectory);
-            EnsureCleanDirectory(OutputDirectory);
-            EnsureCleanDirectory(ArtifactsDirectory);
+            SourceDirectory.GlobDirectories("**/bin", "**/obj").ForEach(p => p.DeleteDirectory());
+            TestsDirectory.GlobDirectories("**/bin", "**/obj").ForEach(p => p.DeleteDirectory());
+            OutputDirectory.CreateOrCleanDirectory();
+            ArtifactsDirectory.CreateOrCleanDirectory();
         });
 
     Target Restore => _ => _
@@ -148,7 +148,7 @@ partial class Build : NukeBuild
             fileName.Append(GitVersion.FullSemVer);
             fileName.Append(".zip");
 
-            Compress(mainOutput, ArtifactsDirectory / fileName.ToString());
+            mainOutput.CompressTo(ArtifactsDirectory / fileName.ToString());
         });
 
     bool IsSupportedRid(DotNetRuntimeIdentifier rid)
