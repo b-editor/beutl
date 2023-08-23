@@ -23,7 +23,7 @@
     <PackageVersion Include="FluentIcons.FluentAvalonia" Version="1.1.211" />
     <PackageVersion Include="FluentTextTable" Version="1.0.0" />
     <PackageVersion Include="GitVersion.MsBuild" Version="5.12.0" />
-    <PackageVersion Include="ILGPU" Version="1.4.0" />
+    <PackageVersion Include="ILGPU" Version="1.5.0" />
     <PackageVersion Include="Kokuban" Version="0.2.0" />
     <PackageVersion Include="Kurukuru" Version="1.4.2" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
