@@ -50,7 +50,7 @@ public sealed class ProjectService
 
             return project;
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             _logger.Error(ex, "Unable to open the project.");
             return null;
@@ -102,8 +102,9 @@ public sealed class ProjectService
 
             return project;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.Error(ex, "Unable to open the project.");
             return null;
         }
     }
