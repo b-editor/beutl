@@ -2,6 +2,7 @@
 using System.Diagnostics;
 
 using Beutl.Services;
+using Beutl.Language;
 
 using Microsoft.Extensions.Logging;
 
