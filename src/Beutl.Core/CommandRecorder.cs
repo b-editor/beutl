@@ -22,7 +22,7 @@ public class CommandRecorder : INotifyPropertyChanged
     private static readonly PropertyChangedEventArgs s_canUndoArgs = new(nameof(CanUndo));
     private static readonly PropertyChangedEventArgs s_canRedoArgs = new(nameof(CanRedo));
     private static readonly PropertyChangedEventArgs s_lastExecutedTimeArgs = new(nameof(LastExecutedTime));
-    private static readonly ILogger<CommandRecorder> s_logger = BeutlApplication.Current.LoggerFactory.CreateLogger<CommandRecorder>();;
+    private static readonly ILogger<CommandRecorder> s_logger = BeutlApplication.Current.LoggerFactory.CreateLogger<CommandRecorder>();
     private readonly RingStack<IRecordableCommand> _undoStack = new(20000);
     private readonly RingStack<IRecordableCommand> _redoStack = new(20000);
     private bool _isExecuting;
