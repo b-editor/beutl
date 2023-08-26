@@ -74,11 +74,13 @@ public sealed class CreateNewProjectViewModel
         Create = new ReactiveCommand(CanCreate);
         Create.Subscribe(() =>
         {
-            ProjectService.Current.CreateProject(
+            var proj = ProjectService.Current.CreateProject(
                 Size.Value.Width, Size.Value.Height,
                 FrameRate.Value, SampleRate.Value,
                 Name.Value,
                 Location.Value);
+            if (proj == null)
+                NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
         });
     }
 
