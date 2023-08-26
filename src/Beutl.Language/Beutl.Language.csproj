@@ -5,10 +5,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <!-- CS8032 -->
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
   </ItemGroup>
