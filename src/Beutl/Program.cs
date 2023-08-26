@@ -4,6 +4,10 @@ using Avalonia.ReactiveUI;
 
 using Beutl.Services;
 
+using Microsoft.Extensions.Logging;
+
+using Serilog;
+
 namespace Beutl;
 
 internal static class Program
@@ -43,6 +47,8 @@ internal static class Program
             process?.Kill();
         }
 
+        SetupLogger();
+
         UnhandledExceptionHandler.Initialize();
 
         BuildAvaloniaApp()
@@ -75,5 +81,23 @@ internal static class Program
                 DefaultFamilyName = Media.FontManager.Instance.DefaultTypeface.FontFamily.Name
             })
             .LogToTrace();
+    }
+
+    private static void SetupLogger()
+    {
+        string logFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "log", "log.txt");
+        const string OutputTemplate = "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SourceContext:l}] {Message:lj}{NewLine}{Exception}";
+        Log.Logger = new LoggerConfiguration()
+            .Enrich.FromLogContext()
+#if DEBUG
+            .MinimumLevel.Verbose()
+            .WriteTo.Debug(outputTemplate: OutputTemplate)
+#else
+            .MinimumLevel.Debug()
+#endif
+            .WriteTo.Async(b => b.File(logFile, outputTemplate: OutputTemplate, shared: true, rollingInterval: RollingInterval.Day))
+            .CreateLogger();
+
+        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(builder => builder.AddSerilog(Log.Logger, true));
     }
 }
