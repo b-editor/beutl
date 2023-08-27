@@ -15,7 +15,11 @@ public sealed class CreateNewProjectViewModel
 
         Name.SetValidateNotifyError(n =>
         {
-            if (Directory.Exists(Path.Combine(Location.Value, n)))
+            if(n == string.Empty || n == null)
+            {
+                return Message.InvalidString;
+            }
+            else if (Directory.Exists(Path.Combine(Location.Value, n)))
             {
                 return Message.ItAlreadyExists;
             }
@@ -64,11 +68,15 @@ public sealed class CreateNewProjectViewModel
             {
                 (string name, string location, PixelSize size, int framerate, int samplerate) = t;
 
-                return !Directory.Exists(Path.Combine(location, name)) &&
-                    size.Width > 0 &&
-                    size.Height > 0 &&
-                    framerate > 0 &&
-                    samplerate > 0;
+                if (location != null && name != null)
+                {
+                    return !Directory.Exists(Path.Combine(location, name)) &&
+                        size.Width > 0 &&
+                        size.Height > 0 &&
+                        framerate > 0 &&
+                        samplerate > 0;
+                }
+                else return false;
             })
             .ToReadOnlyReactivePropertySlim();
         Create = new ReactiveCommand(CanCreate);
