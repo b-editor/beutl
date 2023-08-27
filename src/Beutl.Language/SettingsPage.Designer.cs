@@ -106,11 +106,29 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Device Infomation に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DeviceInfomation {
+            get {
+                return ResourceManager.GetString("DeviceInfomation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Editor Extension Priority に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Editor_Extension_Priority {
             get {
                 return ResourceManager.GetString("Editor_Extension_Priority", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Gpu Infomation に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string GpuInfomation {
+            get {
+                return ResourceManager.GetString("GpuInfomation", resourceCulture);
             }
         }
         
@@ -147,6 +165,15 @@ namespace Beutl.Language {
         public static string MakePublic {
             get {
                 return ResourceManager.GetString("MakePublic", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   OpenGL Version に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string OpenGLVersion {
+            get {
+                return ResourceManager.GetString("OpenGLVersion", resourceCulture);
             }
         }
         

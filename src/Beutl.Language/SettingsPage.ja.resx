@@ -183,4 +183,13 @@
   <data name="CopyVersionInfo" xml:space="preserve">
     <value>バージョン情報をコピー</value>
   </data>
+  <data name="GpuInfomation" xml:space="preserve">
+    <value>Gpu 情報</value>
+  </data>
+  <data name="OpenGLVersion" xml:space="preserve">
+    <value>OpenGL バージョン</value>
+  </data>
+  <data name="DeviceInfomation" xml:space="preserve">
+    <value>デバイス情報</value>
+  </data>
 </root>

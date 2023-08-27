@@ -20,6 +20,8 @@ public unsafe class SharedGRContext
 
     public static GRContext? GRContext { get; private set; }
 
+    public static string? Version { get; private set; }
+
     public static GRContext? GetOrCreate()
     {
         if (s_failedToInitialize)
@@ -73,7 +75,16 @@ public unsafe class SharedGRContext
             s_glContext = new WglContext();
             s_glContext.MakeCurrent();
 
-            s_logger.LogInformation("Using Wgl.");
+            if (Wgl.VersionString != null)
+            {
+                Version = $"Wgl {Wgl.VersionString}";
+            }
+            else
+            {
+                Version = "Wgl";
+            }
+
+            s_logger.LogInformation("Using {Version}.", Version);
             return true;
         }
         catch (Exception ex)
@@ -91,7 +102,16 @@ public unsafe class SharedGRContext
             s_glContext = new GlxContext();
             s_glContext.MakeCurrent();
 
-            s_logger.LogInformation("Using Glx.");
+            if (Glx.glXQueryVersion(((GlxContext)s_glContext).fDisplay, out int major, out int minor))
+            {
+                Version = $"Glx {major}.{minor}";
+            }
+            else
+            {
+                Version = "Glx";
+            }
+
+            s_logger.LogInformation("Using {Version}.", Version);
             return true;
         }
         catch (Exception ex)
@@ -109,7 +129,10 @@ public unsafe class SharedGRContext
             s_glContext = new CglContext();
             s_glContext.MakeCurrent();
 
-            s_logger.LogInformation("Using Cgl.");
+            Cgl.CGLGetVersion(out int major, out int minor);
+            Version = $"CGL {major}.{minor}";
+
+            s_logger.LogInformation("Using {Version}.", Version);
             return true;
         }
         catch (Exception ex)
@@ -149,6 +172,8 @@ public unsafe class SharedGRContext
                 throw new Exception($"GLFW error: {error}");
             }
 
+            Version = $"GLFW {GLFW.GetVersionString()}";
+            s_logger.LogInformation("Using {Version}.", Version);
             return true;
         }
         catch (Exception ex)

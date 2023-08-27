@@ -11,7 +11,6 @@ using Avalonia.Threading;
 using Beutl.Configuration;
 using Beutl.NodeTree.Nodes;
 using Beutl.Operators;
-using Beutl.Rendering;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -87,8 +86,6 @@ public sealed class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        RenderThread.Dispatcher.Dispatch(SharedGPUContext.Create, Threading.DispatchPriority.High);
-
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.MainWindow = new MainWindow

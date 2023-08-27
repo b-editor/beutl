@@ -10,7 +10,7 @@ internal sealed class GlxContext : GlContext
 {
     private readonly ILogger<GlxContext> s_logger = BeutlApplication.Current.LoggerFactory.CreateLogger<GlxContext>();
 
-    private IntPtr fDisplay;
+    internal IntPtr fDisplay;
     private IntPtr fPixmap;
     private IntPtr fGlxPixmap;
     private IntPtr fContext;

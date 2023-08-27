@@ -2,6 +2,7 @@
 using Avalonia.Media;
 using Avalonia.ReactiveUI;
 
+using Beutl.Rendering;
 using Beutl.Services;
 
 using Microsoft.Extensions.Logging;
@@ -50,6 +51,8 @@ internal static class Program
         SetupLogger();
 
         UnhandledExceptionHandler.Initialize();
+
+        RenderThread.Dispatcher.Dispatch(SharedGPUContext.Create, Threading.DispatchPriority.High);
 
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
