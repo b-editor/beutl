@@ -22,6 +22,7 @@ public class BeutlApplication : Hierarchical, IHierarchicalRoot
     public BeutlApplication()
     {
         Items = new HierarchicalList<ProjectItem>(this);
+        
     }
 
     public static BeutlApplication Current { get; } = new();

@@ -1,9 +1,17 @@
-﻿using NUnit.Framework;
+﻿using Microsoft.Extensions.Logging;
+
+using NUnit.Framework;
 
 namespace Beutl.Core.UnitTests;
 
 public class CommandRecorderTests
 {
+    [SetUp]
+    public void Setup()
+    {
+        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
+    }
+
     [Test]
     public void CanUndo_ReturnsFalse_WhenRecorderIsEmpty()
     {

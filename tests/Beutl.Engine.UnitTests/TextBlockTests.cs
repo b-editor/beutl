@@ -3,6 +3,8 @@ using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 
+using Microsoft.Extensions.Logging;
+
 using NUnit.Framework;
 
 namespace Beutl.Graphics.UnitTests;
@@ -26,6 +28,7 @@ public class TextBlockTests
     [SetUp]
     public void Setup()
     {
+        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
         _ = TypefaceProvider.Typeface();
     }
 

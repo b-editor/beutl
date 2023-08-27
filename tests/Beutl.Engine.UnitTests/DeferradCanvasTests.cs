@@ -3,12 +3,20 @@ using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 
+using Microsoft.Extensions.Logging;
+
 using NUnit.Framework;
 
 namespace Beutl.Graphics.UnitTests;
 
 public class DeferradCanvasTests
 {
+    [SetUp]
+    public void Setup()
+    {
+        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
+    }
+
     private static void Draw(ICanvas canvas)
     {
         using (canvas.PushTransform(Matrix.CreateTranslation(100, 100)))
