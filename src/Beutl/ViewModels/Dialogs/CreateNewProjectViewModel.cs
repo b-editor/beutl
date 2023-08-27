@@ -15,7 +15,7 @@ public sealed class CreateNewProjectViewModel
 
         Name.SetValidateNotifyError(n =>
         {
-            if(n == string.Empty || n == null)
+            if(n == string.Empty || n == null || n.IndexOfAny(Path.GetInvalidFileNameChars()) > 0)
             {
                 return Message.InvalidString;
             }

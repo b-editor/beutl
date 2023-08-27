@@ -23,7 +23,11 @@ public sealed class CreateNewSceneViewModel
 
         Name.SetValidateNotifyError(n =>
         {
-            if (Directory.Exists(Path.Combine(Location.Value, n)))
+            if (n == string.Empty || n == null || n.IndexOfAny(Path.GetInvalidFileNameChars()) > 0)
+            {
+                return Message.InvalidString;
+            }
+            else if (Directory.Exists(Path.Combine(Location.Value, n)))
             {
                 return Message.ItAlreadyExists;
             }
