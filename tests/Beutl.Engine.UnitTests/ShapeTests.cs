@@ -3,12 +3,20 @@ using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 
+using Microsoft.Extensions.Logging;
+
 using NUnit.Framework;
 
 namespace Beutl.Graphics.UnitTests;
 
 public class ShapeTests
 {
+    [SetUp]
+    public void Setup()
+    {
+        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
+    }
+
     [Test]
     public void DrawRectangle()
     {

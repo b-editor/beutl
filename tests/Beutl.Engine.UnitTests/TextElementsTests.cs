@@ -6,6 +6,8 @@ using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
 
+using Microsoft.Extensions.Logging;
+
 using NUnit.Framework;
 
 namespace Beutl.Graphics.UnitTests;
@@ -15,6 +17,7 @@ public class TextElementsTests
     [SetUp]
     public void Setup()
     {
+        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
         _ = TypefaceProvider.Typeface();
     }
 

@@ -3,6 +3,8 @@ using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Styling;
 
+using Microsoft.Extensions.Logging;
+
 using NUnit.Framework;
 
 namespace Beutl.Graphics.UnitTests;
@@ -19,6 +21,8 @@ public class StyleTests
     [SetUp]
     public void Setup()
     {
+        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
+
         _obj = new StyleableObject();
         Style style1 = new Style<StyleableObject>
         {

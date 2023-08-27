@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.NodeTree;
@@ -14,12 +8,20 @@ using Beutl.Operators.Configure.Transform;
 using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 
+using Microsoft.Extensions.Logging;
+
 using NUnit.Framework;
 
 namespace Beutl.Core.UnitTests;
 
 public class JsonSerializationTest
 {
+    [SetUp]
+    public void Setup()
+    {
+        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
+    }
+
     [Test]
     public void Serialize()
     {
@@ -51,7 +53,5 @@ public class JsonSerializationTest
 
         Assert.IsTrue(((OutputSocket<RectGeometry>)rectNode.Items[0]).TryConnect((InputSocket<Geometry?>)shapeNode.Items[1]));
         Assert.IsTrue(((OutputSocket<GeometryShape>)shapeNode.Items[0]).TryConnect((InputSocket<Drawable?>)outNode.Items[0]));
-
-
     }
 }

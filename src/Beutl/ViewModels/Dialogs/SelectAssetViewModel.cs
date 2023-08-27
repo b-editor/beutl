@@ -3,9 +3,12 @@ using Avalonia.Platform.Storage;
 
 using Beutl.Api.Objects;
 
+using Beutl.Services;
 using Beutl.Utilities;
 
 using Reactive.Bindings;
+
+using Serilog;
 
 using static Beutl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
 
@@ -13,6 +16,7 @@ namespace Beutl.ViewModels.Dialogs;
 
 public class SelectAssetViewModel
 {
+    private readonly ILogger _logger = Log.ForContext<SelectAssetViewModel>();
     private readonly AuthorizedUser _user;
     private readonly Func<string, bool> _contentTypeFilter;
     private readonly FilePickerFileType? _defaultFileType;
@@ -47,9 +51,10 @@ public class SelectAssetViewModel
                     count += items.Length;
                 } while (prevCount == 30);
             }
-            catch
+            catch (Exception ex)
             {
-                // Todo
+                _logger.Error(ex, "An exception occurred while loading the list of assets.");
+                NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             }
             finally
             {

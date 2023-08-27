@@ -15,6 +15,7 @@
              x:DataType="viewModels:PackageSettingsPageViewModel"
              Focusable="True"
              IsEnabled="{CompiledBinding !IsBusy.Value}"
+             RenderOptions.BitmapInterpolationMode="HighQuality"
              mc:Ignorable="d">
 
     <UserControl.KeyBindings>

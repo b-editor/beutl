@@ -15,6 +15,7 @@
              x:DataType="viewModel:SearchPageViewModel"
              Focusable="True"
              IsEnabled="{Binding !IsBusy.Value}"
+             RenderOptions.BitmapInterpolationMode="HighQuality"
              mc:Ignorable="d">
 
     <UserControl.Styles>
@@ -37,33 +38,6 @@
             <TextBlock HorizontalAlignment="Left"
                        Text="{Binding Keyword, StringFormat='&quot;{0}&quot;'}"
                        Theme="{StaticResource SubtitleTextBlockStyle}" />
-
-            <ui:HyperlinkButton x:Name="ShowQueryTip"
-                                Classes.transparent="{Binding !!SearchType.Value}"
-                                Click="ShowQueryTip_Click"
-                                Content="{x:Static lang:ExtensionsPage.Lucene_queries_are_available_for_search_queries}" />
-            <ui:TeachingTip x:Name="QueryTip"
-                            Title="{x:Static lang:ExtensionsPage.QueryExample}"
-                            PreferredPlacement="Bottom">
-                <SelectableTextBlock>
-                    <Run Text="{x:Static lang:ExtensionsPage.QueryExample_1}" />
-                    <LineBreak />
-                    <Run Text="{x:Static lang:ExtensionsPage.QueryExample_2}" />
-                    <Run FontStyle="Italic" Text="{x:Static lang:ExtensionsPage.QueryExample_3}" />
-                    <Run Text="{x:Static lang:ExtensionsPage.QueryExample_4}" />
-                    <LineBreak />
-                    <LineBreak />
-
-                    <Run FontWeight="Bold" Text="{x:Static lang:ExtensionsPage.Query_AvailableFields}" />
-                    <LineBreak />
-                    display_name, name, description,<LineBreak />
-                    short_description, tags<LineBreak />
-                    <LineBreak />
-                    <Run Text="{x:Static lang:ExtensionsPage.Query_WildcardsAreAvailable}" />
-                    <LineBreak />
-                    <Run Text="{x:Static lang:ExtensionsPage.Query_WildcardsAreAvailable_Body}" />
-                </SelectableTextBlock>
-            </ui:TeachingTip>
 
             <TabControl Padding="0" SelectedIndex="{Binding SearchType.Value}">
                 <TabControl.Styles>

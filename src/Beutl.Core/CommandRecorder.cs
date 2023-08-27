@@ -1,6 +1,11 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
 
+using Beutl.Services;
+using Beutl.Language;
+
+using Microsoft.Extensions.Logging;
+
 namespace Beutl;
 
 public enum CommandType
@@ -18,6 +23,7 @@ public class CommandRecorder : INotifyPropertyChanged
     private static readonly PropertyChangedEventArgs s_canUndoArgs = new(nameof(CanUndo));
     private static readonly PropertyChangedEventArgs s_canRedoArgs = new(nameof(CanRedo));
     private static readonly PropertyChangedEventArgs s_lastExecutedTimeArgs = new(nameof(LastExecutedTime));
+    private static readonly ILogger<CommandRecorder> s_logger = BeutlApplication.Current.LoggerFactory.CreateLogger<CommandRecorder>();
     private readonly RingStack<IRecordableCommand> _undoStack = new(20000);
     private readonly RingStack<IRecordableCommand> _redoStack = new(20000);
     private bool _isExecuting;
@@ -103,9 +109,10 @@ public class CommandRecorder : INotifyPropertyChanged
             _redoStack.Clear();
             CanRedo = _redoStack.Count > 0;
         }
-        catch
+        catch (Exception ex)
         {
-            Debug.Fail("Commandの実行中に例外が発生。");
+            s_logger.LogError(ex, "An exception occurred while executing the command. {Command}", command);
+            NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             Canceled?.Invoke(null, EventArgs.Empty);
         }
 
@@ -131,8 +138,10 @@ public class CommandRecorder : INotifyPropertyChanged
                 _redoStack.Push(command);
                 CanRedo = _redoStack.Count > 0;
             }
-            catch
+            catch (Exception ex)
             {
+                s_logger.LogError(ex, "An exception occurred while executing the undo command. {Command}", command);
+                NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             }
 
             _isExecuting = false;
@@ -158,8 +167,10 @@ public class CommandRecorder : INotifyPropertyChanged
                 _undoStack.Push(command);
                 CanUndo = _undoStack.Count > 0;
             }
-            catch
+            catch (Exception ex)
             {
+                s_logger.LogError(ex, "An exception occurred while executing the redo command. {Command}", command);
+                NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             }
 
             _isExecuting = false;

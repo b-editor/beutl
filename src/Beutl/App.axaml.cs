@@ -11,7 +11,6 @@ using Avalonia.Threading;
 using Beutl.Configuration;
 using Beutl.NodeTree.Nodes;
 using Beutl.Operators;
-using Beutl.Rendering;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -19,11 +18,7 @@ using Beutl.Views;
 using FluentAvalonia.Core;
 using FluentAvalonia.Styling;
 
-using Microsoft.Extensions.Logging;
-
 using Reactive.Bindings;
-
-using Serilog;
 
 namespace Beutl;
 
@@ -34,8 +29,6 @@ public sealed class App : Application
 
     public override void Initialize()
     {
-        SetupLogger();
-
         FAUISettings.SetAnimationsEnabledAtAppLevel(true);
 
         //PaletteColors
@@ -91,28 +84,8 @@ public sealed class App : Application
         ReactivePropertyScheduler.SetDefault(AvaloniaScheduler.Instance);
     }
 
-    private static void SetupLogger()
-    {
-        string logFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "log", "log.txt");
-        const string OutputTemplate = "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SourceContext:l}] {Message:lj}{NewLine}{Exception}";
-        Log.Logger = new LoggerConfiguration()
-            .Enrich.FromLogContext()
-#if DEBUG
-            .MinimumLevel.Verbose()
-            .WriteTo.Debug(outputTemplate: OutputTemplate)
-#else
-            .MinimumLevel.Debug()
-#endif
-            .WriteTo.Async(b => b.File(logFile, outputTemplate: OutputTemplate, shared: true, rollingInterval: RollingInterval.Day))
-            .CreateLogger();
-
-        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(builder => builder.AddSerilog(Log.Logger, true));
-    }
-
     public override void OnFrameworkInitializationCompleted()
     {
-        RenderThread.Dispatcher.Dispatch(SharedGPUContext.Create, Threading.DispatchPriority.High);
-
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.MainWindow = new MainWindow

@@ -234,15 +234,6 @@ namespace Beutl.Language {
         }
         
         /// <summary>
-        ///   Lucene queries are available for search queries. に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Lucene_queries_are_available_for_search_queries {
-            get {
-                return ResourceManager.GetString("Lucene_queries_are_available_for_search_queries", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Are you sure you want to keep this package private?
         ///Doing so will prevent others from downloading this package. に類似しているローカライズされた文字列を検索します。
         /// </summary>
@@ -573,79 +564,6 @@ namespace Beutl.Language {
         public static string Profile_PublishedPackages {
             get {
                 return ResourceManager.GetString("Profile_PublishedPackages", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Available Fields に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Query_AvailableFields {
-            get {
-                return ResourceManager.GetString("Query_AvailableFields", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Wildcards are available. に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Query_WildcardsAreAvailable {
-            get {
-                return ResourceManager.GetString("Query_WildcardsAreAvailable", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   The default is an exact match search.
-        ///Use wildcards if you want partial matches. に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Query_WildcardsAreAvailable_Body {
-            get {
-                return ResourceManager.GetString("Query_WildcardsAreAvailable_Body", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Query Example に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string QueryExample {
-            get {
-                return ResourceManager.GetString("QueryExample", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   - display_name:&apos;Very good package name&apos; に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string QueryExample_1 {
-            get {
-                return ResourceManager.GetString("QueryExample_1", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///     [Display name is に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string QueryExample_2 {
-            get {
-                return ResourceManager.GetString("QueryExample_2", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   &apos;Very good package name&apos; に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string QueryExample_3 {
-            get {
-                return ResourceManager.GetString("QueryExample_3", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   ] に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string QueryExample_4 {
-            get {
-                return ResourceManager.GetString("QueryExample_4", resourceCulture);
             }
         }
         

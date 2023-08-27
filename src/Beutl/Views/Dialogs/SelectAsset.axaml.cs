@@ -28,7 +28,6 @@ public partial class SelectAsset : ContentDialog
                 DataContext = dialogViewModel,
             };
 
-            Hide();
             await dialog.ShowAsync();
 
             if (dialogViewModel.Result is Asset asset)
@@ -42,8 +41,6 @@ public partial class SelectAsset : ContentDialog
                     viewModel.SelectedItem.Value = itemViewModel;
                 }
             }
-
-            await ShowAsync();
         }
     }
 }
