@@ -55,9 +55,14 @@ public sealed class CreateNewSceneViewModel
             string location = t.Second;
             PixelSize size = t.Third;
 
-            return !Directory.Exists(Path.Combine(location, name)) &&
+            if (location != null && name != null)
+            {
+                return !Directory.Exists(Path.Combine(location, name)) &&
                 size.Width > 0 &&
                 size.Height > 0;
+            }
+            else return false;
+            
         }).ToReadOnlyReactivePropertySlim();
         Create = new ReactiveCommand(CanCreate);
         Create.Subscribe(() =>
