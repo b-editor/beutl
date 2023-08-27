@@ -1,26 +1,30 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:ui="using:FluentAvalonia.UI.Controls"
-                    xmlns:wnd="using:FluentAvalonia.UI.Windowing">
-    <FontFamily x:Key="SegoeFluentIconsFontFamily">Segoe Fluent Icons</FontFamily>
+                    xmlns:wnd="clr-namespace:FluentAvalonia.UI.Windowing;assembly=FluentAvalonia">
+
+    <x:Double x:Key="SplashScreenImageWidth">128</x:Double>
+    <x:Double x:Key="SplashScreenImageHeight">128</x:Double>
+    <x:Double x:Key="SplashScreenTextSize">32</x:Double>
+    <FontWeight x:Key="SplashScreenTextFontWeight">SemiBold</FontWeight>
 
     <ControlTheme x:Key="FA_SystemCaptionButton" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource FATitle_SysCaptionBackground}" />
-        <Setter Property="Foreground" Value="{DynamicResource FATitle_SysCaptionForeground}" />
         <Setter Property="BorderBrush" Value="{x:Null}" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Width" Value="46" />
+        <Setter Property="Foreground" Value="{DynamicResource FATitle_SysCaptionForeground}" />
         <Setter Property="VerticalAlignment" Value="Stretch" />
-        <Setter Property="FontFamily" Value="{StaticResource SegoeFluentIconsFontFamily}" />
+        <Setter Property="FontFamily" Value="{StaticResource SymbolThemeFontFamily}" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="Focusable" Value="False" />
         <Setter Property="IsTabStop" Value="False" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Background="{TemplateBinding Background}">
-                    <Viewbox Width="10" Height="10">
+                    <Viewbox Width="{TemplateBinding FontSize}" Height="{TemplateBinding FontSize}">
                         <ui:FontIcon Name="ButtonIcon"
-                                     FontFamily="{StaticResource SegoeFluentIconsFontFamily}"
+                                     FontFamily="{StaticResource SymbolThemeFontFamily}"
                                      Glyph="{TemplateBinding Content}" />
                     </Viewbox>
                 </Border>
@@ -79,14 +83,15 @@
             <ControlTemplate>
                 <StackPanel Orientation="Horizontal">
                     <Button Name="MinimizeButton"
-                            Content="&#xE921;"
+                            Content="&#xE738;"
                             Theme="{StaticResource FA_SystemCaptionButton}" />
                     <Button Name="MaxRestoreButton"
-                            Content="&#xE922;"
+                            Content="&#xE739;"
                             Theme="{StaticResource FA_SystemCaptionButton}" />
                     <Button Name="CloseButton"
                             Classes="Close"
-                            Content="&#xE8BB;"
+                            Content="&#xE711;"
+                            FontSize="16"
                             Theme="{StaticResource FA_SystemCaptionButton}" />
                 </StackPanel>
             </ControlTemplate>
@@ -94,6 +99,7 @@
 
         <Style Selector="^:maximized /template/ Button#MaxRestoreButton">
             <Setter Property="Content" Value="&#xE923;" />
+            <Setter Property="FontSize" Value="16" />
         </Style>
     </ControlTheme>
 
