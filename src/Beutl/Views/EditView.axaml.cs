@@ -4,6 +4,7 @@ using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
+using Avalonia.Input;
 using Avalonia.Threading;
 
 using Beutl.Controls;
@@ -36,6 +37,21 @@ public sealed partial class EditView : UserControl
     }
 
     private Image Image => _image ??= Player.GetImage();
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (DataContext is EditViewModel viewModel)
+        {
+            // KeyBindingsは変更してはならない。
+            foreach (KeyBinding binding in viewModel.KeyBindings)
+            {
+                if (e.Handled)
+                    break;
+                binding.TryHandle(e);
+            }
+        }
+    }
 
     private void TabItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {

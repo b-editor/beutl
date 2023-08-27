@@ -26,7 +26,7 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <UserControl.KeyBindings>
+    <!--<UserControl.KeyBindings>
         <KeyBinding Command="{CompiledBinding CreateNewProject}" Gesture="{DynamicResource CreateNewProjectKeyGesture}" />
         <KeyBinding Command="{CompiledBinding CreateNew}" Gesture="{DynamicResource CreateNewKeyGesture}" />
         <KeyBinding Command="{CompiledBinding OpenProject}" Gesture="{DynamicResource OpenProjectKeyGesture}" />
@@ -36,7 +36,7 @@
         <KeyBinding Command="{CompiledBinding Exit}" Gesture="{DynamicResource ExitKeyGesture}" />
         <KeyBinding Command="{CompiledBinding Undo}" Gesture="{DynamicResource UndoKeyGesture}" />
         <KeyBinding Command="{CompiledBinding Redo}" Gesture="{DynamicResource RedoKeyGesture}" />
-    </UserControl.KeyBindings>
+    </UserControl.KeyBindings>-->
 
     <UserControl.Styles>
         <Style Selector="FlyoutPresenter.HiddenNotificationPadding0">

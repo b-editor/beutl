@@ -9,6 +9,7 @@ using Avalonia.Animation.Easings;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -17,6 +18,7 @@ using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.Controls;
@@ -126,6 +128,21 @@ public sealed partial class MainView : UserControl
 
         recentFiles.ItemsSource = _rawRecentFileItems;
         recentProjects.ItemsSource = _rawRecentProjItems;
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (DataContext is MainViewModel viewModel)
+        {
+            // KeyBindingsは変更してはならない。
+            foreach (KeyBinding binding in viewModel.KeyBindings)
+            {
+                if (e.Handled)
+                    break;
+                binding.TryHandle(e);
+            }
+        }
     }
 
     private void SceneSettings_Click(object? sender, RoutedEventArgs e)
