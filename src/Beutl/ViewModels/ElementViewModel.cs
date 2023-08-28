@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Numerics;
+using System.Text.Json.Nodes;
 
 using Avalonia;
 using Avalonia.Input;
@@ -7,20 +8,17 @@ using Avalonia.Input.Platform;
 using Beutl.Commands;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Utilities;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+
+using HslColor = Avalonia.Media.HslColor;
 
 namespace Beutl.ViewModels;
 
 public sealed class ElementViewModel : IDisposable
 {
-    private static readonly Graphics.ColorMatrix s_grayscale = new(
-        0.21f, 0.72f, 0.07f, 0, 0,
-        0.21f, 0.72f, 0.07f, 0, 0,
-        0.21f, 0.72f, 0.07f, 0, 0,
-        0.000f, 0.000f, 0.000f, 1, 0);
-    private static readonly Graphics.ColorMatrix s_contrast100 = Graphics.ColorMatrix.CreateContrast(100);
     private readonly CompositeDisposable _disposables = new();
     private IClipboard? _clipboard;
 
@@ -67,14 +65,7 @@ public sealed class ElementViewModel : IDisposable
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        TextColor = Color.Select(c =>
-            {
-                //filter: invert(100 %) grayscale(100 %) contrast(100);
-                var cc = new Media.Color(c.A, (byte)(255 - c.R), (byte)(255 - c.G), (byte)(255 - c.B));
-                cc = s_grayscale * cc;
-                cc = s_contrast100 * cc;
-                return cc.ToAvalonia();
-            })
+        TextColor = Color.Select(GetTextColor)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
@@ -368,6 +359,54 @@ public sealed class ElementViewModel : IDisposable
         }
 
         return list;
+    }
+
+    // https://github.com/google/skia/blob/0d39172f35d259b6ab888974177bc4e6d839d44c/src/effects/SkHighContrastFilter.cpp
+    private Avalonia.Media.Color GetTextColor(Avalonia.Media.Color color)
+    {
+        static Vector3 Mix(Vector3 x, Vector3 y, float a)
+        {
+            return (x * (1 - a)) + (y * a);
+        }
+
+        static Vector3 Saturate(Vector3 a)
+        {
+            return Vector3.Clamp(a, new(0), new(1));
+        }
+
+        static Avalonia.Media.Color ToColor(Vector3 vector)
+        {
+            return new(255, (byte)(vector.X * 255), (byte)(vector.Y * 255), (byte)(vector.Z * 255));
+        }
+
+        static Vector3 ToVector3(Avalonia.Media.Color color)
+        {
+            return new Vector3(color.R / 255f, color.G / 255f, color.B / 255f);
+        }
+
+        // 計算機イプシロン
+        // 'float.Epsilon'は使わないで
+        const float Epsilon = MathUtilities.FloatEpsilon;
+        float contrast = 1.0f;
+        contrast = Math.Max(-1.0f + Epsilon, Math.Min(contrast, +1.0f - Epsilon));
+
+        contrast = (1.0f + contrast) / (1.0f - contrast);
+
+        Vector3 c = ToVector3(color);
+        float grayscale = Vector3.Dot(new(0.2126f, 0.7152f, 0.0722f), c);
+        c = new Vector3(grayscale);
+
+        // brightness
+        //c = Vector3.One - c;
+
+        //lightness
+        HslColor hsl = ToColor(c).ToHsl();
+        c = ToVector3(HslColor.ToRgb(hsl.H, hsl.S, 1 - hsl.L, hsl.A));
+
+        c = Mix(new Vector3(0.5f), c, contrast);
+        c = Saturate(c);
+
+        return ToColor(c);
     }
 
     public record struct PrepareAnimationContext(

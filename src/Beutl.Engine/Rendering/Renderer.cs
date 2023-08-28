@@ -80,16 +80,22 @@ public class Renderer : IRenderer
         RenderThread.Dispatcher.VerifyAccess();
         if (!IsGraphicsRendering)
         {
-            IsGraphicsRendering = true;
-            _instanceClock.CurrentTime = timeSpan;
-            RenderScene.Clear();
-            using (_fpsText.StartRender(_immediateCanvas))
+            try
             {
-                RenderGraphicsCore();
-            }
+                IsGraphicsRendering = true;
+                _instanceClock.CurrentTime = timeSpan;
+                RenderScene.Clear();
+                using (_fpsText.StartRender(_immediateCanvas))
+                {
+                    RenderGraphicsCore();
+                }
 
-            IsGraphicsRendering = false;
-            return new IRenderer.RenderResult(_immediateCanvas.GetBitmap());
+                return new IRenderer.RenderResult(_immediateCanvas.GetBitmap());
+            }
+            finally
+            {
+                IsGraphicsRendering = false;
+            }
         }
         else
         {
@@ -111,12 +117,18 @@ public class Renderer : IRenderer
     {
         if (!IsAudioRendering)
         {
-            IsAudioRendering = true;
-            _instanceClock.AudioStartTime = timeSpan;
-            RenderAudioCore();
+            try
+            {
+                IsAudioRendering = true;
+                _instanceClock.AudioStartTime = timeSpan;
+                RenderAudioCore();
 
-            IsAudioRendering = false;
-            return new IRenderer.RenderResult(Audio: _audio.GetPcm());
+                return new IRenderer.RenderResult(Audio: _audio.GetPcm());
+            }
+            finally
+            {
+                IsAudioRendering = false;
+            }
         }
         else
         {
@@ -129,20 +141,26 @@ public class Renderer : IRenderer
         RenderThread.Dispatcher.VerifyAccess();
         if (!IsGraphicsRendering && !IsAudioRendering)
         {
-            IsGraphicsRendering = true;
-            IsAudioRendering = true;
-            _instanceClock.CurrentTime = timeSpan;
-            _instanceClock.AudioStartTime = timeSpan;
-            RenderScene.Clear();
-            using (_fpsText.StartRender(_immediateCanvas))
+            try
             {
-                RenderGraphicsCore();
-                RenderAudioCore();
-            }
+                IsGraphicsRendering = true;
+                IsAudioRendering = true;
+                _instanceClock.CurrentTime = timeSpan;
+                _instanceClock.AudioStartTime = timeSpan;
+                RenderScene.Clear();
+                using (_fpsText.StartRender(_immediateCanvas))
+                {
+                    RenderGraphicsCore();
+                    RenderAudioCore();
+                }
 
-            IsGraphicsRendering = false;
-            IsAudioRendering = false;
-            return new IRenderer.RenderResult(_immediateCanvas.GetBitmap(), _audio.GetPcm());
+                return new IRenderer.RenderResult(_immediateCanvas.GetBitmap(), _audio.GetPcm());
+            }
+            finally
+            {
+                IsGraphicsRendering = false;
+                IsAudioRendering = false;
+            }
         }
         else
         {
