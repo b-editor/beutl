@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
@@ -33,6 +34,10 @@ public interface ICanvas : IDisposable
     void DrawGeometry(Geometry geometry, IBrush? fill, IPen? pen);
 
     void DrawText(FormattedText text, IBrush? fill, IPen? pen);
+    
+    void DrawDrawable(Drawable drawable);
+
+    void DrawNode(IGraphicNode node);
 
     Bitmap<Bgra8888> GetBitmap();
 
