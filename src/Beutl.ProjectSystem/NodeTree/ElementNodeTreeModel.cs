@@ -57,6 +57,7 @@ public class ElementNodeTreeModel : NodeTreeModel
             {
                 foreach (NodeEvaluationContext? context in item)
                 {
+                    context.Target = target;
                     context._renderables = list;
 
                     context.Node.PreEvaluate(context);
