@@ -1,9 +1,11 @@
 ﻿using System.Collections.Specialized;
 
+using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
+using Avalonia.Input;
 using Avalonia.Threading;
 
 using Beutl.Controls;
@@ -33,9 +35,33 @@ public sealed partial class EditView : UserControl
         // 右側のタブ
         RightTabView.ItemsSource = _rightTabItems;
         _rightTabItems.CollectionChanged += TabItems_CollectionChanged;
+
+        this.GetObservable(IsKeyboardFocusWithinProperty)
+            .Subscribe(v => Player.SetSeekBarOpacity(v ? 1 : 0.8));
     }
 
     private Image Image => _image ??= Player.GetImage();
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (DataContext is EditViewModel viewModel)
+        {
+            // TextBox.OnKeyDown で e.Handled が True に設定されないので
+            if (e.Key == Key.Space && e.Source is TextBox)
+            {
+                return;
+            }
+
+            // KeyBindingsは変更してはならない。
+            foreach (KeyBinding binding in viewModel.KeyBindings)
+            {
+                if (e.Handled)
+                    break;
+                binding.TryHandle(e);
+            }
+        }
+    }
 
     private void TabItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
@@ -87,7 +113,7 @@ public sealed partial class EditView : UserControl
         }
     }
 
-    protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
         if (DataContext is EditViewModel viewModel && viewModel.Player.IsPlaying.Value)

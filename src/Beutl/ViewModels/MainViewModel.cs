@@ -1,10 +1,14 @@
 ﻿#pragma warning disable CS0436
 
 using System.CodeDom.Compiler;
+using System.Windows.Input;
 
 using Avalonia;
 using Avalonia.Collections;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Threading;
 
 using Beutl.Api;
@@ -213,6 +217,8 @@ public sealed class MainViewModel : BasePageViewModel
                 NotificationService.ShowInformation("", Message.CouldNotOpenProject);
             }
         });
+
+        KeyBindings = CreateKeyBindings();
     }
 
     public bool IsDebuggerAttached { get; } = Debugger.IsAttached;
@@ -298,6 +304,8 @@ public sealed class MainViewModel : BasePageViewModel
     public NavItemViewModel SettingsPage { get; }
 
     public CoreList<NavItemViewModel> Pages { get; }
+
+    public List<KeyBinding> KeyBindings { get; }
 
     public ReactiveProperty<NavItemViewModel?> SelectedPage { get; } = new();
 
@@ -545,5 +553,51 @@ public sealed class MainViewModel : BasePageViewModel
 
             Process.Start(startInfo);
         }
+    }
+
+    // Todo: 設定からショートカットを変更できるようにする。
+    private List<KeyBinding> CreateKeyBindings()
+    {
+        static KeyBinding KeyBinding(Key key, KeyModifiers modifiers, ICommand command)
+        {
+            return new KeyBinding
+            {
+                Gesture = new KeyGesture(key, modifiers),
+                Command = command
+            };
+        }
+
+        PlatformHotkeyConfiguration? config = Application.Current?.PlatformSettings?.HotkeyConfiguration;
+        KeyModifiers modifier = config?.CommandModifiers ?? KeyModifiers.Control;
+        var list = new List<KeyBinding>
+        {
+            // CreateNewProject: Ctrl+Shift+N
+            KeyBinding(Key.N, modifier | KeyModifiers.Shift, CreateNewProject),
+            // CreateNew: Ctrl+N
+            KeyBinding(Key.N, modifier, CreateNew),
+            // OpenProject: Ctrl+Shift+O
+            KeyBinding(Key.O, modifier | KeyModifiers.Shift, OpenProject),
+            // OpenFile: Ctrl+O
+            KeyBinding(Key.O, modifier, OpenFile),
+            // Save: Ctrl+S
+            KeyBinding(Key.S, modifier, Save),
+            // SaveAll: Ctrl+Shift+S
+            KeyBinding(Key.S, modifier | KeyModifiers.Shift, SaveAll),
+            // Exit: Alt+F4
+            KeyBinding(Key.F4, KeyModifiers.Alt, Exit),
+        };
+
+        if (config != null)
+        {
+            list.AddRange(config.Undo.Select(x => KeyBinding(x.Key, x.KeyModifiers, Undo)));
+            list.AddRange(config.Redo.Select(x => KeyBinding(x.Key, x.KeyModifiers, Redo)));
+        }
+        else
+        {
+            list.Add(KeyBinding(Key.Z, modifier, Undo));
+            list.Add(KeyBinding(Key.R, modifier, Redo));
+        }
+
+        return list;
     }
 }

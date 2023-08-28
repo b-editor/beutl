@@ -38,6 +38,7 @@ public sealed partial class Timeline : UserControl
     private readonly CompositeDisposable _disposables = new();
     private ElementView? _selectedLayer;
     private readonly List<(ElementViewModel Layer, bool IsSelectedOriginal)> _rangeSelection = new();
+
     public Timeline()
     {
         InitializeComponent();
@@ -52,6 +53,21 @@ public sealed partial class Timeline : UserControl
         DragDrop.SetAllowDrop(TimelinePanel, true);
 
         this.SubscribeDataContextChange<TimelineViewModel>(OnDataContextAttached, OnDataContextDetached);
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (DataContext is TimelineViewModel viewModel)
+        {
+            // KeyBindingsは変更してはならない。
+            foreach (KeyBinding binding in viewModel.KeyBindings)
+            {
+                if (e.Handled)
+                    break;
+                binding.TryHandle(e);
+            }
+        }
     }
 
     private void OnDataContextDetached(TimelineViewModel obj)

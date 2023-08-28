@@ -5,6 +5,8 @@ using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 
 using Avalonia;
+using Avalonia.Input;
+using Avalonia.Input.Platform;
 
 using Beutl.Animation;
 using Beutl.Models;
@@ -121,6 +123,26 @@ public sealed class TimelineViewModel : IToolContext
         editViewModel.Options.Select(x => x.MaxLayerCount)
             .DistinctUntilChanged()
             .Subscribe(TryApplyLayerCount);
+
+        // Todo: 設定からショートカットを変更できるようにする。
+        KeyBindings = new List<KeyBinding>();
+        PlatformHotkeyConfiguration? keyConf = Application.Current?.PlatformSettings?.HotkeyConfiguration;
+        if (keyConf != null)
+        {
+            KeyBindings.AddRange(keyConf.Paste.Select(i => new KeyBinding
+            {
+                Command = Paste,
+                Gesture = i
+            }));
+        }
+        else
+        {
+            KeyBindings.Add(new KeyBinding
+            {
+                Command = Paste,
+                Gesture = new KeyGesture(Key.V, keyConf?.CommandModifiers ?? KeyModifiers.Control)
+            });
+        }
     }
 
     public Scene Scene { get; private set; }
@@ -162,6 +184,8 @@ public sealed class TimelineViewModel : IToolContext
     public IObservable<LayerHeaderViewModel> LayerHeightChanged => _layerHeightChanged;
 
     public string Header => Strings.Timeline;
+
+    public List<KeyBinding> KeyBindings { get; }
 
     public void Dispose()
     {

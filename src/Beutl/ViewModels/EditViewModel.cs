@@ -1,5 +1,10 @@
 ﻿using System.Numerics;
 using System.Text.Json.Nodes;
+using System.Windows.Input;
+
+using Avalonia;
+using Avalonia.Input;
+using Avalonia.Input.Platform;
 
 using Beutl.Animation;
 using Beutl.Api.Services;
@@ -64,6 +69,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                     newHierarchical.DetachedFromHierarchy += OnSelectedObjectDetachedFromHierarchy;
             })
             .DisposeWith(_disposables);
+
+        KeyBindings = CreateKeyBindings();
     }
 
     private void OnSelectedObjectDetachedFromHierarchy(object? sender, HierarchyAttachmentEventArgs e)
@@ -98,6 +105,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
     public IObservable<Vector2> Offset { get; }
 
     IReactiveProperty<bool> IEditorContext.IsEnabled => IsEnabled;
+
+    public List<KeyBinding> KeyBindings { get; }
 
     public void Dispose()
     {
@@ -446,6 +455,33 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             BottomTabItems.Remove(item);
             item.Dispose();
         }
+    }
+
+    // Todo: 設定からショートカットを変更できるようにする。
+    private List<KeyBinding> CreateKeyBindings()
+    {
+        static KeyBinding KeyBinding(Key key, KeyModifiers modifiers, ICommand command)
+        {
+            return new KeyBinding
+            {
+                Gesture = new KeyGesture(key, modifiers),
+                Command = command
+            };
+        }
+
+        return new List<KeyBinding>
+        {
+            // PlayPause: Space
+            KeyBinding(Key.Space, KeyModifiers.None, Player.PlayPause),
+            // Next: Right
+            KeyBinding(Key.Right, KeyModifiers.None, Player.Next),
+            // Previous: Left
+            KeyBinding(Key.Left, KeyModifiers.None, Player.Previous),
+            // Start: Home
+            KeyBinding(Key.Home, KeyModifiers.None, Player.Start),
+            // End: End
+            KeyBinding(Key.End, KeyModifiers.None, Player.End),
+        };
     }
 
     private sealed class KnownCommandsImpl : IKnownEditorCommands

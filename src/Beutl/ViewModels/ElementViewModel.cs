@@ -110,6 +110,8 @@ public sealed class ElementViewModel : IDisposable
                 LayerHeader.Value = newLH;
             })
             .AddTo(_disposables);
+
+        KeyBindings = CreateKeyBinding();
     }
 
     ~ElementViewModel()
@@ -158,6 +160,8 @@ public sealed class ElementViewModel : IDisposable
     public ReactiveCommand FinishEditingAnimation { get; } = new();
 
     public ReactiveCommand BringAnimationToTop { get; } = new();
+
+    public List<KeyBinding> KeyBindings { get; }
 
     public void SetClipboard(IClipboard? clipboard)
     {
@@ -331,6 +335,30 @@ public sealed class ElementViewModel : IDisposable
 
         backwardLayer.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension));
         Scene.AddChild(backwardLayer).DoAndRecord(CommandRecorder.Default);
+    }
+
+    private List<KeyBinding> CreateKeyBinding()
+    {
+        PlatformHotkeyConfiguration? config = Application.Current?.PlatformSettings?.HotkeyConfiguration;
+        KeyModifiers modifier = config?.CommandModifiers ?? KeyModifiers.Control;
+        var list = new List<KeyBinding>
+        {
+            new KeyBinding { Gesture = new(Key.Delete), Command = Exclude },
+            new KeyBinding { Gesture = new(Key.Delete, modifier), Command = Delete }
+        };
+
+        if (config != null)
+        {
+            list.AddRange(config.Cut.Select(x => new KeyBinding { Gesture = x, Command = Cut }));
+            list.AddRange(config.Copy.Select(x => new KeyBinding { Gesture = x, Command = Copy }));
+        }
+        else
+        {
+            list.Add(new KeyBinding { Gesture = new(Key.X, modifier), Command = Cut });
+            list.Add(new KeyBinding { Gesture = new(Key.C, modifier), Command = Copy });
+        }
+
+        return list;
     }
 
     // https://github.com/google/skia/blob/0d39172f35d259b6ab888974177bc4e6d839d44c/src/effects/SkHighContrastFilter.cpp

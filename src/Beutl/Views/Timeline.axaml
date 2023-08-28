@@ -94,15 +94,6 @@
                    PointerMoved="TimelinePanel_PointerMoved"
                    PointerPressed="TimelinePanel_PointerPressed"
                    PointerReleased="TimelinePanel_PointerReleased">
-                <Panel.KeyBindings>
-                    <KeyBinding Command="{CompiledBinding Player.PlayPause}" Gesture="{DynamicResource PlayPauseKeyGesture}" />
-                    <KeyBinding Command="{CompiledBinding Player.Next}" Gesture="{DynamicResource NextKeyGesture}" />
-                    <KeyBinding Command="{CompiledBinding Player.Previous}" Gesture="{DynamicResource PreviousKeyGesture}" />
-                    <KeyBinding Command="{CompiledBinding Player.Start}" Gesture="{DynamicResource StartKeyGesture}" />
-                    <KeyBinding Command="{CompiledBinding Player.End}" Gesture="{DynamicResource EndKeyGesture}" />
-                    <KeyBinding Command="{CompiledBinding Paste}" Gesture="{DynamicResource PasteKeyGesture}" />
-                </Panel.KeyBindings>
-
                 <Panel.ContextFlyout>
                     <ui:FAMenuFlyout>
                         <ui:MenuFlyoutItem Click="AddElementClick" Text="{x:Static lang:Strings.AddElement}" />
