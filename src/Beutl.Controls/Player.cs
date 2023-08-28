@@ -61,6 +61,7 @@ public class Player : RangeBase
     private Button _endButton;
     private Button _startButton;
     private Image _image;
+    private Slider _slider;
     private ICommand _playButtonCommand;
     private ICommand _nextButtonCommand;
     private ICommand _previousButtonCommand;
@@ -126,6 +127,14 @@ public class Player : RangeBase
         return _image;
     }
 
+    public void SetSeekBarOpacity(double opacity)
+    {
+        if (_slider != null)
+        {
+            _slider.Opacity = opacity;
+        }
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
@@ -135,6 +144,7 @@ public class Player : RangeBase
         _endButton = e.NameScope.Find<Button>("PART_EndButton");
         _startButton = e.NameScope.Find<Button>("PART_StartButton");
         _image = e.NameScope.Find<Image>("PART_Image");
+        _slider = e.NameScope.Find<Slider>("PART_Slider");
 
         _playButton.Click += (s, e) => PlayButtonCommand?.Execute(null);
         _nextButton.Click += (s, e) => NextButtonCommand?.Execute(null);

@@ -37,7 +37,7 @@ public sealed partial class EditView : UserControl
         _rightTabItems.CollectionChanged += TabItems_CollectionChanged;
 
         this.GetObservable(IsKeyboardFocusWithinProperty)
-            .Subscribe(v => Player.Opacity = v ? 1 : 0.8);
+            .Subscribe(v => Player.SetSeekBarOpacity(v ? 1 : 0.8));
     }
 
     private Image Image => _image ??= Player.GetImage();
