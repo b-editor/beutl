@@ -43,6 +43,12 @@ public sealed partial class EditView : UserControl
         base.OnKeyDown(e);
         if (DataContext is EditViewModel viewModel)
         {
+            // TextBox.OnKeyDown で e.Handled が True に設定されないので
+            if (e.Key == Key.Space && e.Source is TextBox)
+            {
+                return;
+            }
+
             // KeyBindingsは変更してはならない。
             foreach (KeyBinding binding in viewModel.KeyBindings)
             {
