@@ -74,7 +74,7 @@ public sealed class DrawableGroup : Drawable
     public override void Measure(Size availableSize)
     {
         Rect rect = PrivateMeasureCore(availableSize);
-        Matrix transform = GetTransformMatrix(rect);
+        Matrix transform = GetTransformMatrix(availableSize);
 
         if (FilterEffect != null)
         {
@@ -107,7 +107,7 @@ public sealed class DrawableGroup : Drawable
                 rect = FilterEffect.TransformBounds(rect);
             }
 
-            Matrix transform = GetTransformMatrix(rect);
+            Matrix transform = GetTransformMatrix(availableSize);
             Rect transformedBounds = rect.TransformToAABB(transform);
             using (canvas.PushBlendMode(BlendMode))
             using (canvas.PushTransform(transform))
@@ -129,9 +129,9 @@ public sealed class DrawableGroup : Drawable
         }
     }
 
-    private Matrix GetTransformMatrix(Rect coreBounds)
+    private Matrix GetTransformMatrix(Size availableSize)
     {
-        Vector origin = TransformOrigin.ToPixels(coreBounds.Size);
+        Vector origin = TransformOrigin.ToPixels(availableSize);
         Matrix offset = Matrix.CreateTranslation(origin);
 
         if (Transform is { IsEnabled: true })
