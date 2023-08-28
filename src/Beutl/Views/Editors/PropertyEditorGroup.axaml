@@ -11,6 +11,7 @@
         <Border x:Name="separator"
                 Padding="0,4"
                 Background="Transparent"
+                IsVisible="{Binding !IsFirst}"
                 ToolTip.Tip="ダブルクリックでグループを非表示">
             <Separator Height="2" />
         </Border>
