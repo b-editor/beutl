@@ -46,6 +46,27 @@ public sealed partial class ElementView : UserControl
 
     private ElementViewModel ViewModel => (ElementViewModel)DataContext!;
 
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (DataContext is ElementViewModel viewModel)
+        {
+            if(e.Key== Key.F2)
+            {
+                Rename_Click(null, null!);
+                return;
+            }
+
+            // KeyBindingsは変更してはならない。
+            foreach (KeyBinding binding in viewModel.KeyBindings)
+            {
+                if (e.Handled)
+                    break;
+                binding.TryHandle(e);
+            }
+        }
+    }
+
     private void OnDataContextDetached(ElementViewModel obj)
     {
         obj.AnimationRequested = (_, _) => Task.CompletedTask;

@@ -21,12 +21,6 @@
              Focusable="True"
              IsEnabled="{CompiledBinding IsEnabled.Value}"
              mc:Ignorable="d">
-    <UserControl.KeyBindings>
-        <KeyBinding Command="{Binding Cut}" Gesture="{DynamicResource CutKeyGesture}" />
-        <KeyBinding Command="{Binding Copy}" Gesture="{DynamicResource CopyKeyGesture}" />
-        <KeyBinding Command="{Binding Delete}" Gesture="{DynamicResource LayerDeleteKeyGesture}" />
-        <KeyBinding Command="{Binding Exclude}" Gesture="{DynamicResource DeleteKeyGesture}" />
-    </UserControl.KeyBindings>
     <Border x:Name="border"
             Width="{Binding Width.Value}"
             Margin="{Binding BorderMargin.Value}"
