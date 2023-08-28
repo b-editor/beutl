@@ -1,5 +1,6 @@
 ﻿using System.Collections.Specialized;
 
+using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -34,6 +35,9 @@ public sealed partial class EditView : UserControl
         // 右側のタブ
         RightTabView.ItemsSource = _rightTabItems;
         _rightTabItems.CollectionChanged += TabItems_CollectionChanged;
+
+        this.GetObservable(IsKeyboardFocusWithinProperty)
+            .Subscribe(v => Player.Opacity = v ? 1 : 0.8);
     }
 
     private Image Image => _image ??= Player.GetImage();
@@ -109,7 +113,7 @@ public sealed partial class EditView : UserControl
         }
     }
 
-    protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
         if (DataContext is EditViewModel viewModel && viewModel.Player.IsPlaying.Value)
