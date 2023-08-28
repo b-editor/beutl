@@ -176,7 +176,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
                 {
                     int index = tempItems.IndexOf(array[0]);
                     tempItems.RemoveMany(array);
-                    tempItems.Insert(index, new PropertyEditorGroupContext(array, group.Key));
+                    tempItems.Insert(index, new PropertyEditorGroupContext(array, group.Key, index == 0));
                 }
             }
         }
