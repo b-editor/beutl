@@ -73,9 +73,6 @@ public class SourceOperator : Hierarchical, ISourceOperator
                     context.AddFlowRenderable(renderable);
                 }
                 break;
-            case ISourceHandler handler:
-                handler.Handle(context.FlowRenderables, context.Clock);
-                break;
             default:
                 break;
         }
