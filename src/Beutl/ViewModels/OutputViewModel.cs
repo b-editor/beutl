@@ -18,6 +18,8 @@ using Beutl.Rendering.Cache;
 using Beutl.Extensibility;
 using Serilog;
 using Beutl.Services;
+using Beutl.Media.Music;
+using Beutl.Media.Music.Samples;
 
 namespace Beutl.ViewModels;
 
@@ -469,7 +471,8 @@ public sealed class OutputViewModel : IOutputContext
                         IRenderer renderer = scene.Renderer;
                         OutputVideo(frames, frameRateD, renderer, writer);
 
-                        OutputAudio(samples, renderer, writer);
+                        IComposer composer = scene.Composer;
+                        OutputAudio(samples, composer, writer);
                     }
                     finally
                     {
@@ -517,10 +520,10 @@ public sealed class OutputViewModel : IOutputContext
                     break;
 
                 var ts = TimeSpan.FromSeconds(i / frameRate);
-                IRenderer.RenderResult result = renderer.RenderGraphics(ts);
-
-                writer.AddVideo(result.Bitmap!);
-                result.Bitmap!.Dispose();
+                using (var result = renderer.RenderGraphics(ts)!)
+                {
+                    writer.AddVideo(result);
+                }
 
                 ProgressValue.Value++;
                 _progress.Value = ProgressValue.Value / ProgressMax.Value;
@@ -536,7 +539,7 @@ public sealed class OutputViewModel : IOutputContext
         }
     }
 
-    private void OutputAudio(double samples, IRenderer renderer, MediaWriter writer)
+    private void OutputAudio(double samples, IComposer composer, MediaWriter writer)
     {
         for (double i = 0; i < samples; i++)
         {
@@ -544,10 +547,11 @@ public sealed class OutputViewModel : IOutputContext
                 break;
 
             var ts = TimeSpan.FromSeconds(i);
-            IRenderer.RenderResult result = renderer.RenderAudio(ts);
 
-            writer.AddAudio(result.Audio!);
-            result.Audio!.Dispose();
+            using (Pcm<Stereo32BitFloat> result = composer.Compose(ts)!)
+            {
+                writer.AddAudio(result);
+            }
 
             ProgressValue.Value++;
             _progress.Value = ProgressValue.Value / ProgressMax.Value;
