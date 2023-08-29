@@ -47,6 +47,11 @@ public class SourceOperator : Hierarchical, ISourceOperator
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
+    public virtual EvaluationTarget GetEvaluationTarget()
+    {
+        return EvaluationTarget.Unknown;
+    }
+
     public virtual void InitializeForContext(OperatorEvaluationContext context)
     {
     }
