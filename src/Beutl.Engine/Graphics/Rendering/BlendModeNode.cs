@@ -1,4 +1,7 @@
-﻿using Beutl.Rendering.Cache;
+﻿using Beutl.Media.Source;
+using Beutl.Rendering.Cache;
+
+using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -26,17 +29,33 @@ public sealed class BlendModeNode : ContainerNode, ISupportRenderCache
 
     void ISupportRenderCache.Accepts(RenderCache cache)
     {
-        cache.ReportRenderCount(0);
+        if (BlendMode == BlendMode.SrcOver)
+        {
+            cache.IncrementRenderCount();
+        }
+        else
+        {
+            cache.ReportRenderCount(0);
+        }
     }
 
     void ISupportRenderCache.RenderForCache(ImmediateCanvas canvas, RenderCache cache)
     {
+        if (BlendMode != BlendMode.SrcOver)
+            throw new InvalidOperationException("SrcOver以外のブレンドモードはキャッシュ用に描画できません");
+
         Render(canvas);
     }
 
     void ISupportRenderCache.RenderWithCache(ImmediateCanvas canvas, RenderCache cache)
     {
-        Render(canvas);
+        using (Ref<SKSurface> surface = cache.UseCache(out Rect cacheBounds))
+        {
+            using (canvas.PushBlendMode(BlendMode))
+            {
+                canvas.DrawSurface(surface.Value, cacheBounds.Position);
+            }
+        }
     }
 
     Rect ISupportRenderCache.TransformBoundsForCache(RenderCache cache)
