@@ -1,5 +1,4 @@
-﻿using Beutl.Animation;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Media;
 
 namespace Beutl.Rendering;
@@ -56,16 +55,6 @@ public sealed class RenderScene : IDisposable
             {
                 item.Render(canvas);
             }
-        }
-    }
-
-    public void Render(Audio.Audio audio)
-    {
-        audio.Clear();
-
-        foreach (RenderLayer item in _layer.Values)
-        {
-            item.Render(audio);
         }
     }
 }

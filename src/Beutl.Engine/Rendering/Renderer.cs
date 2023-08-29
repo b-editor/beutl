@@ -1,6 +1,7 @@
 ﻿using Beutl.Animation;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Pixel;
 using Beutl.Rendering.Cache;
 
 using SkiaSharp;
@@ -11,7 +12,6 @@ public class Renderer : IRenderer
 {
     private readonly ImmediateCanvas _immediateCanvas;
     private readonly SKSurface _surface;
-    private readonly Audio.Audio _audio;
     private readonly FpsText _fpsText = new();
     private readonly InstanceClock _instanceClock = new();
     private readonly RenderCacheContext _cacheContext = new();
@@ -19,7 +19,6 @@ public class Renderer : IRenderer
     public Renderer(int width, int height)
     {
         FrameSize = new PixelSize(width, height);
-        SampleRate = 44100;
         RenderScene = new RenderScene(FrameSize);
         (_immediateCanvas, _surface) = RenderThread.Dispatcher.Invoke(() =>
         {
@@ -30,14 +29,23 @@ public class Renderer : IRenderer
             ImmediateCanvas canvas = factory.CreateCanvas(surface, false);
             return (canvas, surface);
         });
-        _audio = new Audio.Audio(44100);
+    }
+
+    ~Renderer()
+    {
+        if (!IsDisposed)
+        {
+            OnDispose(false);
+            _immediateCanvas.Dispose();
+            _cacheContext.Dispose();
+
+            IsDisposed = true;
+        }
     }
 
     public bool IsDisposed { get; private set; }
 
     public bool IsGraphicsRendering { get; private set; }
-
-    public bool IsAudioRendering { get; private set; }
 
     public bool DrawFps
     {
@@ -49,22 +57,25 @@ public class Renderer : IRenderer
 
     public PixelSize FrameSize { get; }
 
-    public int SampleRate { get; }
-
     public RenderScene RenderScene { get; }
 
     public event EventHandler<TimeSpan>? RenderInvalidated;
 
-    public virtual void Dispose()
+    public void Dispose()
     {
-        if (IsDisposed) return;
+        if (!IsDisposed)
+        {
+            OnDispose(true);
+            _immediateCanvas.Dispose();
+            _cacheContext.Dispose();
+            GC.SuppressFinalize(this);
 
-        _immediateCanvas.Dispose();
-        _audio.Dispose();
-        _cacheContext.Dispose();
-        GC.SuppressFinalize(this);
+            IsDisposed = true;
+        }
+    }
 
-        IsDisposed = true;
+    protected virtual void OnDispose(bool disposing)
+    {
     }
 
     public void RaiseInvalidated(TimeSpan timeSpan)
@@ -75,7 +86,7 @@ public class Renderer : IRenderer
         }
     }
 
-    public IRenderer.RenderResult RenderGraphics(TimeSpan timeSpan)
+    public Bitmap<Bgra8888>? RenderGraphics(TimeSpan timeSpan)
     {
         RenderThread.Dispatcher.VerifyAccess();
         if (!IsGraphicsRendering)
@@ -90,7 +101,7 @@ public class Renderer : IRenderer
                     RenderGraphicsCore();
                 }
 
-                return new IRenderer.RenderResult(_immediateCanvas.GetBitmap());
+                return _immediateCanvas.GetBitmap();
             }
             finally
             {
@@ -106,66 +117,6 @@ public class Renderer : IRenderer
     protected virtual void RenderGraphicsCore()
     {
         RenderScene.Render(_immediateCanvas);
-    }
-
-    protected virtual void RenderAudioCore()
-    {
-        RenderScene.Render(_audio);
-    }
-
-    public IRenderer.RenderResult RenderAudio(TimeSpan timeSpan)
-    {
-        if (!IsAudioRendering)
-        {
-            try
-            {
-                IsAudioRendering = true;
-                _instanceClock.AudioStartTime = timeSpan;
-                RenderAudioCore();
-
-                return new IRenderer.RenderResult(Audio: _audio.GetPcm());
-            }
-            finally
-            {
-                IsAudioRendering = false;
-            }
-        }
-        else
-        {
-            return default;
-        }
-    }
-
-    public IRenderer.RenderResult Render(TimeSpan timeSpan)
-    {
-        RenderThread.Dispatcher.VerifyAccess();
-        if (!IsGraphicsRendering && !IsAudioRendering)
-        {
-            try
-            {
-                IsGraphicsRendering = true;
-                IsAudioRendering = true;
-                _instanceClock.CurrentTime = timeSpan;
-                _instanceClock.AudioStartTime = timeSpan;
-                RenderScene.Clear();
-                using (_fpsText.StartRender(_immediateCanvas))
-                {
-                    RenderGraphicsCore();
-                    RenderAudioCore();
-                }
-
-                return new IRenderer.RenderResult(_immediateCanvas.GetBitmap(), _audio.GetPcm());
-            }
-            finally
-            {
-                IsGraphicsRendering = false;
-                IsAudioRendering = false;
-            }
-        }
-        else
-        {
-            return default;
-        }
     }
 
     ImmediateCanvas IImmediateCanvasFactory.CreateCanvas(SKSurface surface, bool leaveOpen)
