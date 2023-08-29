@@ -46,7 +46,7 @@ public class Composer : IComposer
         }
     }
 
-    protected virtual void ComposeCore()
+    protected virtual void ComposeCore(Audio.Audio audio)
     {
         //RenderScene.Render(_audio);
     }
@@ -59,7 +59,7 @@ public class Composer : IComposer
             {
                 IsAudioRendering = true;
                 _instanceClock.AudioStartTime = timeSpan;
-                ComposeCore();
+                ComposeCore(_audio);
 
                 return _audio.GetPcm();
             }
