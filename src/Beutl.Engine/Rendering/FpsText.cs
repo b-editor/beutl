@@ -1,31 +1,27 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
+using Beutl.Media;
+using Beutl.Media.Immutable;
 
 namespace Beutl.Rendering;
 
 internal sealed class FpsText
 {
+    private static readonly IBrush s_background = new ImmutableSolidColorBrush(Colors.Black, 50);
     private double _maxFps;
     private double _minFps = double.MaxValue;
     private double _avgFps;
     private double _prevFps;
-    private readonly TextElement _fpsText = new() { Size = 72 };
-    private readonly TextElement _minFpsText = new() { Size = 72 };
-    private readonly TextElement _maxFpsText = new() { Size = 72 };
-    private readonly TextElement _avgFpsText = new() { Size = 72 };
-    private readonly TextBlock _fpsFText;
+    private readonly TextBlock _textBlock;
 
     public FpsText()
     {
-        _fpsFText = new TextBlock
+        _textBlock = new TextBlock
         {
-            Elements = new TextElements(new TextElement[]
-            {
-                _fpsText,
-                _minFpsText,
-                _maxFpsText,
-                _avgFpsText,
-            })
+            AlignmentX = AlignmentX.Left,
+            AlignmentY = AlignmentY.Top,
+            Size = 72,
+            Fill = Brushes.White
         };
     }
 
@@ -63,16 +59,21 @@ internal sealed class FpsText
                 _fpsText._prevFps = fps;
                 _fpsText._avgFps = (_fpsText._prevFps + fps) / 2;
 
-                _fpsText._fpsText.Text = $"{fps:N2} FPS\n";
-                _fpsText._minFpsText.Text = $"Min: {_fpsText._minFps:N2} FPS\n";
-                _fpsText._maxFpsText.Text = $"Max: {_fpsText._maxFps:N2} FPS\n";
-                _fpsText._avgFpsText.Text = $"Avg: {_fpsText._avgFps:N2} FPS";
+                _fpsText._textBlock.Text = $"""
+                    {fps:N2} FPS
+                    Min: {_fpsText._minFps:N2} FPS
+                    Max: {_fpsText._maxFps:N2} FPS
+                    Avg: {_fpsText._avgFps:N2} FPS
+                    """;
 
-                _fpsText._fpsFText.Measure(_canvas.Size.ToSize(1));
-                using (_canvas.PushClip(_fpsText._fpsFText.Bounds))
+                _fpsText._textBlock.Measure(_canvas.Size.ToSize(1));
+                float width = _fpsText._textBlock.Bounds.Size.Width;
+                float height = _fpsText._textBlock.Bounds.Size.Height;
+
+                using (_canvas.PushTransform(Matrix.CreateTranslation(width / 2, height / 2)))
                 {
-                    _canvas.Clear();
-                    _fpsText._fpsFText.Render(_canvas);
+                    _canvas.DrawRectangle(_fpsText._textBlock.Bounds, s_background, null);
+                    _fpsText._textBlock.Render(_canvas);
                 }
             }
         }
