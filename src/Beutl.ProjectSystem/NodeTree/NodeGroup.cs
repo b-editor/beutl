@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Runtime.InteropServices;
 
+using Beutl.Animation;
 using Beutl.Media;
 using Beutl.NodeTree.Nodes.Group;
 using Beutl.Rendering;
@@ -100,7 +101,7 @@ public class NodeGroup : NodeTreeModel
         }
     }
 
-    public object InitializeForState(IRenderer renderer)
+    public object InitializeForState(IRenderer renderer, IClock clock)
     {
         var evalContexts = new List<NodeEvaluationContext[]>();
 
@@ -113,7 +114,7 @@ public class NodeGroup : NodeTreeModel
             evalContexts.Add(array);
             foreach (NodeEvaluationContext item in array)
             {
-                item.Clock = renderer.Clock;
+                item.Clock = clock;
                 item.Renderer = renderer;
                 item.List = array;
                 item.Node.InitializeForContext(item);
