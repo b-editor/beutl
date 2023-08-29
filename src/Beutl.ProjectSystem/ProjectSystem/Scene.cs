@@ -22,6 +22,7 @@ public class Scene : ProjectItem
     public static readonly CoreProperty<TimeSpan> DurationProperty;
     public static readonly CoreProperty<TimeSpan> CurrentFrameProperty;
     public static readonly CoreProperty<IRenderer> RendererProperty;
+    public static readonly CoreProperty<IComposer> ComposerProperty;
     public static readonly CoreProperty<RenderCacheOptions> CacheOptionsProperty;
     private readonly List<string> _includeElements = new()
     {
@@ -32,6 +33,7 @@ public class Scene : ProjectItem
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private TimeSpan _currentFrame;
     private IRenderer _renderer;
+    private IComposer _composer;
     private RenderCacheOptions _cacheOptions = RenderCacheOptions.Default;
 
     public Scene()
@@ -71,6 +73,10 @@ public class Scene : ProjectItem
 
         RendererProperty = ConfigureProperty<IRenderer, Scene>(nameof(Renderer))
             .Accessor(o => o.Renderer, (o, v) => o.Renderer = v)
+            .Register();
+
+        ComposerProperty = ConfigureProperty<IComposer, Scene>(nameof(Composer))
+            .Accessor(o => o.Composer, (o, v) => o.Composer = v)
             .Register();
 
         CacheOptionsProperty = ConfigureProperty<RenderCacheOptions, Scene>(nameof(CacheOptions))
@@ -124,13 +130,20 @@ public class Scene : ProjectItem
         private set => SetAndRaise(RendererProperty, ref _renderer, value);
     }
 
+    [NotAutoSerialized]
+    public IComposer Composer
+    {
+        get => _composer;
+        private set => SetAndRaise(ComposerProperty, ref _composer, value);
+    }
+
     public RenderCacheOptions CacheOptions
     {
         get => _cacheOptions;
         set => SetAndRaise(CacheOptionsProperty, ref _cacheOptions, value);
     }
 
-    [MemberNotNull(nameof(_renderer))]
+    [MemberNotNull(nameof(_renderer), nameof(_composer))]
     public void Initialize(int width, int height)
     {
         PixelSize oldSize = _renderer?.RenderScene?.Size ?? PixelSize.Empty;
@@ -160,6 +173,11 @@ public class Scene : ProjectItem
             metadata: HeightProperty.GetMetadata<Scene, CorePropertyMetadata>(),
             newValue: height,
             oldValue: oldSize.Height));
+
+        if (_composer == null || _composer.IsDisposed)
+        {
+            _composer = new SceneComposer(this);
+        }
     }
 
     // element.FileNameが既に設定されている状態
