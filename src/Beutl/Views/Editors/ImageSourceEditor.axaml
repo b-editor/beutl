@@ -7,18 +7,28 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.Editors"
+             Margin="4,0"
              d:DesignWidth="300"
              x:CompileBindings="True"
              x:DataType="vm:ImageSourceEditorViewModel"
              mc:Ignorable="d">
-    <Grid ColumnDefinitions="2*,3*,Auto">
-        <TextBlock Margin="8,0,0,0"
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <TextBlock Margin="4,0,0,0"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Center"
                    Text="{Binding Header}" />
 
+        <GridSplitter Grid.Column="1" Background="Transparent" />
+
+
         <Button x:Name="button"
-                Grid.Column="1"
+                Grid.Column="2"
                 Margin="4"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
@@ -34,7 +44,6 @@
             </Grid>
         </Button>
 
-
-        <local:PropertyEditorMenu Grid.Column="2" />
+        <local:PropertyEditorMenu Grid.Column="3" />
     </Grid>
 </UserControl>

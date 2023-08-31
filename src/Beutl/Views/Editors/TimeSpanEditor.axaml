@@ -5,18 +5,32 @@
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Beutl.ViewModels.Editors"
+             Margin="4,0"
              d:DesignWidth="300"
              x:CompileBindings="True"
              x:DataType="vm:TimeSpanEditorViewModel"
              mc:Ignorable="d">
-    <Grid ColumnDefinitions="2*,3*,Auto">
-        <TextBlock Margin="8,0,0,0"
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Margin="4,0,0,0"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Center"
-                   Text="{Binding Header}" />
+                   ClipToBounds="False"
+                   Text="{Binding Header}"
+                   TextTrimming="CharacterEllipsis" />
+
+        <GridSplitter Grid.Column="1" Background="Transparent" />
 
         <TextBox x:Name="textBox"
-                 Grid.Column="1"
+                 Grid.Column="2"
+                 MinWidth="120"
+                 Margin="4"
                  IsEnabled="{Binding CanEdit.Value}"
                  Text="{Binding Text.Value, Mode=OneWay}">
             <TextBox.Styles>
@@ -29,6 +43,6 @@
             </TextBox.Styles>
         </TextBox>
 
-        <local:PropertyEditorMenu Grid.Column="2" />
+        <local:PropertyEditorMenu Grid.Column="3" />
     </Grid>
 </UserControl>
