@@ -230,6 +230,9 @@ public sealed class PlayerViewModel : IDisposable
             source.QueueBuffer(buffer);
         }
 
+        IDisposable revoker = IsPlaying.Where(v => !v)
+            .Subscribe(_ => source.Stop());
+
         try
         {
             PrepareBuffer(primaryBuffer);
@@ -269,6 +272,7 @@ public sealed class PlayerViewModel : IDisposable
         }
         finally
         {
+            revoker.Dispose();
             source.Dispose();
             primaryBuffer.Dispose();
             secondaryBuffer.Dispose();
