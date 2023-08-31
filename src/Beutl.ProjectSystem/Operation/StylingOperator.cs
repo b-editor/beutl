@@ -8,7 +8,9 @@ using System.Reflection;
 using System.Text.Json.Nodes;
 
 using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Extensibility;
+using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Reactive;
 using Beutl.Styling;
@@ -220,6 +222,7 @@ public abstract class StylingOperator : SourceOperator
 {
     private bool _isSettersChanging;
     private Style _style;
+    private EvaluationTarget _preferredEvalTarget;
 
     protected StylingOperator()
     {
@@ -241,12 +244,22 @@ public abstract class StylingOperator : SourceOperator
                     _style.Invalidated -= OnInvalidated;
                     _style.Setters.CollectionChanged -= Setters_CollectionChanged;
                     Properties.Clear();
+                    _preferredEvalTarget = default;
                 }
 
                 _style = value;
 
                 if (value != null)
                 {
+                    if (value.TargetType.IsAssignableTo(typeof(Drawable)))
+                    {
+                        _preferredEvalTarget = EvaluationTarget.Graphics;
+                    }
+                    else if (value.TargetType.IsAssignableTo(typeof(Sound)))
+                    {
+                        _preferredEvalTarget = EvaluationTarget.Audio;
+                    }
+
                     value.Invalidated += OnInvalidated;
                     value.Setters.CollectionChanged += Setters_CollectionChanged;
                     Type propType = typeof(StylingSetterPropertyImpl<>);
@@ -263,6 +276,8 @@ public abstract class StylingOperator : SourceOperator
             }
         }
     }
+
+    public override EvaluationTarget GetEvaluationTarget() => _preferredEvalTarget;
 
     protected abstract Style OnInitializeStyle(Func<IList<ISetter>> setters);
 

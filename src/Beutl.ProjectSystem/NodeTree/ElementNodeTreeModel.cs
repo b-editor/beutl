@@ -45,31 +45,40 @@ public class ElementNodeTreeModel : NodeTreeModel
         obj.Invalidated -= OnNodeInvalidated;
     }
 
-    public void Evaluate(IRenderer renderer, Element layer)
+    public PooledList<Renderable> Evaluate(EvaluationTarget target, IRenderer renderer, Element layer)
     {
+        _ = target;
         Build(renderer, layer.Clock);
-        using var list = new PooledList<Renderable>();
 
-        foreach (NodeEvaluationContext[]? item in CollectionsMarshal.AsSpan(_evalContexts))
+        var list = new PooledList<Renderable>();
+        try
         {
-            foreach (NodeEvaluationContext? context in item)
+            foreach (NodeEvaluationContext[]? item in CollectionsMarshal.AsSpan(_evalContexts))
             {
-                context._renderables = list;
+                foreach (NodeEvaluationContext? context in item)
+                {
+                    context._renderables = list;
 
-                context.Node.PreEvaluate(context);
-                context.Node.Evaluate(context);
-                context.Node.PostEvaluate(context);
+                    context.Node.PreEvaluate(context);
+                    context.Node.Evaluate(context);
+                    context.Node.PostEvaluate(context);
+                }
             }
-        }
 
-        // Todo: LayerOutputNodeに移動
-        foreach (Renderable item in list.Span)
+            // Todo: LayerOutputNodeに移動
+            foreach (Renderable item in list.Span)
+            {
+                item.ZIndex = layer.ZIndex;
+                item.TimeRange = new TimeRange(layer.Start, layer.Length);
+            }
+
+            return list;
+        }
+        catch
         {
-            item.ZIndex = layer.ZIndex;
-            item.TimeRange = new TimeRange(layer.Start, layer.Length);
+            list.Dispose();
+            throw;
         }
-
-        renderer.RenderScene[layer.ZIndex].UpdateAll(list);
     }
 
     private void Uninitialize()

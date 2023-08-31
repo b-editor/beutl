@@ -47,6 +47,11 @@ public class SourceOperator : Hierarchical, ISourceOperator
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
+    public virtual EvaluationTarget GetEvaluationTarget()
+    {
+        return EvaluationTarget.Unknown;
+    }
+
     public virtual void InitializeForContext(OperatorEvaluationContext context)
     {
     }
@@ -67,9 +72,6 @@ public class SourceOperator : Hierarchical, ISourceOperator
                 {
                     context.AddFlowRenderable(renderable);
                 }
-                break;
-            case ISourceHandler handler:
-                handler.Handle(context.FlowRenderables, context.Clock);
                 break;
             default:
                 break;
