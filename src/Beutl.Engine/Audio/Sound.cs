@@ -130,7 +130,7 @@ public abstract class Sound : Renderable
         else
         {
             _offset = TimeSpan.Zero;
-            length = clock.BeginTime + clock.DurationTime - start;
+            length = clock.DurationTime - start;
             if (length > s_second)
             {
                 length = s_second;
