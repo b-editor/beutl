@@ -84,27 +84,27 @@ public sealed class Delay : SoundEffect
     public static readonly CoreProperty<float> DryMixProperty;
     public static readonly CoreProperty<float> WetMixProperty;
     private const float MaxDelayTime = 5;
-    private float _delayTime = 0.2f;
-    private float _feedback = 0.5f;
-    private float _dryMix = 0.6f;
-    private float _wetMix = 0.4f;
+    private float _delayTime = 200f;
+    private float _feedback = 50f;
+    private float _dryMix = 60f;
+    private float _wetMix = 40f;
 
     static Delay()
     {
         DelayTimeProperty = ConfigureProperty<float, Delay>(o => o.DelayTime)
-            .DefaultValue(0.2f)
+            .DefaultValue(200f)
             .Register();
 
         FeedbackProperty = ConfigureProperty<float, Delay>(o => o.Feedback)
-            .DefaultValue(0.5f)
+            .DefaultValue(50f)
             .Register();
 
         DryMixProperty = ConfigureProperty<float, Delay>(o => o.DryMix)
-            .DefaultValue(0.6f)
+            .DefaultValue(60f)
             .Register();
 
         WetMixProperty = ConfigureProperty<float, Delay>(o => o.WetMix)
-            .DefaultValue(0.4f)
+            .DefaultValue(40f)
             .Register();
 
         AffectsRender<Delay>(
@@ -112,7 +112,8 @@ public sealed class Delay : SoundEffect
             DryMixProperty, WetMixProperty);
     }
 
-    [Range(0, MaxDelayTime)]
+    [Range(0, MaxDelayTime * 1000)]
+    [Display(Name = "DelayTime (ms)")]
     public float DelayTime
     {
         get => _delayTime;
@@ -120,6 +121,7 @@ public sealed class Delay : SoundEffect
     }
 
     [Range(0, float.MaxValue)]
+    [Display(Name = "Feedback (%)")]
     public float Feedback
     {
         get => _feedback;
@@ -127,6 +129,7 @@ public sealed class Delay : SoundEffect
     }
 
     [Range(0, float.MaxValue)]
+    [Display(Name = "DryMix (%)")]
     public float DryMix
     {
         get => _dryMix;
@@ -134,6 +137,7 @@ public sealed class Delay : SoundEffect
     }
 
     [Range(0, float.MaxValue)]
+    [Display(Name = "WetMix (%)")]
     public float WetMix
     {
         get => _wetMix;
@@ -177,7 +181,7 @@ public sealed class Delay : SoundEffect
         public void Process(in Pcm<Stereo32BitFloat> src, out Pcm<Stereo32BitFloat> dst)
         {
             int sampleRate = src.SampleRate;
-            float delayTime = _delay._delayTime;
+            float delayTime = _delay._delayTime / 1000f;
             float feedback = _delay._feedback / 100f;
             float dryMix = _delay._dryMix / 100f;
             float wetMix = _delay._wetMix / 100f;
