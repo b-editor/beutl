@@ -26,6 +26,7 @@ public sealed class SceneComposer : Composer
     protected override void ComposeCore(Audio.Audio audio)
     {
         base.ComposeCore(audio);
+        audio.Clear();
 
         IClock clock = Clock;
         var timeSpan = new TimeRange(clock.AudioStartTime, TimeSpan.FromSeconds(1));
