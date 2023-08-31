@@ -57,7 +57,7 @@ public sealed class TakeAfterOperator : SourceOperator
                     elements.RemoveAt(i);
                     i--;
 
-                    using (PooledList<Renderable> result = item.Evaluate(context.Target, context.Clock, context.Renderer))
+                    using (PooledList<Renderable> result = item.Evaluate(context.Target, context.Clock.GlobalClock, context.Renderer))
                     {
                         flow.AddRange(result.Span);
                     }
