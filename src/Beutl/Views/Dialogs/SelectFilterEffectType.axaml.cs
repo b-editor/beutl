@@ -17,7 +17,7 @@ public sealed partial class SelectFilterEffectType : ContentDialog
     protected override void OnPrimaryButtonClick(ContentDialogButtonClickEventArgs args)
     {
         base.OnPrimaryButtonClick(args);
-        if (DataContext is not SelectFilterEffectTypeViewModel vm) return;
+        if (DataContext is not SelectLibraryItemDialogViewModel vm) return;
 
         if (carousel.SelectedIndex == 0)
         {
@@ -32,7 +32,7 @@ public sealed partial class SelectFilterEffectType : ContentDialog
     protected override void OnSecondaryButtonClick(ContentDialogButtonClickEventArgs args)
     {
         base.OnSecondaryButtonClick(args);
-        if (DataContext is not SelectFilterEffectTypeViewModel vm) return;
+        if (DataContext is not SelectLibraryItemDialogViewModel vm) return;
         args.Cancel = true;
 
         if (carousel.SelectedIndex == 1)

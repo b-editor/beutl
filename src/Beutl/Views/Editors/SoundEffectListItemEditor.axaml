@@ -1,0 +1,53 @@
+<UserControl x:Class="Beutl.Views.Editors.SoundEffectListItemEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:local="using:Beutl.Views.Editors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModel="using:Beutl.ViewModels.Editors"
+             d:DesignHeight="450"
+             d:DesignWidth="400"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,Auto">
+        <Grid ColumnDefinitions="*,Auto,Auto">
+            <ToggleButton x:Name="reorderHandle"
+                          Content="{Binding FilterName.Value}"
+                          Cursor="SizeNorthSouth"
+                          IsChecked="{Binding IsExpanded.Value}"
+                          Theme="{StaticResource ListEditorMiniExpanderToggleButton}" />
+
+            <ToggleButton Grid.Column="1"
+                          Margin="4,0,0,0"
+                          Padding="0"
+                          Classes="size-24x24"
+                          IsChecked="{Binding IsEnabled.Value}"
+                          Theme="{StaticResource VisibilityToggleButtonStyle}" />
+
+            <Button Grid.Column="2"
+                    Margin="4,0,8,0"
+                    Padding="0"
+                    Classes="size-24x24"
+                    Click="DeleteClick"
+                    Theme="{StaticResource TransparentButton}">
+                <icons:SymbolIcon Symbol="Delete" />
+            </Button>
+        </Grid>
+
+        <Panel x:Name="content" Grid.Row="2">
+            <local:PropertiesEditor Margin="16,0,0,0"
+                                    Padding="0"
+                                    DataContext="{Binding Properties.Value}"
+                                    IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
+                                                                  Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+            <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <local:ListItemEditor />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Panel>
+    </Grid>
+</UserControl>

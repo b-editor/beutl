@@ -126,6 +126,7 @@ public static class PropertyEditorService
         private static readonly Dictionary<Type, ListItemEditor> s_listItemEditorsOverride = new()
         {
             { typeof(FilterEffect), new(_ => new FilterEffectListItemEditor(), s => new FilterEffectEditorViewModel(s.ToTyped<FilterEffect?>())) },
+            { typeof(ISoundEffect), new(_ => new SoundEffectListItemEditor(), s => new SoundEffectEditorViewModel(s.ToTyped<ISoundEffect?>())) },
             { typeof(ITransform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>())) }
         };
 
@@ -184,6 +185,7 @@ public static class PropertyEditorService
             { typeof(IBrush), new(_ => new BrushEditor(), s => new BrushEditorViewModel(s)) },
             { typeof(IPen), new(_ => new PenEditor(), s => new PenEditorViewModel(s)) },
             { typeof(FilterEffect), new(_ => new FilterEffectEditor(), s => new FilterEffectEditorViewModel(s.ToTyped<FilterEffect?>())) },
+            { typeof(ISoundEffect), new(_ => new SoundEffectEditor(), s => new SoundEffectEditorViewModel(s.ToTyped<ISoundEffect?>())) },
             { typeof(ITransform), new(_ => new TransformEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>())) },
             { typeof(GradientStops), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<GradientStops>())) },
             { typeof(IList), new(CreateListEditor, CreateListEditorViewModel) },
