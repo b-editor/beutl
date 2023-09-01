@@ -25,12 +25,13 @@ internal sealed class SceneGraphicsEvaluator : IDisposable
         _renderer = renderer;
     }
 
+    public List<Element> CurrentElements => _current;
+
     public void Evaluate()
     {
         IClock clock = _renderer.Clock;
         TimeSpan timeSpan = clock.CurrentTime;
         SortLayers(timeSpan, out _);
-        Span<Element> layers = CollectionsMarshal.AsSpan(_current);
         Span<Element> entered = CollectionsMarshal.AsSpan(_entered);
         Span<Element> exited = CollectionsMarshal.AsSpan(_exited);
 
@@ -46,12 +47,19 @@ internal sealed class SceneGraphicsEvaluator : IDisposable
             EnterSourceOperators(item);
         }
 
-        foreach (Element layer in layers)
+        for (int i = 0; i < _current.Count; i++)
         {
+            Element layer = _current[i];
             using (PooledList<Renderable> list = layer.Evaluate(EvaluationTarget.Graphics, clock, _renderer))
             {
-                // Todo: group-controllerがマージされたら改善する
-                _renderer.RenderScene[layer.ZIndex].UpdateAll(list.OfType<Drawable>().ToArray());
+                foreach (Renderable item in list.Span)
+                {
+                    if (item is Drawable drawable)
+                    {
+                        int actualIndex = (drawable as DrawableDecorator)?.OriginalZIndex ?? item.ZIndex;
+                        _renderer.RenderScene[actualIndex].Add(drawable);
+                    }
+                }
             }
         }
 

@@ -58,6 +58,40 @@ public sealed class RenderLayer : IDisposable
         _currentFrame?.Clear();
     }
 
+    public void Add(Drawable drawable)
+    {
+        if (!_cache.TryGetValue(drawable, out Entry? entry))
+        {
+            entry = new Entry(new DrawableNode(drawable));
+            _cache.Add(drawable, entry);
+
+            var weakRef = new WeakReference<Entry>(entry);
+            EventHandler<RenderInvalidatedEventArgs>? handler = null;
+            handler = (_, _) =>
+            {
+                if (weakRef.TryGetTarget(out Entry? obj))
+                {
+                    obj.IsDirty = true;
+                }
+                else
+                {
+                    drawable.Invalidated -= handler;
+                }
+            };
+            drawable.Invalidated += handler;
+        }
+
+        if (entry.IsDirty)
+        {
+            // DeferredCanvasを作成し、記録
+            using var canvas = new DeferradCanvas(entry.Node, _renderScene.Size);
+            drawable.Render(canvas);
+            entry.IsDirty = false;
+        }
+
+        CurrentFrame.Add(entry);
+    }
+
     public void UpdateAll(IReadOnlyList<Drawable> elements)
     {
         _currentFrame?.Clear();
@@ -68,38 +102,9 @@ public sealed class RenderLayer : IDisposable
 
         CurrentFrame.EnsureCapacity(elements.Count);
 
-        foreach (Drawable drawable in elements)
+        foreach (Drawable element in elements)
         {
-            if (!_cache.TryGetValue(drawable, out Entry? entry))
-            {
-                entry = new Entry(new DrawableNode(drawable));
-                _cache.Add(drawable, entry);
-
-                var weakRef = new WeakReference<Entry>(entry);
-                EventHandler<RenderInvalidatedEventArgs>? handler = null;
-                handler = (_, _) =>
-                {
-                    if (weakRef.TryGetTarget(out Entry? obj))
-                    {
-                        obj.IsDirty = true;
-                    }
-                    else
-                    {
-                        drawable.Invalidated -= handler;
-                    }
-                };
-                drawable.Invalidated += handler;
-            }
-
-            if (entry.IsDirty)
-            {
-                // DeferredCanvasを作成し、記録
-                var canvas = new DeferradCanvas(entry.Node, _renderScene.Size);
-                drawable.Render(canvas);
-                entry.IsDirty = false;
-            }
-
-            CurrentFrame.Add(entry);
+            Add(element);
         }
     }
 

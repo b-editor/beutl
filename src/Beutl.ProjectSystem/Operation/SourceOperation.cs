@@ -102,6 +102,7 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
                     EvaluationTarget t = item.Operator.GetEvaluationTarget();
                     if (t == EvaluationTarget.Unknown || t == target)
                     {
+                        item.Target = target;
                         item.FlowRenderables = flow;
                         item.Operator.Evaluate(item);
                     }

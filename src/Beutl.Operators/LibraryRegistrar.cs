@@ -130,6 +130,21 @@ public static class LibraryRegistrar
                 .BindSourceOperator<Source.SourceSoundOperator>()
                 .BindSound<SourceSound>()
             );
+        
+        LibraryService.Current
+            .AddMultiple("下位N個の要素を取得", m => m
+                .BindSourceOperator<TakeAfterOperator>()
+            );
+        
+        LibraryService.Current
+            .AddMultiple("デコレーター", m => m
+                .BindSourceOperator<DecorateOperator>()
+            );
+        
+        LibraryService.Current
+            .AddMultiple("グループ", m => m
+                .BindSourceOperator<GroupOperator>()
+            );
 
         LibraryService.Current
             .RegisterGroup(Strings.Transform, g => g

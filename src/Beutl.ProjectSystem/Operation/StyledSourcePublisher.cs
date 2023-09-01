@@ -6,7 +6,7 @@ namespace Beutl.Operation;
 
 public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
 {
-    public IStyleInstance? Instance { get; private set; }
+    public IStyleInstance? Instance { get; protected set; }
 
     public virtual Renderable? Publish(IClock clock)
     {

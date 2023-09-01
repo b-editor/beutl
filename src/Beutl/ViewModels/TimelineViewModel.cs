@@ -44,6 +44,7 @@ public sealed class TimelineViewModel : IToolContext
     private readonly ILogger _logger = Log.ForContext<TimelineViewModel>();
     private readonly CompositeDisposable _disposables = new();
     private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
+    private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = new();
 
     public TimelineViewModel(EditViewModel editViewModel)
     {
@@ -201,6 +202,16 @@ public sealed class TimelineViewModel : IToolContext
         foreach (InlineAnimationLayerViewModel item in Inlines)
         {
             item.Dispose();
+        }
+
+        if (_trackerCache.Values.Count > 0)
+        {
+            // ToArrayの理由は
+            // TrackedLayerTopObservable.DisposeでDeinitializeが呼び出され、_trackerCacheが変更されるので
+            foreach (var item in _trackerCache.Values.ToArray())
+            {
+                item.Dispose();
+            }
         }
 
         _layerHeightChanged.Dispose();
@@ -440,7 +451,21 @@ public sealed class TimelineViewModel : IToolContext
 
     public IObservable<double> GetTrackedLayerTopObservable(IObservable<int> layer)
     {
-        return new TrackedLayerTopObservable(layer, this);
+        return layer.Select(GetTrackedLayerTopObservable).Switch();
+    }
+
+    public IObservable<double> GetTrackedLayerTopObservable(int zIndex)
+    {
+        lock (_trackerCache)
+        {
+            if (!_trackerCache.TryGetValue(zIndex, out TrackedLayerTopObservable? value))
+            {
+                value = new TrackedLayerTopObservable(zIndex, this);
+                _trackerCache.Add(zIndex, value);
+            }
+
+            return value;
+        }
     }
 
     public double CalculateLayerTop(int layer)
@@ -533,16 +558,14 @@ public sealed class TimelineViewModel : IToolContext
         return EditorContext.GetService(serviceType);
     }
 
-    private sealed class TrackedLayerTopObservable : LightweightObservableBase<double>
+    private sealed class TrackedLayerTopObservable : LightweightObservableBase<double>, IDisposable
     {
         private readonly TimelineViewModel _timeline;
-        private readonly IObservable<int> _layerNum;
+        private readonly int _layerNum;
         private IDisposable? _disposable1;
         private IDisposable? _disposable2;
-        private IDisposable? _disposable3;
-        private int _prevLayerNum = -1;
 
-        public TrackedLayerTopObservable(IObservable<int> layerNum, TimelineViewModel timeline)
+        public TrackedLayerTopObservable(int layerNum, TimelineViewModel timeline)
         {
             _layerNum = layerNum;
             _timeline = timeline;
@@ -552,7 +575,7 @@ public sealed class TimelineViewModel : IToolContext
         {
             _disposable1?.Dispose();
             _disposable2?.Dispose();
-            _disposable3?.Dispose();
+            _timeline._trackerCache.Remove(_layerNum);
         }
 
         protected override void Initialize()
@@ -561,40 +584,37 @@ public sealed class TimelineViewModel : IToolContext
                 .Subscribe(OnCollectionChanged);
 
             _disposable2 = _timeline.LayerHeightChanged.Subscribe(OnLayerHeightChanged);
-
-            _disposable3 = _layerNum.Subscribe(OnLayerNumChanged);
-        }
-
-        private void OnLayerNumChanged(int obj)
-        {
-            _prevLayerNum = obj;
-            PublishNext(_timeline.CalculateLayerTop(_prevLayerNum));
         }
 
         private void OnLayerHeightChanged(LayerHeaderViewModel obj)
         {
-            if (obj.Number.Value < _prevLayerNum)
+            if (obj.Number.Value < _layerNum)
             {
-                PublishNext(_timeline.CalculateLayerTop(_prevLayerNum));
+                PublishNext(_timeline.CalculateLayerTop(_layerNum));
             }
         }
 
         protected override void Subscribed(IObserver<double> observer, bool first)
         {
-            observer.OnNext(_timeline.CalculateLayerTop(_prevLayerNum));
+            observer.OnNext(_timeline.CalculateLayerTop(_layerNum));
         }
 
         private void OnCollectionChanged(NotifyCollectionChangedEventArgs obj)
         {
             if (obj.Action == NotifyCollectionChangedAction.Move)
             {
-                if (_prevLayerNum != obj.OldStartingIndex
-                    && ((_prevLayerNum > obj.OldStartingIndex && _prevLayerNum <= obj.NewStartingIndex)
-                    || (_prevLayerNum < obj.OldStartingIndex && _prevLayerNum >= obj.NewStartingIndex)))
+                if (_layerNum != obj.OldStartingIndex
+                    && ((_layerNum > obj.OldStartingIndex && _layerNum <= obj.NewStartingIndex)
+                    || (_layerNum < obj.OldStartingIndex && _layerNum >= obj.NewStartingIndex)))
                 {
-                    PublishNext(_timeline.CalculateLayerTop(_prevLayerNum));
+                    PublishNext(_timeline.CalculateLayerTop(_layerNum));
                 }
             }
+        }
+
+        public void Dispose()
+        {
+            PublishCompleted();
         }
     }
 }

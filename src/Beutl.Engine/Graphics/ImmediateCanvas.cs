@@ -162,6 +162,11 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         _canvas.DrawSurface(surface, point.X, point.Y, _sharedFillPaint);
     }
 
+    public void DrawDrawable(Drawable drawable)
+    {
+        drawable.Render(this);
+    }
+
     public void DrawNode(IGraphicNode node)
     {
         if (GetCacheContext() is { } context)

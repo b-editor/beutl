@@ -63,9 +63,15 @@ public sealed class DeferradCanvas : ICanvas
     {
         return _drawOperationindex < _container.Children.Count ? _container.Children[_drawOperationindex] as T : null;
     }
+    
+    private IGraphicNode? Next()
+    {
+        return _drawOperationindex < _container.Children.Count ? _container.Children[_drawOperationindex] : null;
+    }
 
     public void Dispose()
     {
+        _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
     }
 
     public void Reset()
@@ -172,6 +178,43 @@ public sealed class DeferradCanvas : ICanvas
         if (next == null || !next.Equals(text, fill, pen))
         {
             Add(new TextNode(text, ConvertBrush(fill), pen));
+        }
+
+        ++_drawOperationindex;
+    }
+
+    // Todo: テスト
+    public void DrawDrawable(Drawable drawable)
+    {
+        DrawableNode? next = Next<DrawableNode>();
+
+        if (next == null || !ReferenceEquals(next.Drawable, drawable))
+        {
+            AddAndPush(new DrawableNode(drawable), next);
+        }
+        else
+        {
+            Push(next);
+        }
+
+        int count = _nodes.Count;
+        try
+        {
+            drawable.Render(this);
+        }
+        finally
+        {
+            Pop(count);
+        }
+    }
+
+    public void DrawNode(IGraphicNode node)
+    {
+        IGraphicNode? next = Next();
+
+        if (next == null || !node.Equals(next))
+        {
+            Add(node);
         }
 
         ++_drawOperationindex;
