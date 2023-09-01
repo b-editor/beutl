@@ -63,7 +63,7 @@ public sealed class DeferradCanvas : ICanvas
     {
         return _drawOperationindex < _container.Children.Count ? _container.Children[_drawOperationindex] as T : null;
     }
-    
+
     private IGraphicNode? Next()
     {
         return _drawOperationindex < _container.Children.Count ? _container.Children[_drawOperationindex] : null;
@@ -260,6 +260,22 @@ public sealed class DeferradCanvas : ICanvas
         if (next == null)
         {
             AddAndPush(new PushNode(), next);
+        }
+        else
+        {
+            Push(next);
+        }
+
+        return new(this, _nodes.Count);
+    }
+
+    public PushedState PushLayer(Rect limit = default)
+    {
+        LayerNode? next = Next<LayerNode>();
+
+        if (next == null || next.Limit != limit)
+        {
+            AddAndPush(new LayerNode(limit), next);
         }
         else
         {

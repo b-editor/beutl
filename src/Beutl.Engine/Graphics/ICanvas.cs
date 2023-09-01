@@ -34,7 +34,7 @@ public interface ICanvas : IDisposable
     void DrawGeometry(Geometry geometry, IBrush? fill, IPen? pen);
 
     void DrawText(FormattedText text, IBrush? fill, IPen? pen);
-    
+
     void DrawDrawable(Drawable drawable);
 
     void DrawNode(IGraphicNode node);
@@ -44,6 +44,8 @@ public interface ICanvas : IDisposable
     void Pop(int count = -1);
 
     PushedState Push();
+
+    PushedState PushLayer(Rect limit = default);
 
     PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect);
 

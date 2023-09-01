@@ -453,6 +453,26 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         return new PushedState(this, _states.Count);
     }
 
+    public PushedState PushLayer(Rect limit = default)
+    {
+        VerifyAccess();
+        int count;
+        if (limit == default)
+        {
+            count = _canvas.SaveLayer();
+        }
+        else
+        {
+            using (var paint = new SKPaint())
+            {
+                count = _canvas.SaveLayer(limit.ToSKRect(), paint);
+            }
+        }
+
+        _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
+        return new PushedState(this, _states.Count);
+    }
+
     internal PushedState PushPaint(SKPaint paint, Rect? rect = null)
     {
         VerifyAccess();

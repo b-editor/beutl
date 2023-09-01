@@ -109,7 +109,9 @@ public sealed class DrawableGroup : Drawable
 
             Matrix transform = GetTransformMatrix(availableSize);
             Rect transformedBounds = rect.TransformToAABB(transform);
+
             using (canvas.PushBlendMode(BlendMode))
+            using (canvas.PushLayer(transformedBounds))
             using (canvas.PushTransform(transform))
             using (FilterEffect == null ? new() : canvas.PushFilterEffect(FilterEffect))
             using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(rect.Size)))
