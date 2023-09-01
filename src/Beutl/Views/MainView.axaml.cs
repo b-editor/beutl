@@ -706,9 +706,7 @@ Error:
                 && viewModel.Scene is Scene scene
                 && viewModel.SelectedObject.Value is Element layer)
             {
-                var jsonNode = new JsonObject();
-                layer.WriteToJson(jsonNode);
-                string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
+                CoreObjectReborn.Reborn(layer, out string json);
                 var data = new DataObject();
                 data.Set(DataFormats.Text, json);
                 data.Set(Constants.Element, json);
@@ -725,9 +723,7 @@ Error:
                 && viewModel.Scene is Scene scene
                 && viewModel.SelectedObject.Value is Element layer)
             {
-                var jsonNode = new JsonObject();
-                layer.WriteToJson(jsonNode);
-                string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
+                CoreObjectReborn.Reborn(layer, out string json);
                 var data = new DataObject();
                 data.Set(DataFormats.Text, json);
                 data.Set(Constants.Element, json);

@@ -8,6 +8,7 @@ using Avalonia.Input.Platform;
 using Beutl.Commands;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Beutl.Utilities;
 
 using Reactive.Bindings;
@@ -236,9 +237,8 @@ public sealed class ElementViewModel : IDisposable
         IClipboard? clipboard = App.GetClipboard();
         if (clipboard != null)
         {
-            var jsonNode = new JsonObject();
-            Model.WriteToJson(jsonNode);
-            string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
+            CoreObjectReborn.Reborn(Model, out string json);
+
             var data = new DataObject();
             data.Set(DataFormats.Text, json);
             data.Set(Constants.Element, json);
@@ -317,11 +317,7 @@ public sealed class ElementViewModel : IDisposable
         TimeSpan forwardLength = absTime - Model.Start;
         TimeSpan backwardLength = Model.Length - forwardLength;
 
-        var jsonNode = new JsonObject();
-        Model.WriteToJson(jsonNode);
-        string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
-        var backwardLayer = new Element();
-        backwardLayer.ReadFromJson(JsonNode.Parse(json)!.AsObject());
+        CoreObjectReborn.Reborn(Model, out Element backwardLayer);
 
         Scene.MoveChild(Model.ZIndex, Model.Start, forwardLength, Model).DoAndRecord(CommandRecorder.Default);
         backwardLayer.Start = absTime;
