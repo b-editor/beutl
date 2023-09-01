@@ -40,13 +40,25 @@ public sealed class ElementScopeViewModel : IDisposable
             .DisposeWith(_disposables);
 
         IObservable<int> zIndex = element.GetObservable(Element.ZIndexProperty);
-        IObservable<int> endZIndex = zIndex
+        IObservable<(int EndZIndex, int ZIndex)> zIndexTuple = zIndex
             .CombineLatest(Count)
-            .Select(t => t.First + t.Second + 1);
+            .Select(t => (t.First + t.Second + 1, t.First));
 
-        Height = parent.Timeline.GetTrackedLayerTopObservable(zIndex)
-            .CombineLatest(parent.Timeline.GetTrackedLayerTopObservable(endZIndex))
-            .Select(t => t.Second - t.First)
+        Height = zIndexTuple.Select(t =>
+            {
+                // CountがZero
+                if (t.EndZIndex - 1 == t.ZIndex)
+                {
+                    return Observable.Return(0d);
+                }
+                else
+                {
+                    return parent.Timeline.GetTrackedLayerTopObservable(t.ZIndex)
+                        .CombineLatest(parent.Timeline.GetTrackedLayerTopObservable(t.EndZIndex))
+                        .Select(t => t.Second - t.First);
+                }
+            })
+            .Switch()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
     }
@@ -172,7 +184,12 @@ public sealed class ElementScopeViewModel : IDisposable
             timeline.CalculateLayerTop(Model.ZIndex), 0, 0);
 
         double width = Model.Length.ToPixel(timeline.Options.Value.Scale);
-        double height = timeline.CalculateLayerTop(Model.ZIndex + Count.Value + 1) - margin.Top;
+        double height = 0;
+
+        if (Count.Value > 0)
+        {
+            height = timeline.CalculateLayerTop(Model.ZIndex + Count.Value + 1) - margin.Top;
+        }
 
         Margin.Value = context.Margin;
         Width.Value = context.Width;
