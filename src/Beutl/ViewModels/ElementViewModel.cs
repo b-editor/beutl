@@ -237,8 +237,9 @@ public sealed class ElementViewModel : IDisposable
         IClipboard? clipboard = App.GetClipboard();
         if (clipboard != null)
         {
-            CoreObjectReborn.Reborn(Model, out string json);
-
+            var jsonNode = new JsonObject();
+            Model.WriteToJson(jsonNode);
+            string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
             var data = new DataObject();
             data.Set(DataFormats.Text, json);
             data.Set(Constants.Element, json);
