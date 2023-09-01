@@ -438,6 +438,7 @@ public sealed class TimelineViewModel : IToolContext
         item.Dispose();
     }
 
+    // Todo: layer引数を実際の数にして、TrackedLayerTopObservableをキャッシュする
     public IObservable<double> GetTrackedLayerTopObservable(IObservable<int> layer)
     {
         return new TrackedLayerTopObservable(layer, this);

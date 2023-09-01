@@ -112,6 +112,7 @@ public sealed class ElementViewModel : IDisposable
             .AddTo(_disposables);
 
         KeyBindings = CreateKeyBinding();
+        Scope = new ElementScopeViewModel(Model, this);
     }
 
     ~ElementViewModel()
@@ -124,6 +125,8 @@ public sealed class ElementViewModel : IDisposable
     public TimelineViewModel Timeline { get; private set; }
 
     public Element Model { get; private set; }
+
+    public ElementScopeViewModel Scope { get; private set; }
 
     public Scene Scene => (Scene)Model.HierarchicalParent!;
 
@@ -172,10 +175,12 @@ public sealed class ElementViewModel : IDisposable
     {
         _disposables.Dispose();
         LayerHeader.Dispose();
+        Scope.Dispose();
 
         LayerHeader.Value = null!;
         Timeline = null!;
         Model = null!;
+        Scope = null!;
         AnimationRequested = (_, _) => Task.CompletedTask;
         GC.SuppressFinalize(this);
     }
@@ -186,6 +191,7 @@ public sealed class ElementViewModel : IDisposable
             .Where(x => x.Layer == this)
             .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
             .ToArray();
+        var scope = Scope.PrepareAnimation();
 
         var newMargin = new Thickness(0, Timeline.CalculateLayerTop(layerNum), 0, 0);
         Thickness oldMargin = Margin.Value;
@@ -197,7 +203,10 @@ public sealed class ElementViewModel : IDisposable
         foreach (var (item, context) in inlines)
             item.AnimationRequest(context, newMargin, BorderMargin.Value, cancellationToken);
 
-        await AnimationRequested((newMargin, BorderMargin.Value, Width.Value), cancellationToken);
+        Task task1 = Scope.AnimationRequest(scope, cancellationToken);
+        Task task2 = AnimationRequested((newMargin, BorderMargin.Value, Width.Value), cancellationToken);
+
+        await Task.WhenAll(task1, task2);
         Margin.Value = newMargin;
     }
 
@@ -216,7 +225,10 @@ public sealed class ElementViewModel : IDisposable
             item.AnimationRequest(inlineContext, margin, borderMargin, cancellationToken);
         }
 
-        await AnimationRequested((margin, borderMargin, width), cancellationToken);
+        Task task1 = Scope.AnimationRequest(context.Scope, cancellationToken);
+        Task task2 = AnimationRequested((margin, borderMargin, width), cancellationToken);
+
+        await Task.WhenAll(task1, task2);
         BorderMargin.Value = borderMargin;
         Margin.Value = margin;
         Width.Value = width;
@@ -267,7 +279,8 @@ public sealed class ElementViewModel : IDisposable
             Inlines: Timeline.Inlines
                 .Where(x => x.Layer == this)
                 .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
-                .ToArray());
+                .ToArray(),
+            Scope: Scope.PrepareAnimation());
     }
 
     private void OnDelete()
@@ -413,5 +426,6 @@ public sealed class ElementViewModel : IDisposable
         Thickness Margin,
         Thickness BorderMargin,
         double Width,
-        (InlineAnimationLayerViewModel ViewModel, InlineAnimationLayerViewModel.PrepareAnimationContext Context)[] Inlines);
+        (InlineAnimationLayerViewModel ViewModel, InlineAnimationLayerViewModel.PrepareAnimationContext Context)[] Inlines,
+        ElementScopeViewModel.PrepareAnimationContext Scope);
 }
