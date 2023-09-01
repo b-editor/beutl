@@ -72,8 +72,6 @@ public sealed partial class ElementView : UserControl
         obj.AnimationRequested = (_, _) => Task.CompletedTask;
         _disposable1?.Dispose();
         _disposable1 = null;
-
-        obj.SetClipboard(null);
     }
 
     private void OnDataContextAttached(ElementViewModel obj)
@@ -143,8 +141,6 @@ public sealed partial class ElementView : UserControl
 
         _disposable1 = obj.Model.GetObservable(Element.IsEnabledProperty)
             .Subscribe(b => Dispatcher.UIThread.InvokeAsync(() => border.Opacity = b ? 1 : 0.5));
-
-        obj.SetClipboard(TopLevel.GetTopLevel(this)?.Clipboard);
     }
 
     protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)

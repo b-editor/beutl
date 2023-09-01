@@ -108,14 +108,16 @@ public sealed partial class Timeline : UserControl
                         string? json = await clipboard.GetTextAsync();
                         if (json != null)
                         {
-                            var layer = new Element();
-                            layer.ReadFromJson(JsonNode.Parse(json)!.AsObject());
-                            layer.Start = ViewModel.ClickedFrame;
-                            layer.ZIndex = ViewModel.CalculateClickedLayer();
+                            var oldElement = new Element();
+                            oldElement.ReadFromJson(JsonNode.Parse(json)!.AsObject());
+                            CoreObjectReborn.Reborn(oldElement, out Element newElement);
 
-                            layer.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.ElementFileExtension));
+                            newElement.Start = ViewModel.ClickedFrame;
+                            newElement.ZIndex = ViewModel.CalculateClickedLayer();
 
-                            ViewModel.Scene.AddChild(layer).DoAndRecord(CommandRecorder.Default);
+                            newElement.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.ElementFileExtension));
+
+                            ViewModel.Scene.AddChild(newElement).DoAndRecord(CommandRecorder.Default);
                         }
                     }
                 }

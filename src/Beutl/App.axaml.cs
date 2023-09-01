@@ -1,7 +1,9 @@
 ﻿using System.Reflection;
 
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.ReactiveUI;
@@ -102,6 +104,19 @@ public sealed class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    public static IClipboard? GetClipboard()
+    {
+        switch (Current?.ApplicationLifetime)
+        {
+            case IClassicDesktopStyleApplicationLifetime desktop:
+                return desktop.MainWindow?.Clipboard;
+            case ISingleViewApplicationLifetime { MainView: { } mainview }:
+                return TopLevel.GetTopLevel(mainview)?.Clipboard;
+            default:
+                return null;
+        }
     }
 
     private MainViewModel GetMainViewModel()

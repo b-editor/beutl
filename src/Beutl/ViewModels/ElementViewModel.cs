@@ -8,6 +8,7 @@ using Avalonia.Input.Platform;
 using Beutl.Commands;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Beutl.Utilities;
 
 using Reactive.Bindings;
@@ -20,7 +21,6 @@ namespace Beutl.ViewModels;
 public sealed class ElementViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
-    private IClipboard? _clipboard;
 
     public ElementViewModel(Element element, TimelineViewModel timeline)
     {
@@ -163,11 +163,6 @@ public sealed class ElementViewModel : IDisposable
 
     public List<KeyBinding> KeyBindings { get; }
 
-    public void SetClipboard(IClipboard? clipboard)
-    {
-        _clipboard = clipboard;
-    }
-
     public void Dispose()
     {
         _disposables.Dispose();
@@ -239,7 +234,7 @@ public sealed class ElementViewModel : IDisposable
 
     private async ValueTask<bool> SetClipboard()
     {
-        IClipboard? clipboard = _clipboard;
+        IClipboard? clipboard = App.GetClipboard();
         if (clipboard != null)
         {
             var jsonNode = new JsonObject();
@@ -323,11 +318,7 @@ public sealed class ElementViewModel : IDisposable
         TimeSpan forwardLength = absTime - Model.Start;
         TimeSpan backwardLength = Model.Length - forwardLength;
 
-        var jsonNode = new JsonObject();
-        Model.WriteToJson(jsonNode);
-        string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
-        var backwardLayer = new Element();
-        backwardLayer.ReadFromJson(JsonNode.Parse(json)!.AsObject());
+        CoreObjectReborn.Reborn(Model, out Element backwardLayer);
 
         Scene.MoveChild(Model.ZIndex, Model.Start, forwardLength, Model).DoAndRecord(CommandRecorder.Default);
         backwardLayer.Start = absTime;

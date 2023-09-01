@@ -105,6 +105,8 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
         return _buffer.AsSpan(_index);
     }
 
+    public static T[] GetArray(PooledArrayBufferWriter<T> self) => self._buffer;
+
     private void CheckAndResizeBuffer(int sizeHint)
     {
         if (sizeHint < 0)
