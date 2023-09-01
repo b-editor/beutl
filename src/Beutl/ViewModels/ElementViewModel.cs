@@ -20,7 +20,6 @@ namespace Beutl.ViewModels;
 public sealed class ElementViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
-    private IClipboard? _clipboard;
 
     public ElementViewModel(Element element, TimelineViewModel timeline)
     {
@@ -163,11 +162,6 @@ public sealed class ElementViewModel : IDisposable
 
     public List<KeyBinding> KeyBindings { get; }
 
-    public void SetClipboard(IClipboard? clipboard)
-    {
-        _clipboard = clipboard;
-    }
-
     public void Dispose()
     {
         _disposables.Dispose();
@@ -239,7 +233,7 @@ public sealed class ElementViewModel : IDisposable
 
     private async ValueTask<bool> SetClipboard()
     {
-        IClipboard? clipboard = _clipboard;
+        IClipboard? clipboard = App.GetClipboard();
         if (clipboard != null)
         {
             var jsonNode = new JsonObject();
