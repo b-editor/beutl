@@ -296,11 +296,13 @@ public static class LibraryRegistrar
             );
 
         LibraryService.Current.RegisterGroup(Strings.Configure, group => group
+            .AddSourceOperator<Configure.ConfigureTransformOperator>(Strings.Transform)
+
             .AddSourceOperator<Configure.AlignmentOperator>(Strings.Alignment)
 
             .AddSourceOperator<Configure.BlendOperator>(Strings.BlendMode)
 
-            .AddSourceOperator<Configure.FillOperator>(Strings.Foreground)
+            .AddSourceOperator<Configure.FillOperator>(Strings.Fill)
 
             .AddSourceOperator<Configure.OpacityMaskOperator>(Strings.OpacityMask)
         );
