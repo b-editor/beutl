@@ -116,5 +116,4 @@
     <StyleInclude Source="avares://Beutl.Controls/Styling/NavigationView.axaml" />
     <StyleInclude Source="avares://Beutl.Controls/Styling/OptionsDisplayItem.axaml" />
     <StyleInclude Source="avares://Beutl.Controls/Styling/Player.axaml" />
-    <StyleInclude Source="avares://Beutl.Controls/Styling/CommandBarStyles_WithoutCompiledBinding.axaml" />
 </Styles>
