@@ -70,6 +70,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Add property to hide に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AddPropertyToHide {
+            get {
+                return ResourceManager.GetString("AddPropertyToHide", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   All Editor Extensions に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string All_Editor_Extensions {
@@ -84,6 +93,15 @@ namespace Beutl.Language {
         public static string ChangeAccountSettings {
             get {
                 return ResourceManager.GetString("ChangeAccountSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Change the primary properties to be hidden に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ChangePrimaryPropertiesToBeHidden {
+            get {
+                return ResourceManager.GetString("ChangePrimaryPropertiesToBeHidden", resourceCulture);
             }
         }
         
@@ -124,11 +142,38 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Editor settings に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string EditorSettings {
+            get {
+                return ResourceManager.GetString("EditorSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Gpu Infomation に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string GpuInfomation {
             get {
                 return ResourceManager.GetString("GpuInfomation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Hide primary properties に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string HidePrimaryProperties {
+            get {
+                return ResourceManager.GetString("HidePrimaryProperties", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Primary properties can be set by adding &apos;Source Operation&apos;. Applies after the end of the program. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string HidePrimaryProperties_Description {
+            get {
+                return ResourceManager.GetString("HidePrimaryProperties_Description", resourceCulture);
             }
         }
         
@@ -183,6 +228,15 @@ namespace Beutl.Language {
         public static string Please_enter_a_file_extension {
             get {
                 return ResourceManager.GetString("Please_enter_a_file_extension", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Primary properties に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string PrimaryProperties {
+            get {
+                return ResourceManager.GetString("PrimaryProperties", resourceCulture);
             }
         }
         
