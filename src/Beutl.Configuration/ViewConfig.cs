@@ -11,9 +11,14 @@ public sealed class ViewConfig : ConfigurationBase
 {
     public static readonly CoreProperty<ViewTheme> ThemeProperty;
     public static readonly CoreProperty<CultureInfo> UICultureProperty;
-    public static readonly CoreProperty<bool> IsMicaEffectEnabledProperty;
+    public static readonly CoreProperty<bool> HidePrimaryPropertiesProperty;
+    public static readonly CoreProperty<CoreList<string>> PrimaryPropertiesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentFilesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentProjectsProperty;
+    private readonly CoreList<string> _primaryProperties = new()
+    {
+        "AlignmentX", "AlignmentY", "TransformOrigin", "BlendMode"
+    };
     private readonly CoreList<string> _recentFiles = new();
     private readonly CoreList<string> _recentProjects = new();
 
@@ -27,10 +32,14 @@ public sealed class ViewConfig : ConfigurationBase
             .DefaultValue(CultureInfo.InstalledUICulture)
             .Register();
 
-        IsMicaEffectEnabledProperty = ConfigureProperty<bool, ViewConfig>("IsMicaEffectEnabled")
+        HidePrimaryPropertiesProperty = ConfigureProperty<bool, ViewConfig>("HidePrimaryProperties")
             .DefaultValue(false)
             .Register();
 
+        PrimaryPropertiesProperty = ConfigureProperty<CoreList<string>, ViewConfig>("PrimaryProperties")
+            .Accessor(o => o.PrimaryProperties, (o, v) => o.PrimaryProperties = v)
+            .Register();
+        
         RecentFilesProperty = ConfigureProperty<CoreList<string>, ViewConfig>("RecentFiles")
             .Accessor(o => o.RecentFiles, (o, v) => o.RecentFiles = v)
             .Register();
@@ -42,6 +51,7 @@ public sealed class ViewConfig : ConfigurationBase
 
     public ViewConfig()
     {
+        _primaryProperties.CollectionChanged += (_, _) => OnChanged();
         _recentFiles.CollectionChanged += (_, _) => OnChanged();
         _recentProjects.CollectionChanged += (_, _) => OnChanged();
     }
@@ -58,13 +68,19 @@ public sealed class ViewConfig : ConfigurationBase
         set => SetValue(UICultureProperty, value);
     }
 
-    [Obsolete]
-    public bool IsMicaEffectEnabled
+    public bool HidePrimaryProperties
     {
-        get => GetValue(IsMicaEffectEnabledProperty);
-        set => SetValue(IsMicaEffectEnabledProperty, value);
+        get => GetValue(HidePrimaryPropertiesProperty);
+        set => SetValue(HidePrimaryPropertiesProperty, value);
     }
 
+    [NotAutoSerialized()]
+    public CoreList<string> PrimaryProperties
+    {
+        get => _primaryProperties;
+        set => _primaryProperties.Replace(value);
+    }
+    
     [NotAutoSerialized()]
     public CoreList<string> RecentFiles
     {
@@ -91,6 +107,11 @@ public sealed class ViewConfig : ConfigurationBase
     {
         base.ReadFromJson(json);
 
+        if (json["primary-properties"] is JsonArray primaryProperties)
+        {
+            _primaryProperties.Replace(primaryProperties.Select(i => (string?)i).Where(i => i != null).ToArray()!);
+        }
+        
         if (json["recent-files"] is JsonArray recentFiles)
         {
             _recentFiles.Replace(recentFiles.Select(i => (string?)i).Where(i => i != null && File.Exists(i)).ToArray()!);
@@ -105,6 +126,7 @@ public sealed class ViewConfig : ConfigurationBase
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
+        json["primary-properties"] = JsonSerializer.SerializeToNode(_primaryProperties, JsonHelper.SerializerOptions);
         json["recent-files"] = JsonSerializer.SerializeToNode(_recentFiles, JsonHelper.SerializerOptions);
         json["recent-projects"] = JsonSerializer.SerializeToNode(_recentProjects, JsonHelper.SerializerOptions);
     }
@@ -121,10 +143,15 @@ public sealed class ViewConfig : ConfigurationBase
         _recentProjects.Insert(0, filename);
     }
 
+    public void ResetPrimaryProperties()
+    {
+        PrimaryProperties.Replace(new[] { "AlignmentX", "AlignmentY", "TransformOrigin", "BlendMode" });
+    }
+
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args.PropertyName is "Theme" or "UICulture" or "IsMicaEffectEnabled")
+        if (args.PropertyName is "Theme" or "UICulture" or "HidePrimaryProperties")
         {
             OnChanged();
         }

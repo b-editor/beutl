@@ -192,4 +192,22 @@
   <data name="DeviceInfomation" xml:space="preserve">
     <value>Device Infomation</value>
   </data>
+  <data name="ChangePrimaryPropertiesToBeHidden" xml:space="preserve">
+    <value>Change the primary properties to be hidden</value>
+  </data>
+  <data name="EditorSettings" xml:space="preserve">
+    <value>Editor settings</value>
+  </data>
+  <data name="HidePrimaryProperties" xml:space="preserve">
+    <value>Hide primary properties</value>
+  </data>
+  <data name="HidePrimaryProperties_Description" xml:space="preserve">
+    <value>Primary properties can be set by adding 'Source Operation'. Applies after the end of the program.</value>
+  </data>
+  <data name="PrimaryProperties" xml:space="preserve">
+    <value>Primary properties</value>
+  </data>
+  <data name="AddPropertyToHide" xml:space="preserve">
+    <value>Add property to hide</value>
+  </data>
 </root>
