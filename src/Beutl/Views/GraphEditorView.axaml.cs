@@ -2,20 +2,14 @@
 
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Generators;
-using Avalonia.Controls.Presenters;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
 using Beutl.Animation;
 using Beutl.Animation.Easings;
-using Beutl.ProjectSystem;
 using Beutl.Services;
-using Beutl.Utilities;
 using Beutl.ViewModels;
-
-using FluentAvalonia.UI.Controls;
 
 using Reactive.Bindings.Extensions;
 
@@ -118,7 +112,7 @@ public partial class GraphEditorView : UserControl
     protected override void OnLoaded(RoutedEventArgs e)
     {
         base.OnLoaded(e);
-        if(DataContext is GraphEditorViewModel viewModel)
+        if (DataContext is GraphEditorViewModel viewModel)
         {
             viewModel.ScrollOffset.Subscribe(offset => scroll.Offset = offset)
             .DisposeWith(_disposables);

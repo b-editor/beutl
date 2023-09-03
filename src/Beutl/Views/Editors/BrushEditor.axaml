@@ -33,19 +33,19 @@
                             <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                     IsChecked="{Binding IsSolid.Value, Mode=OneWay}"
                                                     Tag="Solid"
-                                                    Text="塗りつぶし" />
+                                                    Text="{x:Static lang:Strings.Brush_Solid}" />
                             <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                     IsChecked="{Binding IsLinearGradient.Value, Mode=OneWay}"
                                                     Tag="LinearGradient"
-                                                    Text="線形グラデーション" />
+                                                    Text="{x:Static lang:Strings.Brush_LinearGradient}" />
                             <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                     IsChecked="{Binding IsConicGradient.Value, Mode=OneWay}"
                                                     Tag="ConicGradient"
-                                                    Text="円錐型グラデーション" />
+                                                    Text="{x:Static lang:Strings.Brush_ConicalGradient}" />
                             <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                     IsChecked="{Binding IsRadialGradient.Value, Mode=OneWay}"
                                                     Tag="RadialGradient"
-                                                    Text="放射状グラデーション" />
+                                                    Text="{x:Static lang:Strings.Brush_RadialGradient}" />
                             <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                     IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                                     Tag="Null"
@@ -60,11 +60,7 @@
         <Panel x:Name="content"
                Grid.Row="1"
                Margin="16,0,0,0">
-            <WrapPanel IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Orientation="Horizontal">
-                <TextBlock Text="ブラシがNullです。" />
-                <icons:SymbolIcon Symbol="Compose" />
-                <TextBlock Text="でブラシを設定できます" />
-            </WrapPanel>
+            <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:Message.Property_is_unset}" />
 
             <local:PropertiesEditor Padding="0"
                                     DataContext="{Binding ChildContext.Value}"

@@ -257,7 +257,7 @@ public sealed partial class MainView : UserControl
                 if (!checkUpdateRes.Is_latest)
                 {
                     NotificationService.ShowInformation(
-                        "新しいバージョンがあります。",
+                        Message.A_new_version_is_available,
                         checkUpdateRes.Url,
                         onActionButtonClick: () =>
                         {
@@ -267,14 +267,14 @@ public sealed partial class MainView : UserControl
                                 Verb = "open"
                             });
                         },
-                        actionButtonText: "開く");
+                        actionButtonText: Strings.Open);
                 }
                 else if (checkUpdateRes.Must_latest)
                 {
                     var dialog = new ContentDialog
                     {
-                        Title = "引き続き使用するにはアップグレードする必要があります",
-                        Content = "このバージョンは互換性のため、廃止されました。新しいバージョンにアップグレードしてください。",
+                        Title = Message.Must_upgrade_for_continued_use,
+                        Content = Message.This_version_has_been_discontinued_for_compatibility_reasonsversion,
                         PrimaryButtonText = Strings.Yes,
                         CloseButtonText = Strings.No,
                     };
@@ -371,7 +371,7 @@ public sealed partial class MainView : UserControl
 
                 newControl.IsVisible = true;
                 newControl.Opacity = 0;
-                await _animation.RunAsync((Animatable)newControl);
+                await _animation.RunAsync(newControl);
                 newControl.Opacity = 1;
 
                 newControl.Focus();

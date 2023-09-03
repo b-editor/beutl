@@ -51,9 +51,9 @@ public partial class SoundSourceEditor : UserControl
         {
             var contentDialog = new ContentDialog()
             {
-                Title = "対応している拡張子が見つかりませんでした",
+                Title = Message.No_supported_extensions_were_found,
                 CloseButtonText = Strings.Close,
-                PrimaryButtonText = "ドキュメントを表示"
+                PrimaryButtonText = Strings.OpenDocument
             };
 
             if (await contentDialog.ShowAsync() == ContentDialogResult.Primary)

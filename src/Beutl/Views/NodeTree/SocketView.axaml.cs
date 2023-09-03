@@ -89,7 +89,7 @@ public partial class SocketView : UserControl
         {
             new MenuItem()
             {
-                Header = "Disconnect",
+                Header = Strings.Disconnect,
                 Command = new ReactiveCommand()
                     .WithSubscribe(obj.DisconnectAll)
             }

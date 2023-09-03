@@ -248,4 +248,34 @@
   <data name="Looks_like_it_ended_with_an_error_last_time" xml:space="preserve">
     <value>前回エラーが発生して終了したようです</value>
   </data>
+  <data name="Changes_to_the_package_are_in_progress" xml:space="preserve">
+    <value>パッケージが変更中です。</value>
+  </data>
+  <data name="OpeningBeutl" xml:space="preserve">
+    <value>Beutlを開いています</value>
+  </data>
+  <data name="To_open_Beutl_close_Beutl_PackageTools" xml:space="preserve">
+    <value>Beutlを開くには、Beutl.PackageToolsを閉じてください。</value>
+  </data>
+  <data name="A_new_version_is_available" xml:space="preserve">
+    <value>新しいバージョンがあります。</value>
+  </data>
+  <data name="Could_not_restore_because_type_could_not_be_found" xml:space="preserve">
+    <value>型が見つからないため、復元できませんでした。</value>
+  </data>
+  <data name="Must_upgrade_for_continued_use" xml:space="preserve">
+    <value>引き続き使用するにはアップグレードする必要があります</value>
+  </data>
+  <data name="This_version_has_been_discontinued_for_compatibility_reasonsversion" xml:space="preserve">
+    <value>このバージョンは互換性のため、廃止されました。新しいバージョンにアップグレードしてください。</value>
+  </data>
+  <data name="Double_click_to_hide_group" xml:space="preserve">
+    <value>ダブルクリックでグループを非表示</value>
+  </data>
+  <data name="No_supported_extensions_were_found" xml:space="preserve">
+    <value>対応している拡張子が見つかりませんでした</value>
+  </data>
+  <data name="Property_is_unset" xml:space="preserve">
+    <value>プロパティが未設定です。</value>
+  </data>
 </root>

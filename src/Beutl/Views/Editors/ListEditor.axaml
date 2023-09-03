@@ -27,8 +27,8 @@
                         Theme="{StaticResource TransparentButton}">
                     <Button.ContextFlyout>
                         <ui:FAMenuFlyout>
-                            <ui:MenuFlyoutItem Click="InitializeClick" Text="初期化" />
-                            <ui:MenuFlyoutItem Click="DeleteClick" Text="削除" />
+                            <ui:MenuFlyoutItem Click="InitializeClick" Text="{x:Static lang:Strings.Initialize}" />
+                            <ui:MenuFlyoutItem Click="DeleteClick" Text="{x:Static lang:Strings.Remove}" />
                         </ui:FAMenuFlyout>
                     </Button.ContextFlyout>
                     <icons:SymbolIcon Classes.add="{Binding List.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
@@ -49,13 +49,9 @@
               Grid.Row="1"
               IsVisible="False"
               RowDefinitions="Auto,Auto">
-            <WrapPanel Grid.Row="1"
+            <TextBlock Grid.Row="1"
                        IsVisible="{Binding List.Value, Converter={x:Static ObjectConverters.IsNull}}"
-                       Orientation="Horizontal">
-                <TextBlock Text="値ががNullです。" />
-                <icons:SymbolIcon Symbol="MoreVertical" />
-                <TextBlock Text="で設定できます" />
-            </WrapPanel>
+                       Text="{x:Static lang:Message.Property_is_unset}" />
 
             <ProgressBar x:Name="progress"
                          MinWidth="100"

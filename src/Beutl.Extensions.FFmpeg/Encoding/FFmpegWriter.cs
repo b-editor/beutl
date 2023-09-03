@@ -330,7 +330,7 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             throw new Exception("avcodec_find_encoder failed");
 
         if (_videoCodec->type != AVMediaType.AVMEDIA_TYPE_VIDEO)
-            throw new Exception($"{codecId}は動画用ではありません。");
+            throw new Exception($"'{codecId}' is not for video.");
 
         _videoStream = ffmpeg.avformat_new_stream(_formatContext, _videoCodec);
         if (_videoStream == null)

@@ -27,9 +27,9 @@ internal static class Program
             {
                 ArgumentList =
                 {
-                    "--title", "Opening Beutl.",
-                    "--subtitle", "Changes to the package are in progress.",
-                    "--content", "To open Beutl, close Beutl.PackageTools.",
+                    "--title", Message.OpeningBeutl,
+                    "--subtitle", Message.Changes_to_the_package_are_in_progress,
+                    "--content", Message.To_open_Beutl_close_Beutl_PackageTools,
                     "--icon", "Info",
                     "--progress"
                 }
