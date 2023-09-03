@@ -210,4 +210,10 @@
   <data name="AddPropertyToHide" xml:space="preserve">
     <value>Add property to hide</value>
   </data>
+  <data name="DecoderPriority" xml:space="preserve">
+    <value>Decoder Priority</value>
+  </data>
+  <data name="DecoderPriority_Description" xml:space="preserve">
+    <value>You can change the priority order of decoders. The upper decoder has priority.</value>
+  </data>
 </root>

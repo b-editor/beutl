@@ -9,6 +9,7 @@ public sealed class ExtensionConfig : ConfigurationBase
     public ExtensionConfig()
     {
         EditorExtensions.CollectionChanged += (_, _) => OnChanged();
+        DecoderPriority.CollectionChanged += (_, _) => OnChanged();
     }
 
     public struct TypeLazy
@@ -28,6 +29,9 @@ public sealed class ExtensionConfig : ConfigurationBase
     // Keyには拡張子を含める
     public CoreDictionary<string, ICoreList<TypeLazy>> EditorExtensions { get; } = new();
 
+    // Keyには拡張子を含める
+    public CoreList<TypeLazy> DecoderPriority { get; } = new();
+
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -46,6 +50,15 @@ public sealed class ExtensionConfig : ConfigurationBase
                 }
             }
         }
+
+        if (json["decoder-priority"] is JsonArray dpArray)
+        {
+            DecoderPriority.Clear();
+            DecoderPriority.AddRange(dpArray
+                .Select(v => v?.AsValue()?.GetValue<string?>())
+                .Where(v => v != null)
+                .Select(v => new TypeLazy(v!)));
+        }
     }
 
     public override void WriteToJson(JsonObject json)
@@ -61,6 +74,9 @@ public sealed class ExtensionConfig : ConfigurationBase
                 .ToArray()));
         }
 
+        var dpArray = new JsonArray(DecoderPriority.Select(v => JsonValue.Create(v.FormattedTypeName)).ToArray());
+
         json["editor-extensions"] = eeObject;
+        json["decoder-priority"] = dpArray;
     }
 }

@@ -2348,6 +2348,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Unsupported に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Unsupported {
+            get {
+                return ResourceManager.GetString("Unsupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   UseNode に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string UseNode {
