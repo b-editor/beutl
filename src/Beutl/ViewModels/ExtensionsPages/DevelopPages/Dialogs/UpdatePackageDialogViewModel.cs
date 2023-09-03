@@ -71,43 +71,46 @@ public sealed class UpdatePackageDialogViewModel
     {
         try
         {
-            LocalPackage? localPackage = LocalPackage.Value;
-            if (!IsValid.Value || localPackage == null)
+            using (await _user.Lock.LockAsync())
             {
-                return null;
+                LocalPackage? localPackage = LocalPackage.Value;
+                if (!IsValid.Value || localPackage == null)
+                {
+                    return null;
+                }
+
+                await _user.RefreshAsync();
+
+                var request = new UpdatePackageRequest(
+                    description: localPackage.Description,
+                    display_name: localPackage.DisplayName,
+                    logo_image_id: null,
+                    @public: null,
+                    screenshots: null,
+                    short_description: localPackage.ShortDescription,
+                    tags: localPackage.Tags,
+                    website: localPackage.WebSite);
+
+                Package? package;
+                try
+                {
+                    package = await _discoverService.GetPackage(localPackage.Name);
+                }
+                catch
+                {
+                    package = await _user.Profile.AddPackageAsync(localPackage.Name);
+                }
+
+                await package.UpdateAsync(
+                    description: localPackage.Description,
+                    displayName: localPackage.DisplayName,
+                    shortDescription: localPackage.ShortDescription,
+                    tags: localPackage.Tags,
+                    website: localPackage.WebSite);
+
+                return Result = await package.AddReleaseAsync(
+                    localPackage.Version, new CreateReleaseRequest("", localPackage.Version));
             }
-
-            await _user.RefreshAsync();
-
-            var request = new UpdatePackageRequest(
-                description: localPackage.Description,
-                display_name: localPackage.DisplayName,
-                logo_image_id: null,
-                @public: null,
-                screenshots: null,
-                short_description: localPackage.ShortDescription,
-                tags: localPackage.Tags,
-                website: localPackage.WebSite);
-
-            Package? package;
-            try
-            {
-                package = await _discoverService.GetPackage(localPackage.Name);
-            }
-            catch
-            {
-                package = await _user.Profile.AddPackageAsync(localPackage.Name);
-            }
-
-            await package.UpdateAsync(
-                description: localPackage.Description,
-                displayName: localPackage.DisplayName,
-                shortDescription: localPackage.ShortDescription,
-                tags: localPackage.Tags,
-                website: localPackage.WebSite);
-
-            return Result = await package.AddReleaseAsync(
-                localPackage.Version, new CreateReleaseRequest("", localPackage.Version));
         }
         catch (BeutlApiException<ApiErrorResponse> e)
         {

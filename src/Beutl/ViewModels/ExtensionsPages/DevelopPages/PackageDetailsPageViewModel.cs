@@ -24,11 +24,14 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel
 
             try
             {
-                IsBusy.Value = true;
+                using (await _user.Lock.LockAsync())
+                {
+                    IsBusy.Value = true;
 
-                await _user.RefreshAsync();
+                    await _user.RefreshAsync();
 
-                await Package.RefreshAsync();
+                    await Package.RefreshAsync();
+                }
             }
             catch (Exception ex)
             {

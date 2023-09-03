@@ -127,9 +127,12 @@ public sealed class StorageSettingsPageViewModel : BasePageViewModel
 
             try
             {
-                IsBusy.Value = true;
-                await _user.Value.RefreshAsync();
-                _storageUsageResponse.Value = await _user.Value.StorageUsageAsync();
+                using (await _user.Value.Lock.LockAsync())
+                {
+                    IsBusy.Value = true;
+                    await _user.Value.RefreshAsync();
+                    _storageUsageResponse.Value = await _user.Value.StorageUsageAsync();
+                }
             }
             catch (Exception ex)
             {

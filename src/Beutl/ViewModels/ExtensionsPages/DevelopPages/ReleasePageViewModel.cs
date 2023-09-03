@@ -58,12 +58,15 @@ public sealed class ReleasePageViewModel : BasePageViewModel
             {
                 try
                 {
-                    await _user.RefreshAsync();
-                    await Release.UpdateAsync(new UpdateReleaseRequest(
-                        Asset.Value?.Id,
-                        Body.Value,
-                        Release.IsPublic.Value,
-                        Title.Value));
+                    using(await _user.Lock.LockAsync())
+                    {
+                        await _user.RefreshAsync();
+                        await Release.UpdateAsync(new UpdateReleaseRequest(
+                            Asset.Value?.Id,
+                            Body.Value,
+                            Release.IsPublic.Value,
+                            Title.Value));
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -82,8 +85,11 @@ public sealed class ReleasePageViewModel : BasePageViewModel
                     Body.Value = Release.Body.Value;
                     if (Asset.Value?.Id != Release.AssetId.Value)
                     {
-                        await _user.RefreshAsync();
-                        Asset.Value = await Release.GetAssetAsync();
+                        using(await _user.Lock.LockAsync())
+                        {
+                            await _user.RefreshAsync();
+                            Asset.Value = await Release.GetAssetAsync();
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -99,8 +105,11 @@ public sealed class ReleasePageViewModel : BasePageViewModel
             {
                 try
                 {
-                    await _user.RefreshAsync();
-                    await Release.DeleteAsync();
+                    using (await _user.Lock.LockAsync())
+                    {
+                        await _user.RefreshAsync();
+                        await Release.DeleteAsync();
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -115,8 +124,11 @@ public sealed class ReleasePageViewModel : BasePageViewModel
             {
                 try
                 {
-                    await _user.RefreshAsync();
-                    await Release.UpdateAsync(isPublic: true);
+                    using (await _user.Lock.LockAsync())
+                    {
+                        await _user.RefreshAsync();
+                        await Release.UpdateAsync(isPublic: true);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -131,8 +143,11 @@ public sealed class ReleasePageViewModel : BasePageViewModel
             {
                 try
                 {
-                    await _user.RefreshAsync();
-                    await Release.UpdateAsync(isPublic: true);
+                    using (await _user.Lock.LockAsync())
+                    {
+                        await _user.RefreshAsync();
+                        await Release.UpdateAsync(isPublic: true);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -147,9 +162,12 @@ public sealed class ReleasePageViewModel : BasePageViewModel
             {
                 try
                 {
-                    IsBusy.Value = true;
-                    await _user.RefreshAsync();
-                    await Release.RefreshAsync();
+                    using (await _user.Lock.LockAsync())
+                    {
+                        IsBusy.Value = true;
+                        await _user.RefreshAsync();
+                        await Release.RefreshAsync();
+                    }
                 }
                 catch (Exception ex)
                 {

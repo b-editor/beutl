@@ -119,25 +119,31 @@ public sealed class SearchPageViewModel : BasePageViewModel
 
     private async Task RefreshPackages()
     {
-        Packages.Clear();
-        Package[] array = await SearchPackages(0, 30);
-        Packages.AddRange(array);
-
-        if (array.Length == 30)
+        using (await _discoverService.Lock.LockAsync())
         {
-            Packages.Add(null);
+            Packages.Clear();
+            Package[] array = await SearchPackages(0, 30);
+            Packages.AddRange(array);
+
+            if (array.Length == 30)
+            {
+                Packages.Add(null);
+            }
         }
     }
 
     private async Task MoreLoadPackages()
     {
-        Packages.RemoveAt(Packages.Count - 1);
-        Package[] array = await SearchPackages(Packages.Count, 30);
-        Packages.AddRange(array);
-
-        if (array.Length == 30)
+        using (await _discoverService.Lock.LockAsync())
         {
-            Packages.Add(null);
+            Packages.RemoveAt(Packages.Count - 1);
+            Package[] array = await SearchPackages(Packages.Count, 30);
+            Packages.AddRange(array);
+
+            if (array.Length == 30)
+            {
+                Packages.Add(null);
+            }
         }
     }
 
@@ -148,25 +154,31 @@ public sealed class SearchPageViewModel : BasePageViewModel
 
     private async Task RefreshUsers()
     {
-        Users.Clear();
-        Profile[] array = await SearchUsers(0, 30);
-        Users.AddRange(array);
-
-        if (array.Length == 30)
+        using (await _discoverService.Lock.LockAsync())
         {
-            Users.Add(null);
+            Users.Clear();
+            Profile[] array = await SearchUsers(0, 30);
+            Users.AddRange(array);
+
+            if (array.Length == 30)
+            {
+                Users.Add(null);
+            }
         }
     }
 
     private async Task MoreLoadUsers()
     {
-        Users.RemoveAt(Users.Count - 1);
-        Profile[] array = await SearchUsers(Users.Count, 30);
-        Users.AddRange(array);
-
-        if (array.Length == 30)
+        using (await _discoverService.Lock.LockAsync())
         {
-            Users.Add(null);
+            Users.RemoveAt(Users.Count - 1);
+            Profile[] array = await SearchUsers(Users.Count, 30);
+            Users.AddRange(array);
+
+            if (array.Length == 30)
+            {
+                Users.Add(null);
+            }
         }
     }
 }

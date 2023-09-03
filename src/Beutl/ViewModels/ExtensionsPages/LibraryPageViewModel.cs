@@ -32,9 +32,12 @@ public sealed class LibraryPageViewModel : BasePageViewModel
                 try
                 {
                     IsBusy.Value = true;
-                    await _user.RefreshAsync();
-                    await RefreshPackages();
-                    await RefreshLocalPackages();
+                    using (await _clients.Lock.LockAsync())
+                    {
+                        await _user.RefreshAsync();
+                        await RefreshPackages();
+                        await RefreshLocalPackages();
+                    }
                 }
                 catch (Exception e)
                 {
@@ -56,8 +59,11 @@ public sealed class LibraryPageViewModel : BasePageViewModel
                 try
                 {
                     IsBusy.Value = true;
-                    await _user.RefreshAsync();
-                    await MoreLoadPackages();
+                    using (await _clients.Lock.LockAsync())
+                    {
+                        await _user.RefreshAsync();
+                        await MoreLoadPackages();
+                    }
                 }
                 catch (Exception e)
                 {
@@ -77,31 +83,34 @@ public sealed class LibraryPageViewModel : BasePageViewModel
                 try
                 {
                     IsBusy.Value = true;
-                    await _user.RefreshAsync();
-
-                    PackageManager manager = _clients.GetResource<PackageManager>();
-                    foreach (PackageUpdate item in await manager.CheckUpdate())
+                    using (await _clients.Lock.LockAsync())
                     {
-                        LocalYourPackageViewModel? localPackage = LocalPackages.FirstOrDefault(
-                            x => x.Package.Name.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase));
+                        await _user.RefreshAsync();
 
-                        if (localPackage != null)
+                        PackageManager manager = _clients.GetResource<PackageManager>();
+                        foreach (PackageUpdate item in await manager.CheckUpdate())
                         {
-                            localPackage.LatestRelease.Value = item.NewVersion;
+                            LocalYourPackageViewModel? localPackage = LocalPackages.FirstOrDefault(
+                                x => x.Package.Name.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase));
+
+                            if (localPackage != null)
+                            {
+                                localPackage.LatestRelease.Value = item.NewVersion;
+                            }
+
+                            RemoteYourPackageViewModel? remotePackage = Packages.FirstOrDefault(
+                                x => x?.Package?.Name?.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase) == true);
+
+                            Packages.Remove(remotePackage);
+                            remotePackage ??= new RemoteYourPackageViewModel(item.Package, _clients)
+                            {
+                                OnRemoveFromLibrary = OnPackageRemoveFromLibrary
+                            };
+
+                            remotePackage.LatestRelease.Value = item.NewVersion;
+
+                            Packages.Insert(0, remotePackage);
                         }
-
-                        RemoteYourPackageViewModel? remotePackage = Packages.FirstOrDefault(
-                            x => x?.Package?.Name?.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase) == true);
-
-                        Packages.Remove(remotePackage);
-                        remotePackage ??= new RemoteYourPackageViewModel(item.Package, _clients)
-                        {
-                            OnRemoveFromLibrary = OnPackageRemoveFromLibrary
-                        };
-
-                        remotePackage.LatestRelease.Value = item.NewVersion;
-
-                        Packages.Insert(0, remotePackage);
                     }
                 }
                 catch (Exception e)
@@ -136,14 +145,17 @@ public sealed class LibraryPageViewModel : BasePageViewModel
 
     public async Task<Package?> TryFindPackage(LocalPackage localPackage)
     {
-        DiscoverService discover = _clients.GetResource<DiscoverService>();
-        try
+        using (await _clients.Lock.LockAsync())
         {
-            return await discover.GetPackage(localPackage.Name);
-        }
-        catch
-        {
-            return null;
+            DiscoverService discover = _clients.GetResource<DiscoverService>();
+            try
+            {
+                return await discover.GetPackage(localPackage.Name);
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 

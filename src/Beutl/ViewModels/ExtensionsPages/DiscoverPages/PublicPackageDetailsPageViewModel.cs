@@ -41,30 +41,33 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
             {
                 try
                 {
-                    IsBusy.Value = true;
-                    await package.RefreshAsync();
-                    int totalCount = 0;
-                    int prevCount = 0;
-
-                    do
+                    using (await _app.Lock.LockAsync())
                     {
-                        Release[] array = await package.GetReleasesAsync(totalCount, 30);
-                        if (Array.Find(array, x => x.IsPublic.Value) is { } publicRelease)
+                        IsBusy.Value = true;
+                        await package.RefreshAsync();
+                        int totalCount = 0;
+                        int prevCount = 0;
+
+                        do
                         {
-                            LatestRelease.Value = publicRelease;
-                            break;
+                            Release[] array = await package.GetReleasesAsync(totalCount, 30);
+                            if (Array.Find(array, x => x.IsPublic.Value) is { } publicRelease)
+                            {
+                                LatestRelease.Value = publicRelease;
+                                break;
+                            }
+
+                            totalCount += array.Length;
+                            prevCount = array.Length;
+                        } while (prevCount == 30);
+
+                        if (_installedPackageRepository.ExistsPackage(package.Name))
+                        {
+                            PackageIdentity mostLatested = _installedPackageRepository.GetLocalPackages(package.Name)
+                                .Aggregate((x, y) => x.Version > y.Version ? x : y);
+
+                            CurrentRelease.Value = await package.GetReleaseAsync(mostLatested.Version.ToString());
                         }
-
-                        totalCount += array.Length;
-                        prevCount = array.Length;
-                    } while (prevCount == 30);
-
-                    if (_installedPackageRepository.ExistsPackage(package.Name))
-                    {
-                        PackageIdentity mostLatested = _installedPackageRepository.GetLocalPackages(package.Name)
-                            .Aggregate((x, y) => x.Version > y.Version ? x : y);
-
-                        CurrentRelease.Value = await package.GetReleaseAsync(mostLatested.Version.ToString());
                     }
                 }
                 catch (Exception e)
@@ -120,14 +123,17 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
                 try
                 {
                     IsBusy.Value = true;
-                    await _app.AuthorizedUser.Value!.RefreshAsync();
+                    using(await _app.Lock.LockAsync())
+                    {
+                        await _app.AuthorizedUser.Value!.RefreshAsync();
 
-                    Release release = await _library.GetPackage(Package);
-                    var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
-                    _queue.InstallQueue(packageId);
-                    NotificationService.ShowInformation(
-                        title: ExtensionsPage.PackageInstaller,
-                        message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation, package));
+                        Release release = await _library.GetPackage(Package);
+                        var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
+                        _queue.InstallQueue(packageId);
+                        NotificationService.ShowInformation(
+                            title: ExtensionsPage.PackageInstaller,
+                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation, package));
+                    }
                 }
                 catch (Exception e)
                 {
@@ -147,13 +153,16 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
                 try
                 {
                     IsBusy.Value = true;
-                    await _app.AuthorizedUser.Value!.RefreshAsync();
-                    Release release = await _library.GetPackage(Package);
-                    var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
-                    _queue.InstallQueue(packageId);
-                    NotificationService.ShowInformation(
-                        title: ExtensionsPage.PackageInstaller,
-                        message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId));
+                    using(await _app.Lock.LockAsync())
+                    {
+                        await _app.AuthorizedUser.Value!.RefreshAsync();
+                        Release release = await _library.GetPackage(Package);
+                        var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
+                        _queue.InstallQueue(packageId);
+                        NotificationService.ShowInformation(
+                            title: ExtensionsPage.PackageInstaller,
+                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId));
+                    }
                 }
                 catch (Exception e)
                 {

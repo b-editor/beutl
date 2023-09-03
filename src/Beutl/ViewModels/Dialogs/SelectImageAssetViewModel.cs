@@ -29,20 +29,23 @@ public class SelectImageAssetViewModel
             try
             {
                 IsBusy.Value = true;
-                await _user.RefreshAsync();
-
-                Items.Clear();
-
-                int prevCount = 0;
-                int count = 0;
-
-                do
+                using(await _user.Lock.LockAsync())
                 {
-                    Asset[] items = await user.Profile.GetAssetsAsync(count, 30);
-                    Items.AddRange(items.Where(x => ToKnownType(x.ContentType) == KnownType.Image));
-                    prevCount = items.Length;
-                    count += items.Length;
-                } while (prevCount == 30);
+                    await _user.RefreshAsync();
+
+                    Items.Clear();
+
+                    int prevCount = 0;
+                    int count = 0;
+
+                    do
+                    {
+                        Asset[] items = await user.Profile.GetAssetsAsync(count, 30);
+                        Items.AddRange(items.Where(x => ToKnownType(x.ContentType) == KnownType.Image));
+                        prevCount = items.Length;
+                        count += items.Length;
+                    } while (prevCount == 30);
+                }
             }
             catch(Exception ex)
             {

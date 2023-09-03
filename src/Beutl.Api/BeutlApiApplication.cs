@@ -13,6 +13,7 @@ using Beutl;
 using Beutl.Configuration;
 
 using Reactive.Bindings;
+using Nito.AsyncEx;
 
 namespace Beutl.Api;
 
@@ -56,8 +57,10 @@ public class BeutlApiApplication
     public DiscoverClient Discover { get; }
 
     public LibraryClient Library { get; }
-    
+
     public AppClient App { get; }
+
+    public AsyncLock Lock { get; } = new();
 
     public IReadOnlyReactiveProperty<AuthorizedUser?> AuthorizedUser => _authorizedUser;
 
@@ -155,32 +158,35 @@ public class BeutlApiApplication
 
     public async Task<AuthorizedUser> SignInAsync(CancellationToken cancellationToken)
     {
-        string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
-        CreateAuthUriResponse authUriRes = await Account.CreateAuthUriAsync(new CreateAuthUriRequest(continueUri), cancellationToken);
-        using HttpListener listener = StartListener($"{continueUri}/");
-
-        string uri = $"{BaseUrl}/Identity/Account/Login?returnUrl={authUriRes.Auth_uri}";
-
-        Process.Start(new ProcessStartInfo(uri)
+        using (await Lock.LockAsync(cancellationToken))
         {
-            UseShellExecute = true
-        });
+            string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
+            CreateAuthUriResponse authUriRes = await Account.CreateAuthUriAsync(new CreateAuthUriRequest(continueUri), cancellationToken);
+            using HttpListener listener = StartListener($"{continueUri}/");
 
-        string? code = await GetResponseFromListener(listener, cancellationToken);
-        if (string.IsNullOrWhiteSpace(code))
-        {
-            throw new Exception("The returned code was empty.");
+            string uri = $"{BaseUrl}/Identity/Account/Login?returnUrl={authUriRes.Auth_uri}";
+
+            Process.Start(new ProcessStartInfo(uri)
+            {
+                UseShellExecute = true
+            });
+
+            string? code = await GetResponseFromListener(listener, cancellationToken);
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                throw new Exception("The returned code was empty.");
+            }
+
+            AuthResponse authResponse = await Account.CodeToJwtAsync(new CodeToJwtRequest(code, authUriRes.Session_id), cancellationToken);
+
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authResponse.Token);
+            ProfileResponse profileResponse = await Users.Get2Async(cancellationToken);
+            var profile = new Profile(profileResponse, this);
+
+            _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient);
+            SaveUser();
+            return _authorizedUser.Value;
         }
-
-        AuthResponse authResponse = await Account.CodeToJwtAsync(new CodeToJwtRequest(code, authUriRes.Session_id), cancellationToken);
-
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authResponse.Token);
-        ProfileResponse profileResponse = await Users.Get2Async(cancellationToken);
-        var profile = new Profile(profileResponse, this);
-
-        _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient);
-        SaveUser();
-        return _authorizedUser.Value;
     }
 
     public static void OpenAccountSettings()
@@ -214,35 +220,38 @@ public class BeutlApiApplication
 
     public async Task RestoreUserAsync()
     {
-        string fileName = Path.Combine(Helper.AppRoot, "user.json");
-        if (File.Exists(fileName))
+        using (await Lock.LockAsync())
         {
-            JsonNode? node;
-            using (StreamReader reader = File.OpenText(fileName))
+            string fileName = Path.Combine(Helper.AppRoot, "user.json");
+            if (File.Exists(fileName))
             {
-                string json = await reader.ReadToEndAsync();
-                node = JsonNode.Parse(json);
-            }
-
-            if (node != null)
-            {
-                ProfileResponse? profile = JsonSerializer.Deserialize<ProfileResponse>(node["profile"]);
-                string? token = (string?)node["token"];
-                string? refreshToken = (string?)node["refresh_token"];
-                var expiration = (DateTimeOffset?)node["expiration"];
-
-                if (profile != null
-                    && token != null
-                    && refreshToken != null
-                    && expiration.HasValue)
+                JsonNode? node;
+                using (StreamReader reader = File.OpenText(fileName))
                 {
-                    var user = new AuthorizedUser(new Profile(profile, this), new AuthResponse(expiration.Value, refreshToken, token), this, _httpClient);
-                    await user.RefreshAsync();
+                    string json = await reader.ReadToEndAsync();
+                    node = JsonNode.Parse(json);
+                }
 
-                    _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
-                    await user.Profile.RefreshAsync();
-                    _authorizedUser.Value = user;
-                    SaveUser();
+                if (node != null)
+                {
+                    ProfileResponse? profile = JsonSerializer.Deserialize<ProfileResponse>(node["profile"]);
+                    string? token = (string?)node["token"];
+                    string? refreshToken = (string?)node["refresh_token"];
+                    var expiration = (DateTimeOffset?)node["expiration"];
+
+                    if (profile != null
+                        && token != null
+                        && refreshToken != null
+                        && expiration.HasValue)
+                    {
+                        var user = new AuthorizedUser(new Profile(profile, this), new AuthResponse(expiration.Value, refreshToken, token), this, _httpClient);
+                        await user.RefreshAsync();
+
+                        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
+                        await user.Profile.RefreshAsync();
+                        _authorizedUser.Value = user;
+                        SaveUser();
+                    }
                 }
             }
         }
