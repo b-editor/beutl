@@ -1,26 +1,39 @@
-﻿namespace Beutl.Media.Decoding;
+﻿using Beutl.Media.Wave;
+
+namespace Beutl.Media.Decoding;
 
 public static class DecoderRegistry
 {
-    private static readonly List<IDecoderInfo> _registered = new();
+    private static readonly List<IDecoderInfo> s_registered = new()
+    {
+        new WaveDecoderInfo()
+    };
 
     public static IEnumerable<IDecoderInfo> EnumerateDecoder()
     {
-        return _registered;
+        return s_registered;
     }
 
     public static MediaReader? OpenMediaFile(string file, MediaOptions options)
     {
-        return GuessDecoder(file).FirstOrDefault()?.Open(file, options);
+        foreach (IDecoderInfo decoder in GuessDecoder(file))
+        {
+            if (decoder.Open(file, options) is { } reader)
+            {
+                return reader;
+            }
+        }
+
+        return null;
     }
 
     public static IDecoderInfo[] GuessDecoder(string file)
     {
-        return _registered.Where(i => i.IsSupported(file)).ToArray();
+        return s_registered.Where(i => i.IsSupported(file)).ToArray();
     }
 
     public static void Register(IDecoderInfo decoder)
     {
-        _registered.Add(decoder);
+        s_registered.Add(decoder);
     }
 }

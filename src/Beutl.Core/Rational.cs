@@ -283,6 +283,16 @@ public readonly partial struct Rational
         return new Rational(left.Numerator * right.Numerator, left.Denominator * right.Denominator);
     }
 
+    public static Rational operator *(Rational left, int right)
+    {
+        return new Rational(left.Numerator * right, left.Denominator);
+    }
+    
+    public static Rational operator *(Rational left, long right)
+    {
+        return new Rational(left.Numerator * right, left.Denominator);
+    }
+
     public static Rational operator /(Rational left, Rational right)
     {
         if (right.Numerator == 0)
