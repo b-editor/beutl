@@ -192,4 +192,22 @@
   <data name="DeviceInfomation" xml:space="preserve">
     <value>デバイス情報</value>
   </data>
+  <data name="ChangePrimaryPropertiesToBeHidden" xml:space="preserve">
+    <value>非表示にする主要なプロパティを変更します</value>
+  </data>
+  <data name="EditorSettings" xml:space="preserve">
+    <value>エディタ設定</value>
+  </data>
+  <data name="HidePrimaryProperties" xml:space="preserve">
+    <value>主要なプロパティを非表示にする</value>
+  </data>
+  <data name="HidePrimaryProperties_Description" xml:space="preserve">
+    <value>主要なプロパティは'ソース操作'を追加すると設定できます。終了後に適用されます。</value>
+  </data>
+  <data name="PrimaryProperties" xml:space="preserve">
+    <value>主要なプロパティ</value>
+  </data>
+  <data name="AddPropertyToHide" xml:space="preserve">
+    <value>非表示にするプロパティを追加</value>
+  </data>
 </root>
