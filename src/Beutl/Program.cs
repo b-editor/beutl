@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using System.Runtime;
+
+using Avalonia;
 using Avalonia.Media;
 using Avalonia.ReactiveUI;
 
@@ -19,6 +21,14 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // PGOを有効化
+        string jitProfiles = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "jitProfiles");
+        if (!Directory.Exists(jitProfiles))
+            Directory.CreateDirectory(jitProfiles);
+
+        ProfileOptimization.SetProfileRoot(jitProfiles);
+        ProfileOptimization.StartProfile("beutl.jitprofile");
+
         // STAThread属性がついている時に 'async Task Main' にするとDrag and Dropが動作しなくなる。
         Process[] processes = Process.GetProcessesByName("Beutl.PackageTools");
         if (processes.Length > 0)
