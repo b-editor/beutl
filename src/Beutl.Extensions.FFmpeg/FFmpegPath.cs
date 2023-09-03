@@ -33,7 +33,6 @@ public static class FFmpegLoader
 
         try
         {
-            DynamicallyLoadedBindings.ThrowErrorIfFunctionNotFound = true;
             ffmpeg.RootPath = GetRootPath();
 
             foreach (KeyValuePair<string, int> item in ffmpeg.LibraryVersionMap)
