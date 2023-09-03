@@ -315,9 +315,7 @@ public sealed class MainViewModel : BasePageViewModel
     {
         provider._allExtensions.Add(LocalPackage.s_nextId++, _primitivePageExtensions);
 
-        // NOTE: ここでSceneEditorExtensionを登録しているので、
-        //       パッケージとして分離する場合ここを削除
-        provider._allExtensions.Add(LocalPackage.s_nextId++, new Extension[]
+        var extensions = new Extension[]
         {
             SceneEditorExtension.Instance,
             SceneOutputExtension.Instance,
@@ -330,7 +328,13 @@ public sealed class MainViewModel : BasePageViewModel
             NodeTreeInputTabExtension.Instance,
             GraphEditorTabExtension.Instance,
             SceneSettingsTabExtension.Instance,
-        });
+            WaveReaderExtension.Instance,
+        };
+        provider._allExtensions.Add(LocalPackage.s_nextId++, extensions);
+        foreach (Extension item in extensions)
+        {
+            item.Load();
+        }
 
 #if FFMPEG_BUILD_IN
         // Beutl.Extensions.FFmpeg.csproj
