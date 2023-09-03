@@ -210,4 +210,10 @@
   <data name="AddPropertyToHide" xml:space="preserve">
     <value>非表示にするプロパティを追加</value>
   </data>
+  <data name="DecoderPriority" xml:space="preserve">
+    <value>デコーダーの優先順位</value>
+  </data>
+  <data name="DecoderPriority_Description" xml:space="preserve">
+    <value>デコーダーの優先順位を変更できます。上のデコーダーが優先されます。</value>
+  </data>
 </root>

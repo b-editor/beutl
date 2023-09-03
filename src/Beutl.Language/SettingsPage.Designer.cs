@@ -124,6 +124,24 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Decoder Priority に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DecoderPriority {
+            get {
+                return ResourceManager.GetString("DecoderPriority", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   You can change the priority order of decoders. The upper decoder has priority. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DecoderPriority_Description {
+            get {
+                return ResourceManager.GetString("DecoderPriority_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Device Infomation に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string DeviceInfomation {

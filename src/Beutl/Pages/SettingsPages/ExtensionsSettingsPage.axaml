@@ -16,111 +16,29 @@
     <UserControl.DataContext>
         <vm:ExtensionsSettingsPageViewModel />
     </UserControl.DataContext>
+    <Grid Margin="18" RowDefinitions="Auto,*">
 
-    <ScrollViewer Padding="18">
-        <StackPanel Margin="10,0"
-                    VerticalAlignment="Stretch"
-                    Orientation="Vertical"
-                    Spacing="4">
-            <ctrls:OptionsDisplayItem Expands="True" Header="{x:Static lang:SettingsPage.Editor_Extension_Priority}">
-                <ctrls:OptionsDisplayItem.Icon>
-                    <icons:SymbolIcon Symbol="TabDesktop" />
-                </ctrls:OptionsDisplayItem.Icon>
-                <ctrls:OptionsDisplayItem.Content>
-                    <Grid RowDefinitions="Auto,Auto,Auto,Auto">
-                        <ui:CommandBar DefaultLabelPosition="Right">
-                            <ui:CommandBar.PrimaryCommands>
-                                <ui:CommandBarElementContainer VerticalContentAlignment="Center">
-                                    <ComboBox Height="36"
-                                              MinWidth="250"
-                                              Background="Transparent"
-                                              BorderThickness="0"
-                                              ItemsSource="{CompiledBinding FileExtensions}"
-                                              SelectedItem="{CompiledBinding SelectedFileExtension.Value}" />
-                                </ui:CommandBarElementContainer>
-                                <ui:CommandBarButton Click="Add_FileExtension"
-                                                     IconSource="Add"
-                                                     Label="{x:Static lang:Strings.Add}" />
-                            </ui:CommandBar.PrimaryCommands>
-                            <ui:CommandBar.SecondaryCommands>
-                                <ui:CommandBarButton Command="{CompiledBinding RemoveFileExtension}"
-                                                     IconSource="Delete"
-                                                     Label="{x:Static lang:Strings.Remove}" />
-                            </ui:CommandBar.SecondaryCommands>
-                        </ui:CommandBar>
+        <TextBlock Margin="10,8"
+                   Classes="breadcrumb"
+                   Text="{x:Static lang:Strings.Extensions}" />
 
-                        <ListBox Grid.Row="1" ItemsSource="{CompiledBinding EditorExtensions1}">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Height="64" ColumnDefinitions="*,Auto,Auto,Auto">
-                                        <StackPanel VerticalAlignment="Center">
-                                            <StackPanel Margin="0,0,0,4"
-                                                        Orientation="Horizontal"
-                                                        Spacing="4">
-                                                <TextBlock FontSize="14" Text="{Binding DisplayName}" />
-                                                <TextBlock VerticalAlignment="Bottom"
-                                                           Classes="CaptionTextBlockStyle"
-                                                           Text="{Binding Name}" />
-                                            </StackPanel>
-                                            <TextBlock Classes="CaptionTextBlockStyle" Text="{Binding TypeName}" />
-                                        </StackPanel>
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Margin="10,16,10,0"
+                        VerticalAlignment="Stretch"
+                        Orientation="Vertical"
+                        Spacing="4">
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.Editor_Extension_Priority}"
+                                          Navigates="True"
+                                          NavigationCommand="{Binding NavigateToEditorPriority}">
+                    <ctrls:OptionsDisplayItem.Icon>
+                        <icons:SymbolIcon Symbol="TabDesktop" />
+                    </ctrls:OptionsDisplayItem.Icon>
 
-                                        <ui:CommandBarButton Grid.Column="1"
-                                                             Command="{Binding #root.DataContext.HighPriority}"
-                                                             CommandParameter="{Binding}"
-                                                             IconSource="ChevronUp"
-                                                             IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
-                                                             Label="{x:Static lang:SettingsPage.Higher}" />
-
-                                        <ui:CommandBarButton Grid.Column="2"
-                                                             Command="{Binding #root.DataContext.LowPriority}"
-                                                             CommandParameter="{Binding}"
-                                                             IconSource="ChevronDown"
-                                                             IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
-                                                             Label="{x:Static lang:SettingsPage.Lower}" />
-
-                                        <ui:CommandBarButton Grid.Column="3"
-                                                             Command="{Binding #root.DataContext.RemoveExt}"
-                                                             CommandParameter="{Binding}"
-                                                             IconSource="Clear"
-                                                             IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
-                                                             Label="{x:Static lang:Strings.Remove}" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                        <TextBlock Grid.Row="2"
-                                   Margin="4,8,4,4"
-                                   Text="{x:Static lang:SettingsPage.All_Editor_Extensions}" />
-                        <ListBox Grid.Row="3" ItemsSource="{CompiledBinding EditorExtensions2}">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Height="64" ColumnDefinitions="*,Auto">
-                                        <StackPanel VerticalAlignment="Center">
-                                            <StackPanel Margin="0,0,0,4"
-                                                        Orientation="Horizontal"
-                                                        Spacing="4">
-                                                <TextBlock FontSize="14" Text="{Binding DisplayName}" />
-                                                <TextBlock VerticalAlignment="Bottom"
-                                                           Classes="CaptionTextBlockStyle"
-                                                           Text="{Binding Name}" />
-                                            </StackPanel>
-                                            <TextBlock Classes="CaptionTextBlockStyle" Text="{Binding TypeName}" />
-                                        </StackPanel>
-
-                                        <ui:CommandBarButton Grid.Column="1"
-                                                             Command="{Binding #root.DataContext.AddExt}"
-                                                             CommandParameter="{Binding}"
-                                                             IconSource="Add"
-                                                             IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
-                                                             Label="{x:Static lang:Strings.Add}" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                    </Grid>
-                </ctrls:OptionsDisplayItem.Content>
-            </ctrls:OptionsDisplayItem>
-        </StackPanel>
-    </ScrollViewer>
+                </ctrls:OptionsDisplayItem>
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.DecoderPriority}"
+                                          Navigates="True"
+                                          NavigationCommand="{Binding NavigateToDecoderPriority}" />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

@@ -1,0 +1,63 @@
+<UserControl x:Class="Beutl.Pages.SettingsPages.DecoderPriorityPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrls="using:Beutl.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.ViewModels.SettingsPages"
+             x:Name="root"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="vm:DecoderPriorityPageViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="18" RowDefinitions="Auto,*">
+        <StackPanel Margin="10,8"
+                    Orientation="Horizontal"
+                    Spacing="16">
+            <Button Classes="breadcrumb"
+                    Command="{Binding NavigateParent}"
+                    Content="{x:Static lang:Strings.Extensions}" />
+
+            <Label Classes="breadcrumb" />
+
+            <TextBlock Classes="breadcrumb" Text="{x:Static lang:SettingsPage.DecoderPriority}" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Margin="10,0"
+                        VerticalAlignment="Stretch"
+                        Orientation="Vertical"
+                        Spacing="16">
+                <TextBlock Margin="0,16,0,0" Text="{x:Static lang:SettingsPage.DecoderPriority_Description}">
+                    デコーダーの優先順位を変更できます。上のデコーダーが優先されます。
+                </TextBlock>
+
+                <ListBox x:Name="listBox" ItemsSource="{Binding Items}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,4"
+                                  RowDefinitions="Auto,4,Auto,2,Auto"
+                                  ToolTip.Tip="{Binding ClrTypeName}">
+                                <TextBlock Text="{Binding Name}" />
+
+                                <TextBlock Grid.Row="2"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           Text="{Binding VideoExtensions}"
+                                           Theme="{StaticResource CaptionTextBlockStyle}" />
+
+                                <TextBlock Grid.Row="4"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           Text="{Binding AudioExtensions}"
+                                           Theme="{StaticResource CaptionTextBlockStyle}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

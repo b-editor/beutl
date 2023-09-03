@@ -190,7 +190,9 @@ public sealed partial class SettingsPage : UserControl
             {
                 return 0;
             }
-            else if (pagetype == typeof(StorageDetailPage))
+            else if (pagetype == typeof(StorageDetailPage)
+                || pagetype == typeof(EditorExtensionPriorityPage)
+                || pagetype == typeof(DecoderPriorityPage))
             {
                 return 1;
             }
@@ -207,7 +209,7 @@ public sealed partial class SettingsPage : UserControl
                 "AccountSettingsPage" => 0,
                 "ViewSettingsPage" => 1,
                 "FontSettingsPage" => 2,
-                "ExtensionsSettingsPage" => 3,
+                "ExtensionsSettingsPage" or "EditorExtensionPriorityPage" or "DecoderPriorityPage" => 3,
                 "StorageSettingsPage" or "StorageDetailPage" => 4,
                 "InfomationPage" => 5,
                 _ => 0,
@@ -222,6 +224,8 @@ public sealed partial class SettingsPage : UserControl
                 "ViewSettingsPageViewModel" => typeof(ViewSettingsPage),
                 "FontSettingsPageViewModel" => typeof(FontSettingsPage),
                 "ExtensionsSettingsPageViewModel" => typeof(ExtensionsSettingsPage),
+                "EditorExtensionPriorityPageViewModel" => typeof(EditorExtensionPriorityPage),
+                "DecoderPriorityPageViewModel" => typeof(DecoderPriorityPage),
                 "StorageSettingsPageViewModel" => typeof(StorageSettingsPage),
                 "StorageDetailPageViewModel" => typeof(StorageDetailPage),
                 _ => typeof(InfomationPage),
