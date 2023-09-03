@@ -8,11 +8,14 @@ namespace Beutl.Api.Services;
 
 public class LocalPackage
 {
-    internal static int s_nextId;
+    // LoadPrimitiveExtensionTask
+    internal const int Reserved0 = 0;
+
+    internal static int s_nextId = 2;
 
     public LocalPackage()
     {
-        LocalId = s_nextId++;
+        LocalId = Interlocked.Increment(ref s_nextId);
     }
 
     public LocalPackage(Package package)
@@ -44,8 +47,6 @@ public class LocalPackage
         ShortDescription = nuspecReader.GetDescription();
         //Logo = nuspecReader.GetIcon();
         Tags = nuspecReader.GetTags().Split(' ', ';').ToList();
-
-        LocalId = -1;
     }
 
     public string Name { get; set; } = string.Empty;

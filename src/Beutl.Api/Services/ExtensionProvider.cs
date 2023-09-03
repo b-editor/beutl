@@ -1,4 +1,6 @@
-﻿using Beutl.Collections;
+﻿using System.Collections.Concurrent;
+
+using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Extensibility;
 
@@ -8,7 +10,7 @@ namespace Beutl.Api.Services;
 
 public sealed class ExtensionProvider : IBeutlApiResource
 {
-    internal readonly Dictionary<int, Extension[]> _allExtensions = new();
+    private readonly ConcurrentDictionary<int, Extension[]> _allExtensions = new();
     private readonly ExtensionConfig _config = GlobalConfiguration.Instance.ExtensionConfig;
     private readonly Dictionary<Type, Array> _cache = new();
     private bool _cacheInvalidated;
@@ -105,6 +107,15 @@ public sealed class ExtensionProvider : IBeutlApiResource
                 yield return wsiExtension;
             }
         }
+    }
+
+    public void AddExtensions(int id, Extension[] extensions)
+    {
+        if (!_allExtensions.TryAdd(id, extensions))
+        {
+            throw new Exception("");
+        }
+        InvalidateCache();
     }
 
     public void InvalidateCache()

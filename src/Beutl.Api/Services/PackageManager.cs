@@ -1,4 +1,5 @@
-﻿using System.IO.Compression;
+﻿using System.Collections.Concurrent;
+using System.IO.Compression;
 using System.Reactive.Subjects;
 using System.Reflection;
 
@@ -14,7 +15,7 @@ namespace Beutl.Api.Services;
 
 public sealed class PackageManager : PackageLoader
 {
-    internal readonly List<LocalPackage> _loadedPackage = new();
+    private readonly ConcurrentBag<LocalPackage> _loadedPackage = new();
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly BeutlApiApplication _apiApplication;
     private readonly Subject<(PackageIdentity Package, bool Loaded)> _subject = new();
@@ -28,7 +29,7 @@ public sealed class PackageManager : PackageLoader
         _apiApplication = apiApplication;
     }
 
-    public IReadOnlyList<LocalPackage> LoadedPackage => _loadedPackage;
+    public IEnumerable<LocalPackage> LoadedPackage => _loadedPackage;
 
     public ExtensionProvider ExtensionProvider { get; }
 
@@ -113,24 +114,21 @@ public sealed class PackageManager : PackageLoader
     {
         DiscoverService discover = _apiApplication.GetResource<DiscoverService>();
 
-        for (int i = 0; i < _loadedPackage.Count; i++)
+        LocalPackage? pkg = _loadedPackage.FirstOrDefault(v => !v.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(v.Name, name));
+        if (pkg != null)
         {
-            LocalPackage pkg = _loadedPackage[i];
             string versionStr = pkg.Version;
             var version = new NuGetVersion(versionStr);
-            if (!pkg.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(pkg.Name == name))
-            {
-                Package remotePackage = await discover.GetPackage(pkg.Name).ConfigureAwait(false);
+            Package remotePackage = await discover.GetPackage(pkg.Name).ConfigureAwait(false);
 
-                foreach (Release? item in await remotePackage.GetReleasesAsync().ConfigureAwait(false))
+            foreach (Release? item in await remotePackage.GetReleasesAsync().ConfigureAwait(false))
+            {
+                // 降順
+                if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
                 {
-                    // 降順
-                    if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
-                    {
-                        Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(pkg.Version))
-                            .ConfigureAwait(false);
-                        return new PackageUpdate(remotePackage, oldRelease, item);
-                    }
+                    Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(pkg.Version))
+                        .ConfigureAwait(false);
+                    return new PackageUpdate(remotePackage, oldRelease, item);
                 }
             }
         }
@@ -238,14 +236,14 @@ public sealed class PackageManager : PackageLoader
             LoadExtensions(assembly, extensions);
         }
 
-        ExtensionProvider._allExtensions.Add(package.LocalId, extensions.ToArray());
+        ExtensionProvider.AddExtensions(package.LocalId, extensions.ToArray());
 
         _loadedPackage.Add(package);
 
         return assemblies;
     }
 
-    private void LoadExtensions(Assembly assembly, List<Extension> extensions)
+    private static void LoadExtensions(Assembly assembly, List<Extension> extensions)
     {
         foreach (Type type in assembly.GetExportedTypes())
         {
@@ -257,7 +255,6 @@ public sealed class PackageManager : PackageLoader
                     extension.Load();
 
                     extensions.Add(extension);
-                    ExtensionProvider.InvalidateCache();
                 }
             }
         }

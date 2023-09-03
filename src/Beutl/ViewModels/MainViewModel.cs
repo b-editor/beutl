@@ -1,15 +1,12 @@
 ﻿#pragma warning disable CS0436
 
-using System.CodeDom.Compiler;
 using System.Windows.Input;
 
 using Avalonia;
 using Avalonia.Collections;
-using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
-using Avalonia.Threading;
 
 using Beutl.Api;
 using Beutl.Api.Services;
@@ -17,9 +14,8 @@ using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
+using Beutl.Services.StartupTasks;
 using Beutl.ViewModels.ExtensionsPages;
-
-using DynamicData;
 
 using NuGet.Packaging.Core;
 
@@ -33,7 +29,6 @@ namespace Beutl.ViewModels;
 public sealed class MainViewModel : BasePageViewModel
 {
     private readonly ILogger _logger;
-    private readonly PageExtension[] _primitivePageExtensions;
     private readonly BeutlApiApplication _beutlClients;
     private readonly HttpClient _authorizedHttpClient;
 
@@ -62,14 +57,6 @@ public sealed class MainViewModel : BasePageViewModel
         _authorizedHttpClient = new HttpClient();
         _beutlClients = new BeutlApiApplication(_authorizedHttpClient);
         ExtensionProvider.Current = _beutlClients.GetResource<ExtensionProvider>();
-
-        _primitivePageExtensions = new PageExtension[]
-        {
-            EditPageExtension.Instance,
-            ExtensionsPageExtension.Instance,
-            OutputPageExtension.Instance,
-            SettingsPageExtension.Instance,
-        };
 
         IsProjectOpened = ProjectService.Current.IsOpened;
 
@@ -311,172 +298,9 @@ public sealed class MainViewModel : BasePageViewModel
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 
-    private void LoadPrimitiveExtensions(ExtensionProvider provider, IList<(LocalPackage, Exception)> failures)
+    public Task RunStartupTask()
     {
-        provider._allExtensions.Add(LocalPackage.s_nextId++, _primitivePageExtensions);
-
-        var extensions = new Extension[]
-        {
-            SceneEditorExtension.Instance,
-            SceneOutputExtension.Instance,
-            SceneProjectItemExtension.Instance,
-            TimelineTabExtension.Instance,
-            ObjectPropertyTabExtension.Instance,
-            SourceOperatorsTabExtension.Instance,
-            PropertyEditorExtension.Instance,
-            NodeTreeTabExtension.Instance,
-            NodeTreeInputTabExtension.Instance,
-            GraphEditorTabExtension.Instance,
-            SceneSettingsTabExtension.Instance,
-            WaveReaderExtension.Instance,
-        };
-        provider._allExtensions.Add(LocalPackage.s_nextId++, extensions);
-        foreach (Extension item in extensions)
-        {
-            item.Load();
-        }
-
-#if FFMPEG_BUILD_IN
-        // Beutl.Extensions.FFmpeg.csproj
-        var pkg = new LocalPackage
-        {
-            ShortDescription = "FFmpeg for beutl",
-            Name = "Beutl.Embedding.FFmpeg",
-            DisplayName = "Beutl.Embedding.FFmpeg",
-            InstalledPath = AppContext.BaseDirectory,
-            Tags = { "ffmpeg", "decoder", "decoding", "encoder", "encoding", "video", "audio" },
-            Version = GitVersionInformation.NuGetVersionV2,
-            WebSite = "https://github.com/b-editor/beutl",
-            Publisher = "b-editor"
-        };
-        try
-        {
-            var decoding = new Embedding.FFmpeg.Decoding.FFmpegDecodingExtension();
-            var encoding = new Embedding.FFmpeg.Encoding.FFmpegEncodingExtension();
-            decoding.Load();
-            encoding.Load();
-
-            provider._allExtensions.Add(pkg.LocalId, new Extension[]
-            {
-                decoding,
-                encoding
-            });
-        }
-        catch (Exception ex)
-        {
-            failures.Add((pkg, ex));
-        }
-#endif
-    }
-
-    private void LoadLocalPackages(PackageManager manager, IReadOnlyList<LocalPackage> packages, IList<(LocalPackage, Exception)> failures)
-    {
-        foreach (LocalPackage item in packages)
-        {
-            try
-            {
-                manager.Load(item);
-            }
-            catch (Exception e)
-            {
-                _logger.Error(e, "Failed to load package");
-                failures.Add((item, e));
-            }
-        }
-    }
-
-    private void InitializePages(ExtensionProvider provider)
-    {
-        IEnumerable<PageExtension> toAdd
-            = provider.AllExtensions.OfType<PageExtension>().Except(_primitivePageExtensions);
-
-        NavItemViewModel[] viewModels = toAdd.Select(item => new NavItemViewModel(item)).ToArray();
-        _ = Dispatcher.UIThread.InvokeAsync(() => Pages.AddRange(viewModels.AsSpan()), DispatcherPriority.Background);
-    }
-
-    public Task RunSplachScreenTask(Func<IReadOnlyList<LocalPackage>, Task<bool>> showDialog, bool restrictedMode)
-    {
-        return Task.Run(async () =>
-        {
-            Task authTask = _beutlClients.RestoreUserAsync();
-
-            PackageManager manager = _beutlClients.GetResource<PackageManager>();
-            ExtensionProvider provider = _beutlClients.GetResource<ExtensionProvider>();
-            var failures = new List<(LocalPackage, Exception)>();
-
-            LoadPrimitiveExtensions(provider, failures);
-            // .beutl/packages/ 内のパッケージを読み込む
-            if (!restrictedMode)
-                LoadLocalPackages(manager, await manager.GetPackages(), failures);
-
-            // .beutl/sideloads/ 内のパッケージを読み込む
-            if (manager.GetSideLoadPackages() is { Count: > 0 } sideloads
-                && await showDialog(sideloads))
-            {
-                LoadLocalPackages(manager, sideloads, failures);
-            }
-
-            if (failures.Count > 0)
-            {
-                NotificationService.ShowError(
-                    Message.Failed_to_load_package,
-                    string.Format(Message.Failed_to_load_N_packages, failures.Count),
-                    onActionButtonClick: () => ShowPackageLoadingError(failures),
-                    actionButtonText: Strings.Details);
-            }
-
-            InitializePages(provider);
-
-            try
-            {
-                await authTask;
-            }
-            catch (Exception e)
-            {
-                _logger.Error(e, "An error occurred during authentication");
-                ErrorHandle(e);
-            }
-        });
-    }
-
-    // ユーザー向けのテキストファイルを生成して、デフォルトのテキストエディタで表示する。
-    private static async void ShowPackageLoadingError(IReadOnlyList<(LocalPackage, Exception)> failures)
-    {
-        string file = Path.GetTempFileName();
-        file = Path.ChangeExtension(file, ".txt");
-
-        using (StreamWriter baseWriter = File.CreateText(file))
-        using (var writer = new IndentedTextWriter(baseWriter, "  "))
-        {
-            baseWriter.AutoFlush = false;
-            writer.WriteLine(string.Format(Message.Failed_to_load_N_packages, failures.Count));
-            writer.WriteLine();
-            foreach ((LocalPackage pkg, Exception ex) in failures)
-            {
-                writer.WriteLine("Package:");
-                writer.Indent++;
-                writer.WriteLine($"Name: '{pkg.Name}'");
-                writer.WriteLine($"DisplayName: '{pkg.DisplayName}'");
-                writer.WriteLine($"Version: '{pkg.Version}'");
-                writer.WriteLine($"Publisher: '{pkg.Publisher}'");
-                writer.WriteLine($"WebSite: '{pkg.WebSite}'");
-                writer.WriteLine($"Description: '{pkg.Description}");
-                writer.WriteLine($"ShortDescription: '{pkg.ShortDescription}'");
-                writer.WriteLine($"Tags: '{string.Join(',', pkg.Tags)}'");
-                writer.WriteLine($"InstalledPath: '{pkg.InstalledPath}'");
-                writer.Indent--;
-                writer.WriteLine(ex.ToString());
-                writer.WriteLine();
-            }
-
-            await writer.FlushAsync();
-        }
-
-        Process.Start(new ProcessStartInfo(file)
-        {
-            UseShellExecute = true,
-            Verb = "open"
-        });
+        return new Startup(_beutlClients, this).Run();
     }
 
     public async ValueTask<CheckForUpdatesResponse?> CheckForUpdates()
