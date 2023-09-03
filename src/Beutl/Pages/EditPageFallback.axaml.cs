@@ -70,22 +70,22 @@ public partial class EditPageFallback : UserControl
 
     private void CreateNewProject_Click(object? sender, RoutedEventArgs e)
     {
-        ExecuteMainViewModelCommand(vm => vm.CreateNewProject.Execute());
+        ExecuteMainViewModelCommand(vm => vm.MenuBar.CreateNewProject.Execute());
     }
 
     private void CreateNewScene_Click(object? sender, RoutedEventArgs e)
     {
-        ExecuteMainViewModelCommand(vm => vm.CreateNew.Execute());
+        ExecuteMainViewModelCommand(vm => vm.MenuBar.CreateNew.Execute());
     }
 
     private void OpenProject_Click(object? sender, RoutedEventArgs e)
     {
-        ExecuteMainViewModelCommand(vm => vm.OpenProject.Execute());
+        ExecuteMainViewModelCommand(vm => vm.MenuBar.OpenProject.Execute());
     }
 
     private void OpenFile_Click(object? sender, RoutedEventArgs e)
     {
-        ExecuteMainViewModelCommand(vm => vm.OpenFile.Execute());
+        ExecuteMainViewModelCommand(vm => vm.MenuBar.OpenFile.Execute());
     }
 
     private void ExecuteMainViewModelCommand(Action<MainViewModel> action)
@@ -142,11 +142,11 @@ public partial class EditPageFallback : UserControl
         {
             if (fileName.EndsWith($".{Constants.ProjectFileExtension}"))
             {
-                viewModel.OpenRecentProject.Execute(fileName);
+                viewModel.MenuBar.OpenRecentProject.Execute(fileName);
             }
             else
             {
-                viewModel.OpenRecentFile.Execute(fileName);
+                viewModel.MenuBar.OpenRecentFile.Execute(fileName);
             }
         });
     }

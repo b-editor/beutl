@@ -48,6 +48,7 @@ public sealed class Startup
         Register(() => new LoadPrimitiveExtensionTask());
         Register(() => new LoadSideloadExtensionTask(_apiApp.GetResource<PackageManager>()));
         Register(() => new AfterLoadingExtensionsTask(this, _viewModel));
+        Register(() => new CheckForUpdatesTask());
     }
 
     private void Register<T>(Func<T> factory)

@@ -108,15 +108,17 @@ public sealed class App : Application
 
     public static IClipboard? GetClipboard()
     {
-        switch (Current?.ApplicationLifetime)
+        return GetTopLevel()?.Clipboard;
+    }
+
+    public static TopLevel? GetTopLevel()
+    {
+        return (Current?.ApplicationLifetime) switch
         {
-            case IClassicDesktopStyleApplicationLifetime desktop:
-                return desktop.MainWindow?.Clipboard;
-            case ISingleViewApplicationLifetime { MainView: { } mainview }:
-                return TopLevel.GetTopLevel(mainview)?.Clipboard;
-            default:
-                return null;
-        }
+            IClassicDesktopStyleApplicationLifetime desktop => desktop.MainWindow,
+            ISingleViewApplicationLifetime { MainView: { } mainview } => TopLevel.GetTopLevel(mainview),
+            _ => null,
+        };
     }
 
     private MainViewModel GetMainViewModel()
