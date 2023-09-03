@@ -108,16 +108,17 @@ public sealed class TimelineViewModel : IToolContext
             {
                 ElementViewModel layer = Layers[idx];
                 this.GetService<ISupportCloseAnimation>()?.Close(layer.Model);
-                layer.Dispose();
                 Layers.RemoveAt(idx);
+                layer.Dispose();
             },
             () =>
             {
+                ElementViewModel[] tmp = Layers.ToArray();
+                Layers.Clear();
                 foreach (ElementViewModel? item in Layers.GetMarshal().Value)
                 {
                     item.Dispose();
                 }
-                Layers.Clear();
             })
             .AddTo(_disposables);
 
