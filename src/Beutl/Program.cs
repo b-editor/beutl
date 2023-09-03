@@ -87,6 +87,8 @@ internal static class Program
             })
 #if DEBUG
             .LogToTrace();
+#else
+            ;
 #endif
     }
 
