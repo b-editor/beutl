@@ -59,7 +59,7 @@ public class Package
 
     public IReadOnlyReactiveProperty<bool> IsDeleted => _isDeleted;
 
-    public AsyncLock Lock => _clients.Lock;
+    public MyAsyncLock Lock => _clients.Lock;
 
     public async Task RefreshAsync()
     {

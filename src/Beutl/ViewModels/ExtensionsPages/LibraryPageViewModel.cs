@@ -36,8 +36,8 @@ public sealed class LibraryPageViewModel : BasePageViewModel
                     {
                         await _user.RefreshAsync();
                         await RefreshPackages();
-                        await RefreshLocalPackages();
                     }
+                    await RefreshLocalPackages();
                 }
                 catch (Exception e)
                 {

@@ -54,7 +54,7 @@ public class Asset
 
     public IReadOnlyReactiveProperty<bool> IsPublic { get; }
 
-    public AsyncLock Lock => _clients.Lock;
+    public MyAsyncLock Lock => _clients.Lock;
 
     public async Task RefreshAsync()
     {

@@ -56,7 +56,7 @@ public class Profile
 
     public IReadOnlyReactiveProperty<int> PublicPackages { get; }
 
-    public AsyncLock Lock => _clients.Lock;
+    public MyAsyncLock Lock => _clients.Lock;
 
     public async Task RefreshAsync()
     {

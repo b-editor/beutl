@@ -7,14 +7,12 @@ namespace Beutl.Api.Objects;
 
 public class AuthorizedUser
 {
-    private readonly AsyncLock _mutex;
     private readonly BeutlApiApplication _clients;
     private readonly HttpClient _httpClient;
     private AuthResponse _response;
 
     public AuthorizedUser(Profile profile, AuthResponse response, BeutlApiApplication clients, HttpClient httpClient)
     {
-        _mutex = clients.Lock;
         Profile = profile;
         _response = response;
         _clients = clients;
@@ -31,7 +29,7 @@ public class AuthorizedUser
 
     public bool IsExpired => Expiration < DateTimeOffset.UtcNow;
 
-    public AsyncLock Lock => _mutex;
+    public MyAsyncLock Lock => _clients.Lock;
 
     public async ValueTask RefreshAsync(bool force = false)
     {

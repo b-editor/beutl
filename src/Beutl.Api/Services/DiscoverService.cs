@@ -19,7 +19,7 @@ public class DiscoverService : IBeutlApiResource
         _clients = clients;
     }
 
-    public AsyncLock Lock => _clients.Lock;
+    public MyAsyncLock Lock => _clients.Lock;
 
     public async Task<Package> GetPackage(string name)
     {

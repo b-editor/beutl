@@ -8,12 +8,9 @@ using System.Text.Json.Nodes;
 
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
-
-using Beutl;
 using Beutl.Configuration;
 
 using Reactive.Bindings;
-using Nito.AsyncEx;
 
 namespace Beutl.Api;
 
@@ -60,7 +57,7 @@ public class BeutlApiApplication
 
     public AppClient App { get; }
 
-    public AsyncLock Lock { get; } = new();
+    public MyAsyncLock Lock { get; } = new();
 
     public IReadOnlyReactiveProperty<AuthorizedUser?> AuthorizedUser => _authorizedUser;
 
