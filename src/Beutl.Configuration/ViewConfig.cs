@@ -24,27 +24,27 @@ public sealed class ViewConfig : ConfigurationBase
 
     static ViewConfig()
     {
-        ThemeProperty = ConfigureProperty<ViewTheme, ViewConfig>("Theme")
+        ThemeProperty = ConfigureProperty<ViewTheme, ViewConfig>(nameof(Theme))
             .DefaultValue(ViewTheme.Dark)
             .Register();
 
-        UICultureProperty = ConfigureProperty<CultureInfo, ViewConfig>("UICulture")
+        UICultureProperty = ConfigureProperty<CultureInfo, ViewConfig>(nameof(UICulture))
             .DefaultValue(CultureInfo.InstalledUICulture)
             .Register();
 
-        HidePrimaryPropertiesProperty = ConfigureProperty<bool, ViewConfig>("HidePrimaryProperties")
+        HidePrimaryPropertiesProperty = ConfigureProperty<bool, ViewConfig>(nameof(HidePrimaryProperties))
             .DefaultValue(false)
             .Register();
 
-        PrimaryPropertiesProperty = ConfigureProperty<CoreList<string>, ViewConfig>("PrimaryProperties")
+        PrimaryPropertiesProperty = ConfigureProperty<CoreList<string>, ViewConfig>(nameof(PrimaryProperties))
             .Accessor(o => o.PrimaryProperties, (o, v) => o.PrimaryProperties = v)
             .Register();
         
-        RecentFilesProperty = ConfigureProperty<CoreList<string>, ViewConfig>("RecentFiles")
+        RecentFilesProperty = ConfigureProperty<CoreList<string>, ViewConfig>(nameof(RecentFiles))
             .Accessor(o => o.RecentFiles, (o, v) => o.RecentFiles = v)
             .Register();
 
-        RecentProjectsProperty = ConfigureProperty<CoreList<string>, ViewConfig>("RecentProjects")
+        RecentProjectsProperty = ConfigureProperty<CoreList<string>, ViewConfig>(nameof(RecentProjects))
             .Accessor(o => o.RecentProjects, (o, v) => o.RecentProjects = v)
             .Register();
     }
@@ -106,18 +106,27 @@ public sealed class ViewConfig : ConfigurationBase
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
+        JsonNode? GetNode(string name1, string name2)
+        {
+            if (json[name1] is JsonNode node1)
+                return node1;
+            else if (json[name2] is JsonNode node2)
+                return node2;
+            else
+                return null;
+        }
 
-        if (json["primary-properties"] is JsonArray primaryProperties)
+        if (GetNode("primary-properties", nameof(PrimaryProperties)) is JsonArray primaryProperties)
         {
             _primaryProperties.Replace(primaryProperties.Select(i => (string?)i).Where(i => i != null).ToArray()!);
         }
         
-        if (json["recent-files"] is JsonArray recentFiles)
+        if (GetNode("recent-files", nameof(RecentFiles)) is JsonArray recentFiles)
         {
             _recentFiles.Replace(recentFiles.Select(i => (string?)i).Where(i => i != null && File.Exists(i)).ToArray()!);
         }
 
-        if (json["recent-projects"] is JsonArray recentProjects)
+        if (GetNode("recent-projects", nameof(RecentProjects)) is JsonArray recentProjects)
         {
             _recentProjects.Replace(recentProjects.Select(i => (string?)i).Where(i => i != null && File.Exists(i)).ToArray()!);
         }
@@ -126,9 +135,9 @@ public sealed class ViewConfig : ConfigurationBase
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
-        json["primary-properties"] = JsonSerializer.SerializeToNode(_primaryProperties, JsonHelper.SerializerOptions);
-        json["recent-files"] = JsonSerializer.SerializeToNode(_recentFiles, JsonHelper.SerializerOptions);
-        json["recent-projects"] = JsonSerializer.SerializeToNode(_recentProjects, JsonHelper.SerializerOptions);
+        json[nameof(PrimaryProperties)] = JsonSerializer.SerializeToNode(_primaryProperties, JsonHelper.SerializerOptions);
+        json[nameof(RecentFiles)] = JsonSerializer.SerializeToNode(_recentFiles, JsonHelper.SerializerOptions);
+        json[nameof(RecentProjects)] = JsonSerializer.SerializeToNode(_recentProjects, JsonHelper.SerializerOptions);
     }
 
     public void UpdateRecentFile(string filename)
