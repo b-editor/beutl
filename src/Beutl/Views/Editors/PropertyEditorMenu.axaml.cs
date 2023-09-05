@@ -1,8 +1,8 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
 
 using Beutl.Animation;
-using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
@@ -17,6 +17,10 @@ public sealed partial class PropertyEditorMenu : UserControl
     public PropertyEditorMenu()
     {
         InitializeComponent();
+        Bind(ToolTip.TipProperty, this.GetObservable(DataContextProperty)
+            .Select(v => (v as BaseEditorViewModel)?.HasAnimation ?? Observable.Return(false))
+            .Switch()
+            .Select(v => v ? $"- {Message.RightClickToShowMenu}\n- {Message.AnimationIsEnabled}" : null));
     }
 
     protected override void OnDataContextChanged(EventArgs e)

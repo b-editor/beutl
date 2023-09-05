@@ -278,4 +278,7 @@ Restricted mode does not load extensions.</value>
   <data name="Property_is_unset" xml:space="preserve">
     <value>Property is unset.</value>
   </data>
+  <data name="RightClickToShowMenu" xml:space="preserve">
+    <value>Right-click to show menu</value>
+  </data>
 </root>

@@ -48,7 +48,6 @@
                 <Style Selector="icons|SymbolIcon.hasAnimation">
                     <Setter Property="Symbol" Value="Diamond" />
                     <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCaution}" />
-                    <Setter Property="ToolTip.Tip" Value="{x:Static lang:Message.AnimationIsEnabled}" />
                 </Style>
             </icons:SymbolIcon.Styles>
         </icons:SymbolIcon>

@@ -278,4 +278,7 @@
   <data name="Property_is_unset" xml:space="preserve">
     <value>プロパティが未設定です。</value>
   </data>
+  <data name="RightClickToShowMenu" xml:space="preserve">
+    <value>右クリックでメニューを表示</value>
+  </data>
 </root>

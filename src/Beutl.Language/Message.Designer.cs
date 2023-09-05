@@ -489,6 +489,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Right-click to show menu に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RightClickToShowMenu {
+            get {
+                return ResourceManager.GetString("RightClickToShowMenu", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   This version has been discontinued for compatibility reasons. Please upgrade to a newer version. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string This_version_has_been_discontinued_for_compatibility_reasonsversion {
