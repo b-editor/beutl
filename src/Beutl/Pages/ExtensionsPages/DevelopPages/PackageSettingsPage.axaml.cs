@@ -87,7 +87,10 @@ public sealed partial class PackageSettingsPage : UserControl
                          || (item is ReleasePageViewModel p4 && p4.Release.Package.Id == viewModel.Package.Id)
                          || (item is PackageReleasesPageViewModel p5 && p5.Package.Id == viewModel.Package.Id));
 
-                await viewModel.Package.DeleteAsync();
+                using (await viewModel.Package.Lock.LockAsync())
+                {
+                    await viewModel.Package.DeleteAsync();
+                }
 
                 frame.GoBack();
             }

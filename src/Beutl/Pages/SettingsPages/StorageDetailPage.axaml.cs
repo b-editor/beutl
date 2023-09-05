@@ -34,8 +34,11 @@ public partial class StorageDetailPage : UserControl
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                await itemViewModel.Model.UpdateAsync(
-                    new Api.UpdateAssetRequest(!current));
+                using (await itemViewModel.Model.Lock.LockAsync())
+                {
+                    await itemViewModel.Model.UpdateAsync(
+                        new Api.UpdateAssetRequest(!current));
+                }
             }
         }
     }

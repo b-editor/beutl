@@ -27,19 +27,22 @@ public sealed class DevelopPageViewModel : BasePageViewModel
             try
             {
                 IsBusy.Value = true;
-                await _user.RefreshAsync();
-                Packages.Clear();
-
-                int prevCount = 0;
-                int count = 0;
-
-                do
+                using(await _user.Lock.LockAsync())
                 {
-                    Package[] items = await _user.Profile.GetPackagesAsync(count, 30);
-                    Packages.AddRange(items.AsSpan());
-                    prevCount = items.Length;
-                    count += items.Length;
-                } while (prevCount == 30);
+                    await _user.RefreshAsync();
+                    Packages.Clear();
+
+                    int prevCount = 0;
+                    int count = 0;
+
+                    do
+                    {
+                        Package[] items = await _user.Profile.GetPackagesAsync(count, 30);
+                        Packages.AddRange(items.AsSpan());
+                        prevCount = items.Length;
+                        count += items.Length;
+                    } while (prevCount == 30);
+                }
             }
             catch (Exception ex)
             {

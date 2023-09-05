@@ -11,7 +11,7 @@ namespace Beutl.ViewModels.Dialogs;
 
 public class CreateAssetViewModel
 {
-    private readonly ILogger _logger=Log.ForContext<CreateAssetViewModel>(); 
+    private readonly ILogger _logger = Log.ForContext<CreateAssetViewModel>();
     private readonly AuthorizedUser _user;
     private CancellationTokenSource? _cts;
 
@@ -92,8 +92,11 @@ public class CreateAssetViewModel
 
             try
             {
-                _ = await _user.Profile.GetAssetAsync(x);
-                return Message.ItAlreadyExists;
+                using (await _user.Lock.LockAsync())
+                {
+                    _ = await _user.Profile.GetAssetAsync(x);
+                    return Message.ItAlreadyExists;
+                }
             }
             catch
             {
@@ -150,28 +153,31 @@ public class CreateAssetViewModel
             CancellationToken cancellationToken = _cts.Token;
 
             Submitting.Value = true;
-            await _user.RefreshAsync();
-            if (SelectedMethod.Value == 0)
+            using (await _user.Lock.LockAsync(cancellationToken))
             {
-                ProgressStatus.Value = Strings.CreateAsset_UploadingFiles;
-                using FileStream stream = System.IO.File.OpenRead(File.Value);
-                _ = RunProgressReporter(stream, cancellationToken);
-                Result = await _user.Profile.AddAssetAsync(Name.Value, stream, ContentType.Value);
-            }
-            else
-            {
-                ProgressStatus.Value = Strings.CreateAsset_PerformingAnOperation;
-                Result = await _user.Profile.AddAssetAsync(Name.Value, new CreateVirtualAssetRequest()
+                await _user.RefreshAsync();
+                if (SelectedMethod.Value == 0)
                 {
-                    ContentType = ContentType.Value,
-                    Url = Url.Value,
-                    Sha256 = Sha256.Value,
-                    Sha384 = Sha384.Value,
-                    Sha512 = Sha512.Value,
-                });
-            }
+                    ProgressStatus.Value = Strings.CreateAsset_UploadingFiles;
+                    using FileStream stream = System.IO.File.OpenRead(File.Value);
+                    _ = RunProgressReporter(stream, cancellationToken);
+                    Result = await _user.Profile.AddAssetAsync(Name.Value, stream, ContentType.Value);
+                }
+                else
+                {
+                    ProgressStatus.Value = Strings.CreateAsset_PerformingAnOperation;
+                    Result = await _user.Profile.AddAssetAsync(Name.Value, new CreateVirtualAssetRequest()
+                    {
+                        ContentType = ContentType.Value,
+                        Url = Url.Value,
+                        Sha256 = Sha256.Value,
+                        Sha384 = Sha384.Value,
+                        Sha512 = Sha512.Value,
+                    });
+                }
 
-            ProgressStatus.Value = Strings.CreateAsset_Completed;
+                ProgressStatus.Value = Strings.CreateAsset_Completed;
+            }
         }
         catch (BeutlApiException<ApiErrorResponse> ex)
         {

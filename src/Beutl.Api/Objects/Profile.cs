@@ -3,6 +3,8 @@ using System.Net.Http.Headers;
 using System.Reactive.Linq;
 using System.Text;
 
+using Nito.AsyncEx;
+
 using Reactive.Bindings;
 
 namespace Beutl.Api.Objects;
@@ -53,6 +55,8 @@ public class Profile
     public IReadOnlyReactiveProperty<string?> AvatarUrl { get; }
 
     public IReadOnlyReactiveProperty<int> PublicPackages { get; }
+
+    public AsyncLock Lock => _clients.Lock;
 
     public async Task RefreshAsync()
     {

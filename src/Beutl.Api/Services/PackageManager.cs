@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using System.IO.Compression;
 using System.Reactive.Subjects;
 using System.Reflection;
 
@@ -75,84 +74,93 @@ public sealed class PackageManager : PackageLoader
 
     public async Task<IReadOnlyList<PackageUpdate>> CheckUpdate()
     {
-        PackageIdentity[] packages = _installedPackageRepository.GetLocalPackages().ToArray();
-
-        var updates = new List<PackageUpdate>(packages.Length);
-        DiscoverService discover = _apiApplication.GetResource<DiscoverService>();
-
-        for (int i = 0; i < packages.Length; i++)
+        using (await _apiApplication.Lock.LockAsync())
         {
-            PackageIdentity pkg = packages[i];
-            NuGetVersion version = pkg.Version;
-            string versionStr = version.ToString();
-            try
+            PackageIdentity[] packages = _installedPackageRepository.GetLocalPackages().ToArray();
+
+            var updates = new List<PackageUpdate>(packages.Length);
+            DiscoverService discover = _apiApplication.GetResource<DiscoverService>();
+
+            for (int i = 0; i < packages.Length; i++)
             {
-                Package remotePackage = await discover.GetPackage(pkg.Id).ConfigureAwait(false);
+                PackageIdentity pkg = packages[i];
+                NuGetVersion version = pkg.Version;
+                string versionStr = version.ToString();
+                try
+                {
+                    Package remotePackage = await discover.GetPackage(pkg.Id).ConfigureAwait(false);
+
+                    foreach (Release? item in await remotePackage.GetReleasesAsync().ConfigureAwait(false))
+                    {
+                        // 降順
+                        if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
+                        {
+                            Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(versionStr))
+                                .ConfigureAwait(false);
+                            updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
+                            break;
+                        }
+                    }
+                }
+                catch
+                {
+
+                }
+            }
+
+            return updates;
+        }
+    }
+
+    public async Task<PackageUpdate?> CheckUpdate(string name)
+    {
+        using (await _apiApplication.Lock.LockAsync())
+        {
+            DiscoverService discover = _apiApplication.GetResource<DiscoverService>();
+
+            LocalPackage? pkg = _loadedPackage.FirstOrDefault(v => !v.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(v.Name, name));
+            if (pkg != null)
+            {
+                string versionStr = pkg.Version;
+                var version = new NuGetVersion(versionStr);
+                Package remotePackage = await discover.GetPackage(pkg.Name).ConfigureAwait(false);
 
                 foreach (Release? item in await remotePackage.GetReleasesAsync().ConfigureAwait(false))
                 {
                     // 降順
                     if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
                     {
-                        Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(versionStr))
+                        Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(pkg.Version))
                             .ConfigureAwait(false);
-                        updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
-                        break;
+                        return new PackageUpdate(remotePackage, oldRelease, item);
                     }
                 }
             }
-            catch
-            {
 
-            }
+            return null;
         }
-
-        return updates;
-    }
-
-    public async Task<PackageUpdate?> CheckUpdate(string name)
-    {
-        DiscoverService discover = _apiApplication.GetResource<DiscoverService>();
-
-        LocalPackage? pkg = _loadedPackage.FirstOrDefault(v => !v.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(v.Name, name));
-        if (pkg != null)
-        {
-            string versionStr = pkg.Version;
-            var version = new NuGetVersion(versionStr);
-            Package remotePackage = await discover.GetPackage(pkg.Name).ConfigureAwait(false);
-
-            foreach (Release? item in await remotePackage.GetReleasesAsync().ConfigureAwait(false))
-            {
-                // 降順
-                if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
-                {
-                    Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(pkg.Version))
-                        .ConfigureAwait(false);
-                    return new PackageUpdate(remotePackage, oldRelease, item);
-                }
-            }
-        }
-
-        return null;
     }
 
     public async Task<IReadOnlyList<LocalPackage>> GetPackages()
     {
         async Task<Package?> GetPackage(string id)
         {
-            try
+            using (await _apiApplication.Lock.LockAsync())
             {
-                PackageResponse package = await _apiApplication.Packages.GetPackageAsync(id).ConfigureAwait(false);
-                ProfileResponse profile = await _apiApplication.Users.GetUserAsync(package.Owner.Name).ConfigureAwait(false);
+                try
+                {
+                    PackageResponse package = await _apiApplication.Packages.GetPackageAsync(id).ConfigureAwait(false);
+                    ProfileResponse profile = await _apiApplication.Users.GetUserAsync(package.Owner.Name).ConfigureAwait(false);
 
-                return new Package(
-                    profile: new Profile(profile, _apiApplication),
-                    package,
-                    _apiApplication);
-            }
-            catch
-            {
-                return null;
+                    return new Package(
+                        profile: new Profile(profile, _apiApplication),
+                        package,
+                        _apiApplication);
+                }
+                catch
+                {
+                    return null;
+                }
             }
         }
 

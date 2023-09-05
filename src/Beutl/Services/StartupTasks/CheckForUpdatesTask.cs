@@ -50,15 +50,18 @@ public sealed class CheckForUpdatesTask : StartupTask
     private async ValueTask<CheckForUpdatesResponse?> CheckForUpdates()
     {
 #pragma warning disable CS0436
-        try
+        using (await _beutlApiApplication.Lock.LockAsync())
         {
-            return await _beutlApiApplication.App.CheckForUpdatesAsync(GitVersionInformation.NuGetVersion);
-        }
-        catch (Exception ex)
-        {
-            _logger.Error(ex, "An error occurred while checking for updates");
-            ex.Handle();
-            return null;
+            try
+            {
+                return await _beutlApiApplication.App.CheckForUpdatesAsync(GitVersionInformation.NuGetVersion);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "An error occurred while checking for updates");
+                ex.Handle();
+                return null;
+            }
         }
 #pragma warning restore CS0436
     }

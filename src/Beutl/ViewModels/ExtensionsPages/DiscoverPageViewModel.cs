@@ -51,15 +51,19 @@ public sealed class DiscoverPageViewModel : BasePageViewModel
             {
                 IsBusy.Value = true;
                 var user = _clients.AuthorizedUser.Value;
-                if (user != null)
+                
+                using (await _clients.Lock.LockAsync())
                 {
-                    await user.RefreshAsync();
-                }
+                    if (user != null)
+                    {
+                        await user.RefreshAsync();
+                    }
 
-                await LoadAsync(DailyRanking, (start, count) => _discoverService.GetDailyRanking(start, count), 10);
-                await LoadAsync(WeeklyRanking, (start, count) => _discoverService.GetWeeklyRanking(start, count), 10);
-                await LoadAsync(Top10, (start, count) => _discoverService.GetOverallRanking(start, count), 10);
-                await LoadAsync(RecentlyRanking, (start, count) => _discoverService.GetRecentlyRanking(start, count), 10);
+                    await LoadAsync(DailyRanking, (start, count) => _discoverService.GetDailyRanking(start, count), 10);
+                    await LoadAsync(WeeklyRanking, (start, count) => _discoverService.GetWeeklyRanking(start, count), 10);
+                    await LoadAsync(Top10, (start, count) => _discoverService.GetOverallRanking(start, count), 10);
+                    await LoadAsync(RecentlyRanking, (start, count) => _discoverService.GetRecentlyRanking(start, count), 10);
+                }
             }
             catch (Exception ex)
             {

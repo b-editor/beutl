@@ -22,22 +22,25 @@ public sealed class PackageReleasesPageViewModel : BasePageViewModel
         {
             try
             {
-                IsBusy.Value = true;
-                await _user.RefreshAsync();
-
-                await Package.RefreshAsync();
-                Items.Clear();
-
-                int prevCount = 0;
-                int count = 0;
-
-                do
+                using (await _user.Lock.LockAsync())
                 {
-                    Release[] items = await Package.GetReleasesAsync(count, 30);
-                    Items.AddRange(items.AsSpan<Release>());
-                    prevCount = items.Length;
-                    count += items.Length;
-                } while (prevCount == 30);
+                    IsBusy.Value = true;
+                    await _user.RefreshAsync();
+
+                    await Package.RefreshAsync();
+                    Items.Clear();
+
+                    int prevCount = 0;
+                    int count = 0;
+
+                    do
+                    {
+                        Release[] items = await Package.GetReleasesAsync(count, 30);
+                        Items.AddRange(items.AsSpan<Release>());
+                        prevCount = items.Length;
+                        count += items.Length;
+                    } while (prevCount == 30);
+                }
             }
             catch (Exception ex)
             {
@@ -65,9 +68,12 @@ public sealed class PackageReleasesPageViewModel : BasePageViewModel
     {
         try
         {
-            await _user.RefreshAsync();
-            await release.DeleteAsync();
-            Items.Remove(release);
+            using(await _user.Lock.LockAsync())
+            {
+                await _user.RefreshAsync();
+                await release.DeleteAsync();
+                Items.Remove(release);
+            }
         }
         catch (Exception ex)
         {
