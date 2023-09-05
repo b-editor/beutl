@@ -943,4 +943,7 @@ and b-editor maintains the download URL.</value>
   <data name="RemoveAnimation" xml:space="preserve">
     <value>Remove animation</value>
   </data>
+  <data name="ColorPallete" xml:space="preserve">
+    <value>Color Pallete</value>
+  </data>
 </root>

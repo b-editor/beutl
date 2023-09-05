@@ -15,6 +15,8 @@ public sealed class ViewConfig : ConfigurationBase
     public static readonly CoreProperty<(int X, int Y)?> WindowPositionProperty;
     public static readonly CoreProperty<(int Width, int Height)?> WindowSizeProperty;
     public static readonly CoreProperty<bool?> IsWindowMaximizedProperty;
+    public static readonly CoreProperty<bool> UseCustomAccentColorProperty;
+    public static readonly CoreProperty<string?> CustomAccentColorProperty;
     public static readonly CoreProperty<CoreList<string>> PrimaryPropertiesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentFilesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentProjectsProperty;
@@ -48,6 +50,14 @@ public sealed class ViewConfig : ConfigurationBase
             .Register();
 
         IsWindowMaximizedProperty = ConfigureProperty<bool?, ViewConfig>(nameof(IsWindowMaximized))
+            .DefaultValue(null)
+            .Register();
+
+        UseCustomAccentColorProperty = ConfigureProperty<bool, ViewConfig>(nameof(UseCustomAccentColor))
+            .DefaultValue(false)
+            .Register();
+
+        CustomAccentColorProperty = ConfigureProperty<string?, ViewConfig>(nameof(CustomAccentColor))
             .DefaultValue(null)
             .Register();
 
@@ -107,6 +117,18 @@ public sealed class ViewConfig : ConfigurationBase
     {
         get => GetValue(IsWindowMaximizedProperty);
         set => SetValue(IsWindowMaximizedProperty, value);
+    }
+
+    public bool UseCustomAccentColor
+    {
+        get => GetValue(UseCustomAccentColorProperty);
+        set => SetValue(UseCustomAccentColorProperty,value);
+    }
+    
+    public string? CustomAccentColor
+    {
+        get => GetValue(CustomAccentColorProperty);
+        set => SetValue(CustomAccentColorProperty,value);
     }
 
     [NotAutoSerialized()]
@@ -238,7 +260,7 @@ public sealed class ViewConfig : ConfigurationBase
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args.PropertyName is "Theme" or "UICulture" or "HidePrimaryProperties")
+        if (args.PropertyName is nameof(Theme) or nameof(UICulture) or nameof(HidePrimaryProperties) or nameof(UseCustomAccentColor) or nameof(CustomAccentColor))
         {
             OnChanged();
         }

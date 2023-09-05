@@ -466,6 +466,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Color Pallete に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ColorPallete {
+            get {
+                return ResourceManager.GetString("ColorPallete", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Completed に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Completed {

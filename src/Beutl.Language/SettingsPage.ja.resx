@@ -216,4 +216,13 @@
   <data name="DecoderPriority_Description" xml:space="preserve">
     <value>デコーダーの優先順位を変更できます。上のデコーダーが優先されます。</value>
   </data>
+  <data name="AccentColor" xml:space="preserve">
+    <value>アクセントカラー</value>
+  </data>
+  <data name="CustomColor" xml:space="preserve">
+    <value>ユーザー設定の色</value>
+  </data>
+  <data name="UseCustomAccentColor" xml:space="preserve">
+    <value>アクセントカラーをカスタマイズ</value>
+  </data>
 </root>

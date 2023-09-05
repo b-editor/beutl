@@ -216,4 +216,13 @@
   <data name="DecoderPriority_Description" xml:space="preserve">
     <value>You can change the priority order of decoders. The upper decoder has priority.</value>
   </data>
+  <data name="AccentColor" xml:space="preserve">
+    <value>Accent color</value>
+  </data>
+  <data name="CustomColor" xml:space="preserve">
+    <value>Custom color</value>
+  </data>
+  <data name="UseCustomAccentColor" xml:space="preserve">
+    <value>Use custom accent color</value>
+  </data>
 </root>

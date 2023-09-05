@@ -61,6 +61,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Accent color に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AccentColor {
+            get {
+                return ResourceManager.GetString("AccentColor", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Add file extension に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Add_file_extension {
@@ -120,6 +129,15 @@ namespace Beutl.Language {
         public static string CopyVersionInfo {
             get {
                 return ResourceManager.GetString("CopyVersionInfo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Custom color に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CustomColor {
+            get {
+                return ResourceManager.GetString("CustomColor", resourceCulture);
             }
         }
         
@@ -354,6 +372,15 @@ namespace Beutl.Language {
         public static string This_file_extension_already_exists {
             get {
                 return ResourceManager.GetString("This_file_extension_already_exists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Use custom accent color に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string UseCustomAccentColor {
+            get {
+                return ResourceManager.GetString("UseCustomAccentColor", resourceCulture);
             }
         }
     }

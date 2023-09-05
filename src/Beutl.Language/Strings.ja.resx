@@ -943,4 +943,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="RemoveAnimation" xml:space="preserve">
     <value>アニメーションを削除</value>
   </data>
+  <data name="ColorPallete" xml:space="preserve">
+    <value>カラーパレット</value>
+  </data>
 </root>

@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.ReactiveUI;
 
+using Beutl.Configuration;
 using Beutl.Rendering;
 using Beutl.Services;
 
@@ -27,6 +28,10 @@ internal static class Program
         ProfileOptimization.StartProfile("beutl.jitprofile");
 
         WaitForExitOtherProcesses();
+
+        // Restore config
+        GlobalConfiguration config = GlobalConfiguration.Instance;
+        config.Restore(GlobalConfiguration.DefaultFilePath);
 
         SetupLogger();
 
