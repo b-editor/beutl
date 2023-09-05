@@ -33,7 +33,7 @@
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*">
-        <Grid x:Name="Titlebar" ColumnDefinitions="Auto,Auto,*">
+        <Grid x:Name="Titlebar" ColumnDefinitions="Auto,Auto,Auto,*">
             <Image MaxWidth="24"
                    MaxHeight="24"
                    Margin="8,0"
@@ -174,7 +174,14 @@
                 </MenuItem>
             </Menu>
 
-            <StackPanel Grid.Column="2"
+
+            <TextBlock Grid.Column="2"
+                       Margin="8,0,0,0"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       Text="{Binding NameOfOpenProject.Value}" />
+
+            <StackPanel Grid.Column="3"
                         Margin="0,0,16,0"
                         HorizontalAlignment="Right"
                         Orientation="Horizontal"
