@@ -1,4 +1,7 @@
-﻿using System.Text.Json.Nodes;
+﻿#pragma warning disable CS0436
+
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Nodes;
 
 namespace Beutl.Configuration;
 
@@ -32,6 +35,9 @@ public sealed class GlobalConfiguration
 
     public BackupConfig BackupConfig { get; } = new();
 
+    [AllowNull]
+    public string LastStartedVersion { get; private set; } = GitVersionInformation.SemVer;
+
     public void Save(string file)
     {
         try
@@ -44,7 +50,10 @@ public sealed class GlobalConfiguration
                 Directory.CreateDirectory(dir);
             }
 
-            var json = new JsonObject();
+            var json = new JsonObject()
+            {
+                ["Version"] = GitVersionInformation.SemVer
+            };
 
             var fontNode = new JsonObject();
             FontConfig.WriteToJson(fontNode);
@@ -89,15 +98,28 @@ public sealed class GlobalConfiguration
 
                 if (GetNode("font", "Font") is JsonObject font)
                     FontConfig.ReadFromJson(font);
-                
+
                 if (GetNode("view", "View") is JsonObject view)
                     ViewConfig.ReadFromJson(view);
-                
+
                 if (GetNode("extension", "Extension") is JsonObject extension)
                     ExtensionConfig.ReadFromJson(extension);
-                
+
                 if (GetNode("backup", "Backup") is JsonObject backup)
                     BackupConfig.ReadFromJson(backup);
+
+                if (json["Version"] is JsonValue version)
+                {
+                    if (version.TryGetValue(out string? versionString))
+                    {
+                        LastStartedVersion = versionString;
+                    }
+                }
+                else
+                {
+                    // Todo: 互換性維持のコード
+                    LastStartedVersion = "1.0.0-preview.1";
+                }
             }
         }
         finally
