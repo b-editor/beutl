@@ -6,7 +6,7 @@
                xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                xmlns:ui="using:FluentAvalonia.UI.Controls"
                xmlns:wnd="using:FluentAvalonia.UI.Windowing"
-               Title=""
+               Title="{Binding WindowTitle.Value}"
                Width="1400"
                Height="800"
                d:DesignHeight="720"

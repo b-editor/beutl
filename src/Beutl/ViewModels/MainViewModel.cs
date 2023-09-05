@@ -52,6 +52,10 @@ public sealed class MainViewModel : BasePageViewModel
         MenuBar = new MenuBarViewModel();
 
         IsProjectOpened = ProjectService.Current.IsOpened;
+        NameOfOpenProject = ProjectService.Current.CurrentProject.Select(v => Path.GetFileName(v?.FileName))
+            .ToReadOnlyReactivePropertySlim();
+        WindowTitle = NameOfOpenProject.Select(v => string.IsNullOrWhiteSpace(v) ? "Beutl" : $"Beutl - {v}")
+            .ToReadOnlyReactivePropertySlim("Beutl");
 
         IObservable<bool> isProjectOpenedAndTabOpened = ProjectService.Current.IsOpened
             .CombineLatest(EditorService.Current.SelectedTabItem)
@@ -74,6 +78,10 @@ public sealed class MainViewModel : BasePageViewModel
     }
 
     public bool IsDebuggerAttached { get; } = Debugger.IsAttached;
+
+    public ReadOnlyReactivePropertySlim<string?> NameOfOpenProject { get; }
+    
+    public ReadOnlyReactivePropertySlim<string> WindowTitle { get; }
 
     public MenuBarViewModel MenuBar { get; }
 
