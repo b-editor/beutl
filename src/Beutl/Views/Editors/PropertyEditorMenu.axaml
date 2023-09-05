@@ -28,6 +28,9 @@
                                    Text="{x:Static lang:Strings.Reset}" />
                 <ui:MenuFlyoutItem Click="EditAnimation_Click" Text="{x:Static lang:Strings.EditAnimation}" />
                 <ui:MenuFlyoutItem Click="EditInlineAnimation_Click" Text="{x:Static lang:Strings.EditAnimationInInlineView}" />
+                <ui:MenuFlyoutItem Click="RemoveAnimation_Click"
+                                   IsEnabled="{Binding HasAnimation.Value}"
+                                   Text="{x:Static lang:Strings.RemoveAnimation}" />
                 <ui:ToggleMenuFlyoutItem x:Name="toggleLivePreview"
                                          IsChecked="{ReflectionBinding IsLivePreviewEnabled.Value,
                                                                        Mode=TwoWay}"

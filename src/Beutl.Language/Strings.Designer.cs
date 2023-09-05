@@ -791,7 +791,7 @@ namespace Beutl.Language {
         }
         
         /// <summary>
-        ///   Edit Animation に類似しているローカライズされた文字列を検索します。
+        ///   Edit animation に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string EditAnimation {
             get {
@@ -1876,6 +1876,15 @@ namespace Beutl.Language {
         public static string Remove {
             get {
                 return ResourceManager.GetString("Remove", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Remove animation に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RemoveAnimation {
+            get {
+                return ResourceManager.GetString("RemoveAnimation", resourceCulture);
             }
         }
         

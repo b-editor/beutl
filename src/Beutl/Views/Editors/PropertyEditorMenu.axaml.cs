@@ -54,12 +54,7 @@ public sealed partial class PropertyEditorMenu : UserControl
             && viewModel.WrappedProperty is IAbstractAnimatableProperty animatableProperty
             && viewModel.GetService<EditViewModel>() is { } editViewModel)
         {
-            if (animatableProperty.Animation is not IKeyFrameAnimation
-                && animatableProperty.GetCoreProperty() is { } coreProp)
-            {
-                Type type = typeof(KeyFrameAnimation<>).MakeGenericType(animatableProperty.PropertyType);
-                animatableProperty.Animation = Activator.CreateInstance(type, coreProp) as IAnimation;
-            }
+            viewModel.PrepareToEditAnimation();
 
             // タイムラインのタブを開く
             var anmTimelineViewModel = new GraphEditorTabViewModel();
@@ -72,6 +67,17 @@ public sealed partial class PropertyEditorMenu : UserControl
         }
     }
 
+    private void RemoveAnimation_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is BaseEditorViewModel viewModel
+            && viewModel.WrappedProperty is IAbstractAnimatableProperty { Animation: { } animation }
+            && viewModel.GetService<EditViewModel>() is { } editViewModel)
+        {
+            (editViewModel as ISupportCloseAnimation).Close(animation);
+            viewModel.RemoveAnimation();
+        }
+    }
+
     private void EditInlineAnimation_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is BaseEditorViewModel viewModel
@@ -80,12 +86,7 @@ public sealed partial class PropertyEditorMenu : UserControl
             && viewModel.GetService<Element>() is { } layer
             && editViewModel.FindToolTab<TimelineViewModel>() is { } timeline)
         {
-            if (animatableProperty.Animation is not IKeyFrameAnimation
-                && animatableProperty.GetCoreProperty() is { } coreProp)
-            {
-                Type type = typeof(KeyFrameAnimation<>).MakeGenericType(animatableProperty.PropertyType);
-                animatableProperty.Animation = Activator.CreateInstance(type, coreProp) as IAnimation;
-            }
+            viewModel.PrepareToEditAnimation();
 
             if (animatableProperty.Animation is IKeyFrameAnimation)
             {

@@ -322,7 +322,7 @@
     <value>Reset</value>
   </data>
   <data name="EditAnimation" xml:space="preserve">
-    <value>Edit Animation</value>
+    <value>Edit animation</value>
   </data>
   <data name="NewFolder" xml:space="preserve">
     <value>New Folder</value>
@@ -939,5 +939,8 @@ and b-editor maintains the download URL.</value>
   </data>
   <data name="ResetZoom" xml:space="preserve">
     <value>Reset zoom</value>
+  </data>
+  <data name="RemoveAnimation" xml:space="preserve">
+    <value>Remove animation</value>
   </data>
 </root>

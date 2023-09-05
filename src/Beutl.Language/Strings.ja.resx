@@ -940,4 +940,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="ResetZoom" xml:space="preserve">
     <value>拡大率をリセット</value>
   </data>
+  <data name="RemoveAnimation" xml:space="preserve">
+    <value>アニメーションを削除</value>
+  </data>
 </root>
