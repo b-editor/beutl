@@ -7,12 +7,9 @@
                xmlns:ui="using:FluentAvalonia.UI.Controls"
                xmlns:wnd="using:FluentAvalonia.UI.Windowing"
                Title="{Binding WindowTitle.Value}"
-               Width="1400"
-               Height="800"
                d:DesignHeight="720"
                d:DesignWidth="1280"
                Icon="/Assets/logo.png"
-               WindowStartupLocation="CenterScreen"
                mc:Ignorable="d">
 
     <local:MainView x:Name="mainView" />

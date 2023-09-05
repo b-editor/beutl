@@ -35,8 +35,17 @@ public sealed class ExtensionConfig : ConfigurationBase
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json.TryGetPropertyValue("editor-extensions", out JsonNode? eeNode)
-            && eeNode is JsonObject eeObject)
+        JsonNode? GetNode(string name1, string name2)
+        {
+            if (json[name1] is JsonNode node1)
+                return node1;
+            else if (json[name2] is JsonNode node2)
+                return node2;
+            else
+                return null;
+        }
+
+        if (GetNode("editor-extensions", nameof(EditorExtensions)) is JsonObject eeObject)
         {
             EditorExtensions.Clear();
             foreach (KeyValuePair<string, JsonNode?> item in eeObject)
@@ -51,7 +60,7 @@ public sealed class ExtensionConfig : ConfigurationBase
             }
         }
 
-        if (json["decoder-priority"] is JsonArray dpArray)
+        if (GetNode("decoder-priority", nameof(DecoderPriority)) is JsonArray dpArray)
         {
             DecoderPriority.Clear();
             DecoderPriority.AddRange(dpArray
@@ -76,7 +85,7 @@ public sealed class ExtensionConfig : ConfigurationBase
 
         var dpArray = new JsonArray(DecoderPriority.Select(v => JsonValue.Create(v.FormattedTypeName)).ToArray());
 
-        json["editor-extensions"] = eeObject;
-        json["decoder-priority"] = dpArray;
+        json[nameof(EditorExtensions)] = eeObject;
+        json[nameof(DecoderPriority)] = dpArray;
     }
 }
