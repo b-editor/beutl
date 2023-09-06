@@ -21,9 +21,12 @@ public sealed class UserProfilePageViewModel : BasePageViewModel
             {
                 try
                 {
-                    IsBusy.Value = true;
-                    await Profile.RefreshAsync();
-                    await RefreshPackages();
+                    using (await Profile.Lock.LockAsync())
+                    {
+                        IsBusy.Value = true;
+                        await Profile.RefreshAsync();
+                        await RefreshPackages();
+                    }
                 }
                 catch (Exception e)
                 {
@@ -45,7 +48,10 @@ public sealed class UserProfilePageViewModel : BasePageViewModel
                 try
                 {
                     IsBusy.Value = true;
-                    await MoreLoadPackages();
+                    using (await Profile.Lock.LockAsync())
+                    {
+                        await MoreLoadPackages();
+                    }
                 }
                 catch (Exception e)
                 {

@@ -162,6 +162,11 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         _canvas.DrawSurface(surface, point.X, point.Y, _sharedFillPaint);
     }
 
+    public void DrawDrawable(Drawable drawable)
+    {
+        drawable.Render(this);
+    }
+
     public void DrawNode(IGraphicNode node)
     {
         if (GetCacheContext() is { } context)
@@ -443,6 +448,26 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     {
         VerifyAccess();
         int count = _canvas.Save();
+
+        _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
+        return new PushedState(this, _states.Count);
+    }
+
+    public PushedState PushLayer(Rect limit = default)
+    {
+        VerifyAccess();
+        int count;
+        if (limit == default)
+        {
+            count = _canvas.SaveLayer();
+        }
+        else
+        {
+            using (var paint = new SKPaint())
+            {
+                count = _canvas.SaveLayer(limit.ToSKRect(), paint);
+            }
+        }
 
         _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
         return new PushedState(this, _states.Count);

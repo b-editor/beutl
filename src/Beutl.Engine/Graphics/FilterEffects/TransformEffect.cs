@@ -61,7 +61,7 @@ public sealed class TransformEffect : FilterEffect
     {
         if (_transform is { IsEnabled: true, Value: Matrix mat })
         {
-            Vector origin = TransformOrigin.ToPixels(context.Bounds.Size);
+            Vector origin = TransformOrigin.ToPixels(context.Bounds.Size) + context.Bounds.Position;
             Matrix offset = Matrix.CreateTranslation(origin);
 
             mat = (-offset) * mat * offset;
@@ -71,7 +71,7 @@ public sealed class TransformEffect : FilterEffect
 
     public override Rect TransformBounds(Rect bounds)
     {
-        Vector origin = TransformOrigin.ToPixels(bounds.Size);
+        Vector origin = TransformOrigin.ToPixels(bounds.Size) + bounds.Position;
         Matrix offset = Matrix.CreateTranslation(origin);
 
         if (_transform is { IsEnabled: true, Value: Matrix mat })

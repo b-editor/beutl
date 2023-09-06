@@ -191,9 +191,9 @@ public sealed class PlayerViewModel : IDisposable
         }
     }
 
-    private static Pcm<Stereo32BitFloat>? FillAudioData(TimeSpan f, IRenderer renderer)
+    private static Pcm<Stereo32BitFloat>? FillAudioData(TimeSpan f, IComposer composer)
     {
-        if (renderer.RenderAudio(f).Audio is { } pcm)
+        if (composer.Compose(f) is { } pcm)
         {
             return pcm;
         }
@@ -212,8 +212,8 @@ public sealed class PlayerViewModel : IDisposable
 
     private async Task PlayWithXA2(XAudioContext audioContext, Scene scene)
     {
-        IRenderer renderer = scene.Renderer;
-        int sampleRate = renderer.SampleRate;
+        IComposer composer = scene.Composer;
+        int sampleRate = composer.SampleRate;
         TimeSpan cur = scene.CurrentFrame;
         var fmt = new WaveFormat(sampleRate, 32, 2);
         var source = new XAudioSource(audioContext);
@@ -222,13 +222,16 @@ public sealed class PlayerViewModel : IDisposable
 
         void PrepareBuffer(XAudioBuffer buffer)
         {
-            Pcm<Stereo32BitFloat>? pcm = FillAudioData(cur, renderer);
+            Pcm<Stereo32BitFloat>? pcm = FillAudioData(cur, composer);
             if (pcm != null)
             {
                 buffer.BufferData(pcm.DataSpan, fmt);
             }
             source.QueueBuffer(buffer);
         }
+
+        IDisposable revoker = IsPlaying.Where(v => !v)
+            .Subscribe(_ => source.Stop());
 
         try
         {
@@ -269,6 +272,7 @@ public sealed class PlayerViewModel : IDisposable
         }
         finally
         {
+            revoker.Dispose();
             source.Dispose();
             primaryBuffer.Dispose();
             secondaryBuffer.Dispose();
@@ -281,14 +285,14 @@ public sealed class PlayerViewModel : IDisposable
         {
             audioContext.MakeCurrent();
 
-            IRenderer renderer = scene.Renderer;
+            IComposer composer = scene.Composer;
             TimeSpan cur = scene.CurrentFrame;
             var buffers = AL.GenBuffers(2);
             var source = AL.GenSource();
 
             foreach (var buffer in buffers)
             {
-                using var pcmf = FillAudioData(cur, renderer);
+                using var pcmf = FillAudioData(cur, composer);
                 cur += s_second;
                 if (pcmf != null)
                 {
@@ -307,7 +311,7 @@ public sealed class PlayerViewModel : IDisposable
                 AL.GetSource(source, ALGetSourcei.BuffersProcessed, out var processed);
                 while (processed > 0)
                 {
-                    using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, renderer);
+                    using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, composer);
                     cur += s_second;
                     int buffer = AL.SourceUnqueueBuffer(source);
                     if (pcmf != null)
@@ -356,7 +360,7 @@ public sealed class PlayerViewModel : IDisposable
         {
             try
             {
-                if (IsPlaying.Value && renderer.RenderGraphics(timeSpan).Bitmap is { } bitmap)
+                if (IsPlaying.Value && renderer.RenderGraphics(timeSpan) is { } bitmap)
                 {
                     UpdateImage(bitmap);
                     bitmap.Dispose();
@@ -410,15 +414,11 @@ public sealed class PlayerViewModel : IDisposable
             {
                 try
                 {
-                    if (Scene is { Renderer: IRenderer renderer })
+                    if (Scene is { Renderer: IRenderer renderer }
+                        && renderer.RenderGraphics(Scene.CurrentFrame) is { } bitmap)
                     {
-                        IRenderer.RenderResult result = renderer.RenderGraphics(Scene.CurrentFrame);
-
-                        if (result.Bitmap is { } bitmap)
-                        {
-                            UpdateImage(bitmap);
-                            bitmap.Dispose();
-                        }
+                        UpdateImage(bitmap);
+                        bitmap.Dispose();
                     }
                 }
                 catch (Exception ex)

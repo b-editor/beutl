@@ -88,34 +88,48 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
         }
     }
 
-    public void Evaluate(IRenderer renderer, Element layer)
+    public PooledList<Renderable> Evaluate(EvaluationTarget target, IRenderer renderer, Element layer)
     {
         Initialize(renderer, layer.Clock);
-        if (_contexts != null)
+        var flow = new PooledList<Renderable>();
+
+        try
         {
-            using var flow = new PooledList<Renderable>();
-            foreach (OperatorEvaluationContext? item in _contexts.AsSpan().Slice(0, _contextsLength))
+            if (_contexts != null)
             {
-                item.FlowRenderables = flow;
-                item.Operator.Evaluate(item);
-            }
-
-
-            foreach (Renderable item in flow.Span)
-            {
-                item.ZIndex = layer.ZIndex;
-                item.TimeRange = new TimeRange(layer.Start, layer.Length);
-                item.ApplyStyling(layer.Clock);
-                item.ApplyAnimations(layer.Clock);
-                item.IsVisible = layer.IsEnabled;
-
-                while (item.BatchUpdate)
+                foreach (OperatorEvaluationContext? item in _contexts.AsSpan().Slice(0, _contextsLength))
                 {
-                    item.EndBatchUpdate();
+                    EvaluationTarget t = item.Operator.GetEvaluationTarget();
+                    if (t == EvaluationTarget.Unknown || t == target)
+                    {
+                        item.Target = target;
+                        item.FlowRenderables = flow;
+                        item.Operator.Evaluate(item);
+                    }
+                }
+
+
+                foreach (Renderable item in flow.Span)
+                {
+                    item.ZIndex = layer.ZIndex;
+                    item.TimeRange = new TimeRange(layer.Start, layer.Length);
+                    item.ApplyStyling(layer.Clock);
+                    item.ApplyAnimations(layer.Clock);
+                    item.IsVisible = layer.IsEnabled;
+
+                    while (item.BatchUpdate)
+                    {
+                        item.EndBatchUpdate();
+                    }
                 }
             }
 
-            renderer.RenderScene[layer.ZIndex].UpdateAll(flow);
+            return flow;
+        }
+        catch
+        {
+            flow.Dispose();
+            throw;
         }
     }
 

@@ -99,6 +99,10 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
                         _skipKeyFrameIndexSubscription = false;
                     }
+                    else
+                    {
+                        EditingKeyFrame.Value = null;
+                    }
                 })
                 .DisposeWith(Disposables);
         }
@@ -250,6 +254,14 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     {
     }
 
+    public virtual void PrepareToEditAnimation()
+    {
+    }
+
+    public virtual void RemoveAnimation()
+    {
+    }
+
     public virtual object? GetService(Type serviceType)
     {
         if (serviceType.IsAssignableTo(typeof(IAbstractProperty)))
@@ -368,6 +380,25 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         }
     }
 
+    public override void PrepareToEditAnimation()
+    {
+        if (WrappedProperty is IAbstractAnimatableProperty<T> animatableProperty
+            && animatableProperty.Animation is not KeyFrameAnimation<T>)
+        {
+            var command = new PrepareAnimationCommand(animatableProperty);
+            command.DoAndRecord(CommandRecorder.Default);
+        }
+    }
+
+    public override void RemoveAnimation()
+    {
+        if (WrappedProperty is IAbstractAnimatableProperty<T> animatableProperty)
+        {
+            var command = new RemoveAnimationCommand(animatableProperty);
+            command.DoAndRecord(CommandRecorder.Default);
+        }
+    }
+
     private sealed class SetCommand : IRecordableCommand
     {
         private readonly IAbstractProperty<T> _setter;
@@ -450,6 +481,64 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         public void Undo()
         {
             _keyFrames.Remove(_keyFrame);
+        }
+    }
+
+    private sealed class PrepareAnimationCommand : IRecordableCommand
+    {
+        private readonly IAbstractAnimatableProperty<T> _property;
+        private readonly IAnimation<T>? _oldAnimation;
+
+        public PrepareAnimationCommand(IAbstractAnimatableProperty<T> property)
+        {
+            _property = property;
+            _oldAnimation = _property.Animation;
+        }
+
+        public void Do()
+        {
+            if (_property.GetCoreProperty() is CoreProperty<T> coreProp
+                && _property.Animation is not KeyFrameAnimation<T>)
+            {
+                _property.Animation = new KeyFrameAnimation<T>(coreProp);
+            }
+        }
+
+        public void Redo()
+        {
+            Do();
+        }
+
+        public void Undo()
+        {
+            _property.Animation = _oldAnimation;
+        }
+    }
+
+    private sealed class RemoveAnimationCommand : IRecordableCommand
+    {
+        private readonly IAbstractAnimatableProperty<T> _property;
+        private readonly IAnimation<T>? _oldAnimation;
+
+        public RemoveAnimationCommand(IAbstractAnimatableProperty<T> property)
+        {
+            _property = property;
+            _oldAnimation = _property.Animation;
+        }
+
+        public void Do()
+        {
+            _property.Animation = null;
+        }
+
+        public void Redo()
+        {
+            Do();
+        }
+
+        public void Undo()
+        {
+            _property.Animation = _oldAnimation;
         }
     }
 }

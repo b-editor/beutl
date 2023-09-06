@@ -15,8 +15,17 @@ public sealed class FontConfig : ConfigurationBase
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json.TryGetPropertyValue("directories", out JsonNode? dirsNode)
-            && dirsNode is JsonArray dirsArray)
+        JsonNode? GetNode(string name1, string name2)
+        {
+            if (json[name1] is JsonNode node1)
+                return node1;
+            else if (json[name2] is JsonNode node2)
+                return node2;
+            else
+                return null;
+        }
+
+        if (GetNode("directories", nameof(FontDirectories)) is JsonArray dirsArray)
         {
             string[] array = dirsArray.Select(i => (string?)i).Where(i => i != null).ToArray()!;
             string[] fontDirs = FontDirectories.ToArray();
@@ -36,7 +45,7 @@ public sealed class FontConfig : ConfigurationBase
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
-        json["directories"] = new JsonArray(FontDirectories.Select(i => JsonValue.Create(i)).ToArray());
+        json[nameof(FontDirectories)] = new JsonArray(FontDirectories.Select(i => JsonValue.Create(i)).ToArray());
     }
 
     private static ObservableCollection<string> CreateDefaultFontDirectories()

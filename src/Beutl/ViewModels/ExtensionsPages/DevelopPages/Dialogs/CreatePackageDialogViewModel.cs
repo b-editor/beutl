@@ -83,38 +83,41 @@ public sealed class CreatePackageDialogViewModel
                 return null;
             }
 
-            await _user.RefreshAsync();
-
-            CreatePackageRequest? request;
-            if (_localPackage != null)
+            using(await _user.Lock.LockAsync())
             {
-                request = new CreatePackageRequest(
-                    description: _localPackage.Description,
-                    display_name: _localPackage.DisplayName,
-                    short_description: _localPackage.ShortDescription,
-                    tags: _localPackage.Tags,
-                    website: _localPackage.WebSite);
-            }
-            else
-            {
-                request = new CreatePackageRequest("", "", "", Array.Empty<string>(), "");
-            }
+                await _user.RefreshAsync();
 
-            Result = await _user.Profile.AddPackageAsync(Name.Value, request);
-
-            if (_localPackage != null)
-            {
-                try
+                CreatePackageRequest? request;
+                if (_localPackage != null)
                 {
-                    await Result.AddReleaseAsync(
-                        _localPackage.Version, new CreateReleaseRequest("", _localPackage.Version));
+                    request = new CreatePackageRequest(
+                        description: _localPackage.Description,
+                        display_name: _localPackage.DisplayName,
+                        short_description: _localPackage.ShortDescription,
+                        tags: _localPackage.Tags,
+                        website: _localPackage.WebSite);
                 }
-                catch
+                else
                 {
+                    request = new CreatePackageRequest("", "", "", Array.Empty<string>(), "");
                 }
-            }
 
-            return Result;
+                Result = await _user.Profile.AddPackageAsync(Name.Value, request);
+
+                if (_localPackage != null)
+                {
+                    try
+                    {
+                        await Result.AddReleaseAsync(
+                            _localPackage.Version, new CreateReleaseRequest("", _localPackage.Version));
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                return Result;
+            }
         }
         catch (BeutlApiException<ApiErrorResponse> e)
         {

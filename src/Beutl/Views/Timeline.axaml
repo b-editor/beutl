@@ -109,8 +109,8 @@
                                 <icons:SymbolIconSource Symbol="Settings" />
                             </ui:MenuFlyoutItem.IconSource>
                         </ui:MenuFlyoutItem>
-                        <ui:ToggleMenuFlyoutItem IsChecked="{Binding IsCacheEnabled.Value, Mode=TwoWay}" Text="描画キャッシュを有効化" />
-                        <ui:MenuFlyoutSubItem Text="拡大率">
+                        <ui:ToggleMenuFlyoutItem IsChecked="{Binding IsCacheEnabled.Value, Mode=TwoWay}" Text="{x:Static lang:Strings.EnableRenderingCache}" />
+                        <ui:MenuFlyoutSubItem Text="{x:Static lang:Strings.TimelineZoom}">
                             <ui:MenuFlyoutSubItem.IconSource>
                                 <icons:SymbolIconSource Symbol="ZoomIn" />
                             </ui:MenuFlyoutSubItem.IconSource>

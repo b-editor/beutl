@@ -11,6 +11,8 @@ public abstract class SourceStyler : StylingOperator, ISourceTransformer
 {
     private readonly ConditionalWeakTable<Renderable, IStyleInstance> _table = new();
 
+    internal ConditionalWeakTable<Renderable, IStyleInstance> Table => _table;
+
     public virtual void Transform(IList<Renderable> value, IClock clock)
     {
         if (IsEnabled)

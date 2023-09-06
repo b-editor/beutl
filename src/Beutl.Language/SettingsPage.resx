@@ -192,4 +192,37 @@
   <data name="DeviceInfomation" xml:space="preserve">
     <value>Device Infomation</value>
   </data>
+  <data name="ChangePrimaryPropertiesToBeHidden" xml:space="preserve">
+    <value>Change the primary properties to be hidden</value>
+  </data>
+  <data name="EditorSettings" xml:space="preserve">
+    <value>Editor settings</value>
+  </data>
+  <data name="HidePrimaryProperties" xml:space="preserve">
+    <value>Hide primary properties</value>
+  </data>
+  <data name="HidePrimaryProperties_Description" xml:space="preserve">
+    <value>Primary properties can be set by adding 'Source Operation'. Applies after the end of the program.</value>
+  </data>
+  <data name="PrimaryProperties" xml:space="preserve">
+    <value>Primary properties</value>
+  </data>
+  <data name="AddPropertyToHide" xml:space="preserve">
+    <value>Add property to hide</value>
+  </data>
+  <data name="DecoderPriority" xml:space="preserve">
+    <value>Decoder Priority</value>
+  </data>
+  <data name="DecoderPriority_Description" xml:space="preserve">
+    <value>You can change the priority order of decoders. The upper decoder has priority.</value>
+  </data>
+  <data name="AccentColor" xml:space="preserve">
+    <value>Accent color</value>
+  </data>
+  <data name="CustomColor" xml:space="preserve">
+    <value>Custom color</value>
+  </data>
+  <data name="UseCustomAccentColor" xml:space="preserve">
+    <value>Use custom accent color</value>
+  </data>
 </root>

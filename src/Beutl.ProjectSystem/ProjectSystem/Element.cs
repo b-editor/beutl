@@ -4,6 +4,7 @@ using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 
 using Beutl.Animation;
+using Beutl.Collections.Pooled;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeTree;
@@ -180,20 +181,23 @@ public class Element : ProjectItem
         json[nameof(NodeTree)] = nodeTreeJson;
     }
 
-    public void Evaluate(IRenderer renderer)
+    public PooledList<Renderable> Evaluate(EvaluationTarget target, IClock clock, IRenderer renderer)
     {
-        _instanceClock.GlobalClock = renderer.Clock;
-        _instanceClock.BeginTime = Start;
-        _instanceClock.DurationTime = Length;
-        _instanceClock.CurrentTime = renderer.Clock.CurrentTime - Start;
-        _instanceClock.AudioStartTime = renderer.Clock.AudioStartTime - Start;
-        if (UseNode)
+        lock (this)
         {
-            NodeTree.Evaluate(renderer, this);
-        }
-        else
-        {
-            Operation.Evaluate(renderer, this);
+            _instanceClock.GlobalClock = clock;
+            _instanceClock.BeginTime = Start;
+            _instanceClock.DurationTime = Length;
+            _instanceClock.CurrentTime = clock.CurrentTime - Start;
+            _instanceClock.AudioStartTime = clock.AudioStartTime - Start;
+            if (UseNode)
+            {
+                return NodeTree.Evaluate(target, renderer, this);
+            }
+            else
+            {
+                return Operation.Evaluate(target, renderer, this);
+            }
         }
     }
 

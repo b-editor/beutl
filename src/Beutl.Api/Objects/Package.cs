@@ -1,5 +1,7 @@
 ﻿using System.Reactive.Linq;
 
+using Nito.AsyncEx;
+
 using Reactive.Bindings;
 
 namespace Beutl.Api.Objects;
@@ -56,6 +58,8 @@ public class Package
     public IReadOnlyReactiveProperty<bool> IsPublic { get; }
 
     public IReadOnlyReactiveProperty<bool> IsDeleted => _isDeleted;
+
+    public MyAsyncLock Lock => _clients.Lock;
 
     public async Task RefreshAsync()
     {

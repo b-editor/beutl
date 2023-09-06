@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Reflection;
 
+using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.Services;
 
 using FFmpeg.AutoGen;
@@ -33,7 +34,6 @@ public static class FFmpegLoader
 
         try
         {
-            DynamicallyLoadedBindings.ThrowErrorIfFunctionNotFound = true;
             ffmpeg.RootPath = GetRootPath();
 
             foreach (KeyValuePair<string, int> item in ffmpeg.LibraryVersionMap)
@@ -55,10 +55,10 @@ public static class FFmpegLoader
         catch
         {
             NotificationService.ShowError(
-                "FFmpeg error",
-                "FFmpegがインストールされているかを確認してください。",
+                Strings.FFmpegError,
+                Strings.Make_sure_you_have_FFmpeg_installed,
                 onActionButtonClick: OpenDocumentUrl,
-                actionButtonText: "ドキュメントを開く");
+                actionButtonText: Beutl.Language.Strings.OpenDocument);
 
             throw;
         }

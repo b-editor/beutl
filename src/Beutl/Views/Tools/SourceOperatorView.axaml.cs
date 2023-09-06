@@ -104,7 +104,7 @@ public sealed partial class SourceOperatorView : UserControl
             }
             else
             {
-                headerText.Text = "不明";
+                headerText.Text = Strings.Unknown;
 
                 if (panel.Children.Count == 1)
                 {

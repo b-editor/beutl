@@ -18,7 +18,7 @@
                 Spacing="8"
                 TextBlock.TextWrapping="WrapWithOverflow">
 
-        <TextBlock Text="型が見つからないため、復元できませんでした。" />
+        <TextBlock Text="{x:Static lang:Message.Could_not_restore_because_type_could_not_be_found}" />
         <SelectableTextBlock Text="{Binding ActualTypeName}" />
 
         <WrapPanel Margin="-6">
@@ -26,11 +26,11 @@
                 <ui:CommandBar.PrimaryCommands>
                     <ui:CommandBarToggleButton x:Name="editJsonToggle"
                                                IconSource="Edit"
-                                               Label="Jsonを編集" />
+                                               Label="{x:Static lang:Strings.EditJson}" />
 
                     <ui:CommandBarButton x:Name="jsonSaveButton"
                                          IconSource="Save"
-                                         Label="保存" />
+                                         Label="{x:Static lang:Strings.Save}" />
                 </ui:CommandBar.PrimaryCommands>
             </ui:CommandBar>
         </WrapPanel>

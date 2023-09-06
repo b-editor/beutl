@@ -322,7 +322,7 @@
     <value>Reset</value>
   </data>
   <data name="EditAnimation" xml:space="preserve">
-    <value>Edit Animation</value>
+    <value>Edit animation</value>
   </data>
   <data name="NewFolder" xml:space="preserve">
     <value>New Folder</value>
@@ -894,5 +894,56 @@ and b-editor maintains the download URL.</value>
   </data>
   <data name="UseNode" xml:space="preserve">
     <value>UseNode</value>
+  </data>
+  <data name="Unsupported" xml:space="preserve">
+    <value>Unsupported</value>
+  </data>
+  <data name="EnableRenderingCache" xml:space="preserve">
+    <value>Enable rendering cache</value>
+  </data>
+  <data name="TimelineZoom" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
+  <data name="UseGlobalClock" xml:space="preserve">
+    <value>Use the Global Clock</value>
+  </data>
+  <data name="EditJson" xml:space="preserve">
+    <value>Edit Json</value>
+  </data>
+  <data name="AddNode" xml:space="preserve">
+    <value>Add node</value>
+  </data>
+  <data name="Brush_ConicalGradient" xml:space="preserve">
+    <value>Conical gradient</value>
+  </data>
+  <data name="Brush_LinearGradient" xml:space="preserve">
+    <value>Linear gradient</value>
+  </data>
+  <data name="Brush_RadialGradient" xml:space="preserve">
+    <value>Radial gradient</value>
+  </data>
+  <data name="Brush_Solid" xml:space="preserve">
+    <value>Solid</value>
+  </data>
+  <data name="Change" xml:space="preserve">
+    <value>Change</value>
+  </data>
+  <data name="Disconnect" xml:space="preserve">
+    <value>Disconnect</value>
+  </data>
+  <data name="Initialize" xml:space="preserve">
+    <value>Initialize</value>
+  </data>
+  <data name="OpenDocument" xml:space="preserve">
+    <value>Open Document</value>
+  </data>
+  <data name="ResetZoom" xml:space="preserve">
+    <value>Reset zoom</value>
+  </data>
+  <data name="RemoveAnimation" xml:space="preserve">
+    <value>Remove animation</value>
+  </data>
+  <data name="ColorPallete" xml:space="preserve">
+    <value>Color Pallete</value>
   </data>
 </root>

@@ -31,8 +31,8 @@
                         Theme="{StaticResource TransparentButton}">
                     <Button.ContextFlyout>
                         <ui:FAMenuFlyout>
-                            <ui:MenuFlyoutItem Click="InitializeClick" Text="初期化" />
-                            <ui:MenuFlyoutItem Click="DeleteClick" Text="削除" />
+                            <ui:MenuFlyoutItem Click="InitializeClick" Text="{x:Static lang:Strings.Initialize}" />
+                            <ui:MenuFlyoutItem Click="DeleteClick" Text="{x:Static lang:Strings.Remove}" />
                         </ui:FAMenuFlyout>
                     </Button.ContextFlyout>
                     <icons:SymbolIcon Symbol="Compose" />
@@ -43,12 +43,7 @@
         <StackPanel x:Name="content"
                     Grid.Row="1"
                     Margin="16,0,0,0">
-            <WrapPanel IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Orientation="Horizontal">
-                <TextBlock Text="ペンがNullです。" />
-                <icons:SymbolIcon Symbol="Compose" />
-                <TextBlock Text=" > 初期化" />
-                <TextBlock Text="でペンを設定できます" />
-            </WrapPanel>
+            <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:Message.Property_is_unset}" />
 
             <ItemsControl ItemsSource="{Binding MajorProperties}">
                 <ItemsControl.ItemTemplate>

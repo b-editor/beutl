@@ -15,6 +15,21 @@
     <PackageReference Include="FFmpeg.AutoGen" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Update="Properties\Strings.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Strings.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Strings.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+
   <Choose>
     <When Condition="'$(FFmpegBuildIn)'=='True'">
 
@@ -25,7 +40,7 @@
       </PropertyGroup>
       
       <ItemGroup>
-        <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj"  />
+        <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj" />
       </ItemGroup>
 
     </When>

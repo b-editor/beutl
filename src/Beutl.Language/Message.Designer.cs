@@ -61,6 +61,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   A new version is available. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string A_new_version_is_available {
+            get {
+                return ResourceManager.GetString("A_new_version_is_available", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   An exception occurred during audio playback. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string An_exception_occurred_during_audio_playback {
@@ -155,6 +164,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Changes to the package are in progress. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Changes_to_the_package_are_in_progress {
+            get {
+                return ResourceManager.GetString("Changes_to_the_package_are_in_progress", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Context not created. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string ContextNotCreated {
@@ -169,6 +187,15 @@ namespace Beutl.Language {
         public static string Could_not_load_scene {
             get {
                 return ResourceManager.GetString("Could_not_load_scene", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Could not restore because the type could not be found. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Could_not_restore_because_type_could_not_be_found {
+            get {
+                return ResourceManager.GetString("Could_not_restore_because_type_could_not_be_found", resourceCulture);
             }
         }
         
@@ -206,6 +233,15 @@ namespace Beutl.Language {
         public static string CountItems {
             get {
                 return ResourceManager.GetString("CountItems", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Double-click to hide group に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Double_click_to_hide_group {
+            get {
+                return ResourceManager.GetString("Double_click_to_hide_group", resourceCulture);
             }
         }
         
@@ -372,6 +408,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Must upgrade for continued use に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Must_upgrade_for_continued_use {
+            get {
+                return ResourceManager.GetString("Must_upgrade_for_continued_use", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Name cannot be left blank. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string NameCannotBeLeftBlank {
@@ -381,11 +426,29 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   No supported extensions were found に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string No_supported_extensions_were_found {
+            get {
+                return ResourceManager.GetString("No_supported_extensions_were_found", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Null was specified for the editor context. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string NullWasSpecifiedForEditorContext {
             get {
                 return ResourceManager.GetString("NullWasSpecifiedForEditorContext", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Opening Beutl に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string OpeningBeutl {
+            get {
+                return ResourceManager.GetString("OpeningBeutl", resourceCulture);
             }
         }
         
@@ -408,11 +471,47 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Property is unset. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Property_is_unset {
+            get {
+                return ResourceManager.GetString("Property_is_unset", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Remember this choice に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string RememberThisChoice {
             get {
                 return ResourceManager.GetString("RememberThisChoice", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Right-click to show menu に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RightClickToShowMenu {
+            get {
+                return ResourceManager.GetString("RightClickToShowMenu", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   This version has been discontinued for compatibility reasons. Please upgrade to a newer version. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string This_version_has_been_discontinued_for_compatibility_reasonsversion {
+            get {
+                return ResourceManager.GetString("This_version_has_been_discontinued_for_compatibility_reasonsversion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   To open Beutl, close Beutl.PackageTools. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string To_open_Beutl_close_Beutl_PackageTools {
+            get {
+                return ResourceManager.GetString("To_open_Beutl_close_Beutl_PackageTools", resourceCulture);
             }
         }
         

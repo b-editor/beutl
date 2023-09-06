@@ -6,6 +6,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Beutl.Api.Objects;
 
+using Nito.AsyncEx;
+
 namespace Beutl.Api.Services;
 
 public class DiscoverService : IBeutlApiResource
@@ -16,6 +18,8 @@ public class DiscoverService : IBeutlApiResource
     {
         _clients = clients;
     }
+
+    public MyAsyncLock Lock => _clients.Lock;
 
     public async Task<Package> GetPackage(string name)
     {

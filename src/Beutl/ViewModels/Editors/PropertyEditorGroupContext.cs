@@ -8,10 +8,11 @@ public sealed class PropertyEditorGroupContext : IPropertyEditorContext
 {
     private IPropertyEditorContext?[] _properties;
 
-    public PropertyEditorGroupContext(IPropertyEditorContext?[] children, string groupName)
+    public PropertyEditorGroupContext(IPropertyEditorContext?[] children, string groupName, bool isFirst)
     {
         _properties = children;
         GroupName = groupName;
+        IsFirst = isFirst;
     }
 
     public IReadOnlyList<IPropertyEditorContext?> Properties => _properties;
@@ -19,6 +20,8 @@ public sealed class PropertyEditorGroupContext : IPropertyEditorContext
     public PropertyEditorExtension Extension => PropertyEditorExtension.Instance;
 
     public string GroupName { get; }
+
+    public bool IsFirst { get; }
 
     public void Accept(IPropertyEditorContextVisitor visitor)
     {

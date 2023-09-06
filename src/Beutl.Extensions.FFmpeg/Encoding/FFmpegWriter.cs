@@ -244,33 +244,36 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         int sampleRate = AudioConfig.SampleRate;
         int channels = AudioConfig.Channels;
         int bitrate = AudioConfig.Bitrate;
-        Process process = Process.Start(new ProcessStartInfo(
+        using (Process process1 = Process.Start(new ProcessStartInfo(
             ffmpegPath,
             $"-nostdin -f f32le -ar {_inputSampleRate} -ac 2 -i \"{_pcmfile}\" " +
             $"-sample_fmt {sampleFormat} -ar {sampleRate} -ac {channels} -ab {bitrate} -f {_formatName} -c {codec} -y \"{audiofile}\"")
         {
             CreateNoWindow = true,
             RedirectStandardError = true
-        })!;
-
-        process.WaitForExit();
-        CheckProcessError(process);
+        })!)
+        {
+            process1.WaitForExit();
+            CheckProcessError(process1);
+        }
 
         string tmpvideo = Path.ChangeExtension(Path.GetTempFileName(), Path.GetExtension(_outputFile));
 
         File.Copy(_outputFile, tmpvideo);
         File.Delete(_outputFile);
 
-        process = Process.Start(new ProcessStartInfo(
+        using (Process process2 = Process.Start(new ProcessStartInfo(
             ffmpegPath,
             $"-nostdin -i \"{tmpvideo}\" -i \"{audiofile}\" -c:v copy -c:a copy -map 0:v:0 -map 1:a:0 \"{_outputFile}\"")
         {
             CreateNoWindow = true,
-            RedirectStandardError = true
-        })!;
-
-        process.WaitForExit();
-        CheckProcessError(process);
+            //Todo: 何故かWaitForExitで終了しなくなる
+            //RedirectStandardError = true
+        })!)
+        {
+            process2.WaitForExit();
+            CheckProcessError(process2);
+        }
 
         File.Delete(audiofile);
         File.Delete(tmpvideo);
@@ -327,7 +330,7 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             throw new Exception("avcodec_find_encoder failed");
 
         if (_videoCodec->type != AVMediaType.AVMEDIA_TYPE_VIDEO)
-            throw new Exception($"{codecId}は動画用ではありません。");
+            throw new Exception($"'{codecId}' is not for video.");
 
         _videoStream = ffmpeg.avformat_new_stream(_formatContext, _videoCodec);
         if (_videoStream == null)
@@ -367,6 +370,7 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         _videoCodecContext->time_base = _videoStream->time_base;
         _videoCodecContext->framerate = _videoStream->r_frame_rate;
         _videoCodecContext->gop_size = VideoConfig.KeyframeRate;
+        _videoCodecContext->thread_count = Math.Min(Environment.ProcessorCount, 16);
 
         AVDictionary* dictionary = null;
         string preset = TryGetString(codecOptions, "Preset", out string? presetStr) ? presetStr : "medium";

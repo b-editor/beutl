@@ -13,7 +13,7 @@ public sealed class RenderLayer : IDisposable
 {
     private class Entry : IDisposable
     {
-        public Entry(INode node)
+        public Entry(DrawableNode node)
         {
             Node = node;
             IsDirty = true;
@@ -24,7 +24,7 @@ public sealed class RenderLayer : IDisposable
             Dispose();
         }
 
-        public INode Node { get; }
+        public DrawableNode Node { get; }
 
         public bool IsDirty { get; set; }
 
@@ -42,79 +42,77 @@ public sealed class RenderLayer : IDisposable
     }
 
     // このテーブルは本描画するときに、自分のレイヤー以外のものを削除する。
-    private readonly ConditionalWeakTable<Renderable, Entry> _cache = new();
-
-    private readonly List<Entry> _currentFrame = new(1);
+    private readonly ConditionalWeakTable<Drawable, Entry> _cache = new();
     private readonly RenderScene _renderScene;
+    private List<Entry>? _currentFrame;
 
     public RenderLayer(RenderScene renderScene)
     {
         _renderScene = renderScene;
     }
 
+    private List<Entry> CurrentFrame => _currentFrame ??= new(1);
+
     public void Clear()
     {
-        _currentFrame.Clear();
+        _currentFrame?.Clear();
     }
 
-    public void UpdateAll(IReadOnlyList<Renderable> elements)
+    public void Add(Drawable drawable)
     {
-        _currentFrame.Clear();
-        _currentFrame.EnsureCapacity(elements.Count);
-
-        foreach (Renderable element in elements)
+        if (!_cache.TryGetValue(drawable, out Entry? entry))
         {
-            if (!_cache.TryGetValue(element, out Entry? entry))
+            entry = new Entry(new DrawableNode(drawable));
+            _cache.Add(drawable, entry);
+
+            var weakRef = new WeakReference<Entry>(entry);
+            EventHandler<RenderInvalidatedEventArgs>? handler = null;
+            handler = (_, _) =>
             {
-                if (element is Drawable drawable)
+                if (weakRef.TryGetTarget(out Entry? obj))
                 {
-                    entry = new Entry(new DrawableNode(drawable));
-                    _cache.Add(element, entry);
-
-                    var weakRef = new WeakReference<Entry>(entry);
-                    EventHandler<RenderInvalidatedEventArgs>? handler = null;
-                    handler = (_, _) =>
-                    {
-                        if (weakRef.TryGetTarget(out Entry? obj))
-                        {
-                            obj.IsDirty = true;
-                        }
-                        else
-                        {
-                            element.Invalidated -= handler;
-                        }
-                    };
-                    element.Invalidated += handler;
+                    obj.IsDirty = true;
                 }
-                else if (element is Sound sound)
+                else
                 {
-                    entry = new Entry(new SoundNode(sound));
-                    _cache.Add(element, entry);
+                    drawable.Invalidated -= handler;
                 }
-            }
+            };
+            drawable.Invalidated += handler;
+        }
 
-            if (entry != null)
-            {
-                if (entry.IsDirty
-                    && entry.Node is DrawableNode { Drawable: var drawable } drawableNode)
-                {
-                    // DeferredCanvasを作成し、記録
-                    var canvas = new DeferradCanvas(drawableNode, _renderScene.Size);
-                    drawable.Render(canvas);
-                    entry.IsDirty = false;
-                }
+        if (entry.IsDirty)
+        {
+            // DeferredCanvasを作成し、記録
+            using var canvas = new DeferradCanvas(entry.Node, _renderScene.Size);
+            drawable.Render(canvas);
+            entry.IsDirty = false;
+        }
 
-                _currentFrame.Add(entry);
-            }
+        CurrentFrame.Add(entry);
+    }
+
+    public void UpdateAll(IReadOnlyList<Drawable> elements)
+    {
+        _currentFrame?.Clear();
+        if (elements.Count == 0)
+        {
+            return;
+        }
+
+        CurrentFrame.EnsureCapacity(elements.Count);
+
+        foreach (Drawable element in elements)
+        {
+            Add(element);
         }
     }
 
     public void ClearAllNodeCache(RenderCacheContext? context)
     {
-        foreach (KeyValuePair<Renderable, Entry> item in _cache)
+        foreach (KeyValuePair<Drawable, Entry> item in _cache)
         {
-            if (item.Value.Node is IGraphicNode graphicNode)
-                context?.ClearCache(graphicNode);
+            context?.ClearCache(item.Value.Node);
 
             item.Value.Dispose();
         }
@@ -126,42 +124,29 @@ public sealed class RenderLayer : IDisposable
     {
         foreach (Entry? entry in CollectionsMarshal.AsSpan(_currentFrame))
         {
-            if (entry.Node is DrawableNode dnode)
+            DrawableNode node = entry.Node;
+            Drawable drawable = node.Drawable;
+            if (entry.IsDirty)
             {
-                Drawable element = dnode.Drawable;
-                if (entry.IsDirty)
-                {
-                    var dcanvas = new DeferradCanvas(dnode, _renderScene.Size);
-                    element.Render(dcanvas);
-                    entry.IsDirty = false;
-                }
-
-                canvas.DrawNode(dnode);
-
-                canvas.GetCacheContext()?.MakeCache(dnode, canvas);
+                var dcanvas = new DeferradCanvas(node, _renderScene.Size);
+                drawable.Render(dcanvas);
+                entry.IsDirty = false;
             }
-        }
-    }
 
-    public void Render(Audio.Audio audio)
-    {
-        foreach (Entry? entry in CollectionsMarshal.AsSpan(_currentFrame))
-        {
-            if (entry.Node is SoundNode snode)
-            {
-                snode.Sound.Render(audio);
-            }
+            canvas.DrawNode(node);
+
+            canvas.GetCacheContext()?.MakeCache(node, canvas);
         }
     }
 
     public void Dispose()
     {
-        foreach (KeyValuePair<Renderable, Entry> item in _cache)
+        foreach (KeyValuePair<Drawable, Entry> item in _cache)
         {
             item.Value.Dispose();
         }
 
         _cache.Clear();
-        _currentFrame.Clear();
+        _currentFrame?.Clear();
     }
 }

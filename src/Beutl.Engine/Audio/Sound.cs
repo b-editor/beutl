@@ -13,7 +13,7 @@ public abstract class Sound : Renderable
 {
     public static readonly CoreProperty<float> GainProperty;
     public static readonly CoreProperty<ISoundEffect?> EffectProperty;
-    private float _gain = 1;
+    private float _gain = 100;
     private TimeRange _range;
     private TimeSpan _offset;
     private ISoundEffect? _effect;
@@ -24,7 +24,7 @@ public abstract class Sound : Renderable
     {
         GainProperty = ConfigureProperty<float, Sound>(nameof(Gain))
             .Accessor(o => o.Gain, (o, v) => o.Gain = v)
-            .DefaultValue(1)
+            .DefaultValue(100)
             .Register();
 
         EffectProperty = ConfigureProperty<ISoundEffect?, Sound>(nameof(Effect))
@@ -71,7 +71,7 @@ public abstract class Sound : Renderable
     public Pcm<Stereo32BitFloat> ToPcm(int sampleRate)
     {
         using (var audio = new Audio(sampleRate))
-        using (audio.PushGain(_gain))
+        using (audio.PushGain(_gain / 100f))
         using (audio.PushOffset(_offset))
         {
             OnRecord(audio, _range);
@@ -99,7 +99,7 @@ public abstract class Sound : Renderable
         }
         else
         {
-            using (audio.PushGain(_gain))
+            using (audio.PushGain(_gain / 100f))
             using (audio.PushOffset(_offset))
             {
                 OnRecord(audio, _range);
@@ -130,7 +130,7 @@ public abstract class Sound : Renderable
         else
         {
             _offset = TimeSpan.Zero;
-            length = clock.BeginTime + clock.DurationTime - start;
+            length = clock.DurationTime - start;
             if (length > s_second)
             {
                 length = s_second;

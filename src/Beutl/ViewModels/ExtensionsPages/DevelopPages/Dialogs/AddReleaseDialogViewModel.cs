@@ -51,10 +51,13 @@ public sealed class AddReleaseDialogViewModel
                 return null;
             }
 
-            await _user.RefreshAsync();
+            using (await _user.Lock.LockAsync())
+            {
+                await _user.RefreshAsync();
 
-            var request = new CreateReleaseRequest(Body.Value, Title.Value);
-            return Result = await _package.AddReleaseAsync(Version.Value, request);
+                var request = new CreateReleaseRequest(Body.Value, Title.Value);
+                return Result = await _package.AddReleaseAsync(Version.Value, request);
+            }
         }
         catch (BeutlApiException<ApiErrorResponse> e)
         {

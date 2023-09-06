@@ -1,4 +1,4 @@
-﻿using System.IO.Compression;
+﻿using System.Collections.Concurrent;
 using System.Reactive.Subjects;
 using System.Reflection;
 
@@ -14,7 +14,7 @@ namespace Beutl.Api.Services;
 
 public sealed class PackageManager : PackageLoader
 {
-    internal readonly List<LocalPackage> _loadedPackage = new();
+    private readonly ConcurrentBag<LocalPackage> _loadedPackage = new();
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly BeutlApiApplication _apiApplication;
     private readonly Subject<(PackageIdentity Package, bool Loaded)> _subject = new();
@@ -28,7 +28,7 @@ public sealed class PackageManager : PackageLoader
         _apiApplication = apiApplication;
     }
 
-    public IReadOnlyList<LocalPackage> LoadedPackage => _loadedPackage;
+    public IEnumerable<LocalPackage> LoadedPackage => _loadedPackage;
 
     public ExtensionProvider ExtensionProvider { get; }
 
@@ -74,52 +74,55 @@ public sealed class PackageManager : PackageLoader
 
     public async Task<IReadOnlyList<PackageUpdate>> CheckUpdate()
     {
-        PackageIdentity[] packages = _installedPackageRepository.GetLocalPackages().ToArray();
-
-        var updates = new List<PackageUpdate>(packages.Length);
-        DiscoverService discover = _apiApplication.GetResource<DiscoverService>();
-
-        for (int i = 0; i < packages.Length; i++)
+        using (await _apiApplication.Lock.LockAsync())
         {
-            PackageIdentity pkg = packages[i];
-            NuGetVersion version = pkg.Version;
-            string versionStr = version.ToString();
-            try
-            {
-                Package remotePackage = await discover.GetPackage(pkg.Id).ConfigureAwait(false);
+            PackageIdentity[] packages = _installedPackageRepository.GetLocalPackages().ToArray();
 
-                foreach (Release? item in await remotePackage.GetReleasesAsync().ConfigureAwait(false))
+            var updates = new List<PackageUpdate>(packages.Length);
+            DiscoverService discover = _apiApplication.GetResource<DiscoverService>();
+
+            for (int i = 0; i < packages.Length; i++)
+            {
+                PackageIdentity pkg = packages[i];
+                NuGetVersion version = pkg.Version;
+                string versionStr = version.ToString();
+                try
                 {
-                    // 降順
-                    if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
+                    Package remotePackage = await discover.GetPackage(pkg.Id).ConfigureAwait(false);
+
+                    foreach (Release? item in await remotePackage.GetReleasesAsync().ConfigureAwait(false))
                     {
-                        Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(versionStr))
-                            .ConfigureAwait(false);
-                        updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
-                        break;
+                        // 降順
+                        if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
+                        {
+                            Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(versionStr))
+                                .ConfigureAwait(false);
+                            updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
+                            break;
+                        }
                     }
                 }
-            }
-            catch
-            {
+                catch
+                {
 
+                }
             }
+
+            return updates;
         }
-
-        return updates;
     }
 
     public async Task<PackageUpdate?> CheckUpdate(string name)
     {
-        DiscoverService discover = _apiApplication.GetResource<DiscoverService>();
-
-        for (int i = 0; i < _loadedPackage.Count; i++)
+        using (await _apiApplication.Lock.LockAsync())
         {
-            LocalPackage pkg = _loadedPackage[i];
-            string versionStr = pkg.Version;
-            var version = new NuGetVersion(versionStr);
-            if (!pkg.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(pkg.Name == name))
+            DiscoverService discover = _apiApplication.GetResource<DiscoverService>();
+
+            LocalPackage? pkg = _loadedPackage.FirstOrDefault(v => !v.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(v.Name, name));
+            if (pkg != null)
             {
+                string versionStr = pkg.Version;
+                var version = new NuGetVersion(versionStr);
                 Package remotePackage = await discover.GetPackage(pkg.Name).ConfigureAwait(false);
 
                 foreach (Release? item in await remotePackage.GetReleasesAsync().ConfigureAwait(false))
@@ -133,28 +136,31 @@ public sealed class PackageManager : PackageLoader
                     }
                 }
             }
-        }
 
-        return null;
+            return null;
+        }
     }
 
     public async Task<IReadOnlyList<LocalPackage>> GetPackages()
     {
         async Task<Package?> GetPackage(string id)
         {
-            try
+            using (await _apiApplication.Lock.LockAsync())
             {
-                PackageResponse package = await _apiApplication.Packages.GetPackageAsync(id).ConfigureAwait(false);
-                ProfileResponse profile = await _apiApplication.Users.GetUserAsync(package.Owner.Name).ConfigureAwait(false);
+                try
+                {
+                    PackageResponse package = await _apiApplication.Packages.GetPackageAsync(id).ConfigureAwait(false);
+                    ProfileResponse profile = await _apiApplication.Users.GetUserAsync(package.Owner.Name).ConfigureAwait(false);
 
-                return new Package(
-                    profile: new Profile(profile, _apiApplication),
-                    package,
-                    _apiApplication);
-            }
-            catch
-            {
-                return null;
+                    return new Package(
+                        profile: new Profile(profile, _apiApplication),
+                        package,
+                        _apiApplication);
+                }
+                catch
+                {
+                    return null;
+                }
             }
         }
 
@@ -238,14 +244,14 @@ public sealed class PackageManager : PackageLoader
             LoadExtensions(assembly, extensions);
         }
 
-        ExtensionProvider._allExtensions.Add(package.LocalId, extensions.ToArray());
+        ExtensionProvider.AddExtensions(package.LocalId, extensions.ToArray());
 
         _loadedPackage.Add(package);
 
         return assemblies;
     }
 
-    private void LoadExtensions(Assembly assembly, List<Extension> extensions)
+    private static void LoadExtensions(Assembly assembly, List<Extension> extensions)
     {
         foreach (Type type in assembly.GetExportedTypes())
         {
@@ -257,7 +263,6 @@ public sealed class PackageManager : PackageLoader
                     extension.Load();
 
                     extensions.Add(extension);
-                    ExtensionProvider.InvalidateCache();
                 }
             }
         }

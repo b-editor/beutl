@@ -74,8 +74,11 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
                 IsLoading.Value = true;
                 if (_clients.AuthorizedUser.Value is { } user)
                 {
-                    await user.RefreshAsync();
-                    await user.Profile.RefreshAsync();
+                    using (await user.Lock.LockAsync())
+                    {
+                        await user.RefreshAsync();
+                        await user.Profile.RefreshAsync();
+                    }
                 }
             }
             catch (Exception ex)
@@ -130,19 +133,22 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
 
     public async Task UpdateAvatarImage(Asset asset)
     {
-        try
+        using (await _clients.Lock.LockAsync())
         {
-            if (_clients.AuthorizedUser.Value is { } user)
+            try
             {
-                await user.RefreshAsync();
-                await asset.UpdateAsync(true);
-                await user.Profile.UpdateAsync(avatarId: asset.Id);
+                if (_clients.AuthorizedUser.Value is { } user)
+                {
+                    await user.RefreshAsync();
+                    await asset.UpdateAsync(true);
+                    await user.Profile.UpdateAsync(avatarId: asset.Id);
+                }
             }
-        }
-        catch (Exception ex)
-        {
-            ErrorHandle(ex);
-            _logger.Error(ex, "An unexpected error has occurred.");
+            catch (Exception ex)
+            {
+                ErrorHandle(ex);
+                _logger.Error(ex, "An unexpected error has occurred.");
+            }
         }
     }
 

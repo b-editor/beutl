@@ -1,5 +1,7 @@
 ﻿using System.Reactive.Linq;
 
+using Nito.AsyncEx;
+
 using Reactive.Bindings;
 
 namespace Beutl.Api.Objects;
@@ -51,6 +53,8 @@ public class Asset
     public string? Sha512 { get; }
 
     public IReadOnlyReactiveProperty<bool> IsPublic { get; }
+
+    public MyAsyncLock Lock => _clients.Lock;
 
     public async Task RefreshAsync()
     {

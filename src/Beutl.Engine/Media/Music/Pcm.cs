@@ -149,17 +149,22 @@ public sealed unsafe class Pcm<T> : IPcm
         if (SampleRate == frequency) return Clone();
 
         // 比率
-        float ratio = SampleRate / (float)frequency;
+        double ratio = SampleRate / (double)frequency;
 
         // 1チャンネルのサイズ
-        int size = (int)(frequency * DurationRational.ToSingle());
+        int bits = sizeof(T) * 8;
+        int size = (int)(frequency * bits * DurationRational.ToDouble() / bits);
 
         T* tmp = (T*)NativeMemory.AllocZeroed((nuint)(sizeof(T) * size));
-        float index = 0f;
+        double index = 0f;
         for (int i = 0; i < size; i++)
         {
             index += ratio;
-            tmp[i] = DataSpan[(int)Math.Floor(index)];
+            int indexFloor = (int)Math.Floor(index - 1);
+            if (0 <= indexFloor && indexFloor < DataSpan.Length)
+            {
+                tmp[i] = DataSpan[indexFloor];
+            }
         }
 
         var result = new Pcm<T>(frequency, size);

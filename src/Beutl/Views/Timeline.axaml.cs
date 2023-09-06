@@ -429,8 +429,13 @@ public sealed partial class Timeline : UserControl
         {
             DataContext = viewModel
         };
+        var scopeView = new ElementScopeView
+        {
+            DataContext = viewModel.Scope
+        };
 
         TimelinePanel.Children.Add(view);
+        TimelinePanel.Children.Add(scopeView);
     }
 
     // 要素を削除
@@ -441,7 +446,8 @@ public sealed partial class Timeline : UserControl
         for (int i = 0; i < TimelinePanel.Children.Count; i++)
         {
             Control item = TimelinePanel.Children[i];
-            if (item.DataContext is ElementViewModel vm && vm.Model == elm)
+            if ((item.DataContext is ElementViewModel vm1 && vm1.Model == elm)
+                || (item.DataContext is ElementScopeViewModel vm2 && vm2.Model == elm))
             {
                 TimelinePanel.Children.RemoveAt(i);
                 break;

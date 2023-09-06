@@ -8,7 +8,9 @@ using System.Reflection;
 using System.Text.Json.Nodes;
 
 using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Extensibility;
+using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Reactive;
 using Beutl.Styling;
@@ -218,8 +220,8 @@ internal static class StylingOperatorPropertyDefinition
 
 public abstract class StylingOperator : SourceOperator
 {
-    private bool _isSettersChanging;
     private Style _style;
+    private EvaluationTarget _preferredEvalTarget;
 
     protected StylingOperator()
     {
@@ -235,18 +237,27 @@ public abstract class StylingOperator : SourceOperator
         {
             if (!ReferenceEquals(value, _style))
             {
-                Properties.CollectionChanged -= Properties_CollectionChanged;
                 if (_style != null)
                 {
                     _style.Invalidated -= OnInvalidated;
                     _style.Setters.CollectionChanged -= Setters_CollectionChanged;
                     Properties.Clear();
+                    _preferredEvalTarget = default;
                 }
 
                 _style = value;
 
                 if (value != null)
                 {
+                    if (value.TargetType.IsAssignableTo(typeof(Drawable)))
+                    {
+                        _preferredEvalTarget = EvaluationTarget.Graphics;
+                    }
+                    else if (value.TargetType.IsAssignableTo(typeof(Sound)))
+                    {
+                        _preferredEvalTarget = EvaluationTarget.Audio;
+                    }
+
                     value.Invalidated += OnInvalidated;
                     value.Setters.CollectionChanged += Setters_CollectionChanged;
                     Type propType = typeof(StylingSetterPropertyImpl<>);
@@ -257,12 +268,11 @@ public abstract class StylingOperator : SourceOperator
                             return (IAbstractProperty)Activator.CreateInstance(type, x, _style)!;
                         }));
                 }
-
-                Properties.CollectionChanged += Properties_CollectionChanged;
-                //Instance = null;
             }
         }
     }
+
+    public override EvaluationTarget GetEvaluationTarget() => _preferredEvalTarget;
 
     protected abstract Style OnInitializeStyle(Func<IList<ISetter>> setters);
 
@@ -311,15 +321,6 @@ public abstract class StylingOperator : SourceOperator
         }
     }
 
-    private void Properties_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        if (!_isSettersChanging)
-        {
-            throw new InvalidOperationException(
-                "If you inherit from 'StylingOperator', you cannot change 'Properties' directly; you must do so from 'Style.Setters'.");
-        }
-    }
-
     private void Setters_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         void Add(int index, IList list)
@@ -339,49 +340,41 @@ public abstract class StylingOperator : SourceOperator
             Properties.RemoveRange(index, list.Count);
         }
 
-        try
+        switch (e.Action)
         {
-            _isSettersChanging = true;
-            switch (e.Action)
-            {
-                case NotifyCollectionChangedAction.Add:
-                    Add(e.NewStartingIndex, e.NewItems!);
-                    break;
+            case NotifyCollectionChangedAction.Add:
+                Add(e.NewStartingIndex, e.NewItems!);
+                break;
 
-                case NotifyCollectionChangedAction.Remove:
-                    Remove(e.OldStartingIndex, e.OldItems!);
-                    break;
+            case NotifyCollectionChangedAction.Remove:
+                Remove(e.OldStartingIndex, e.OldItems!);
+                break;
 
-                case NotifyCollectionChangedAction.Replace:
-                    Remove(e.OldStartingIndex, e.OldItems!);
-                    int newIndex = e.NewStartingIndex;
-                    if (newIndex > e.OldStartingIndex)
-                    {
-                        newIndex -= e.OldItems!.Count;
-                    }
-                    Add(newIndex, e.NewItems!);
-                    break;
+            case NotifyCollectionChangedAction.Replace:
+                Remove(e.OldStartingIndex, e.OldItems!);
+                int newIndex = e.NewStartingIndex;
+                if (newIndex > e.OldStartingIndex)
+                {
+                    newIndex -= e.OldItems!.Count;
+                }
+                Add(newIndex, e.NewItems!);
+                break;
 
-                case NotifyCollectionChangedAction.Move:
-                    Properties.MoveRange(e.OldStartingIndex, e.NewItems!.Count, e.NewStartingIndex);
-                    break;
+            case NotifyCollectionChangedAction.Move:
+                Properties.MoveRange(e.OldStartingIndex, e.NewItems!.Count, e.NewStartingIndex);
+                break;
 
-                case NotifyCollectionChangedAction.Reset:
-                    Properties.Clear();
-                    break;
+            case NotifyCollectionChangedAction.Reset:
+                Properties.Clear();
+                break;
 
-                default:
-                    break;
-            }
-
-            if (sender is ICollection collection)
-            {
-                RaiseInvalidated(new RenderInvalidatedEventArgs(collection));
-            }
+            default:
+                break;
         }
-        finally
+
+        if (sender is ICollection collection)
         {
-            _isSettersChanging = false;
+            RaiseInvalidated(new RenderInvalidatedEventArgs(collection));
         }
     }
 }

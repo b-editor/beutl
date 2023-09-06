@@ -39,7 +39,6 @@ public sealed class App : Application
         Color[] colors = colorProperties.Select(p => p.GetValue(null)).OfType<Color>().ToArray();
 
         GlobalConfiguration config = GlobalConfiguration.Instance;
-        config.Restore(GlobalConfiguration.DefaultFilePath);
         ViewConfig view = config.ViewConfig;
         CultureInfo.CurrentUICulture = view.UICulture;
 
@@ -69,6 +68,11 @@ public sealed class App : Application
                 }
             }, DispatcherPriority.Send);
         });
+
+        if (view.UseCustomAccentColor && Color.TryParse(view.CustomAccentColor, out Color customColor))
+        {
+            _theme.CustomAccentColor = customColor;
+        }
     }
 
     public override void RegisterServices()
@@ -108,15 +112,22 @@ public sealed class App : Application
 
     public static IClipboard? GetClipboard()
     {
-        switch (Current?.ApplicationLifetime)
+        return GetTopLevel()?.Clipboard;
+    }
+
+    public static TopLevel? GetTopLevel()
+    {
+        return (Current?.ApplicationLifetime) switch
         {
-            case IClassicDesktopStyleApplicationLifetime desktop:
-                return desktop.MainWindow?.Clipboard;
-            case ISingleViewApplicationLifetime { MainView: { } mainview }:
-                return TopLevel.GetTopLevel(mainview)?.Clipboard;
-            default:
-                return null;
-        }
+            IClassicDesktopStyleApplicationLifetime desktop => desktop.MainWindow,
+            ISingleViewApplicationLifetime { MainView: { } mainview } => TopLevel.GetTopLevel(mainview),
+            _ => null,
+        };
+    }
+
+    public static FluentAvaloniaTheme? GetFATheme()
+    {
+        return (Current as App)?._theme;
     }
 
     private MainViewModel GetMainViewModel()

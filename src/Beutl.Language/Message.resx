@@ -248,4 +248,37 @@ Restricted mode does not load extensions.</value>
   <data name="Looks_like_it_ended_with_an_error_last_time" xml:space="preserve">
     <value>Looks like it ended with an error last time.</value>
   </data>
+  <data name="Changes_to_the_package_are_in_progress" xml:space="preserve">
+    <value>Changes to the package are in progress.</value>
+  </data>
+  <data name="OpeningBeutl" xml:space="preserve">
+    <value>Opening Beutl</value>
+  </data>
+  <data name="To_open_Beutl_close_Beutl_PackageTools" xml:space="preserve">
+    <value>To open Beutl, close Beutl.PackageTools.</value>
+  </data>
+  <data name="A_new_version_is_available" xml:space="preserve">
+    <value>A new version is available.</value>
+  </data>
+  <data name="Could_not_restore_because_type_could_not_be_found" xml:space="preserve">
+    <value>Could not restore because the type could not be found.</value>
+  </data>
+  <data name="Must_upgrade_for_continued_use" xml:space="preserve">
+    <value>Must upgrade for continued use</value>
+  </data>
+  <data name="This_version_has_been_discontinued_for_compatibility_reasonsversion" xml:space="preserve">
+    <value>This version has been discontinued for compatibility reasons. Please upgrade to a newer version.</value>
+  </data>
+  <data name="Double_click_to_hide_group" xml:space="preserve">
+    <value>Double-click to hide group</value>
+  </data>
+  <data name="No_supported_extensions_were_found" xml:space="preserve">
+    <value>No supported extensions were found</value>
+  </data>
+  <data name="Property_is_unset" xml:space="preserve">
+    <value>Property is unset.</value>
+  </data>
+  <data name="RightClickToShowMenu" xml:space="preserve">
+    <value>Right-click to show menu</value>
+  </data>
 </root>

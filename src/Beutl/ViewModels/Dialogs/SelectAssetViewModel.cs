@@ -35,21 +35,24 @@ public class SelectAssetViewModel
             try
             {
                 IsBusy.Value = true;
-                await _user.RefreshAsync();
-
-                Items.Clear();
-
-                int prevCount = 0;
-                int count = 0;
-
-                do
+                using(await _user.Lock.LockAsync())
                 {
-                    Asset[] items = await _user.Profile.GetAssetsAsync(count, 30);
-                    Items.AddRange(items.Where(x => _contentTypeFilter(x.ContentType))
-                        .Select(x => new AssetViewModel(x, x.Size.HasValue ? StringFormats.ToHumanReadableSize(x.Size.Value) : string.Empty)));
-                    prevCount = items.Length;
-                    count += items.Length;
-                } while (prevCount == 30);
+                    await _user.RefreshAsync();
+
+                    Items.Clear();
+
+                    int prevCount = 0;
+                    int count = 0;
+
+                    do
+                    {
+                        Asset[] items = await _user.Profile.GetAssetsAsync(count, 30);
+                        Items.AddRange(items.Where(x => _contentTypeFilter(x.ContentType))
+                            .Select(x => new AssetViewModel(x, x.Size.HasValue ? StringFormats.ToHumanReadableSize(x.Size.Value) : string.Empty)));
+                        prevCount = items.Length;
+                        count += items.Length;
+                    } while (prevCount == 30);
+                }
             }
             catch (Exception ex)
             {

@@ -6,7 +6,7 @@ public sealed class OpacityMaskNode : ContainerNode
 {
     public OpacityMaskNode(IBrush mask, Rect maskBounds, bool invert)
     {
-        Mask = mask;
+        Mask = (mask as IMutableBrush)?.ToImmutable() ?? mask;
         MaskBounds = maskBounds;
         Invert = invert;
     }

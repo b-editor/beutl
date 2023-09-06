@@ -4,6 +4,7 @@
              xmlns:convert="using:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:paz="using:Avalonia.Controls.PanAndZoom"
@@ -62,13 +63,13 @@
                     <ContextMenu>
                         <MenuItem x:Name="deleteMenuItem"
                                   Click="DeleteClick"
-                                  Header="削除"
+                                  Header="{x:Static lang:Strings.Remove}"
                                   IsEnabled="False">
                             <MenuItem.Icon>
                                 <icons:SymbolIcon Symbol="Delete" />
                             </MenuItem.Icon>
                         </MenuItem>
-                        <MenuItem Header="拡大率" MenuItem.Click="ZoomClick">
+                        <MenuItem Header="{x:Static lang:Strings.TimelineZoom}" MenuItem.Click="ZoomClick">
                             <MenuItem.Icon>
                                 <icons:SymbolIcon Symbol="ZoomIn" />
                             </MenuItem.Icon>
@@ -87,7 +88,7 @@
                             <MenuItem CommandParameter="0.05" Header="5%" />
                             <MenuItem CommandParameter="0.01" Header="1%" />
                         </MenuItem>
-                        <MenuItem Header="ビュー"
+                        <MenuItem Header="{x:Static lang:Strings.View}"
                                   IsEnabled="{Binding !!Views.Length}"
                                   ItemsSource="{Binding Views}"
                                   MenuItem.Click="SelectedView_Click">
@@ -116,7 +117,7 @@
                         </MenuItem>
                         <MenuItem Classes.checked="{Binding UseGlobalClock.Value}"
                                   Click="UseGlobalClock_Click"
-                                  Header="グローバル時計を使う">
+                                  Header="{x:Static lang:Strings.UseGlobalClock}">
                             <MenuItem.Styles>
                                 <Style Selector="MenuItem.checked">
                                     <Setter Property="Icon">

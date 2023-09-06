@@ -6,13 +6,10 @@
                xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                xmlns:ui="using:FluentAvalonia.UI.Controls"
                xmlns:wnd="using:FluentAvalonia.UI.Windowing"
-               Title=""
-               Width="1400"
-               Height="800"
+               Title="{Binding WindowTitle.Value}"
                d:DesignHeight="720"
                d:DesignWidth="1280"
                Icon="/Assets/logo.png"
-               WindowStartupLocation="CenterScreen"
                mc:Ignorable="d">
 
     <local:MainView x:Name="mainView" />

@@ -109,13 +109,16 @@ public sealed class RankingPageViewModel : BasePageViewModel
 
     private async Task<Package[]> LoadItems(RankingType rankingType, int start, int count)
     {
-        return rankingType switch
+        using (await _discover.Lock.LockAsync())
         {
-            RankingType.Daily => await _discover.GetDailyRanking(start, count),
-            RankingType.Weekly => await _discover.GetWeeklyRanking(start, count),
-            RankingType.Recently => await _discover.GetRecentlyRanking(start, count),
-            _ => await _discover.GetOverallRanking(start, count),
-        };
+            return rankingType switch
+            {
+                RankingType.Daily => await _discover.GetDailyRanking(start, count),
+                RankingType.Weekly => await _discover.GetWeeklyRanking(start, count),
+                RankingType.Recently => await _discover.GetRecentlyRanking(start, count),
+                _ => await _discover.GetOverallRanking(start, count),
+            };
+        }
     }
 
     public override void Dispose()

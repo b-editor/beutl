@@ -28,21 +28,24 @@ public sealed class StorageDetailPageViewModel : BasePageViewModel
             try
             {
                 IsBusy.Value = true;
-                await _user.RefreshAsync();
-
-                Items.Clear();
-
-                int prevCount = 0;
-                int count = 0;
-
-                do
+                using(await _user.Lock.LockAsync())
                 {
-                    Asset[] items = await user.Profile.GetAssetsAsync(count, 30);
-                    Items.AddRange(items.Where(x => StorageSettingsPageViewModel.ToKnownType(x.ContentType) == Type)
-                        .Select(x => new AssetViewModel(x, x.Size.HasValue ? StringFormats.ToHumanReadableSize(x.Size.Value) : string.Empty)));
-                    prevCount = items.Length;
-                    count += items.Length;
-                } while (prevCount == 30);
+                    await _user.RefreshAsync();
+
+                    Items.Clear();
+
+                    int prevCount = 0;
+                    int count = 0;
+
+                    do
+                    {
+                        Asset[] items = await user.Profile.GetAssetsAsync(count, 30);
+                        Items.AddRange(items.Where(x => StorageSettingsPageViewModel.ToKnownType(x.ContentType) == Type)
+                            .Select(x => new AssetViewModel(x, x.Size.HasValue ? StringFormats.ToHumanReadableSize(x.Size.Value) : string.Empty)));
+                        prevCount = items.Length;
+                        count += items.Length;
+                    } while (prevCount == 30);
+                }
             }
             catch (Exception ex)
             {
@@ -81,8 +84,11 @@ public sealed class StorageDetailPageViewModel : BasePageViewModel
 
     public async Task DeleteAsync(AssetViewModel asset)
     {
-        await asset.Model.DeleteAsync();
-        Items.Remove(asset);
+        using (await asset.Model.Lock.LockAsync())
+        {
+            await asset.Model.DeleteAsync();
+            Items.Remove(asset);
+        }
     }
 
     public override void Dispose()

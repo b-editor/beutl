@@ -59,14 +59,17 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 try
                 {
                     IsBusy.Value = true;
-                    await _app.AuthorizedUser.Value!.RefreshAsync();
+                    using (await _app.Lock.LockAsync())
+                    {
+                        await _app.AuthorizedUser.Value!.RefreshAsync();
 
-                    Release release = await _library.GetPackage(Package);
-                    var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
-                    _queue.InstallQueue(packageId);
-                    NotificationService.ShowInformation(
-                        title: ExtensionsPage.PackageInstaller,
-                        message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation, packageId));
+                        Release release = await _library.GetPackage(Package);
+                        var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
+                        _queue.InstallQueue(packageId);
+                        NotificationService.ShowInformation(
+                            title: ExtensionsPage.PackageInstaller,
+                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation, packageId));
+                    }
                 }
                 catch (Exception e)
                 {
@@ -86,13 +89,16 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 try
                 {
                     IsBusy.Value = true;
-                    await _app.AuthorizedUser.Value!.RefreshAsync();
-                    Release release = await _library.GetPackage(Package);
-                    var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
-                    _queue.InstallQueue(packageId);
-                    NotificationService.ShowInformation(
-                        title: ExtensionsPage.PackageInstaller,
-                        message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId));
+                    using (await _app.Lock.LockAsync())
+                    {
+                        await _app.AuthorizedUser.Value!.RefreshAsync();
+                        Release release = await _library.GetPackage(Package);
+                        var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
+                        _queue.InstallQueue(packageId);
+                        NotificationService.ShowInformation(
+                            title: ExtensionsPage.PackageInstaller,
+                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId));
+                    }
                 }
                 catch (Exception e)
                 {
@@ -158,10 +164,13 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 try
                 {
                     IsBusy.Value = true;
-                    await _app.AuthorizedUser.Value!.RefreshAsync();
+                    using (await _app.Lock.LockAsync())
+                    {
+                        await _app.AuthorizedUser.Value!.RefreshAsync();
 
-                    await _library.RemovePackage(Package);
-                    OnRemoveFromLibrary?.Invoke(this);
+                        await _library.RemovePackage(Package);
+                        OnRemoveFromLibrary?.Invoke(this);
+                    }
                 }
                 catch (Exception e)
                 {

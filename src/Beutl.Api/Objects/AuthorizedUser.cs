@@ -7,7 +7,6 @@ namespace Beutl.Api.Objects;
 
 public class AuthorizedUser
 {
-    private readonly AsyncLock _mutex = new();
     private readonly BeutlApiApplication _clients;
     private readonly HttpClient _httpClient;
     private AuthResponse _response;
@@ -30,20 +29,19 @@ public class AuthorizedUser
 
     public bool IsExpired => Expiration < DateTimeOffset.UtcNow;
 
+    public MyAsyncLock Lock => _clients.Lock;
+
     public async ValueTask RefreshAsync(bool force = false)
     {
-        using (await _mutex.LockAsync())
+        if (force || IsExpired)
         {
-            if (force || IsExpired)
-            {
-                _response = await _clients.Account.RefreshAsync(new RefeshTokenRequest(RefreshToken, Token))
-                    .ConfigureAwait(false);
-                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
+            _response = await _clients.Account.RefreshAsync(new RefeshTokenRequest(RefreshToken, Token))
+                .ConfigureAwait(false);
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
 
-                if (_clients.AuthorizedUser.Value == this)
-                {
-                    _clients.SaveUser();
-                }
+            if (_clients.AuthorizedUser.Value == this)
+            {
+                _clients.SaveUser();
             }
         }
     }

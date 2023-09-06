@@ -9,7 +9,7 @@ using Beutl.Rendering;
 
 namespace Beutl.Graphics;
 
-public abstract class Drawable : Renderable, IHierarchical
+public abstract class Drawable : Renderable
 {
     public static readonly CoreProperty<ITransform?> TransformProperty;
     public static readonly CoreProperty<FilterEffect?> FilterEffectProperty;
@@ -77,7 +77,7 @@ public abstract class Drawable : Renderable, IHierarchical
             BlendModeProperty);
     }
 
-    public Rect Bounds { get; private set; }
+    public Rect Bounds { get; protected set; }
 
     [Display(Name = nameof(Strings.ImageFilter), ResourceType = typeof(Strings), GroupName = nameof(Strings.ImageFilter))]
     public FilterEffect? FilterEffect
@@ -135,7 +135,7 @@ public abstract class Drawable : Renderable, IHierarchical
         set => SetAndRaise(BlendModeProperty, ref _blendMode, value);
     }
 
-    public void Measure(Size availableSize)
+    public virtual void Measure(Size availableSize)
     {
         Size size = MeasureCore(availableSize);
         Matrix transform = GetTransformMatrix(availableSize, size);
@@ -167,7 +167,7 @@ public abstract class Drawable : Renderable, IHierarchical
         }
     }
 
-    public void Render(ICanvas canvas)
+    public virtual void Render(ICanvas canvas)
     {
         if (IsVisible)
         {

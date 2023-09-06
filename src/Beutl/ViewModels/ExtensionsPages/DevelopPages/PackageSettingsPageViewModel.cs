@@ -24,8 +24,11 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
         ActualLogo = package.LogoId
             .SelectMany(async id =>
             {
-                await _user.RefreshAsync();
-                return id.HasValue ? await _user.Profile.GetAssetAsync(id.Value) : null;
+                using (await _user.Lock.LockAsync())
+                {
+                    await _user.RefreshAsync();
+                    return id.HasValue ? await _user.Profile.GetAssetAsync(id.Value) : null;
+                }
             })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -64,13 +67,16 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
             {
                 try
                 {
-                    await _user.RefreshAsync();
-                    await Package.UpdateAsync(
-                        description: Description.Value,
-                        displayName: DisplayName.Value,
-                        shortDescription: ShortDescription.Value,
-                        logoImageId: Logo.Value?.Id,
-                        screenshots: Screenshots.Select(x => x.Id).ToArray());
+                    using (await _user.Lock.LockAsync())
+                    {
+                        await _user.RefreshAsync();
+                        await Package.UpdateAsync(
+                            description: Description.Value,
+                            displayName: DisplayName.Value,
+                            shortDescription: ShortDescription.Value,
+                            logoImageId: Logo.Value?.Id,
+                            screenshots: Screenshots.Select(x => x.Id).ToArray());
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -96,8 +102,11 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
             {
                 try
                 {
-                    await _user.RefreshAsync();
-                    await Package.DeleteAsync();
+                    using (await _user.Lock.LockAsync())
+                    {
+                        await _user.RefreshAsync();
+                        await Package.DeleteAsync();
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -112,8 +121,11 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
             {
                 try
                 {
-                    await _user.RefreshAsync();
-                    await Package.UpdateAsync(isPublic: true);
+                    using (await _user.Lock.LockAsync())
+                    {
+                        await _user.RefreshAsync();
+                        await Package.UpdateAsync(isPublic: true);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -128,8 +140,11 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
             {
                 try
                 {
-                    await _user.RefreshAsync();
-                    await Package.UpdateAsync(isPublic: false);
+                    using (await _user.Lock.LockAsync())
+                    {
+                        await _user.RefreshAsync();
+                        await Package.UpdateAsync(isPublic: false);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -144,9 +159,12 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
             {
                 try
                 {
-                    IsBusy.Value = true;
-                    await _user.RefreshAsync();
-                    await Package.RefreshAsync();
+                    using (await _user.Lock.LockAsync())
+                    {
+                        IsBusy.Value = true;
+                        await _user.RefreshAsync();
+                        await Package.RefreshAsync();
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -250,16 +268,19 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
 
     private async ValueTask ResetScreenshots(IDictionary<string, string>? items)
     {
-        Screenshots.Clear();
-        if (items != null)
+        using (await _user.Lock.LockAsync())
         {
-            foreach ((string key, string _) in items)
+            Screenshots.Clear();
+            if (items != null)
             {
-                long id = long.Parse(key);
-                Screenshots.Add(await Package.Owner.GetAssetAsync(id));
+                foreach ((string key, string _) in items)
+                {
+                    long id = long.Parse(key);
+                    Screenshots.Add(await Package.Owner.GetAssetAsync(id));
+                }
             }
-        }
 
-        _screenshotsChange.Value = false;
+            _screenshotsChange.Value = false;
+        }
     }
 }

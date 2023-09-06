@@ -64,8 +64,14 @@ public sealed class DeferradCanvas : ICanvas
         return _drawOperationindex < _container.Children.Count ? _container.Children[_drawOperationindex] as T : null;
     }
 
+    private IGraphicNode? Next()
+    {
+        return _drawOperationindex < _container.Children.Count ? _container.Children[_drawOperationindex] : null;
+    }
+
     public void Dispose()
     {
+        _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
     }
 
     public void Reset()
@@ -177,6 +183,43 @@ public sealed class DeferradCanvas : ICanvas
         ++_drawOperationindex;
     }
 
+    // Todo: テスト
+    public void DrawDrawable(Drawable drawable)
+    {
+        DrawableNode? next = Next<DrawableNode>();
+
+        if (next == null || !ReferenceEquals(next.Drawable, drawable))
+        {
+            AddAndPush(new DrawableNode(drawable), next);
+        }
+        else
+        {
+            Push(next);
+        }
+
+        int count = _nodes.Count;
+        try
+        {
+            drawable.Render(this);
+        }
+        finally
+        {
+            Pop(count);
+        }
+    }
+
+    public void DrawNode(IGraphicNode node)
+    {
+        IGraphicNode? next = Next();
+
+        if (next == null || !node.Equals(next))
+        {
+            Add(node);
+        }
+
+        ++_drawOperationindex;
+    }
+
     public Bitmap<Bgra8888> GetBitmap()
     {
         throw new NotImplementedException();
@@ -217,6 +260,22 @@ public sealed class DeferradCanvas : ICanvas
         if (next == null)
         {
             AddAndPush(new PushNode(), next);
+        }
+        else
+        {
+            Push(next);
+        }
+
+        return new(this, _nodes.Count);
+    }
+
+    public PushedState PushLayer(Rect limit = default)
+    {
+        LayerNode? next = Next<LayerNode>();
+
+        if (next == null || next.Limit != limit)
+        {
+            AddAndPush(new LayerNode(limit), next);
         }
         else
         {

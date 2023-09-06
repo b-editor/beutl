@@ -33,7 +33,7 @@
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*">
-        <Grid x:Name="Titlebar" ColumnDefinitions="Auto,Auto,*">
+        <Grid x:Name="Titlebar" ColumnDefinitions="Auto,Auto,Auto,*">
             <Image MaxWidth="24"
                    MaxHeight="24"
                    Margin="8,0"
@@ -58,11 +58,11 @@
                             <icons:SymbolIcon Symbol="New" />
                         </MenuItem.Icon>
                         <!--  プロジェクト  -->
-                        <MenuItem Command="{CompiledBinding CreateNewProject}"
+                        <MenuItem Command="{CompiledBinding MenuBar.CreateNewProject}"
                                   Header="{x:Static lang:Strings.CreateNewProject}"
                                   InputGesture="{DynamicResource CreateNewProjectKeyGesture}" />
                         <!--  ファイル  -->
-                        <MenuItem Command="{CompiledBinding CreateNew}"
+                        <MenuItem Command="{CompiledBinding MenuBar.CreateNew}"
                                   Header="{x:Static lang:Strings.CreateNewScene}"
                                   InputGesture="{DynamicResource CreateNewKeyGesture}" />
                     </MenuItem>
@@ -73,24 +73,24 @@
                             <icons:SymbolIcon Symbol="Open" />
                         </MenuItem.Icon>
                         <!--  プロジェクト  -->
-                        <MenuItem Command="{CompiledBinding OpenProject}"
+                        <MenuItem Command="{CompiledBinding MenuBar.OpenProject}"
                                   Header="{x:Static lang:Strings.Project}"
                                   InputGesture="{DynamicResource OpenProjectKeyGesture}" />
                         <!--  ファイル  -->
-                        <MenuItem Command="{CompiledBinding OpenFile}"
+                        <MenuItem Command="{CompiledBinding MenuBar.OpenFile}"
                                   Header="{x:Static lang:Strings.File}"
                                   InputGesture="{DynamicResource OpenKeyGesture}" />
                     </MenuItem>
                     <Separator />
                     <!--  閉じる  -->
-                    <MenuItem Command="{CompiledBinding CloseFile}" Header="{x:Static lang:Strings.Close}" />
+                    <MenuItem Command="{CompiledBinding MenuBar.CloseFile}" Header="{x:Static lang:Strings.Close}" />
                     <!--  プロジェクトを閉じる  -->
-                    <MenuItem Command="{CompiledBinding CloseProject}"
+                    <MenuItem Command="{CompiledBinding MenuBar.CloseProject}"
                               Header="{x:Static lang:Strings.CloseProject}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
                     <Separator />
                     <!--  上書き保存  -->
-                    <MenuItem Command="{CompiledBinding Save}"
+                    <MenuItem Command="{CompiledBinding MenuBar.Save}"
                               Header="{x:Static lang:Strings.Save}"
                               InputGesture="{DynamicResource SaveKeyGesture}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
@@ -99,7 +99,7 @@
                         </MenuItem.Icon>
                     </MenuItem>
                     <!--  すべて保存  -->
-                    <MenuItem Command="{CompiledBinding SaveAll}"
+                    <MenuItem Command="{CompiledBinding MenuBar.SaveAll}"
                               Header="{x:Static lang:Strings.SaveAll}"
                               InputGesture="{DynamicResource SaveAllKeyGesture}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
@@ -114,14 +114,14 @@
 
                     <Separator />
                     <!--  終了  -->
-                    <MenuItem Command="{CompiledBinding Exit}"
+                    <MenuItem Command="{CompiledBinding MenuBar.Exit}"
                               Header="{x:Static lang:Strings.Exit}"
                               InputGesture="{DynamicResource ExitKeyGesture}" />
                 </MenuItem>
                 <!--  編集  -->
                 <MenuItem Header="{x:Static lang:Strings.Edit}">
                     <!--  元に戻す  -->
-                    <MenuItem Command="{CompiledBinding Undo}"
+                    <MenuItem Command="{CompiledBinding MenuBar.Undo}"
                               Header="{x:Static lang:Strings.Undo}"
                               InputGesture="{DynamicResource UndoKeyGesture}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
@@ -130,7 +130,7 @@
                         </MenuItem.Icon>
                     </MenuItem>
                     <!--  やり直し  -->
-                    <MenuItem Command="{CompiledBinding Redo}"
+                    <MenuItem Command="{CompiledBinding MenuBar.Redo}"
                               Header="{x:Static lang:Strings.Redo}"
                               InputGesture="{DynamicResource RedoKeyGesture}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
@@ -146,23 +146,21 @@
                 </MenuItem>
                 <!--  プロジェクト  -->
                 <MenuItem Header="{x:Static lang:Strings.Project}">
-                    <MenuItem Command="{CompiledBinding AddToProject}" Header="{x:Static lang:Strings.Add}" />
-                    <MenuItem Command="{CompiledBinding RemoveFromProject}" Header="{x:Static lang:Strings.Remove}" />
+                    <MenuItem Command="{CompiledBinding MenuBar.AddToProject}" Header="{x:Static lang:Strings.Add}" />
+                    <MenuItem Command="{CompiledBinding MenuBar.RemoveFromProject}" Header="{x:Static lang:Strings.Remove}" />
                 </MenuItem>
                 <!--  シーン  -->
                 <MenuItem Header="{x:Static lang:Strings.Scene}">
-                    <MenuItem Command="{CompiledBinding NewScene}" Header="{x:Static lang:Strings.CreateNew}" />
-                    <MenuItem Click="SceneSettings_Click"
-                              Header="{x:Static lang:Strings.SceneSettings}"
-                              IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                    <MenuItem Command="{CompiledBinding MenuBar.NewScene}" Header="{x:Static lang:Strings.CreateNew}" />
+                    <MenuItem Command="{CompiledBinding MenuBar.ShowSceneSettings}" Header="{x:Static lang:Strings.SceneSettings}" />
                     <!--  要素  -->
                     <MenuItem Header="{x:Static lang:Strings.Element}">
-                        <MenuItem Command="{CompiledBinding AddLayer}" Header="{x:Static lang:Strings.Add}" />
-                        <MenuItem Command="{CompiledBinding DeleteLayer}" Header="{x:Static lang:Strings.Delete}" />
-                        <MenuItem Command="{CompiledBinding ExcludeLayer}" Header="{x:Static lang:Strings.Exclude}" />
-                        <MenuItem Command="{CompiledBinding CutLayer}" Header="{x:Static lang:Strings.Cut}" />
-                        <MenuItem Command="{CompiledBinding CopyLayer}" Header="{x:Static lang:Strings.Copy}" />
-                        <MenuItem Command="{CompiledBinding PasteLayer}" Header="{x:Static lang:Strings.Paste}" />
+                        <MenuItem Command="{CompiledBinding MenuBar.AddLayer}" Header="{x:Static lang:Strings.Add}" />
+                        <MenuItem Command="{CompiledBinding MenuBar.DeleteLayer}" Header="{x:Static lang:Strings.Delete}" />
+                        <MenuItem Command="{CompiledBinding MenuBar.ExcludeLayer}" Header="{x:Static lang:Strings.Exclude}" />
+                        <MenuItem Command="{CompiledBinding MenuBar.CutLayer}" Header="{x:Static lang:Strings.Cut}" />
+                        <MenuItem Command="{CompiledBinding MenuBar.CopyLayer}" Header="{x:Static lang:Strings.Copy}" />
+                        <MenuItem Command="{CompiledBinding MenuBar.PasteLayer}" Header="{x:Static lang:Strings.Paste}" />
                     </MenuItem>
                 </MenuItem>
                 <!--  オブジェクト  -->
@@ -176,7 +174,14 @@
                 </MenuItem>
             </Menu>
 
-            <StackPanel Grid.Column="2"
+
+            <TextBlock Grid.Column="2"
+                       Margin="8,0,0,0"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       Text="{Binding NameOfOpenProject.Value}" />
+
+            <StackPanel Grid.Column="3"
                         Margin="0,0,16,0"
                         HorizontalAlignment="Right"
                         Orientation="Horizontal"

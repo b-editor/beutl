@@ -203,9 +203,9 @@ Error:
     private void OpenClick(object? sender, RoutedEventArgs e)
     {
         if (this.FindAncestorOfType<MainView>()?.DataContext is MainViewModel vm &&
-            vm.OpenFile.CanExecute())
+            vm.MenuBar.OpenFile.CanExecute())
         {
-            vm.OpenFile.Execute();
+            vm.MenuBar.OpenFile.Execute();
         }
     }
 

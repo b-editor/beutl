@@ -61,11 +61,29 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Accent color に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AccentColor {
+            get {
+                return ResourceManager.GetString("AccentColor", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Add file extension に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Add_file_extension {
             get {
                 return ResourceManager.GetString("Add_file_extension", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Add property to hide に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AddPropertyToHide {
+            get {
+                return ResourceManager.GetString("AddPropertyToHide", resourceCulture);
             }
         }
         
@@ -88,6 +106,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Change the primary properties to be hidden に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ChangePrimaryPropertiesToBeHidden {
+            get {
+                return ResourceManager.GetString("ChangePrimaryPropertiesToBeHidden", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Change the visibility of this file to &quot;{0}&quot;. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string ChangeVisibility {
@@ -102,6 +129,33 @@ namespace Beutl.Language {
         public static string CopyVersionInfo {
             get {
                 return ResourceManager.GetString("CopyVersionInfo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Custom color に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CustomColor {
+            get {
+                return ResourceManager.GetString("CustomColor", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Decoder Priority に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DecoderPriority {
+            get {
+                return ResourceManager.GetString("DecoderPriority", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   You can change the priority order of decoders. The upper decoder has priority. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DecoderPriority_Description {
+            get {
+                return ResourceManager.GetString("DecoderPriority_Description", resourceCulture);
             }
         }
         
@@ -124,11 +178,38 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Editor settings に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string EditorSettings {
+            get {
+                return ResourceManager.GetString("EditorSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Gpu Infomation に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string GpuInfomation {
             get {
                 return ResourceManager.GetString("GpuInfomation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Hide primary properties に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string HidePrimaryProperties {
+            get {
+                return ResourceManager.GetString("HidePrimaryProperties", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Primary properties can be set by adding &apos;Source Operation&apos;. Applies after the end of the program. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string HidePrimaryProperties_Description {
+            get {
+                return ResourceManager.GetString("HidePrimaryProperties_Description", resourceCulture);
             }
         }
         
@@ -183,6 +264,15 @@ namespace Beutl.Language {
         public static string Please_enter_a_file_extension {
             get {
                 return ResourceManager.GetString("Please_enter_a_file_extension", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Primary properties に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string PrimaryProperties {
+            get {
+                return ResourceManager.GetString("PrimaryProperties", resourceCulture);
             }
         }
         
@@ -282,6 +372,15 @@ namespace Beutl.Language {
         public static string This_file_extension_already_exists {
             get {
                 return ResourceManager.GetString("This_file_extension_already_exists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Use custom accent color に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string UseCustomAccentColor {
+            get {
+                return ResourceManager.GetString("UseCustomAccentColor", resourceCulture);
             }
         }
     }

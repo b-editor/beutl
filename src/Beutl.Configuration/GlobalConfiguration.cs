@@ -1,4 +1,7 @@
-﻿using System.Text.Json.Nodes;
+﻿#pragma warning disable CS0436
+
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Nodes;
 
 namespace Beutl.Configuration;
 
@@ -6,7 +9,6 @@ public sealed class GlobalConfiguration
 {
     public static readonly GlobalConfiguration Instance = new();
     private string? _filePath;
-    private JsonObject _json = new();
 
     public static string DefaultFilePath
     {
@@ -33,6 +35,9 @@ public sealed class GlobalConfiguration
 
     public BackupConfig BackupConfig { get; } = new();
 
+    [AllowNull]
+    public string LastStartedVersion { get; private set; } = GitVersionInformation.SemVer;
+
     public void Save(string file)
     {
         try
@@ -45,23 +50,28 @@ public sealed class GlobalConfiguration
                 Directory.CreateDirectory(dir);
             }
 
+            var json = new JsonObject()
+            {
+                ["Version"] = GitVersionInformation.SemVer
+            };
+
             var fontNode = new JsonObject();
             FontConfig.WriteToJson(fontNode);
-            _json["font"] = fontNode;
+            json["Font"] = fontNode;
 
             var viewNode = new JsonObject();
             ViewConfig.WriteToJson(viewNode);
-            _json["view"] = viewNode;
+            json["View"] = viewNode;
 
             var extensionNode = new JsonObject();
             ExtensionConfig.WriteToJson(extensionNode);
-            _json["extension"] = extensionNode;
+            json["Extension"] = extensionNode;
 
             var backupNode = new JsonObject();
             BackupConfig.WriteToJson(backupNode);
-            _json["backup"] = backupNode;
+            json["Backup"] = backupNode;
 
-            _json.JsonSave(file);
+            json.JsonSave(file);
         }
         finally
         {
@@ -76,12 +86,40 @@ public sealed class GlobalConfiguration
             RemoveHandlers();
             if (JsonHelper.JsonRestore(file) is JsonObject json)
             {
-                FontConfig.ReadFromJson((JsonObject)json["font"]!);
-                ViewConfig.ReadFromJson((JsonObject)json["view"]!);
-                ExtensionConfig.ReadFromJson((JsonObject)json["extension"]!);
-                BackupConfig.ReadFromJson((JsonObject)json["backup"]!);
+                JsonNode? GetNode(string name1, string name2)
+                {
+                    if (json[name1] is JsonNode node1)
+                        return node1;
+                    else if (json[name2] is JsonNode node2)
+                        return node2;
+                    else
+                        return null;
+                }
 
-                _json = json;
+                if (GetNode("font", "Font") is JsonObject font)
+                    FontConfig.ReadFromJson(font);
+
+                if (GetNode("view", "View") is JsonObject view)
+                    ViewConfig.ReadFromJson(view);
+
+                if (GetNode("extension", "Extension") is JsonObject extension)
+                    ExtensionConfig.ReadFromJson(extension);
+
+                if (GetNode("backup", "Backup") is JsonObject backup)
+                    BackupConfig.ReadFromJson(backup);
+
+                if (json["Version"] is JsonValue version)
+                {
+                    if (version.TryGetValue(out string? versionString))
+                    {
+                        LastStartedVersion = versionString;
+                    }
+                }
+                else
+                {
+                    // Todo: 互換性維持のコード
+                    LastStartedVersion = "1.0.0-preview.1";
+                }
             }
         }
         finally
