@@ -1,5 +1,7 @@
 ﻿using Beutl.Api.Objects;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 using Serilog;
@@ -22,10 +24,14 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel
             if (IsBusy.Value)
                 return;
 
+            using Activity? activity = Services.Telemetry.StartActivity("PackageDetailsPageViewModel.Refresh");
+
             try
             {
                 using (await _user.Lock.LockAsync())
                 {
+                    activity?.AddEvent(new("Entered_AsyncLock"));
+
                     IsBusy.Value = true;
 
                     await _user.RefreshAsync();
@@ -35,6 +41,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel
             }
             catch (Exception ex)
             {
+                activity?.RecordException(ex);
                 ErrorHandle(ex);
                 _logger.Error(ex, "An unexpected error has occurred.");
             }

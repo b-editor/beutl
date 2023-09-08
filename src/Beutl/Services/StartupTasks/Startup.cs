@@ -17,9 +17,9 @@ public sealed class Startup
         RegisterAll();
     }
 
-    public Task Run()
+    public async Task Run()
     {
-        return Task.WhenAll(_tasks.Values.Select(v => v().Task));
+        await Task.WhenAll(_tasks.Values.Select(v => v().Task));
     }
 
     public T GetTask<T>()

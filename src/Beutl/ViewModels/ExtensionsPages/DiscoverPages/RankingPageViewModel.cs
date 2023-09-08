@@ -3,6 +3,8 @@
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 using Serilog;
@@ -40,11 +42,13 @@ public sealed class RankingPageViewModel : BasePageViewModel
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Services.Telemetry.StartActivity("RankingPageViewModel.Refresh");
+
                 try
                 {
                     IsBusy.Value = true;
                     Items.Clear();
-                    Package[] array = await LoadItems(SelectedRanking.Value.Type, 0, 30);
+                    Package[] array = await LoadItems(SelectedRanking.Value.Type, 0, 30, activity);
                     Items.AddRange(array);
 
                     if (array.Length == 30)
@@ -54,6 +58,7 @@ public sealed class RankingPageViewModel : BasePageViewModel
                 }
                 catch (Exception e)
                 {
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }
@@ -70,11 +75,13 @@ public sealed class RankingPageViewModel : BasePageViewModel
         More = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Services.Telemetry.StartActivity("RankingPageViewModel.More");
+
                 try
                 {
                     IsBusy.Value = true;
                     Items.RemoveAt(Items.Count - 1);
-                    Package[] array = await LoadItems(SelectedRanking.Value.Type, Items.Count, 30);
+                    Package[] array = await LoadItems(SelectedRanking.Value.Type, Items.Count, 30, activity);
                     Items.AddRange(array);
 
                     if (array.Length == 30)
@@ -84,6 +91,7 @@ public sealed class RankingPageViewModel : BasePageViewModel
                 }
                 catch (Exception e)
                 {
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }
@@ -107,10 +115,11 @@ public sealed class RankingPageViewModel : BasePageViewModel
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
-    private async Task<Package[]> LoadItems(RankingType rankingType, int start, int count)
+    private async Task<Package[]> LoadItems(RankingType rankingType, int start, int count, Activity? activity)
     {
         using (await _discover.Lock.LockAsync())
         {
+            activity?.AddEvent(new("Entered_AsyncLock"));
             return rankingType switch
             {
                 RankingType.Daily => await _discover.GetDailyRanking(start, count),

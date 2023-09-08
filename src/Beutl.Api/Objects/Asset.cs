@@ -1,4 +1,5 @@
-﻿using System.Reactive.Linq;
+﻿using System.Diagnostics;
+using System.Reactive.Linq;
 
 using Nito.AsyncEx;
 
@@ -58,12 +59,16 @@ public class Asset
 
     public async Task RefreshAsync()
     {
+        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Asset.Refresh");
+
         _response.Value = await _clients.Assets.GetAssetAsync(Owner.Name, Name);
         _isDeleted.Value = false;
     }
 
     public async Task UpdateAsync(UpdateAssetRequest request)
     {
+        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Asset.Update");
+
         if (_isDeleted.Value)
         {
             throw new InvalidOperationException("This object has been deleted.");
@@ -74,11 +79,15 @@ public class Asset
 
     public async Task UpdateAsync(bool isPublic)
     {
+        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Asset.Update");
+
         await UpdateAsync(new UpdateAssetRequest(isPublic));
     }
 
     public async Task DeleteAsync()
     {
+        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Asset.Delete");
+
         await _clients.Assets.DeleteAsync(Owner.Name, Name);
 
         _isDeleted.Value = true;

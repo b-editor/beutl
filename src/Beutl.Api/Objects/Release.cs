@@ -1,4 +1,5 @@
-﻿using System.Reactive.Linq;
+﻿using System.Diagnostics;
+using System.Reactive.Linq;
 
 using Reactive.Bindings;
 
@@ -44,6 +45,8 @@ public class Release
 
     public async Task RefreshAsync()
     {
+        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Release.Refresh");
+
         _response.Value = await _clients.Releases.GetReleaseAsync(Package.Name, _response.Value.Version);
 
         _isDeleted.Value = false;
@@ -56,6 +59,8 @@ public class Release
 
     public async Task UpdateAsync(UpdateReleaseRequest request)
     {
+        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Release.Update");
+
         if (_isDeleted.Value)
         {
             throw new InvalidOperationException("This object has been deleted.");
@@ -69,6 +74,8 @@ public class Release
 
     public async Task DeleteAsync()
     {
+        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Release.Delete");
+
         FileResponse response = await _clients.Releases.DeleteAsync(
             Package.Name,
             Response.Value.Version);
@@ -80,6 +87,8 @@ public class Release
 
     public async Task<Asset> GetAssetAsync()
     {
+        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Release.GetAsset");
+
         if (!AssetId.Value.HasValue)
             throw new InvalidOperationException("This release has no assets.");
 

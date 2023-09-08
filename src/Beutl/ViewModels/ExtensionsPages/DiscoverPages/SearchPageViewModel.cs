@@ -3,6 +3,8 @@
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 using Serilog;
@@ -23,6 +25,8 @@ public sealed class SearchPageViewModel : BasePageViewModel
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Services.Telemetry.StartActivity("SearchPageViewModel.Refresh");
+
                 try
                 {
                     IsBusy.Value = true;
@@ -33,6 +37,7 @@ public sealed class SearchPageViewModel : BasePageViewModel
                 }
                 catch (Exception e)
                 {
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }
@@ -46,6 +51,8 @@ public sealed class SearchPageViewModel : BasePageViewModel
         More = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Services.Telemetry.StartActivity("SearchPageViewModel.More");
+
                 try
                 {
                     IsBusy.Value = true;
@@ -56,6 +63,7 @@ public sealed class SearchPageViewModel : BasePageViewModel
                 }
                 catch (Exception e)
                 {
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }
@@ -68,6 +76,8 @@ public sealed class SearchPageViewModel : BasePageViewModel
 
         SearchType.Subscribe(async type =>
             {
+                using Activity? activity = Services.Telemetry.StartActivity("SearchPageViewModel.SearchType");
+
                 try
                 {
                     IsBusy.Value = true;
@@ -82,6 +92,7 @@ public sealed class SearchPageViewModel : BasePageViewModel
                 }
                 catch (Exception e)
                 {
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }

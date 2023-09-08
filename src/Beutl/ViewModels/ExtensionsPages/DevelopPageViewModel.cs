@@ -5,6 +5,8 @@ using Beutl.Api.Services;
 using Beutl.ViewModels.ExtensionsPages.DevelopPages;
 using Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 using Serilog;
@@ -24,12 +26,17 @@ public sealed class DevelopPageViewModel : BasePageViewModel
 
         Refresh.Subscribe(async () =>
         {
+            using Activity? activity = Services.Telemetry.StartActivity("DevelopPageViewModel.Refresh");
+
             try
             {
                 IsBusy.Value = true;
-                using(await _user.Lock.LockAsync())
+                using (await _user.Lock.LockAsync())
                 {
+                    activity?.AddEvent(new("Entered_AsyncLock"));
+
                     await _user.RefreshAsync();
+
                     Packages.Clear();
 
                     int prevCount = 0;
@@ -46,6 +53,7 @@ public sealed class DevelopPageViewModel : BasePageViewModel
             }
             catch (Exception ex)
             {
+                activity?.RecordException(ex);
                 ErrorHandle(ex);
                 _logger.Error(ex, "An unexpected error has occurred.");
             }

@@ -31,6 +31,8 @@ public sealed class App : Application
 
     public override void Initialize()
     {
+        using Activity? activity = Telemetry.StartActivity("App.Initialize");
+
         FAUISettings.SetAnimationsEnabledAtAppLevel(true);
 
         //PaletteColors
@@ -46,6 +48,8 @@ public sealed class App : Application
         Resources["PaletteColors"] = colors;
 
         _theme = (FluentAvaloniaTheme)Styles[0];
+
+        activity?.AddEvent(new ActivityEvent("Xaml_Loaded"));
 
         view.GetObservable(ViewConfig.ThemeProperty).Subscribe(v =>
         {
@@ -71,12 +75,16 @@ public sealed class App : Application
 
         if (view.UseCustomAccentColor && Color.TryParse(view.CustomAccentColor, out Color customColor))
         {
+            activity?.SetTag("CustomAccentColor", customColor.ToString());
+
             _theme.CustomAccentColor = customColor;
         }
     }
 
     public override void RegisterServices()
     {
+        using Activity? activity = Telemetry.StartActivity("App.RegisterServices");
+
         base.RegisterServices();
         PropertyEditorExtension.DefaultHandler = new PropertyEditorService.PropertyEditorExtensionImpl();
 

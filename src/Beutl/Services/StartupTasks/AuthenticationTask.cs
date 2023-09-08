@@ -1,5 +1,6 @@
 ﻿using Beutl.Api;
-using Beutl.Services;
+
+using OpenTelemetry.Trace;
 
 using Serilog;
 
@@ -15,14 +16,18 @@ public sealed class AuthenticationTask : StartupTask
         _beutlApiApplication = beutlApiApplication;
         Task = Task.Run(async () =>
         {
-            try
+            using (Activity? activity = Telemetry.StartActivity("AuthenticationTask.Run"))
             {
-                await _beutlApiApplication.RestoreUserAsync();
-            }
-            catch (Exception e)
-            {
-                _logger.Error(e, "An error occurred during authentication");
-                e.Handle();
+                try
+                {
+                    await _beutlApiApplication.RestoreUserAsync(activity);
+                }
+                catch (Exception e)
+                {
+                    activity?.RecordException(e);
+                    _logger.Error(e, "An error occurred during authentication");
+                    e.Handle();
+                }
             }
         });
     }

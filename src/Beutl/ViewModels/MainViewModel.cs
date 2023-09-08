@@ -95,9 +95,12 @@ public sealed class MainViewModel : BasePageViewModel
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 
-    public Task RunStartupTask()
+    public async Task RunStartupTask()
     {
-        return new Startup(_beutlClients, this).Run();
+        using (Activity? activity = Telemetry.StartActivity("MainViewModel.RunStartupTask"))
+        {
+            await new Startup(_beutlClients, this).Run();
+        }
     }
 
     public void RegisterServices()

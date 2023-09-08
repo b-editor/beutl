@@ -9,18 +9,20 @@ namespace Beutl.ViewModels;
 public sealed class SettingsPageViewModel : IPageContext
 {
     private readonly Subject<object> _navigateRequested = new();
+    private readonly Lazy<AccountSettingsPageViewModel> _account;
+    private readonly Lazy<StorageSettingsPageViewModel> _storage;
 
     public SettingsPageViewModel(BeutlApiApplication clients)
     {
-        Account = new AccountSettingsPageViewModel(clients);
+        _account = new(() => new AccountSettingsPageViewModel(clients));
         View = new ViewSettingsPageViewModel();
         Font = new FontSettingsPageViewModel();
         ExtensionsPage = new ExtensionsSettingsPageViewModel();
-        Storage = new StorageSettingsPageViewModel(clients.AuthorizedUser);
+        _storage = new(() => new StorageSettingsPageViewModel(clients.AuthorizedUser));
         Infomation = new InfomationPageViewModel();
     }
 
-    public AccountSettingsPageViewModel Account { get; }
+    public AccountSettingsPageViewModel Account => _account.Value;
 
     public ViewSettingsPageViewModel View { get; }
 
@@ -28,7 +30,7 @@ public sealed class SettingsPageViewModel : IPageContext
 
     public ExtensionsSettingsPageViewModel ExtensionsPage { get; }
 
-    public StorageSettingsPageViewModel Storage { get; }
+    public StorageSettingsPageViewModel Storage => _storage.Value;
 
     public InfomationPageViewModel Infomation { get; }
 

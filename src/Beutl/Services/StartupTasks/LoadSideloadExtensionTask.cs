@@ -7,6 +7,8 @@ using Beutl.Api.Services;
 
 using FluentAvalonia.UI.Controls;
 
+using OpenTelemetry.Trace;
+
 using Serilog;
 
 namespace Beutl.Services.StartupTasks;
@@ -21,22 +23,34 @@ public sealed class LoadSideloadExtensionTask : StartupTask
         _manager = manager;
         Task = Task.Run(async () =>
         {
-            // .beutl/sideloads/ 内のパッケージを読み込む
-            if (_manager.GetSideLoadPackages() is { Count: > 0 } sideloads
-                && await ShowDialog(sideloads))
+            using (Activity? activity = Telemetry.StartActivity("LoadSideloadExtensionTask.Run"))
             {
-                Parallel.ForEach(sideloads, item =>
+                // .beutl/sideloads/ 内のパッケージを読み込む
+                if (_manager.GetSideLoadPackages() is { Count: > 0 } sideloads)
                 {
-                    try
+                    activity?.AddEvent(new ActivityEvent("Done_GetSideLoadPackages"));
+
+                    if (await ShowDialog(sideloads))
                     {
-                        _manager.Load(item);
+                        activity?.AddEvent(new ActivityEvent("Loading_SideLoadPackages"));
+
+                        Parallel.ForEach(sideloads, item =>
+                        {
+                            try
+                            {
+                                _manager.Load(item);
+                            }
+                            catch (Exception e)
+                            {
+                                activity?.RecordException(e);
+                                _logger.Error(e, "Failed to load package");
+                                Failures.Add((item, e));
+                            }
+                        });
+
+                        activity?.AddEvent(new ActivityEvent("Loaded_SideLoadPackages"));
                     }
-                    catch (Exception e)
-                    {
-                        _logger.Error(e, "Failed to load package");
-                        Failures.Add((item, e));
-                    }
-                });
+                }
             }
         });
     }

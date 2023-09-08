@@ -19,27 +19,32 @@ public sealed class CheckForUpdatesTask : StartupTask
         _beutlApiApplication = beutlApiApplication;
         Task = Task.Run(async () =>
         {
-            CheckForUpdatesResponse? response = await CheckForUpdates();
-            if (response != null)
+            using (Activity? activity = Telemetry.StartActivity("CheckForUpdatesTask.Run"))
             {
-                if (!response.Is_latest)
+                CheckForUpdatesResponse? response = await CheckForUpdates(activity);
+                activity?.AddEvent(new("Done_CheckForUpdates"));
+
+                if (response != null)
                 {
-                    NotificationService.ShowInformation(
-                        Message.A_new_version_is_available,
-                        response.Url,
-                        onActionButtonClick: () =>
-                        {
-                            Process.Start(new ProcessStartInfo(response.Url)
+                    if (!response.Is_latest)
+                    {
+                        NotificationService.ShowInformation(
+                            Message.A_new_version_is_available,
+                            response.Url,
+                            onActionButtonClick: () =>
                             {
-                                UseShellExecute = true,
-                                Verb = "open"
-                            });
-                        },
-                        actionButtonText: Strings.Open);
-                }
-                else if (response.Must_latest)
-                {
-                    await ShowDialogAndClose(response);
+                                Process.Start(new ProcessStartInfo(response.Url)
+                                {
+                                    UseShellExecute = true,
+                                    Verb = "open"
+                                });
+                            },
+                            actionButtonText: Strings.Open);
+                    }
+                    else if (response.Must_latest)
+                    {
+                        await ShowDialogAndClose(response);
+                    }
                 }
             }
         });
@@ -47,11 +52,13 @@ public sealed class CheckForUpdatesTask : StartupTask
 
     public override Task Task { get; }
 
-    private async ValueTask<CheckForUpdatesResponse?> CheckForUpdates()
+    private async ValueTask<CheckForUpdatesResponse?> CheckForUpdates(Activity? activity)
     {
 #pragma warning disable CS0436
         using (await _beutlApiApplication.Lock.LockAsync())
         {
+            activity?.AddEvent(new("Entered_AsyncLock"));
+
             try
             {
                 return await _beutlApiApplication.App.CheckForUpdatesAsync(GitVersionInformation.NuGetVersion);

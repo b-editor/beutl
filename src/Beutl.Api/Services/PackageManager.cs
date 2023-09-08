@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Reactive.Subjects;
 using System.Reflection;
 
@@ -74,7 +75,7 @@ public sealed class PackageManager : PackageLoader
 
     public async Task<IReadOnlyList<PackageUpdate>> CheckUpdate()
     {
-        using (await _apiApplication.Lock.LockAsync())
+        using (Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("PackageManager.CheckUpdate"))
         {
             PackageIdentity[] packages = _installedPackageRepository.GetLocalPackages().ToArray();
 
@@ -88,9 +89,13 @@ public sealed class PackageManager : PackageLoader
                 string versionStr = version.ToString();
                 try
                 {
+                    activity?.AddEvent(new("Start_GetPackage"));
                     Package remotePackage = await discover.GetPackage(pkg.Id).ConfigureAwait(false);
+                    activity?.AddEvent(new("Done_GetPackage"));
 
-                    foreach (Release? item in await remotePackage.GetReleasesAsync().ConfigureAwait(false))
+                    Release[] releases = await remotePackage.GetReleasesAsync().ConfigureAwait(false);
+
+                    foreach (Release? item in releases)
                     {
                         // 降順
                         if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
@@ -104,7 +109,6 @@ public sealed class PackageManager : PackageLoader
                 }
                 catch
                 {
-
                 }
             }
 
@@ -114,7 +118,7 @@ public sealed class PackageManager : PackageLoader
 
     public async Task<PackageUpdate?> CheckUpdate(string name)
     {
-        using (await _apiApplication.Lock.LockAsync())
+        using (Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("PackageManager.CheckUpdate"))
         {
             DiscoverService discover = _apiApplication.GetResource<DiscoverService>();
 
@@ -123,9 +127,13 @@ public sealed class PackageManager : PackageLoader
             {
                 string versionStr = pkg.Version;
                 var version = new NuGetVersion(versionStr);
+                activity?.AddEvent(new("Start_GetPackage"));
                 Package remotePackage = await discover.GetPackage(pkg.Name).ConfigureAwait(false);
+                activity?.AddEvent(new("Done_GetPackage"));
 
-                foreach (Release? item in await remotePackage.GetReleasesAsync().ConfigureAwait(false))
+                Release[] releases = await remotePackage.GetReleasesAsync().ConfigureAwait(false);
+
+                foreach (Release? item in releases)
                 {
                     // 降順
                     if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
@@ -143,56 +151,66 @@ public sealed class PackageManager : PackageLoader
 
     public async Task<IReadOnlyList<LocalPackage>> GetPackages()
     {
-        async Task<Package?> GetPackage(string id)
+        using (Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("PackageManager.GetPackages"))
         {
-            using (await _apiApplication.Lock.LockAsync())
+            async Task<Package?> GetPackage(string id)
             {
-                try
+                using (await _apiApplication.Lock.LockAsync())
                 {
-                    PackageResponse package = await _apiApplication.Packages.GetPackageAsync(id).ConfigureAwait(false);
-                    ProfileResponse profile = await _apiApplication.Users.GetUserAsync(package.Owner.Name).ConfigureAwait(false);
+                    activity?.AddEvent(new("Entered_AsyncLock"));
 
-                    return new Package(
-                        profile: new Profile(profile, _apiApplication),
-                        package,
-                        _apiApplication);
-                }
-                catch
-                {
-                    return null;
+                    try
+                    {
+                        PackageResponse package = await _apiApplication.Packages.GetPackageAsync(id).ConfigureAwait(false);
+                        ProfileResponse profile = await _apiApplication.Users.GetUserAsync(package.Owner.Name).ConfigureAwait(false);
+
+                        return new Package(
+                            profile: new Profile(profile, _apiApplication),
+                            package,
+                            _apiApplication);
+                    }
+                    catch
+                    {
+                        return null;
+                    }
                 }
             }
-        }
 
-        IEnumerable<PackageIdentity> packages = _installedPackageRepository.GetLocalPackages();
-        var list = new List<LocalPackage>(packages.TryGetNonEnumeratedCount(out int count) ? count : 4);
+            PackageIdentity[] packages = _installedPackageRepository.GetLocalPackages().ToArray();
+            activity?.SetTag("Packages_Count", packages.Length);
 
-        foreach (PackageIdentity packageId in packages)
-        {
-            string directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
-            if (Directory.Exists(directory))
+            var list = new List<LocalPackage>(packages.Length);
+
+            foreach (PackageIdentity packageId in packages)
             {
-                Package? package = await GetPackage(packageId.Id).ConfigureAwait(false);
-                if (package == null)
+                string directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
+                if (Directory.Exists(directory))
                 {
-                    var reader = new PackageFolderReader(directory);
-                    list.Add(new LocalPackage(reader.NuspecReader)
+                    activity?.AddEvent(new("Start_GetPackage"));
+                    Package? package = await GetPackage(packageId.Id).ConfigureAwait(false);
+                    activity?.AddEvent(new("Done_GetPackage"));
+
+                    if (package == null)
                     {
-                        InstalledPath = directory
-                    });
-                }
-                else
-                {
-                    list.Add(new LocalPackage(package)
+                        var reader = new PackageFolderReader(directory);
+                        list.Add(new LocalPackage(reader.NuspecReader)
+                        {
+                            InstalledPath = directory
+                        });
+                    }
+                    else
                     {
-                        Version = packageId.Version.ToString(),
-                        InstalledPath = directory,
-                    });
+                        list.Add(new LocalPackage(package)
+                        {
+                            Version = packageId.Version.ToString(),
+                            InstalledPath = directory,
+                        });
+                    }
                 }
             }
-        }
 
-        return list;
+            return list;
+        }
     }
 
 #pragma warning disable CA1822
@@ -227,28 +245,36 @@ public sealed class PackageManager : PackageLoader
 
     public Assembly[] Load(LocalPackage package)
     {
-        if (package.InstalledPath == null)
+        using (Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("PackageManager.Load"))
         {
-            var packageId = new PackageIdentity(package.Name, NuGetVersion.Parse(package.Version));
-            package.InstalledPath = Helper.PackagePathResolver.GetInstallPath(packageId);
+            if (package.InstalledPath == null)
+            {
+                var packageId = new PackageIdentity(package.Name, NuGetVersion.Parse(package.Version));
+                package.InstalledPath = Helper.PackagePathResolver.GetInstallPath(packageId);
+            }
+
+            Assembly[] assemblies = !package.SideLoad
+                ? Load(package.InstalledPath)
+                : SideLoad(package.InstalledPath);
+
+            activity?.AddEvent(new ActivityEvent("Loaded_Assemblies"));
+            activity?.SetTag("Assembly_Count", assemblies.Length);
+
+            var extensions = new List<Extension>();
+
+            foreach (Assembly assembly in assemblies)
+            {
+                LoadExtensions(assembly, extensions);
+            }
+
+            activity?.AddEvent(new ActivityEvent("Loaded_Extensions"));
+
+            ExtensionProvider.AddExtensions(package.LocalId, extensions.ToArray());
+
+            _loadedPackage.Add(package);
+
+            return assemblies;
         }
-
-        Assembly[] assemblies = !package.SideLoad
-            ? Load(package.InstalledPath)
-            : SideLoad(package.InstalledPath);
-
-        var extensions = new List<Extension>();
-
-        foreach (Assembly assembly in assemblies)
-        {
-            LoadExtensions(assembly, extensions);
-        }
-
-        ExtensionProvider.AddExtensions(package.LocalId, extensions.ToArray());
-
-        _loadedPackage.Add(package);
-
-        return assemblies;
     }
 
     private static void LoadExtensions(Assembly assembly, List<Extension> extensions)

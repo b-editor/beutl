@@ -10,6 +10,10 @@ using Beutl.Services;
 
 using Microsoft.Extensions.Logging;
 
+using OpenTelemetry;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+
 using Serilog;
 
 namespace Beutl;
@@ -19,6 +23,8 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        using TracerProvider? tracerProvider = SetupTelemetry();
+
         // PGOを有効化
         string jitProfiles = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "jitProfiles");
         if (!Directory.Exists(jitProfiles))
@@ -113,5 +119,15 @@ internal static class Program
             .CreateLogger();
 
         BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(builder => builder.AddSerilog(Log.Logger, true));
+    }
+
+    private static TracerProvider? SetupTelemetry()
+    {
+        return Sdk.CreateTracerProviderBuilder()
+            .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("Beutl"))
+            .AddSource("Beutl.DistibutedTracing")
+            //.AddConsoleExporter()
+            .AddZipkinExporter()
+            .Build();
     }
 }
