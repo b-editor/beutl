@@ -1,6 +1,5 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Generators;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
@@ -28,6 +27,24 @@ public sealed partial class Library : UserControl
 
         itemsControl.AddHandler(PointerPressedEvent, OnEasingsPointerPressed, RoutingStrategies.Tunnel);
         splineEasing.AddHandler(PointerPressedEvent, OnSplineEasingPointerPressed, RoutingStrategies.Tunnel);
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (DataContext is LibraryViewModel viewModel)
+        {
+            tabStrip.SelectedIndex = viewModel.SelectedTab;
+        }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        if (DataContext is LibraryViewModel viewModel)
+        {
+            viewModel.SelectedTab = tabStrip.SelectedIndex;
+        }
     }
 
     private void OnItemContainerPrepared(object? sender, ContainerPreparedEventArgs e)

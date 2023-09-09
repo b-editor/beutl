@@ -30,21 +30,21 @@ public sealed partial class SettingsPage : UserControl
         nav.BackRequested += Nav_BackRequested;
 
         nav.SelectedItem = selected;
+    }
 
-        this.GetObservable(IsVisibleProperty).Subscribe(b =>
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (nav.SelectedItem is NavigationViewItem selected)
         {
-            if (b)
-            {
-                if (nav.SelectedItem is NavigationViewItem selected)
-                {
-                    OnItemInvoked(selected);
-                }
-            }
-            else
-            {
-                frame.SetNavigationState("|\n0\n0");
-            }
-        });
+            OnItemInvoked(selected);
+        }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        frame.SetNavigationState("|\n0\n0");
     }
 
     protected override void OnDataContextChanged(EventArgs e)

@@ -17,18 +17,15 @@ public partial class OutputPage : UserControl
     {
         InitializeComponent();
         contentControl.ContentTemplate = s_sharedDataTemplate;
+    }
 
-        this.GetObservable(IsVisibleProperty)
-            .Where(b => b)
-            .SkipUntil(this.GetObservable(DataContextProperty).Where(x => x is OutputPageViewModel))
-            .Take(1)
-            .Subscribe(_ =>
-            {
-                if (DataContext is OutputPageViewModel viewModel)
-                {
-                    viewModel.Restore();
-                }
-            });
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (DataContext is OutputPageViewModel viewModel)
+        {
+            viewModel.Restore();
+        }
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)

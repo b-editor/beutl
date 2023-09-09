@@ -15,7 +15,7 @@
     <Grid RowDefinitions="Auto,*">
         <TabStrip x:Name="tabStrip"
                   Margin="0,2"
-                  SelectedIndex="1"
+                  SelectedIndex="2"
                   Theme="{StaticResource LiteNavTabStrip}">
             <TabStrip.Styles>
                 <Style Selector="TabStripItem">
@@ -48,7 +48,7 @@
                     <TextBlock Text="{x:Static lang:Strings.Easings}" />
                 </StackPanel>
             </TabStripItem>
-            <TabStripItem IsSelected="True">
+            <TabStripItem>
                 <StackPanel>
                     <icons:SymbolIcon Symbol="Library" />
                     <TextBlock Text="{x:Static lang:Strings.Library}" />
