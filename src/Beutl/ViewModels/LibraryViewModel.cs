@@ -276,6 +276,8 @@ public sealed class LibraryViewModel : IDisposable
 
     public ReactiveCollection<KeyValuePair<int, LibraryItemViewModel>> SearchResult { get; } = new();
 
+    public int SelectedTab { get; set; } = 2;
+
     private void AddAllItems(List<LibraryItemViewModel> items)
     {
         foreach (LibraryItemViewModel innerItem in items)

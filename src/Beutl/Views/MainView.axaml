@@ -235,8 +235,7 @@
                 </ui:NavigationViewItem>
             </ui:NavigationView.FooterMenuItems>
 
-            <!--<TransitioningContentControl x:Name="NaviContent" />-->
-            <Panel x:Name="NaviContent" />
+            <ui:Frame x:Name="frame" />
         </ui:NavigationView>
 
         <StackPanel x:Name="NotificationPanel"
