@@ -84,18 +84,6 @@
         <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
     </Style>
 
-    <Style Selector="TextBox">
-        <Setter Property="(i:Interaction.Behaviors)">
-            <b:SharedContentTemplate>
-                <b:SharedContent>
-                    <i:BehaviorCollection>
-                        <b:TextBoxBehaviour />
-                    </i:BehaviorCollection>
-                </b:SharedContent>
-            </b:SharedContentTemplate>
-        </Setter>
-    </Style>
-
     <Style Selector=":is(InputElement).transparent">
         <Setter Property="Opacity" Value="0" />
         <Setter Property="IsHitTestVisible" Value="False" />
