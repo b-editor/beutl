@@ -1,7 +1,7 @@
-<Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:icons="using:FluentIcons.FluentAvalonia"
-        xmlns:local="clr-namespace:Beutl.Controls;assembly=Beutl.Controls">
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:icons="using:FluentIcons.FluentAvalonia"
+                    xmlns:local="clr-namespace:Beutl.Controls;assembly=Beutl.Controls">
     <Design.PreviewWith>
         <Border>
             <local:BcTabView TabStripPlacement="Right">
@@ -24,224 +24,314 @@
         </Border>
     </Design.PreviewWith>
 
-    <Styles.Resources>
-        <ControlTheme x:Key="{x:Type local:BcTabView}" TargetType="local:BcTabView">
+    <ControlTheme x:Key="{x:Type local:BcTabView}" TargetType="local:BcTabView">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="SecondaryBackground" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource TabViewItemHeaderBackgroundSelected}" />
+
+        <Style Selector="^ /template/ ContentPresenter#PART_FallBackContent">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:selected /template/ ContentPresenter#PART_FallBackContent">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^ /template/ Border#PART_InternalBorder">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="SecondaryBackground" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="{DynamicResource TabViewItemHeaderBackgroundSelected}" />
+        </Style>
 
-            <Style Selector="^ /template/ ContentPresenter#PART_FallBackContent">
-                <Setter Property="IsVisible" Value="True" />
-            </Style>
-            <Style Selector="^:selected /template/ ContentPresenter#PART_FallBackContent">
-                <Setter Property="IsVisible" Value="False" />
-            </Style>
-            <Style Selector="^ /template/ Border#PART_InternalBorder">
-                <Setter Property="Background" Value="Transparent" />
-            </Style>
-
-            <Style Selector="^[TabStripPlacement=Top]">
-                <Setter Property="BorderThickness" Value="0,1,0,0" />
-                <Setter Property="ItemsMargin" Value="4,4,4,0" />
-                <Setter Property="ItemsPanel">
-                    <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal" Spacing="1" />
-                    </ItemsPanelTemplate>
-                </Setter>
-                <Setter Property="Template">
-                    <ControlTemplate TargetType="local:BcTabView">
-                        <Border Margin="{TemplateBinding Margin}"
-                                HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
-                                VerticalAlignment="{TemplateBinding VerticalAlignment}">
-                            <Grid RowDefinitions="Auto,*">
-                                <!--  Item Presenter  -->
-                                <Grid Name="PART_DockContainer"
-                                      Grid.Row="0"
-                                      Width="{TemplateBinding Width}"
-                                      Background="{TemplateBinding SecondaryBackground}"
-                                      ColumnDefinitions="Auto,*">
-                                    <!--  Items and Adder Button  -->
-                                    <Grid Grid.Column="0"
-                                          Margin="{TemplateBinding ItemsMargin}"
-                                          ColumnDefinitions="*,Auto">
-                                        <ItemsPresenter Name="PART_ItemsPresenter"
-                                                        Grid.Column="0"
-                                                        MaxWidth="{TemplateBinding MaxWidthOfItemsPresenter}"
-                                                        HorizontalAlignment="Left"
-                                                        ItemsPanel="{TemplateBinding ItemsPanel}">
-                                            <ItemsPresenter.Transitions>
-                                                <Transitions>
-                                                    <DoubleTransition Easing="CubicEaseIn"
-                                                                      Property="Width"
-                                                                      Duration="0:0:0.3" />
-                                                </Transitions>
-                                            </ItemsPresenter.Transitions>
-                                        </ItemsPresenter>
-                                        <Button Name="PART_AdderButton"
-                                                Grid.Column="1"
-                                                Content="&#xE710;"
-                                                Theme="{StaticResource TabViewButtonStyle}" />
-                                    </Grid>
-                                    <!--  secondary background  -->
-                                    <Grid Name="PART_InternalGrid"
-                                          Grid.Column="1"
-                                          DockPanel.Dock="Right">
-                                        <Grid.Transitions>
+        <Style Selector="^[TabStripPlacement=Top]">
+            <Setter Property="BorderThickness" Value="0,1,0,0" />
+            <Setter Property="ItemsMargin" Value="4,4,4,0" />
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" Spacing="1" />
+                </ItemsPanelTemplate>
+            </Setter>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="local:BcTabView">
+                    <Border Margin="{TemplateBinding Margin}"
+                            HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalAlignment}">
+                        <Grid RowDefinitions="Auto,*">
+                            <!--  Item Presenter  -->
+                            <Grid Name="PART_DockContainer"
+                                  Grid.Row="0"
+                                  Width="{TemplateBinding Width}"
+                                  Background="{TemplateBinding SecondaryBackground}"
+                                  ColumnDefinitions="Auto,*">
+                                <!--  Items and Adder Button  -->
+                                <Grid Grid.Column="0"
+                                      Margin="{TemplateBinding ItemsMargin}"
+                                      ColumnDefinitions="*,Auto">
+                                    <ItemsPresenter Name="PART_ItemsPresenter"
+                                                    Grid.Column="0"
+                                                    MaxWidth="{TemplateBinding MaxWidthOfItemsPresenter}"
+                                                    HorizontalAlignment="Left"
+                                                    ItemsPanel="{TemplateBinding ItemsPanel}">
+                                        <ItemsPresenter.Transitions>
                                             <Transitions>
                                                 <DoubleTransition Easing="CubicEaseIn"
                                                                   Property="Width"
                                                                   Duration="0:0:0.3" />
                                             </Transitions>
-                                        </Grid.Transitions>
-                                        <Border Name="PART_InternalBorder">
-                                            <Border.Transitions>
-                                                <Transitions>
-                                                    <DoubleTransition Easing="CubicEaseIn"
-                                                                      Property="Width"
-                                                                      Duration="0:0:0.3" />
-                                                </Transitions>
-                                            </Border.Transitions>
-                                        </Border>
-                                    </Grid>
+                                        </ItemsPresenter.Transitions>
+                                    </ItemsPresenter>
+                                    <Button Name="PART_AdderButton"
+                                            Grid.Column="1"
+                                            Content="&#xE710;"
+                                            Theme="{StaticResource TabViewButtonStyle}" />
                                 </Grid>
-
-                                <!--  Content Host  -->
-                                <Border Grid.Row="1"
-                                        Margin="0"
-                                        Background="{TemplateBinding Background}"
-                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                        BorderThickness="{TemplateBinding BorderThickness}"
-                                        CornerRadius="{TemplateBinding CornerRadius}">
-                                    <Grid Name="PART_GridHost" Width="{TemplateBinding Width}">
-                                        <ContentPresenter Name="PART_FallBackContent" Content="{TemplateBinding FallBackContent}" />
-                                        <ContentPresenter Name="PART_SelectedContentHost"
-                                                          Height="{Binding #PART_GridHost.Height}"
-                                                          Padding="{TemplateBinding Padding}"
-                                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                          Background="{Binding $parent[local:BcTabView].SelectedItem.Background}"
-                                                          Content="{TemplateBinding SelectedContent}"
-                                                          ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
-                                    </Grid>
-                                </Border>
-                            </Grid>
-                        </Border>
-                    </ControlTemplate>
-                </Setter>
-            </Style>
-            <Style Selector="^[TabStripPlacement=Bottom]">
-                <Setter Property="BorderThickness" Value="0,0,0,1" />
-                <Setter Property="ItemsMargin" Value="4,0,4,4" />
-                <Setter Property="ItemsPanel">
-                    <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal" Spacing="1" />
-                    </ItemsPanelTemplate>
-                </Setter>
-                <Setter Property="Template">
-                    <ControlTemplate TargetType="local:BcTabView">
-                        <Border Margin="{TemplateBinding Margin}"
-                                HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
-                                VerticalAlignment="{TemplateBinding VerticalAlignment}">
-                            <Grid RowDefinitions="*,Auto">
-                                <!--  Content Host  -->
-                                <Border Grid.Row="0"
-                                        Background="{TemplateBinding Background}"
-                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                        BorderThickness="{TemplateBinding BorderThickness}"
-                                        CornerRadius="{TemplateBinding CornerRadius}">
-                                    <Grid Name="PART_GridHost">
-                                        <!--
-                                            Width="{TemplateBinding Width}"
-                                            Height="{Binding #PART_GridHost.Height}"
-                                        -->
-                                        <ContentPresenter Name="PART_FallBackContent" Content="{TemplateBinding FallBackContent}" />
-                                        <ContentPresenter Name="PART_SelectedContentHost"
-                                                          Padding="{TemplateBinding Padding}"
-                                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                          Background="{Binding $parent[local:BcTabView].SelectedItem.Background}"
-                                                          Content="{TemplateBinding SelectedContent}"
-                                                          ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
-                                    </Grid>
-                                </Border>
-
-                                <!--  Item Presenter  -->
-                                <Grid Name="PART_DockContainer"
-                                      Grid.Row="1"
-                                      Width="{TemplateBinding Width}"
-                                      Background="{TemplateBinding SecondaryBackground}"
-                                      ColumnDefinitions="Auto,*">
-                                    <!--  Items and Adder Button  -->
-                                    <Grid Grid.Column="0"
-                                          Margin="{TemplateBinding ItemsMargin}"
-                                          ColumnDefinitions="*,Auto">
-                                        <ItemsPresenter Name="PART_ItemsPresenter"
-                                                        Grid.Column="0"
-                                                        MaxWidth="{TemplateBinding MaxWidthOfItemsPresenter}"
-                                                        HorizontalAlignment="Left"
-                                                        ItemsPanel="{TemplateBinding ItemsPanel}">
-                                            <ItemsPresenter.Transitions>
-                                                <Transitions>
-                                                    <DoubleTransition Easing="CubicEaseIn"
-                                                                      Property="Width"
-                                                                      Duration="0:0:0.3" />
-                                                </Transitions>
-                                            </ItemsPresenter.Transitions>
-                                        </ItemsPresenter>
-                                        <Button Name="PART_AdderButton"
-                                                Grid.Column="1"
-                                                Content="&#xE710;"
-                                                Theme="{StaticResource TabViewButtonStyle}" />
-                                    </Grid>
-                                    <!--  secondary background  -->
-                                    <Grid Name="PART_InternalGrid" Grid.Column="1">
-                                        <Grid.Transitions>
+                                <!--  secondary background  -->
+                                <Grid Name="PART_InternalGrid"
+                                      Grid.Column="1"
+                                      DockPanel.Dock="Right">
+                                    <Grid.Transitions>
+                                        <Transitions>
+                                            <DoubleTransition Easing="CubicEaseIn"
+                                                              Property="Width"
+                                                              Duration="0:0:0.3" />
+                                        </Transitions>
+                                    </Grid.Transitions>
+                                    <Border Name="PART_InternalBorder">
+                                        <Border.Transitions>
                                             <Transitions>
                                                 <DoubleTransition Easing="CubicEaseIn"
                                                                   Property="Width"
                                                                   Duration="0:0:0.3" />
                                             </Transitions>
-                                        </Grid.Transitions>
-                                        <Border Name="PART_InternalBorder">
-                                            <Border.Transitions>
-                                                <Transitions>
-                                                    <DoubleTransition Easing="CubicEaseIn"
-                                                                      Property="Width"
-                                                                      Duration="0:0:0.3" />
-                                                </Transitions>
-                                            </Border.Transitions>
-                                        </Border>
-                                    </Grid>
+                                        </Border.Transitions>
+                                    </Border>
                                 </Grid>
                             </Grid>
-                        </Border>
-                    </ControlTemplate>
-                </Setter>
-            </Style>
-            <Style Selector="^[TabStripPlacement=Left]">
-                <Setter Property="BorderThickness" Value="1,0,0,0" />
-                <Setter Property="ItemsMargin" Value="4,4,0,4" />
-                <Setter Property="ItemsPanel">
-                    <ItemsPanelTemplate>
-                        <StackPanel Spacing="1" />
-                    </ItemsPanelTemplate>
-                </Setter>
-                <Setter Property="Template">
-                    <ControlTemplate TargetType="local:BcTabView">
-                        <Border Margin="{TemplateBinding Margin}"
-                                HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
-                                VerticalAlignment="{TemplateBinding VerticalAlignment}">
-                            <Grid ColumnDefinitions="Auto,*">
-                                <!--  Item Presenter  -->
+
+                            <!--  Content Host  -->
+                            <Border Grid.Row="1"
+                                    Margin="0"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="{TemplateBinding CornerRadius}">
+                                <Grid Name="PART_GridHost" Width="{TemplateBinding Width}">
+                                    <ContentPresenter Name="PART_FallBackContent" Content="{TemplateBinding FallBackContent}" />
+                                    <ContentPresenter Name="PART_SelectedContentHost"
+                                                      Height="{Binding #PART_GridHost.Height}"
+                                                      Padding="{TemplateBinding Padding}"
+                                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                      Background="{Binding $parent[local:BcTabView].SelectedItem.Background}"
+                                                      Content="{TemplateBinding SelectedContent}"
+                                                      ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="^[TabStripPlacement=Bottom]">
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="ItemsMargin" Value="4,0,4,4" />
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" Spacing="1" />
+                </ItemsPanelTemplate>
+            </Setter>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="local:BcTabView">
+                    <Border Margin="{TemplateBinding Margin}"
+                            HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalAlignment}">
+                        <Grid RowDefinitions="*,Auto">
+                            <!--  Content Host  -->
+                            <Border Grid.Row="0"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="{TemplateBinding CornerRadius}">
+                                <Grid Name="PART_GridHost">
+                                    <!--
+                                        Width="{TemplateBinding Width}"
+                                        Height="{Binding #PART_GridHost.Height}"
+                                    -->
+                                    <ContentPresenter Name="PART_FallBackContent" Content="{TemplateBinding FallBackContent}" />
+                                    <ContentPresenter Name="PART_SelectedContentHost"
+                                                      Padding="{TemplateBinding Padding}"
+                                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                      Background="{Binding $parent[local:BcTabView].SelectedItem.Background}"
+                                                      Content="{TemplateBinding SelectedContent}"
+                                                      ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
+                                </Grid>
+                            </Border>
+
+                            <!--  Item Presenter  -->
+                            <Grid Name="PART_DockContainer"
+                                  Grid.Row="1"
+                                  Width="{TemplateBinding Width}"
+                                  Background="{TemplateBinding SecondaryBackground}"
+                                  ColumnDefinitions="Auto,*">
+                                <!--  Items and Adder Button  -->
+                                <Grid Grid.Column="0"
+                                      Margin="{TemplateBinding ItemsMargin}"
+                                      ColumnDefinitions="*,Auto">
+                                    <ItemsPresenter Name="PART_ItemsPresenter"
+                                                    Grid.Column="0"
+                                                    MaxWidth="{TemplateBinding MaxWidthOfItemsPresenter}"
+                                                    HorizontalAlignment="Left"
+                                                    ItemsPanel="{TemplateBinding ItemsPanel}">
+                                        <ItemsPresenter.Transitions>
+                                            <Transitions>
+                                                <DoubleTransition Easing="CubicEaseIn"
+                                                                  Property="Width"
+                                                                  Duration="0:0:0.3" />
+                                            </Transitions>
+                                        </ItemsPresenter.Transitions>
+                                    </ItemsPresenter>
+                                    <Button Name="PART_AdderButton"
+                                            Grid.Column="1"
+                                            Content="&#xE710;"
+                                            Theme="{StaticResource TabViewButtonStyle}" />
+                                </Grid>
+                                <!--  secondary background  -->
+                                <Grid Name="PART_InternalGrid" Grid.Column="1">
+                                    <Grid.Transitions>
+                                        <Transitions>
+                                            <DoubleTransition Easing="CubicEaseIn"
+                                                              Property="Width"
+                                                              Duration="0:0:0.3" />
+                                        </Transitions>
+                                    </Grid.Transitions>
+                                    <Border Name="PART_InternalBorder">
+                                        <Border.Transitions>
+                                            <Transitions>
+                                                <DoubleTransition Easing="CubicEaseIn"
+                                                                  Property="Width"
+                                                                  Duration="0:0:0.3" />
+                                            </Transitions>
+                                        </Border.Transitions>
+                                    </Border>
+                                </Grid>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="^[TabStripPlacement=Left]">
+            <Setter Property="BorderThickness" Value="1,0,0,0" />
+            <Setter Property="ItemsMargin" Value="4,4,0,4" />
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <StackPanel Spacing="1" />
+                </ItemsPanelTemplate>
+            </Setter>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="local:BcTabView">
+                    <Border Margin="{TemplateBinding Margin}"
+                            HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalAlignment}">
+                        <Grid ColumnDefinitions="Auto,*">
+                            <!--  Item Presenter  -->
+                            <Grid Name="PART_DockContainer"
+                                  Grid.Column="0"
+                                  Height="{Binding $parent[local:BcTabView].Bounds.Height}"
+                                  Background="{TemplateBinding SecondaryBackground}"
+                                  RowDefinitions="Auto,*">
+                                <!--  Items and Adder Button  -->
+                                <Grid Grid.Row="0"
+                                      Margin="{TemplateBinding ItemsMargin}"
+                                      RowDefinitions="*,Auto">
+                                    <ItemsPresenter Name="PART_ItemsPresenter"
+                                                    Grid.Row="0"
+                                                    MaxHeight="{TemplateBinding MaxWidthOfItemsPresenter}"
+                                                    HorizontalAlignment="Stretch"
+                                                    VerticalAlignment="Top"
+                                                    ItemsPanel="{TemplateBinding ItemsPanel}">
+                                        <ItemsPresenter.Transitions>
+                                            <Transitions>
+                                                <DoubleTransition Easing="CubicEaseIn"
+                                                                  Property="Height"
+                                                                  Duration="0:0:0.3" />
+                                            </Transitions>
+                                        </ItemsPresenter.Transitions>
+                                    </ItemsPresenter>
+                                    <Button Name="PART_AdderButton"
+                                            Grid.Row="1"
+                                            Content="&#xE710;"
+                                            Theme="{StaticResource TabViewButtonStyle}" />
+                                </Grid>
+                                <!--  secondary background  -->
+                                <Grid Name="PART_InternalGrid" Grid.Row="1">
+                                    <Grid.Transitions>
+                                        <Transitions>
+                                            <DoubleTransition Easing="CubicEaseIn"
+                                                              Property="Width"
+                                                              Duration="0:0:0.3" />
+                                        </Transitions>
+                                    </Grid.Transitions>
+                                    <Border Name="PART_InternalBorder">
+                                        <Border.Transitions>
+                                            <Transitions>
+                                                <DoubleTransition Easing="CubicEaseIn"
+                                                                  Property="Width"
+                                                                  Duration="0:0:0.3" />
+                                            </Transitions>
+                                        </Border.Transitions>
+                                    </Border>
+                                </Grid>
+                            </Grid>
+
+                            <!--  Content Host  -->
+                            <Border Grid.Column="1"
+                                    Margin="0"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="{TemplateBinding CornerRadius}">
+                                <Grid Name="PART_GridHost" Height="{TemplateBinding Height}">
+
+                                    <ContentPresenter Name="PART_FallBackContent" Content="{TemplateBinding FallBackContent}" />
+                                    <ContentPresenter Name="PART_SelectedContentHost"
+                                                      Width="{Binding #PART_GridHost.Width}"
+                                                      Height="{TemplateBinding Height}"
+                                                      Padding="{TemplateBinding Padding}"
+                                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                      Background="{Binding $parent[local:BcTabView].SelectedItem.Background}"
+                                                      Content="{TemplateBinding SelectedContent}"
+                                                      ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="^[TabStripPlacement=Right]">
+            <Setter Property="BorderThickness" Value="0,0,1,0" />
+            <Setter Property="ItemsMargin" Value="0,4,4,4" />
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <StackPanel Spacing="1" />
+                </ItemsPanelTemplate>
+            </Setter>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="local:BcTabView">
+                    <Border Margin="{TemplateBinding Margin}"
+                            HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalAlignment}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <!--  Item Presenter  -->
+                            <Grid Grid.Column="1">
                                 <Grid Name="PART_DockContainer"
-                                      Grid.Column="0"
-                                      Height="{Binding $parent[local:BcTabView].Bounds.Height}"
+                                      Height="{TemplateBinding Height}"
                                       Background="{TemplateBinding SecondaryBackground}"
-                                      RowDefinitions="Auto,*">
+                                      RowDefinitions="auto,*">
                                     <!--  Items and Adder Button  -->
                                     <Grid Grid.Row="0"
                                           Margin="{TemplateBinding ItemsMargin}"
-                                          RowDefinitions="*,Auto">
+                                          DockPanel.Dock="Top"
+                                          RowDefinitions="*,auto">
                                         <ItemsPresenter Name="PART_ItemsPresenter"
                                                         Grid.Row="0"
                                                         MaxHeight="{TemplateBinding MaxWidthOfItemsPresenter}"
@@ -281,137 +371,41 @@
                                         </Border>
                                     </Grid>
                                 </Grid>
-
-                                <!--  Content Host  -->
-                                <Border Grid.Column="1"
-                                        Margin="0"
-                                        Background="{TemplateBinding Background}"
-                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                        BorderThickness="{TemplateBinding BorderThickness}"
-                                        CornerRadius="{TemplateBinding CornerRadius}">
-                                    <Grid Name="PART_GridHost" Height="{TemplateBinding Height}">
-
-                                        <ContentPresenter Name="PART_FallBackContent" Content="{TemplateBinding FallBackContent}" />
-                                        <ContentPresenter Name="PART_SelectedContentHost"
-                                                          Width="{Binding #PART_GridHost.Width}"
-                                                          Height="{TemplateBinding Height}"
-                                                          Padding="{TemplateBinding Padding}"
-                                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                          Background="{Binding $parent[local:BcTabView].SelectedItem.Background}"
-                                                          Content="{TemplateBinding SelectedContent}"
-                                                          ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
-                                    </Grid>
-                                </Border>
                             </Grid>
-                        </Border>
-                    </ControlTemplate>
-                </Setter>
-            </Style>
-            <Style Selector="^[TabStripPlacement=Right]">
-                <Setter Property="BorderThickness" Value="0,0,1,0" />
-                <Setter Property="ItemsMargin" Value="0,4,4,4" />
-                <Setter Property="ItemsPanel">
-                    <ItemsPanelTemplate>
-                        <StackPanel Spacing="1" />
-                    </ItemsPanelTemplate>
-                </Setter>
-                <Setter Property="Template">
-                    <ControlTemplate TargetType="local:BcTabView">
-                        <Border Margin="{TemplateBinding Margin}"
-                                HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
-                                VerticalAlignment="{TemplateBinding VerticalAlignment}">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <!--  Item Presenter  -->
-                                <Grid Grid.Column="1">
-                                    <Grid Name="PART_DockContainer"
-                                          Height="{TemplateBinding Height}"
-                                          Background="{TemplateBinding SecondaryBackground}"
-                                          RowDefinitions="auto,*">
-                                        <!--  Items and Adder Button  -->
-                                        <Grid Grid.Row="0"
-                                              Margin="{TemplateBinding ItemsMargin}"
-                                              DockPanel.Dock="Top"
-                                              RowDefinitions="*,auto">
-                                            <ItemsPresenter Name="PART_ItemsPresenter"
-                                                            Grid.Row="0"
-                                                            MaxHeight="{TemplateBinding MaxWidthOfItemsPresenter}"
-                                                            HorizontalAlignment="Stretch"
-                                                            VerticalAlignment="Top"
-                                                            ItemsPanel="{TemplateBinding ItemsPanel}">
-                                                <ItemsPresenter.Transitions>
-                                                    <Transitions>
-                                                        <DoubleTransition Easing="CubicEaseIn"
-                                                                          Property="Height"
-                                                                          Duration="0:0:0.3" />
-                                                    </Transitions>
-                                                </ItemsPresenter.Transitions>
-                                            </ItemsPresenter>
-                                            <Button Name="PART_AdderButton"
-                                                    Grid.Row="1"
-                                                    Content="&#xE710;"
-                                                    Theme="{StaticResource TabViewButtonStyle}" />
-                                        </Grid>
-                                        <!--  secondary background  -->
-                                        <Grid Name="PART_InternalGrid" Grid.Row="1">
-                                            <Grid.Transitions>
-                                                <Transitions>
-                                                    <DoubleTransition Easing="CubicEaseIn"
-                                                                      Property="Width"
-                                                                      Duration="0:0:0.3" />
-                                                </Transitions>
-                                            </Grid.Transitions>
-                                            <Border Name="PART_InternalBorder">
-                                                <Border.Transitions>
-                                                    <Transitions>
-                                                        <DoubleTransition Easing="CubicEaseIn"
-                                                                          Property="Width"
-                                                                          Duration="0:0:0.3" />
-                                                    </Transitions>
-                                                </Border.Transitions>
-                                            </Border>
-                                        </Grid>
-                                    </Grid>
+                            <!--  Content Host  -->
+                            <Border Grid.Column="0"
+                                    Margin="0"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="{TemplateBinding CornerRadius}">
+                                <Grid Name="PART_GridHost" Height="{TemplateBinding Height}">
+                                    <ContentPresenter Name="PART_FallBackContent" Content="{TemplateBinding FallBackContent}" />
+                                    <ContentPresenter Name="PART_SelectedContentHost"
+                                                      Width="{Binding #PART_GridHost.Width}"
+                                                      Height="{TemplateBinding Height}"
+                                                      Padding="{TemplateBinding Padding}"
+                                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                      Background="{Binding $parent[local:BcTabView].SelectedItem.Background}"
+                                                      Content="{TemplateBinding SelectedContent}"
+                                                      ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
                                 </Grid>
-                                <!--  Content Host  -->
-                                <Border Grid.Column="0"
-                                        Margin="0"
-                                        Background="{TemplateBinding Background}"
-                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                        BorderThickness="{TemplateBinding BorderThickness}"
-                                        CornerRadius="{TemplateBinding CornerRadius}">
-                                    <Grid Name="PART_GridHost" Height="{TemplateBinding Height}">
-                                        <ContentPresenter Name="PART_FallBackContent" Content="{TemplateBinding FallBackContent}" />
-                                        <ContentPresenter Name="PART_SelectedContentHost"
-                                                          Width="{Binding #PART_GridHost.Width}"
-                                                          Height="{TemplateBinding Height}"
-                                                          Padding="{TemplateBinding Padding}"
-                                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                          Background="{Binding $parent[local:BcTabView].SelectedItem.Background}"
-                                                          Content="{TemplateBinding SelectedContent}"
-                                                          ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
-                                    </Grid>
-                                </Border>
-                            </Grid>
-                        </Border>
-                    </ControlTemplate>
-                </Setter>
-            </Style>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
 
-            <Style Selector="^ /template/ Button#PART_AdderButton">
-                <Setter Property="IsVisible" Value="{Binding $parent[local:BcTabView].AdderButtonIsVisible}" />
-                <Setter Property="ZIndex" Value="-1" />
-                <Setter Property="Margin" Value="4" />
-            </Style>
-            <Style Selector="^[TabStripPlacement=Right] /template/ Button#PART_AdderButton,^[TabStripPlacement=Left] /template/ Button#PART_AdderButton">
-                <Setter Property="Width" Value="{DynamicResource TabViewItemAddButtonHeight}" />
-                <Setter Property="Height" Value="{DynamicResource TabViewItemAddButtonWidth}" />
-            </Style>
-        </ControlTheme>
-    </Styles.Resources>
-
-    <Style Selector="local|BcTabView local|BcTabItem">
-        <Setter Property="CanBeDragged" Value="{Binding $parent[local:BcTabView].ReorderableTabs}" />
-    </Style>
-</Styles>
+        <Style Selector="^ /template/ Button#PART_AdderButton">
+            <Setter Property="IsVisible" Value="{Binding $parent[local:BcTabView].AdderButtonIsVisible}" />
+            <Setter Property="ZIndex" Value="-1" />
+            <Setter Property="Margin" Value="4" />
+        </Style>
+        <Style Selector="^[TabStripPlacement=Right] /template/ Button#PART_AdderButton,^[TabStripPlacement=Left] /template/ Button#PART_AdderButton">
+            <Setter Property="Width" Value="{DynamicResource TabViewItemAddButtonHeight}" />
+            <Setter Property="Height" Value="{DynamicResource TabViewItemAddButtonWidth}" />
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>

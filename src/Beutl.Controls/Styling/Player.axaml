@@ -1,7 +1,7 @@
-<Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:controls="using:Beutl.Controls"
-        xmlns:icons="using:FluentIcons.FluentAvalonia">
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="using:Beutl.Controls"
+                    xmlns:icons="using:FluentIcons.FluentAvalonia">
     <Design.PreviewWith>
         <controls:Player Width="600"
                          Height="300"
@@ -9,7 +9,7 @@
                          Duration="00:10:00" />
     </Design.PreviewWith>
 
-    <Style Selector="controls|Player">
+    <ControlTheme x:Key="{x:Type controls:Player}" TargetType="controls:Player">
         <Setter Property="Template">
             <ControlTemplate>
                 <Grid RowDefinitions="*,Auto">
@@ -106,5 +106,5 @@
                 </Grid>
             </ControlTemplate>
         </Setter>
-    </Style>
-</Styles>
+    </ControlTheme>
+</ResourceDictionary>

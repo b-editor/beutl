@@ -1,11 +1,11 @@
-<Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:b="clr-namespace:Beutl.Controls.Behaviors;assembly=Beutl.Controls"
-        xmlns:i="using:Avalonia.Xaml.Interactivity"
-        xmlns:icons="using:FluentIcons.FluentAvalonia"
-        xmlns:local="clr-namespace:Beutl.Controls;assembly=Beutl.Controls"
-        xmlns:sys="clr-namespace:System;assembly=mscorlib"
-        xmlns:ui="using:FluentAvalonia.UI.Controls">
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:b="clr-namespace:Beutl.Controls.Behaviors;assembly=Beutl.Controls"
+                    xmlns:i="using:Avalonia.Xaml.Interactivity"
+                    xmlns:icons="using:FluentIcons.FluentAvalonia"
+                    xmlns:local="clr-namespace:Beutl.Controls;assembly=Beutl.Controls"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls">
     <Design.PreviewWith>
         <Border>
             <local:BcTabView TabStripPlacement="Right">
@@ -28,72 +28,116 @@
         </Border>
     </Design.PreviewWith>
 
-    <Styles.Resources>
-        <sys:Double x:Key="BcTabItemDraggingOpacity">0.5</sys:Double>
-        <sys:Double x:Key="BcTabItemDisabledOpacity">0.6</sys:Double>
-        <sys:Double x:Key="BcTabItemFontSize">12</sys:Double>
+    <sys:Double x:Key="BcTabItemDraggingOpacity">0.5</sys:Double>
+    <sys:Double x:Key="BcTabItemDisabledOpacity">0.6</sys:Double>
+    <sys:Double x:Key="BcTabItemFontSize">12</sys:Double>
 
-        <ControlTheme x:Key="{x:Type local:BcTabItem}" TargetType="local:BcTabItem">
-            <Setter Property="HorizontalContentAlignment" Value="Left" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="FontSize" Value="{DynamicResource BcTabItemFontSize}" />
-            <Setter Property="CornerRadius" Value="{DynamicResource OverlayCornerRadius}" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="ZIndex" Value="0" />
+    <ControlTheme x:Key="{x:Type local:BcTabItem}" TargetType="local:BcTabItem">
+        <Setter Property="CanBeDragged" Value="{Binding $parent[local:BcTabView].ReorderableTabs}" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FontSize" Value="{DynamicResource BcTabItemFontSize}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource OverlayCornerRadius}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="ZIndex" Value="0" />
 
-            <Style Selector="^:pressed">
-                <Setter Property="ZIndex" Value="1" />
-            </Style>
+        <Style Selector="^:pressed">
+            <Setter Property="ZIndex" Value="1" />
+        </Style>
 
-            <!--  Templates  -->
-            <Style Selector="^[TabStripPlacement=Top],^[TabStripPlacement=Bottom]">
-                <Setter Property="Height" Value="32" />
-                <Setter Property="Padding" Value="8,0" />
-            </Style>
-            <Style Selector="^[TabStripPlacement=Top]">
-                <Setter Property="VerticalAlignment" Value="Bottom" />
-                <Setter Property="Template">
-                    <ControlTemplate>
-                        <Border Name="PART_Container"
-                                Padding="8,0"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="{TemplateBinding CornerRadius, Converter={StaticResource TopCornerRadiusFilterConverter}}">
-                            <Grid ColumnDefinitions="Auto,*,Auto">
-                                <ContentPresenter Name="PART_Icon" Content="{TemplateBinding Icon}" />
+        <!--  Templates  -->
+        <Style Selector="^[TabStripPlacement=Top],^[TabStripPlacement=Bottom]">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="8,0" />
+        </Style>
+        <Style Selector="^[TabStripPlacement=Top]">
+            <Setter Property="VerticalAlignment" Value="Bottom" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="PART_Container"
+                            Padding="8,0"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius, Converter={StaticResource TopCornerRadiusFilterConverter}}">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <ContentPresenter Name="PART_Icon" Content="{TemplateBinding Icon}" />
 
-                                <ContentPresenter Name="PART_ContentPresenter"
-                                                  Grid.Column="1"
-                                                  Margin="{TemplateBinding Margin}"
-                                                  Padding="{TemplateBinding Padding}"
-                                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                  BorderThickness="{TemplateBinding BorderThickness}"
-                                                  Content="{TemplateBinding Header}"
-                                                  ContentTemplate="{TemplateBinding HeaderTemplate}"
-                                                  TextBlock.Foreground="{TemplateBinding Foreground}" />
-                                <Button Name="PART_CloseButton"
-                                        Grid.Column="2"
-                                        Margin="{DynamicResource TabViewItemHeaderCloseMargin}"
-                                        Content="&#xE711;"
-                                        KeyboardNavigation.IsTabStop="False"
-                                        Theme="{StaticResource TabViewCloseButtonStyle}" />
-                            </Grid>
-                        </Border>
-                    </ControlTemplate>
-                </Setter>
-            </Style>
-            <Style Selector="^[TabStripPlacement=Bottom]">
-                <Setter Property="VerticalAlignment" Value="Top" />
-                <Setter Property="Template">
-                    <ControlTemplate>
-                        <Border Name="PART_Container"
-                                Padding="8,0"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="{TemplateBinding CornerRadius, Converter={StaticResource BottomCornerRadiusFilterConverter}}">
+                            <ContentPresenter Name="PART_ContentPresenter"
+                                              Grid.Column="1"
+                                              Margin="{TemplateBinding Margin}"
+                                              Padding="{TemplateBinding Padding}"
+                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              BorderThickness="{TemplateBinding BorderThickness}"
+                                              Content="{TemplateBinding Header}"
+                                              ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                              TextBlock.Foreground="{TemplateBinding Foreground}" />
+                            <Button Name="PART_CloseButton"
+                                    Grid.Column="2"
+                                    Margin="{DynamicResource TabViewItemHeaderCloseMargin}"
+                                    Content="&#xE711;"
+                                    KeyboardNavigation.IsTabStop="False"
+                                    Theme="{StaticResource TabViewCloseButtonStyle}" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="^[TabStripPlacement=Bottom]">
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="PART_Container"
+                            Padding="8,0"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius, Converter={StaticResource BottomCornerRadiusFilterConverter}}">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <ContentPresenter Name="PART_Icon" Content="{TemplateBinding Icon}" />
+
+                            <ContentPresenter Name="PART_ContentPresenter"
+                                              Grid.Column="1"
+                                              Margin="{TemplateBinding Margin}"
+                                              Padding="{TemplateBinding Padding}"
+                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Background="Transparent"
+                                              BorderThickness="{TemplateBinding BorderThickness}"
+                                              Content="{TemplateBinding Header}"
+                                              ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                              TextBlock.Foreground="{TemplateBinding Foreground}" />
+                            <Button Name="PART_CloseButton"
+                                    Grid.Column="2"
+                                    Margin="{DynamicResource TabViewItemHeaderCloseMargin}"
+                                    Content="&#xE711;"
+                                    KeyboardNavigation.IsTabStop="False"
+                                    Theme="{StaticResource TabViewCloseButtonStyle}" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="^[TabStripPlacement=Left],^[TabStripPlacement=Right]">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Padding" Value="8,0" />
+        </Style>
+        <Style Selector="^[TabStripPlacement=Left]">
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="PART_Container"
+                            Padding="0,8"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius, Converter={StaticResource LeftCornerRadiusFilterConverter}}">
+                        <LayoutTransformControl>
+                            <LayoutTransformControl.LayoutTransform>
+                                <RotateTransform Angle="-90" />
+                            </LayoutTransformControl.LayoutTransform>
                             <Grid ColumnDefinitions="Auto,*,Auto">
                                 <ContentPresenter Name="PART_Icon" Content="{TemplateBinding Icon}" />
 
@@ -104,7 +148,6 @@
                                                   HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
                                                   VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
                                                   Background="Transparent"
-                                                  BorderThickness="{TemplateBinding BorderThickness}"
                                                   Content="{TemplateBinding Header}"
                                                   ContentTemplate="{TemplateBinding HeaderTemplate}"
                                                   TextBlock.Foreground="{TemplateBinding Foreground}" />
@@ -115,119 +158,75 @@
                                         KeyboardNavigation.IsTabStop="False"
                                         Theme="{StaticResource TabViewCloseButtonStyle}" />
                             </Grid>
-                        </Border>
-                    </ControlTemplate>
-                </Setter>
-            </Style>
+                        </LayoutTransformControl>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="^[TabStripPlacement=Right]">
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="PART_Container"
+                            Padding="0,8"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius, Converter={StaticResource RightCornerRadiusFilterConverter}}">
+                        <LayoutTransformControl>
+                            <LayoutTransformControl.LayoutTransform>
+                                <RotateTransform Angle="90" />
+                            </LayoutTransformControl.LayoutTransform>
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <ContentPresenter Name="PART_Icon" Content="{TemplateBinding Icon}" />
 
-            <Style Selector="^[TabStripPlacement=Left],^[TabStripPlacement=Right]">
-                <Setter Property="Width" Value="32" />
-                <Setter Property="Padding" Value="8,0" />
-            </Style>
-            <Style Selector="^[TabStripPlacement=Left]">
-                <Setter Property="HorizontalAlignment" Value="Right" />
-                <Setter Property="Template">
-                    <ControlTemplate>
-                        <Border Name="PART_Container"
-                                Padding="0,8"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="{TemplateBinding CornerRadius, Converter={StaticResource LeftCornerRadiusFilterConverter}}">
-                            <LayoutTransformControl>
-                                <LayoutTransformControl.LayoutTransform>
-                                    <RotateTransform Angle="-90" />
-                                </LayoutTransformControl.LayoutTransform>
-                                <Grid ColumnDefinitions="Auto,*,Auto">
-                                    <ContentPresenter Name="PART_Icon" Content="{TemplateBinding Icon}" />
+                                <ContentPresenter Name="PART_ContentPresenter"
+                                                  Grid.Column="1"
+                                                  Margin="{TemplateBinding Margin}"
+                                                  Padding="{TemplateBinding Padding}"
+                                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  Background="Transparent"
+                                                  Content="{TemplateBinding Header}"
+                                                  ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                                  TextBlock.Foreground="{TemplateBinding Foreground}" />
+                                <Button Name="PART_CloseButton"
+                                        Grid.Column="2"
+                                        Margin="{DynamicResource TabViewItemHeaderCloseMargin}"
+                                        Content="&#xE711;"
+                                        KeyboardNavigation.IsTabStop="False"
+                                        Theme="{StaticResource TabViewCloseButtonStyle}" />
+                            </Grid>
+                        </LayoutTransformControl>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
 
-                                    <ContentPresenter Name="PART_ContentPresenter"
-                                                      Grid.Column="1"
-                                                      Margin="{TemplateBinding Margin}"
-                                                      Padding="{TemplateBinding Padding}"
-                                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                      Background="Transparent"
-                                                      Content="{TemplateBinding Header}"
-                                                      ContentTemplate="{TemplateBinding HeaderTemplate}"
-                                                      TextBlock.Foreground="{TemplateBinding Foreground}" />
-                                    <Button Name="PART_CloseButton"
-                                            Grid.Column="2"
-                                            Margin="{DynamicResource TabViewItemHeaderCloseMargin}"
-                                            Content="&#xE711;"
-                                            KeyboardNavigation.IsTabStop="False"
-                                            Theme="{StaticResource TabViewCloseButtonStyle}" />
-                                </Grid>
-                            </LayoutTransformControl>
-                        </Border>
-                    </ControlTemplate>
-                </Setter>
-            </Style>
-            <Style Selector="^[TabStripPlacement=Right]">
-                <Setter Property="HorizontalAlignment" Value="Left" />
-                <Setter Property="Template">
-                    <ControlTemplate>
-                        <Border Name="PART_Container"
-                                Padding="0,8"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="{TemplateBinding CornerRadius, Converter={StaticResource RightCornerRadiusFilterConverter}}">
-                            <LayoutTransformControl>
-                                <LayoutTransformControl.LayoutTransform>
-                                    <RotateTransform Angle="90" />
-                                </LayoutTransformControl.LayoutTransform>
-                                <Grid ColumnDefinitions="Auto,*,Auto">
-                                    <ContentPresenter Name="PART_Icon" Content="{TemplateBinding Icon}" />
+        <Style Selector="^[IsClosable=True] /template/ Button#PART_CloseButton">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
 
-                                    <ContentPresenter Name="PART_ContentPresenter"
-                                                      Grid.Column="1"
-                                                      Margin="{TemplateBinding Margin}"
-                                                      Padding="{TemplateBinding Padding}"
-                                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                      Background="Transparent"
-                                                      Content="{TemplateBinding Header}"
-                                                      ContentTemplate="{TemplateBinding HeaderTemplate}"
-                                                      TextBlock.Foreground="{TemplateBinding Foreground}" />
-                                    <Button Name="PART_CloseButton"
-                                            Grid.Column="2"
-                                            Margin="{DynamicResource TabViewItemHeaderCloseMargin}"
-                                            Content="&#xE711;"
-                                            KeyboardNavigation.IsTabStop="False"
-                                            Theme="{StaticResource TabViewCloseButtonStyle}" />
-                                </Grid>
-                            </LayoutTransformControl>
-                        </Border>
-                    </ControlTemplate>
-                </Setter>
-            </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="{DynamicResource BcTabItemDisabledOpacity}" />
+        </Style>
+        <Style Selector="^:dragging">
+            <Setter Property="Opacity" Value="{DynamicResource BcTabItemDraggingOpacity}" />
+        </Style>
 
-            <Style Selector="^[IsClosable=True] /template/ Button#PART_CloseButton">
-                <Setter Property="IsVisible" Value="True" />
-            </Style>
+        <Style Selector="^ /template/ ContentPresenter#PART_Icon">
+            <Setter Property="MaxHeight" Value="32" />
+        </Style>
 
-            <Style Selector="^:disabled">
-                <Setter Property="Opacity" Value="{DynamicResource BcTabItemDisabledOpacity}" />
-            </Style>
-            <Style Selector="^:dragging">
-                <Setter Property="Opacity" Value="{DynamicResource BcTabItemDraggingOpacity}" />
-            </Style>
-
-            <Style Selector="^ /template/ ContentPresenter#PART_Icon">
-                <Setter Property="MaxHeight" Value="32" />
-            </Style>
-
-            <Style Selector="^[IsSelected=True] /template/ Border#PART_Container">
-                <Setter Property="BorderBrush" Value="{DynamicResource TabViewSelectedItemBorderBrush}" />
-                <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
-            </Style>
-            <Style Selector="^[IsSelected=False] /template/ Border#PART_Container">
-                <Setter Property="Background" Value="Transparent" />
-            </Style>
-            <Style Selector="^[IsSelected=False]:pointerover /template/ Border#PART_Container">
-                <Setter Property="Background" Value="{DynamicResource TabViewItemHeaderBackgroundPointerOver}" />
-            </Style>
-        </ControlTheme>
-    </Styles.Resources>
-</Styles>
+        <Style Selector="^[IsSelected=True] /template/ Border#PART_Container">
+            <Setter Property="BorderBrush" Value="{DynamicResource TabViewSelectedItemBorderBrush}" />
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="^[IsSelected=False] /template/ Border#PART_Container">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="^[IsSelected=False]:pointerover /template/ Border#PART_Container">
+            <Setter Property="Background" Value="{DynamicResource TabViewItemHeaderBackgroundPointerOver}" />
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>
