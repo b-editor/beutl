@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 
+using Beutl.Configuration;
 using Beutl.Services;
 
 using Reactive.Bindings;
@@ -10,12 +11,12 @@ public sealed class CreateNewProjectViewModel
 {
     public CreateNewProjectViewModel()
     {
-        Location.Value = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        Location.Value = GetDefaultLocation();
         Name.Value = GenProjectName(Location.Value);
 
         Name.SetValidateNotifyError(n =>
         {
-            if(n == string.Empty || n == null || n.IndexOfAny(Path.GetInvalidFileNameChars()) > -1)
+            if (n == string.Empty || n == null || n.IndexOfAny(Path.GetInvalidFileNameChars()) > -1)
             {
                 return Message.InvalidString;
             }
@@ -105,6 +106,24 @@ public sealed class CreateNewProjectViewModel
     public ReadOnlyReactivePropertySlim<bool> CanCreate { get; }
 
     public ReactiveCommand Create { get; }
+
+    private static string GetDefaultLocation()
+    {
+        ViewConfig config = GlobalConfiguration.Instance.ViewConfig;
+        try
+        {
+            if (config.RecentProjects.FirstOrDefault() is { } last)
+            {
+                ReadOnlySpan<char> span = last.AsSpan();
+                return new string(Path.GetDirectoryName(Path.GetDirectoryName(span)));
+            }
+        }
+        catch
+        {
+        }
+
+        return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+    }
 
     private static string GenProjectName(string location)
     {
