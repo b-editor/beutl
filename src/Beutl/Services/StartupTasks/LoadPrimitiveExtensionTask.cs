@@ -26,7 +26,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
             SceneSettingsTabExtension.Instance,
             WaveReaderExtension.Instance,
         };
-        Task = Task.Run(() =>
+        Task = Task.Run(async () =>
         {
             using (Activity? activity = Telemetry.StartActivity("LoadPrimitiveExtensionTask.Run"))
             {
@@ -38,6 +38,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                 provider.AddExtensions(LocalPackage.Reserved0, PrimitiveExtensions);
                 activity?.AddEvent(new("Loaded_Extensions"));
 
+                await Task.Yield();
 #if FFMPEG_BUILD_IN
 #pragma warning disable CS0436
                 activity?.AddEvent(new("Loading_FFmpeg"));

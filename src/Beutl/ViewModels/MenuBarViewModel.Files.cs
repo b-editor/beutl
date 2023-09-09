@@ -12,10 +12,10 @@ public partial class MenuBarViewModel
     [MemberNotNull(nameof(CloseFile), nameof(CloseProject), nameof(Save), nameof(SaveAll))]
     private void InitializeFilesCommands()
     {
-        CloseFile = new ReactiveCommand(EditorService.Current.SelectedTabItem.Select(i => i != null))
+        CloseFile = new ReactiveCommandSlim(EditorService.Current.SelectedTabItem.Select(i => i != null))
             .WithSubscribe(OnCloseFile);
 
-        CloseProject = new ReactiveCommand(IsProjectOpened)
+        CloseProject = new ReactiveCommandSlim(IsProjectOpened)
             .WithSubscribe(ProjectService.Current.CloseProject);
 
         Save = new AsyncReactiveCommand(IsProjectOpened)
@@ -64,31 +64,31 @@ public partial class MenuBarViewModel
     //    Recent files
     //    Recent projects
     //    Exit
-    public ReactiveCommand CreateNewProject { get; } = new();
+    public ReactiveCommandSlim CreateNewProject { get; } = new();
 
-    public ReactiveCommand CreateNew { get; } = new();
+    public ReactiveCommandSlim CreateNew { get; } = new();
 
-    public ReactiveCommand OpenProject { get; } = new();
+    public ReactiveCommandSlim OpenProject { get; } = new();
 
-    public ReactiveCommand OpenFile { get; } = new();
+    public ReactiveCommandSlim OpenFile { get; } = new();
 
-    public ReactiveCommand CloseFile { get; private set; }
+    public ReactiveCommandSlim CloseFile { get; private set; }
 
-    public ReactiveCommand CloseProject { get; private set; }
+    public ReactiveCommandSlim CloseProject { get; private set; }
 
     public AsyncReactiveCommand Save { get; private set; }
 
     public AsyncReactiveCommand SaveAll { get; private set; }
 
-    public ReactiveCommand<string> OpenRecentFile { get; } = new();
+    public ReactiveCommandSlim<string> OpenRecentFile { get; } = new();
 
-    public ReactiveCommand<string> OpenRecentProject { get; } = new();
+    public ReactiveCommandSlim<string> OpenRecentProject { get; } = new();
 
     public CoreList<string> RecentFileItems { get; } = new();
 
     public CoreList<string> RecentProjectItems { get; } = new();
 
-    public ReactiveCommand Exit { get; } = new();
+    public ReactiveCommandSlim Exit { get; } = new();
 
     private async Task OnSaveAll()
     {

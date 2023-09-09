@@ -22,9 +22,10 @@ public sealed class PackageManager : PackageLoader
 
     public PackageManager(
         InstalledPackageRepository installedPackageRepository,
+        ExtensionProvider extensionProvider,
         BeutlApiApplication apiApplication)
     {
-        ExtensionProvider = new();
+        ExtensionProvider = extensionProvider;
         _installedPackageRepository = installedPackageRepository;
         _apiApplication = apiApplication;
     }
@@ -155,24 +156,19 @@ public sealed class PackageManager : PackageLoader
         {
             async Task<Package?> GetPackage(string id)
             {
-                using (await _apiApplication.Lock.LockAsync())
+                try
                 {
-                    activity?.AddEvent(new("Entered_AsyncLock"));
+                    PackageResponse package = await _apiApplication.Packages.GetPackageAsync(id).ConfigureAwait(false);
+                    ProfileResponse profile = await _apiApplication.Users.GetUserAsync(package.Owner.Name).ConfigureAwait(false);
 
-                    try
-                    {
-                        PackageResponse package = await _apiApplication.Packages.GetPackageAsync(id).ConfigureAwait(false);
-                        ProfileResponse profile = await _apiApplication.Users.GetUserAsync(package.Owner.Name).ConfigureAwait(false);
-
-                        return new Package(
-                            profile: new Profile(profile, _apiApplication),
-                            package,
-                            _apiApplication);
-                    }
-                    catch
-                    {
-                        return null;
-                    }
+                    return new Package(
+                        profile: new Profile(profile, _apiApplication),
+                        package,
+                        _apiApplication);
+                }
+                catch
+                {
+                    return null;
                 }
             }
 

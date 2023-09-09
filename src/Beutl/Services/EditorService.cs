@@ -82,7 +82,7 @@ public sealed class EditorService
 
     public ICoreList<EditorTabItem> TabItems => _tabItems;
 
-    public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } = new ReactiveProperty<EditorTabItem?>();
+    public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } = new ReactivePropertySlim<EditorTabItem?>();
 
     public bool TryGetTabItem(string? file, [NotNullWhen(true)] out EditorTabItem? result)
     {

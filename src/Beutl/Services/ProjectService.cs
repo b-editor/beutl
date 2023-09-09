@@ -7,7 +7,6 @@ using Beutl.ProjectSystem;
 using Reactive.Bindings;
 
 using Serilog;
-using Serilog.Context;
 
 namespace Beutl.Services;
 

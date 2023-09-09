@@ -17,10 +17,13 @@ using FluentAvalonia.UI.Windowing;
 
 using Reactive.Bindings;
 
+using Serilog;
+
 namespace Beutl.Views;
 
 public sealed partial class MainView : UserControl
 {
+    private readonly ILogger _logger = Log.ForContext<MainView>();
     private readonly CompositeDisposable _disposables = new();
 
     public MainView()
@@ -93,10 +96,12 @@ public sealed partial class MainView : UserControl
 
         if (DataContext is MainViewModel viewModel)
         {
-            await viewModel.RunStartupTask();
+            await App.WaitLoadingExtensions();
 
             InitExtMenuItems();
         }
+
+        _logger.Information("WindowOpened");
     }
 
     // 拡張機能を読み込んだ後に呼び出す

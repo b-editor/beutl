@@ -5,6 +5,8 @@ using Beutl.Api;
 
 using FluentAvalonia.UI.Controls;
 
+using OpenTelemetry.Trace;
+
 using Serilog;
 
 namespace Beutl.Services.StartupTasks;
@@ -55,26 +57,23 @@ public sealed class CheckForUpdatesTask : StartupTask
     private async ValueTask<CheckForUpdatesResponse?> CheckForUpdates(Activity? activity)
     {
 #pragma warning disable CS0436
-        using (await _beutlApiApplication.Lock.LockAsync())
+        try
         {
-            activity?.AddEvent(new("Entered_AsyncLock"));
-
-            try
-            {
-                return await _beutlApiApplication.App.CheckForUpdatesAsync(GitVersionInformation.NuGetVersion);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "An error occurred while checking for updates");
-                ex.Handle();
-                return null;
-            }
+            return await _beutlApiApplication.App.CheckForUpdatesAsync(GitVersionInformation.NuGetVersion);
+        }
+        catch (Exception ex)
+        {
+            activity?.RecordException(ex);
+            _logger.Error(ex, "An error occurred while checking for updates");
+            ex.Handle();
+            return null;
         }
 #pragma warning restore CS0436
     }
 
     private static async Task ShowDialogAndClose(CheckForUpdatesResponse response)
     {
+        await App.WaitWindowOpened();
         await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             var dialog = new ContentDialog

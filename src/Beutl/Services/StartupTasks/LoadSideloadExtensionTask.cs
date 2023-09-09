@@ -61,6 +61,7 @@ public sealed class LoadSideloadExtensionTask : StartupTask
 
     private static async ValueTask<bool> ShowDialog(IReadOnlyList<LocalPackage> sideloads)
     {
+        await App.WaitWindowOpened();
         return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             var dialog = new ContentDialog

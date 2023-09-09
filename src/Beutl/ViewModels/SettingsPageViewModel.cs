@@ -11,28 +11,32 @@ public sealed class SettingsPageViewModel : IPageContext
     private readonly Subject<object> _navigateRequested = new();
     private readonly Lazy<AccountSettingsPageViewModel> _account;
     private readonly Lazy<StorageSettingsPageViewModel> _storage;
+    private readonly Lazy<ViewSettingsPageViewModel> _view;
+    private readonly Lazy<FontSettingsPageViewModel> _font;
+    private readonly Lazy<ExtensionsSettingsPageViewModel> _extensionsPage;
+    private readonly Lazy<InfomationPageViewModel> _infomation;
 
     public SettingsPageViewModel(BeutlApiApplication clients)
     {
         _account = new(() => new AccountSettingsPageViewModel(clients));
-        View = new ViewSettingsPageViewModel();
-        Font = new FontSettingsPageViewModel();
-        ExtensionsPage = new ExtensionsSettingsPageViewModel();
+        _view = new(() => new ViewSettingsPageViewModel());
+        _font = new(() => new FontSettingsPageViewModel());
+        _extensionsPage = new(() => new ExtensionsSettingsPageViewModel());
         _storage = new(() => new StorageSettingsPageViewModel(clients.AuthorizedUser));
-        Infomation = new InfomationPageViewModel();
+        _infomation = new(() => new InfomationPageViewModel());
     }
 
     public AccountSettingsPageViewModel Account => _account.Value;
 
-    public ViewSettingsPageViewModel View { get; }
+    public ViewSettingsPageViewModel View => _view.Value;
 
-    public FontSettingsPageViewModel Font { get; }
+    public FontSettingsPageViewModel Font => _font.Value;
 
-    public ExtensionsSettingsPageViewModel ExtensionsPage { get; }
+    public ExtensionsSettingsPageViewModel ExtensionsPage => _extensionsPage.Value;
 
     public StorageSettingsPageViewModel Storage => _storage.Value;
 
-    public InfomationPageViewModel Infomation { get; }
+    public InfomationPageViewModel Infomation => _infomation.Value;
 
     public PageExtension Extension => SettingsPageExtension.Instance;
 

@@ -40,6 +40,7 @@ internal static class Program
         config.Restore(GlobalConfiguration.DefaultFilePath);
 
         SetupLogger();
+        Log.Information("After setup logger");
 
         UnhandledExceptionHandler.Initialize();
 

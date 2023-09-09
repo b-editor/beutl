@@ -10,6 +10,7 @@ public sealed partial class MenuBarViewModel
 {
     private readonly ILogger _logger = Log.ForContext<MenuBarViewModel>();
 
+#pragma warning disable CS8618
     public MenuBarViewModel()
     {
         IsProjectOpened = ProjectService.Current.IsOpened;
@@ -22,8 +23,12 @@ public sealed partial class MenuBarViewModel
             .SelectMany(i => i?.Context ?? Observable.Empty<IEditorContext?>())
             .Select(v => v is EditViewModel);
 
-        InitializeFilesCommands();
-        InitializeSceneCommands(isSceneOpened);
+        Parallel.Invoke(
+            () => InitializeFilesCommands(),
+            () => InitializeSceneCommands(isSceneOpened));
+
+        //InitializeFilesCommands();
+        //InitializeSceneCommands(isSceneOpened);
 
         AddToProject = new(isProjectOpenedAndTabOpened);
         RemoveFromProject = new(isProjectOpenedAndTabOpened);
@@ -44,9 +49,9 @@ public sealed partial class MenuBarViewModel
     // Project
     //    Add
     //    Remove
-    public ReactiveCommand AddToProject { get; }
+    public ReactiveCommandSlim AddToProject { get; }
 
-    public ReactiveCommand RemoveFromProject { get; }
+    public ReactiveCommandSlim RemoveFromProject { get; }
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 

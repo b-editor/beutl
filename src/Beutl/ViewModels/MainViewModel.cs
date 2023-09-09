@@ -16,8 +16,6 @@ using NuGet.Packaging.Core;
 
 using Reactive.Bindings;
 
-using Serilog;
-
 namespace Beutl.ViewModels;
 
 public sealed class MainViewModel : BasePageViewModel
@@ -48,7 +46,7 @@ public sealed class MainViewModel : BasePageViewModel
     {
         _authorizedHttpClient = new HttpClient();
         _beutlClients = new BeutlApiApplication(_authorizedHttpClient);
-        ExtensionProvider.Current = _beutlClients.GetResource<ExtensionProvider>();
+
         MenuBar = new MenuBarViewModel();
 
         IsProjectOpened = ProjectService.Current.IsOpened;
@@ -56,14 +54,6 @@ public sealed class MainViewModel : BasePageViewModel
             .ToReadOnlyReactivePropertySlim();
         WindowTitle = NameOfOpenProject.Select(v => string.IsNullOrWhiteSpace(v) ? "Beutl" : $"Beutl - {v}")
             .ToReadOnlyReactivePropertySlim("Beutl");
-
-        IObservable<bool> isProjectOpenedAndTabOpened = ProjectService.Current.IsOpened
-            .CombineLatest(EditorService.Current.SelectedTabItem)
-            .Select(i => i.First && i.Second != null);
-
-        IObservable<bool> isSceneOpened = EditorService.Current.SelectedTabItem
-            .SelectMany(i => i?.Context ?? Observable.Empty<IEditorContext?>())
-            .Select(v => v is EditViewModel);
 
         Pages = new()
         {
@@ -80,7 +70,7 @@ public sealed class MainViewModel : BasePageViewModel
     public bool IsDebuggerAttached { get; } = Debugger.IsAttached;
 
     public ReadOnlyReactivePropertySlim<string?> NameOfOpenProject { get; }
-    
+
     public ReadOnlyReactivePropertySlim<string> WindowTitle { get; }
 
     public MenuBarViewModel MenuBar { get; }
@@ -95,12 +85,9 @@ public sealed class MainViewModel : BasePageViewModel
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 
-    public async Task RunStartupTask()
+    public Startup RunStartupTask()
     {
-        using (Activity? activity = Telemetry.StartActivity("MainViewModel.RunStartupTask"))
-        {
-            await new Startup(_beutlClients, this).Run();
-        }
+        return new Startup(_beutlClients, this);
     }
 
     public void RegisterServices()

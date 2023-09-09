@@ -16,18 +16,14 @@ namespace Beutl.Services.StartupTasks;
 public sealed class LoadInstalledExtensionTask : StartupTask
 {
     private readonly ILogger _logger = Log.ForContext<LoadInstalledExtensionTask>();
-    private readonly AuthenticationTask _authenticationTask;
     private readonly PackageManager _manager;
 
-    public LoadInstalledExtensionTask(AuthenticationTask authenticationTask, PackageManager manager)
+    public LoadInstalledExtensionTask(PackageManager manager)
     {
-        _authenticationTask = authenticationTask;
         _manager = manager;
 
         Task = Task.Run(async () =>
         {
-            await _authenticationTask.Task;
-
             using (Activity? activity = Telemetry.StartActivity("LoadInstalledExtensionTask.Run"))
             {
                 // .beutl/packages/ 内のパッケージを読み込む
@@ -67,6 +63,7 @@ public sealed class LoadInstalledExtensionTask : StartupTask
     {
         if (UnhandledExceptionHandler.LastExecutionExceptionWasThrown())
         {
+            await App.WaitWindowOpened();
             return await Dispatcher.UIThread.InvokeAsync(async () =>
             {
                 var dialog = new ContentDialog()

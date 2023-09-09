@@ -83,13 +83,13 @@ public class BeutlApiApplication
     private void RegisterAll()
     {
         Register(() => new DiscoverService(this));
-        Register(() => GetResource<PackageManager>().ExtensionProvider);
+        Register(() => ExtensionProvider.Current);
         Register(() => new InstalledPackageRepository());
         Register(() => new AcceptedLicenseManager());
         Register(() => new PackageChangesQueue());
         Register(() => new LibraryService(this));
         Register(() => new PackageInstaller(new HttpClient(), GetResource<InstalledPackageRepository>()));
-        Register(() => new PackageManager(GetResource<InstalledPackageRepository>(), this));
+        Register(() => new PackageManager(GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(), this));
     }
 
     private void Register<T>(Func<T> factory)
