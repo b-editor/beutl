@@ -140,5 +140,9 @@
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="ClipToBounds" Value="False" />
         </Style>
+
+        <Style Selector="TextBox">
+            <Setter Property="(TextBoxAttachment.EnterDownBehavior)" Value="Auto" />
+        </Style>
     </Application.Styles>
 </Application>
