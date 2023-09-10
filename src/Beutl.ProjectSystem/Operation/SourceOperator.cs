@@ -86,6 +86,17 @@ public class SourceOperator : Hierarchical, ISourceOperator
     {
     }
 
+    public virtual bool HasOriginalLength()
+    {
+        return false;
+    }
+    
+    public virtual bool TryGetOriginalLength(out TimeSpan timeSpan)
+    {
+        timeSpan = default;
+        return false;
+    }
+
     protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
     {
         Invalidated?.Invoke(this, args);

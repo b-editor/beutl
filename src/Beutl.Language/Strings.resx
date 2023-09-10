@@ -946,4 +946,7 @@ and b-editor maintains the download URL.</value>
   <data name="ColorPallete" xml:space="preserve">
     <value>Color Pallete</value>
   </data>
+  <data name="ChangeToOriginalLength" xml:space="preserve">
+    <value>Change to original length</value>
+  </data>
 </root>

@@ -403,6 +403,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Change to original length に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ChangeToOriginalLength {
+            get {
+                return ResourceManager.GetString("ChangeToOriginalLength", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Channels に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Channels {
