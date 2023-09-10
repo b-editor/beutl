@@ -11,6 +11,8 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Utilities;
 
+using FluentAvalonia.UI.Media;
+
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -64,6 +66,9 @@ public sealed class ElementViewModel : IDisposable
             .Select(c => c.ToAvalonia())
             .ToReactiveProperty()
             .AddTo(_disposables);
+
+        RestBorderColor = Color.Select(v => (Avalonia.Media.Color)((Color2)v).LightenPercent(-0.15f))
+            .ToReadOnlyReactivePropertySlim()!;
 
         TextColor = Color.Select(GetTextColor)
             .ToReadOnlyReactivePropertySlim()
@@ -147,6 +152,8 @@ public sealed class ElementViewModel : IDisposable
     public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader { get; set; } = new();
 
     public ReactiveProperty<Avalonia.Media.Color> Color { get; }
+
+    public ReadOnlyReactivePropertySlim<Avalonia.Media.Color> RestBorderColor { get; }
 
     public ReadOnlyReactivePropertySlim<Avalonia.Media.Color> TextColor { get; }
 

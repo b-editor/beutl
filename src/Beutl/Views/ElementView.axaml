@@ -26,12 +26,14 @@
             Margin="{Binding BorderMargin.Value}"
             HorizontalAlignment="Left"
             Background="{Binding Color.Value, Converter={StaticResource ColorToBrushConverter}}"
-            BorderBrush="{DynamicResource TextControlForeground}"
+            BorderThickness="1"
             Classes.selected="{Binding IsSelected.Value}">
         <Border.Styles>
             <Style Selector="Border.selected">
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="Padding" Value="-1" />
+                <Setter Property="BorderBrush" Value="{DynamicResource TextControlForeground}" />
+            </Style>
+            <Style Selector="Border:not(.selected)">
+                <Setter Property="BorderBrush" Value="{Binding RestBorderColor.Value, Converter={StaticResource ColorToBrushConverter}}" />
             </Style>
         </Border.Styles>
         <Border.Resources>
