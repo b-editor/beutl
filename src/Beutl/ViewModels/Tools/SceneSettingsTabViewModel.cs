@@ -25,9 +25,10 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         Height = _scene.GetObservable(Scene.HeightProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposable);
-        Duration = _scene.GetObservable(Scene.DurationProperty)
+        DurationInput = _scene.GetObservable(Scene.DurationProperty)
+            .Select(v => v.ToString())
             .ToReactiveProperty()
-            .DisposeWith(_disposable);
+            .DisposeWith(_disposable)!;
         LayerCount = editViewModel.Options.Select(x => x.MaxLayerCount)
             .ToReactiveProperty()
             .DisposeWith(_disposable);
@@ -35,27 +36,34 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         Width.SetValidateNotifyError(ValidateSize);
         Height.SetValidateNotifyError(ValidateSize);
         LayerCount.SetValidateNotifyError(ValidateSize);
-        Duration.SetValidateNotifyError(time =>
+        DurationInput.SetValidateNotifyError(str =>
         {
-            if (time <= TimeSpan.Zero)
+            if (TimeSpan.TryParse(str, out TimeSpan time))
             {
-                return Message.ValueLessThanOrEqualToZero;
+                if (time <= TimeSpan.Zero)
+                {
+                    return Message.ValueLessThanOrEqualToZero;
+                }
+                else
+                {
+                    return null;
+                }
             }
             else
             {
-                return null;
+                return Message.InvalidString;
             }
         });
 
-        CanApply = Width.CombineLatest(Height, Duration, LayerCount).Select(t =>
+        CanApply = Width.CombineLatest(Height, DurationInput, LayerCount).Select(t =>
             {
                 int width = t.First;
                 int height = t.Second;
 
-                TimeSpan time = t.Third;
+                string time = t.Third;
                 return width > 0 &&
                     height > 0 &&
-                    time > TimeSpan.Zero &&
+                    TimeSpan.TryParse(time, out TimeSpan ts) && ts > TimeSpan.Zero &&
                     t.Fourth > 0;
             })
             .ToReadOnlyReactivePropertySlim()
@@ -64,18 +72,21 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         Apply = new ReactiveCommand(CanApply)
             .WithSubscribe(() =>
             {
-                if (Width.Value != _scene.Width
-                    || Height.Value != _scene.Height
-                    || Duration.Value != _scene.Duration)
+                if(TimeSpan.TryParse(DurationInput.Value, out TimeSpan ts))
                 {
-                    new UpdateSceneSettingsCommand(new(Width.Value, Height.Value), Duration.Value, _scene)
-                                    .DoAndRecord(CommandRecorder.Default);
-                }
+                    if (Width.Value != _scene.Width
+                        || Height.Value != _scene.Height
+                        || ts != _scene.Duration)
+                    {
+                        new UpdateSceneSettingsCommand(new(Width.Value, Height.Value), ts, _scene)
+                                        .DoAndRecord(CommandRecorder.Default);
+                    }
 
-                _editViewModel.Options.Value = _editViewModel.Options.Value with
-                {
-                    MaxLayerCount = LayerCount.Value
-                };
+                    _editViewModel.Options.Value = _editViewModel.Options.Value with
+                    {
+                        MaxLayerCount = LayerCount.Value
+                    };
+                }
             })
             .DisposeWith(_disposable);
 
@@ -84,7 +95,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
             {
                 Width.Value = _scene.Width;
                 Height.Value = _scene.Height;
-                Duration.Value = _scene.Duration;
+                DurationInput.Value = _scene.Duration.ToString();
                 LayerCount.Value = _editViewModel.Options.Value.MaxLayerCount;
             })
             .DisposeWith(_disposable);
@@ -98,7 +109,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
 
     public ReactiveProperty<int> Height { get; }
 
-    public ReactiveProperty<TimeSpan> Duration { get; }
+    public ReactiveProperty<string> DurationInput { get; }
 
     public ReactiveProperty<int> LayerCount { get; }
 
