@@ -4,6 +4,8 @@ using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
+using Beutl.ProjectSystem;
+using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 
 using FluentAvalonia.UI.Controls;
@@ -85,7 +87,14 @@ public partial class SoundSourceEditor : UserControl
             {
                 ISoundSource? oldValue = vm.WrappedProperty.GetValue();
                 vm.SetValue(oldValue, soundSource);
-                oldValue?.Dispose();
+
+                if (vm.GetService<Element>() is Element element)
+                {
+                    TimelineViewModel? timeline = vm.GetService<EditViewModel>()?.FindToolTab<TimelineViewModel>();
+                    ElementViewModel? elmViewModel = timeline?.GetViewModelFor(element);
+
+                    elmViewModel?.ChangeToOriginalLength?.Execute();
+                }
             }
         }
     }
