@@ -9,12 +9,6 @@
              xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives">
     <Application.Resources>
         <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <!--<ResourceInclude Source="avares://Avalonia.Themes.Fluent/Controls/ContextMenu.xaml" />-->
-            </ResourceDictionary.MergedDictionaries>
-
-            <convert:AvaloniaPixelSizeConverter x:Key="PixelSizeConverter" />
-            <convert:TimeSpanToDoubleConverter x:Key="TimeSpanToDoubleConverter" />
             <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
 
             <ControlTheme x:Key="LabelTextBlockStyle" TargetType="TextBlock">
@@ -52,13 +46,6 @@
         <sty:FluentAvaloniaTheme PreferUserAccentColor="True" />
         <StyleInclude Source="avares://Beutl.Controls/Styles.axaml" />
         <StyleInclude Source="avares://FluentAvalonia.BreadcrumbBar/Styling/Styles.axaml" />
-
-        <Style Selector="TextBlock.ErrorTextBlockStyle">
-            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
-            <Setter Property="Opacity" Value="0.7" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="FontSize" Value="12" />
-        </Style>
 
         <Style Selector="TextBlock.error">
             <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
@@ -154,8 +141,8 @@
             <Setter Property="ClipToBounds" Value="False" />
         </Style>
 
-        <Style Selector="ui|CommandBar /template/ ItemsControl#PrimaryItemsControl">
-            <Setter Property="HorizontalAlignment" Value="{Binding ItemsAlignment, RelativeSource={RelativeSource TemplatedParent}}" />
+        <Style Selector="TextBox">
+            <Setter Property="(TextBoxAttachment.EnterDownBehavior)" Value="Auto" />
         </Style>
     </Application.Styles>
 </Application>

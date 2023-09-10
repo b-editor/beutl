@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.EditView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:Beutl.Converters;assembly=Beutl"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:editors="using:Beutl.Views.Editors"
              xmlns:local="using:Beutl.Views"
@@ -103,13 +104,13 @@
                         CurrentTime="{CompiledBinding Player.CurrentFrame.Value, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
                         EndButtonCommand="{CompiledBinding Player.End}"
                         IsPlaying="{CompiledBinding Player.IsPlaying.Value, Mode=TwoWay}"
-                        Maximum="{CompiledBinding Player.Duration.Value, Converter={StaticResource TimeSpanToDoubleConverter}}"
+                        Maximum="{CompiledBinding Player.Duration.Value, Converter={x:Static converters:TimeSpanToDoubleConverter.Instance}}"
                         NextButtonCommand="{CompiledBinding Player.Next}"
                         PlayButtonCommand="{CompiledBinding Player.PlayPause}"
                         PreviousButtonCommand="{CompiledBinding Player.Previous}"
                         Source="{CompiledBinding Player.PreviewImage.Value, Mode=OneWay}"
                         StartButtonCommand="{CompiledBinding Player.Start}"
-                        Value="{CompiledBinding Player.CurrentFrame.Value, Converter={StaticResource TimeSpanToDoubleConverter}}"
+                        Value="{CompiledBinding Player.CurrentFrame.Value, Converter={x:Static converters:TimeSpanToDoubleConverter.Instance}}"
                         Duration="{CompiledBinding Player.Duration.Value, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}" />
             </Grid>
 
