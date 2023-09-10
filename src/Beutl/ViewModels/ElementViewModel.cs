@@ -351,8 +351,6 @@ public sealed class ElementViewModel : IDisposable
             .DoAndRecord(CommandRecorder.Default);
     }
 
-    }
-
     private List<KeyBinding> CreateKeyBinding()
     {
         PlatformHotkeyConfiguration? config = Application.Current?.PlatformSettings?.HotkeyConfiguration;
