@@ -8,8 +8,8 @@ namespace Beutl.Media.Source;
 
 public class MediaSourceManager
 {
-    private readonly Dictionary<string, Ref<MediaReader>> _mediaReaders = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, Ref<IBitmap>> _bitmaps = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, WeakReference<Ref<MediaReader>>> _mediaReaders = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, WeakReference<Ref<IBitmap>>> _bitmaps = new(StringComparer.Ordinal);
 
     public static readonly MediaSourceManager Shared = new();
 
@@ -50,9 +50,11 @@ public class MediaSourceManager
     public bool TryGetMediaReader(string name, [NotNullWhen(true)] out Ref<MediaReader>? value)
     {
         value = null;
-        if (_mediaReaders.TryGetValue(name, out Ref<MediaReader>? result))
+        if (_mediaReaders.TryGetValue(name, out WeakReference<Ref<MediaReader>>? result)
+            && result.TryGetTarget(out Ref<MediaReader>? @ref)
+            && @ref.Value != null)
         {
-            value = result.Clone();
+            value = @ref.Clone();
         }
 
         return value != null;
@@ -62,9 +64,11 @@ public class MediaSourceManager
     public bool TryGetMediaReaderOrOpen(string fileName, [NotNullWhen(true)] out Ref<MediaReader>? value)
     {
         value = null;
-        if (_mediaReaders.TryGetValue(fileName, out Ref<MediaReader>? result))
+        if (_mediaReaders.TryGetValue(fileName, out WeakReference<Ref<MediaReader>>? result)
+            && result.TryGetTarget(out Ref<MediaReader>? @ref)
+            && @ref.Value != null)
         {
-            value = result.Clone();
+            value = @ref.Clone();
         }
         else
         {
@@ -73,7 +77,7 @@ public class MediaSourceManager
                 var reader = MediaReader.Open(fileName);
 
                 value = Ref<MediaReader>.Create(reader, () => _mediaReaders.Remove(fileName));
-                _mediaReaders.Add(fileName, value);
+                _mediaReaders[fileName] = new WeakReference<Ref<MediaReader>>(value);
             }
             catch
             {
@@ -87,9 +91,11 @@ public class MediaSourceManager
     public bool TryGetBitmap(string name, [NotNullWhen(true)] out Ref<IBitmap>? value)
     {
         value = null;
-        if (_bitmaps.TryGetValue(name, out Ref<IBitmap>? result))
+        if (_bitmaps.TryGetValue(name, out WeakReference<Ref<IBitmap>>? result)
+            && result.TryGetTarget(out Ref<IBitmap>? @ref)
+            && @ref.Value != null)
         {
-            value = result.Clone();
+            value = @ref.Clone();
         }
 
         return value != null;
@@ -99,9 +105,11 @@ public class MediaSourceManager
     public bool TryGetBitmapOrOpen(string fileName, [NotNullWhen(true)] out Ref<IBitmap>? value)
     {
         value = null;
-        if (_bitmaps.TryGetValue(fileName, out Ref<IBitmap>? result))
+        if (_bitmaps.TryGetValue(fileName, out WeakReference<Ref<IBitmap>>? result)
+            && result.TryGetTarget(out Ref<IBitmap>? @ref)
+            && @ref.Value != null)
         {
-            value = result.Clone();
+            value = @ref.Clone();
         }
         else
         {
@@ -110,7 +118,7 @@ public class MediaSourceManager
                 var bitmap = Bitmap<Bgra8888>.FromFile(fileName);
 
                 value = Ref<IBitmap>.Create(bitmap, () => _bitmaps.Remove(fileName));
-                _bitmaps.Add(fileName, value);
+                _bitmaps[fileName] = new WeakReference<Ref<IBitmap>>(value);
             }
             catch
             {
@@ -126,14 +134,14 @@ public class MediaSourceManager
     {
         if (mediaReader.IsDisposed
             || _mediaReaders.ContainsKey(name)
-            || _mediaReaders.Values.Any(x => ReferenceEquals(x.Value, mediaReader)))
+            || _mediaReaders.Values.Any(x => x.TryGetTarget(out Ref<MediaReader>? @ref) && @ref.RefCount > 0 && ReferenceEquals(@ref.Value, mediaReader)))
         {
             return null;
         }
         else
         {
             var @ref = Ref<MediaReader>.Create(mediaReader, () => _mediaReaders.Remove(name));
-            _mediaReaders.Add(name, @ref);
+            _mediaReaders[name] = new WeakReference<Ref<MediaReader>>(@ref);
             return @ref;
         }
     }
@@ -144,14 +152,14 @@ public class MediaSourceManager
     {
         if (bitmap.IsDisposed
             || _bitmaps.ContainsKey(name)
-            || _bitmaps.Values.Any(x => ReferenceEquals(x.Value, bitmap)))
+            || _bitmaps.Values.Any(x => x.TryGetTarget(out Ref<IBitmap>? @ref) && @ref.RefCount > 0 && ReferenceEquals(@ref.Value, bitmap)))
         {
             return null;
         }
         else
         {
             var @ref = Ref<IBitmap>.Create(bitmap, () => _bitmaps.Remove(name));
-            _bitmaps.Add(name, @ref);
+            _bitmaps[name] = new WeakReference<Ref<IBitmap>>(@ref);
             return @ref;
         }
     }
