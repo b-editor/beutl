@@ -5,4 +5,5 @@ public record struct ElementDescription(
     TimeSpan Length,
     int Layer,
     string Name = "",
-    Type? InitialOperator = null);
+    Type? InitialOperator = null,
+    string? FileName = null);

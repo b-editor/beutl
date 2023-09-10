@@ -9,9 +9,13 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 
 using Beutl.Animation;
+using Beutl.Helpers;
+using Beutl.Media.Decoding;
+using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.Operation;
 using Beutl.Operators.Configure;
+using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Beutl.Reactive;
 using Beutl.Services;
@@ -75,26 +79,7 @@ public sealed class TimelineViewModel : IToolContext
             .Subscribe(v => Scene.CacheOptions = Scene.CacheOptions with { IsEnabled = v })
             .AddTo(_disposables);
 
-        AddLayer.Subscribe(item =>
-        {
-            var sLayer = new Element()
-            {
-                Start = item.Start,
-                Length = item.Length,
-                ZIndex = item.Layer,
-                FileName = RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension)
-            };
-
-            if (item.InitialOperator != null)
-            {
-                //Todo: レイヤーのアクセントカラー
-                //sLayer.AccentColor = item.InitialOperator.AccentColor;
-                sLayer.Operation.AddChild((SourceOperator)Activator.CreateInstance(item.InitialOperator)!).Do();
-            }
-
-            sLayer.Save(sLayer.FileName);
-            Scene.AddChild(sLayer).DoAndRecord(CommandRecorder.Default);
-        }).AddTo(_disposables);
+        AddLayer.Subscribe(OnAddElement).AddTo(_disposables);
 
         TimelineOptions options = editViewModel.Options.Value;
         LayerHeaders.AddRange(Enumerable.Range(0, options.MaxLayerCount).Select(num => new LayerHeaderViewModel(num, this)));
@@ -562,6 +547,158 @@ public sealed class TimelineViewModel : IToolContext
     public ElementViewModel? GetViewModelFor(Element element)
     {
         return Layers.FirstOrDefault(x => x.Model == element);
+    }
+
+    private void OnAddElement(ElementDescription desc)
+    {
+        Element CreateElement()
+        {
+            return new Element()
+            {
+                Start = desc.Start,
+                Length = desc.Length,
+                ZIndex = desc.Layer,
+                FileName = RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension)
+            };
+        }
+
+        void SetAccentColor(Element element, string str)
+        {
+            element.AccentColor = ColorGenerator.GenerateColor(str);
+        }
+
+        if (desc.FileName != null)
+        {
+            Element CreateElementFor<T>(out T t)
+                where T : SourceOperator, new()
+            {
+                Element element = CreateElement();
+                element.Name = Path.GetFileName(desc.FileName!);
+                SetAccentColor(element, typeof(T).FullName!);
+
+                element.Operation.AddChild(t = new T()).Do();
+
+                return element;
+            }
+
+            var list = new List<IRecordableCommand>();
+            if (MatchFileImage(desc.FileName))
+            {
+                Element element = CreateElementFor(out SourceImageOperator t);
+                MediaSourceManager.Shared.OpenImageSource(desc.FileName, out IImageSource? image);
+                t.Source.Value = image;
+
+                element.Save(element.FileName);
+                list.Add(Scene.AddChild(element));
+            }
+            else if (MatchFileVideoOnly(desc.FileName))
+            {
+                Element element1 = CreateElementFor(out SourceVideoOperator t1);
+                Element element2 = CreateElementFor(out SourceSoundOperator t2);
+                element2.ZIndex++;
+                MediaSourceManager.Shared.OpenVideoSource(desc.FileName, out IVideoSource? video);
+                MediaSourceManager.Shared.OpenSoundSource(desc.FileName, out ISoundSource? sound);
+                t1.Source.Value = video;
+                t2.Source.Value = sound;
+
+                if (video != null)
+                    element1.Length = video.Duration;
+                if (sound != null)
+                    element2.Length = sound.Duration;
+
+                element1.Save(element1.FileName);
+                element2.Save(element2.FileName);
+                list.Add(Scene.AddChild(element1));
+                list.Add(Scene.AddChild(element2));
+            }
+            else if (MatchFileAudioOnly(desc.FileName))
+            {
+                Element element = CreateElementFor(out SourceSoundOperator t);
+                MediaSourceManager.Shared.OpenSoundSource(desc.FileName, out ISoundSource? sound);
+                t.Source.Value = sound;
+                if (sound != null)
+                {
+                    element.Length = sound.Duration;
+                }
+
+                element.Save(element.FileName);
+                list.Add(Scene.AddChild(element));
+            }
+
+            list.ToArray()
+                .ToCommand()
+                .DoAndRecord(CommandRecorder.Default);
+        }
+        else
+        {
+            Element element = CreateElement();
+            if (desc.InitialOperator != null)
+            {
+                LibraryItem? item = LibraryService.Current.FindItem(desc.InitialOperator);
+                if (item != null)
+                {
+                    element.Name = item.DisplayName;
+                }
+
+                //Todo: レイヤーのアクセントカラー
+                //sLayer.AccentColor = item.InitialOperator.AccentColor;
+                element.AccentColor = ColorGenerator.GenerateColor(desc.InitialOperator.FullName ?? desc.InitialOperator.Name);
+                element.Operation.AddChild((SourceOperator)Activator.CreateInstance(desc.InitialOperator)!).Do();
+            }
+
+            element.Save(element.FileName);
+            Scene.AddChild(element).DoAndRecord(CommandRecorder.Default);
+        }
+    }
+
+    private static bool MatchFileExtensions(string filePath, IEnumerable<string> extensions)
+    {
+        return extensions
+            .Select(x =>
+            {
+                int idx = x.LastIndexOf('.');
+                if (0 <= idx)
+                    return x.Substring(idx);
+                else
+                    return x;
+            })
+            .Any(filePath.EndsWith);
+    }
+
+    private static bool MatchFileAudioOnly(string filePath)
+    {
+        return MatchFileExtensions(filePath, DecoderRegistry.EnumerateDecoder()
+            .SelectMany(x => x.AudioExtensions())
+            .Distinct());
+    }
+
+    private static bool MatchFileVideoOnly(string filePath)
+    {
+        return MatchFileExtensions(filePath, DecoderRegistry.EnumerateDecoder()
+            .SelectMany(x => x.VideoExtensions())
+            .Distinct());
+    }
+
+    private static bool MatchFileImage(string filePath)
+    {
+        string[] extensions = new string[]
+        {
+            "*.bmp",
+            "*.gif",
+            "*.ico",
+            "*.jpg",
+            "*.jpeg",
+            "*.png",
+            "*.wbmp",
+            "*.webp",
+            "*.pkm",
+            "*.ktx",
+            "*.astc",
+            "*.dng",
+            "*.heif",
+            "*.avif",
+        };
+        return MatchFileExtensions(filePath, extensions);
     }
 
     private sealed class TrackedLayerTopObservable : LightweightObservableBase<double>, IDisposable
