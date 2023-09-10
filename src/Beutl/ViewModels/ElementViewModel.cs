@@ -340,12 +340,17 @@ public sealed class ElementViewModel : IDisposable
 
         CoreObjectReborn.Reborn(Model, out Element backwardLayer);
 
-        Scene.MoveChild(Model.ZIndex, Model.Start, forwardLength, Model).DoAndRecord(CommandRecorder.Default);
+        IRecordableCommand command1 = Scene.MoveChild(Model.ZIndex, Model.Start, forwardLength, Model);
         backwardLayer.Start = absTime;
         backwardLayer.Length = backwardLength;
 
         backwardLayer.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension));
-        Scene.AddChild(backwardLayer).DoAndRecord(CommandRecorder.Default);
+        IRecordableCommand command2 = Scene.AddChild(backwardLayer);
+
+        command1.Append(command2)
+            .DoAndRecord(CommandRecorder.Default);
+    }
+
     }
 
     private List<KeyBinding> CreateKeyBinding()
