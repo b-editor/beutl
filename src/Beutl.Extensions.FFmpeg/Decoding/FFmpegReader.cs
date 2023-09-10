@@ -48,6 +48,7 @@ public sealed unsafe class FFmpegReader : MediaReader
     private AVPacket* _audioPacket;
     private SwsContext* _swsContext;
     private SwrContext* _swrContext;
+    private SwrContext* _localSwrContext;
     private long _audioNowTimestamp;
     private long _audioNextTimestamp;
     private long _videoNowFrame;
@@ -174,7 +175,7 @@ public sealed unsafe class FFmpegReader : MediaReader
                         swrCtx,
                         outChLayout,
                         AVSampleFormat.AV_SAMPLE_FMT_FLT,
-                        _options.SampleRate,
+                        AudioInfo.SampleRate,
                         &_audioCodecContext->ch_layout,
                         (AVSampleFormat)_audioFrame->format,
                         _audioFrame->sample_rate,
@@ -232,8 +233,9 @@ public sealed unsafe class FFmpegReader : MediaReader
 
                 if (decoded >= length || len <= 0)
                 {
-                    result = sound;
-                    return true;
+                    result = Resample(sound);
+                    sound.Dispose();
+                    return result != null;
                 }
 
                 need_grab = skip + len >= _audioFrame->nb_samples;
@@ -242,9 +244,65 @@ public sealed unsafe class FFmpegReader : MediaReader
             //sound?.Dispose();
             //sound = null;
             //return false;
-            result = sound;
-            return true;
+            result = Resample(sound);
+            sound.Dispose();
+            return result != null;
         }
+    }
+
+    private Pcm<Stereo32BitFloat>? Resample(Pcm<Stereo32BitFloat> pcm)
+    {
+        if (_localSwrContext == null)
+        {
+            fixed (AVChannelLayout* outChLayout = &AV_CHANNEL_LAYOUT_STEREO)
+            fixed (SwrContext** swrCtx = &_localSwrContext)
+            {
+                if (ffmpeg.swr_alloc_set_opts2(
+                    swrCtx,
+                    outChLayout,
+                    AVSampleFormat.AV_SAMPLE_FMT_FLT,
+                    _options.SampleRate,
+                    outChLayout,
+                    AVSampleFormat.AV_SAMPLE_FMT_FLT,
+                    pcm.SampleRate,
+                    0,
+                    null) < 0)
+                {
+                    Debug.WriteLine("swr_alloc_set_opts2 error.");
+                    return null;
+                }
+
+                if (ffmpeg.swr_init(_localSwrContext) < 0)
+                {
+                    Debug.WriteLine("swr_init error.");
+                    return null;
+                }
+            }
+        }
+
+        int bits = sizeof(Stereo32BitFloat) * 8;
+        int size = (int)(_options.SampleRate * bits * pcm.DurationRational.ToDouble() / bits);
+        var result = new Pcm<Stereo32BitFloat>(_options.SampleRate, size);
+
+        byte* inputData = (byte*)pcm.Data;
+        byte* outputData = (byte*)result.Data;
+
+        int _samplesReturn = ffmpeg.swr_convert(
+            s: _localSwrContext,
+            @out: &outputData,
+            out_count: result.NumSamples,
+            @in: &inputData,
+            in_count: pcm.NumSamples);
+
+        if (_samplesReturn < 0)
+        {
+            Debug.WriteLine("swr_convert error.\n");
+            result?.Dispose();
+            result = null;
+            return null;
+        }
+
+        return result;
     }
 
     public override bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image)
@@ -307,6 +365,14 @@ public sealed unsafe class FFmpegReader : MediaReader
         if (_swrContext != null)
         {
             fixed (SwrContext** swr = &_swrContext)
+            {
+                ffmpeg.swr_free(swr);
+            }
+        }
+
+        if (_localSwrContext != null)
+        {
+            fixed (SwrContext** swr = &_localSwrContext)
             {
                 ffmpeg.swr_free(swr);
             }
