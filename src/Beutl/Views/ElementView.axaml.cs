@@ -31,9 +31,9 @@ namespace Beutl.Views;
 
 public sealed partial class ElementView : UserControl
 {
+    private readonly CompositeDisposable _disposables = new();
     private Timeline? _timeline;
     private TimeSpan _pointerPosition;
-    private IDisposable? _disposable1;
     private static ColorPickerFlyout? s_colorPickerFlyout;
 
     public ElementView()
@@ -72,8 +72,7 @@ public sealed partial class ElementView : UserControl
     private void OnDataContextDetached(ElementViewModel obj)
     {
         obj.AnimationRequested = (_, _) => Task.CompletedTask;
-        _disposable1?.Dispose();
-        _disposable1 = null;
+        _disposables.Clear();
     }
 
     private void OnDataContextAttached(ElementViewModel obj)
