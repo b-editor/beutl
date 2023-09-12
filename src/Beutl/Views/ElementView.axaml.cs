@@ -16,6 +16,8 @@ using Beutl.ViewModels.NodeTree;
 
 using FluentAvalonia.UI.Controls;
 
+using Reactive.Bindings.Extensions;
+
 using Setter = Avalonia.Styling.Setter;
 
 namespace Beutl.Views;
@@ -29,9 +31,9 @@ namespace Beutl.Views;
 
 public sealed partial class ElementView : UserControl
 {
+    private readonly CompositeDisposable _disposables = new();
     private Timeline? _timeline;
     private TimeSpan _pointerPosition;
-    private IDisposable? _disposable1;
     private static ColorPickerFlyout? s_colorPickerFlyout;
 
     public ElementView()
@@ -70,8 +72,7 @@ public sealed partial class ElementView : UserControl
     private void OnDataContextDetached(ElementViewModel obj)
     {
         obj.AnimationRequested = (_, _) => Task.CompletedTask;
-        _disposable1?.Dispose();
-        _disposable1 = null;
+        _disposables.Clear();
     }
 
     private void OnDataContextAttached(ElementViewModel obj)
@@ -139,8 +140,15 @@ public sealed partial class ElementView : UserControl
             });
         };
 
-        _disposable1 = obj.Model.GetObservable(Element.IsEnabledProperty)
-            .Subscribe(b => Dispatcher.UIThread.InvokeAsync(() => border.Opacity = b ? 1 : 0.5));
+        obj.Model.GetObservable(Element.IsEnabledProperty)
+            .ObserveOnUIDispatcher()
+            .Subscribe(b => border.Opacity = b ? 1 : 0.5)
+            .DisposeWith(_disposables);
+
+        obj.IsSelected
+            .ObserveOnUIDispatcher()
+            .Subscribe(v => ZIndex = v ? 5 : 0)
+            .DisposeWith(_disposables);
     }
 
     protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
@@ -541,7 +549,6 @@ public sealed partial class ElementView : UserControl
             if (AssociatedObject != null)
             {
                 AssociatedObject.AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
-                AssociatedObject.AddHandler(PointerReleasedEvent, OnPointerReleased, RoutingStrategies.Tunnel);
                 AssociatedObject.border.AddHandler(PointerPressedEvent, OnBorderPointerPressed);
                 AssociatedObject.border.AddHandler(PointerReleasedEvent, OnBorderPointerReleased);
             }
@@ -553,7 +560,6 @@ public sealed partial class ElementView : UserControl
             if (AssociatedObject != null)
             {
                 AssociatedObject.AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
-                AssociatedObject.AddHandler(PointerReleasedEvent, OnPointerReleased, RoutingStrategies.Tunnel);
                 AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
                 AssociatedObject.border.RemoveHandler(PointerReleasedEvent, OnBorderPointerReleased);
             }
@@ -563,19 +569,10 @@ public sealed partial class ElementView : UserControl
         {
             if (AssociatedObject is { } obj)
             {
-                obj.ZIndex = 5;
                 if (!obj.textBox.IsFocused)
                 {
                     obj.Focus();
                 }
-            }
-        }
-
-        private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
-        {
-            if (AssociatedObject is { } obj)
-            {
-                obj.ZIndex = 0;
             }
         }
 
