@@ -427,7 +427,7 @@ public sealed class TimelineViewModel : IToolContext
     public void AttachInline(IAbstractAnimatableProperty property, Element layer)
     {
         if (!Inlines.Any(x => x.Layer.Model == layer && x.Property == property)
-            && Layers.FirstOrDefault(x => x.Model == layer) is { } viewModel)
+            && GetViewModelFor(layer) is { } viewModel)
         {
             // タイムラインのタブを開く
             Type type = typeof(InlineAnimationLayerViewModel<>).MakeGenericType(property.PropertyType);
@@ -557,6 +557,11 @@ public sealed class TimelineViewModel : IToolContext
     public object? GetService(Type serviceType)
     {
         return EditorContext.GetService(serviceType);
+    }
+
+    public ElementViewModel? GetViewModelFor(Element element)
+    {
+        return Layers.FirstOrDefault(x => x.Model == element);
     }
 
     private sealed class TrackedLayerTopObservable : LightweightObservableBase<double>, IDisposable

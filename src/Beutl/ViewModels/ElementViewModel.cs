@@ -102,6 +102,9 @@ public sealed class ElementViewModel : IDisposable
         BringAnimationToTop.Subscribe(OnBringAnimationToTop)
             .AddTo(_disposables);
 
+        ChangeToOriginalLength.Subscribe(OnChangeToOriginalLength)
+            .AddTo(_disposables);
+
         // ZIndexが変更されたら、LayerHeaderのカウントを増減して、新しいLayerHeaderを設定する。
         zIndexSubject.Subscribe(number =>
             {
@@ -170,6 +173,8 @@ public sealed class ElementViewModel : IDisposable
     public ReactiveCommand FinishEditingAnimation { get; } = new();
 
     public ReactiveCommand BringAnimationToTop { get; } = new();
+
+    public ReactiveCommand ChangeToOriginalLength { get; } = new();
 
     public List<KeyBinding> KeyBindings { get; }
 
@@ -351,6 +356,34 @@ public sealed class ElementViewModel : IDisposable
             .DoAndRecord(CommandRecorder.Default);
     }
 
+    private async void OnChangeToOriginalLength()
+    {
+        if (!Model.UseNode
+            && Model.Operation.Children.FirstOrDefault(v => v.HasOriginalLength()) is { } op
+            && op.TryGetOriginalLength(out TimeSpan timeSpan))
+        {
+            PrepareAnimationContext context = PrepareAnimation();
+
+            int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+            TimeSpan length = timeSpan.FloorToRate(rate);
+
+            Element? after = Model.GetAfter(Model.ZIndex, Model.Range.End);
+            if (after != null)
+            {
+                TimeSpan delta = after.Start - Model.Start;
+                if (delta < length)
+                {
+                    length = delta;
+                }
+            }
+
+            Scene.MoveChild(Model.ZIndex, Model.Start, length, Model)
+                .DoAndRecord(CommandRecorder.Default);
+
+            await AnimationRequest(context);
+        }
+    }
+
     private List<KeyBinding> CreateKeyBinding()
     {
         PlatformHotkeyConfiguration? config = Application.Current?.PlatformSettings?.HotkeyConfiguration;
@@ -421,6 +454,11 @@ public sealed class ElementViewModel : IDisposable
         c = Saturate(c);
 
         return ToColor(c);
+    }
+
+    public bool HasOriginalLength()
+    {
+        return !Model.UseNode && Model.Operation.Children.Any(v => v.HasOriginalLength());
     }
 
     public record struct PrepareAnimationContext(

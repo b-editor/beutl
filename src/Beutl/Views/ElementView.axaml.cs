@@ -41,6 +41,7 @@ public sealed partial class ElementView : UserControl
     {
         InitializeComponent();
 
+        (border.ContextFlyout as FAMenuFlyout)!.Opening += OnContextFlyoutOpening;
         textBox.LostFocus += OnTextBoxLostFocus;
         this.SubscribeDataContextChange<ElementViewModel>(OnDataContextAttached, OnDataContextDetached);
     }
@@ -73,6 +74,14 @@ public sealed partial class ElementView : UserControl
                     break;
                 binding.TryHandle(e);
             }
+        }
+    }
+
+    private void OnContextFlyoutOpening(object? sender, EventArgs e)
+    {
+        if (DataContext is ElementViewModel viewModel)
+        {
+            change2OriginalLength.IsEnabled = viewModel.HasOriginalLength();
         }
     }
 
@@ -369,8 +378,8 @@ public sealed partial class ElementView : UserControl
                             if (minWidth < newWidth)
                             {
                                 viewModel.Width.Value = newWidth;
-                            viewModel.BorderMargin.Value = new Thickness(x, 0, 0, 0);
-                        }
+                                viewModel.BorderMargin.Value = new Thickness(x, 0, 0, 0);
+                            }
                             else
                             {
                                 viewModel.Width.Value = minWidth;

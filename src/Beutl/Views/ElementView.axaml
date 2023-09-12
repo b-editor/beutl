@@ -84,6 +84,9 @@
                         <icons:SymbolIconSource Symbol="Rename" />
                     </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
+                <ui:MenuFlyoutItem x:Name="change2OriginalLength"
+                                   Command="{Binding ChangeToOriginalLength}"
+                                   Text="{x:Static lang:Strings.ChangeToOriginalLength}" />
                 <ui:MenuFlyoutItem Click="ChangeColor_Click" Text="{x:Static lang:Strings.ChangeColor}" />
                 <ui:MenuFlyoutSeparator />
                 <ui:MenuFlyoutSubItem Text="{x:Static lang:Strings.Animation}">

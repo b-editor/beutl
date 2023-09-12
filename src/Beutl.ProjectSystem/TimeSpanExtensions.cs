@@ -6,6 +6,11 @@ public static class TimeSpanExtensions
     {
         return Math.Round(ts.ToFrameNumber(rate), MidpointRounding.AwayFromZero).ToTimeSpan(rate);
     }
+    
+    public static TimeSpan FloorToRate(this TimeSpan ts, double rate)
+    {
+        return Math.Floor(ts.ToFrameNumber(rate)).ToTimeSpan(rate);
+    }
 
     public static double ToFrameNumber(this TimeSpan ts, double rate)
     {

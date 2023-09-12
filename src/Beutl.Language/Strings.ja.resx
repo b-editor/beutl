@@ -946,4 +946,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="ColorPallete" xml:space="preserve">
     <value>カラーパレット</value>
   </data>
+  <data name="ChangeToOriginalLength" xml:space="preserve">
+    <value>オリジナルの長さに変更</value>
+  </data>
 </root>

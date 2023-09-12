@@ -35,4 +35,23 @@ public sealed class SourceSoundOperator : StyledSourcePublisher
             sound.BeginBatchUpdate();
         }
     }
+
+    public override bool HasOriginalLength()
+    {
+        return Source.Value?.IsDisposed == false;
+    }
+
+    public override bool TryGetOriginalLength(out TimeSpan timeSpan)
+    {
+        if (Source.Value?.IsDisposed == false)
+        {
+            timeSpan = Source.Value.Duration;
+            return true;
+        }
+        else
+        {
+            timeSpan = TimeSpan.Zero;
+            return false;
+        }
+    }
 }

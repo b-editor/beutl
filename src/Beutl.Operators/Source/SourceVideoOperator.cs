@@ -54,4 +54,23 @@ public sealed class SourceVideoOperator : DrawablePublishOperator<SourceVideo>
             setter.Value = videoSource;
         }
     }
+
+    public override bool HasOriginalLength()
+    {
+        return Source.Value?.IsDisposed == false;
+    }
+
+    public override bool TryGetOriginalLength(out TimeSpan timeSpan)
+    {
+        if (Source.Value?.IsDisposed == false)
+        {
+            timeSpan = Source.Value.Duration - OffsetPosition.Value;
+            return true;
+        }
+        else
+        {
+            timeSpan = TimeSpan.Zero;
+            return false;
+        }
+    }
 }
