@@ -949,4 +949,7 @@ and b-editor maintains the download URL.</value>
   <data name="ChangeToOriginalLength" xml:space="preserve">
     <value>Change to original length</value>
   </data>
+  <data name="SplitByCurrentFrame" xml:space="preserve">
+    <value>Split by current frame</value>
+  </data>
 </root>

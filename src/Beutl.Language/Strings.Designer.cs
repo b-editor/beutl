@@ -2240,6 +2240,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Split by current frame に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SplitByCurrentFrame {
+            get {
+                return ResourceManager.GetString("SplitByCurrentFrame", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Spread Method に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string SpreadMethod {

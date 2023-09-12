@@ -33,6 +33,7 @@
             <KeyGesture x:Key="CutKeyGesture">Ctrl+X</KeyGesture>
             <KeyGesture x:Key="CopyKeyGesture">Ctrl+C</KeyGesture>
             <KeyGesture x:Key="PasteKeyGesture">Ctrl+V</KeyGesture>
+            <KeyGesture x:Key="SplitKeyGesture">Ctrl+K</KeyGesture>
             <KeyGesture x:Key="PlayPauseKeyGesture">Space</KeyGesture>
             <KeyGesture x:Key="NextKeyGesture">Right</KeyGesture>
             <KeyGesture x:Key="PreviousKeyGesture">Left</KeyGesture>
