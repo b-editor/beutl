@@ -19,7 +19,7 @@
                           SecondHeader="{x:Static lang:Strings.Height}" />
 
         <TextBlock Margin="8,8,8,0" Text="{x:Static lang:Strings.DurationTime}" />
-        <TextBox Margin="8,0" Text="{Binding Duration.Value, Mode=TwoWay}" />
+        <TextBox Margin="8,0" Text="{Binding DurationInput.Value, Mode=TwoWay}" />
 
         <local:IntEditor x:Name="countEditor"
                          Margin="4,8,4,0"
