@@ -97,6 +97,11 @@ public class SourceOperator : Hierarchical, ISourceOperator
         return false;
     }
 
+    public virtual IRecordableCommand? OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
+    {
+        return null;
+    }
+
     protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
     {
         Invalidated?.Invoke(this, args);

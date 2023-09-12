@@ -364,8 +364,12 @@ public sealed class ElementViewModel : IDisposable
 
         backwardLayer.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension));
         IRecordableCommand command2 = Scene.AddChild(backwardLayer);
+        IRecordableCommand command3 = backwardLayer.Operation.OnSplit(true, forwardLength, -forwardLength);
+        IRecordableCommand command4 = Model.Operation.OnSplit(false, TimeSpan.Zero, -backwardLength);
 
         command1.Append(command2)
+            .Append(command3)
+            .Append(command4)
             .DoAndRecord(CommandRecorder.Default);
     }
 

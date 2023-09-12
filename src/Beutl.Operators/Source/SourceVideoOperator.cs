@@ -73,4 +73,16 @@ public sealed class SourceVideoOperator : DrawablePublishOperator<SourceVideo>
             return false;
         }
     }
+
+    public override IRecordableCommand? OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
+    {
+        if (backward)
+        {
+            return new ChangeSetterValueCommand<TimeSpan>(OffsetPosition, OffsetPosition.Value, OffsetPosition.Value + startDelta);
+        }
+        else
+        {
+            return base.OnSplit(backward, startDelta, lengthDelta);
+        }
+    }
 }

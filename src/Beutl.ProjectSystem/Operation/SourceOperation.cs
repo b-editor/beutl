@@ -40,6 +40,14 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
     [NotAutoSerialized]
     public ICoreList<SourceOperator> Children => _children;
 
+    public IRecordableCommand OnSplit(bool backward, TimeSpan startDelta,TimeSpan lengthDelta)
+    {
+        return _children.Select(v => v.OnSplit(backward, startDelta, lengthDelta))
+            .Where(v => v != null)
+            .ToArray()!
+            .ToCommand();
+    }
+
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
