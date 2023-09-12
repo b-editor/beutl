@@ -75,8 +75,12 @@ public sealed class ElementViewModel : IDisposable
             .AddTo(_disposables);
 
         // コマンドを構成
-        Split.Where(func => func != null)
-            .Subscribe(func => OnSplit(func!()))
+        Split.Where(_ => GetClickedTime != null)
+            .Subscribe(_ => OnSplit(GetClickedTime!()))
+            .AddTo(_disposables);
+
+        SplitByCurrentFrame
+            .Subscribe(_ => OnSplit(Scene.CurrentFrame))
             .AddTo(_disposables);
 
         Cut.Subscribe(OnCut)
@@ -130,6 +134,8 @@ public sealed class ElementViewModel : IDisposable
 
     public Func<(Thickness Margin, Thickness BorderMargin, double Width), CancellationToken, Task> AnimationRequested { get; set; } = (_, _) => Task.CompletedTask;
 
+    public Func<TimeSpan>? GetClickedTime { get; set; }
+
     public TimelineViewModel Timeline { get; private set; }
 
     public Element Model { get; private set; }
@@ -160,7 +166,9 @@ public sealed class ElementViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<Avalonia.Media.Color> TextColor { get; }
 
-    public ReactiveCommand<Func<TimeSpan>?> Split { get; } = new();
+    public ReactiveCommand Split { get; } = new();
+
+    public ReactiveCommand SplitByCurrentFrame { get; } = new();
 
     public AsyncReactiveCommand Cut { get; } = new();
 
@@ -189,6 +197,7 @@ public sealed class ElementViewModel : IDisposable
         Model = null!;
         Scope = null!;
         AnimationRequested = (_, _) => Task.CompletedTask;
+        GetClickedTime = null;
         GC.SuppressFinalize(this);
     }
 
@@ -339,9 +348,13 @@ public sealed class ElementViewModel : IDisposable
     private void OnSplit(TimeSpan timeSpan)
     {
         int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+        TimeSpan minLength = TimeSpan.FromSeconds(1d / rate);
         TimeSpan absTime = timeSpan.RoundToRate(rate);
         TimeSpan forwardLength = absTime - Model.Start;
         TimeSpan backwardLength = Model.Length - forwardLength;
+
+        if (forwardLength < minLength || backwardLength < minLength)
+            return;
 
         CoreObjectReborn.Reborn(Model, out Element backwardLayer);
 
@@ -391,7 +404,8 @@ public sealed class ElementViewModel : IDisposable
         var list = new List<KeyBinding>
         {
             new KeyBinding { Gesture = new(Key.Delete), Command = Exclude },
-            new KeyBinding { Gesture = new(Key.Delete, modifier), Command = Delete }
+            new KeyBinding { Gesture = new(Key.Delete, modifier), Command = Delete },
+            new KeyBinding { Gesture = new(Key.K, modifier), Command = SplitByCurrentFrame }
         };
 
         if (config != null)

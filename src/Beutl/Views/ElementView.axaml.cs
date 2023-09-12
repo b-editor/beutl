@@ -46,8 +46,6 @@ public sealed partial class ElementView : UserControl
         this.SubscribeDataContextChange<ElementViewModel>(OnDataContextAttached, OnDataContextDetached);
     }
 
-    public Func<TimeSpan> GetClickedTime => () => _pointerPosition;
-
     private ElementViewModel ViewModel => (ElementViewModel)DataContext!;
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -82,12 +80,14 @@ public sealed partial class ElementView : UserControl
         if (DataContext is ElementViewModel viewModel)
         {
             change2OriginalLength.IsEnabled = viewModel.HasOriginalLength();
+            splitByCurrent.IsEnabled = viewModel.Model.Range.Contains(viewModel.Scene.CurrentFrame);
         }
     }
 
     private void OnDataContextDetached(ElementViewModel obj)
     {
         obj.AnimationRequested = (_, _) => Task.CompletedTask;
+        obj.GetClickedTime = null;
         _disposables.Clear();
     }
 
@@ -155,6 +155,7 @@ public sealed partial class ElementView : UserControl
                 await Task.WhenAll(task1, task2);
             });
         };
+        obj.GetClickedTime = () => _pointerPosition;
 
         obj.Model.GetObservable(Element.IsEnabledProperty)
             .ObserveOnUIDispatcher()

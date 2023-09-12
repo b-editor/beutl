@@ -42,13 +42,15 @@
         </Border.Resources>
         <Border.ContextFlyout>
             <ui:FAMenuFlyout>
-                <ui:MenuFlyoutItem Command="{Binding Split}"
-                                   CommandParameter="{Binding #root.GetClickedTime, Mode=OneTime}"
-                                   Text="{x:Static lang:Strings.Split}">
+                <ui:MenuFlyoutItem Command="{Binding Split}" Text="{x:Static lang:Strings.Split}">
                     <ui:MenuFlyoutItem.IconSource>
                         <icons:SymbolIconSource Symbol="SplitVertical" />
                     </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
+                <ui:MenuFlyoutItem x:Name="splitByCurrent"
+                                   Command="{Binding SplitByCurrentFrame}"
+                                   InputGesture="{DynamicResource SplitKeyGesture}"
+                                   Text="{x:Static lang:Strings.SplitByCurrentFrame}" />
                 <ui:MenuFlyoutItem Command="{Binding Cut}"
                                    InputGesture="{DynamicResource CutKeyGesture}"
                                    Text="{x:Static lang:Strings.Cut}">

@@ -949,4 +949,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="ChangeToOriginalLength" xml:space="preserve">
     <value>オリジナルの長さに変更</value>
   </data>
+  <data name="SplitByCurrentFrame" xml:space="preserve">
+    <value>現在のフレームで分割</value>
+  </data>
 </root>
