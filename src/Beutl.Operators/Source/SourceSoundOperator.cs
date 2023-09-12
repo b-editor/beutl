@@ -11,6 +11,9 @@ public sealed class SourceSoundOperator : StyledSourcePublisher
     public Setter<ISoundSource?> Source { get; set; }
         = new Setter<ISoundSource?>(SourceSound.SourceProperty, null);
 
+    public Setter<TimeSpan> OffsetPosition { get; set; }
+        = new Setter<TimeSpan>(SourceSound.OffsetPositionProperty, TimeSpan.Zero);
+
     public Setter<float> Gain { get; set; }
         = new Setter<float>(Sound.GainProperty, 100);
 
