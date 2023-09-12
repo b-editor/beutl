@@ -3,11 +3,10 @@ using System.Text.Json.Nodes;
 
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Data;
-using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 
 using Beutl.Media;
@@ -15,8 +14,8 @@ using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
 using Beutl.ViewModels.Dialogs;
+using Beutl.ViewModels.Tools;
 using Beutl.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
@@ -381,6 +380,14 @@ public sealed partial class Timeline : UserControl
                 viewModel.AddLayer.Execute(new ElementDescription(
                     viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(), InitialOperator: type));
             }
+        }
+        else if (e.Data.GetFiles()
+            ?.Where(v => v is IStorageFile)
+            ?.Select(v => v.TryGetLocalPath())
+            .FirstOrDefault(v => v != null) is { } fileName)
+        {
+            viewModel.AddLayer.Execute(new ElementDescription(
+                viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(), FileName: fileName));
         }
     }
 
