@@ -20,6 +20,10 @@
                 <ResourceInclude Source="/Styling/SegmentedControl.axaml" />
                 <ResourceInclude Source="/Styling/LiteNav.axaml" />
                 <ResourceInclude Source="/Styling/FlipButton.axaml" />
+                <ResourceInclude Source="/Styling/OptionsDisplayItem.axaml" />
+                <ResourceInclude Source="/Styling/BcTabItem.axaml" />
+                <ResourceInclude Source="/Styling/BcTabView.axaml" />
+                <ResourceInclude Source="/Styling/Player.axaml" />
 
                 <ResourceInclude Source="/Styling/PropertyEditors/PropertyEditorResources.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/StringEditor.axaml" />
@@ -84,18 +88,6 @@
         <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
     </Style>
 
-    <Style Selector="TextBox">
-        <Setter Property="(i:Interaction.Behaviors)">
-            <b:SharedContentTemplate>
-                <b:SharedContent>
-                    <i:BehaviorCollection>
-                        <b:TextBoxBehaviour />
-                    </i:BehaviorCollection>
-                </b:SharedContent>
-            </b:SharedContentTemplate>
-        </Setter>
-    </Style>
-
     <Style Selector=":is(InputElement).transparent">
         <Setter Property="Opacity" Value="0" />
         <Setter Property="IsHitTestVisible" Value="False" />
@@ -111,9 +103,5 @@
         <Setter Property="Height" Value="24" />
     </Style>
 
-    <StyleInclude Source="avares://Beutl.Controls/Styling/BcTabItem.axaml" />
-    <StyleInclude Source="avares://Beutl.Controls/Styling/BcTabView.axaml" />
     <StyleInclude Source="avares://Beutl.Controls/Styling/NavigationView.axaml" />
-    <StyleInclude Source="avares://Beutl.Controls/Styling/OptionsDisplayItem.axaml" />
-    <StyleInclude Source="avares://Beutl.Controls/Styling/Player.axaml" />
 </Styles>

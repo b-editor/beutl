@@ -5,6 +5,8 @@ namespace Beutl.Converters;
 
 public sealed class TimeSpanToDoubleConverter : IValueConverter
 {
+    public static readonly TimeSpanToDoubleConverter Instance = new();
+
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is TimeSpan ts)
