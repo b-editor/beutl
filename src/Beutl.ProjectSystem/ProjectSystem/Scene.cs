@@ -14,6 +14,31 @@ using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 
 namespace Beutl.ProjectSystem;
 
+// 要素を配置するとき、重なる部分の処理を定義します。
+// 複数のフラグがある場合、
+// 最初に長さを調整しようとします。
+// 長さが0以下になる場合、開始位置を調整します。
+// それでも、長さが0以下になる場合、もともとの長さでZIndexを変更します。
+[Flags]
+public enum ElementOverlapHandling
+{
+    // 例外を発生させます
+    ThrowException = 0,
+
+    // 長さを調整します
+    Length = 1,
+
+    // 開始位置を調整します
+    Start = 1 << 1,
+
+    // 空いている、ZIndexに配置します
+    ZIndex = 1 << 2,
+
+    Auto = Length | Start | ZIndex,
+
+    Allow = 1 << 3
+}
+
 public class Scene : ProjectItem
 {
     public static readonly CoreProperty<int> WidthProperty;
@@ -181,12 +206,11 @@ public class Scene : ProjectItem
     }
 
     // element.FileNameが既に設定されている状態
-    public IRecordableCommand AddChild(Element element)
+    public IRecordableCommand AddChild(Element element, ElementOverlapHandling overlapHandling = ElementOverlapHandling.Auto)
     {
         ArgumentNullException.ThrowIfNull(element);
-        element.ZIndex = NearestLayerNumber(element);
 
-        return new AddCommand(this, element);
+        return new AddCommand(this, element, overlapHandling);
     }
 
     public IRecordableCommand RemoveChild(Element element)
@@ -469,28 +493,171 @@ public class Scene : ProjectItem
         return element.ZIndex;
     }
 
+    private Element? GetBefore(Element element)
+    {
+        Element? tmp = null;
+        foreach (Element? item in Children.GetMarshal().Value)
+        {
+            if (item != element && item.ZIndex == element.ZIndex && item.Start < element.Range.End)
+            {
+                if (tmp == null || tmp.Start <= item.Start)
+                {
+                    tmp = item;
+                }
+            }
+        }
+        return tmp;
+    }
+
+    private Element? GetAfter(Element element)
+    {
+        Element? tmp = null;
+        foreach (Element? item in Children.GetMarshal().Value)
+        {
+            if (item != element && item.ZIndex == element.ZIndex && item.Range.End > element.Range.End)
+            {
+                if (tmp == null || tmp.Range.End >= item.Range.End)
+                {
+                    tmp = item;
+                }
+            }
+        }
+
+        return tmp;
+    }
+
+    internal (Element? Before, Element? After, Element? Cover) GetBeforeAndAfterAndCover(Element element)
+    {
+        Element? beforeTmp = null;
+        Element? afterTmp = null;
+        Element? coverTmp = null;
+        TimeRange range = element.Range;
+
+        foreach (Element? item in Children.GetMarshal().Value)
+        {
+            if (item != element && item.ZIndex == element.ZIndex)
+            {
+                if (item.Start < range.Start
+                    && (beforeTmp == null || beforeTmp.Start <= item.Start))
+                {
+                    beforeTmp = item;
+                }
+
+                if (item.Range.End > range.End
+                    && (afterTmp == null || afterTmp.Range.End >= item.Range.End))
+                {
+                    afterTmp = item;
+                }
+
+                if (range.Contains(item.Range) || range == item.Range)
+                {
+                    coverTmp = item;
+                }
+            }
+        }
+
+        return (beforeTmp, afterTmp, coverTmp);
+    }
+
+    private (TimeRange Range, int ZIndex) GetCorrectPosition(Element element, ElementOverlapHandling handling)
+    {
+        bool IsOverlapping(TimeRange timeRange, int zindex)
+        {
+            return !Children.Any(i => !(i.ZIndex != zindex
+                || i.Range.Intersects(timeRange)
+                || i.Range.Contains(timeRange)
+                || timeRange.Contains(i.Range)));
+        }
+
+        bool overlapping = IsOverlapping(element.Range, element.ZIndex);
+
+        if (!overlapping || handling.HasFlag(ElementOverlapHandling.Allow)) return (element.Range, element.ZIndex);
+
+        if (handling == ElementOverlapHandling.ThrowException)
+            throw new InvalidOperationException("要素の位置が無効です");
+
+        (Element? before, Element? after, Element? cover) = GetBeforeAndAfterAndCover(element);
+        var candidateStart = new List<TimeSpan>(2);
+        var candidateEnd = new List<TimeSpan>(2);
+        if (cover != null)
+        {
+            candidateEnd.Add(cover.Start);
+            candidateStart.Add(cover.Range.End);
+        }
+        if (after != null) candidateEnd.Add(after.Start);
+        if (before != null) candidateStart.Add(before.Range.End);
+
+        TimeSpan start = element.Start;
+        TimeSpan end = element.Range.End;
+
+        if (handling.HasFlag(ElementOverlapHandling.Start) && handling.HasFlag(ElementOverlapHandling.Length))
+        {
+            foreach (TimeSpan cEnd in candidateEnd)
+            {
+                TimeRange range = TimeRange.FromRange(start, cEnd);
+                if (range.Duration > TimeSpan.Zero && IsOverlapping(range, element.ZIndex))
+                {
+                    return (range, element.ZIndex);
+                }
+
+                foreach (TimeSpan cStart in candidateStart)
+                {
+                    range = TimeRange.FromRange(cStart, cEnd);
+                    if (range.Duration > TimeSpan.Zero && IsOverlapping(range, element.ZIndex))
+                    {
+                        return (range, element.ZIndex);
+                    }
+                }
+            }
+        }
+
+        if (handling.HasFlag(ElementOverlapHandling.Length))
+        {
+            foreach (TimeSpan item in candidateEnd)
+            {
+                TimeRange range = TimeRange.FromRange(start, item);
+                if (range.Duration > TimeSpan.Zero && IsOverlapping(range, element.ZIndex))
+                {
+                    return (range, element.ZIndex);
+                }
+            }
+        }
+
+        if (handling.HasFlag(ElementOverlapHandling.Start))
+        {
+            foreach (TimeSpan item in candidateStart)
+            {
+                TimeRange range = TimeRange.FromRange(item, end);
+                if (range.Duration > TimeSpan.Zero && IsOverlapping(range, element.ZIndex))
+                {
+                    return (range, element.ZIndex);
+                }
+            }
+        }
+
+        return (element.Range, NearestLayerNumber(element));
+    }
+
     private sealed class AddCommand : IRecordableCommand
     {
         private readonly Scene _scene;
         private readonly Element _element;
-        private readonly int _zIndex;
+        private readonly ElementOverlapHandling _overlapHandling;
+        private int _zIndex;
+        private TimeRange _range;
 
-        public AddCommand(Scene scene, Element element)
+        public AddCommand(Scene scene, Element element, ElementOverlapHandling overlapHandling)
         {
             _scene = scene;
             _element = element;
-            _zIndex = element.ZIndex;
-        }
-
-        public AddCommand(Scene scene, Element element, int zIndex)
-        {
-            _scene = scene;
-            _element = element;
-            _zIndex = zIndex;
+            _overlapHandling = overlapHandling;
         }
 
         public void Do()
         {
+            (_range, _zIndex) = _scene.GetCorrectPosition(_element, _overlapHandling);
+            _element.Start = _range.Start;
+            _element.Length = _range.Duration;
             _element.ZIndex = _zIndex;
             _scene.Children.Add(_element);
         }
