@@ -131,17 +131,21 @@ public sealed unsafe class Pcm<T> : IPcm
     {
         if (sound.SampleRate != SampleRate) throw new Exception("Sounds with different SampleRates cannot be synthesized.");
 
-        Parallel.For(0, Math.Min(sound.NumSamples, NumSamples), i => DataSpan[i] = T.Compound(DataSpan[i], sound.DataSpan[i]));
+        Compound(0, sound);
     }
 
     public void Compound(int start, Pcm<T> sound)
     {
         if (sound.SampleRate != SampleRate) throw new Exception("Sounds with different SampleRates cannot be synthesized.");
 
-        Parallel.For(
-            start,
-            Math.Min(sound.NumSamples, NumSamples),
-            i => DataSpan[i] = T.Compound(DataSpan[i], sound.DataSpan[i - start]));
+        Parallel.For(start, NumSamples, i =>
+        {
+            int j = i - start;
+            if (j < sound.NumSamples)
+            {
+                DataSpan[i] = T.Compound(DataSpan[i], sound.DataSpan[j]);
+            }
+        });
     }
 
     public Pcm<T> Resamples(int frequency)
