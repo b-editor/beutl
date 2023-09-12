@@ -86,7 +86,7 @@ public partial class VideoSourceEditor : UserControl
                 && MediaSourceManager.Shared.OpenVideoSource(localPath, out IVideoSource? videoSource))
             {
                 IVideoSource? oldValue = vm.WrappedProperty.GetValue();
-                vm.SetValue(oldValue, videoSource);
+                vm.SetValueAndDispose(oldValue, videoSource);
 
                 if (vm.GetService<Element>() is Element element)
                 {

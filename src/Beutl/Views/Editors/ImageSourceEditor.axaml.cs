@@ -54,8 +54,7 @@ public partial class ImageSourceEditor : UserControl
             && MediaSourceManager.Shared.OpenImageSource(localPath, out IImageSource? imageSource))
         {
             IImageSource? oldValue = vm.WrappedProperty.GetValue();
-            vm.SetValue(oldValue, imageSource);
-            oldValue?.Dispose();
+            vm.SetValueAndDispose(oldValue, imageSource);
         }
     }
 }

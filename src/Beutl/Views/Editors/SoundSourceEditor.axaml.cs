@@ -86,7 +86,7 @@ public partial class SoundSourceEditor : UserControl
                 && MediaSourceManager.Shared.OpenSoundSource(localPath, out ISoundSource? soundSource))
             {
                 ISoundSource? oldValue = vm.WrappedProperty.GetValue();
-                vm.SetValue(oldValue, soundSource);
+                vm.SetValueAndDispose(oldValue, soundSource);
 
                 if (vm.GetService<Element>() is Element element)
                 {
