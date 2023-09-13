@@ -268,6 +268,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Please read it carefully に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string PleaseReadItCarefully {
+            get {
+                return ResourceManager.GetString("PleaseReadItCarefully", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Primary properties に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string PrimaryProperties {
@@ -345,6 +354,137 @@ namespace Beutl.Language {
         public static string Storage_Used {
             get {
                 return ResourceManager.GetString("Storage_Used", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Telemetry に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry {
+            get {
+                return ResourceManager.GetString("Telemetry", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   APIクライアント に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Beutl_Api_Client {
+            get {
+                return ResourceManager.GetString("Telemetry_Beutl_Api_Client", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Application に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Beutl_Application {
+            get {
+                return ResourceManager.GetString("Telemetry_Beutl_Application", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Package Management に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Beutl_PackageManagement {
+            get {
+                return ResourceManager.GetString("Telemetry_Beutl_PackageManagement", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Display and operation に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Beutl_ViewTracking {
+            get {
+                return ResourceManager.GetString("Telemetry_Beutl_ViewTracking", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   To improve Beutl, we collect anonymous usage data.
+        ///
+        ///Below is some important information about this telemetry data.
+        ///
+        ///1. data to be collected
+        ///Telemetry data includes information about the use of products and services.
+        ///This includes application error logs, performance data, and usage statistics.
+        ///
+        ///2.Purpose of Data Collection
+        ///Telemetry data is collected for a variety of purposes, including improving product and service quality, troubleshooting, monitoring security, and optimizing services.
+        ///
+        ///3. data s [残りの文字列は切り詰められました]&quot;; に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Description {
+            get {
+                return ResourceManager.GetString("Telemetry_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Collect API call times used by extension store and account functions. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Description_Beutl_Api_Client {
+            get {
+                return ResourceManager.GetString("Telemetry_Description_Beutl_Api_Client", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   The following information is collected to improve application performance
+        ///Time the application was started, elapsed time of operation, and number of items retrieved by the API に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Description_Beutl_Application {
+            get {
+                return ResourceManager.GetString("Telemetry_Description_Beutl_Application", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Collect the time taken to install and load extensions. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Description_Beutl_PackageManagement {
+            get {
+                return ResourceManager.GetString("Telemetry_Description_Beutl_PackageManagement", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Collect what features users view or use. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Description_Beutl_ViewTracking {
+            get {
+                return ResourceManager.GetString("Telemetry_Description_Beutl_ViewTracking", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   To improve Beutl, we collect anonymous usage data.
+        ///
+        ///Below is some important information about this telemetry data.
+        ///
+        ///1. data to be collected
+        ///Telemetry data includes information about the use of products and services.
+        ///This includes application error logs, performance data, and usage statistics.
+        ///
+        ///2.Purpose of Data Collection
+        ///Telemetry data is collected for a variety of purposes, including improving product and service quality, troubleshooting, monitoring security, and optimizing services.
+        ///
+        ///3. data s [残りの文字列は切り詰められました]&quot;; に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Description_For_Dialog {
+            get {
+                return ResourceManager.GetString("Telemetry_Description_For_Dialog", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Settings about the data to be collected に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_ShortDescription {
+            get {
+                return ResourceManager.GetString("Telemetry_ShortDescription", resourceCulture);
             }
         }
         

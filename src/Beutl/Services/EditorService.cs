@@ -1,4 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
 
 using Beutl.Api.Services;
 
@@ -22,12 +25,15 @@ public enum TabOpenMode
 
 public sealed class EditorTabItem : IDisposable
 {
+    private string? _hash;
+
     public EditorTabItem(IEditorContext context, TabOpenMode tabOpenMode)
     {
         Context = new ReactiveProperty<IEditorContext>(context);
         FilePath = Context.Select(ctxt => ctxt?.EdittingFile!)
             .ToReadOnlyReactivePropertySlim()!;
         FileName = Context.Select(ctxt => Path.GetFileName(ctxt?.EdittingFile)!)
+            .Do(_ => _hash = null)
             .ToReadOnlyReactivePropertySlim()!;
         Extension = Context.Select(ctxt => ctxt?.Extension!)
             .ToReadOnlyReactivePropertySlim()!;
@@ -51,6 +57,22 @@ public sealed class EditorTabItem : IDisposable
     public IReadOnlyReactiveProperty<IKnownEditorCommands?> Commands { get; }
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
+
+    public string GetFileNameHash()
+    {
+        if (_hash == null)
+        {
+            string name = FileName.Value;
+            ReadOnlySpan<char> span = name.AsSpan();
+
+            // UTF-8を得たいわけではないので
+            byte[] hash = MD5.HashData(MemoryMarshal.Cast<char, byte>(span));
+
+            _hash = Convert.ToHexString(hash);
+        }
+
+        return _hash;
+    }
 
     public void Dispose()
     {

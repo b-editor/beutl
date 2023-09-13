@@ -4,9 +4,11 @@ using Avalonia.Controls.Documents;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
+using Beutl.Helpers;
 using Beutl.Pages.ExtensionsPages;
 using Beutl.Pages.ExtensionsPages.DevelopPages;
 using Beutl.Pages.ExtensionsPages.DiscoverPages;
+using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 using Beutl.Views;
@@ -133,6 +135,9 @@ public sealed partial class ExtensionsPage : UserControl
 
     private void Frame_Navigating(object sender, NavigatingCancelEventArgs e)
     {
+        using Activity? activity = Telemetry.ViewTracking.StartActivity($"{e.SourcePageType.Name}.Navigating");
+        activity?.SetTag("navigate_mode", e.NavigationMode.ToString());
+
         if (e.NavigationTransitionInfo is EntranceNavigationTransitionInfo entrance)
         {
             if (e.NavigationMode is NavigationMode.Back)

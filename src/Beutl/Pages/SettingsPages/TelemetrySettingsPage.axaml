@@ -1,0 +1,69 @@
+<UserControl x:Class="Beutl.Pages.SettingsPages.TelemetrySettingsPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrls="using:Beutl.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.ViewModels.SettingsPages"
+             x:Name="root"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="vm:TelemetrySettingsPageViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="18" RowDefinitions="Auto,*">
+
+        <TextBlock Margin="10,8"
+                   Classes="breadcrumb"
+                   Text="{x:Static lang:SettingsPage.Telemetry}" />
+
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Margin="10,16,10,0"
+                        VerticalAlignment="Stretch"
+                        Orientation="Vertical"
+                        Spacing="4">
+                <ctrls:OptionsDisplayItem Expands="True"
+                                          Header="{x:Static lang:SettingsPage.PleaseReadItCarefully}"
+                                          IsExpanded="True">
+                    <ctrls:OptionsDisplayItem.Content>
+                        <SelectableTextBlock Text="{x:Static lang:SettingsPage.Telemetry_Description}" />
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.Telemetry_Description_Beutl_Application}" Header="{x:Static lang:SettingsPage.Telemetry_Beutl_Application}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{Binding Beutl_Application.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.Telemetry_Description_Beutl_ViewTracking}" Header="{x:Static lang:SettingsPage.Telemetry_Beutl_ViewTracking}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{Binding Beutl_ViewTracking.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.Telemetry_Description_Beutl_PackageManagement}" Header="{x:Static lang:SettingsPage.Telemetry_Beutl_PackageManagement}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{Binding Beutl_PackageManagement.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.Telemetry_Description_Beutl_Api_Client}" Header="{x:Static lang:SettingsPage.Telemetry_Beutl_Api_Client}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{Binding Beutl_Api_Client.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

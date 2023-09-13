@@ -6,10 +6,12 @@ namespace Beutl.Services;
 
 internal static class Telemetry
 {
-    public static ActivitySource ActivitySource { get; } = new("Beutl.Application", GitVersionInformation.SemVer);
+    public static ActivitySource Applilcation { get; } = new("Beutl.Application", GitVersionInformation.SemVer);
+
+    public static ActivitySource ViewTracking { get; } = new("Beutl.ViewTracking", GitVersionInformation.SemVer);
 
     public static Activity? StartActivity([CallerMemberName] string name = "", ActivityKind kind = ActivityKind.Internal)
     {
-        return ActivitySource.StartActivity(name, kind);
+        return Applilcation.StartActivity(name, kind);
     }
 }

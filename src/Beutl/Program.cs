@@ -4,6 +4,8 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.ReactiveUI;
 
+using Azure.Monitor.OpenTelemetry.Exporter;
+
 using Beutl.Configuration;
 using Beutl.Rendering;
 using Beutl.Services;
@@ -23,7 +25,12 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        using TracerProvider? tracerProvider = SetupTelemetry();
+        // Restore config
+        GlobalConfiguration config = GlobalConfiguration.Instance;
+        config.Restore(GlobalConfiguration.DefaultFilePath);
+
+        using TracerProvider? tracerProvider = SetupTelemetry(config);
+        using Activity? _ = Telemetry.StartActivity();
 
         // PGOを有効化
         string jitProfiles = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "jitProfiles");
@@ -34,10 +41,6 @@ internal static class Program
         ProfileOptimization.StartProfile("beutl.jitprofile");
 
         WaitForExitOtherProcesses();
-
-        // Restore config
-        GlobalConfiguration config = GlobalConfiguration.Instance;
-        config.Restore(GlobalConfiguration.DefaultFilePath);
 
         SetupLogger();
         Log.Information("After setup logger");
@@ -122,13 +125,34 @@ internal static class Program
         BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(builder => builder.AddSerilog(Log.Logger, true));
     }
 
-    private static TracerProvider? SetupTelemetry()
+    private static TracerProvider? SetupTelemetry(GlobalConfiguration config)
     {
-        return Sdk.CreateTracerProviderBuilder()
-            .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("Beutl"))
-            .AddSource("Beutl.Application", "Beutl.PackageManagement", "Beutl.Api.Client")
-            //.AddConsoleExporter()
-            .AddZipkinExporter()
-            .Build();
+        TelemetryConfig t = config.TelemetryConfig;
+        var list = new List<string>(4);
+        if (t.Beutl_Application == true)
+            list.Add("Beutl.Application");
+
+        if (t.Beutl_ViewTracking == true)
+            list.Add("Beutl.ViewTracking");
+
+        if (t.Beutl_PackageManagement == true)
+            list.Add("Beutl.PackageManagement");
+
+        if (t.Beutl_Api_Client == true)
+            list.Add("Beutl.Api.Client");
+
+        if (list.Count == 0)
+        {
+            return null;
+        }
+        else
+        {
+            return Sdk.CreateTracerProviderBuilder()
+                .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("Beutl"))
+                .AddSource(list.ToArray())
+                //.AddZipkinExporter()
+                .AddAzureMonitorTraceExporter(b => b.ConnectionString = "InstrumentationKey=b8cc7df1-1367-41f5-a819-5c95a10075cb")
+                .Build();
+        }
     }
 }

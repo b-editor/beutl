@@ -13,6 +13,7 @@
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.0.4" />
     <PackageVersion Include="Avalonia.Xaml.Behaviors" Version="11.0.2" />
     <PackageVersion Include="Avalonia.Xaml.Interactivity" Version="11.0.2" />
+    <PackageVersion Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.0.0-beta.14" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.13.8" />
     <PackageVersion Include="coverlet.collector" Version="6.0.0" />
     <PackageVersion Include="DeviceId" Version="6.3.0" />

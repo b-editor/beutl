@@ -8,6 +8,7 @@ using Avalonia.Interactivity;
 using Avalonia.Styling;
 
 using Beutl.Api.Services;
+using Beutl.Configuration;
 using Beutl.Services;
 using Beutl.Utilities;
 using Beutl.ViewModels;
@@ -102,6 +103,27 @@ public sealed partial class MainView : UserControl
         }
 
         _logger.Information("WindowOpened");
+
+        TelemetryConfig tconfig = GlobalConfiguration.Instance.TelemetryConfig;
+        if (!(tconfig.Beutl_Api_Client.HasValue
+            && tconfig.Beutl_Application.HasValue
+            && tconfig.Beutl_ViewTracking.HasValue
+            && tconfig.Beutl_PackageManagement.HasValue))
+        {
+            var dialog = new ContentDialog
+            {
+                Title = SettingsPage.Telemetry,
+                Content = SettingsPage.Telemetry_Description_For_Dialog,
+                PrimaryButtonText = Strings.Agree,
+                SecondaryButtonText = Strings.Disagree
+            };
+
+            bool result = await dialog.ShowAsync() == ContentDialogResult.Primary;
+            tconfig.Beutl_Api_Client = result;
+            tconfig.Beutl_Application = result;
+            tconfig.Beutl_PackageManagement = result;
+            tconfig.Beutl_ViewTracking = result;
+        }
     }
 
     // 拡張機能を読み込んだ後に呼び出す

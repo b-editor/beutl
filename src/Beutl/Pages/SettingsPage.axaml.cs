@@ -192,7 +192,8 @@ public sealed partial class SettingsPage : UserControl
             }
             else if (pagetype == typeof(StorageDetailPage)
                 || pagetype == typeof(EditorExtensionPriorityPage)
-                || pagetype == typeof(DecoderPriorityPage))
+                || pagetype == typeof(DecoderPriorityPage)
+                || pagetype == typeof(TelemetrySettingsPage))
             {
                 return 1;
             }
@@ -211,7 +212,7 @@ public sealed partial class SettingsPage : UserControl
                 "FontSettingsPage" => 2,
                 "ExtensionsSettingsPage" or "EditorExtensionPriorityPage" or "DecoderPriorityPage" => 3,
                 "StorageSettingsPage" or "StorageDetailPage" => 4,
-                "InfomationPage" => 5,
+                "InfomationPage" or "TelemetrySettingsPage" => 5,
                 _ => 0,
             };
         }
@@ -228,6 +229,7 @@ public sealed partial class SettingsPage : UserControl
                 "DecoderPriorityPageViewModel" => typeof(DecoderPriorityPage),
                 "StorageSettingsPageViewModel" => typeof(StorageSettingsPage),
                 "StorageDetailPageViewModel" => typeof(StorageDetailPage),
+                "TelemetrySettingsPageViewModel" => typeof(TelemetrySettingsPage),
                 _ => typeof(InfomationPage),
             };
         }

@@ -14,6 +14,8 @@ using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Tools;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -182,38 +184,60 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public bool OpenToolTab(IToolContext item)
     {
-        if (BottomTabItems.Any(x => x.Context == item) || RightTabItems.Any(x => x.Context == item))
+        using Activity? activity = Telemetry.ViewTracking.StartActivity("EditViewModel.OpenToolTab");
+        try
         {
-            item.IsSelected.Value = true;
-            return true;
+            activity?.SetTag("tool_name", item.Extension.Name);
+
+            if (BottomTabItems.Any(x => x.Context == item) || RightTabItems.Any(x => x.Context == item))
+            {
+                activity?.SetTag("already_exits", true);
+                item.IsSelected.Value = true;
+                return true;
+            }
+            else if (!item.Extension.CanMultiple
+                && (BottomTabItems.Any(x => x.Context.Extension == item.Extension)
+                || RightTabItems.Any(x => x.Context.Extension == item.Extension)))
+            {
+                return false;
+            }
+            else
+            {
+                CoreList<ToolTabViewModel> list = item.Placement == ToolTabExtension.TabPlacement.Bottom ? BottomTabItems : RightTabItems;
+                item.IsSelected.Value = true;
+                list.Add(new ToolTabViewModel(item));
+                return true;
+            }
         }
-        else if (!item.Extension.CanMultiple
-            && (BottomTabItems.Any(x => x.Context.Extension == item.Extension)
-            || RightTabItems.Any(x => x.Context.Extension == item.Extension)))
+        catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            activity?.RecordException(ex);
             return false;
-        }
-        else
-        {
-            CoreList<ToolTabViewModel> list = item.Placement == ToolTabExtension.TabPlacement.Bottom ? BottomTabItems : RightTabItems;
-            item.IsSelected.Value = true;
-            list.Add(new ToolTabViewModel(item));
-            return true;
         }
     }
 
     public void CloseToolTab(IToolContext item)
     {
-        if (BottomTabItems.FirstOrDefault(x => x.Context == item) is { } found0)
+        using Activity? activity = Telemetry.ViewTracking.StartActivity("EditViewModel.CloseToolTab");
+        try
         {
-            BottomTabItems.Remove(found0);
-        }
-        else if (RightTabItems.FirstOrDefault(x => x.Context == item) is { } found1)
-        {
-            RightTabItems.Remove(found1);
-        }
+            if (BottomTabItems.FirstOrDefault(x => x.Context == item) is { } found0)
+            {
+                BottomTabItems.Remove(found0);
+            }
+            else if (RightTabItems.FirstOrDefault(x => x.Context == item) is { } found1)
+            {
+                RightTabItems.Remove(found1);
+            }
 
-        item.Dispose();
+            item.Dispose();
+        }
+        catch (Exception ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            activity?.RecordException(ex);
+        }
     }
 
     private string ViewStateDirectory()

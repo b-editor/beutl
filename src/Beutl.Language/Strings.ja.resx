@@ -952,4 +952,10 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="SplitByCurrentFrame" xml:space="preserve">
     <value>現在のフレームで分割</value>
   </data>
+  <data name="Agree" xml:space="preserve">
+    <value>同意</value>
+  </data>
+  <data name="Disagree" xml:space="preserve">
+    <value>同意しない</value>
+  </data>
 </root>

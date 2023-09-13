@@ -225,4 +225,77 @@
   <data name="UseCustomAccentColor" xml:space="preserve">
     <value>Use custom accent color</value>
   </data>
+  <data name="Telemetry_Beutl_Application" xml:space="preserve">
+    <value>Application</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_Application" xml:space="preserve">
+    <value>The following information is collected to improve application performance
+Time the application was started, elapsed time of operation, and number of items retrieved by the API</value>
+  </data>
+  <data name="Telemetry_Beutl_ViewTracking" xml:space="preserve">
+    <value>Display and operation</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_ViewTracking" xml:space="preserve">
+    <value>Collect what features users view or use.</value>
+  </data>
+  <data name="Telemetry_Beutl_PackageManagement" xml:space="preserve">
+    <value>Package Management</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_PackageManagement" xml:space="preserve">
+    <value>Collect the time taken to install and load extensions.</value>
+  </data>
+  <data name="Telemetry_Beutl_Api_Client" xml:space="preserve">
+    <value>APIクライアント</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_Api_Client" xml:space="preserve">
+    <value>Collect API call times used by extension store and account functions.</value>
+  </data>
+  <data name="Telemetry" xml:space="preserve">
+    <value>Telemetry</value>
+  </data>
+  <data name="Telemetry_Description" xml:space="preserve">
+    <value>To improve Beutl, we collect anonymous usage data.
+
+Below is some important information about this telemetry data.
+
+1. data to be collected
+Telemetry data includes information about the use of products and services.
+This includes application error logs, performance data, and usage statistics.
+
+2.Purpose of Data Collection
+Telemetry data is collected for a variety of purposes, including improving product and service quality, troubleshooting, monitoring security, and optimizing services.
+
+3. data storage location
+Telemetry data is collected via Azure Monitor and stored on Microsoft servers.
+These servers have appropriate security measures in place to ensure the protection of the data.
+
+4. opt-out
+If you do not wish to have your telemetry data collected, you can disable it via the following switch.
+A restart is required to apply the changes.</value>
+  </data>
+  <data name="PleaseReadItCarefully" xml:space="preserve">
+    <value>Please read it carefully</value>
+  </data>
+  <data name="Telemetry_ShortDescription" xml:space="preserve">
+    <value>Settings about the data to be collected</value>
+  </data>
+  <data name="Telemetry_Description_For_Dialog" xml:space="preserve">
+    <value>To improve Beutl, we collect anonymous usage data.
+
+Below is some important information about this telemetry data.
+
+1. data to be collected
+Telemetry data includes information about the use of products and services.
+This includes application error logs, performance data, and usage statistics.
+
+2.Purpose of Data Collection
+Telemetry data is collected for a variety of purposes, including improving product and service quality, troubleshooting, monitoring security, and optimizing services.
+
+3. data storage location
+Telemetry data is collected via Azure Monitor and stored on Microsoft servers.
+These servers have appropriate security measures in place to ensure the protection of the data.
+
+4. opt-out
+If you want to reject the collection of telemetry data individually, you can do so from 'Settings&gt;Info&gt;Telemetry'.</value>
+  </data>
 </root>

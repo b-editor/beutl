@@ -12,6 +12,8 @@ namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class InfomationPageViewModel : PageContext
 {
+    private TelemetrySettingsPageViewModel? _telemetry;
+
     public InfomationPageViewModel()
     {
         RenderThread.Dispatcher.Dispatch(() =>
@@ -29,6 +31,15 @@ public sealed class InfomationPageViewModel : PageContext
                 GpuDeviceDetail.Value = sw.ToString();
             }
         }, DispatchPriority.Low);
+
+        NavigateToTelemetry = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
+            {
+                INavigationProvider nav = await GetNavigation();
+                await nav.NavigateAsync(
+                    x => x is not null,
+                    () => Telemetry);
+            });
     }
 
     public string CurrentVersion { get; } = GitVersionInformation.SemVer;
@@ -46,4 +57,8 @@ public sealed class InfomationPageViewModel : PageContext
     public ReactivePropertySlim<string?> GpuDevice { get; } = new();
 
     public ReactivePropertySlim<string?> GpuDeviceDetail { get; } = new();
+
+    public TelemetrySettingsPageViewModel Telemetry => _telemetry ??= new();
+
+    public AsyncReactiveCommand NavigateToTelemetry { get; }
 }

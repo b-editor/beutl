@@ -7,6 +7,7 @@ using Avalonia.Data;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.Controls;
+using Beutl.Services;
 using Beutl.ViewModels;
 
 using FluentAvalonia.UI.Controls;
@@ -45,6 +46,10 @@ public partial class MainView
         if (e.InvokedItemContainer.DataContext is MainViewModel.NavItemViewModel itemViewModel
             && DataContext is MainViewModel viewModel)
         {
+            using Activity? activity = Telemetry.ViewTracking.StartActivity($"[{itemViewModel.Extension.Name}].Invoked");
+            MainViewModel.NavItemViewModel? prev = viewModel.SelectedPage.Value;
+            activity?.SetTag("prev_page", prev?.Extension?.Name);
+
             _navigationTransition = e.RecommendedNavigationTransitionInfo;
             viewModel.SelectedPage.Value = itemViewModel;
         }

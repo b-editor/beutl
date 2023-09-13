@@ -225,4 +225,77 @@
   <data name="UseCustomAccentColor" xml:space="preserve">
     <value>アクセントカラーをカスタマイズ</value>
   </data>
+  <data name="Telemetry_Beutl_Application" xml:space="preserve">
+    <value>アプリケーション</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_Application" xml:space="preserve">
+    <value>アプリケーションのパフォーマンス改善のために以下のような情報を収集します。
+アプリケーションが開始した時間、操作の経過時間、APIで取得した項目の件数</value>
+  </data>
+  <data name="Telemetry_Beutl_ViewTracking" xml:space="preserve">
+    <value>表示、操作</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_ViewTracking" xml:space="preserve">
+    <value>ユーザーがどのような機能を表示または使用したかを収集します。</value>
+  </data>
+  <data name="Telemetry_Beutl_PackageManagement" xml:space="preserve">
+    <value>パッケージ管理</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_PackageManagement" xml:space="preserve">
+    <value>拡張機能のインストール、ロードに要した時間を収集します。</value>
+  </data>
+  <data name="Telemetry_Beutl_Api_Client" xml:space="preserve">
+    <value>APIクライアント</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_Api_Client" xml:space="preserve">
+    <value>拡張機能ストア、アカウント機能で使用される、APIの呼び出し時間を収集します。</value>
+  </data>
+  <data name="Telemetry" xml:space="preserve">
+    <value>テレメトリ</value>
+  </data>
+  <data name="Telemetry_Description" xml:space="preserve">
+    <value>Beutlを改善するために、匿名の使用状況データを収集します。
+
+以下に、このテレメトリデータに関する重要な情報を示します。
+
+1. 収集されるデータ
+テレメトリデータには、製品やサービスの使用に関する情報が含まれます。
+これには、アプリケーションのエラーログ、パフォーマンスデータ、利用状況の統計などが含まれます。
+
+2. データの収集目的
+テレメトリデータは、製品やサービスの品質向上、トラブルシューティング、セキュリティの監視、サービスの最適化など、さまざまな目的で収集されます。
+
+3. データの保存場所
+テレメトリデータは、Azure Monitorを介して収集され、マイクロソフトのサーバーに保存されます。
+これらのサーバーは適切なセキュリティ対策が施されており、データの保護を確保するための対策が講じられています。
+
+4. オプトアウト
+テレメトリデータの収集を拒否する場合、以下のスイッチから無効化できます。
+変更を適用するには再起動が必要です。</value>
+  </data>
+  <data name="PleaseReadItCarefully" xml:space="preserve">
+    <value>必ずお読みください</value>
+  </data>
+  <data name="Telemetry_ShortDescription" xml:space="preserve">
+    <value>収集するデータに関する設定</value>
+  </data>
+  <data name="Telemetry_Description_For_Dialog" xml:space="preserve">
+    <value>Beutlを改善するために、匿名の使用状況データを収集します。
+
+以下に、このテレメトリデータに関する重要な情報を示します。
+
+1. 収集されるデータ
+テレメトリデータには、製品やサービスの使用に関する情報が含まれます。
+これには、アプリケーションのエラーログ、パフォーマンスデータ、利用状況の統計などが含まれます。
+
+2. データの収集目的
+テレメトリデータは、製品やサービスの品質向上、トラブルシューティング、セキュリティの監視、サービスの最適化など、さまざまな目的で収集されます。
+
+3. データの保存場所
+テレメトリデータは、Azure Monitorを介して収集され、マイクロソフトのサーバーに保存されます。
+これらのサーバーは適切なセキュリティ対策が施されており、データの保護を確保するための対策が講じられています。
+
+4. オプトアウト
+テレメトリデータの収集を個別に拒否する場合、'設定&gt;情報&gt;テレメトリ'から拒否できます。</value>
+  </data>
 </root>

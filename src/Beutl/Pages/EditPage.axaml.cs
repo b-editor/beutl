@@ -127,10 +127,13 @@ Error:
 
     private void TabView_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
+        using Activity? activity = Telemetry.ViewTracking.StartActivity("EditPage.SelectionChanged");
+
         if (DataContext is EditPageViewModel viewModel)
         {
             if (tabview.SelectedItem is BcTabItem { DataContext: EditorTabItem tabViewModel })
             {
+                activity?.SetTag("filename_hash", tabViewModel.GetFileNameHash());
                 viewModel.SelectedTabItem.Value = tabViewModel;
             }
             else
