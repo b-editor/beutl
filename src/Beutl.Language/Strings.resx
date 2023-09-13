@@ -958,4 +958,7 @@ and b-editor maintains the download URL.</value>
   <data name="Disagree" xml:space="preserve">
     <value>Disagree</value>
   </data>
+  <data name="ShowDetails" xml:space="preserve">
+    <value>Show Details</value>
+  </data>
 </root>

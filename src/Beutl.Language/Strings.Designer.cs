@@ -2150,6 +2150,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Show Details に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ShowDetails {
+            get {
+                return ResourceManager.GetString("ShowDetails", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Show more に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string ShowMore {

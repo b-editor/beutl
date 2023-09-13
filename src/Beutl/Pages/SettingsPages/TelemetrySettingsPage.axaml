@@ -24,13 +24,8 @@
                         VerticalAlignment="Stretch"
                         Orientation="Vertical"
                         Spacing="4">
-                <ctrls:OptionsDisplayItem Expands="True"
-                                          Header="{x:Static lang:SettingsPage.PleaseReadItCarefully}"
-                                          IsExpanded="True">
-                    <ctrls:OptionsDisplayItem.Content>
-                        <SelectableTextBlock Text="{x:Static lang:SettingsPage.Telemetry_Description}" />
-                    </ctrls:OptionsDisplayItem.Content>
-                </ctrls:OptionsDisplayItem>
+                <SelectableTextBlock Text="{x:Static lang:SettingsPage.Telemetry_Description}" />
+                <ui:HyperlinkButton Content="{x:Static lang:Strings.ShowDetails}" NavigateUri="https://beutl.beditor.net/AboutTelemetry" />
 
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.Telemetry_Description_Beutl_Application}" Header="{x:Static lang:SettingsPage.Telemetry_Beutl_Application}">
                     <ctrls:OptionsDisplayItem.ActionButton>

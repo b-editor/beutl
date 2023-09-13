@@ -1,0 +1,34 @@
+<ui:ContentDialog x:Class="Beutl.Views.Dialogs.TelemetryDialog"
+                  xmlns="https://github.com/avaloniaui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:lang="using:Beutl.Language"
+                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:ui="using:FluentAvalonia.UI.Controls"
+                  Title="{x:Static lang:SettingsPage.Telemetry}"
+                  d:DesignHeight="450"
+                  d:DesignWidth="800"
+                  CloseButtonText="{x:Static lang:Strings.Disagree}"
+                  PrimaryButtonText="{x:Static lang:Strings.Agree}"
+                  mc:Ignorable="d">
+    <StackPanel Spacing="16">
+        <SelectableTextBlock Text="{x:Static lang:SettingsPage.Telemetry_Description}" />
+
+        <Button Height="48"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                Click="ShowDetail_Click"
+                ToolTip.Tip="https://beutl.beditor.net/AboutTelemetry">
+            <Grid ColumnDefinitions="48,*">
+                <ui:SymbolIcon Height="48"
+                               FontSize="16"
+                               Symbol="Open" />
+
+                <TextBlock Grid.Column="1"
+                           VerticalAlignment="Center"
+                           FontSize="16"
+                           Text="{x:Static lang:Strings.ShowDetails}" />
+            </Grid>
+        </Button>
+    </StackPanel>
+</ui:ContentDialog>

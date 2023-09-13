@@ -12,6 +12,7 @@ using Beutl.Configuration;
 using Beutl.Services;
 using Beutl.Utilities;
 using Beutl.ViewModels;
+using Beutl.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
@@ -104,19 +105,18 @@ public sealed partial class MainView : UserControl
 
         _logger.Information("WindowOpened");
 
+        ShowTelemetryDialog();
+    }
+
+    private static async void ShowTelemetryDialog()
+    {
         TelemetryConfig tconfig = GlobalConfiguration.Instance.TelemetryConfig;
         if (!(tconfig.Beutl_Api_Client.HasValue
             && tconfig.Beutl_Application.HasValue
             && tconfig.Beutl_ViewTracking.HasValue
             && tconfig.Beutl_PackageManagement.HasValue))
         {
-            var dialog = new ContentDialog
-            {
-                Title = SettingsPage.Telemetry,
-                Content = SettingsPage.Telemetry_Description_For_Dialog,
-                PrimaryButtonText = Strings.Agree,
-                SecondaryButtonText = Strings.Disagree
-            };
+            var dialog = new TelemetryDialog();
 
             bool result = await dialog.ShowAsync() == ContentDialogResult.Primary;
             tconfig.Beutl_Api_Client = result;

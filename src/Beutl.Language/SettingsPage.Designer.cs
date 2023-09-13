@@ -268,15 +268,6 @@ namespace Beutl.Language {
         }
         
         /// <summary>
-        ///   Please read it carefully に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string PleaseReadItCarefully {
-            get {
-                return ResourceManager.GetString("PleaseReadItCarefully", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Primary properties に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string PrimaryProperties {
@@ -404,17 +395,7 @@ namespace Beutl.Language {
         
         /// <summary>
         ///   To improve Beutl, we collect anonymous usage data.
-        ///
-        ///Below is some important information about this telemetry data.
-        ///
-        ///1. data to be collected
-        ///Telemetry data includes information about the use of products and services.
-        ///This includes application error logs, performance data, and usage statistics.
-        ///
-        ///2.Purpose of Data Collection
-        ///Telemetry data is collected for a variety of purposes, including improving product and service quality, troubleshooting, monitoring security, and optimizing services.
-        ///
-        ///3. data s [残りの文字列は切り詰められました]&quot;; に類似しているローカライズされた文字列を検索します。
+        ///For more information, please refer to the following pages. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Telemetry_Description {
             get {
@@ -456,26 +437,6 @@ namespace Beutl.Language {
         public static string Telemetry_Description_Beutl_ViewTracking {
             get {
                 return ResourceManager.GetString("Telemetry_Description_Beutl_ViewTracking", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   To improve Beutl, we collect anonymous usage data.
-        ///
-        ///Below is some important information about this telemetry data.
-        ///
-        ///1. data to be collected
-        ///Telemetry data includes information about the use of products and services.
-        ///This includes application error logs, performance data, and usage statistics.
-        ///
-        ///2.Purpose of Data Collection
-        ///Telemetry data is collected for a variety of purposes, including improving product and service quality, troubleshooting, monitoring security, and optimizing services.
-        ///
-        ///3. data s [残りの文字列は切り詰められました]&quot;; に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Telemetry_Description_For_Dialog {
-            get {
-                return ResourceManager.GetString("Telemetry_Description_For_Dialog", resourceCulture);
             }
         }
         

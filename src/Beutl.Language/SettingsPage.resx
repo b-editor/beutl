@@ -253,49 +253,11 @@ Time the application was started, elapsed time of operation, and number of items
   <data name="Telemetry" xml:space="preserve">
     <value>Telemetry</value>
   </data>
-  <data name="Telemetry_Description" xml:space="preserve">
-    <value>To improve Beutl, we collect anonymous usage data.
-
-Below is some important information about this telemetry data.
-
-1. data to be collected
-Telemetry data includes information about the use of products and services.
-This includes application error logs, performance data, and usage statistics.
-
-2.Purpose of Data Collection
-Telemetry data is collected for a variety of purposes, including improving product and service quality, troubleshooting, monitoring security, and optimizing services.
-
-3. data storage location
-Telemetry data is collected via Azure Monitor and stored on Microsoft servers.
-These servers have appropriate security measures in place to ensure the protection of the data.
-
-4. opt-out
-If you do not wish to have your telemetry data collected, you can disable it via the following switch.
-A restart is required to apply the changes.</value>
-  </data>
-  <data name="PleaseReadItCarefully" xml:space="preserve">
-    <value>Please read it carefully</value>
-  </data>
   <data name="Telemetry_ShortDescription" xml:space="preserve">
     <value>Settings about the data to be collected</value>
   </data>
-  <data name="Telemetry_Description_For_Dialog" xml:space="preserve">
+  <data name="Telemetry_Description" xml:space="preserve">
     <value>To improve Beutl, we collect anonymous usage data.
-
-Below is some important information about this telemetry data.
-
-1. data to be collected
-Telemetry data includes information about the use of products and services.
-This includes application error logs, performance data, and usage statistics.
-
-2.Purpose of Data Collection
-Telemetry data is collected for a variety of purposes, including improving product and service quality, troubleshooting, monitoring security, and optimizing services.
-
-3. data storage location
-Telemetry data is collected via Azure Monitor and stored on Microsoft servers.
-These servers have appropriate security measures in place to ensure the protection of the data.
-
-4. opt-out
-If you want to reject the collection of telemetry data individually, you can do so from 'Settings&gt;Info&gt;Telemetry'.</value>
+For more information, please refer to the following pages.</value>
   </data>
 </root>
