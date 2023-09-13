@@ -61,14 +61,14 @@ public class Profile
 
     public async Task RefreshAsync()
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.Refresh");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.Refresh", ActivityKind.Client);
 
         _response.Value = await _clients.Users.GetUserAsync(Name);
     }
 
     public async Task UpdateAsync(UpdateProfileRequest request)
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.Update");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.Update", ActivityKind.Client);
 
         _response.Value = await _clients.Users.PatchAsync(Name, request);
     }
@@ -94,7 +94,7 @@ public class Profile
 
     public async Task<Package> AddPackageAsync(string name, CreatePackageRequest request)
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.AddPackage");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.AddPackage", ActivityKind.Client);
 
         PackageResponse response = await _clients.Packages.PostAsync(name, request);
         return new Package(this, response, _clients);
@@ -112,7 +112,7 @@ public class Profile
 
     public async Task<Package[]> GetPackagesAsync(int start = 0, int count = 30)
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.GetPackages");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.GetPackages", ActivityKind.Client);
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 
@@ -125,7 +125,7 @@ public class Profile
 
     public async Task<Asset> AddAssetAsync(string name, CreateVirtualAssetRequest request)
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.AddAsset");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.AddAsset", ActivityKind.Client);
         activity?.SetTag("virtual", true);
         AssetMetadataResponse response = await _clients.Assets.PostAsync(Name, name, request);
         return new Asset(this, response, _clients);
@@ -133,7 +133,7 @@ public class Profile
 
     public async Task<Asset> AddAssetAsync(string name, FileStream stream, string contentType)
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.AddAsset");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.AddAsset", ActivityKind.Client);
         activity?.SetTag("virtual", false);
 
         var streamContent = new StreamContent(stream);
@@ -162,7 +162,7 @@ public class Profile
 
     public async Task<Asset[]> GetAssetsAsync(int start = 0, int count = 30)
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.GetAssets");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.GetAssets", ActivityKind.Client);
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 
@@ -175,14 +175,14 @@ public class Profile
 
     public async Task<Asset> GetAssetAsync(long id)
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.GetAsset");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.GetAsset", ActivityKind.Client);
         AssetMetadataResponse response = await _clients.Assets.GetAsset2Async(id);
         return new Asset(this, response, _clients);
     }
 
     public async Task<Asset> GetAssetAsync(string name)
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.GetAsset");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.GetAsset", ActivityKind.Client);
         AssetMetadataResponse response = await _clients.Assets.GetAssetAsync(Name, name);
         return new Asset(this, response, _clients);
     }

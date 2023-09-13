@@ -61,7 +61,7 @@ public class Asset
 
     public async Task RefreshAsync()
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Asset.Refresh");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Asset.Refresh", ActivityKind.Client);
 
         _response.Value = await _clients.Assets.GetAssetAsync(Owner.Name, Name);
         _isDeleted.Value = false;
@@ -69,7 +69,7 @@ public class Asset
 
     public async Task UpdateAsync(UpdateAssetRequest request)
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Asset.Update");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Asset.Update", ActivityKind.Client);
 
         if (_isDeleted.Value)
         {
@@ -81,14 +81,14 @@ public class Asset
 
     public async Task UpdateAsync(bool isPublic)
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Asset.Update");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Asset.Update", ActivityKind.Client);
 
         await UpdateAsync(new UpdateAssetRequest(isPublic));
     }
 
     public async Task DeleteAsync()
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Asset.Delete");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Asset.Delete", ActivityKind.Client);
 
         await _clients.Assets.DeleteAsync(Owner.Name, Name);
 

@@ -127,7 +127,7 @@ public class BeutlApiApplication
 
     private async Task<AuthorizedUser> SignInExternalAsync(string provider, CancellationToken cancellationToken)
     {
-        using (Activity? activity = ActivitySource.StartActivity("SignInExternalAsync"))
+        using (Activity? activity = ActivitySource.StartActivity("SignInExternalAsync", ActivityKind.Client))
         {
             string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
             CreateAuthUriResponse authUriRes = await Account.CreateAuthUriAsync(new CreateAuthUriRequest(continueUri), cancellationToken);
@@ -164,7 +164,7 @@ public class BeutlApiApplication
 
     public async Task<AuthorizedUser> SignInAsync(CancellationToken cancellationToken)
     {
-        using (Activity? activity = ActivitySource.StartActivity("SignInAsync"))
+        using (Activity? activity = ActivitySource.StartActivity("SignInAsync", ActivityKind.Client))
         {
             using (await Lock.LockAsync(cancellationToken))
             {
