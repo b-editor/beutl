@@ -64,7 +64,7 @@ public class Package
 
     public async Task RefreshAsync()
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Package.Refresh");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Package.Refresh");
 
         _response.Value = await _clients.Packages.GetPackageAsync(Name);
         _isDeleted.Value = false;
@@ -72,7 +72,7 @@ public class Package
 
     public async Task UpdateAsync(UpdatePackageRequest request)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Package.Update");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Package.Update");
 
         if (_isDeleted.Value)
         {
@@ -92,7 +92,7 @@ public class Package
         ICollection<string>? tags = null,
         string? website = null)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Package.Update");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Package.Update");
 
         if (_isDeleted.Value)
         {
@@ -112,7 +112,7 @@ public class Package
 
     public async Task DeleteAsync()
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Package.Delete");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Package.Delete");
 
         FileResponse response = await _clients.Packages.DeleteAsync(Name);
 
@@ -123,14 +123,14 @@ public class Package
 
     public async Task<Release> GetReleaseAsync(string version)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Package.GetRelease");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Package.GetRelease");
         ReleaseResponse response = await _clients.Releases.GetReleaseAsync(Name, version);
         return new Release(this, response, _clients);
     }
 
     public async Task<Release[]> GetReleasesAsync(int start = 0, int count = 30)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Package.GetReleases");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Package.GetReleases");
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 
@@ -141,7 +141,7 @@ public class Package
 
     public async Task<Release> AddReleaseAsync(string version, CreateReleaseRequest request)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Package.AddRelease");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Package.AddRelease");
 
         ReleaseResponse response = await _clients.Releases.PostAsync(Name, version, request);
         return new Release(this, response, _clients);

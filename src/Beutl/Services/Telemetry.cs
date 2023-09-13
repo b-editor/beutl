@@ -1,15 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿#pragma warning disable CS0436
+
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Beutl.Services;
 
 internal static class Telemetry
 {
-    public static ActivitySource ActivitySource => BeutlApplication.Current.ActivitySource;
+    public static ActivitySource ActivitySource { get; } = new("Beutl.Application", GitVersionInformation.SemVer);
 
     public static Activity? StartActivity([CallerMemberName] string name = "", ActivityKind kind = ActivityKind.Internal)
     {

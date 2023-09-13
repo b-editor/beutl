@@ -31,7 +31,7 @@ public class AuthorizedUser
 
     public async ValueTask RefreshAsync(bool force = false)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("AuthorizedUser.Refresh");
+        using Activity? activity = _clients.ActivitySource.StartActivity("AuthorizedUser.Refresh");
 
         activity?.SetTag("force", force);
         activity?.SetTag("is_expired", IsExpired);

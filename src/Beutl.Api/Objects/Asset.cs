@@ -3,6 +3,8 @@ using System.Reactive.Linq;
 
 using Nito.AsyncEx;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 namespace Beutl.Api.Objects;
@@ -40,7 +42,7 @@ public class Asset
     public string Name { get; }
 
     public AssetType AssetType { get; }
-    
+
     public long? Size { get; }
 
     public string ContentType { get; }
@@ -59,7 +61,7 @@ public class Asset
 
     public async Task RefreshAsync()
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Asset.Refresh");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Asset.Refresh");
 
         _response.Value = await _clients.Assets.GetAssetAsync(Owner.Name, Name);
         _isDeleted.Value = false;
@@ -67,7 +69,7 @@ public class Asset
 
     public async Task UpdateAsync(UpdateAssetRequest request)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Asset.Update");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Asset.Update");
 
         if (_isDeleted.Value)
         {
@@ -79,14 +81,14 @@ public class Asset
 
     public async Task UpdateAsync(bool isPublic)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Asset.Update");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Asset.Update");
 
         await UpdateAsync(new UpdateAssetRequest(isPublic));
     }
 
     public async Task DeleteAsync()
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Asset.Delete");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Asset.Delete");
 
         await _clients.Assets.DeleteAsync(Owner.Name, Name);
 

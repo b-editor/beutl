@@ -126,7 +126,7 @@ internal static class Program
     {
         return Sdk.CreateTracerProviderBuilder()
             .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("Beutl"))
-            .AddSource("Beutl.DistibutedTracing")
+            .AddSource("Beutl.Application", "Beutl.PackageManagement", "Beutl.Api.Client")
             //.AddConsoleExporter()
             .AddZipkinExporter()
             .Build();

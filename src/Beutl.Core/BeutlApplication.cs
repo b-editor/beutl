@@ -40,8 +40,6 @@ public class BeutlApplication : Hierarchical, IHierarchicalRoot
         set => SetAndRaise(ProjectProperty, ref _project, value);
     }
 
-    public ActivitySource ActivitySource { get; } = new("Beutl.DistibutedTracing", GitVersionInformation.SemVer);
-
     public ICoreList<ProjectItem> Items { get; }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)

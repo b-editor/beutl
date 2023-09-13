@@ -11,6 +11,8 @@ using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
+using Telemetry = Beutl.Api.Services.PackageManagemantActivitySource;
+
 namespace Beutl.Api.Services;
 
 public sealed class PackageManager : PackageLoader
@@ -76,7 +78,7 @@ public sealed class PackageManager : PackageLoader
 
     public async Task<IReadOnlyList<PackageUpdate>> CheckUpdate()
     {
-        using (Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("PackageManager.CheckUpdate"))
+        using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
         {
             PackageIdentity[] packages = _installedPackageRepository.GetLocalPackages().ToArray();
 
@@ -119,7 +121,7 @@ public sealed class PackageManager : PackageLoader
 
     public async Task<PackageUpdate?> CheckUpdate(string name)
     {
-        using (Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("PackageManager.CheckUpdate"))
+        using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
         {
             DiscoverService discover = _apiApplication.GetResource<DiscoverService>();
 
@@ -152,23 +154,26 @@ public sealed class PackageManager : PackageLoader
 
     public async Task<IReadOnlyList<LocalPackage>> GetPackages()
     {
-        using (Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("PackageManager.GetPackages"))
+        using (Activity? activity = Telemetry.ActivitySource.StartActivity("GetPackages"))
         {
             async Task<Package?> GetPackage(string id)
             {
-                try
+                using (Activity? activity = Telemetry.ActivitySource.StartActivity("GetPackages.GetPackage"))
                 {
-                    PackageResponse package = await _apiApplication.Packages.GetPackageAsync(id).ConfigureAwait(false);
-                    ProfileResponse profile = await _apiApplication.Users.GetUserAsync(package.Owner.Name).ConfigureAwait(false);
+                    try
+                    {
+                        PackageResponse package = await _apiApplication.Packages.GetPackageAsync(id).ConfigureAwait(false);
+                        ProfileResponse profile = await _apiApplication.Users.GetUserAsync(package.Owner.Name).ConfigureAwait(false);
 
-                    return new Package(
-                        profile: new Profile(profile, _apiApplication),
-                        package,
-                        _apiApplication);
-                }
-                catch
-                {
-                    return null;
+                        return new Package(
+                            profile: new Profile(profile, _apiApplication),
+                            package,
+                            _apiApplication);
+                    }
+                    catch
+                    {
+                        return null;
+                    }
                 }
             }
 
@@ -241,7 +246,7 @@ public sealed class PackageManager : PackageLoader
 
     public Assembly[] Load(LocalPackage package)
     {
-        using (Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("PackageManager.Load"))
+        using (Activity? activity = Telemetry.ActivitySource.StartActivity("Load"))
         {
             if (package.InstalledPath == null)
             {

@@ -41,6 +41,8 @@ public class BeutlApiApplication
         RegisterAll();
     }
 
+    public ActivitySource ActivitySource { get; } = new("Beutl.Api.Client", GitVersionInformation.SemVer);
+
     public PackagesClient Packages { get; }
 
     public ReleasesClient Releases { get; }
@@ -125,7 +127,7 @@ public class BeutlApiApplication
 
     private async Task<AuthorizedUser> SignInExternalAsync(string provider, CancellationToken cancellationToken)
     {
-        using (Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("BeutlApiApplication.SignInExternalAsync"))
+        using (Activity? activity = ActivitySource.StartActivity("SignInExternalAsync"))
         {
             string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
             CreateAuthUriResponse authUriRes = await Account.CreateAuthUriAsync(new CreateAuthUriRequest(continueUri), cancellationToken);
@@ -162,7 +164,7 @@ public class BeutlApiApplication
 
     public async Task<AuthorizedUser> SignInAsync(CancellationToken cancellationToken)
     {
-        using (Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("BeutlApiApplication.SignInExternalAsync"))
+        using (Activity? activity = ActivitySource.StartActivity("SignInAsync"))
         {
             using (await Lock.LockAsync(cancellationToken))
             {
@@ -180,7 +182,7 @@ public class BeutlApiApplication
                 });
 
                 string? code = await GetResponseFromListener(listener, cancellationToken);
-                activity?.AddEvent(new("Received_code"));
+                activity?.AddEvent(new("Received_Code"));
                 if (string.IsNullOrWhiteSpace(code))
                 {
                     throw new Exception("The returned code was empty.");

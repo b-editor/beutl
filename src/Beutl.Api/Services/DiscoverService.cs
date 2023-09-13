@@ -17,7 +17,7 @@ public class DiscoverService : IBeutlApiResource
 
     public async Task<Package> GetPackage(string name)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("DiscoverService.GetPackage");
+        using Activity? activity = _clients.ActivitySource.StartActivity("DiscoverService.GetPackage");
 
         PackageResponse package = await _clients.Packages.GetPackageAsync(name).ConfigureAwait(false);
         Profile owner = await GetProfile(package.Owner.Name).ConfigureAwait(false);
@@ -27,7 +27,7 @@ public class DiscoverService : IBeutlApiResource
 
     public async Task<Profile> GetProfile(string name)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("DiscoverService.GetProfile");
+        using Activity? activity = _clients.ActivitySource.StartActivity("DiscoverService.GetProfile");
 
         ProfileResponse response = await _clients.Users.GetUserAsync(name).ConfigureAwait(false);
         return new Profile(response, _clients);
@@ -35,7 +35,7 @@ public class DiscoverService : IBeutlApiResource
 
     public async Task<Package[]> GetDailyRanking(int start = 0, int count = 30)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("DiscoverService.GetDailyRanking");
+        using Activity? activity = _clients.ActivitySource.StartActivity("DiscoverService.GetDailyRanking");
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 
@@ -48,7 +48,7 @@ public class DiscoverService : IBeutlApiResource
 
     public async Task<Package[]> GetWeeklyRanking(int start = 0, int count = 30)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("DiscoverService.GetWeeklyRanking");
+        using Activity? activity = _clients.ActivitySource.StartActivity("DiscoverService.GetWeeklyRanking");
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 
@@ -61,7 +61,7 @@ public class DiscoverService : IBeutlApiResource
 
     public async Task<Package[]> GetOverallRanking(int start = 0, int count = 30)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("DiscoverService.GetOverallRanking");
+        using Activity? activity = _clients.ActivitySource.StartActivity("DiscoverService.GetOverallRanking");
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 
@@ -74,7 +74,7 @@ public class DiscoverService : IBeutlApiResource
 
     public async Task<Package[]> GetRecentlyRanking(int start = 0, int count = 30)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("DiscoverService.GetRecentlyRanking");
+        using Activity? activity = _clients.ActivitySource.StartActivity("DiscoverService.GetRecentlyRanking");
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 
@@ -87,7 +87,7 @@ public class DiscoverService : IBeutlApiResource
 
     public async Task<Package[]> SearchPackages(string query, int start = 0, int count = 30)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("DiscoverService.SearchPackages");
+        using Activity? activity = _clients.ActivitySource.StartActivity("DiscoverService.SearchPackages");
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 
@@ -100,7 +100,7 @@ public class DiscoverService : IBeutlApiResource
 
     public async Task<Profile[]> SearchUsers(string query, int start = 0, int count = 30)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("DiscoverService.SearchUsers");
+        using Activity? activity = _clients.ActivitySource.StartActivity("DiscoverService.SearchUsers");
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 

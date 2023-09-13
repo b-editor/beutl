@@ -45,7 +45,7 @@ public class Release
 
     public async Task RefreshAsync()
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Release.Refresh");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Release.Refresh");
 
         _response.Value = await _clients.Releases.GetReleaseAsync(Package.Name, _response.Value.Version);
 
@@ -59,7 +59,7 @@ public class Release
 
     public async Task UpdateAsync(UpdateReleaseRequest request)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Release.Update");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Release.Update");
 
         if (_isDeleted.Value)
         {
@@ -74,7 +74,7 @@ public class Release
 
     public async Task DeleteAsync()
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Release.Delete");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Release.Delete");
 
         FileResponse response = await _clients.Releases.DeleteAsync(
             Package.Name,
@@ -87,7 +87,7 @@ public class Release
 
     public async Task<Asset> GetAssetAsync()
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("Release.GetAsset");
+        using Activity? activity = _clients.ActivitySource.StartActivity("Release.GetAsset");
 
         if (!AssetId.Value.HasValue)
             throw new InvalidOperationException("This release has no assets.");

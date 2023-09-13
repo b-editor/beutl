@@ -15,7 +15,7 @@ public class LibraryService : IBeutlApiResource
 
     public async Task<Package> GetPackage(string name)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("LibraryService.GetPackage");
+        using Activity? activity = _clients.ActivitySource.StartActivity("LibraryService.GetPackage");
         PackageResponse package = await _clients.Packages.GetPackageAsync(name);
         Profile owner = await GetProfile(package.Owner.Name);
 
@@ -24,14 +24,14 @@ public class LibraryService : IBeutlApiResource
 
     public async Task<Profile> GetProfile(string name)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("LibraryService.GetProfile");
+        using Activity? activity = _clients.ActivitySource.StartActivity("LibraryService.GetProfile");
         ProfileResponse response = await _clients.Users.GetUserAsync(name);
         return new Profile(response, _clients);
     }
 
     public async Task<Package[]> GetPackages(int start = 0, int count = 30)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("LibraryService.GetPackages");
+        using Activity? activity = _clients.ActivitySource.StartActivity("LibraryService.GetPackages");
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 
@@ -43,7 +43,7 @@ public class LibraryService : IBeutlApiResource
 
     public async Task<Release> GetPackage(Package package)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("LibraryService.GetPackage");
+        using Activity? activity = _clients.ActivitySource.StartActivity("LibraryService.GetPackage");
 
         GotPackageResponse response = await _clients.Library.GetPackageAsync(new GetPackageRequest(package.Id));
         if (response.Latest_release == null)
@@ -54,7 +54,7 @@ public class LibraryService : IBeutlApiResource
 
     public async Task RemovePackage(Package package)
     {
-        using Activity? activity = BeutlApplication.Current.ActivitySource.StartActivity("LibraryService.RemovePackage");
+        using Activity? activity = _clients.ActivitySource.StartActivity("LibraryService.RemovePackage");
 
         (await _clients.Library.DeletePackageAsync(package.Name)).Dispose();
     }
