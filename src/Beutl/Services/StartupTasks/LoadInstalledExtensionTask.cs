@@ -41,6 +41,7 @@ public sealed class LoadInstalledExtensionTask : StartupTask
                         }
                         catch (Exception e)
                         {
+                            activity?.SetStatus(ActivityStatusCode.Error);
                             activity?.RecordException(e);
                             _logger.Error(e, "Failed to load package");
                             Failures.Add((item, e));

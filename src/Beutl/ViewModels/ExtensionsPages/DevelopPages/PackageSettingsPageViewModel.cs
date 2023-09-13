@@ -87,6 +87,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
                 }
                 catch (Exception ex)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(ex);
                     ErrorHandle(ex);
                     _logger.Error(ex, "An unexpected error has occurred.");
@@ -123,6 +124,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
                 }
                 catch (Exception ex)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(ex);
                     ErrorHandle(ex);
                     _logger.Error(ex, "An unexpected error has occurred.");
@@ -157,6 +159,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
                 }
                 catch (Exception ex)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(ex);
                     ErrorHandle(ex);
                     _logger.Error(ex, "An unexpected error has occurred.");
@@ -291,6 +294,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error);
             activity?.RecordException(ex);
             ErrorHandle(ex);
             _logger.Error(ex, "An unexpected error has occurred.");

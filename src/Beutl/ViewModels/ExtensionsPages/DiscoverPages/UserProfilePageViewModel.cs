@@ -35,6 +35,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel
                 }
                 catch (Exception e)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");

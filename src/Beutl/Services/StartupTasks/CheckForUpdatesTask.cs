@@ -63,6 +63,7 @@ public sealed class CheckForUpdatesTask : StartupTask
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error);
             activity?.RecordException(ex);
             _logger.Error(ex, "An error occurred while checking for updates");
             ex.Handle();

@@ -24,6 +24,7 @@ public sealed class AuthenticationTask : StartupTask
                 }
                 catch (Exception e)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(e);
                     _logger.Error(e, "An error occurred during authentication");
                     e.Handle();
