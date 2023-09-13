@@ -26,7 +26,7 @@ public sealed class DevelopPageViewModel : BasePageViewModel
 
         Refresh.Subscribe(async () =>
         {
-            using Activity? activity = Services.Telemetry.StartActivity("DevelopPageViewModel.Refresh");
+            using Activity? activity = Services.Telemetry.StartActivity("DevelopPage.Refresh");
 
             try
             {

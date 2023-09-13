@@ -21,7 +21,7 @@ public sealed class CheckForUpdatesTask : StartupTask
         _beutlApiApplication = beutlApiApplication;
         Task = Task.Run(async () =>
         {
-            using (Activity? activity = Telemetry.StartActivity("CheckForUpdatesTask.Run"))
+            using (Activity? activity = Telemetry.StartActivity("CheckForUpdatesTask"))
             {
                 CheckForUpdatesResponse? response = await CheckForUpdates(activity);
                 activity?.AddEvent(new("Done_CheckForUpdates"));

@@ -72,7 +72,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
         Refresh = new AsyncReactiveCommand(IsLoading.Select(x => !x));
         Refresh.Subscribe(async () =>
         {
-            using (Activity? activity = Telemetry.StartActivity("AccountSettingsPageViewModel.Refresh"))
+            using (Activity? activity = Telemetry.StartActivity("AccountSettingsPage.Refresh"))
             {
                 try
                 {
@@ -142,7 +142,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
 
     public async Task UpdateAvatarImage(Asset asset)
     {
-        using (Activity? activity = Telemetry.StartActivity("AccountSettingsPageViewModel.UpdateAvatarImage"))
+        using (Activity? activity = Telemetry.StartActivity("AccountSettingsPage.UpdateAvatarImage"))
         {
             using (await _clients.Lock.LockAsync())
             {
@@ -170,7 +170,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
 
     private async Task SignInCore(string? provider = null)
     {
-        using (Activity? activity = Telemetry.StartActivity("AccountSettingsPageViewModel.SignInCore"))
+        using (Activity? activity = Telemetry.StartActivity("AccountSettingsPage.SignInCore"))
         {
             try
             {

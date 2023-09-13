@@ -41,7 +41,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("PublicPackageDetailsPageViewModel.Refresh");
+                using Activity? activity = Telemetry.StartActivity("PublicPackageDetailsPage.Refresh");
 
                 try
                 {
@@ -128,7 +128,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
         Install = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("PublicPackageDetailsPageViewModel.Install");
+                using Activity? activity = Telemetry.StartActivity("PublicPackageDetailsPage.Install");
 
                 try
                 {
@@ -163,7 +163,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
         Update = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("PublicPackageDetailsPageViewModel.Update");
+                using Activity? activity = Telemetry.StartActivity("PublicPackageDetailsPage.Update");
 
                 try
                 {

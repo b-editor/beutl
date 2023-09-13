@@ -49,7 +49,7 @@ public sealed class DiscoverPageViewModel : BasePageViewModel
         DataContextFactory = new DataContextFactory(_discoverService, _clients);
         Refresh.Subscribe(async () =>
         {
-            using Activity? activity = Services.Telemetry.StartActivity("DiscoverPageViewModel.Refresh");
+            using Activity? activity = Services.Telemetry.StartActivity("DiscoverPage.Refresh");
 
             try
             {

@@ -31,7 +31,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("LibraryPageViewModel.Refresh");
+                using Activity? activity = Services.Telemetry.StartActivity("LibraryPage.Refresh");
 
                 try
                 {
@@ -65,7 +65,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel
         More = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("LibraryPageViewModel.More");
+                using Activity? activity = Services.Telemetry.StartActivity("LibraryPage.More");
 
                 try
                 {
@@ -96,7 +96,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel
         CheckUpdate = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("LibraryPageViewModel.CheckUpdate");
+                using Activity? activity = Services.Telemetry.StartActivity("LibraryPage.CheckUpdate");
 
                 try
                 {

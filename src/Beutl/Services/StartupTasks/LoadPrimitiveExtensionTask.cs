@@ -28,7 +28,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         };
         Task = Task.Run(async () =>
         {
-            using (Activity? activity = Telemetry.StartActivity("LoadPrimitiveExtensionTask.Run"))
+            using (Activity? activity = Telemetry.StartActivity("LoadPrimitiveExtensionTask"))
             {
                 ExtensionProvider provider = ExtensionProvider.Current;
                 foreach (Extension item in PrimitiveExtensions)

@@ -128,7 +128,7 @@ public sealed class StorageSettingsPageViewModel : BasePageViewModel
                 return;
             }
 
-            using Activity? activity = Telemetry.StartActivity("StorageSettingsPageViewModel.Refresh");
+            using Activity? activity = Telemetry.StartActivity("StorageSettingsPage.Refresh");
 
             try
             {

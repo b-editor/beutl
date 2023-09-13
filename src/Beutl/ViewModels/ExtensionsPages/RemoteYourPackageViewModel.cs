@@ -58,7 +58,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
         Install = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("RemoteYourPackageViewModel.Install");
+                using Activity? activity = Telemetry.StartActivity("RemoteYourPackage.Install");
 
                 try
                 {
@@ -93,7 +93,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
         Update = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("RemoteYourPackageViewModel.Update");
+                using Activity? activity = Telemetry.StartActivity("RemoteYourPackage.Update");
 
                 try
                 {
@@ -174,7 +174,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
         RemoveFromLibrary = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("RemoteYourPackageViewModel.Install");
+                using Activity? activity = Telemetry.StartActivity("RemoteYourPackage.Install");
 
                 try
                 {

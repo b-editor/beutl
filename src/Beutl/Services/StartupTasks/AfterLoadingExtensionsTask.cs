@@ -24,7 +24,7 @@ public sealed class AfterLoadingExtensionsTask : StartupTask
             LoadSideloadExtensionTask t3 = _startup.GetTask<LoadSideloadExtensionTask>();
             await Task.WhenAll(t1.Task, t2.Task, t3.Task);
 
-            using (Activity? activity = Telemetry.StartActivity("AfterLoadingExtensionsTask.Run"))
+            using (Activity? activity = Telemetry.StartActivity("AfterLoadingExtensionsTask"))
             {
                 (LocalPackage, Exception)[] failures = t1.Failures.Concat(t2.Failures).Concat(t3.Failures).ToArray();
                 if (failures.Length > 0)

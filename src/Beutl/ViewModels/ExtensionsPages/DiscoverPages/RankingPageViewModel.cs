@@ -42,7 +42,7 @@ public sealed class RankingPageViewModel : BasePageViewModel
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("RankingPageViewModel.Refresh");
+                using Activity? activity = Services.Telemetry.StartActivity("RankingPage.Refresh");
 
                 try
                 {
@@ -75,7 +75,7 @@ public sealed class RankingPageViewModel : BasePageViewModel
         More = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("RankingPageViewModel.More");
+                using Activity? activity = Services.Telemetry.StartActivity("RankingPage.More");
 
                 try
                 {

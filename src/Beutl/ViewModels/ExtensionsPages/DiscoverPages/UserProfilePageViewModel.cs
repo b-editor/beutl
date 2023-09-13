@@ -21,7 +21,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("UserProfilePageViewModel.Refresh");
+                using Activity? activity = Services.Telemetry.StartActivity("UserProfilePage.Refresh");
 
                 try
                 {

@@ -23,7 +23,7 @@ public sealed class LoadSideloadExtensionTask : StartupTask
         _manager = manager;
         Task = Task.Run(async () =>
         {
-            using (Activity? activity = Telemetry.StartActivity("LoadSideloadExtensionTask.Run"))
+            using (Activity? activity = Telemetry.StartActivity("LoadSideloadExtensionTask"))
             {
                 // .beutl/sideloads/ 内のパッケージを読み込む
                 if (_manager.GetSideLoadPackages() is { Count: > 0 } sideloads)

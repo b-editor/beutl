@@ -16,7 +16,7 @@ public sealed class AuthenticationTask : StartupTask
         _beutlApiApplication = beutlApiApplication;
         Task = Task.Run(async () =>
         {
-            using (Activity? activity = Telemetry.StartActivity("AuthenticationTask.Run"))
+            using (Activity? activity = Telemetry.StartActivity("AuthenticationTask"))
             {
                 try
                 {

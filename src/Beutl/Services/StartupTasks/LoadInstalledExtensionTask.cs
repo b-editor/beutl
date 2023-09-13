@@ -24,7 +24,7 @@ public sealed class LoadInstalledExtensionTask : StartupTask
 
         Task = Task.Run(async () =>
         {
-            using (Activity? activity = Telemetry.StartActivity("LoadInstalledExtensionTask.Run"))
+            using (Activity? activity = Telemetry.StartActivity("LoadInstalledExtensionTask"))
             {
                 // .beutl/packages/ 内のパッケージを読み込む
                 if (!await AsksRunInRestrictedMode())

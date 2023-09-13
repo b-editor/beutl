@@ -22,7 +22,7 @@ public sealed class PackageReleasesPageViewModel : BasePageViewModel
 
         Refresh.Subscribe(async () =>
         {
-            using Activity? activity = Services.Telemetry.StartActivity("PackageReleasesPageViewModel.Refresh");
+            using Activity? activity = Services.Telemetry.StartActivity("PackageReleasesPage.Refresh");
 
             try
             {
@@ -77,7 +77,7 @@ public sealed class PackageReleasesPageViewModel : BasePageViewModel
 
     public async Task DeleteReleaseAsync(Release release)
     {
-        using Activity? activity = Services.Telemetry.StartActivity("PackageReleasesPageViewModel.DeleteReleaseAsync");
+        using Activity? activity = Services.Telemetry.StartActivity("PackageReleasesPage.DeleteRelease");
 
         try
         {

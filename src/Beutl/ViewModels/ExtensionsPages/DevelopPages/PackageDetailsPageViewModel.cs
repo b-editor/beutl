@@ -24,7 +24,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel
             if (IsBusy.Value)
                 return;
 
-            using Activity? activity = Services.Telemetry.StartActivity("PackageDetailsPageViewModel.Refresh");
+            using Activity? activity = Services.Telemetry.StartActivity("PackageDetailsPage.Refresh");
 
             try
             {

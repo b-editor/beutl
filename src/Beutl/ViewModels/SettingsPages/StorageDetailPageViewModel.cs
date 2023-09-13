@@ -28,7 +28,7 @@ public sealed class StorageDetailPageViewModel : BasePageViewModel
 
         Refresh.Subscribe(async () =>
         {
-            using Activity? activity = Telemetry.StartActivity("StorageDetailPageViewModel.Refresh");
+            using Activity? activity = Telemetry.StartActivity("StorageDetailPage.Refresh");
 
             try
             {
@@ -97,7 +97,7 @@ public sealed class StorageDetailPageViewModel : BasePageViewModel
 
     public async Task DeleteAsync(AssetViewModel asset)
     {
-        using Activity? activity = Telemetry.StartActivity("StorageDetailPageViewModel.Delete");
+        using Activity? activity = Telemetry.StartActivity("StorageDetailPage.Delete");
 
         using (await asset.Model.Lock.LockAsync())
         {

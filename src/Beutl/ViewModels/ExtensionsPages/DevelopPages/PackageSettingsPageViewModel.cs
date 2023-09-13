@@ -67,7 +67,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
         Save = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("PackageSettingsPageViewModel.Save");
+                using Activity? activity = Services.Telemetry.StartActivity("PackageSettingsPage.Save");
 
                 try
                 {
@@ -108,7 +108,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
         Delete = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("PackageSettingsPageViewModel.Delete");
+                using Activity? activity = Services.Telemetry.StartActivity("PackageSettingsPage.Delete");
 
                 try
                 {
@@ -141,7 +141,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
         Refresh = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("PackageSettingsPageViewModel.Refresh");
+                using Activity? activity = Services.Telemetry.StartActivity("PackageSettingsPage.Refresh");
 
                 try
                 {
@@ -276,7 +276,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
 
     private async Task SetVisibility(bool isPublic)
     {
-        using Activity? activity = Services.Telemetry.StartActivity("PackageSettingsPageViewModel.SetVisibility");
+        using Activity? activity = Services.Telemetry.StartActivity("PackageSettingsPage.SetVisibility");
 
         try
         {

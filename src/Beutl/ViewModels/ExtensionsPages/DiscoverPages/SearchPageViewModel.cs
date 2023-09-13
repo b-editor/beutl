@@ -25,7 +25,7 @@ public sealed class SearchPageViewModel : BasePageViewModel
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("SearchPageViewModel.Refresh");
+                using Activity? activity = Services.Telemetry.StartActivity("SearchPage.Refresh");
 
                 try
                 {
@@ -51,7 +51,7 @@ public sealed class SearchPageViewModel : BasePageViewModel
         More = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("SearchPageViewModel.More");
+                using Activity? activity = Services.Telemetry.StartActivity("SearchPage.More");
 
                 try
                 {
@@ -76,7 +76,7 @@ public sealed class SearchPageViewModel : BasePageViewModel
 
         SearchType.Subscribe(async type =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("SearchPageViewModel.SearchType");
+                using Activity? activity = Services.Telemetry.StartActivity("SearchPage.SearchType");
 
                 try
                 {

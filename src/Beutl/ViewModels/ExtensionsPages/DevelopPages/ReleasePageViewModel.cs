@@ -58,7 +58,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel
         Save = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("ReleasePageViewModel.Save");
+                using Activity? activity = Services.Telemetry.StartActivity("ReleasePage.Save");
 
                 try
                 {
@@ -87,7 +87,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel
         DiscardChanges = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("ReleasePageViewModel.DiscardChanges");
+                using Activity? activity = Services.Telemetry.StartActivity("ReleasePage.DiscardChanges");
 
                 try
                 {
@@ -117,7 +117,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel
         Delete = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("ReleasePageViewModel.Delete");
+                using Activity? activity = Services.Telemetry.StartActivity("ReleasePage.Delete");
 
                 try
                 {
@@ -150,7 +150,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel
         Refresh = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("ReleasePageViewModel.Refresh");
+                using Activity? activity = Services.Telemetry.StartActivity("ReleasePage.Refresh");
 
                 try
                 {
@@ -221,7 +221,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel
 
     private async Task SetVisibility(bool isPublic)
     {
-        using Activity? activity = Services.Telemetry.StartActivity("ReleasePageViewModel.SetVisibility");
+        using Activity? activity = Services.Telemetry.StartActivity("ReleasePage.SetVisibility");
 
         try
         {
