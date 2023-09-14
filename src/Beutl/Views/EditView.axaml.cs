@@ -53,6 +53,15 @@ public sealed partial class EditView : UserControl
         Image.PointerPressed += OnImagePointerPressed;
         Image.PointerReleased += OnImagePointerReleased;
         Image.PointerMoved += OnImagePointerMoved;
+
+        Player.GetObservable(BoundsProperty)
+            .Subscribe(s =>
+            {
+                if (DataContext is EditViewModel { Player: { } player })
+                {
+                    player.MaxFrameSize = s.Size;
+                }
+            });
     }
 
     private void OnTabViewSelectedItemChanged(object? obj)

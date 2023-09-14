@@ -1,10 +1,10 @@
-﻿using Avalonia.Media;
+﻿using Avalonia;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 
 using Beutl.Audio.Platforms.OpenAL;
 using Beutl.Audio.Platforms.XAudio2;
-using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
@@ -28,12 +28,14 @@ public sealed class PlayerViewModel : IDisposable
     private readonly ILogger _logger = Log.ForContext<PlayerViewModel>();
     private readonly CompositeDisposable _disposables = new();
     private readonly ReactivePropertySlim<bool> _isEnabled;
+    private readonly EditViewModel _editViewModel;
     private CancellationTokenSource? _cts;
 
-    public PlayerViewModel(Scene scene, ReactivePropertySlim<bool> isEnabled)
+    public PlayerViewModel(EditViewModel editViewModel)
     {
-        Scene = scene;
-        _isEnabled = isEnabled;
+        _editViewModel = editViewModel;
+        Scene = editViewModel.Scene;
+        _isEnabled = editViewModel.IsEnabled;
         PlayPause = new ReactiveCommand(_isEnabled)
             .WithSubscribe(() =>
             {
@@ -133,6 +135,9 @@ public sealed class PlayerViewModel : IDisposable
     public ReactiveCommand End { get; }
 
     public event EventHandler? PreviewInvalidated;
+
+    // View側から設定
+    public Size MaxFrameSize { get; set; }
 
     public async void Play()
     {
@@ -362,10 +367,10 @@ public sealed class PlayerViewModel : IDisposable
         {
             try
             {
-                if (IsPlaying.Value && renderer.RenderGraphics(timeSpan) is { } bitmap)
+                if (IsPlaying.Value && renderer.Render(timeSpan))
                 {
+                    using var bitmap = renderer.Snapshot();
                     UpdateImage(bitmap);
-                    bitmap.Dispose();
 
                     if (Scene != null)
                         Scene.CurrentFrame = timeSpan;
@@ -381,7 +386,7 @@ public sealed class PlayerViewModel : IDisposable
         });
     }
 
-    private unsafe void UpdateImage(Bitmap<Bgra8888> source)
+    private unsafe void UpdateImage(Media.Bitmap<Bgra8888> source)
     {
         WriteableBitmap bitmap;
 
@@ -409,6 +414,30 @@ public sealed class PlayerViewModel : IDisposable
         PreviewInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
+    private void DrawBoundaries(Renderer renderer)
+    {
+        int? selected = _editViewModel.SelectedLayerNumber.Value;
+        if (selected.HasValue)
+        {
+            var frameSize = new Size(renderer.FrameSize.Width, renderer.FrameSize.Height);
+            float scale = (float)Stretch.Uniform.CalculateScaling(MaxFrameSize, frameSize, StretchDirection.Both).X;
+            if (scale == 0)
+                scale = 1;
+
+            Graphics.ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
+            Graphics.Rect[] boundary = renderer.RenderScene[selected.Value].GetBoundaries();
+            if (boundary.Length > 0)
+            {
+                var pen = new Media.Immutable.ImmutablePen(Media.Brushes.White, null, 0, 1 / scale);
+
+                foreach (Graphics.Rect item in renderer.RenderScene[selected.Value].GetBoundaries())
+                {
+                    canvas.DrawRectangle(item.Inflate(4 / scale), null, pen);
+                }
+            }
+        }
+    }
+
     private void Renderer_RenderInvalidated(object? sender, TimeSpan e)
     {
         void RenderOnRenderThread()
@@ -417,11 +446,13 @@ public sealed class PlayerViewModel : IDisposable
             {
                 try
                 {
-                    if (Scene is { Renderer: IRenderer renderer }
-                        && renderer.RenderGraphics(Scene.CurrentFrame) is { } bitmap)
+                    if (Scene is { Renderer: Renderer renderer }
+                        && renderer.Render(Scene.CurrentFrame))
                     {
+                        DrawBoundaries(renderer);
+
+                        using Media.Bitmap<Bgra8888> bitmap = renderer.Snapshot();
                         UpdateImage(bitmap);
-                        bitmap.Dispose();
                     }
                 }
                 catch (Exception ex)

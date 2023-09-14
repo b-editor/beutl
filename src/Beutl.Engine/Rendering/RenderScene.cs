@@ -62,7 +62,7 @@ public sealed class RenderScene : IDisposable
     {
         foreach (int key in _layer.Keys.Reverse())
         {
-            if(_layer[key].HitTest(point) is { } drawable)
+            if (_layer[key].HitTest(point) is { } drawable)
             {
                 return drawable;
             }

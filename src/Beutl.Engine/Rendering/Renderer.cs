@@ -86,31 +86,16 @@ public class Renderer : IRenderer
         }
     }
 
+    [Obsolete("Use Render(TimeSpan) and Snapshot() instead of RenderGraphics.")]
     public Bitmap<Bgra8888>? RenderGraphics(TimeSpan timeSpan)
     {
-        RenderThread.Dispatcher.VerifyAccess();
-        if (!IsGraphicsRendering)
+        if (Render(timeSpan))
         {
-            try
-            {
-                IsGraphicsRendering = true;
-                _instanceClock.CurrentTime = timeSpan;
-                RenderScene.Clear();
-                using (_fpsText.StartRender(_immediateCanvas))
-                {
-                    RenderGraphicsCore();
-                }
-
-                return _immediateCanvas.GetBitmap();
-            }
-            finally
-            {
-                IsGraphicsRendering = false;
-            }
+            return Snapshot();
         }
         else
         {
-            return default;
+            return null;
         }
     }
 
@@ -159,5 +144,44 @@ public class Renderer : IRenderer
     public Drawable? HitTest(Point point)
     {
         return RenderScene.HitTest(point);
+    }
+
+    public bool Render(TimeSpan timeSpan)
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        if (!IsGraphicsRendering)
+        {
+            try
+            {
+                IsGraphicsRendering = true;
+                _instanceClock.CurrentTime = timeSpan;
+                RenderScene.Clear();
+                using (_fpsText.StartRender(_immediateCanvas))
+                {
+                    RenderGraphicsCore();
+                }
+            }
+            finally
+            {
+                IsGraphicsRendering = false;
+            }
+
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    public Bitmap<Bgra8888> Snapshot()
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        return _immediateCanvas.GetBitmap();
+    }
+
+    public static ImmediateCanvas GetInternalCanvas(Renderer renderer)
+    {
+        return renderer._immediateCanvas;
     }
 }

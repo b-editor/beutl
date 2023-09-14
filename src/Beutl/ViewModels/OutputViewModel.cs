@@ -7,6 +7,7 @@ using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
+using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;
 using Beutl.Rendering.Cache;
@@ -522,7 +523,17 @@ public sealed class OutputViewModel : IOutputContext
                     break;
 
                 var ts = TimeSpan.FromSeconds(i / frameRate);
-                using (var result = renderer.RenderGraphics(ts)!)
+                int retry = 0;
+            Retry:
+                if (!renderer.Render(ts))
+                {
+                    if (retry > 3)
+                        throw new Exception("Renderer.RenderがFalseでした。他にこのシーンを使用していないか確認してください。");
+
+                    retry++;
+                    goto Retry;
+                }
+                using (Bitmap<Bgra8888> result = renderer.Snapshot())
                 {
                     writer.AddVideo(result);
                 }
