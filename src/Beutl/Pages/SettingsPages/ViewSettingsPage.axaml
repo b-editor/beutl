@@ -162,6 +162,14 @@
                            Text="{x:Static lang:SettingsPage.EditorSettings}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.ShowExactBoundaries_Description}" Header="{x:Static lang:SettingsPage.ShowExactBoundaries}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{CompiledBinding ShowExactBoundaries.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
                 <!--  終了しなくても、新しい要素では変更が反映されている  -->
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.HidePrimaryProperties_Description}" Header="{x:Static lang:SettingsPage.HidePrimaryProperties}">
                     <ctrls:OptionsDisplayItem.ActionButton>

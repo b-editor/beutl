@@ -5,6 +5,7 @@ using Avalonia.Platform;
 
 using Beutl.Audio.Platforms.OpenAL;
 using Beutl.Audio.Platforms.XAudio2;
+using Beutl.Configuration;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
@@ -429,10 +430,17 @@ public sealed class PlayerViewModel : IDisposable
             if (boundary.Length > 0)
             {
                 var pen = new Media.Immutable.ImmutablePen(Media.Brushes.White, null, 0, 1 / scale);
+                bool exactBounds = GlobalConfiguration.Instance.ViewConfig.ShowExactBoundaries;
 
                 foreach (Graphics.Rect item in renderer.RenderScene[selected.Value].GetBoundaries())
                 {
-                    canvas.DrawRectangle(item.Inflate(4 / scale), null, pen);
+                    var rect = item;
+                    if (!exactBounds)
+                    {
+                        rect = item.Inflate(4 / scale);
+                    }
+
+                    canvas.DrawRectangle(rect, null, pen);
                 }
             }
         }
