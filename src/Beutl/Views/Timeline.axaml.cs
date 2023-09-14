@@ -450,14 +450,13 @@ public sealed partial class Timeline : UserControl
     {
         Element elm = viewModel.Model;
 
-        for (int i = 0; i < TimelinePanel.Children.Count; i++)
+        for (int i = TimelinePanel.Children.Count - 1; i >= 0; i--)
         {
             Control item = TimelinePanel.Children[i];
             if ((item.DataContext is ElementViewModel vm1 && vm1.Model == elm)
                 || (item.DataContext is ElementScopeViewModel vm2 && vm2.Model == elm))
             {
                 TimelinePanel.Children.RemoveAt(i);
-                break;
             }
         }
     }
