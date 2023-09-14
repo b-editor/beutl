@@ -266,4 +266,11 @@
   <data name="Telemetry_Description_All_Errors" xml:space="preserve">
     <value>発生したすべてのエラーを収集します。</value>
   </data>
+  <data name="ShowExactBoundaries_Description" xml:space="preserve">
+    <value>プレビュー時に表示される要素の境界を正確に表示します。
+この設定を有効にすると境界線が見えなくなる場合があります。</value>
+  </data>
+  <data name="ShowExactBoundaries" xml:space="preserve">
+    <value>正確な境界線を表示</value>
+  </data>
 </root>

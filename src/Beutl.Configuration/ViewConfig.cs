@@ -17,6 +17,7 @@ public sealed class ViewConfig : ConfigurationBase
     public static readonly CoreProperty<bool?> IsWindowMaximizedProperty;
     public static readonly CoreProperty<bool> UseCustomAccentColorProperty;
     public static readonly CoreProperty<string?> CustomAccentColorProperty;
+    public static readonly CoreProperty<bool> ShowExactBoundariesProperty;
     public static readonly CoreProperty<CoreList<string>> PrimaryPropertiesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentFilesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentProjectsProperty;
@@ -26,6 +27,7 @@ public sealed class ViewConfig : ConfigurationBase
     };
     private readonly CoreList<string> _recentFiles = new();
     private readonly CoreList<string> _recentProjects = new();
+    private bool _showExactBoundaries = false;
 
     static ViewConfig()
     {
@@ -59,6 +61,11 @@ public sealed class ViewConfig : ConfigurationBase
 
         CustomAccentColorProperty = ConfigureProperty<string?, ViewConfig>(nameof(CustomAccentColor))
             .DefaultValue(null)
+            .Register();
+
+        ShowExactBoundariesProperty = ConfigureProperty<bool, ViewConfig>(nameof(ShowExactBoundaries))
+            .Accessor(o => o.ShowExactBoundaries, (o, v) => o.ShowExactBoundaries = v)
+            .DefaultValue(false)
             .Register();
 
         PrimaryPropertiesProperty = ConfigureProperty<CoreList<string>, ViewConfig>(nameof(PrimaryProperties))
@@ -122,13 +129,19 @@ public sealed class ViewConfig : ConfigurationBase
     public bool UseCustomAccentColor
     {
         get => GetValue(UseCustomAccentColorProperty);
-        set => SetValue(UseCustomAccentColorProperty,value);
+        set => SetValue(UseCustomAccentColorProperty, value);
     }
-    
+
     public string? CustomAccentColor
     {
         get => GetValue(CustomAccentColorProperty);
-        set => SetValue(CustomAccentColorProperty,value);
+        set => SetValue(CustomAccentColorProperty, value);
+    }
+
+    public bool ShowExactBoundaries
+    {
+        get => _showExactBoundaries;
+        set => SetAndRaise(ShowExactBoundariesProperty, ref _showExactBoundaries, value);
     }
 
     [NotAutoSerialized()]
@@ -237,7 +250,7 @@ public sealed class ViewConfig : ConfigurationBase
                 ["Height"] = WindowSize.Value.Height,
             };
         }
-        
+
     }
 
     public void UpdateRecentFile(string filename)
@@ -260,7 +273,7 @@ public sealed class ViewConfig : ConfigurationBase
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args.PropertyName is nameof(Theme) or nameof(UICulture) or nameof(HidePrimaryProperties) or nameof(UseCustomAccentColor) or nameof(CustomAccentColor))
+        if (args.PropertyName is nameof(Theme) or nameof(UICulture) or nameof(HidePrimaryProperties) or nameof(UseCustomAccentColor) or nameof(CustomAccentColor) or nameof(ShowExactBoundaries))
         {
             OnChanged();
         }

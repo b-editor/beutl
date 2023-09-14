@@ -1,7 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-using Beutl.Audio;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -148,5 +147,39 @@ public sealed class RenderLayer : IDisposable
 
         _cache.Clear();
         _currentFrame?.Clear();
+    }
+
+    public Drawable? HitTest(Point point)
+    {
+        if (_currentFrame == null || _currentFrame.Count == 0)
+            return null;
+
+        for (int i = _currentFrame.Count - 1; i >= 0; i--)
+        {
+            Entry entry = _currentFrame[i];
+            if (entry.Node.HitTest(point))
+            {
+                return entry.Node.Drawable;
+            }
+        }
+
+        return null;
+    }
+
+    public Rect[] GetBoundaries()
+    {
+        if (_currentFrame == null || _currentFrame.Count == 0)
+            return Array.Empty<Rect>();
+
+        var list = new Rect[_currentFrame.Count];
+        int index = 0;
+        foreach (Entry? entry in CollectionsMarshal.AsSpan(_currentFrame))
+        {
+            DrawableNode node = entry.Node;
+
+            list[index++] = node.Drawable.Bounds;
+        }
+
+        return list;
     }
 }

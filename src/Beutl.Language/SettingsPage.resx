@@ -266,4 +266,11 @@ For more information, please refer to the following pages.</value>
   <data name="Telemetry_Description_All_Errors" xml:space="preserve">
     <value>Collect all errors that occur.</value>
   </data>
+  <data name="ShowExactBoundaries_Description" xml:space="preserve">
+    <value>Displays the boundaries of elements accurately during preview.
+Enabling this setting may make the border invisible.</value>
+  </data>
+  <data name="ShowExactBoundaries" xml:space="preserve">
+    <value>Display precise boundaries</value>
+  </data>
 </root>

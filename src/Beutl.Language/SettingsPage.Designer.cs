@@ -277,6 +277,25 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Display precise boundaries に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ShowExactBoundaries {
+            get {
+                return ResourceManager.GetString("ShowExactBoundaries", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Displays the boundaries of elements accurately during preview.
+        ///Enabling this setting may make the border invisible. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ShowExactBoundaries_Description {
+            get {
+                return ResourceManager.GetString("ShowExactBoundaries_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Sign in に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string SignIn {

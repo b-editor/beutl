@@ -41,17 +41,36 @@ public sealed partial class EditView : UserControl
 
         this.GetObservable(IsKeyboardFocusWithinProperty)
             .Subscribe(v => Player.SetSeekBarOpacity(v ? 1 : 0.8));
+
+        Player.TemplateApplied += OnPlayerTemplateApplied;
+    }
+
+    private Image Image => _image ??= Player.GetImage();
+
+    private void OnPlayerTemplateApplied(object? sender, TemplateAppliedEventArgs e)
+    {
+        // EditView.axaxml.MouseControl.cs
+        Image.PointerPressed += OnImagePointerPressed;
+        Image.PointerReleased += OnImagePointerReleased;
+        Image.PointerMoved += OnImagePointerMoved;
+
+        Player.GetObservable(BoundsProperty)
+            .Subscribe(s =>
+            {
+                if (DataContext is EditViewModel { Player: { } player })
+                {
+                    player.MaxFrameSize = s.Size;
+                }
+            });
     }
 
     private void OnTabViewSelectedItemChanged(object? obj)
     {
-        if (obj is BcTabItem { DataContext: ToolTabViewModel itemViewModel })
+        if (obj is BcTabItem { DataContext: ToolTabViewModel { Context.Extension.Name: string name } })
         {
-            Telemetry.ToolTabSelected(itemViewModel.Context.Extension.Name);
+            Telemetry.ToolTabSelected(name);
         }
     }
-
-    private Image Image => _image ??= Player.GetImage();
 
     protected override void OnKeyDown(KeyEventArgs e)
     {

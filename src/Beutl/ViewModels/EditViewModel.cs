@@ -49,7 +49,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         _sceneId = scene.Id.ToString();
         Library = new LibraryViewModel(this)
             .DisposeWith(_disposables);
-        Player = new PlayerViewModel(scene, IsEnabled)
+        Player = new PlayerViewModel(this)
             .DisposeWith(_disposables);
         Commands = new KnownCommandsImpl(scene, this);
         SelectedObject = new ReactiveProperty<CoreObject?>()
@@ -74,6 +74,11 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             })
             .DisposeWith(_disposables);
 
+        SelectedLayerNumber = SelectedObject.Select(v =>
+            (v as Element)?.GetObservable(Element.ZIndexProperty).Select(i => (int?)i) ?? Observable.Return<int?>(null))
+            .Switch()
+            .ToReadOnlyReactivePropertySlim();
+
         KeyBindings = CreateKeyBindings();
     }
 
@@ -93,6 +98,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
     public ReactiveProperty<CoreObject?> SelectedObject { get; }
 
     public ReactivePropertySlim<bool> IsEnabled { get; } = new(true);
+
+    public ReadOnlyReactivePropertySlim<int?> SelectedLayerNumber { get; }
 
     public PlayerViewModel Player { get; private set; }
 

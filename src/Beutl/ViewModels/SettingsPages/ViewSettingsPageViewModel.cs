@@ -25,6 +25,9 @@ public sealed class ViewSettingsPageViewModel
 
         SelectedLanguage.Subscribe(ci => _config.UICulture = ci);
 
+        ShowExactBoundaries = _config.GetObservable(ViewConfig.ShowExactBoundariesProperty).ToReactiveProperty();
+        ShowExactBoundaries.Subscribe(b => _config.ShowExactBoundaries = b);
+        
         HidePrimaryProperties = _config.GetObservable(ViewConfig.HidePrimaryPropertiesProperty).ToReactiveProperty();
         HidePrimaryProperties.Subscribe(b => _config.HidePrimaryProperties = b);
 
@@ -86,6 +89,8 @@ public sealed class ViewSettingsPageViewModel
 
     public IEnumerable<CultureInfo> Cultures { get; } = LocalizeService.Instance.SupportedCultures();
 
+    public ReactiveProperty<bool> ShowExactBoundaries { get; }
+
     public ReactiveProperty<bool> HidePrimaryProperties { get; }
 
     public CoreList<string> PrimaryProperties { get; }
@@ -95,7 +100,7 @@ public sealed class ViewSettingsPageViewModel
     public ReactiveCommand ResetPrimaryProperty { get; } = new();
 
     public ReactiveProperty<bool> UseCustomAccent { get; }
-
+    
     public ReactiveProperty<Color?> ListBoxColor { get; }
 
     public ReactiveProperty<Color> CustomAccentColor { get; }

@@ -13,7 +13,7 @@
         <Setter Property="Template">
             <ControlTemplate>
                 <Grid RowDefinitions="*,Auto">
-                    <Panel Margin="0">
+                    <Panel Name="PART_FramePanel" Margin="0">
                         <Border Width="{Binding #PART_Image.Bounds.Width}"
                                 Height="{Binding #PART_Image.Bounds.Height}"
                                 Background="Black"
