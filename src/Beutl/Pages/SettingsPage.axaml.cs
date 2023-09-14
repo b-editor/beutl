@@ -162,7 +162,7 @@ public sealed partial class SettingsPage : UserControl
 
     private void Frame_Navigated(object sender, NavigationEventArgs e)
     {
-        Telemetry.NavigateExtensionsPage(e.SourcePageType.Name);
+        Telemetry.NavigateSettingsPage(e.SourcePageType.Name);
 
         foreach (NavigationViewItem nvi in nav.MenuItems)
         {
