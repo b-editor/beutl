@@ -23,6 +23,8 @@ public interface IRenderer : IDisposable, IImmediateCanvasFactory
 
     event EventHandler<TimeSpan> RenderInvalidated;
 
+    Drawable? HitTest(Point point);
+
     Bitmap<Bgra8888>? RenderGraphics(TimeSpan timeSpan);
 
     void RaiseInvalidated(TimeSpan timeSpan);

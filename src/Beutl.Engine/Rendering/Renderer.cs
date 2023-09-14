@@ -155,4 +155,9 @@ public class Renderer : IRenderer
     {
         return _cacheContext;
     }
+
+    public Drawable? HitTest(Point point)
+    {
+        return RenderScene.HitTest(point);
+    }
 }

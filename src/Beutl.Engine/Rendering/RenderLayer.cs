@@ -149,4 +149,21 @@ public sealed class RenderLayer : IDisposable
         _cache.Clear();
         _currentFrame?.Clear();
     }
+
+    public Drawable? HitTest(Point point)
+    {
+        if (_currentFrame == null || _currentFrame.Count == 0)
+            return null;
+
+        for (int i = _currentFrame.Count - 1; i >= 0; i--)
+        {
+            Entry entry = _currentFrame[i];
+            if (entry.Node.HitTest(point))
+            {
+                return entry.Node.Drawable;
+            }
+        }
+
+        return null;
+    }
 }
