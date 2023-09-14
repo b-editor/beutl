@@ -1,11 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.VisualTree;
 
 using Beutl.Controls.PropertyEditors;
-using Beutl.Extensibility;
 using Beutl.NodeTree;
 using Beutl.ViewModels.NodeTree;
 

@@ -1,12 +1,6 @@
-﻿using Avalonia.Collections;
-
-using Beutl.Api.Services;
-using Beutl.Extensibility;
-using Beutl.Services;
+﻿using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.ExtensionsPages;
-
-using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -42,6 +36,7 @@ public sealed class OutputPageViewModel : BasePageViewModel, IPageContext
         }
         catch (Exception e)
         {
+            Telemetry.Exception(e);
             ErrorHandle(e);
         }
     }

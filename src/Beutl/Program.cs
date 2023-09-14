@@ -19,6 +19,13 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Restore config
+        GlobalConfiguration config = GlobalConfiguration.Instance;
+        config.Restore(GlobalConfiguration.DefaultFilePath);
+
+        using IDisposable _ = Telemetry.GetDisposable();
+        Telemetry.Started();
+
         // PGOを有効化
         string jitProfiles = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "jitProfiles");
         if (!Directory.Exists(jitProfiles))
@@ -29,11 +36,8 @@ internal static class Program
 
         WaitForExitOtherProcesses();
 
-        // Restore config
-        GlobalConfiguration config = GlobalConfiguration.Instance;
-        config.Restore(GlobalConfiguration.DefaultFilePath);
-
         SetupLogger();
+        Log.Information("After setup logger");
 
         UnhandledExceptionHandler.Initialize();
 

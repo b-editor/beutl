@@ -6,6 +6,8 @@ using Beutl.Api.Services;
 
 using NuGet.Versioning;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 using Serilog;
@@ -29,18 +31,26 @@ public sealed class LibraryPageViewModel : BasePageViewModel
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Services.Telemetry.StartActivity("LibraryPage.Refresh");
+
                 try
                 {
                     IsBusy.Value = true;
                     using (await _clients.Lock.LockAsync())
                     {
+                        activity?.AddEvent(new("Entered_AsyncLock"));
+
                         await _user.RefreshAsync();
+
                         await RefreshPackages();
+                        activity?.AddEvent(new("Refreshed_Packages"));
                     }
                     await RefreshLocalPackages();
                 }
                 catch (Exception e)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }
@@ -56,17 +66,25 @@ public sealed class LibraryPageViewModel : BasePageViewModel
         More = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Services.Telemetry.StartActivity("LibraryPage.More");
+
                 try
                 {
                     IsBusy.Value = true;
                     using (await _clients.Lock.LockAsync())
                     {
+                        activity?.AddEvent(new("Entered_AsyncLock"));
+
                         await _user.RefreshAsync();
+
                         await MoreLoadPackages();
+                        activity?.AddEvent(new("Done_MoreLoadPackages"));
                     }
                 }
                 catch (Exception e)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }
@@ -80,11 +98,15 @@ public sealed class LibraryPageViewModel : BasePageViewModel
         CheckUpdate = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Services.Telemetry.StartActivity("LibraryPage.CheckUpdate");
+
                 try
                 {
                     IsBusy.Value = true;
                     using (await _clients.Lock.LockAsync())
                     {
+                        activity?.AddEvent(new("Entered_AsyncLock"));
+
                         await _user.RefreshAsync();
 
                         PackageManager manager = _clients.GetResource<PackageManager>();
@@ -115,6 +137,8 @@ public sealed class LibraryPageViewModel : BasePageViewModel
                 }
                 catch (Exception e)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }

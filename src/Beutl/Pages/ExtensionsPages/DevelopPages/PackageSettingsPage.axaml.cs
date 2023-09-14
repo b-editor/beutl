@@ -1,8 +1,6 @@
 ﻿using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 
 using Beutl.Api.Objects;

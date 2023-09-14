@@ -349,6 +349,125 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Telemetry に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry {
+            get {
+                return ResourceManager.GetString("Telemetry", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   All Errors に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_All_Errors {
+            get {
+                return ResourceManager.GetString("Telemetry_All_Errors", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   APIクライアント に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Beutl_Api_Client {
+            get {
+                return ResourceManager.GetString("Telemetry_Beutl_Api_Client", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Application に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Beutl_Application {
+            get {
+                return ResourceManager.GetString("Telemetry_Beutl_Application", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Package Management に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Beutl_PackageManagement {
+            get {
+                return ResourceManager.GetString("Telemetry_Beutl_PackageManagement", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Display and operation に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Beutl_ViewTracking {
+            get {
+                return ResourceManager.GetString("Telemetry_Beutl_ViewTracking", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   To improve Beutl, we collect anonymous usage data.
+        ///For more information, please refer to the following pages. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Description {
+            get {
+                return ResourceManager.GetString("Telemetry_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Collect all errors that occur. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Description_All_Errors {
+            get {
+                return ResourceManager.GetString("Telemetry_Description_All_Errors", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Collect API call times used by extension store and account functions. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Description_Beutl_Api_Client {
+            get {
+                return ResourceManager.GetString("Telemetry_Description_Beutl_Api_Client", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   The following information is collected to improve application performance
+        ///Time the application was started, elapsed time of operation, and number of items retrieved by the API に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Description_Beutl_Application {
+            get {
+                return ResourceManager.GetString("Telemetry_Description_Beutl_Application", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Collect the time taken to install and load extensions. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Description_Beutl_PackageManagement {
+            get {
+                return ResourceManager.GetString("Telemetry_Description_Beutl_PackageManagement", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Collect what features users view or use. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Description_Beutl_ViewTracking {
+            get {
+                return ResourceManager.GetString("Telemetry_Description_Beutl_ViewTracking", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Settings about the data to be collected に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_ShortDescription {
+            get {
+                return ResourceManager.GetString("Telemetry_ShortDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   The following characters are not allowed (&quot; &gt; &lt; | : ? * \ /) に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string The_following_characters_are_not_allowed {

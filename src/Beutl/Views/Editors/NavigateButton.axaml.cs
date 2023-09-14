@@ -5,12 +5,9 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
 
-using Beutl.Operation;
-using Beutl.Styling;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
 
 using FluentAvalonia.UI.Controls;
 

@@ -225,4 +225,45 @@
   <data name="UseCustomAccentColor" xml:space="preserve">
     <value>Use custom accent color</value>
   </data>
+  <data name="Telemetry_Beutl_Application" xml:space="preserve">
+    <value>Application</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_Application" xml:space="preserve">
+    <value>The following information is collected to improve application performance
+Time the application was started, elapsed time of operation, and number of items retrieved by the API</value>
+  </data>
+  <data name="Telemetry_Beutl_ViewTracking" xml:space="preserve">
+    <value>Display and operation</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_ViewTracking" xml:space="preserve">
+    <value>Collect what features users view or use.</value>
+  </data>
+  <data name="Telemetry_Beutl_PackageManagement" xml:space="preserve">
+    <value>Package Management</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_PackageManagement" xml:space="preserve">
+    <value>Collect the time taken to install and load extensions.</value>
+  </data>
+  <data name="Telemetry_Beutl_Api_Client" xml:space="preserve">
+    <value>APIクライアント</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_Api_Client" xml:space="preserve">
+    <value>Collect API call times used by extension store and account functions.</value>
+  </data>
+  <data name="Telemetry" xml:space="preserve">
+    <value>Telemetry</value>
+  </data>
+  <data name="Telemetry_ShortDescription" xml:space="preserve">
+    <value>Settings about the data to be collected</value>
+  </data>
+  <data name="Telemetry_Description" xml:space="preserve">
+    <value>To improve Beutl, we collect anonymous usage data.
+For more information, please refer to the following pages.</value>
+  </data>
+  <data name="Telemetry_All_Errors" xml:space="preserve">
+    <value>All Errors</value>
+  </data>
+  <data name="Telemetry_Description_All_Errors" xml:space="preserve">
+    <value>Collect all errors that occur.</value>
+  </data>
 </root>

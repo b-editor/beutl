@@ -225,4 +225,45 @@
   <data name="UseCustomAccentColor" xml:space="preserve">
     <value>アクセントカラーをカスタマイズ</value>
   </data>
+  <data name="Telemetry_Beutl_Application" xml:space="preserve">
+    <value>アプリケーション</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_Application" xml:space="preserve">
+    <value>アプリケーションのパフォーマンス改善のために以下のような情報を収集します。
+アプリケーションが開始した時間、操作の経過時間、APIで取得した項目の件数</value>
+  </data>
+  <data name="Telemetry_Beutl_ViewTracking" xml:space="preserve">
+    <value>表示、操作</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_ViewTracking" xml:space="preserve">
+    <value>ユーザーがどのような機能を表示または使用したかを収集します。</value>
+  </data>
+  <data name="Telemetry_Beutl_PackageManagement" xml:space="preserve">
+    <value>パッケージ管理</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_PackageManagement" xml:space="preserve">
+    <value>拡張機能のインストール、ロードに要した時間を収集します。</value>
+  </data>
+  <data name="Telemetry_Beutl_Api_Client" xml:space="preserve">
+    <value>APIクライアント</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_Api_Client" xml:space="preserve">
+    <value>拡張機能ストア、アカウント機能で使用される、APIの呼び出し時間を収集します。</value>
+  </data>
+  <data name="Telemetry" xml:space="preserve">
+    <value>テレメトリ</value>
+  </data>
+  <data name="Telemetry_ShortDescription" xml:space="preserve">
+    <value>収集するデータに関する設定</value>
+  </data>
+  <data name="Telemetry_Description" xml:space="preserve">
+    <value>Beutlを改善するために、匿名の使用状況データを収集します。
+詳しくは以下のページをご覧ください。</value>
+  </data>
+  <data name="Telemetry_All_Errors" xml:space="preserve">
+    <value>すべてのエラー</value>
+  </data>
+  <data name="Telemetry_Description_All_Errors" xml:space="preserve">
+    <value>発生したすべてのエラーを収集します。</value>
+  </data>
 </root>

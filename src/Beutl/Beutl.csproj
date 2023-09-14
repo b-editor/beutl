@@ -29,12 +29,17 @@
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Avalonia.Xaml.Behaviors" />
     <PackageReference Include="Avalonia.Xaml.Interactivity" />
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" />
     <PackageReference Include="DynamicData" />
     <PackageReference Include="FluentAvalonia.BreadcrumbBar" />
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="FluentIcons.FluentAvalonia" />
+    <PackageReference Include="Microsoft.ApplicationInsights" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="OpenTelemetry" />
+    <PackageReference Include="OpenTelemetry.Exporter.Console" />
+    <PackageReference Include="OpenTelemetry.Exporter.Zipkin" />
     <PackageReference Include="PanelExtension" />
     <PackageReference Include="ReactiveProperty" />
     <PackageReference Include="Serilog.Extensions.Logging" />
@@ -76,6 +81,9 @@
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Update="Pages\SettingsPages\TelemetrySettingsPage.axaml.cs">
+      <DependentUpon>TelemetrySettingsPage.axaml</DependentUpon>
+    </Compile>
     <Compile Update="ViewModels\Editors\VectorEditorViewModels.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>

@@ -1,7 +1,5 @@
 ﻿using System.Text.Json.Nodes;
 
-using Beutl.Extensibility;
-
 namespace Beutl.ViewModels.Editors;
 
 public sealed class PropertyEditorGroupContext : IPropertyEditorContext

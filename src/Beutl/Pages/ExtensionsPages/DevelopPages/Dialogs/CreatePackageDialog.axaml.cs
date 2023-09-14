@@ -1,5 +1,4 @@
 ﻿using Avalonia.Platform.Storage;
-using Avalonia.Styling;
 
 using Beutl.Api.Objects;
 

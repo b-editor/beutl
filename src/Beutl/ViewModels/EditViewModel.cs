@@ -2,9 +2,7 @@
 using System.Text.Json.Nodes;
 using System.Windows.Input;
 
-using Avalonia;
 using Avalonia.Input;
-using Avalonia.Input.Platform;
 
 using Beutl.Animation;
 using Beutl.Api.Services;
@@ -15,6 +13,8 @@ using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Tools;
 
 using Reactive.Bindings;
+
+using Serilog;
 
 namespace Beutl.ViewModels;
 
@@ -38,11 +38,15 @@ public sealed class ToolTabViewModel : IDisposable
 
 public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, ISupportCloseAnimation
 {
+    private static readonly ILogger s_logger = Log.ForContext<EditViewModel>();
     private readonly CompositeDisposable _disposables = new();
+    // Telemetryで使う
+    private readonly string _sceneId;
 
     public EditViewModel(Scene scene)
     {
         Scene = scene;
+        _sceneId = scene.Id.ToString();
         Library = new LibraryViewModel(this)
             .DisposeWith(_disposables);
         Player = new PlayerViewModel(scene, IsEnabled)
@@ -182,38 +186,58 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public bool OpenToolTab(IToolContext item)
     {
-        if (BottomTabItems.Any(x => x.Context == item) || RightTabItems.Any(x => x.Context == item))
+        Telemetry.ToolTabOpened(item.Extension.Name, _sceneId);
+        s_logger.Information("OpenToolTab {ToolName}", item.Extension.Name);
+        try
         {
-            item.IsSelected.Value = true;
-            return true;
+            if (BottomTabItems.Any(x => x.Context == item) || RightTabItems.Any(x => x.Context == item))
+            {
+                item.IsSelected.Value = true;
+                return true;
+            }
+            else if (!item.Extension.CanMultiple
+                && (BottomTabItems.Any(x => x.Context.Extension == item.Extension)
+                || RightTabItems.Any(x => x.Context.Extension == item.Extension)))
+            {
+                return false;
+            }
+            else
+            {
+                CoreList<ToolTabViewModel> list = item.Placement == ToolTabExtension.TabPlacement.Bottom ? BottomTabItems : RightTabItems;
+                item.IsSelected.Value = true;
+                list.Add(new ToolTabViewModel(item));
+                return true;
+            }
         }
-        else if (!item.Extension.CanMultiple
-            && (BottomTabItems.Any(x => x.Context.Extension == item.Extension)
-            || RightTabItems.Any(x => x.Context.Extension == item.Extension)))
+        catch (Exception ex)
         {
+            Telemetry.Exception(ex);
+            s_logger.Error(ex, "Failed to OpenToolTab.");
             return false;
-        }
-        else
-        {
-            CoreList<ToolTabViewModel> list = item.Placement == ToolTabExtension.TabPlacement.Bottom ? BottomTabItems : RightTabItems;
-            item.IsSelected.Value = true;
-            list.Add(new ToolTabViewModel(item));
-            return true;
         }
     }
 
     public void CloseToolTab(IToolContext item)
     {
-        if (BottomTabItems.FirstOrDefault(x => x.Context == item) is { } found0)
+        s_logger.Information("CloseToolTab {ToolName}", item.Extension.Name);
+        try
         {
-            BottomTabItems.Remove(found0);
-        }
-        else if (RightTabItems.FirstOrDefault(x => x.Context == item) is { } found1)
-        {
-            RightTabItems.Remove(found1);
-        }
+            if (BottomTabItems.FirstOrDefault(x => x.Context == item) is { } found0)
+            {
+                BottomTabItems.Remove(found0);
+            }
+            else if (RightTabItems.FirstOrDefault(x => x.Context == item) is { } found1)
+            {
+                RightTabItems.Remove(found1);
+            }
 
-        item.Dispose();
+            item.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Telemetry.Exception(ex);
+            s_logger.Error(ex, "Failed to CloseToolTab.");
+        }
     }
 
     private string ViewStateDirectory()

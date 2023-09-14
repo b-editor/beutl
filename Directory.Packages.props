@@ -13,6 +13,7 @@
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.0.4" />
     <PackageVersion Include="Avalonia.Xaml.Behaviors" Version="11.0.2" />
     <PackageVersion Include="Avalonia.Xaml.Interactivity" Version="11.0.2" />
+    <PackageVersion Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.0.0-beta.14" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.13.8" />
     <PackageVersion Include="coverlet.collector" Version="6.0.0" />
     <PackageVersion Include="DeviceId" Version="6.3.0" />
@@ -26,6 +27,7 @@
     <PackageVersion Include="ILGPU" Version="1.5.0" />
     <PackageVersion Include="Kokuban" Version="0.2.0" />
     <PackageVersion Include="Kurukuru" Version="1.4.2" />
+    <PackageVersion Include="Microsoft.ApplicationInsights" Version="2.21.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyModel" Version="7.0.0" />
@@ -47,12 +49,16 @@
     <PackageVersion Include="OpenCvSharp4.runtime.osx.10.15-x64" Version="4.6.0.20230105" />
     <PackageVersion Include="OpenCvSharp4.runtime.ubuntu.18.04-x64" Version="4.6.0.20220608" />
     <PackageVersion Include="OpenCvSharp4.runtime.win" Version="4.8.0.20230708" />
+    <PackageVersion Include="OpenTelemetry" Version="1.6.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.6.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Zipkin" Version="1.6.0" />
     <PackageVersion Include="OpenTK.OpenAL" Version="5.0.0-pre.8" />
     <PackageVersion Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="5.0.0-pre.8" />
     <PackageVersion Include="PanelExtension" Version="1.0.0" />
     <PackageVersion Include="ReactiveProperty" Version="9.3.1" />
     <PackageVersion Include="Roslynator.Analyzers" Version="4.5.0" />
     <PackageVersion Include="Serilog.Extensions.Logging" Version="7.0.0" />
+    <PackageVersion Include="Serilog.Sinks.ApplicationInsights" Version="4.0.1-dev-00043" />
     <PackageVersion Include="Serilog.Sinks.Async" Version="1.5.0" />
     <PackageVersion Include="Serilog.Sinks.Debug" Version="2.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="5.0.0" />

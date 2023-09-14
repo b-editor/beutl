@@ -142,6 +142,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Agree に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Agree {
+            get {
+                return ResourceManager.GetString("Agree", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Alignment に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Alignment {
@@ -733,6 +742,15 @@ namespace Beutl.Language {
         public static string Dilate {
             get {
                 return ResourceManager.GetString("Dilate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Disagree に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Disagree {
+            get {
+                return ResourceManager.GetString("Disagree", resourceCulture);
             }
         }
         
@@ -2128,6 +2146,15 @@ namespace Beutl.Language {
         public static string ShadowOnly {
             get {
                 return ResourceManager.GetString("ShadowOnly", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Show Details に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ShowDetails {
+            get {
+                return ResourceManager.GetString("ShowDetails", resourceCulture);
             }
         }
         

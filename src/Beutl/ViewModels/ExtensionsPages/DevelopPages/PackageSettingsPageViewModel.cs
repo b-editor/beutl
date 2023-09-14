@@ -3,6 +3,8 @@
 using Beutl.Api.Objects;
 using Beutl.ViewModels.Dialogs;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 using Serilog;
@@ -65,11 +67,16 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
         Save = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Services.Telemetry.StartActivity("PackageSettingsPage.Save");
+
                 try
                 {
                     using (await _user.Lock.LockAsync())
                     {
+                        activity?.AddEvent(new("Entered_AsyncLock"));
+
                         await _user.RefreshAsync();
+
                         await Package.UpdateAsync(
                             description: Description.Value,
                             displayName: DisplayName.Value,
@@ -80,6 +87,8 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
                 }
                 catch (Exception ex)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(ex);
                     ErrorHandle(ex);
                     _logger.Error(ex, "An unexpected error has occurred.");
                 }
@@ -100,16 +109,23 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
         Delete = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Services.Telemetry.StartActivity("PackageSettingsPage.Delete");
+
                 try
                 {
                     using (await _user.Lock.LockAsync())
                     {
+                        activity?.AddEvent(new("Entered_AsyncLock"));
+
                         await _user.RefreshAsync();
+
                         await Package.DeleteAsync();
                     }
                 }
                 catch (Exception ex)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(ex);
                     ErrorHandle(ex);
                     _logger.Error(ex, "An unexpected error has occurred.");
                 }
@@ -117,57 +133,34 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
             .DisposeWith(_disposables);
 
         MakePublic = new AsyncReactiveCommand()
-            .WithSubscribe(async () =>
-            {
-                try
-                {
-                    using (await _user.Lock.LockAsync())
-                    {
-                        await _user.RefreshAsync();
-                        await Package.UpdateAsync(isPublic: true);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    ErrorHandle(ex);
-                    _logger.Error(ex, "An unexpected error has occurred.");
-                }
-            })
+            .WithSubscribe(async () => await SetVisibility(true))
             .DisposeWith(_disposables);
 
         MakePrivate = new AsyncReactiveCommand()
-            .WithSubscribe(async () =>
-            {
-                try
-                {
-                    using (await _user.Lock.LockAsync())
-                    {
-                        await _user.RefreshAsync();
-                        await Package.UpdateAsync(isPublic: false);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    ErrorHandle(ex);
-                    _logger.Error(ex, "An unexpected error has occurred.");
-                }
-            })
+            .WithSubscribe(async () => await SetVisibility(false))
             .DisposeWith(_disposables);
 
         Refresh = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Services.Telemetry.StartActivity("PackageSettingsPage.Refresh");
+
                 try
                 {
                     using (await _user.Lock.LockAsync())
                     {
+                        activity?.AddEvent(new("Entered_AsyncLock"));
+
                         IsBusy.Value = true;
                         await _user.RefreshAsync();
+
                         await Package.RefreshAsync();
                     }
                 }
                 catch (Exception ex)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(ex);
                     ErrorHandle(ex);
                     _logger.Error(ex, "An unexpected error has occurred.");
                 }
@@ -281,6 +274,30 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel
             }
 
             _screenshotsChange.Value = false;
+        }
+    }
+
+    private async Task SetVisibility(bool isPublic)
+    {
+        using Activity? activity = Services.Telemetry.StartActivity("PackageSettingsPage.SetVisibility");
+
+        try
+        {
+            using (await _user.Lock.LockAsync())
+            {
+                activity?.AddEvent(new("Entered_AsyncLock"));
+
+                await _user.RefreshAsync();
+
+                await Package.UpdateAsync(isPublic: isPublic);
+            }
+        }
+        catch (Exception ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            activity?.RecordException(ex);
+            ErrorHandle(ex);
+            _logger.Error(ex, "An unexpected error has occurred.");
         }
     }
 }

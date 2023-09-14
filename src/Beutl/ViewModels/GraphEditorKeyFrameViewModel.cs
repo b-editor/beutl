@@ -2,9 +2,7 @@
 using Avalonia.Media;
 
 using Beutl.Animation;
-using Beutl.Animation.Easings;
 using Beutl.Commands;
-using Beutl.ProjectSystem;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;

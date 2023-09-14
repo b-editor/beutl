@@ -1,25 +1,26 @@
 ﻿using System.Collections.ObjectModel;
+using System.Text.Json.Nodes;
 
 using Avalonia.Platform.Storage;
-using Beutl.Rendering;
+
+using Beutl.Media;
 using Beutl.Media.Encoding;
+using Beutl.Media.Music;
+using Beutl.Media.Music.Samples;
 using Beutl.ProjectSystem;
+using Beutl.Rendering;
+using Beutl.Rendering.Cache;
+using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Utilities;
 
 using DynamicData;
 
-using Reactive.Bindings;
-using Beutl.Media;
-using System.Text.Json.Nodes;
-using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
-using Beutl.Rendering.Cache;
-using Beutl.Extensibility;
+
+using Reactive.Bindings;
+
 using Serilog;
-using Beutl.Services;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 
 namespace Beutl.ViewModels;
 
@@ -487,6 +488,7 @@ public sealed class OutputViewModel : IOutputContext
         }
         catch (Exception ex)
         {
+            Telemetry.Exception(ex);
             NotificationService.ShowError(Message.An_exception_occurred_during_output, ex.Message);
             _logger.Error(ex, "An exception occurred during output.");
         }

@@ -2,6 +2,8 @@
 
 using Beutl.Api.Objects;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 using Serilog;
@@ -19,10 +21,13 @@ public sealed class UserProfilePageViewModel : BasePageViewModel
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Services.Telemetry.StartActivity("UserProfilePage.Refresh");
+
                 try
                 {
                     using (await Profile.Lock.LockAsync())
                     {
+                        activity?.AddEvent(new("Entered_AsyncLock"));
                         IsBusy.Value = true;
                         await Profile.RefreshAsync();
                         await RefreshPackages();
@@ -30,6 +35,8 @@ public sealed class UserProfilePageViewModel : BasePageViewModel
                 }
                 catch (Exception e)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }

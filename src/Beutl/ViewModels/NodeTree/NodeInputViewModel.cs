@@ -2,10 +2,8 @@
 using System.Collections.Specialized;
 
 using Beutl.Commands;
-using Beutl.Extensibility;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes;
-using Beutl.NodeTree.Nodes.Group;
 using Beutl.Services;
 
 using Reactive.Bindings;

@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics;
 
 using Beutl.Collections;
 
@@ -22,7 +23,7 @@ public class BeutlApplication : Hierarchical, IHierarchicalRoot
     public BeutlApplication()
     {
         Items = new HierarchicalList<ProjectItem>(this);
-        
+
     }
 
     public static BeutlApplication Current { get; } = new();

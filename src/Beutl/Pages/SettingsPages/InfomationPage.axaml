@@ -54,6 +54,16 @@
                                Theme="{StaticResource CaptionTextBlockStyle}" />
                 </StackPanel>
             </DockPanel>
+
+            <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.Telemetry_ShortDescription}"
+                                      Header="{x:Static lang:SettingsPage.Telemetry}"
+                                      Navigates="True"
+                                      NavigationCommand="{Binding NavigateToTelemetry}">
+                <ctrls:OptionsDisplayItem.Icon>
+                    <icons:SymbolIcon Symbol="LockClosed" />
+                </ctrls:OptionsDisplayItem.Icon>
+            </ctrls:OptionsDisplayItem>
+
             <ctrls:OptionsDisplayItem Expands="True"
                                       Header="{x:Static lang:Strings.Links}"
                                       Icon="Link"

@@ -8,19 +8,22 @@ using Avalonia.Interactivity;
 using Avalonia.Styling;
 
 using Beutl.Api.Services;
+using Beutl.Configuration;
 using Beutl.Services;
 using Beutl.Utilities;
 using Beutl.ViewModels;
+using Beutl.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
 
-using Reactive.Bindings;
+using Serilog;
 
 namespace Beutl.Views;
 
 public sealed partial class MainView : UserControl
 {
+    private readonly ILogger _logger = Log.ForContext<MainView>();
     private readonly CompositeDisposable _disposables = new();
 
     public MainView()
@@ -93,9 +96,35 @@ public sealed partial class MainView : UserControl
 
         if (DataContext is MainViewModel viewModel)
         {
-            await viewModel.RunStartupTask();
+            await App.WaitLoadingExtensions();
 
             InitExtMenuItems();
+        }
+
+        _logger.Information("WindowOpened");
+
+        ShowTelemetryDialog();
+
+        Telemetry.WindowOpened();
+    }
+
+    private static async void ShowTelemetryDialog()
+    {
+        TelemetryConfig tconfig = GlobalConfiguration.Instance.TelemetryConfig;
+        if (!(tconfig.Beutl_Api_Client.HasValue
+            && tconfig.Beutl_Application.HasValue
+            && tconfig.Beutl_ViewTracking.HasValue
+            && tconfig.Beutl_PackageManagement.HasValue
+            && tconfig.Beutl_All_Errors.HasValue))
+        {
+            var dialog = new TelemetryDialog();
+
+            bool result = await dialog.ShowAsync() == ContentDialogResult.Primary;
+            tconfig.Beutl_Api_Client = result;
+            tconfig.Beutl_Application = result;
+            tconfig.Beutl_PackageManagement = result;
+            tconfig.Beutl_ViewTracking = result;
+            tconfig.Beutl_All_Errors = result;
         }
     }
 

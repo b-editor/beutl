@@ -1,7 +1,6 @@
 ﻿using Avalonia;
 
 using Beutl.Controls.PropertyEditors;
-using Beutl.Extensibility;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;

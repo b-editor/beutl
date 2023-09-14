@@ -51,6 +51,7 @@ public partial class UnknownSourceOperatorView : UserControl
             }
             catch (Exception ex)
             {
+                Telemetry.Exception(ex);
                 NotificationService.ShowError(Message.OperationCouldNotBeExecuted, ex.Message);
             }
         }

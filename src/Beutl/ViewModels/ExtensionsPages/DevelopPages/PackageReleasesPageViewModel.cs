@@ -1,6 +1,6 @@
 ﻿using Beutl.Api.Objects;
 
-using Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
+using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
 
@@ -20,14 +20,19 @@ public sealed class PackageReleasesPageViewModel : BasePageViewModel
 
         Refresh.Subscribe(async () =>
         {
+            using Activity? activity = Services.Telemetry.StartActivity("PackageReleasesPage.Refresh");
+
             try
             {
                 using (await _user.Lock.LockAsync())
                 {
+                    activity?.AddEvent(new("Entered_AsyncLock"));
+
                     IsBusy.Value = true;
                     await _user.RefreshAsync();
 
                     await Package.RefreshAsync();
+
                     Items.Clear();
 
                     int prevCount = 0;
@@ -40,10 +45,15 @@ public sealed class PackageReleasesPageViewModel : BasePageViewModel
                         prevCount = items.Length;
                         count += items.Length;
                     } while (prevCount == 30);
+
+                    activity?.AddEvent(new("Refreshed_Releases"));
+                    activity?.SetTag("Releases_Count", Items.Count);
                 }
             }
             catch (Exception ex)
             {
+                activity?.SetStatus(ActivityStatusCode.Error);
+                activity?.RecordException(ex);
                 ErrorHandle(ex);
                 _logger.Error(ex, "An unexpected error has occurred.");
             }
@@ -66,17 +76,24 @@ public sealed class PackageReleasesPageViewModel : BasePageViewModel
 
     public async Task DeleteReleaseAsync(Release release)
     {
+        using Activity? activity = Services.Telemetry.StartActivity("PackageReleasesPage.DeleteRelease");
+
         try
         {
-            using(await _user.Lock.LockAsync())
+            using (await _user.Lock.LockAsync())
             {
+                activity?.AddEvent(new("Entered_AsyncLock"));
+
                 await _user.RefreshAsync();
+
                 await release.DeleteAsync();
                 Items.Remove(release);
             }
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            activity?.RecordException(ex);
             ErrorHandle(ex);
             _logger.Error(ex, "An unexpected error has occurred.");
         }

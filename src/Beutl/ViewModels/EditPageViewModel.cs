@@ -3,8 +3,6 @@
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 
-using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 using TabViewModel = Beutl.Services.EditorTabItem;

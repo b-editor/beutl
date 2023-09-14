@@ -3,8 +3,6 @@ using System.Text.Json.Nodes;
 
 using Beutl.Api.Services;
 
-using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.Services;
@@ -86,8 +84,9 @@ public sealed class OutputQueueItem : IDisposable
                 return null;
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Telemetry.Exception(ex);
             return null;
         }
     }

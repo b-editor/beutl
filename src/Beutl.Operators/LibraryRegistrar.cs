@@ -130,17 +130,17 @@ public static class LibraryRegistrar
                 .BindSourceOperator<Source.SourceSoundOperator>()
                 .BindSound<SourceSound>()
             );
-        
+
         LibraryService.Current
             .AddMultiple("下位N個の要素を取得", m => m
                 .BindSourceOperator<TakeAfterOperator>()
             );
-        
+
         LibraryService.Current
             .AddMultiple("デコレーター", m => m
                 .BindSourceOperator<DecorateOperator>()
             );
-        
+
         LibraryService.Current
             .AddMultiple("グループ", m => m
                 .BindSourceOperator<GroupOperator>()
@@ -200,72 +200,72 @@ public static class LibraryRegistrar
                     .BindSourceOperator<Configure.Effects.BorderOperator>()
                     .BindFilterEffect<Border>()
                 )
-                
+
                 .AddMultiple(Strings.Clipping, m => m
                     .BindSourceOperator<Configure.Effects.ClippingOperator>()
                     .BindFilterEffect<Clipping>()
                 )
-                
+
                 .AddMultiple(Strings.Dilate, m => m
                     .BindSourceOperator<Configure.Effects.DilateOperator>()
                     .BindFilterEffect<Dilate>()
                 )
-                
+
                 .AddMultiple(Strings.Erode, m => m
                     .BindSourceOperator<Configure.Effects.ErodeOperator>()
                     .BindFilterEffect<Erode>()
                 )
-                
+
                 .AddMultiple(Strings.HighContrast, m => m
                     .BindSourceOperator<Configure.Effects.HighContrastOperator>()
                     .BindFilterEffect<HighContrast>()
                 )
-                
+
                 .AddMultiple(Strings.HueRotate, m => m
                     .BindSourceOperator<Configure.Effects.HueRotateOperator>()
                     .BindFilterEffect<HueRotate>()
                 )
-                
+
                 .AddMultiple(Strings.Lighting, m => m
                     .BindSourceOperator<Configure.Effects.LightingOperator>()
                     .BindFilterEffect<Lighting>()
                 )
-                
+
                 .AddMultiple(Strings.LumaColor, m => m
                     .BindSourceOperator<Configure.Effects.LumaColorOperator>()
                     .BindFilterEffect<LumaColor>()
                 )
-                
+
                 .AddMultiple(Strings.Saturate, m => m
                     .BindSourceOperator<Configure.Effects.SaturateOperator>()
                     .BindFilterEffect<Saturate>()
                 )
-                
+
                 .AddMultiple(Strings.Threshold, m => m
                     .BindSourceOperator<Configure.Effects.ThresholdOperator>()
                     .BindFilterEffect<Threshold>()
                 )
-                
+
                 .AddMultiple(Strings.Brightness, m => m
                     .BindSourceOperator<Configure.Effects.BrightnessOperator>()
                     .BindFilterEffect<Brightness>()
                 )
-                
+
                 .AddMultiple(Strings.Gamma, m => m
                     .BindSourceOperator<Configure.Effects.GammaOperator>()
                     .BindFilterEffect<Gamma>()
                 )
-                
+
                 .AddMultiple(Strings.Invert, m => m
                     .BindSourceOperator<Configure.Effects.InvertOperator>()
                     .BindFilterEffect<Invert>()
                 )
-                
+
                 .AddMultiple(Strings.LUT_Cube_File, m => m
                     .BindSourceOperator<Configure.Effects.LutEffectOperator>()
                     .BindFilterEffect<LutEffect>()
                 )
-                
+
                 .AddMultiple(Strings.Transform, m => m
                     .BindSourceOperator<Configure.Effects.TransformEffectOperator>()
                     .BindFilterEffect<TransformEffect>()

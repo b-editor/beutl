@@ -266,6 +266,7 @@ public sealed class PlayerViewModel : IDisposable
         }
         catch (Exception ex)
         {
+            Telemetry.Exception(ex);
             NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_during_audio_playback);
             _logger.Error(ex, "An exception occurred during audio playback.");
             IsPlaying.Value = false;
@@ -340,6 +341,7 @@ public sealed class PlayerViewModel : IDisposable
         }
         catch (Exception ex)
         {
+            Telemetry.Exception(ex);
             NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_during_audio_playback);
             _logger.Error(ex, "An exception occurred during audio playback.");
             IsPlaying.Value = false;
@@ -371,6 +373,7 @@ public sealed class PlayerViewModel : IDisposable
             }
             catch (Exception ex)
             {
+                Telemetry.Exception(ex);
                 NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_while_drawing_frame);
                 _logger.Error(ex, "An exception occurred while drawing the frame.");
                 IsPlaying.Value = false;
@@ -423,6 +426,7 @@ public sealed class PlayerViewModel : IDisposable
                 }
                 catch (Exception ex)
                 {
+                    Telemetry.Exception(ex);
                     NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_while_drawing_frame);
                     _logger.Error(ex, "An exception occurred while drawing the frame.");
                 }

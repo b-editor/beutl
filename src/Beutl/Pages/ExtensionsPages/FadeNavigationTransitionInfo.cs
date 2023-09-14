@@ -2,7 +2,6 @@
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Styling;
-using Avalonia.VisualTree;
 
 using FluentAvalonia.UI.Media.Animation;
 

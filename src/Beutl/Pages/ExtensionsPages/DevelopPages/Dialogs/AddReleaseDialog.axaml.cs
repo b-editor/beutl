@@ -1,6 +1,4 @@
-﻿using Avalonia.Styling;
-
-using Beutl.Api.Objects;
+﻿using Beutl.Api.Objects;
 
 using Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 

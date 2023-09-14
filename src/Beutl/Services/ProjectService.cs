@@ -4,10 +4,11 @@ using Beutl.Configuration;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 using Serilog;
-using Serilog.Context;
 
 namespace Beutl.Services;
 
@@ -35,6 +36,7 @@ public sealed class ProjectService
 
     public Project? OpenProject(string file)
     {
+        using Activity? activity = Telemetry.StartActivity("OpenProject");
         try
         {
             CommandRecorder.Default.Clear();
@@ -52,6 +54,8 @@ public sealed class ProjectService
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            activity?.RecordException(ex);
             _logger.Error(ex, "Unable to open the project.");
             return null;
         }
@@ -71,6 +75,11 @@ public sealed class ProjectService
 
     public Project? CreateProject(int width, int height, int framerate, int samplerate, string name, string location)
     {
+        using Activity? activity = Telemetry.StartActivity("CreateProject");
+        activity?.SetTag(nameof(width), width);
+        activity?.SetTag(nameof(height), height);
+        activity?.SetTag(nameof(framerate), framerate);
+        activity?.SetTag(nameof(samplerate), samplerate);
         try
         {
             CommandRecorder.Default.Clear();
@@ -104,6 +113,8 @@ public sealed class ProjectService
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            activity?.RecordException(ex);
             _logger.Error(ex, "Unable to open the project.");
             return null;
         }

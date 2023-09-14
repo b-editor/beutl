@@ -14,17 +14,12 @@ public sealed class ExtensionProvider : IBeutlApiResource
     private readonly ExtensionConfig _config = GlobalConfiguration.Instance.ExtensionConfig;
     private readonly Dictionary<Type, Array> _cache = new();
     private bool _cacheInvalidated;
-    private static ExtensionProvider? s_current;
 
     public ExtensionProvider()
     {
     }
 
-    public static ExtensionProvider Current
-    {
-        get => s_current!;
-        internal set => s_current ??= value;
-    }
+    public static ExtensionProvider Current { get; } = new();
 
     public IEnumerable<Extension> AllExtensions => _allExtensions.Values.SelectMany(ext => ext);
 

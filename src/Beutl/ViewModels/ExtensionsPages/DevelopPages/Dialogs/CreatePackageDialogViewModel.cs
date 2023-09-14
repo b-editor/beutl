@@ -3,6 +3,9 @@
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Services;
+
+using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
 
@@ -28,6 +31,7 @@ public sealed class CreatePackageDialogViewModel
 
         SelectedFile.Subscribe(async file =>
         {
+            using Activity? activity = Telemetry.StartActivity("CreatePackageDialog.SelectFile");
             try
             {
                 IsFileLoading.Value = true;
@@ -51,6 +55,8 @@ public sealed class CreatePackageDialogViewModel
             }
             catch (Exception ex)
             {
+                activity?.SetStatus(ActivityStatusCode.Error);
+                activity?.RecordException(ex);
                 Error.Value = Message.AnUnexpectedErrorHasOccurred;
                 _logger.Error(ex, "An unexpected error has occurred.");
             }
@@ -75,6 +81,7 @@ public sealed class CreatePackageDialogViewModel
 
     public async Task<Package?> CreateAsync()
     {
+        using Activity? activity = Telemetry.StartActivity("CreatePackageDialog.Create");
         try
         {
             Name.ForceValidate();
@@ -83,7 +90,7 @@ public sealed class CreatePackageDialogViewModel
                 return null;
             }
 
-            using(await _user.Lock.LockAsync())
+            using (await _user.Lock.LockAsync())
             {
                 await _user.RefreshAsync();
 
@@ -121,12 +128,16 @@ public sealed class CreatePackageDialogViewModel
         }
         catch (BeutlApiException<ApiErrorResponse> e)
         {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            activity?.RecordException(e);
             Error.Value = e.Result.Message;
             _logger.Error(e, "API error occurred.");
             return null;
         }
         catch (Exception e)
         {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            activity?.RecordException(e);
             Error.Value = Message.AnUnexpectedErrorHasOccurred;
             _logger.Error(e, "An unexpected error has occurred.");
             return null;

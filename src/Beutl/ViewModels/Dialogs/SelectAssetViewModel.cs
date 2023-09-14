@@ -6,11 +6,11 @@ using Beutl.Api.Objects;
 using Beutl.Services;
 using Beutl.Utilities;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 using Serilog;
-
-using static Beutl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
 
 namespace Beutl.ViewModels.Dialogs;
 
@@ -32,10 +32,11 @@ public class SelectAssetViewModel
 
         Refresh.Subscribe(async () =>
         {
+            using Activity? activity = Telemetry.StartActivity("SelectAsset.Refresh");
             try
             {
                 IsBusy.Value = true;
-                using(await _user.Lock.LockAsync())
+                using (await _user.Lock.LockAsync())
                 {
                     await _user.RefreshAsync();
 
@@ -56,6 +57,8 @@ public class SelectAssetViewModel
             }
             catch (Exception ex)
             {
+                activity?.SetStatus(ActivityStatusCode.Error);
+                activity?.RecordException(ex);
                 _logger.Error(ex, "An exception occurred while loading the list of assets.");
                 NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             }

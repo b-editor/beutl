@@ -1,8 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Net.Http.Headers;
 
-using Nito.AsyncEx;
-
 namespace Beutl.Api.Objects;
 
 public class AuthorizedUser
@@ -33,15 +31,22 @@ public class AuthorizedUser
 
     public async ValueTask RefreshAsync(bool force = false)
     {
+        using Activity? activity = _clients.ActivitySource.StartActivity("AuthorizedUser.Refresh", ActivityKind.Client);
+
+        activity?.SetTag("force", force);
+        activity?.SetTag("is_expired", IsExpired);
+
         if (force || IsExpired)
         {
             _response = await _clients.Account.RefreshAsync(new RefeshTokenRequest(RefreshToken, Token))
                 .ConfigureAwait(false);
+            activity?.AddEvent(new("Refreshed"));
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
 
             if (_clients.AuthorizedUser.Value == this)
             {
                 _clients.SaveUser();
+                activity?.AddEvent(new("Saved"));
             }
         }
     }

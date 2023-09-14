@@ -6,6 +6,8 @@ using Beutl.Services;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 using Serilog;
@@ -56,14 +58,18 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
         Install = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Telemetry.StartActivity("RemoteYourPackage.Install");
+
                 try
                 {
                     IsBusy.Value = true;
                     using (await _app.Lock.LockAsync())
                     {
+                        activity?.AddEvent(new("Entered_AsyncLock"));
                         await _app.AuthorizedUser.Value!.RefreshAsync();
 
                         Release release = await _library.GetPackage(Package);
+
                         var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
                         _queue.InstallQueue(packageId);
                         NotificationService.ShowInformation(
@@ -73,6 +79,8 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 }
                 catch (Exception e)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }
@@ -86,13 +94,18 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
         Update = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Telemetry.StartActivity("RemoteYourPackage.Update");
+
                 try
                 {
                     IsBusy.Value = true;
                     using (await _app.Lock.LockAsync())
                     {
+                        activity?.AddEvent(new("Entered_AsyncLock"));
                         await _app.AuthorizedUser.Value!.RefreshAsync();
+
                         Release release = await _library.GetPackage(Package);
+
                         var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
                         _queue.InstallQueue(packageId);
                         NotificationService.ShowInformation(
@@ -102,6 +115,8 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 }
                 catch (Exception e)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }
@@ -115,6 +130,8 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
         Uninstall = new ReactiveCommand(IsBusy.Not())
             .WithSubscribe(() =>
             {
+                using Activity? activity = Telemetry.StartActivity("RemoteYourPackage.Uninstall");
+
                 try
                 {
                     IsBusy.Value = true;
@@ -128,6 +145,8 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 }
                 catch (Exception e)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }
@@ -161,19 +180,25 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
         RemoveFromLibrary = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Telemetry.StartActivity("RemoteYourPackage.RemoveFromLibrary");
+
                 try
                 {
                     IsBusy.Value = true;
                     using (await _app.Lock.LockAsync())
                     {
+                        activity?.AddEvent(new("Entered_AsyncLock"));
                         await _app.AuthorizedUser.Value!.RefreshAsync();
 
                         await _library.RemovePackage(Package);
+                        activity?.AddEvent(new("Removed_PackageFromLibrary"));
                         OnRemoveFromLibrary?.Invoke(this);
                     }
                 }
                 catch (Exception e)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }

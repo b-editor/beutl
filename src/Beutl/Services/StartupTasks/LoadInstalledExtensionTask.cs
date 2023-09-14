@@ -3,9 +3,10 @@
 using Avalonia.Threading;
 
 using Beutl.Api.Services;
-using Beutl.Services;
 
 using FluentAvalonia.UI.Controls;
+
+using OpenTelemetry.Trace;
 
 using Serilog;
 
@@ -14,33 +15,40 @@ namespace Beutl.Services.StartupTasks;
 public sealed class LoadInstalledExtensionTask : StartupTask
 {
     private readonly ILogger _logger = Log.ForContext<LoadInstalledExtensionTask>();
-    private readonly AuthenticationTask _authenticationTask;
     private readonly PackageManager _manager;
 
-    public LoadInstalledExtensionTask(AuthenticationTask authenticationTask, PackageManager manager)
+    public LoadInstalledExtensionTask(PackageManager manager)
     {
-        _authenticationTask = authenticationTask;
         _manager = manager;
 
         Task = Task.Run(async () =>
         {
-            await _authenticationTask.Task;
-
-            // .beutl/packages/ 内のパッケージを読み込む
-            if (!await AsksRunInRestrictedMode())
+            using (Activity? activity = Telemetry.StartActivity("LoadInstalledExtensionTask"))
             {
-                Parallel.ForEach(await _manager.GetPackages(), item =>
+                // .beutl/packages/ 内のパッケージを読み込む
+                if (!await AsksRunInRestrictedMode())
                 {
-                    try
+                    IReadOnlyList<LocalPackage> packages = await _manager.GetPackages();
+
+                    activity?.AddEvent(new ActivityEvent("Loading_InstalledPackages"));
+
+                    Parallel.ForEach(packages, item =>
                     {
-                        _manager.Load(item);
-                    }
-                    catch (Exception e)
-                    {
-                        _logger.Error(e, "Failed to load package");
-                        Failures.Add((item, e));
-                    }
-                });
+                        try
+                        {
+                            _manager.Load(item);
+                        }
+                        catch (Exception e)
+                        {
+                            activity?.SetStatus(ActivityStatusCode.Error);
+                            activity?.RecordException(e);
+                            _logger.Error(e, "Failed to load package");
+                            Failures.Add((item, e));
+                        }
+                    });
+
+                    activity?.AddEvent(new ActivityEvent("Loaded_InstalledPackages"));
+                }
             }
         });
     }
@@ -51,11 +59,12 @@ public sealed class LoadInstalledExtensionTask : StartupTask
 
     // 最後に実行したとき、例外が発生して終了した場合、
     // 制限モード (拡張機能を読み込まない) で起動するかを尋ねる。
-    private async ValueTask<bool> AsksRunInRestrictedMode()
+    private static async ValueTask<bool> AsksRunInRestrictedMode()
     {
-        return await Dispatcher.UIThread.InvokeAsync(async () =>
+        if (UnhandledExceptionHandler.LastExecutionExceptionWasThrown())
         {
-            if (UnhandledExceptionHandler.LastExecutionExceptionWasThrown())
+            await App.WaitWindowOpened();
+            return await Dispatcher.UIThread.InvokeAsync(async () =>
             {
                 var dialog = new ContentDialog()
                 {
@@ -66,11 +75,11 @@ public sealed class LoadInstalledExtensionTask : StartupTask
                 };
 
                 return await dialog.ShowAsync() == ContentDialogResult.Primary;
-            }
-            else
-            {
-                return false;
-            }
-        });
+            });
+        }
+        else
+        {
+            return false;
+        }
     }
 }

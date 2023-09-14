@@ -1,6 +1,5 @@
 ﻿using Beutl.Animation;
 using Beutl.Commands;
-using Beutl.ProjectSystem;
 
 using Reactive.Bindings;
 

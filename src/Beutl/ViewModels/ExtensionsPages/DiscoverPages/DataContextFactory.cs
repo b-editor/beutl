@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Beutl.Api;
+﻿using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 

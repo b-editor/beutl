@@ -1,6 +1,5 @@
 ﻿using System.Text.Json.Nodes;
 
-using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 

@@ -20,14 +20,14 @@ public partial class MenuBarViewModel
     {
         AddLayer = new(isSceneOpened);
         DeleteLayer = new(isSceneOpened);
-        ExcludeLayer = new ReactiveCommand(isSceneOpened)
+        ExcludeLayer = new ReactiveCommandSlim(isSceneOpened)
             .WithSubscribe(OnExcludeElement);
 
         CutLayer = new AsyncReactiveCommand(isSceneOpened)
             .WithSubscribe(OnCutElement);
         CopyLayer = new AsyncReactiveCommand(isSceneOpened)
             .WithSubscribe(OnCopyElement);
-        PasteLayer = new ReactiveCommand(isSceneOpened)
+        PasteLayer = new ReactiveCommandSlim(isSceneOpened)
             .WithSubscribe(() =>
             {
                 if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
@@ -37,7 +37,7 @@ public partial class MenuBarViewModel
                 }
             });
 
-        ShowSceneSettings = new ReactiveCommand(isSceneOpened)
+        ShowSceneSettings = new ReactiveCommandSlim(isSceneOpened)
             .WithSubscribe(OnShowSceneSettings);
     }
 
@@ -51,21 +51,21 @@ public partial class MenuBarViewModel
     //       Cut
     //       Copy
     //       Paste
-    public ReactiveCommand NewScene { get; } = new();
+    public ReactiveCommandSlim NewScene { get; } = new();
 
-    public ReactiveCommand AddLayer { get; private set; }
+    public ReactiveCommandSlim AddLayer { get; private set; }
 
-    public ReactiveCommand DeleteLayer { get; private set; }
+    public ReactiveCommandSlim DeleteLayer { get; private set; }
 
-    public ReactiveCommand ExcludeLayer { get; private set; }
+    public ReactiveCommandSlim ExcludeLayer { get; private set; }
 
     public AsyncReactiveCommand CutLayer { get; private set; }
 
     public AsyncReactiveCommand CopyLayer { get; private set; }
 
-    public ReactiveCommand PasteLayer { get; private set; }
+    public ReactiveCommandSlim PasteLayer { get; private set; }
 
-    public ReactiveCommand ShowSceneSettings { get; private set; }
+    public ReactiveCommandSlim ShowSceneSettings { get; private set; }
 
     private static bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
     {

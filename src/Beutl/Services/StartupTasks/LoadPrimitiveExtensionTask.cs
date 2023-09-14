@@ -26,48 +26,57 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
             SceneSettingsTabExtension.Instance,
             WaveReaderExtension.Instance,
         };
-        Task = Task.Run(() =>
+        Task = Task.Run(async () =>
         {
-            ExtensionProvider provider = ExtensionProvider.Current;
-            foreach (Extension item in PrimitiveExtensions)
+            using (Activity? activity = Telemetry.StartActivity("LoadPrimitiveExtensionTask"))
             {
-                item.Load();
-            }
-            provider.AddExtensions(LocalPackage.Reserved0, PrimitiveExtensions);
+                ExtensionProvider provider = ExtensionProvider.Current;
+                foreach (Extension item in PrimitiveExtensions)
+                {
+                    item.Load();
+                }
+                provider.AddExtensions(LocalPackage.Reserved0, PrimitiveExtensions);
+                activity?.AddEvent(new("Loaded_Extensions"));
 
+                await Task.Yield();
 #if FFMPEG_BUILD_IN
 #pragma warning disable CS0436
-            // Beutl.Extensions.FFmpeg.csproj
-            var pkg = new LocalPackage
-            {
-                ShortDescription = "FFmpeg for beutl",
-                Name = "Beutl.Embedding.FFmpeg",
-                DisplayName = "Beutl.Embedding.FFmpeg",
-                InstalledPath = AppContext.BaseDirectory,
-                Tags = { "ffmpeg", "decoder", "decoding", "encoder", "encoding", "video", "audio" },
-                Version = GitVersionInformation.NuGetVersionV2,
-                WebSite = "https://github.com/b-editor/beutl",
-                Publisher = "b-editor"
-            };
-            try
-            {
-                var decoding = new Embedding.FFmpeg.Decoding.FFmpegDecodingExtension();
-                var encoding = new Embedding.FFmpeg.Encoding.FFmpegEncodingExtension();
-                decoding.Load();
-                encoding.Load();
+                activity?.AddEvent(new("Loading_FFmpeg"));
 
-                provider.AddExtensions(pkg.LocalId, new Extension[]
+                // Beutl.Extensions.FFmpeg.csproj
+                var pkg = new LocalPackage
                 {
-                    decoding,
-                    encoding
-                });
-            }
-            catch (Exception ex)
-            {
-                Failures.Add((pkg, ex));
-            }
+                    ShortDescription = "FFmpeg for beutl",
+                    Name = "Beutl.Embedding.FFmpeg",
+                    DisplayName = "Beutl.Embedding.FFmpeg",
+                    InstalledPath = AppContext.BaseDirectory,
+                    Tags = { "ffmpeg", "decoder", "decoding", "encoder", "encoding", "video", "audio" },
+                    Version = GitVersionInformation.NuGetVersionV2,
+                    WebSite = "https://github.com/b-editor/beutl",
+                    Publisher = "b-editor"
+                };
+                try
+                {
+                    var decoding = new Embedding.FFmpeg.Decoding.FFmpegDecodingExtension();
+                    var encoding = new Embedding.FFmpeg.Encoding.FFmpegEncodingExtension();
+                    decoding.Load();
+                    encoding.Load();
+
+                    provider.AddExtensions(pkg.LocalId, new Extension[]
+                    {
+                        decoding,
+                        encoding
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Failures.Add((pkg, ex));
+                }
+
+                activity?.AddEvent(new("Loaded_FFmpeg"));
 #pragma warning restore CS0436
 #endif
+            }
         });
     }
 

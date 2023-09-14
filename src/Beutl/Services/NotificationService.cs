@@ -46,6 +46,8 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
     {
         await Dispatcher.UIThread.InvokeAsync(async () =>
         {
+            await App.WaitWindowOpened();
+
             if (GetMainView() is MainView mainView)
             {
                 var infoBar = new InfoBar

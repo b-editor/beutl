@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Animation;
-using Beutl.Extensibility;
 using Beutl.Operators.Configure;
 using Beutl.Services;
 

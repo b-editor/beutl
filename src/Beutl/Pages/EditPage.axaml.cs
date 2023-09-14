@@ -18,6 +18,8 @@ using FluentAvalonia.UI.Controls;
 
 using Reactive.Bindings;
 
+using Serilog;
+
 namespace Beutl.Pages;
 
 public sealed partial class EditPage : UserControl
@@ -32,6 +34,7 @@ public sealed partial class EditPage : UserControl
     };
     private static readonly Binding s_isSelectedBinding = new("IsSelected.Value", BindingMode.TwoWay);
     private static readonly Binding s_contentBinding = new("Value", BindingMode.OneWay);
+    private static readonly ILogger s_logger = Log.ForContext<EditPage>();
     private readonly AvaloniaList<BcTabItem> _tabItems = new();
     private IDisposable? _disposable0;
 
@@ -132,6 +135,7 @@ Error:
             if (tabview.SelectedItem is BcTabItem { DataContext: EditorTabItem tabViewModel })
             {
                 viewModel.SelectedTabItem.Value = tabViewModel;
+                s_logger.Information("SelectionChanged: {FileNameHash}", tabViewModel.GetFileNameHash());
             }
             else
             {

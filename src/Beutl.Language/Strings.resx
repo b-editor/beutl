@@ -952,4 +952,13 @@ and b-editor maintains the download URL.</value>
   <data name="SplitByCurrentFrame" xml:space="preserve">
     <value>Split by current frame</value>
   </data>
+  <data name="Agree" xml:space="preserve">
+    <value>Agree</value>
+  </data>
+  <data name="Disagree" xml:space="preserve">
+    <value>Disagree</value>
+  </data>
+  <data name="ShowDetails" xml:space="preserve">
+    <value>Show Details</value>
+  </data>
 </root>

@@ -41,6 +41,8 @@ public class BeutlApiApplication
         RegisterAll();
     }
 
+    public ActivitySource ActivitySource { get; } = new("Beutl.Api.Client", GitVersionInformation.SemVer);
+
     public PackagesClient Packages { get; }
 
     public ReleasesClient Releases { get; }
@@ -83,13 +85,13 @@ public class BeutlApiApplication
     private void RegisterAll()
     {
         Register(() => new DiscoverService(this));
-        Register(() => GetResource<PackageManager>().ExtensionProvider);
+        Register(() => ExtensionProvider.Current);
         Register(() => new InstalledPackageRepository());
         Register(() => new AcceptedLicenseManager());
         Register(() => new PackageChangesQueue());
         Register(() => new LibraryService(this));
         Register(() => new PackageInstaller(new HttpClient(), GetResource<InstalledPackageRepository>()));
-        Register(() => new PackageManager(GetResource<InstalledPackageRepository>(), this));
+        Register(() => new PackageManager(GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(), this));
     }
 
     private void Register<T>(Func<T> factory)
@@ -125,43 +127,14 @@ public class BeutlApiApplication
 
     private async Task<AuthorizedUser> SignInExternalAsync(string provider, CancellationToken cancellationToken)
     {
-        string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
-        CreateAuthUriResponse authUriRes = await Account.CreateAuthUriAsync(new CreateAuthUriRequest(continueUri), cancellationToken);
-        using HttpListener listener = StartListener($"{continueUri}/");
-
-        string uri = $"{BaseUrl}/Identity/Account/Login?provider={provider}&returnUrl={authUriRes.Auth_uri}";
-
-        Process.Start(new ProcessStartInfo(uri)
-        {
-            UseShellExecute = true
-        });
-
-        string? code = await GetResponseFromListener(listener, cancellationToken);
-        if (string.IsNullOrWhiteSpace(code))
-        {
-            throw new Exception("The returned code was empty.");
-        }
-
-        AuthResponse authResponse = await Account.CodeToJwtAsync(new CodeToJwtRequest(code, authUriRes.Session_id), cancellationToken);
-
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authResponse.Token);
-        ProfileResponse profileResponse = await Users.Get2Async(cancellationToken);
-        var profile = new Profile(profileResponse, this);
-
-        _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient);
-        SaveUser();
-        return _authorizedUser.Value;
-    }
-
-    public async Task<AuthorizedUser> SignInAsync(CancellationToken cancellationToken)
-    {
-        using (await Lock.LockAsync(cancellationToken))
+        using (Activity? activity = ActivitySource.StartActivity("SignInExternalAsync", ActivityKind.Client))
         {
             string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
             CreateAuthUriResponse authUriRes = await Account.CreateAuthUriAsync(new CreateAuthUriRequest(continueUri), cancellationToken);
             using HttpListener listener = StartListener($"{continueUri}/");
+            activity?.AddEvent(new("Started_Listener"));
 
-            string uri = $"{BaseUrl}/Identity/Account/Login?returnUrl={authUriRes.Auth_uri}";
+            string uri = $"{BaseUrl}/Identity/Account/Login?provider={provider}&returnUrl={authUriRes.Auth_uri}";
 
             Process.Start(new ProcessStartInfo(uri)
             {
@@ -169,12 +142,14 @@ public class BeutlApiApplication
             });
 
             string? code = await GetResponseFromListener(listener, cancellationToken);
+            activity?.AddEvent(new("Received_Code"));
             if (string.IsNullOrWhiteSpace(code))
             {
                 throw new Exception("The returned code was empty.");
             }
 
             AuthResponse authResponse = await Account.CodeToJwtAsync(new CodeToJwtRequest(code, authUriRes.Session_id), cancellationToken);
+            activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authResponse.Token);
             ProfileResponse profileResponse = await Users.Get2Async(cancellationToken);
@@ -182,7 +157,49 @@ public class BeutlApiApplication
 
             _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient);
             SaveUser();
+            activity?.AddEvent(new("Saved_User"));
             return _authorizedUser.Value;
+        }
+    }
+
+    public async Task<AuthorizedUser> SignInAsync(CancellationToken cancellationToken)
+    {
+        using (Activity? activity = ActivitySource.StartActivity("SignInAsync", ActivityKind.Client))
+        {
+            using (await Lock.LockAsync(cancellationToken))
+            {
+                activity?.AddEvent(new("Entered_AsyncLock"));
+                string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
+                CreateAuthUriResponse authUriRes = await Account.CreateAuthUriAsync(new CreateAuthUriRequest(continueUri), cancellationToken);
+                using HttpListener listener = StartListener($"{continueUri}/");
+                activity?.AddEvent(new("Started_Listener"));
+
+                string uri = $"{BaseUrl}/Identity/Account/Login?returnUrl={authUriRes.Auth_uri}";
+
+                Process.Start(new ProcessStartInfo(uri)
+                {
+                    UseShellExecute = true
+                });
+
+                string? code = await GetResponseFromListener(listener, cancellationToken);
+                activity?.AddEvent(new("Received_Code"));
+                if (string.IsNullOrWhiteSpace(code))
+                {
+                    throw new Exception("The returned code was empty.");
+                }
+
+                AuthResponse authResponse = await Account.CodeToJwtAsync(new CodeToJwtRequest(code, authUriRes.Session_id), cancellationToken);
+                activity?.AddEvent(new("Done_CodeToJwtAsync"));
+
+                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authResponse.Token);
+                ProfileResponse profileResponse = await Users.Get2Async(cancellationToken);
+                var profile = new Profile(profileResponse, this);
+
+                _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient);
+                SaveUser();
+                activity?.AddEvent(new("Saved_User"));
+                return _authorizedUser.Value;
+            }
         }
     }
 
@@ -215,10 +232,12 @@ public class BeutlApiApplication
         }
     }
 
-    public async Task RestoreUserAsync()
+    public async Task RestoreUserAsync(Activity? activity)
     {
         using (await Lock.LockAsync())
         {
+            activity?.AddEvent(new("Entered_AsyncLock"));
+
             string fileName = Path.Combine(Helper.AppRoot, "user.json");
             if (File.Exists(fileName))
             {

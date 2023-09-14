@@ -5,6 +5,8 @@ using Beutl.Api;
 
 using FluentAvalonia.UI.Controls;
 
+using OpenTelemetry.Trace;
+
 using Serilog;
 
 namespace Beutl.Services.StartupTasks;
@@ -19,27 +21,32 @@ public sealed class CheckForUpdatesTask : StartupTask
         _beutlApiApplication = beutlApiApplication;
         Task = Task.Run(async () =>
         {
-            CheckForUpdatesResponse? response = await CheckForUpdates();
-            if (response != null)
+            using (Activity? activity = Telemetry.StartActivity("CheckForUpdatesTask"))
             {
-                if (!response.Is_latest)
+                CheckForUpdatesResponse? response = await CheckForUpdates(activity);
+                activity?.AddEvent(new("Done_CheckForUpdates"));
+
+                if (response != null)
                 {
-                    NotificationService.ShowInformation(
-                        Message.A_new_version_is_available,
-                        response.Url,
-                        onActionButtonClick: () =>
-                        {
-                            Process.Start(new ProcessStartInfo(response.Url)
+                    if (!response.Is_latest)
+                    {
+                        NotificationService.ShowInformation(
+                            Message.A_new_version_is_available,
+                            response.Url,
+                            onActionButtonClick: () =>
                             {
-                                UseShellExecute = true,
-                                Verb = "open"
-                            });
-                        },
-                        actionButtonText: Strings.Open);
-                }
-                else if (response.Must_latest)
-                {
-                    await ShowDialogAndClose(response);
+                                Process.Start(new ProcessStartInfo(response.Url)
+                                {
+                                    UseShellExecute = true,
+                                    Verb = "open"
+                                });
+                            },
+                            actionButtonText: Strings.Open);
+                    }
+                    else if (response.Must_latest)
+                    {
+                        await ShowDialogAndClose(response);
+                    }
                 }
             }
         });
@@ -47,27 +54,27 @@ public sealed class CheckForUpdatesTask : StartupTask
 
     public override Task Task { get; }
 
-    private async ValueTask<CheckForUpdatesResponse?> CheckForUpdates()
+    private async ValueTask<CheckForUpdatesResponse?> CheckForUpdates(Activity? activity)
     {
 #pragma warning disable CS0436
-        using (await _beutlApiApplication.Lock.LockAsync())
+        try
         {
-            try
-            {
-                return await _beutlApiApplication.App.CheckForUpdatesAsync(GitVersionInformation.NuGetVersion);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "An error occurred while checking for updates");
-                ex.Handle();
-                return null;
-            }
+            return await _beutlApiApplication.App.CheckForUpdatesAsync(GitVersionInformation.NuGetVersion);
+        }
+        catch (Exception ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            activity?.RecordException(ex);
+            _logger.Error(ex, "An error occurred while checking for updates");
+            ex.Handle();
+            return null;
         }
 #pragma warning restore CS0436
     }
 
     private static async Task ShowDialogAndClose(CheckForUpdatesResponse response)
     {
+        await App.WaitWindowOpened();
         await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             var dialog = new ContentDialog

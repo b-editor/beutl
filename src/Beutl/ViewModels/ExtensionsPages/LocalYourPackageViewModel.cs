@@ -6,6 +6,8 @@ using Beutl.Services;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 using Serilog;
@@ -55,6 +57,8 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
         Install = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Telemetry.StartActivity("LocalYourPackage.Install");
+
                 try
                 {
                     IsBusy.Value = true;
@@ -67,6 +71,8 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                 }
                 catch (Exception e)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }
@@ -80,6 +86,8 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
         Update = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(() =>
             {
+                using Activity? activity = Telemetry.StartActivity("LocalYourPackage.Update");
+
                 try
                 {
                     IsBusy.Value = true;
@@ -94,6 +102,8 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                 }
                 catch (Exception e)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }
@@ -109,6 +119,8 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
         Uninstall = new ReactiveCommand(IsBusy.Not())
             .WithSubscribe(() =>
             {
+                using Activity? activity = Telemetry.StartActivity("LocalYourPackage.Uninstall");
+
                 try
                 {
                     IsBusy.Value = true;
@@ -119,6 +131,8 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                 }
                 catch (Exception e)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }

@@ -5,10 +5,13 @@ using Beutl.Api.Objects;
 
 using Beutl.Configuration;
 using Beutl.Controls.Navigation;
+using Beutl.Services;
 using Beutl.Utilities;
 using Beutl.ViewModels.ExtensionsPages;
 
 using FluentIcons.Common;
+
+using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
 
@@ -18,7 +21,7 @@ namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class StorageSettingsPageViewModel : BasePageViewModel
 {
-    private readonly ILogger _logger= Log.ForContext<StorageSettingsPageViewModel>();
+    private readonly ILogger _logger = Log.ForContext<StorageSettingsPageViewModel>();
     private readonly BackupConfig _config;
     private readonly IReadOnlyReactiveProperty<AuthorizedUser?> _user;
     private readonly ReactivePropertySlim<StorageUsageResponse?> _storageUsageResponse = new();
@@ -125,17 +128,25 @@ public sealed class StorageSettingsPageViewModel : BasePageViewModel
                 return;
             }
 
+            using Activity? activity = Telemetry.StartActivity("StorageSettingsPage.Refresh");
+
             try
             {
                 using (await _user.Value.Lock.LockAsync())
                 {
+                    activity?.AddEvent(new("Entered_AsyncLock"));
+
                     IsBusy.Value = true;
                     await _user.Value.RefreshAsync();
+
                     _storageUsageResponse.Value = await _user.Value.StorageUsageAsync();
+                    activity?.AddEvent(new("Done_GetStorageUsage"));
                 }
             }
             catch (Exception ex)
             {
+                activity?.SetStatus(ActivityStatusCode.Error);
+                activity?.RecordException(ex);
                 ErrorHandle(ex);
                 _logger.Error(ex, "An unexpected error has occurred.");
             }

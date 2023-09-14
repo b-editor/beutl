@@ -1,7 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Styling;
-
-using Beutl.ViewModels.Dialogs;
+﻿using Beutl.ViewModels.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 

@@ -6,6 +6,8 @@ using Beutl.Services;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 using Serilog;
@@ -39,18 +41,23 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Telemetry.StartActivity("PublicPackageDetailsPage.Refresh");
+
                 try
                 {
                     using (await _app.Lock.LockAsync())
                     {
+                        activity?.AddEvent(new("Entered_AsyncLock"));
                         IsBusy.Value = true;
-                        await package.RefreshAsync();
+                        await Package.RefreshAsync();
+
                         int totalCount = 0;
                         int prevCount = 0;
 
                         do
                         {
                             Release[] array = await package.GetReleasesAsync(totalCount, 30);
+
                             if (Array.Find(array, x => x.IsPublic.Value) is { } publicRelease)
                             {
                                 LatestRelease.Value = publicRelease;
@@ -72,6 +79,8 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
                 }
                 catch (Exception e)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }
@@ -120,14 +129,18 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
         Install = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Telemetry.StartActivity("PublicPackageDetailsPage.Install");
+
                 try
                 {
                     IsBusy.Value = true;
-                    using(await _app.Lock.LockAsync())
+                    using (await _app.Lock.LockAsync())
                     {
+                        activity?.AddEvent(new("Entered_AsyncLock"));
                         await _app.AuthorizedUser.Value!.RefreshAsync();
 
                         Release release = await _library.GetPackage(Package);
+
                         var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
                         _queue.InstallQueue(packageId);
                         NotificationService.ShowInformation(
@@ -137,6 +150,8 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
                 }
                 catch (Exception e)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }
@@ -150,13 +165,18 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
         Update = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Telemetry.StartActivity("PublicPackageDetailsPage.Update");
+
                 try
                 {
                     IsBusy.Value = true;
-                    using(await _app.Lock.LockAsync())
+                    using (await _app.Lock.LockAsync())
                     {
+                        activity?.AddEvent(new("Entered_AsyncLock"));
                         await _app.AuthorizedUser.Value!.RefreshAsync();
+
                         Release release = await _library.GetPackage(Package);
+
                         var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
                         _queue.InstallQueue(packageId);
                         NotificationService.ShowInformation(
@@ -166,6 +186,8 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
                 }
                 catch (Exception e)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }

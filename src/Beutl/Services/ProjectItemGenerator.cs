@@ -2,8 +2,6 @@
 
 using Beutl.Api.Services;
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Beutl.Services;
 
 public sealed class ProjectItemGenerator : IProjectItemGenerator

@@ -61,7 +61,7 @@ public partial class MainView
 
     private void InitializeRecentItems(MainViewModel viewModel)
     {
-        void AddItem(AvaloniaList<MenuItem> list, string item, ReactiveCommand<string> command)
+        void AddItem(AvaloniaList<MenuItem> list, string item, ReactiveCommandSlim<string> command)
         {
             MenuItem menuItem = _menuItemCache.Get() ?? new MenuItem();
             menuItem.Command = command;

@@ -4,6 +4,8 @@ using Beutl.Api.Services;
 
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 using Serilog;
@@ -27,7 +29,7 @@ public sealed class DiscoverPageViewModel : BasePageViewModel
 
             do
             {
-                Package[] items = await func(count, 30);
+                Package[] items = await func(count, 30).ConfigureAwait(false);
                 count += items.Length;
 
                 if (maxCount < count)
@@ -47,26 +49,32 @@ public sealed class DiscoverPageViewModel : BasePageViewModel
         DataContextFactory = new DataContextFactory(_discoverService, _clients);
         Refresh.Subscribe(async () =>
         {
+            using Activity? activity = Services.Telemetry.StartActivity("DiscoverPage.Refresh");
+
             try
             {
                 IsBusy.Value = true;
-                var user = _clients.AuthorizedUser.Value;
-                
-                using (await _clients.Lock.LockAsync())
+                AuthorizedUser? user = _clients.AuthorizedUser.Value;
+
+                using (await _clients.Lock.LockAsync().ConfigureAwait(false))
                 {
+                    activity?.AddEvent(new("Entered_AsyncLock"));
                     if (user != null)
                     {
-                        await user.RefreshAsync();
+                        await user.RefreshAsync().ConfigureAwait(false);
                     }
 
-                    await LoadAsync(DailyRanking, (start, count) => _discoverService.GetDailyRanking(start, count), 10);
-                    await LoadAsync(WeeklyRanking, (start, count) => _discoverService.GetWeeklyRanking(start, count), 10);
-                    await LoadAsync(Top10, (start, count) => _discoverService.GetOverallRanking(start, count), 10);
-                    await LoadAsync(RecentlyRanking, (start, count) => _discoverService.GetRecentlyRanking(start, count), 10);
+                    Task task0 = Task.Run(() => LoadAsync(DailyRanking, (start, count) => _discoverService.GetDailyRanking(start, count), 10));
+                    Task task1 = Task.Run(() => LoadAsync(WeeklyRanking, (start, count) => _discoverService.GetWeeklyRanking(start, count), 10));
+                    Task task2 = Task.Run(() => LoadAsync(Top10, (start, count) => _discoverService.GetOverallRanking(start, count), 10));
+                    Task task3 = Task.Run(() => LoadAsync(RecentlyRanking, (start, count) => _discoverService.GetRecentlyRanking(start, count), 10));
+                    await Task.WhenAll(task0, task1, task2, task3).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
             {
+                activity?.SetStatus(ActivityStatusCode.Error);
+                activity?.RecordException(ex);
                 ErrorHandle(ex);
                 _logger.Error(ex, "An unexpected error has occurred.");
             }

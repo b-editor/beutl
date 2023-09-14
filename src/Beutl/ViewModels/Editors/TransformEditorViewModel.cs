@@ -2,10 +2,8 @@
 
 using Beutl.Animation;
 using Beutl.Commands;
-using Beutl.Extensibility;
 using Beutl.Graphics.Transformation;
 using Beutl.Operators.Configure;
-using Beutl.ViewModels.Tools;
 
 using Microsoft.Extensions.DependencyInjection;
 

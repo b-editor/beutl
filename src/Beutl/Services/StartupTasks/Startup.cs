@@ -14,12 +14,29 @@ public sealed class Startup
     {
         _apiApp = apiApp;
         _viewModel = viewModel;
-        RegisterAll();
+        Initialize();
     }
 
-    public Task Run()
+    private async void Initialize()
     {
-        return Task.WhenAll(_tasks.Values.Select(v => v().Task));
+        using (Activity? activity = Telemetry.StartActivity("Startup"))
+        {
+            RegisterAll();
+            await WaitAll().ConfigureAwait(false);
+        }
+    }
+
+    public async Task WaitAll()
+    {
+        await Task.WhenAll(_tasks.Values.Select(v => v().Task)).ConfigureAwait(false);
+    }
+
+    public async Task WaitLoadingExtensions()
+    {
+        LoadInstalledExtensionTask t1 = GetTask<LoadInstalledExtensionTask>();
+        LoadPrimitiveExtensionTask t2 = GetTask<LoadPrimitiveExtensionTask>();
+        LoadSideloadExtensionTask t3 = GetTask<LoadSideloadExtensionTask>();
+        await Task.WhenAll(t1.Task, t2.Task, t3.Task).ConfigureAwait(false);
     }
 
     public T GetTask<T>()
@@ -44,7 +61,7 @@ public sealed class Startup
     private void RegisterAll()
     {
         Register(() => new AuthenticationTask(_apiApp));
-        Register(() => new LoadInstalledExtensionTask(GetTask<AuthenticationTask>(), _apiApp.GetResource<PackageManager>()));
+        Register(() => new LoadInstalledExtensionTask(_apiApp.GetResource<PackageManager>()));
         Register(() => new LoadPrimitiveExtensionTask());
         Register(() => new LoadSideloadExtensionTask(_apiApp.GetResource<PackageManager>()));
         Register(() => new AfterLoadingExtensionsTask(this, _viewModel));

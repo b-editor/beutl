@@ -1,5 +1,4 @@
 ﻿using Beutl.Api;
-using Beutl.Extensibility;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.ExtensionsPages;
 
@@ -12,9 +11,9 @@ public sealed class ExtensionsPageViewModel : IPageContext
     private readonly CompositeDisposable _disposables = new();
     private readonly CompositeDisposable _authDisposables = new();
     private readonly BeutlApiApplication _clients;
-    private DiscoverPageViewModel? _discover;
-    private LibraryPageViewModel? _library;
-    private DevelopPageViewModel? _develop;
+    private Lazy<DiscoverPageViewModel>? _discover;
+    private Lazy<LibraryPageViewModel>? _library;
+    private Lazy<DevelopPageViewModel>? _develop;
 
     public ExtensionsPageViewModel(BeutlApiApplication clients)
     {
@@ -35,12 +34,12 @@ public sealed class ExtensionsPageViewModel : IPageContext
                 }
                 else
                 {
-                    _discover = new DiscoverPageViewModel(_clients)
-                        .DisposeWith(_authDisposables);
-                    _library = new LibraryPageViewModel(user, _clients)
-                        .DisposeWith(_authDisposables);
-                    _develop = new DevelopPageViewModel(user, _clients)
-                        .DisposeWith(_authDisposables);
+                    _discover = new(() => new DiscoverPageViewModel(_clients)
+                        .DisposeWith(_authDisposables));
+                    _library = new(() => new LibraryPageViewModel(user, _clients)
+                        .DisposeWith(_authDisposables));
+                    _develop = new(() => new DevelopPageViewModel(user, _clients)
+                        .DisposeWith(_authDisposables));
                 }
             })
             .DisposeWith(_disposables);
@@ -49,13 +48,13 @@ public sealed class ExtensionsPageViewModel : IPageContext
     public ReadOnlyReactivePropertySlim<bool> IsAuthorized { get; }
 
     public DiscoverPageViewModel Discover
-        => _discover ?? throw new Exception("Authorization is required.");
+        => _discover?.Value ?? throw new Exception("Authorization is required.");
 
     public LibraryPageViewModel Library
-        => _library ?? throw new Exception("Authorization is required.");
+        => _library?.Value ?? throw new Exception("Authorization is required.");
 
     public DevelopPageViewModel Develop
-        => _develop ?? throw new Exception("Authorization is required.");
+        => _develop?.Value ?? throw new Exception("Authorization is required.");
 
     public PageExtension Extension => ExtensionsPageExtension.Instance;
 

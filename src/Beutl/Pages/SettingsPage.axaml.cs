@@ -3,6 +3,7 @@ using Avalonia.Controls;
 
 using Beutl.Controls.Navigation;
 using Beutl.Pages.SettingsPages;
+using Beutl.Services;
 using Beutl.ViewModels;
 
 using FluentAvalonia.UI.Controls;
@@ -161,6 +162,8 @@ public sealed partial class SettingsPage : UserControl
 
     private void Frame_Navigated(object sender, NavigationEventArgs e)
     {
+        Telemetry.NavigateSettingsPage(e.SourcePageType.Name);
+
         foreach (NavigationViewItem nvi in nav.MenuItems)
         {
             if (nvi.Tag is Type tag)
@@ -192,7 +195,8 @@ public sealed partial class SettingsPage : UserControl
             }
             else if (pagetype == typeof(StorageDetailPage)
                 || pagetype == typeof(EditorExtensionPriorityPage)
-                || pagetype == typeof(DecoderPriorityPage))
+                || pagetype == typeof(DecoderPriorityPage)
+                || pagetype == typeof(TelemetrySettingsPage))
             {
                 return 1;
             }
@@ -211,7 +215,7 @@ public sealed partial class SettingsPage : UserControl
                 "FontSettingsPage" => 2,
                 "ExtensionsSettingsPage" or "EditorExtensionPriorityPage" or "DecoderPriorityPage" => 3,
                 "StorageSettingsPage" or "StorageDetailPage" => 4,
-                "InfomationPage" => 5,
+                "InfomationPage" or "TelemetrySettingsPage" => 5,
                 _ => 0,
             };
         }
@@ -228,6 +232,7 @@ public sealed partial class SettingsPage : UserControl
                 "DecoderPriorityPageViewModel" => typeof(DecoderPriorityPage),
                 "StorageSettingsPageViewModel" => typeof(StorageSettingsPage),
                 "StorageDetailPageViewModel" => typeof(StorageDetailPage),
+                "TelemetrySettingsPageViewModel" => typeof(TelemetrySettingsPage),
                 _ => typeof(InfomationPage),
             };
         }

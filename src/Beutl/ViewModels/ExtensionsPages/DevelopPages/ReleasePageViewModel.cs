@@ -3,6 +3,8 @@ using Beutl.Api.Objects;
 
 using Beutl.ViewModels.Dialogs;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 using Serilog;
@@ -56,11 +58,16 @@ public sealed class ReleasePageViewModel : BasePageViewModel
         Save = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Services.Telemetry.StartActivity("ReleasePage.Save");
+
                 try
                 {
-                    using(await _user.Lock.LockAsync())
+                    using (await _user.Lock.LockAsync())
                     {
+                        activity?.AddEvent(new("Entered_AsyncLock"));
+
                         await _user.RefreshAsync();
+
                         await Release.UpdateAsync(new UpdateReleaseRequest(
                             Asset.Value?.Id,
                             Body.Value,
@@ -70,6 +77,8 @@ public sealed class ReleasePageViewModel : BasePageViewModel
                 }
                 catch (Exception ex)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(ex);
                     ErrorHandle(ex);
                     _logger.Error(ex, "An unexpected error has occurred.");
                 }
@@ -79,21 +88,28 @@ public sealed class ReleasePageViewModel : BasePageViewModel
         DiscardChanges = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Services.Telemetry.StartActivity("ReleasePage.DiscardChanges");
+
                 try
                 {
                     Title.Value = Release.Title.Value;
                     Body.Value = Release.Body.Value;
                     if (Asset.Value?.Id != Release.AssetId.Value)
                     {
-                        using(await _user.Lock.LockAsync())
+                        using (await _user.Lock.LockAsync())
                         {
+                            activity?.AddEvent(new("Entered_AsyncLock"));
+
                             await _user.RefreshAsync();
+
                             Asset.Value = await Release.GetAssetAsync();
                         }
                     }
                 }
                 catch (Exception ex)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(ex);
                     ErrorHandle(ex);
                     _logger.Error(ex, "An unexpected error has occurred.");
                 }
@@ -103,16 +119,23 @@ public sealed class ReleasePageViewModel : BasePageViewModel
         Delete = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Services.Telemetry.StartActivity("ReleasePage.Delete");
+
                 try
                 {
                     using (await _user.Lock.LockAsync())
                     {
+                        activity?.AddEvent(new("Entered_AsyncLock"));
+
                         await _user.RefreshAsync();
+
                         await Release.DeleteAsync();
                     }
                 }
                 catch (Exception ex)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(ex);
                     ErrorHandle(ex);
                     _logger.Error(ex, "An unexpected error has occurred.");
                 }
@@ -120,57 +143,34 @@ public sealed class ReleasePageViewModel : BasePageViewModel
             .DisposeWith(_disposables);
 
         MakePublic = new AsyncReactiveCommand()
-            .WithSubscribe(async () =>
-            {
-                try
-                {
-                    using (await _user.Lock.LockAsync())
-                    {
-                        await _user.RefreshAsync();
-                        await Release.UpdateAsync(isPublic: true);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    ErrorHandle(ex);
-                    _logger.Error(ex, "An unexpected error has occurred.");
-                }
-            })
+            .WithSubscribe(async () => await SetVisibility(true))
             .DisposeWith(_disposables);
 
         MakePrivate = new AsyncReactiveCommand()
-            .WithSubscribe(async () =>
-            {
-                try
-                {
-                    using (await _user.Lock.LockAsync())
-                    {
-                        await _user.RefreshAsync();
-                        await Release.UpdateAsync(isPublic: true);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    ErrorHandle(ex);
-                    _logger.Error(ex, "An unexpected error has occurred.");
-                }
-            })
+            .WithSubscribe(async () => await SetVisibility(false))
             .DisposeWith(_disposables);
 
         Refresh = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
+                using Activity? activity = Services.Telemetry.StartActivity("ReleasePage.Refresh");
+
                 try
                 {
                     using (await _user.Lock.LockAsync())
                     {
+                        activity?.AddEvent(new("Entered_AsyncLock"));
+
                         IsBusy.Value = true;
                         await _user.RefreshAsync();
+
                         await Release.RefreshAsync();
                     }
                 }
                 catch (Exception ex)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(ex);
                     ErrorHandle(ex);
                     _logger.Error(ex, "An unexpected error has occurred.");
                 }
@@ -221,5 +221,29 @@ public sealed class ReleasePageViewModel : BasePageViewModel
     public override void Dispose()
     {
         _disposables.Dispose();
+    }
+
+    private async Task SetVisibility(bool isPublic)
+    {
+        using Activity? activity = Services.Telemetry.StartActivity("ReleasePage.SetVisibility");
+
+        try
+        {
+            using (await _user.Lock.LockAsync())
+            {
+                activity?.AddEvent(new("Entered_AsyncLock"));
+
+                await _user.RefreshAsync();
+
+                await Release.UpdateAsync(isPublic: isPublic);
+            }
+        }
+        catch (Exception ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            activity?.RecordException(ex);
+            ErrorHandle(ex);
+            _logger.Error(ex, "An unexpected error has occurred.");
+        }
     }
 }

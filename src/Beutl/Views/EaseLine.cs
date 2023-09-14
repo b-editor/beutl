@@ -1,7 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls.Shapes;
 using Avalonia.Media;
-using Avalonia.Media.Transformation;
 
 using Beutl.Utilities;
 
