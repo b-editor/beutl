@@ -3,6 +3,7 @@ using Avalonia.Controls;
 
 using Beutl.Controls.Navigation;
 using Beutl.Pages.SettingsPages;
+using Beutl.Services;
 using Beutl.ViewModels;
 
 using FluentAvalonia.UI.Controls;
@@ -161,6 +162,8 @@ public sealed partial class SettingsPage : UserControl
 
     private void Frame_Navigated(object sender, NavigationEventArgs e)
     {
+        Telemetry.NavigateExtensionsPage(e.SourcePageType.Name);
+
         foreach (NavigationViewItem nvi in nav.MenuItems)
         {
             if (nvi.Tag is Type tag)

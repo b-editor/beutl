@@ -2,9 +2,7 @@
 using System.Text.Json.Nodes;
 using System.Windows.Input;
 
-using Avalonia;
 using Avalonia.Input;
-using Avalonia.Input.Platform;
 
 using Beutl.Animation;
 using Beutl.Api.Services;
@@ -14,9 +12,9 @@ using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Tools;
 
-using OpenTelemetry.Trace;
-
 using Reactive.Bindings;
+
+using Serilog;
 
 namespace Beutl.ViewModels;
 
@@ -40,11 +38,15 @@ public sealed class ToolTabViewModel : IDisposable
 
 public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, ISupportCloseAnimation
 {
+    private static readonly ILogger s_logger = Log.ForContext<EditViewModel>();
     private readonly CompositeDisposable _disposables = new();
+    // Telemetryで使う
+    private readonly string _sceneId;
 
     public EditViewModel(Scene scene)
     {
         Scene = scene;
+        _sceneId = scene.Id.ToString();
         Library = new LibraryViewModel(this)
             .DisposeWith(_disposables);
         Player = new PlayerViewModel(scene, IsEnabled)
@@ -184,14 +186,12 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public bool OpenToolTab(IToolContext item)
     {
-        using Activity? activity = Telemetry.ViewTracking.StartActivity("EditViewModel.OpenToolTab");
+        Telemetry.ToolTabOpened(item.Extension.Name, _sceneId);
+        s_logger.Information("OpenToolTab {ToolName}", item.Extension.Name);
         try
         {
-            activity?.SetTag("tool_name", item.Extension.Name);
-
             if (BottomTabItems.Any(x => x.Context == item) || RightTabItems.Any(x => x.Context == item))
             {
-                activity?.SetTag("already_exits", true);
                 item.IsSelected.Value = true;
                 return true;
             }
@@ -211,15 +211,14 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         }
         catch (Exception ex)
         {
-            activity?.SetStatus(ActivityStatusCode.Error);
-            activity?.RecordException(ex);
+            s_logger.Error(ex, "Failed to OpenToolTab.");
             return false;
         }
     }
 
     public void CloseToolTab(IToolContext item)
     {
-        using Activity? activity = Telemetry.ViewTracking.StartActivity("EditViewModel.CloseToolTab");
+        s_logger.Information("CloseToolTab {ToolName}", item.Extension.Name);
         try
         {
             if (BottomTabItems.FirstOrDefault(x => x.Context == item) is { } found0)
@@ -235,8 +234,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         }
         catch (Exception ex)
         {
-            activity?.SetStatus(ActivityStatusCode.Error);
-            activity?.RecordException(ex);
+            s_logger.Error(ex, "Failed to CloseToolTab.");
         }
     }
 

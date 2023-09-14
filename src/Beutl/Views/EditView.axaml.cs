@@ -9,6 +9,7 @@ using Avalonia.Input;
 using Avalonia.Threading;
 
 using Beutl.Controls;
+using Beutl.Services;
 using Beutl.ViewModels;
 
 namespace Beutl.Views;
@@ -30,14 +31,24 @@ public sealed partial class EditView : UserControl
 
         // 下部のタブ
         BottomTabView.ItemsSource = _bottomTabItems;
+        BottomTabView.GetObservable(SelectingItemsControl.SelectedItemProperty).Subscribe(OnTabViewSelectedItemChanged);
         _bottomTabItems.CollectionChanged += TabItems_CollectionChanged;
 
         // 右側のタブ
         RightTabView.ItemsSource = _rightTabItems;
+        RightTabView.GetObservable(SelectingItemsControl.SelectedItemProperty).Subscribe(OnTabViewSelectedItemChanged);
         _rightTabItems.CollectionChanged += TabItems_CollectionChanged;
 
         this.GetObservable(IsKeyboardFocusWithinProperty)
             .Subscribe(v => Player.SetSeekBarOpacity(v ? 1 : 0.8));
+    }
+
+    private void OnTabViewSelectedItemChanged(object? obj)
+    {
+        if (obj is BcTabItem { DataContext: ToolTabViewModel itemViewModel })
+        {
+            Telemetry.ToolTabSelected(itemViewModel.Context.Extension.Name);
+        }
     }
 
     private Image Image => _image ??= Player.GetImage();

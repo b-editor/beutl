@@ -106,6 +106,8 @@ public sealed partial class MainView : UserControl
         _logger.Information("WindowOpened");
 
         ShowTelemetryDialog();
+
+        Telemetry.WindowOpened();
     }
 
     private static async void ShowTelemetryDialog()
@@ -114,7 +116,8 @@ public sealed partial class MainView : UserControl
         if (!(tconfig.Beutl_Api_Client.HasValue
             && tconfig.Beutl_Application.HasValue
             && tconfig.Beutl_ViewTracking.HasValue
-            && tconfig.Beutl_PackageManagement.HasValue))
+            && tconfig.Beutl_PackageManagement.HasValue
+            && tconfig.Beutl_All_Errors.HasValue))
         {
             var dialog = new TelemetryDialog();
 
@@ -123,6 +126,7 @@ public sealed partial class MainView : UserControl
             tconfig.Beutl_Application = result;
             tconfig.Beutl_PackageManagement = result;
             tconfig.Beutl_ViewTracking = result;
+            tconfig.Beutl_All_Errors = result;
         }
     }
 

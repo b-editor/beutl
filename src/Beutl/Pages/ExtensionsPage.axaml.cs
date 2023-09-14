@@ -135,8 +135,7 @@ public sealed partial class ExtensionsPage : UserControl
 
     private void Frame_Navigating(object sender, NavigatingCancelEventArgs e)
     {
-        using Activity? activity = Telemetry.ViewTracking.StartActivity($"{e.SourcePageType.Name}.Navigating");
-        activity?.SetTag("navigate_mode", e.NavigationMode.ToString());
+        Telemetry.NavigateExtensionsPage(e.SourcePageType.Name);
 
         if (e.NavigationTransitionInfo is EntranceNavigationTransitionInfo entrance)
         {
