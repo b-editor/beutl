@@ -1,7 +1,5 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
-
-using Beutl.Controls.Navigation;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.ExtensionsPages;

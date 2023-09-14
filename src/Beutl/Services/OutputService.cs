@@ -3,8 +3,6 @@ using System.Text.Json.Nodes;
 
 using Beutl.Api.Services;
 
-using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.Services;

@@ -1,9 +1,7 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
-using Beutl.Api.Services;
 
 using Beutl.ViewModels.ExtensionsPages.DevelopPages;
-using Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using OpenTelemetry.Trace;
 

@@ -12,8 +12,6 @@ using Reactive.Bindings;
 
 using Serilog;
 
-using static Beutl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
-
 namespace Beutl.ViewModels.Dialogs;
 
 public class SelectAssetViewModel

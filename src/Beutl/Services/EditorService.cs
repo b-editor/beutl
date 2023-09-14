@@ -1,13 +1,10 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-using System.Text;
 
 using Beutl.Api.Services;
 
 using Beutl.Configuration;
-
-using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 

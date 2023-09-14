@@ -10,8 +10,6 @@ using Beutl.Views;
 
 using FluentAvalonia.UI.Controls;
 
-using Microsoft.Extensions.DependencyInjection;
-
 using Symbol = FluentIcons.Common.Symbol;
 using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 

@@ -72,7 +72,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         Apply = new ReactiveCommand(CanApply)
             .WithSubscribe(() =>
             {
-                if(TimeSpan.TryParse(DurationInput.Value, out TimeSpan ts))
+                if (TimeSpan.TryParse(DurationInput.Value, out TimeSpan ts))
                 {
                     if (Width.Value != _scene.Width
                         || Height.Value != _scene.Height

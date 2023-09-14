@@ -4,8 +4,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 
-using Beutl.Extensibility;
-
 namespace Beutl.Views.Editors;
 
 public partial class FilterEffectListItemEditor : UserControl, IListItemEditor

@@ -1,9 +1,9 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Styling;
 
 using Beutl.Api.Objects;
 using Beutl.ViewModels.Dialogs;
+
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Dialogs;

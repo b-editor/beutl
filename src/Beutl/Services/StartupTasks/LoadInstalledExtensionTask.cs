@@ -3,7 +3,6 @@
 using Avalonia.Threading;
 
 using Beutl.Api.Services;
-using Beutl.Services;
 
 using FluentAvalonia.UI.Controls;
 

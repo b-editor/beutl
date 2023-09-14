@@ -16,8 +16,6 @@ using Beutl.ViewModels.Editors;
 
 using FluentAvalonia.UI.Controls;
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Beutl.Views.Editors;
 
 public sealed class ListEditorDragBehavior : Behavior<Control>

@@ -7,7 +7,6 @@ using Avalonia.Media;
 using Avalonia.Media.Immutable;
 
 using Beutl.Commands;
-using Beutl.Extensibility;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes.Group;
 using Beutl.Services;

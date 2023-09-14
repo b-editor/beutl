@@ -5,7 +5,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data.Converters;
 using Avalonia.Interactivity;
 
-using Beutl.Extensibility;
 using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;

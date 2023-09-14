@@ -1,7 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
-using Avalonia.Controls.Generators;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
@@ -9,7 +8,6 @@ using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.Animation.Easings;
-using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
 

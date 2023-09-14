@@ -1,5 +1,4 @@
-﻿using Beutl.Extensibility;
-using Beutl.NodeTree;
+﻿using Beutl.NodeTree;
 
 namespace Beutl.ViewModels.NodeTree;
 

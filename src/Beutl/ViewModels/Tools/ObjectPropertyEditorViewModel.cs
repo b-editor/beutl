@@ -1,6 +1,5 @@
 ﻿using System.Text.Json.Nodes;
 
-using Beutl.Extensibility;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Editors;
 

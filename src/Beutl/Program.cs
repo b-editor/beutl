@@ -4,17 +4,11 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.ReactiveUI;
 
-using Azure.Monitor.OpenTelemetry.Exporter;
-
 using Beutl.Configuration;
 using Beutl.Rendering;
 using Beutl.Services;
 
 using Microsoft.Extensions.Logging;
-
-using OpenTelemetry;
-using OpenTelemetry.Resources;
-using OpenTelemetry.Trace;
 
 using Serilog;
 

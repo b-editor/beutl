@@ -8,10 +8,7 @@ using Avalonia.Media;
 
 using Beutl.ViewModels;
 
-using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls;
-
-using static Beutl.Views.Timeline;
 
 using TLVM = Beutl.ViewModels.ElementViewModel;
 

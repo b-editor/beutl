@@ -7,8 +7,6 @@ using Beutl.ViewModels.Editors;
 
 using DynamicData;
 
-using Microsoft.CodeAnalysis;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Tools;

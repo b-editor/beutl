@@ -17,8 +17,6 @@ using Beutl.Views.Dialogs;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
 
-using Reactive.Bindings;
-
 using Serilog;
 
 namespace Beutl.Views;

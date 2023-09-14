@@ -5,7 +5,6 @@ using Avalonia.Media;
 using Avalonia.Media.Immutable;
 
 using Beutl.Commands;
-using Beutl.Extensibility;
 using Beutl.NodeTree;
 
 using Reactive.Bindings;

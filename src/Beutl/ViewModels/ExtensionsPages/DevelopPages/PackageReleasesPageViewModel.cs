@@ -1,7 +1,5 @@
 ﻿using Beutl.Api.Objects;
 
-using Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
-
 using OpenTelemetry.Trace;
 
 using Reactive.Bindings;

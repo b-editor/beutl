@@ -6,7 +6,6 @@ using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Xaml.Interactivity;
 
-using Beutl.Extensibility;
 using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;

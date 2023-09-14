@@ -134,7 +134,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
                 try
                 {
                     IsBusy.Value = true;
-                    using(await _app.Lock.LockAsync())
+                    using (await _app.Lock.LockAsync())
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         await _app.AuthorizedUser.Value!.RefreshAsync();
@@ -170,7 +170,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
                 try
                 {
                     IsBusy.Value = true;
-                    using(await _app.Lock.LockAsync())
+                    using (await _app.Lock.LockAsync())
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         await _app.AuthorizedUser.Value!.RefreshAsync();

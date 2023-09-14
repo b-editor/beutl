@@ -62,7 +62,7 @@ public sealed class CreateNewSceneViewModel
                 size.Height > 0;
             }
             else return false;
-            
+
         }).ToReadOnlyReactivePropertySlim();
         Create = new ReactiveCommand(CanCreate);
         Create.Subscribe(() =>

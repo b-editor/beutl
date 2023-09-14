@@ -1,7 +1,6 @@
 ﻿using Avalonia;
 
 using Beutl.Controls.PropertyEditors;
-using Beutl.Extensibility;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -32,7 +31,7 @@ public sealed class RelativePointEditorViewModel : ValueEditorViewModel<Graphics
     public ReadOnlyReactivePropertySlim<float> FirstValue { get; }
 
     public ReadOnlyReactivePropertySlim<float> SecondValue { get; }
-    
+
     public ReadOnlyReactivePropertySlim<Graphics.RelativeUnit> UnitValue { get; }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)

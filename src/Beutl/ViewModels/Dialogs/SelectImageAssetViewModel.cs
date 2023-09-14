@@ -4,6 +4,8 @@ using Avalonia.Platform.Storage;
 using Beutl.Api.Objects;
 using Beutl.Services;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 using Serilog;

@@ -5,15 +5,12 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
-using Beutl.Graphics.Effects;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
 using Beutl.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
-
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
 

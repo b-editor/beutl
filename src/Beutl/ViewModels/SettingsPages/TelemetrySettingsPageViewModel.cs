@@ -53,7 +53,7 @@ public sealed class TelemetrySettingsPageViewModel : BasePageViewModel
     public ReactiveProperty<bool> Beutl_PackageManagement { get; }
 
     public ReactiveProperty<bool> Beutl_Api_Client { get; }
-    
+
     public ReactiveProperty<bool> Beutl_All_Errors { get; }
 
     public override void Dispose()

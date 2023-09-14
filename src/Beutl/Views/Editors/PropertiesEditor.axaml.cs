@@ -3,9 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 
-using Beutl.Extensibility;
-using Beutl.ViewModels.Editors;
-
 namespace Beutl.Views.Editors;
 
 public partial class PropertiesEditor : UserControl
