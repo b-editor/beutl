@@ -487,6 +487,7 @@ public sealed class OutputViewModel : IOutputContext
         }
         catch (Exception ex)
         {
+            Telemetry.Exception(ex);
             NotificationService.ShowError(Message.An_exception_occurred_during_output, ex.Message);
             _logger.Error(ex, "An exception occurred during output.");
         }

@@ -260,4 +260,10 @@
     <value>Beutlを改善するために、匿名の使用状況データを収集します。
 詳しくは以下のページをご覧ください。</value>
   </data>
+  <data name="Telemetry_All_Errors" xml:space="preserve">
+    <value>すべてのエラー</value>
+  </data>
+  <data name="Telemetry_Description_All_Errors" xml:space="preserve">
+    <value>発生したすべてのエラーを収集します。</value>
+  </data>
 </root>

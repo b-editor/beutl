@@ -8,6 +8,7 @@ public sealed class TelemetryConfig : ConfigurationBase
     public static readonly CoreProperty<bool?> Beutl_ViewTrackingProperty;
     public static readonly CoreProperty<bool?> Beutl_PackageManagementProperty;
     public static readonly CoreProperty<bool?> Beutl_Api_ClientProperty;
+    public static readonly CoreProperty<bool?> Beutl_All_ErrorsProperty;
 
     static TelemetryConfig()
     {
@@ -24,6 +25,10 @@ public sealed class TelemetryConfig : ConfigurationBase
             .Register();
 
         Beutl_Api_ClientProperty = ConfigureProperty<bool?, TelemetryConfig>(nameof(Beutl_Api_Client))
+            .DefaultValue(null)
+            .Register();
+
+        Beutl_All_ErrorsProperty = ConfigureProperty<bool?, TelemetryConfig>(nameof(Beutl_All_Errors))
             .DefaultValue(null)
             .Register();
     }
@@ -50,6 +55,12 @@ public sealed class TelemetryConfig : ConfigurationBase
     {
         get => GetValue(Beutl_Api_ClientProperty);
         set => SetValue(Beutl_Api_ClientProperty, value);
+    }
+    
+    public bool? Beutl_All_Errors
+    {
+        get => GetValue(Beutl_All_ErrorsProperty);
+        set => SetValue(Beutl_All_ErrorsProperty, value);
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)

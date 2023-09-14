@@ -130,6 +130,8 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
         Uninstall = new ReactiveCommand(IsBusy.Not())
             .WithSubscribe(() =>
             {
+                using Activity? activity = Telemetry.StartActivity("RemoteYourPackage.Uninstall");
+
                 try
                 {
                     IsBusy.Value = true;
@@ -143,6 +145,8 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 }
                 catch (Exception e)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.Error(e, "An unexpected error has occurred.");
                 }
@@ -176,7 +180,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
         RemoveFromLibrary = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("RemoteYourPackage.Install");
+                using Activity? activity = Telemetry.StartActivity("RemoteYourPackage.RemoveFromLibrary");
 
                 try
                 {

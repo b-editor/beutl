@@ -211,6 +211,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         }
         catch (Exception ex)
         {
+            Telemetry.Exception(ex);
             s_logger.Error(ex, "Failed to OpenToolTab.");
             return false;
         }
@@ -234,6 +235,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         }
         catch (Exception ex)
         {
+            Telemetry.Exception(ex);
             s_logger.Error(ex, "Failed to CloseToolTab.");
         }
     }

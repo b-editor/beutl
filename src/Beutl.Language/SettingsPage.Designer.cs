@@ -358,6 +358,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   All Errors に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_All_Errors {
+            get {
+                return ResourceManager.GetString("Telemetry_All_Errors", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   APIクライアント に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Telemetry_Beutl_Api_Client {
@@ -400,6 +409,15 @@ namespace Beutl.Language {
         public static string Telemetry_Description {
             get {
                 return ResourceManager.GetString("Telemetry_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Collect all errors that occur. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Description_All_Errors {
+            get {
+                return ResourceManager.GetString("Telemetry_Description_All_Errors", resourceCulture);
             }
         }
         

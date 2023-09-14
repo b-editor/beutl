@@ -4,6 +4,24 @@ namespace Beutl.Services;
 
 internal static partial class Telemetry
 {
+    public static void Exception(Exception exception, bool unhandled = false)
+    {
+        try
+        {
+            TelemetryConfig config = GlobalConfiguration.Instance.TelemetryConfig;
+            if (config.Beutl_All_Errors == true)
+            {
+                s_client.TrackException(exception, new Dictionary<string, string>
+                {
+                    ["unhandled"] = unhandled.ToString()
+                });
+            }
+        }
+        catch
+        {
+        }
+    }
+
     public static void NavigateExtensionsPage(string pageName)
     {
         TrackPageView($"/ExtensionsPage/{pageName}");

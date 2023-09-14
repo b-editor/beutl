@@ -2,6 +2,9 @@
 
 using Beutl.Api;
 using Beutl.Api.Objects;
+using Beutl.Services;
+
+using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
 
@@ -147,6 +150,7 @@ public class CreateAssetViewModel
 
     public async Task SubmitAsync()
     {
+        using Activity? activity = Telemetry.StartActivity("CreateAsset.Submit");
         try
         {
             _cts = new CancellationTokenSource();
@@ -181,11 +185,15 @@ public class CreateAssetViewModel
         }
         catch (BeutlApiException<ApiErrorResponse> ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            activity?.RecordException(ex);
             ProgressStatus.Value = Message.AnUnexpectedErrorHasOccurred;
             Error.Value = ex.Result.Message;
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            activity?.RecordException(e);
             _logger.Error(e, "Failed to upload a file.");
             ProgressStatus.Value = Message.AnUnexpectedErrorHasOccurred;
             Error.Value = e.Message;

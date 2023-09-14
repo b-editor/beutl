@@ -26,10 +26,11 @@ public class SelectImageAssetViewModel
 
         Refresh.Subscribe(async () =>
         {
+            using Activity? activity = Telemetry.StartActivity("SelectImageAsset.Refresh");
             try
             {
                 IsBusy.Value = true;
-                using(await _user.Lock.LockAsync())
+                using (await _user.Lock.LockAsync())
                 {
                     await _user.RefreshAsync();
 
@@ -47,8 +48,10 @@ public class SelectImageAssetViewModel
                     } while (prevCount == 30);
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
+                activity?.SetStatus(ActivityStatusCode.Error);
+                activity?.RecordException(ex);
                 _logger.Error(ex, "An exception occurred while loading the asset.");
                 NotificationService.ShowError(Message.An_exception_occurred_while_loading_the_asset, ex.Message);
             }

@@ -86,8 +86,9 @@ public sealed class OutputQueueItem : IDisposable
                 return null;
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Telemetry.Exception(ex);
             return null;
         }
     }

@@ -3,6 +3,9 @@
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Services;
+
+using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
 
@@ -22,6 +25,7 @@ public sealed class UpdatePackageDialogViewModel
         _discoverService = discoverService;
         SelectedFile.Subscribe(async file =>
         {
+            using Activity? activity = Telemetry.StartActivity("UpdatePackageDialog.SelectFile");
             try
             {
                 IsFileLoading.Value = true;
@@ -41,6 +45,8 @@ public sealed class UpdatePackageDialogViewModel
             }
             catch (Exception ex)
             {
+                activity?.SetStatus(ActivityStatusCode.Error);
+                activity?.RecordException(ex);
                 Error.Value = Message.AnUnexpectedErrorHasOccurred;
                 _logger.Error(ex, "An unexpected error has occurred.");
             }
@@ -69,6 +75,7 @@ public sealed class UpdatePackageDialogViewModel
 
     public async Task<Release?> UpdateAsync()
     {
+        using Activity? activity = Telemetry.StartActivity("UpdatePackageDialog.Update");
         try
         {
             using (await _user.Lock.LockAsync())
@@ -114,12 +121,16 @@ public sealed class UpdatePackageDialogViewModel
         }
         catch (BeutlApiException<ApiErrorResponse> e)
         {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            activity?.RecordException(e);
             Error.Value = e.Result.Message;
             _logger.Error(e, "API error occurred.");
             return null;
         }
         catch (Exception e)
         {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            activity?.RecordException(e);
             Error.Value = Message.AnUnexpectedErrorHasOccurred;
             _logger.Error(e, "An unexpected error has occurred.");
             return null;

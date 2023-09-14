@@ -34,10 +34,16 @@ public sealed class TelemetrySettingsPageViewModel : BasePageViewModel
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
+        Beutl_All_Errors = _config.GetObservable(TelemetryConfig.Beutl_All_ErrorsProperty)
+            .Select(v => v == true)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+
         Beutl_Application.Subscribe(b => _config.Beutl_Application = b);
         Beutl_ViewTracking.Subscribe(b => _config.Beutl_ViewTracking = b);
         Beutl_PackageManagement.Subscribe(b => _config.Beutl_PackageManagement = b);
         Beutl_Api_Client.Subscribe(b => _config.Beutl_Api_Client = b);
+        Beutl_All_Errors.Subscribe(b => _config.Beutl_All_Errors = b);
     }
 
     public ReactiveProperty<bool> Beutl_Application { get; }
@@ -47,6 +53,8 @@ public sealed class TelemetrySettingsPageViewModel : BasePageViewModel
     public ReactiveProperty<bool> Beutl_PackageManagement { get; }
 
     public ReactiveProperty<bool> Beutl_Api_Client { get; }
+    
+    public ReactiveProperty<bool> Beutl_All_Errors { get; }
 
     public override void Dispose()
     {

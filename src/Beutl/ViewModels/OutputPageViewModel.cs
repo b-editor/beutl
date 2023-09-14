@@ -42,6 +42,7 @@ public sealed class OutputPageViewModel : BasePageViewModel, IPageContext
         }
         catch (Exception e)
         {
+            Telemetry.Exception(e);
             ErrorHandle(e);
         }
     }

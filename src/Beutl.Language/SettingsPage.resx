@@ -260,4 +260,10 @@ Time the application was started, elapsed time of operation, and number of items
     <value>To improve Beutl, we collect anonymous usage data.
 For more information, please refer to the following pages.</value>
   </data>
+  <data name="Telemetry_All_Errors" xml:space="preserve">
+    <value>All Errors</value>
+  </data>
+  <data name="Telemetry_Description_All_Errors" xml:space="preserve">
+    <value>Collect all errors that occur.</value>
+  </data>
 </root>

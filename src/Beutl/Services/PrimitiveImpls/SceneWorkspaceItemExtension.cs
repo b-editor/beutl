@@ -61,6 +61,7 @@ public sealed class SceneProjectItemExtension : ProjectItemExtension
             }
             catch (Exception ex)
             {
+                Telemetry.Exception(ex);
                 _logger.Error(ex, "Unable to restore the scene.");
                 return false;
             }

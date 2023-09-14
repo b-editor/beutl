@@ -63,6 +63,7 @@ public partial class MainView
         }
         catch (Exception e)
         {
+            Telemetry.Exception(e);
             exception = e;
         }
 

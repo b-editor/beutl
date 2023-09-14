@@ -3,6 +3,8 @@
 using Beutl.Configuration;
 using Beutl.Services;
 
+using OpenTelemetry.Trace;
+
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -92,6 +94,7 @@ public partial class MenuBarViewModel
 
     private async Task OnSaveAll()
     {
+        using var activity = Telemetry.StartActivity("SaveAll");
         Project? project = ProjectService.Current.CurrentProject.Value;
         int itemsCount = 0;
 
@@ -121,13 +124,20 @@ public partial class MenuBarViewModel
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            activity?.RecordException(ex);
             _logger.Error(ex, "Failed to save files");
             NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
+        }
+        finally
+        {
+            activity?.SetTag("itemsCount", itemsCount);
         }
     }
 
     private async Task OnSave()
     {
+        using Activity? activity = Telemetry.StartActivity("Save");
         EditorTabItem? item = EditorService.Current.SelectedTabItem.Value;
         if (item != null)
         {
@@ -148,6 +158,8 @@ public partial class MenuBarViewModel
             }
             catch (Exception ex)
             {
+                activity?.SetStatus(ActivityStatusCode.Error);
+                activity?.RecordException(ex);
                 _logger.Error(ex, "Failed to save file");
                 NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             }
