@@ -50,6 +50,7 @@ public sealed partial class EditView : UserControl
     private void OnPlayerTemplateApplied(object? sender, TemplateAppliedEventArgs e)
     {
         // EditView.axaxml.MouseControl.cs
+        ConfigureFrameContextMenu(Image);
         Image.PointerPressed += OnImagePointerPressed;
         Image.PointerReleased += OnImagePointerReleased;
         Image.PointerMoved += OnImagePointerMoved;
@@ -59,7 +60,7 @@ public sealed partial class EditView : UserControl
             {
                 if (DataContext is EditViewModel { Player: { } player })
                 {
-                    player.MaxFrameSize = s.Size;
+                    player.MaxFrameSize = new((float)s.Size.Width, (float)s.Size.Height);
                 }
             });
     }

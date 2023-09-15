@@ -18,4 +18,70 @@ public static class SharedFilePickerOptions
     {
         FileTypeFilter = new[] { NuGetPackageFileType }
     };
+
+    public static FilePickerOpenOptions OpenImage()
+    {
+        return new()
+        {
+            FileTypeFilter = new FilePickerFileType[]
+            {
+                new FilePickerFileType("All Images")
+                {
+                    Patterns = new string[]
+                    {
+                        // SKEncodedImageFormat
+                        "*.bmp",
+                        "*.gif",
+                        "*.ico",
+                        "*.jpg",
+                        "*.jpeg",
+                        "*.png",
+                        "*.wbmp",
+                        "*.webp",
+                        "*.pkm",
+                        "*.ktx",
+                        "*.astc",
+                        "*.dng",
+                        "*.heif",
+                        "*.avif",
+                    },
+                    AppleUniformTypeIdentifiers = new[] { "public.image" },
+                    MimeTypes = new[] { "image/*" }
+                }
+            }
+        };
+    }
+
+    public static FilePickerSaveOptions SaveImage()
+    {
+        return new()
+        {
+            FileTypeChoices = new FilePickerFileType[]
+            {
+                new FilePickerFileType("All Images")
+                {
+                    Patterns = new string[]
+                    {
+                        // SKEncodedImageFormat
+                        "*.bmp",
+                        "*.gif",
+                        "*.ico",
+                        "*.jpg",
+                        "*.jpeg",
+                        "*.png",
+                        "*.wbmp",
+                        "*.webp",
+                        "*.pkm",
+                        "*.ktx",
+                        "*.astc",
+                        "*.dng",
+                        "*.heif",
+                        "*.avif",
+                    },
+                    AppleUniformTypeIdentifiers = new[] { "public.image" },
+                    MimeTypes = new[] { "image/*" }
+                }
+            }
+        };
+    }
 }

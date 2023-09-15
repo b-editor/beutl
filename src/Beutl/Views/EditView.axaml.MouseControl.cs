@@ -1,12 +1,25 @@
-﻿using Avalonia;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 
 using Beutl.Animation;
 using Beutl.Commands;
+using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
+using Beutl.Media;
+using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
+using Beutl.Rendering;
+using Beutl.Rendering.Cache;
+using Beutl.Services;
 using Beutl.ViewModels;
+
+using SkiaSharp;
+
+using AvaImage = Avalonia.Controls.Image;
+using AvaPoint = Avalonia.Point;
 
 namespace Beutl.Views;
 
@@ -67,24 +80,28 @@ public partial class EditView
     private sealed class MouseControlState
     {
         public bool _imagePressed;
-        public Point _scaledStartPosition;
+        public AvaPoint _scaledStartPosition;
         public Element? _mouseSelectedElement;
-        public Graphics.Drawable? _mouseSelected;
+        public Drawable? _mouseSelected;
         public TranslateTransform? _translateTransform;
         public Graphics.Point _oldTranslation;
         public KeyFrameState? _xKeyFrame;
         public KeyFrameState? _yKeyFrame;
 
-        public required Image Image { get; init; }
+        public required AvaImage Image { get; init; }
 
         public required EditViewModel viewModel { get; init; }
 
-        private static double Length(Point point)
+        public Drawable? Drawable => _mouseSelected;
+
+        public Element? Element => _mouseSelectedElement;
+
+        private static double Length(AvaPoint point)
         {
             return Math.Sqrt((point.X * point.X) + (point.Y * point.Y));
         }
 
-        private static TranslateTransform? FindOrCreateTranslation(Graphics.Drawable drawable)
+        private static TranslateTransform? FindOrCreateTranslation(Drawable drawable)
         {
             switch (drawable.Transform)
             {
@@ -135,10 +152,10 @@ public partial class EditView
             if (_imagePressed && _mouseSelected != null)
             {
                 PointerPoint pointerPoint = e.GetCurrentPoint(Image);
-                Point imagePosition = pointerPoint.Position;
+                AvaPoint imagePosition = pointerPoint.Position;
                 double scaleX = Image.Bounds.Size.Width / viewModel.Scene.Width;
-                Point scaledPosition = imagePosition / scaleX;
-                Point delta = scaledPosition - _scaledStartPosition;
+                AvaPoint scaledPosition = imagePosition / scaleX;
+                AvaPoint delta = scaledPosition - _scaledStartPosition;
                 if (_translateTransform == null && Length(delta) >= 1)
                 {
                     _translateTransform = FindOrCreateTranslation(_mouseSelected);
@@ -231,8 +248,8 @@ public partial class EditView
 
         public void OnPressed(PointerPoint pointerPoint)
         {
-            _imagePressed = true;
-            Point imagePosition = pointerPoint.Position;
+            _imagePressed = pointerPoint.Properties.IsLeftButtonPressed;
+            AvaPoint imagePosition = pointerPoint.Position;
             double scaleX = Image.Bounds.Size.Width / viewModel.Scene.Width;
             _scaledStartPosition = imagePosition / scaleX;
 
@@ -240,7 +257,7 @@ public partial class EditView
 
             if (_mouseSelected != null)
             {
-                int zindex = (_mouseSelected as Graphics.DrawableDecorator)?.OriginalZIndex ?? _mouseSelected.ZIndex;
+                int zindex = (_mouseSelected as DrawableDecorator)?.OriginalZIndex ?? _mouseSelected.ZIndex;
                 Scene scene = viewModel.Scene;
 
                 _mouseSelectedElement = scene.Children.FirstOrDefault(v =>
@@ -256,7 +273,72 @@ public partial class EditView
         }
     }
 
+    private readonly WeakReference<Drawable?> _lastSelected = new(null);
     private MouseControlState? _mouseState;
+    private MenuItem? _saveElementAsImage;
+
+    private void ConfigureFrameContextMenu(AvaImage image)
+    {
+        _saveElementAsImage = new MenuItem
+        {
+            Header = "選択された要素を画像として保存",
+            IsEnabled = false
+        };
+        _saveElementAsImage.Click += OnSaveElementAsImageClick;
+
+        var menu = new ContextMenu()
+        {
+            Items =
+            {
+                _saveElementAsImage
+            }
+        };
+        menu.Opening += FrameContextMenuOpening;
+        image.ContextMenu = menu;
+    }
+
+    private void FrameContextMenuOpening(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_saveElementAsImage != null)
+        {
+            _saveElementAsImage.IsEnabled = _lastSelected.TryGetTarget(out _);
+        }
+    }
+
+    private async void OnSaveElementAsImageClick(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this)?.StorageProvider is { } storage
+            && DataContext is EditViewModel { Scene: Scene scene } viewModel
+            && _lastSelected.TryGetTarget(out Drawable? drawable))
+        {
+            try
+            {
+                Task<Bitmap<Bgra8888>> renderTask = viewModel.Player.DrawSelectedDrawable(drawable);
+
+                FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
+                options.SuggestedFileName = DateTime.Now.ToString("yyyy-dd-MM HHmmss");
+                options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Pictures);
+                options.DefaultExtension = "png";
+                IStorageFile? file = await storage.SaveFilePickerAsync(options);
+
+                if (file != null)
+                {
+                    string str = file.Path.ToString();
+                    EncodedImageFormat format = Graphics.Image.ToImageFormat(str);
+
+                    using Bitmap<Bgra8888> bitmap = await renderTask;
+                    using Stream stream = await file.OpenWriteAsync();
+
+                    bitmap.Save(stream, format);
+                }
+            }
+            catch (Exception ex)
+            {
+                Telemetry.Exception(ex);
+                NotificationService.ShowError("画像の保存に失敗しました。", ex.Message);
+            }
+        }
+    }
 
     private void OnImagePointerMoved(object? sender, PointerEventArgs e)
     {
@@ -272,7 +354,7 @@ public partial class EditView
     private void OnImagePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         PointerPoint pointerPoint = e.GetCurrentPoint(Image);
-        if (pointerPoint.Properties.IsLeftButtonPressed && DataContext is EditViewModel viewModel)
+        if (DataContext is EditViewModel viewModel)
         {
             _mouseState = new MouseControlState
             {
@@ -281,6 +363,7 @@ public partial class EditView
             };
 
             _mouseState.OnPressed(pointerPoint);
+            _lastSelected.SetTarget(_mouseState._mouseSelected);
         }
     }
 }

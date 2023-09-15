@@ -44,6 +44,11 @@ internal static class SkiaSharpExtensions
         return new SKRect(r.X, r.Y, r.Right, r.Bottom);
     }
 
+    public static SKRectI ToSKRectI(this in PixelRect r)
+    {
+        return new SKRectI(r.X, r.Y, r.Right, r.Bottom);
+    }
+
     public static SKSize ToSKSize(this in Size s)
     {
         return new SKSize(s.Width, s.Height);

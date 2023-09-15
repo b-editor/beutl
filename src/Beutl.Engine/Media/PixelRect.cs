@@ -373,6 +373,18 @@ public readonly struct PixelRect
     }
 
     /// <summary>
+    /// Converts a <see cref="Rect"/> to device pixels.
+    /// </summary>
+    /// <param name="rect">The rect.</param>
+    /// <returns>The device-independent rect.</returns>
+    public static PixelRect FromRect(Rect rect)
+    {
+        return new PixelRect(
+            PixelPoint.FromPoint(rect.Position),
+            FromPointCeiling(rect.BottomRight));
+    }
+
+    /// <summary>
     /// Converts a <see cref="Rect"/> to device pixels using the specified scaling factor.
     /// </summary>
     /// <param name="rect">The rect.</param>
@@ -490,6 +502,13 @@ public readonly struct PixelRect
         return new PixelPoint(
             (int)Math.Ceiling(point.X * scale.X),
             (int)Math.Ceiling(point.Y * scale.Y));
+    }
+
+    private static PixelPoint FromPointCeiling(Point point)
+    {
+        return new PixelPoint(
+            (int)Math.Ceiling(point.X),
+            (int)Math.Ceiling(point.Y));
     }
 
     static void ITupleConvertible<PixelRect, int>.ConvertTo(PixelRect self, Span<int> tuple)

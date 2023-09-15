@@ -1,16 +1,18 @@
-﻿using Avalonia;
-using Avalonia.Media;
-using Avalonia.Media.Imaging;
+﻿using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 
 using Beutl.Audio.Platforms.OpenAL;
 using Beutl.Audio.Platforms.XAudio2;
 using Beutl.Configuration;
+using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
+using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;
+using Beutl.Rendering.Cache;
 using Beutl.Services;
 
 using OpenTK.Audio.OpenAL;
@@ -18,6 +20,8 @@ using OpenTK.Audio.OpenAL;
 using Reactive.Bindings;
 
 using Serilog;
+
+using SkiaSharp;
 
 using Vortice.Multimedia;
 
@@ -117,7 +121,7 @@ public sealed class PlayerViewModel : IDisposable
 
     public Project? Project => Scene?.FindHierarchicalParent<Project>();
 
-    public ReactivePropertySlim<IImage> PreviewImage { get; } = new();
+    public ReactivePropertySlim<Avalonia.Media.IImage> PreviewImage { get; } = new();
 
     public ReactivePropertySlim<bool> IsPlaying { get; } = new();
 
@@ -387,7 +391,7 @@ public sealed class PlayerViewModel : IDisposable
         });
     }
 
-    private unsafe void UpdateImage(Media.Bitmap<Bgra8888> source)
+    private unsafe void UpdateImage(Bitmap<Bgra8888> source)
     {
         WriteableBitmap bitmap;
 
@@ -425,14 +429,14 @@ public sealed class PlayerViewModel : IDisposable
             if (scale == 0)
                 scale = 1;
 
-            Graphics.ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
-            Graphics.Rect[] boundary = renderer.RenderScene[selected.Value].GetBoundaries();
+            ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
+            Rect[] boundary = renderer.RenderScene[selected.Value].GetBoundaries();
             if (boundary.Length > 0)
             {
                 var pen = new Media.Immutable.ImmutablePen(Media.Brushes.White, null, 0, 1 / scale);
                 bool exactBounds = GlobalConfiguration.Instance.ViewConfig.ShowExactBoundaries;
 
-                foreach (Graphics.Rect item in renderer.RenderScene[selected.Value].GetBoundaries())
+                foreach (Rect item in renderer.RenderScene[selected.Value].GetBoundaries())
                 {
                     var rect = item;
                     if (!exactBounds)
@@ -497,5 +501,53 @@ public sealed class PlayerViewModel : IDisposable
         _disposables.Dispose();
         PreviewInvalidated = null;
         Scene = null!;
+    }
+
+    public Task<Bitmap<Bgra8888>> DrawSelectedDrawable(Drawable drawable)
+    {
+        Pause();
+
+        return RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            if (Scene == null) throw new Exception("Scene is null.");
+            IRenderer renderer = Scene.Renderer;
+            PixelSize frameSize = renderer.FrameSize;
+            using var root = new DrawableNode(drawable);
+            using var dcanvas = new DeferradCanvas(root, frameSize);
+            drawable.Render(dcanvas);
+
+            Rect bounds = root.Bounds;
+            var rect = PixelRect.FromRect(bounds);
+            using SKSurface? surface = renderer.CreateRenderTarget(rect.Width, rect.Height)
+                ?? throw new Exception("surface is null");
+
+            using ImmediateCanvas icanvas = renderer.CreateCanvas(surface, true);
+
+            RenderCacheContext? cacheContext = renderer.GetCacheContext();
+            RenderCacheOptions? restoreCacheOptions = null;
+
+            if (cacheContext != null)
+            {
+                restoreCacheOptions = cacheContext.CacheOptions;
+                cacheContext.CacheOptions = RenderCacheOptions.Disabled;
+            }
+
+            try
+            {
+                using (icanvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
+                {
+                    icanvas.DrawNode(root);
+                }
+
+                return icanvas.GetBitmap();
+            }
+            finally
+            {
+                if (cacheContext != null && restoreCacheOptions != null)
+                {
+                    cacheContext.CacheOptions = restoreCacheOptions;
+                }
+            }
+        });
     }
 }
