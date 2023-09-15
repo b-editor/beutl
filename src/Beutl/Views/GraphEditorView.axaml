@@ -222,7 +222,8 @@
                                                               StartPoint="{Binding ControlPoint2.Value}"
                                                               EndPoint="{Binding RightTop.Value}" />
 
-                                                        <Path HorizontalAlignment="Left"
+                                                        <Path Name="KeyTimeIcon"
+                                                              HorizontalAlignment="Left"
                                                               VerticalAlignment="Top"
                                                               Classes.decreasing="{Binding Decreasing.Value}"
                                                               Fill="{DynamicResource SystemFillColorCaution}"
@@ -274,7 +275,6 @@
                                                         </Path>
                                                     </Panel>
                                                 </Border>
-
                                             </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>

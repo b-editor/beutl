@@ -239,7 +239,11 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     {
         if (Model.Easing is SplineEasing splineEasing)
         {
-            var command = new SubmitControlPointCommand((oldX, oldY), (splineEasing.X1, splineEasing.Y1), splineEasing, true);
+            var oldValues = (oldX, oldY);
+            var newValues = (splineEasing.X1, splineEasing.Y1);
+            if (oldValues == newValues)
+                return;
+            var command = new SubmitControlPointCommand(oldValues, newValues, splineEasing, true);
             command.DoAndRecord(CommandRecorder.Default);
         }
     }
@@ -248,7 +252,11 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     {
         if (Model.Easing is SplineEasing splineEasing)
         {
-            var command = new SubmitControlPointCommand((oldX, oldY), (splineEasing.X2, splineEasing.Y2), splineEasing, false);
+            var oldValues = (oldX, oldY);
+            var newValues = (splineEasing.X2, splineEasing.Y2);
+            if (oldValues == newValues)
+                return;
+            var command = new SubmitControlPointCommand(oldValues, newValues, splineEasing, false);
             command.DoAndRecord(CommandRecorder.Default);
         }
     }
