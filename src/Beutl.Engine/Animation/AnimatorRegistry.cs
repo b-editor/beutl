@@ -40,6 +40,11 @@ public static class AnimatorRegistry
         (type => typeof(Graphics.Vector).IsAssignableFrom(type), typeof(VectorAnimator)),
     };
 
+    public static Animator<T> CreateAnimator<T>()
+    {
+        return (Activator.CreateInstance(GetAnimatorType(typeof(T))) as Animator<T>) ?? new _Animator<T>();
+    }
+
     public static Type GetAnimatorType(Type type)
     {
         foreach ((Func<Type, bool> condition, Type animator) in s_animators)
