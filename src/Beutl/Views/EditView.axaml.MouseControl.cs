@@ -6,17 +6,14 @@ using Avalonia.Platform.Storage;
 using Beutl.Animation;
 using Beutl.Commands;
 using Beutl.Graphics;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
-using Beutl.Rendering;
-using Beutl.Rendering.Cache;
 using Beutl.Services;
 using Beutl.ViewModels;
 
-using SkiaSharp;
+using FluentAvalonia.UI.Controls;
 
 using AvaImage = Avalonia.Controls.Image;
 using AvaPoint = Avalonia.Point;
@@ -84,7 +81,7 @@ public partial class EditView
         public Element? _mouseSelectedElement;
         public Drawable? _mouseSelected;
         public TranslateTransform? _translateTransform;
-        public Graphics.Point _oldTranslation;
+        public Point _oldTranslation;
         public KeyFrameState? _xKeyFrame;
         public KeyFrameState? _yKeyFrame;
 
@@ -276,6 +273,7 @@ public partial class EditView
     private readonly WeakReference<Drawable?> _lastSelected = new(null);
     private MouseControlState? _mouseState;
     private MenuItem? _saveElementAsImage;
+    private MenuItem? _saveFrameAsImage;
 
     private void ConfigureFrameContextMenu(AvaImage image)
     {
@@ -285,11 +283,21 @@ public partial class EditView
             IsEnabled = false
         };
         _saveElementAsImage.Click += OnSaveElementAsImageClick;
+        _saveFrameAsImage = new MenuItem
+        {
+            Header = "フレームを画像として保存",
+            Icon = new SymbolIcon
+            {
+                Symbol = Symbol.Image
+            },
+        };
+        _saveFrameAsImage.Click += OnSaveFrameAsImageClick;
 
         var menu = new ContextMenu()
         {
             Items =
             {
+                _saveFrameAsImage,
                 _saveElementAsImage
             }
         };
@@ -305,6 +313,25 @@ public partial class EditView
         }
     }
 
+    private static async Task<IStorageFile?> SaveImageFilePicker(string name, IStorageProvider storage)
+    {
+        FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
+        options.SuggestedFileName = $"{name} {DateTime.Now:yyyy-dd-MM HHmmss}";
+        options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Pictures);
+        options.DefaultExtension = "png";
+        return await storage.SaveFilePickerAsync(options);
+    }
+
+    private static async Task SaveImage(IStorageFile file, Bitmap<Bgra8888> bitmap)
+    {
+        string str = file.Path.ToString();
+        EncodedImageFormat format = Graphics.Image.ToImageFormat(str);
+
+        using Stream stream = await file.OpenWriteAsync();
+
+        bitmap.Save(stream, format);
+    }
+
     private async void OnSaveElementAsImageClick(object? sender, RoutedEventArgs e)
     {
         if (TopLevel.GetTopLevel(this)?.StorageProvider is { } storage
@@ -316,20 +343,41 @@ public partial class EditView
                 Task<Bitmap<Bgra8888>> renderTask = viewModel.Player.DrawSelectedDrawable(drawable);
 
                 FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
-                options.SuggestedFileName = DateTime.Now.ToString("yyyy-dd-MM HHmmss");
-                options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Pictures);
-                options.DefaultExtension = "png";
-                IStorageFile? file = await storage.SaveFilePickerAsync(options);
+                Type type = drawable.GetType();
+                string addtional = LibraryService.Current.FindItem(type)?.DisplayName ?? type.Name;
+                IStorageFile? file = await SaveImageFilePicker(addtional, storage);
 
                 if (file != null)
                 {
-                    string str = file.Path.ToString();
-                    EncodedImageFormat format = Graphics.Image.ToImageFormat(str);
-
                     using Bitmap<Bgra8888> bitmap = await renderTask;
-                    using Stream stream = await file.OpenWriteAsync();
+                    await SaveImage(file, bitmap);
+                }
+            }
+            catch (Exception ex)
+            {
+                Telemetry.Exception(ex);
+                NotificationService.ShowError("画像の保存に失敗しました。", ex.Message);
+            }
+        }
+    }
 
-                    bitmap.Save(stream, format);
+    private async void OnSaveFrameAsImageClick(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this)?.StorageProvider is { } storage
+            && DataContext is EditViewModel { Scene: Scene scene } viewModel)
+        {
+            try
+            {
+                Task<Bitmap<Bgra8888>> renderTask = viewModel.Player.DrawFrame();
+
+                FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
+                string addtional = Path.GetFileNameWithoutExtension(scene.FileName);
+                IStorageFile? file = await SaveImageFilePicker(addtional, storage);
+
+                if (file != null)
+                {
+                    using Bitmap<Bgra8888> bitmap = await renderTask;
+                    await SaveImage(file, bitmap);
                 }
             }
             catch (Exception ex)
