@@ -383,9 +383,10 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     public override void PrepareToEditAnimation()
     {
         if (WrappedProperty is IAbstractAnimatableProperty<T> animatableProperty
-            && animatableProperty.Animation is not KeyFrameAnimation<T>)
+            && animatableProperty.Animation is not KeyFrameAnimation<T>
+            && animatableProperty.GetCoreProperty() is CoreProperty<T> coreProperty)
         {
-            var command = new PrepareAnimationCommand(animatableProperty);
+            var command = new PrepareAnimationCommand(animatableProperty, coreProperty);
             command.DoAndRecord(CommandRecorder.Default);
         }
     }
@@ -488,20 +489,25 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         private readonly IAbstractAnimatableProperty<T> _property;
         private readonly IAnimation<T>? _oldAnimation;
+        private readonly KeyFrameAnimation<T>? _newAnimation;
 
-        public PrepareAnimationCommand(IAbstractAnimatableProperty<T> property)
+        public PrepareAnimationCommand(IAbstractAnimatableProperty<T> property, CoreProperty<T> coreProperty)
         {
             _property = property;
             _oldAnimation = _property.Animation;
+            _newAnimation = new KeyFrameAnimation<T>(coreProperty);
+            T initialValue = property.GetValue()!;
+            _newAnimation.KeyFrames.Add(new KeyFrame<T>
+            {
+                Value = initialValue,
+                Easing = new SplineEasing(),
+                KeyTime = TimeSpan.Zero
+            });
         }
 
         public void Do()
         {
-            if (_property.GetCoreProperty() is CoreProperty<T> coreProp
-                && _property.Animation is not KeyFrameAnimation<T>)
-            {
-                _property.Animation = new KeyFrameAnimation<T>(coreProp);
-            }
+            _property.Animation = _newAnimation;
         }
 
         public void Redo()
