@@ -115,4 +115,18 @@ public class KeyFrames : CoreList<IKeyFrame>
 
         return Count - 1;
     }
+
+    public int IndexAtOrCount(TimeSpan timeSpan)
+    {
+        for (int i = 0; i < Count; i++)
+        {
+            IKeyFrame next = this[i];
+            if (timeSpan <= next.KeyTime)
+            {
+                return i;
+            }
+        }
+
+        return Count;
+    }
 }

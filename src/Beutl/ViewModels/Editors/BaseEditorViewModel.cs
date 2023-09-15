@@ -75,13 +75,13 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                 {
                     if (GetAnimation() is { } animation)
                     {
-                        (int oldIndex, _) = t.OldValue;
-                        (int newIndex, KeyFrames? keyframes) = t.NewValue;
+                        (float oldIndex, _) = t.OldValue;
+                        (float newIndex, KeyFrames? keyframes) = t.NewValue;
 
-                        if (_editViewModel != null && keyframes != null
-                            && 0 <= newIndex && newIndex < keyframes.Count)
+                        if (_editViewModel != null && keyframes != null)
                         {
-                            EditingKeyFrame.Value = keyframes[newIndex];
+                            int newCeiled = (int)Math.Clamp(MathF.Ceiling(newIndex), 0, keyframes.Count - 1);
+                            EditingKeyFrame.Value = keyframes[newCeiled];
 
                             if (!_skipKeyFrameIndexSubscription && newIndex != oldIndex)
                             {
@@ -136,7 +136,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public ReadOnlyReactivePropertySlim<int> KeyFrameCount { get; }
 
-    public ReactivePropertySlim<int> KeyFrameIndex { get; } = new();
+    public ReactivePropertySlim<float> KeyFrameIndex { get; } = new();
 
     public bool IsAnimatable => WrappedProperty is IAbstractAnimatableProperty;
 
@@ -199,7 +199,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                         {
                             if (GetAnimation() is { } animation)
                             {
-                                int rate = _editViewModel?.Scene?.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+                                int rate = _editViewModel?.Scene?.FindHierarchicalParent<Project>().GetFrameRate() ?? 30;
 
                                 TimeSpan globalkeyTime = t.First;
                                 TimeSpan localKeyTime = _layer != null ? globalkeyTime - _layer.Start : globalkeyTime;
@@ -209,7 +209,10 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                                 IsSymbolIconFilled.Value = t.Second?.Any(obj => obj.KeyTime == keyTime) ?? false;
                                 if (t.Second != null)
                                 {
-                                    int kfIndex = t.Second.IndexAt(keyTime);
+                                    float kfIndex = t.Second.IndexAtOrCount(keyTime);
+                                    if (!IsSymbolIconFilled.Value)
+                                        kfIndex -= 0.5f;
+
                                     _skipKeyFrameIndexSubscription = KeyFrameIndex.Value != kfIndex;
                                     KeyFrameIndex.Value = kfIndex;
                                 }

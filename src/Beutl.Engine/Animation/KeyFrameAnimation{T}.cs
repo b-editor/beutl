@@ -39,8 +39,8 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
 
         if (next is KeyFrame<T> next2)
         {
-            T prevValue = prev is KeyFrame<T> prev2 ? prev2.Value : defaultValue;
             T nextValue = next2.Value;
+            T prevValue = prev is KeyFrame<T> prev2 ? prev2.Value : nextValue;
             TimeSpan prevTime = prev?.KeyTime ?? TimeSpan.Zero;
             TimeSpan nextTime = next.KeyTime;
             // Zero除算になるので

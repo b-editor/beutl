@@ -45,8 +45,8 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     public static readonly StyledProperty<IDataTemplate> MenuContentTemplateProperty =
         AvaloniaProperty.Register<PropertyEditor, IDataTemplate>(nameof(MenuContentTemplate));
 
-    public static readonly StyledProperty<int> KeyFrameIndexProperty =
-        AvaloniaProperty.Register<PropertyEditor, int>(nameof(KeyFrameIndex), 0);
+    public static readonly StyledProperty<float> KeyFrameIndexProperty =
+        AvaloniaProperty.Register<PropertyEditor, float>(nameof(KeyFrameIndex), 0);
 
     public static readonly StyledProperty<int> KeyFrameCountProperty =
         AvaloniaProperty.Register<PropertyEditor, int>(nameof(KeyFrameCount), 0, coerce: (_, v) => Math.Max(v, 0));
@@ -103,7 +103,7 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         set => SetValue(MenuContentTemplateProperty, value);
     }
 
-    public int KeyFrameIndex
+    public float KeyFrameIndex
     {
         get => GetValue(KeyFrameIndexProperty);
         set => SetValue(KeyFrameIndexProperty, value);
@@ -211,7 +211,7 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
 
     private void OnLeftButtonClick(object sender, RoutedEventArgs e)
     {
-        int value = KeyFrameIndex - 1;
+        float value = MathF.Ceiling(KeyFrameIndex) - 1;
         if (0 <= value)
         {
             KeyFrameIndex = value;
@@ -220,7 +220,7 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
 
     private void OnRightButtonClick(object sender, RoutedEventArgs e)
     {
-        int value = KeyFrameIndex + 1;
+        float value = MathF.Floor(KeyFrameIndex) + 1;
         if (value < KeyFrameCount)
         {
             KeyFrameIndex = value;
