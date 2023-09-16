@@ -1205,6 +1205,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Hand に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Hand {
+            get {
+                return ResourceManager.GetString("Hand", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Height に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Height {
@@ -1489,6 +1498,15 @@ namespace Beutl.Language {
         public static string Monaural {
             get {
                 return ResourceManager.GetString("Monaural", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Move に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Move {
+            get {
+                return ResourceManager.GetString("Move", resourceCulture);
             }
         }
         

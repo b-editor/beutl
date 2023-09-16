@@ -144,6 +144,8 @@ public sealed class PlayerViewModel : IDisposable
 
     public ReactivePropertySlim<bool> IsHandMode { get; } = new(false);
 
+    public ReactivePropertySlim<Matrix> FrameMatrix { get; } = new(Matrix.Identity);
+
     public event EventHandler? PreviewInvalidated;
 
     // View側から設定

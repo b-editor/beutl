@@ -967,4 +967,10 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="SaveFrameAsImage" xml:space="preserve">
     <value>フレームを画像として保存</value>
   </data>
+  <data name="Move" xml:space="preserve">
+    <value>移動</value>
+  </data>
+  <data name="Hand" xml:space="preserve">
+    <value>ハンド</value>
+  </data>
 </root>

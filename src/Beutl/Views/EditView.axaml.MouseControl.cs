@@ -3,6 +3,7 @@ using Avalonia.Input;
 
 using Beutl.Animation;
 using Beutl.Commands;
+using Beutl.Controls;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
 using Beutl.ProjectSystem;
@@ -37,6 +38,11 @@ static file class CommandHelper
 
 public partial class EditView
 {
+    private static double Length(AvaPoint point)
+    {
+        return Math.Sqrt((point.X * point.X) + (point.Y * point.Y));
+    }
+
     private sealed class KeyFrameState
     {
         public KeyFrameState(KeyFrame<float>? previous, KeyFrame<float>? next)
@@ -67,17 +73,96 @@ public partial class EditView
         }
     }
 
-    private sealed class MouseControlState
+    private interface IMouseControlHandler
     {
-        public bool _imagePressed;
-        public AvaPoint _scaledStartPosition;
-        public Element? _mouseSelectedElement;
-        public Drawable? _mouseSelected;
-        public TranslateTransform? _translateTransform;
-        public Matrix _preMatrix = Matrix.Identity;
-        public Point _oldTranslation;
-        public KeyFrameState? _xKeyFrame;
-        public KeyFrameState? _yKeyFrame;
+        void OnMoved(PointerEventArgs e);
+
+        void OnPressed(PointerPressedEventArgs e);
+
+        void OnReleased(PointerReleasedEventArgs e);
+
+        void OnWheelChanged(PointerWheelEventArgs e)
+        {
+        }
+    }
+
+    private class MouseControlHand : IMouseControlHandler
+    {
+        private bool _pressed;
+        private AvaPoint _position;
+
+        public required Player Player { get; init; }
+
+        public required AvaImage Image { get; init; }
+
+        public required EditViewModel viewModel { get; init; }
+
+        public void OnWheelChanged(PointerWheelEventArgs e)
+        {
+            const float ZoomSpeed = 1.2f;
+
+            AvaPoint pos = e.GetPosition(Image);
+            float x = (float)pos.X;
+            float y = (float)pos.Y;
+            float delta = (float)e.Delta.Y;
+            float realDelta = MathF.Sign(delta) * MathF.Abs(delta);
+
+            float ratio = MathF.Pow(ZoomSpeed, realDelta);
+
+            var a = new Matrix(ratio, 0, 0, ratio, x - (ratio * x), y - (ratio * y));
+            viewModel.Player.FrameMatrix.Value = a * viewModel.Player.FrameMatrix.Value;
+
+            e.Handled = true;
+        }
+
+        public void OnMoved(PointerEventArgs e)
+        {
+            if (_pressed)
+            {
+                AvaPoint position = e.GetPosition(Player);
+                AvaPoint delta = position - _position;
+                viewModel.Player.FrameMatrix.Value *= Matrix.CreateTranslation((float)delta.X, (float)delta.Y);
+
+                _position = position;
+
+                e.Handled = true;
+            }
+        }
+
+        public void OnReleased(PointerReleasedEventArgs e)
+        {
+            if (_pressed)
+            {
+                Player.GetFramePanel().Cursor = Cursors.Hand;
+                _pressed = false;
+            }
+        }
+
+        public void OnPressed(PointerPressedEventArgs e)
+        {
+            PointerPoint pointerPoint = e.GetCurrentPoint(Player);
+            _pressed = pointerPoint.Properties.IsLeftButtonPressed;
+            _position = pointerPoint.Position;
+            if (_pressed)
+            {
+                Player.GetFramePanel().Cursor = Cursors.HandGrab;
+
+                e.Handled = true;
+            }
+        }
+    }
+
+    private sealed class MouseControlMove : IMouseControlHandler
+    {
+        private bool _imagePressed;
+        private AvaPoint _scaledStartPosition;
+        private Element? _mouseSelectedElement;
+        private Drawable? _mouseSelected;
+        private TranslateTransform? _translateTransform;
+        private Matrix _preMatrix = Matrix.Identity;
+        private Point _oldTranslation;
+        private KeyFrameState? _xKeyFrame;
+        private KeyFrameState? _yKeyFrame;
 
         public required AvaImage Image { get; init; }
 
@@ -86,11 +171,6 @@ public partial class EditView
         public Drawable? Drawable => _mouseSelected;
 
         public Element? Element => _mouseSelectedElement;
-
-        private static double Length(AvaPoint point)
-        {
-            return Math.Sqrt((point.X * point.X) + (point.Y * point.Y));
-        }
 
         private static (TranslateTransform?, Matrix) FindOrCreateTranslation(Drawable drawable)
         {
@@ -208,6 +288,7 @@ public partial class EditView
                 }
 
                 _scaledStartPosition = scaledPosition;
+                e.Handled = true;
             }
         }
 
@@ -252,7 +333,7 @@ public partial class EditView
             return null;
         }
 
-        public void OnReleased()
+        public void OnReleased(PointerReleasedEventArgs e)
         {
             if (_imagePressed)
             {
@@ -268,11 +349,13 @@ public partial class EditView
                 _mouseSelected = null;
                 _xKeyFrame = default;
                 _yKeyFrame = default;
+                e.Handled = true;
             }
         }
 
-        public void OnPressed(PointerPoint pointerPoint)
+        public void OnPressed(PointerPressedEventArgs e)
         {
+            PointerPoint pointerPoint = e.GetCurrentPoint(Image);
             _imagePressed = pointerPoint.Properties.IsLeftButtonPressed;
             AvaPoint imagePosition = pointerPoint.Position;
             double scaleX = Image.Bounds.Size.Width / viewModel.Scene.Width;
@@ -295,36 +378,66 @@ public partial class EditView
                     viewModel.SelectedObject.Value = _mouseSelectedElement;
                 }
             }
+
+            e.Handled = _imagePressed;
         }
     }
 
     private readonly WeakReference<Drawable?> _lastSelected = new(null);
-    private MouseControlState? _mouseState;
+    private IMouseControlHandler? _mouseState;
 
-    private void OnImagePointerMoved(object? sender, PointerEventArgs e)
+    private void OnFramePointerWheelChanged(object? sender, PointerWheelEventArgs e)
+    {
+        if (DataContext is EditViewModel viewModel)
+        {
+            CreateMouseHandler(viewModel).OnWheelChanged(e);
+        }
+    }
+
+    private void OnFramePointerMoved(object? sender, PointerEventArgs e)
     {
         _mouseState?.OnMoved(e);
     }
 
-    private void OnImagePointerReleased(object? sender, PointerReleasedEventArgs e)
+    private void OnFramePointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        _mouseState?.OnReleased();
+        _mouseState?.OnReleased(e);
         _mouseState = null;
     }
 
-    private void OnImagePointerPressed(object? sender, PointerPressedEventArgs e)
+    private IMouseControlHandler CreateMouseHandler(EditViewModel viewModel)
     {
-        PointerPoint pointerPoint = e.GetCurrentPoint(Image);
-        if (DataContext is EditViewModel viewModel)
+        if (viewModel.Player.IsMoveMode.Value)
         {
-            _mouseState = new MouseControlState
+            return new MouseControlMove
             {
                 Image = Image,
                 viewModel = viewModel
             };
+        }
+        else
+        {
+            return new MouseControlHand
+            {
+                Player = Player,
+                Image = Image,
+                viewModel = viewModel
+            };
+        }
+    }
 
-            _mouseState.OnPressed(pointerPoint);
-            _lastSelected.SetTarget(_mouseState._mouseSelected);
+    private void OnFramePointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is EditViewModel viewModel)
+        {
+            _mouseState = CreateMouseHandler(viewModel);
+
+            _mouseState.OnPressed(e);
+            // Todo: 抽象化する
+            if (_mouseState is MouseControlMove move)
+            {
+                _lastSelected.SetTarget(move.Drawable);
+            }
         }
     }
 }

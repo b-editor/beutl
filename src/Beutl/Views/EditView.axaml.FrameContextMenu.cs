@@ -11,8 +11,6 @@ using Beutl.ViewModels;
 
 using FluentAvalonia.UI.Controls;
 
-using AvaImage = Avalonia.Controls.Image;
-
 namespace Beutl.Views;
 
 public partial class EditView
@@ -20,7 +18,7 @@ public partial class EditView
     private MenuItem? _saveElementAsImage;
     private MenuItem? _saveFrameAsImage;
 
-    private void ConfigureFrameContextMenu(AvaImage image)
+    private void ConfigureFrameContextMenu(Control control)
     {
         _saveElementAsImage = new MenuItem
         {
@@ -37,17 +35,31 @@ public partial class EditView
             },
         };
         _saveFrameAsImage.Click += OnSaveFrameAsImageClick;
+        var resetZoom = new MenuItem
+        {
+            Header = Strings.ResetZoom
+        };
+        resetZoom.Click += OnResetZoomClick;
 
         var menu = new ContextMenu()
         {
             Items =
             {
                 _saveFrameAsImage,
-                _saveElementAsImage
+                _saveElementAsImage,
+                resetZoom
             }
         };
         menu.Opening += FrameContextMenuOpening;
-        image.ContextMenu = menu;
+        control.ContextMenu = menu;
+    }
+
+    private void OnResetZoomClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is EditViewModel viewModel)
+        {
+            viewModel.Player.FrameMatrix.Value = Matrix.Identity;
+        }
     }
 
     private void FrameContextMenuOpening(object? sender, System.ComponentModel.CancelEventArgs e)

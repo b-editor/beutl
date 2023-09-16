@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:editors="using:Beutl.Views.Editors"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:sys="using:System"
@@ -122,11 +123,11 @@
                                 </Style>
                             </StackPanel.Styles>
                             <!--  Todo: ローカライズ  -->
-                            <RadioButton IsChecked="{Binding Player.IsMoveMode.Value}" ToolTip.Tip="移動">
-                                <icons:SymbolIcon Symbol="Cursor" />
+                            <RadioButton IsChecked="{Binding Player.IsMoveMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Move}">
+                                <icons:SymbolIcon FontSize="16" Symbol="Cursor" />
                             </RadioButton>
-                            <RadioButton IsChecked="{Binding Player.IsHandMode.Value}" ToolTip.Tip="ハンド">
-                                <icons:SymbolIcon Symbol="HandLeft" />
+                            <RadioButton IsChecked="{Binding Player.IsHandMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Hand}">
+                                <icons:SymbolIcon FontSize="16" Symbol="HandLeft" />
                             </RadioButton>
                         </StackPanel>
                     </Player.InnerLeftContent>

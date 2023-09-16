@@ -14,12 +14,9 @@
         <Setter Property="Template">
             <ControlTemplate>
                 <Grid RowDefinitions="*,Auto">
-                    <ContentPresenter Name="InnerLeftPresenter"
-                                      HorizontalAlignment="Left"
-                                      VerticalAlignment="Stretch"
-                                      Content="{TemplateBinding InnerLeftContent}" />
-
-                    <Panel Name="PART_FramePanel" Margin="0">
+                    <Panel Name="PART_FramePanel"
+                           Margin="0"
+                           Background="Transparent">
                         <Border Width="{Binding #PART_Image.Bounds.Width}"
                                 Height="{Binding #PART_Image.Bounds.Height}"
                                 Background="Black"
@@ -29,6 +26,11 @@
                                RenderOptions.BitmapInterpolationMode="HighQuality"
                                Source="{TemplateBinding Source}" />
                     </Panel>
+
+                    <ContentPresenter Name="InnerLeftPresenter"
+                                      HorizontalAlignment="Left"
+                                      VerticalAlignment="Stretch"
+                                      Content="{TemplateBinding InnerLeftContent}" />
 
                     <Grid Grid.Row="1" RowDefinitions="Auto,Auto">
                         <Grid.Styles>
