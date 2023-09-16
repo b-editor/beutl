@@ -27,20 +27,19 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
         }
     }
 
-    public T GetAnimatedValue(IClock clock)
+    public T? GetAnimatedValue(IClock clock)
     {
         return Interpolate(UseGlobalClock ? clock.GlobalClock.CurrentTime : clock.CurrentTime);
     }
 
-    public T Interpolate(TimeSpan timeSpan)
+    public T? Interpolate(TimeSpan timeSpan)
     {
         (IKeyFrame? prev, IKeyFrame? next) = GetPreviousAndNextKeyFrame(timeSpan);
-        T defaultValue = KeyFrame<T>.s_animator.DefaultValue();
 
         if (next is KeyFrame<T> next2)
         {
-            T prevValue = prev is KeyFrame<T> prev2 ? prev2.Value : defaultValue;
-            T nextValue = next2.Value;
+            T? nextValue = next2.Value;
+            T? prevValue = prev is KeyFrame<T> prev2 ? prev2.Value : nextValue;
             TimeSpan prevTime = prev?.KeyTime ?? TimeSpan.Zero;
             TimeSpan nextTime = next.KeyTime;
             // Zero除算になるので
@@ -51,7 +50,13 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
 
             float progress = (float)((timeSpan - prevTime) / (nextTime - prevTime));
             float ease = next.Easing.Ease(progress);
-            T value = KeyFrame<T>.s_animator.Interpolate(ease, prevValue, nextValue);
+            // どちらかがnullの場合、片方を返す
+            if (prevValue == null)
+                return nextValue;
+            else if (nextValue == null)
+                return prevValue;
+
+            T? value = KeyFrame<T>.s_animator.Interpolate(ease, prevValue, nextValue);
 
             return value;
         }
@@ -61,7 +66,7 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
         }
         else
         {
-            return defaultValue;
+            return KeyFrame<T>.s_animator.DefaultValue();
         }
     }
 

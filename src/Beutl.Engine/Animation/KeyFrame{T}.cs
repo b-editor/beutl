@@ -7,9 +7,9 @@ namespace Beutl.Animation;
 
 public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
 {
-    public static readonly CoreProperty<T> ValueProperty;
+    public static readonly CoreProperty<T?> ValueProperty;
     internal static readonly Animator<T> s_animator;
-    private T _value;
+    private T? _value;
     internal IValidator<T>? _validator;
     private IKeyFrameAnimation? _parent;
 
@@ -20,14 +20,14 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
 
     static KeyFrame()
     {
-        s_animator = (Animator<T>)Activator.CreateInstance(AnimatorRegistry.GetAnimatorType(typeof(T)))!;
+        s_animator = AnimatorRegistry.CreateAnimator<T>();
 
-        ValueProperty = ConfigureProperty<T, KeyFrame<T>>(nameof(Value))
+        ValueProperty = ConfigureProperty<T?, KeyFrame<T>>(nameof(Value))
             .Accessor(o => o.Value, (o, v) => o.Value = v)
             .Register();
     }
 
-    public T Value
+    public T? Value
     {
         get => _value;
         set

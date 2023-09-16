@@ -13,20 +13,20 @@ namespace Beutl.Graphics.Shapes;
 
 public class TextBlock : Drawable
 {
-    public static readonly CoreProperty<FontFamily> FontFamilyProperty;
+    public static readonly CoreProperty<FontFamily?> FontFamilyProperty;
     public static readonly CoreProperty<FontWeight> FontWeightProperty;
     public static readonly CoreProperty<FontStyle> FontStyleProperty;
     public static readonly CoreProperty<float> SizeProperty;
     public static readonly CoreProperty<float> SpacingProperty;
-    public static readonly CoreProperty<string> TextProperty;
+    public static readonly CoreProperty<string?> TextProperty;
     public static readonly CoreProperty<IPen?> PenProperty;
     public static readonly CoreProperty<TextElements?> ElementsProperty;
-    private FontFamily _fontFamily = FontFamily.Default;
+    private FontFamily? _fontFamily = FontFamily.Default;
     private FontWeight _fontWeight = FontWeight.Regular;
     private FontStyle _fontStyle = FontStyle.Normal;
     private float _size;
     private float _spacing;
-    private string _text = string.Empty;
+    private string? _text = string.Empty;
     private IPen? _pen = null;
     private TextElements? _elements;
     private bool _isDirty;
@@ -43,7 +43,7 @@ public class TextBlock : Drawable
             .DefaultValue(FontStyle.Normal)
             .Register();
 
-        FontFamilyProperty = ConfigureProperty<FontFamily, TextBlock>(nameof(FontFamily))
+        FontFamilyProperty = ConfigureProperty<FontFamily?, TextBlock>(nameof(FontFamily))
             .Accessor(o => o.FontFamily, (o, v) => o.FontFamily = v)
             .DefaultValue(FontFamily.Default)
             .Register();
@@ -58,7 +58,7 @@ public class TextBlock : Drawable
             .DefaultValue(0)
             .Register();
 
-        TextProperty = ConfigureProperty<string, TextBlock>(nameof(Text))
+        TextProperty = ConfigureProperty<string?, TextBlock>(nameof(Text))
             .Accessor(o => o.Text, (o, v) => o.Text = v)
             .DefaultValue(string.Empty)
             .Register();
@@ -102,7 +102,7 @@ public class TextBlock : Drawable
     }
 
     [Display(Name = nameof(Strings.FontFamily), ResourceType = typeof(Strings))]
-    public FontFamily FontFamily
+    public FontFamily? FontFamily
     {
         get => _fontFamily;
         set => SetAndRaise(FontFamilyProperty, ref _fontFamily, value);
@@ -125,7 +125,7 @@ public class TextBlock : Drawable
 
     [Display(Name = nameof(Strings.Text), ResourceType = typeof(Strings))]
     [DataType(DataType.MultilineText)]
-    public string Text
+    public string? Text
     {
         get => _text;
         set => SetAndRaise(TextProperty, ref _text, value);
@@ -279,18 +279,25 @@ public class TextBlock : Drawable
     {
         if (_isDirty)
         {
-            var tokenizer = new FormattedTextTokenizer(_text);
-            tokenizer.Tokenize();
-            var options = new FormattedTextInfo(
-                Typeface: new Typeface(_fontFamily, _fontStyle, _fontWeight),
-                Size: _size,
-                Brush: (Fill as IMutableBrush)?.ToImmutable(),
-                Space: _spacing,
-                Pen: _pen);
+            if (string.IsNullOrEmpty(_text))
+            {
+                Elements = new TextElements(Array.Empty<TextElement>());
+            }
+            else
+            {
+                var tokenizer = new FormattedTextTokenizer(_text);
+                tokenizer.Tokenize();
+                var options = new FormattedTextInfo(
+                    Typeface: new Typeface(_fontFamily ?? FontFamily.Default, _fontStyle, _fontWeight),
+                    Size: _size,
+                    Brush: (Fill as IMutableBrush)?.ToImmutable(),
+                    Space: _spacing,
+                    Pen: _pen);
 
-            var builder = new TextElementsBuilder(options);
-            builder.AppendTokens(CollectionsMarshal.AsSpan(tokenizer.Result));
-            Elements = new TextElements(builder.Items.ToArray());
+                var builder = new TextElementsBuilder(options);
+                builder.AppendTokens(CollectionsMarshal.AsSpan(tokenizer.Result));
+                Elements = new TextElements(builder.Items.ToArray());
+            }
 
             _isDirty = false;
         }

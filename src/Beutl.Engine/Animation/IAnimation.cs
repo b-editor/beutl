@@ -19,7 +19,7 @@ public interface IAnimation<T> : IAnimation
 
     CoreProperty IAnimation.Property => Property;
 
-    T GetAnimatedValue(IClock clock);
+    T? GetAnimatedValue(IClock clock);
 
-    T Interpolate(TimeSpan timeSpan);
+    T? Interpolate(TimeSpan timeSpan);
 }
