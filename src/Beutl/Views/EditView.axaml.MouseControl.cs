@@ -356,7 +356,8 @@ public partial class EditView
             catch (Exception ex)
             {
                 Telemetry.Exception(ex);
-                NotificationService.ShowError("画像の保存に失敗しました。", ex.Message);
+                s_logger.Error(ex, "Failed to save image.");
+                NotificationService.ShowError(Message.Failed_to_save_image, ex.Message);
             }
         }
     }
@@ -383,7 +384,8 @@ public partial class EditView
             catch (Exception ex)
             {
                 Telemetry.Exception(ex);
-                NotificationService.ShowError("画像の保存に失敗しました。", ex.Message);
+                s_logger.Error(ex, "Failed to save image.");
+                NotificationService.ShowError(Message.Failed_to_save_image, ex.Message);
             }
         }
     }

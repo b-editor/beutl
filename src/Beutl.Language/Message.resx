@@ -281,4 +281,7 @@ Restricted mode does not load extensions.</value>
   <data name="RightClickToShowMenu" xml:space="preserve">
     <value>Right-click to show menu</value>
   </data>
+  <data name="Failed_to_save_image" xml:space="preserve">
+    <value>Failed to save image.</value>
+  </data>
 </root>

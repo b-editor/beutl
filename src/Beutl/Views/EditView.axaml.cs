@@ -12,12 +12,15 @@ using Beutl.Controls;
 using Beutl.Services;
 using Beutl.ViewModels;
 
+using Serilog;
+
 namespace Beutl.Views;
 
 public sealed partial class EditView : UserControl
 {
     private static readonly Binding s_isSelectedBinding = new("Context.IsSelected.Value", BindingMode.TwoWay);
     private static readonly Binding s_headerBinding = new("Context.Header");
+    private static readonly ILogger s_logger = Log.ForContext<EditView>();
     private readonly AvaloniaList<BcTabItem> _bottomTabItems = new();
     private readonly AvaloniaList<BcTabItem> _rightTabItems = new();
     private Image? _image;
