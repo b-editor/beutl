@@ -302,8 +302,6 @@ public readonly struct Matrix
     /// </remarks>
     public float GetDeterminant()
     {
-        //return (_m11 * _m22) - (_m12 * _m21); //TODO: ensure new implementation yields the same result as before, when pers is 0,0,1
-
         // implemented using "Laplace expansion":
         return M11 * (M22 * M33 - M23 * M32)
              - M12 * (M21 * M33 - M23 * M31)
@@ -354,17 +352,22 @@ public readonly struct Matrix
     /// </summary>
     /// <param name="other">The other matrix to test equality against.</param>
     /// <returns>True if this matrix is equal to other; False otherwise.</returns>
-    public bool Equals(Matrix other)
+    public unsafe bool Equals(Matrix other)
     {
-        return M11 == other.M11 &&
-               M12 == other.M12 &&
-               M13 == other.M13 &&
-               M21 == other.M21 &&
-               M22 == other.M22 &&
-               M23 == other.M23 &&
-               M31 == other.M31 &&
-               M32 == other.M32 &&
-               M33 == other.M33;
+        // Todo: Benchmark
+        var thisSpan = new Span<float>(Unsafe.AsPointer(ref Unsafe.AsRef(in this)), 9);
+        var otherSpan = new Span<float>(Unsafe.AsPointer(ref Unsafe.AsRef(in other)), 9);
+        return thisSpan.SequenceEqual(otherSpan);
+
+        //return M11 == other.M11 &&
+        //       M12 == other.M12 &&
+        //       M13 == other.M13 &&
+        //       M21 == other.M21 &&
+        //       M22 == other.M22 &&
+        //       M23 == other.M23 &&
+        //       M31 == other.M31 &&
+        //       M32 == other.M32 &&
+        //       M33 == other.M33;
     }
 
     /// <summary>
