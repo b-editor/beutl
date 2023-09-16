@@ -961,4 +961,10 @@ and b-editor maintains the download URL.</value>
   <data name="ShowDetails" xml:space="preserve">
     <value>Show Details</value>
   </data>
+  <data name="SaveSelectedElementAsImage" xml:space="preserve">
+    <value>Save a selected element as an image</value>
+  </data>
+  <data name="SaveFrameAsImage" xml:space="preserve">
+    <value>Save a frame as an image</value>
+  </data>
 </root>

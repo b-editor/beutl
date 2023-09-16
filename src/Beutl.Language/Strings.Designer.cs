@@ -2051,11 +2051,29 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Save a frame as an image に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SaveFrameAsImage {
+            get {
+                return ResourceManager.GetString("SaveFrameAsImage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Save に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string SaveOverWrite {
             get {
                 return ResourceManager.GetString("SaveOverWrite", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Save a selected element as an image に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SaveSelectedElementAsImage {
+            get {
+                return ResourceManager.GetString("SaveSelectedElementAsImage", resourceCulture);
             }
         }
         

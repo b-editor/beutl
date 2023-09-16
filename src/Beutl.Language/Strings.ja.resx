@@ -961,4 +961,10 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="ShowDetails" xml:space="preserve">
     <value>詳細を表示</value>
   </data>
+  <data name="SaveSelectedElementAsImage" xml:space="preserve">
+    <value>選択された要素を画像として保存</value>
+  </data>
+  <data name="SaveFrameAsImage" xml:space="preserve">
+    <value>フレームを画像として保存</value>
+  </data>
 </root>

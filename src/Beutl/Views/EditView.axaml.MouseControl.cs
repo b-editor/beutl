@@ -279,13 +279,13 @@ public partial class EditView
     {
         _saveElementAsImage = new MenuItem
         {
-            Header = "選択された要素を画像として保存",
+            Header = Strings.SaveSelectedElementAsImage,
             IsEnabled = false
         };
         _saveElementAsImage.Click += OnSaveElementAsImageClick;
         _saveFrameAsImage = new MenuItem
         {
-            Header = "フレームを画像として保存",
+            Header = Strings.SaveFrameAsImage,
             Icon = new SymbolIcon
             {
                 Symbol = Symbol.Image
