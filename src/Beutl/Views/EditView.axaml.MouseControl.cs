@@ -81,6 +81,7 @@ public partial class EditView
         public Element? _mouseSelectedElement;
         public Drawable? _mouseSelected;
         public TranslateTransform? _translateTransform;
+        public Matrix _preMatrix = Matrix.Identity;
         public Point _oldTranslation;
         public KeyFrameState? _xKeyFrame;
         public KeyFrameState? _yKeyFrame;
@@ -98,15 +99,27 @@ public partial class EditView
             return Math.Sqrt((point.X * point.X) + (point.Y * point.Y));
         }
 
-        private static TranslateTransform? FindOrCreateTranslation(Drawable drawable)
+        private (TranslateTransform?, Matrix) FindOrCreateTranslation(Drawable drawable)
         {
             switch (drawable.Transform)
             {
                 case TranslateTransform translateTransform:
-                    return translateTransform;
+                    return (translateTransform, Matrix.Identity);
 
                 case TransformGroup transformGroup:
-                    TranslateTransform? obj = transformGroup.Children.OfType<TranslateTransform>().FirstOrDefault();
+                    Transforms list = transformGroup.Children;
+                    TranslateTransform? obj = null;
+                    int i;
+                    for (i = 0; i < list.Count; i++)
+                    {
+                        ITransform item = list[i];
+                        if (item is TranslateTransform translate)
+                        {
+                            obj = translate;
+                            break;
+                        }
+                    }
+
                     if (obj == null)
                     {
                         obj = new TranslateTransform();
@@ -114,12 +127,24 @@ public partial class EditView
                             .Insert(0, obj)
                             .ToCommand()
                             .DoAndRecord(CommandRecorder.Default);
-                    }
 
-                    return obj;
+                        return (obj, Matrix.Identity);
+                    }
+                    else
+                    {
+                        Matrix matrix = Matrix.Identity;
+                        for (int j = 0; j < i; j++)
+                        {
+                            ITransform item = list[j];
+                            if (item.IsEnabled)
+                                matrix = list[j].Value * matrix;
+                        }
+
+                        return (obj, matrix);
+                    }
             }
 
-            return null;
+            return (null, Matrix.Identity);
         }
 
         private KeyFrameState? FindKeyFramePairOrNull(CoreProperty<float> property)
@@ -155,7 +180,7 @@ public partial class EditView
                 AvaPoint delta = scaledPosition - _scaledStartPosition;
                 if (_translateTransform == null && Length(delta) >= 1)
                 {
-                    _translateTransform = FindOrCreateTranslation(_mouseSelected);
+                    (_translateTransform, _preMatrix) = FindOrCreateTranslation(_mouseSelected);
 
                     // 最初の一回だけ、キーフレームを探す
                     if (_translateTransform != null)
@@ -164,6 +189,12 @@ public partial class EditView
                         _xKeyFrame = FindKeyFramePairOrNull(TranslateTransform.XProperty);
                         _yKeyFrame = FindKeyFramePairOrNull(TranslateTransform.YProperty);
                     }
+                }
+                if (_preMatrix.ToAvaMatrix().TryInvert(out Avalonia.Matrix inverted))
+                {
+                    AvaPoint scaledPosition1 = scaledPosition * inverted;
+                    AvaPoint scaledStartPosition1 = _scaledStartPosition * inverted;
+                    delta = scaledPosition1 - scaledStartPosition1;
                 }
 
                 if (_translateTransform != null)
