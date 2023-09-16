@@ -140,6 +140,10 @@ public sealed class PlayerViewModel : IDisposable
 
     public ReactiveCommand End { get; }
 
+    public ReactivePropertySlim<bool> IsMoveMode { get; } = new(true);
+
+    public ReactivePropertySlim<bool> IsHandMode { get; } = new(false);
+
     public event EventHandler? PreviewInvalidated;
 
     // View側から設定

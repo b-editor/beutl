@@ -2,6 +2,7 @@
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Media;
@@ -12,6 +13,8 @@ public class Player : RangeBase
 {
     public static readonly StyledProperty<IImage> SourceProperty = Image.SourceProperty.AddOwner<Player>();
     public static readonly StyledProperty<string> DurationProperty = AvaloniaProperty.Register<Player, string>(nameof(Duration));
+    public static readonly StyledProperty<object> InnerLeftContentProperty = AvaloniaProperty.Register<Player, object>(nameof(InnerLeftContent));
+    public static readonly StyledProperty<object> InnerRightContentProperty = AvaloniaProperty.Register<Player, object>(nameof(InnerRightContent));
     public static readonly DirectProperty<Player, string> CurrentTimeProperty =
         AvaloniaProperty.RegisterDirect<Player, string>(
             nameof(CurrentTime),
@@ -63,6 +66,7 @@ public class Player : RangeBase
     private Image _image;
     private Slider _slider;
     private Panel _framePanel;
+    private ContentPresenter _innerLeftPresenter;
     private ICommand _playButtonCommand;
     private ICommand _nextButtonCommand;
     private ICommand _previousButtonCommand;
@@ -79,6 +83,18 @@ public class Player : RangeBase
     {
         get => GetValue(DurationProperty);
         set => SetValue(DurationProperty, value);
+    }
+    
+    public object InnerLeftContent
+    {
+        get => GetValue(InnerLeftContentProperty);
+        set => SetValue(InnerLeftContentProperty, value);
+    }
+    
+    public object InnerRightContent
+    {
+        get => GetValue(InnerRightContentProperty);
+        set => SetValue(InnerRightContentProperty, value);
     }
 
     public string CurrentTime
@@ -152,11 +168,19 @@ public class Player : RangeBase
         _image = e.NameScope.Find<Image>("PART_Image");
         _slider = e.NameScope.Find<Slider>("PART_Slider");
         _framePanel = e.NameScope.Find<Panel>("PART_FramePanel");
+        _innerLeftPresenter = e.NameScope.Find<ContentPresenter>("InnerLeftPresenter");
 
         _playButton.Click += (s, e) => PlayButtonCommand?.Execute(null);
         _nextButton.Click += (s, e) => NextButtonCommand?.Execute(null);
         _previousButton.Click += (s, e) => PreviousButtonCommand?.Execute(null);
         _endButton.Click += (s, e) => EndButtonCommand?.Execute(null);
         _startButton.Click += (s, e) => StartButtonCommand?.Execute(null);
+
+        _innerLeftPresenter.GetObservable(BoundsProperty).Subscribe(OnInnerLeftBoundsChanged);
+    }
+
+    private void OnInnerLeftBoundsChanged(Rect rect)
+    {
+        _framePanel.Margin = new Thickness(rect.Width, 0);
     }
 }

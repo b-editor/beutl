@@ -1,7 +1,8 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:controls="using:Beutl.Controls"
-                    xmlns:icons="using:FluentIcons.FluentAvalonia">
+                    xmlns:icons="using:FluentIcons.FluentAvalonia"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls">
     <Design.PreviewWith>
         <controls:Player Width="600"
                          Height="300"
@@ -13,6 +14,11 @@
         <Setter Property="Template">
             <ControlTemplate>
                 <Grid RowDefinitions="*,Auto">
+                    <ContentPresenter Name="InnerLeftPresenter"
+                                      HorizontalAlignment="Left"
+                                      VerticalAlignment="Stretch"
+                                      Content="{TemplateBinding InnerLeftContent}" />
+
                     <Panel Name="PART_FramePanel" Margin="0">
                         <Border Width="{Binding #PART_Image.Bounds.Width}"
                                 Height="{Binding #PART_Image.Bounds.Height}"

@@ -99,7 +99,7 @@ public partial class EditView
             return Math.Sqrt((point.X * point.X) + (point.Y * point.Y));
         }
 
-        private (TranslateTransform?, Matrix) FindOrCreateTranslation(Drawable drawable)
+        private static (TranslateTransform?, Matrix) FindOrCreateTranslation(Drawable drawable)
         {
             switch (drawable.Transform)
             {
@@ -173,6 +173,9 @@ public partial class EditView
         {
             if (_imagePressed && _mouseSelected != null)
             {
+                if (!viewModel.Player.IsMoveMode.Value)
+                    return;
+
                 PointerPoint pointerPoint = e.GetCurrentPoint(Image);
                 AvaPoint imagePosition = pointerPoint.Position;
                 double scaleX = Image.Bounds.Size.Width / viewModel.Scene.Width;
@@ -190,10 +193,11 @@ public partial class EditView
                         _yKeyFrame = FindKeyFramePairOrNull(TranslateTransform.YProperty);
                     }
                 }
-                if (_preMatrix.ToAvaMatrix().TryInvert(out Avalonia.Matrix inverted))
+                if (_preMatrix.TryInvert(out Matrix inverted))
                 {
-                    AvaPoint scaledPosition1 = scaledPosition * inverted;
-                    AvaPoint scaledStartPosition1 = _scaledStartPosition * inverted;
+                    Avalonia.Matrix avaInverted = inverted.ToAvaMatrix();
+                    AvaPoint scaledPosition1 = scaledPosition * avaInverted;
+                    AvaPoint scaledStartPosition1 = _scaledStartPosition * avaInverted;
                     delta = scaledPosition1 - scaledStartPosition1;
                 }
 
