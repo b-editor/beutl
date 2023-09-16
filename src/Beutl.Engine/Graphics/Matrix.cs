@@ -2,6 +2,8 @@
 using System.ComponentModel.Design;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
+using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
@@ -331,7 +333,7 @@ public readonly struct Matrix
                 0, 0, 0, 1
             );
 
-            var vector = new Vector3((float)p.X, (float)p.Y, 1);
+            var vector = new Vector3(p.X, p.Y, 1);
             var transformedVector = Vector3.Transform(vector, m44);
             float z = 1 / transformedVector.Z;
 
@@ -437,15 +439,14 @@ public readonly struct Matrix
 
         inverted = new Matrix(
             (M22 * M33 - M32 * M23) * invdet,
-            (M13 * M31 - M12 * M33) * invdet,
+            (M13 * M32 - M12 * M33) * invdet,
             (M12 * M23 - M13 * M22) * invdet,
             (M23 * M31 - M21 * M33) * invdet,
             (M11 * M33 - M13 * M31) * invdet,
             (M21 * M13 - M11 * M23) * invdet,
             (M21 * M32 - M31 * M22) * invdet,
-            (M21 * M12 - M11 * M32) * invdet,
-            (M11 * M22 - M21 * M12) * invdet
-            );
+            (M31 * M12 - M11 * M32) * invdet,
+            (M11 * M22 - M21 * M12) * invdet);
 
         return true;
     }
