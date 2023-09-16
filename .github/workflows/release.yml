@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  determine-version:
+    runs-on: windows-latest
+    outputs:
+      escapedBranchName: ${{ steps.gitversion.outputs.escapedBranchName }}
+      nuGetVersionV2: ${{ steps.gitversion.outputs.nuGetVersionV2 }}
+      fullSemVer: ${{ steps.gitversion.outputs.fullSemVer }}
+      versionString: "${{ steps.gitversion.outputs.escapedBranchName }}-${{ steps.gitversion.outputs.fullSemVer }}"
+    steps:
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v0
+        with:
+          versionSpec: '5.x'
+
+      - name: Determine Version
+        uses: gittools/actions/gitversion/execute@v0
+        id: gitversion
+        with:
+          useConfigFile: true
+
+  build-executable:
+    needs: [determine-version]
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        rid: [linux_x64, win_x64]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: ./build.cmd Restore
+
+      - name: Publish
+        run: ./build.cmd Publish --runtime ${{matrix.rid}} --skip Restore
+      - name: Zip
+        run: ./build.cmd Zip --runtime ${{matrix.rid}} --skip Publish
+
+      - name: Save
+        uses: actions/upload-artifact@v3
+        with:
+          name: beutl-${{matrix.rid}}-${{needs.determine-version.outputs.versionString}}
+          path: ./artifacts/Beutl-${{matrix.rid}}-${{needs.determine-version.outputs.versionString}}.zip
+
+  build-nuget:
+    needs: [determine-version]
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: ./build.cmd Restore
+  
+      - name: Build
+        run: dotnet build --no-restore
+
+      - name: Pack
+        run: dotnet pack --no-build --output ./output
+
+      - name: Save
+        uses: actions/upload-artifact@v3
+        with:
+          name: Beutl.Sdk.${{needs.determine-version.outputs.nuGetVersionV2}}
+          path: ./artifacts/Beutl.Sdk.${{needs.determine-version.outputs.nuGetVersionV2}}.nupkg
+
+  create-release:
+    needs: [build-executable, build-nuget]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - uses: actions/create-release@v1
+        id: create_release
+        with:
+          artifacts: "artifacts/**/*.zip,artifacts/**/*.nupkg"
+          draft: true
+          prerelease: false
+          makeLatest: true
+          generateReleaseNotes: true
