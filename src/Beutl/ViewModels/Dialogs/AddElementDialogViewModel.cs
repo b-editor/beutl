@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Graphics.Transformation;
+using Beutl.Media;
 using Beutl.Models;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
@@ -83,7 +84,30 @@ public sealed class AddElementDialogViewModel
 
             if (_description.InitialOperator != null)
             {
-                sLayer.Operation.AddChild((SourceOperator)Activator.CreateInstance(_description.InitialOperator)!).Do();
+                var op = (SourceOperator)Activator.CreateInstance(_description.InitialOperator)!;
+                sLayer.Operation.AddChild(op).Do();
+
+                if (!_description.Position.IsDefault
+                    && op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is IAbstractProperty<ITransform?> transformp)
+                {
+                    ITransform? transform = transformp.GetValue();
+                    var translate = new TranslateTransform(_description.Position);
+                    if (transform is TransformGroup group)
+                    {
+                        group.Children.Add(translate);
+                    }
+                    else if (transform == null)
+                    {
+                        transformp.SetValue(translate);
+                    }
+                    else
+                    {
+                        transformp.SetValue(new TransformGroup
+                        {
+                            Children = { transform, translate }
+                        });
+                    }
+                }
             }
 
             sLayer.Save(sLayer.FileName);

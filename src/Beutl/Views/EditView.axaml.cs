@@ -57,7 +57,7 @@ public sealed partial class EditView : UserControl
     private void OnPlayerTemplateApplied(object? sender, TemplateAppliedEventArgs e)
     {
         // EditView.axaxml.MouseControl.cs
-        var control = Player.GetFramePanel();
+        Panel control = Player.GetFramePanel();
         ConfigureFrameContextMenu(control);
         control.PointerPressed += OnFramePointerPressed;
         control.PointerReleased += OnFramePointerReleased;
@@ -72,6 +72,11 @@ public sealed partial class EditView : UserControl
                     player.MaxFrameSize = new((float)s.Size.Width, (float)s.Size.Height);
                 }
             });
+
+        // EditView.axaxml.DragAndDrop.cs
+        DragDrop.SetAllowDrop(control, true);
+        control.AddHandler(DragDrop.DragOverEvent, OnFrameDragOver);
+        control.AddHandler(DragDrop.DropEvent, OnFrameDrop);
     }
 
     private void OnTabViewSelectedItemChanged(object? obj)
