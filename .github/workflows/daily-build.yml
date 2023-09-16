@@ -23,10 +23,10 @@ jobs:
       run: ./build.cmd Restore
 
     - name: Build
-      run: ./build.cmd Publish --rntime ${{matrix.rid}} --skip Restore
+      run: ./build.cmd Publish --runtime ${{matrix.rid}} --skip Restore
       
     - name: Zip
-      run: ./build.cmd Zip --rntime ${{matrix.rid}} --skip Publish
+      run: ./build.cmd Zip --runtime ${{matrix.rid}} --skip Publish
 
     - name: Save
       uses: actions/upload-artifact@v3
