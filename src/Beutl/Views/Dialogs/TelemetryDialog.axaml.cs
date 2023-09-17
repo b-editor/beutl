@@ -17,7 +17,8 @@ public sealed partial class TelemetryDialog : ContentDialog
     {
         Process.Start(new ProcessStartInfo("https://beutl.beditor.net/AboutTelemetry")
         {
-            UseShellExecute = true
+            UseShellExecute = true,
+            Verb = "open"
         });
     }
 }

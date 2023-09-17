@@ -138,7 +138,8 @@ public class BeutlApiApplication
 
             Process.Start(new ProcessStartInfo(uri)
             {
-                UseShellExecute = true
+                UseShellExecute = true,
+                Verb = "open"
             });
 
             string? code = await GetResponseFromListener(listener, cancellationToken);
@@ -178,7 +179,8 @@ public class BeutlApiApplication
 
                 Process.Start(new ProcessStartInfo(uri)
                 {
-                    UseShellExecute = true
+                    UseShellExecute = true,
+                    Verb = "open"
                 });
 
                 string? code = await GetResponseFromListener(listener, cancellationToken);
@@ -207,7 +209,8 @@ public class BeutlApiApplication
     {
         Process.Start(new ProcessStartInfo($"{BaseUrl}/Identity/Account/Manage")
         {
-            UseShellExecute = true
+            UseShellExecute = true,
+            Verb = "open"
         });
     }
 
