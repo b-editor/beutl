@@ -24,6 +24,18 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
         _prevContext = null;
     }
 
+    public override bool HitTest(Point point)
+    {
+        if (_prevContext?.CountItems() > 0)
+        {
+            return Bounds.Contains(point);
+        }
+        else
+        {
+            return base.HitTest(point);
+        }
+    }
+
     public bool Equals(FilterEffect filterEffect)
     {
         return FilterEffect == filterEffect;
