@@ -12,6 +12,7 @@ using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.Operation;
+using Beutl.Operators.Configure;
 using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -486,27 +487,23 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             element.AccentColor = ColorGenerator.GenerateColor(str);
         }
 
-        void SetTransform(SourceOperator op)
+        void SetTransform(SourceOperation operation, SourceOperator op)
         {
-            if (!desc.Position.IsDefault
-                && op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is IAbstractProperty<ITransform?> transformp)
+            if (!desc.Position.IsDefault)
             {
-                ITransform? transform = transformp.GetValue();
-                var translate = new TranslateTransform(desc.Position);
-                if (transform is TransformGroup group)
+                if (op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is IAbstractProperty<ITransform?> transformp)
                 {
-                    group.Children.Add(translate);
-                }
-                else if (transform == null)
-                {
-                    transformp.SetValue(translate);
+                    ITransform? transform = transformp.GetValue();
+                    AddOrSetHelper.AddOrSet(ref transform, new TranslateTransform(desc.Position));
+                    transformp.SetValue(transform);
                 }
                 else
                 {
-                    transformp.SetValue(new TransformGroup
-                    {
-                        Children = { transform, translate }
-                    });
+                    var configure = new ConfigureTransformOperator();
+                    ITransform? transform = configure.Transform.Value;
+                    AddOrSetHelper.AddOrSet(ref transform, new TranslateTransform(desc.Position));
+                    configure.Transform.Value = transform;
+                    operation.Children.Add(configure);
                 }
             }
         }
@@ -521,7 +518,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 SetAccentColor(element, typeof(T).FullName!);
 
                 element.Operation.AddChild(t = new T()).Do();
-                SetTransform(t);
+                SetTransform(element.Operation, t);
 
                 return element;
             }
@@ -590,7 +587,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 element.AccentColor = ColorGenerator.GenerateColor(desc.InitialOperator.FullName ?? desc.InitialOperator.Name);
                 var operatour = (SourceOperator)Activator.CreateInstance(desc.InitialOperator)!;
                 element.Operation.AddChild(operatour).Do();
-                SetTransform(operatour);
+                SetTransform(element.Operation, operatour);
             }
 
             element.Save(element.FileName);

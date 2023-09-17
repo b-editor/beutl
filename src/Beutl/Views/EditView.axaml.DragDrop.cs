@@ -3,6 +3,8 @@ using Avalonia.Platform.Storage;
 
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Transformation;
+using Beutl.Helpers;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -57,21 +59,21 @@ public partial class EditView
                 }
 
                 if (e.Data.Get(KnownLibraryItemFormats.FilterEffect) is Type feType
-                    && Activator.CreateInstance(feType) is FilterEffect instance)
+                    && Activator.CreateInstance(feType) is FilterEffect newFe)
                 {
-                    var fe = drawable.FilterEffect;
-                    if (fe is FilterEffectGroup feGroup)
-                    {
-                        feGroup.Children.BeginRecord<FilterEffect>()
-                            .Add(instance)
-                            .ToCommand()
-                            .DoAndRecord(CommandRecorder.Default);
-                    }
-                    else
-                    {
-                        // Todo: Groupじゃない場合の処理
-                    }
+                    FilterEffect? fe = drawable.FilterEffect;
+                    AddOrSetHelper.AddOrSet(ref fe, newFe);
+                    drawable.FilterEffect = fe;
                 }
+                else if (e.Data.Get(KnownLibraryItemFormats.Transform) is Type traType
+                    && Activator.CreateInstance(traType) is ITransform newTra)
+                {
+                    ITransform? tra = drawable.Transform;
+                    AddOrSetHelper.AddOrSet(ref tra, newTra);
+                    drawable.Transform = tra;
+                }
+
+                e.Handled = true;
             }
         }
         else if (e.Data.Get(KnownLibraryItemFormats.SourceOperator) is Type type)
@@ -105,6 +107,8 @@ public partial class EditView
 
             viewModel.AddElement(new ElementDescription(
                 frame, TimeSpan.FromSeconds(5), zindex, FileName: fileName, Position: centerePosition));
+
+            e.Handled = true;
         }
     }
 
