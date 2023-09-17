@@ -4,6 +4,7 @@ using System.Collections.Specialized;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Data;
+using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.Controls;
@@ -89,7 +90,7 @@ Error:
         return view;
     }
 
-    private void OnPagesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private async void OnPagesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         void Add(int index, IList items)
         {
@@ -132,28 +133,31 @@ Error:
             }
         }
 
-        switch (e.Action)
+        await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            case NotifyCollectionChangedAction.Add:
-                Add(e.NewStartingIndex, e.NewItems!);
-                break;
+            switch (e.Action)
+            {
+                case NotifyCollectionChangedAction.Add:
+                    Add(e.NewStartingIndex, e.NewItems!);
+                    break;
 
-            case NotifyCollectionChangedAction.Move:
-            case NotifyCollectionChangedAction.Replace:
-                Remove(e.OldStartingIndex, e.OldItems!);
-                Add(e.NewStartingIndex, e.NewItems!);
-                break;
+                case NotifyCollectionChangedAction.Move:
+                case NotifyCollectionChangedAction.Replace:
+                    Remove(e.OldStartingIndex, e.OldItems!);
+                    Add(e.NewStartingIndex, e.NewItems!);
+                    break;
 
-            case NotifyCollectionChangedAction.Remove:
-                Remove(e.OldStartingIndex, e.OldItems!);
-                break;
+                case NotifyCollectionChangedAction.Remove:
+                    Remove(e.OldStartingIndex, e.OldItems!);
+                    break;
 
-            case NotifyCollectionChangedAction.Reset:
-                throw new Exception("'MainViewModel.Pages' does not support the 'Clear' method.");
-        }
+                case NotifyCollectionChangedAction.Reset:
+                    throw new Exception("'MainViewModel.Pages' does not support the 'Clear' method.");
+            }
 
-        if (sender is IList list)
-            frame.CacheSize = list.Count + 1;
+            if (sender is IList list)
+                frame.CacheSize = list.Count + 1;
+        });
     }
 
     private void InitializePages(MainViewModel viewModel)
