@@ -9,6 +9,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 
 namespace Beutl.Controls.PropertyEditors;
+#pragma warning disable AVP1002 // AvaloniaProperty objects should not be owned by a generic type
 
 public class NumberEditor<TValue> : StringEditor
     where TValue : INumber<TValue>

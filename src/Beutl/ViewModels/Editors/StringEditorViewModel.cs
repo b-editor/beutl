@@ -6,9 +6,9 @@ using Beutl.Controls.PropertyEditors;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class StringEditorViewModel : ValueEditorViewModel<string>
+public sealed class StringEditorViewModel : ValueEditorViewModel<string?>
 {
-    public StringEditorViewModel(IAbstractProperty<string> property)
+    public StringEditorViewModel(IAbstractProperty<string?> property)
         : base(property)
     {
     }
@@ -35,7 +35,7 @@ public sealed class StringEditorViewModel : ValueEditorViewModel<string>
 
     private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<string> args)
+        if (e is PropertyEditorValueChangedEventArgs<string?> args)
         {
             SetValue(args.OldValue, args.NewValue);
         }

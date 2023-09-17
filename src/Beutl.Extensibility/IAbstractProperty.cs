@@ -122,7 +122,7 @@ internal sealed class KeyFramePropertyWrapper<T> : IAbstractProperty<T>
 
     CoreProperty? IAbstractProperty.GetCoreProperty() => _animation.Property;
 
-    private static CoreProperty<T> GetProperty()
+    private static CoreProperty<T?> GetProperty()
     {
         return KeyFrame<T>.ValueProperty;
     }
