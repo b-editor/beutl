@@ -227,6 +227,16 @@ public readonly struct PixelPoint
     }
 
     /// <summary>
+    /// Converts a <see cref="Point"/> to device pixels.
+    /// </summary>
+    /// <param name="point">The point.</param>
+    /// <returns>The device-independent point.</returns>
+    public static PixelPoint FromPoint(Point point)
+    {
+        return new PixelPoint((int)point.X, (int)point.Y);
+    }
+
+    /// <summary>
     /// Converts a <see cref="Point"/> to device pixels using the specified scaling factor.
     /// </summary>
     /// <param name="point">The point.</param>

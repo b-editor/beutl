@@ -1,16 +1,18 @@
-﻿using Avalonia;
-using Avalonia.Media;
-using Avalonia.Media.Imaging;
+﻿using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 
 using Beutl.Audio.Platforms.OpenAL;
 using Beutl.Audio.Platforms.XAudio2;
 using Beutl.Configuration;
+using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
+using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;
+using Beutl.Rendering.Cache;
 using Beutl.Services;
 
 using OpenTK.Audio.OpenAL;
@@ -18,6 +20,8 @@ using OpenTK.Audio.OpenAL;
 using Reactive.Bindings;
 
 using Serilog;
+
+using SkiaSharp;
 
 using Vortice.Multimedia;
 
@@ -31,6 +35,7 @@ public sealed class PlayerViewModel : IDisposable
     private readonly ReactivePropertySlim<bool> _isEnabled;
     private readonly EditViewModel _editViewModel;
     private CancellationTokenSource? _cts;
+    private bool _playingAndRendering;
 
     public PlayerViewModel(EditViewModel editViewModel)
     {
@@ -117,7 +122,7 @@ public sealed class PlayerViewModel : IDisposable
 
     public Project? Project => Scene?.FindHierarchicalParent<Project>();
 
-    public ReactivePropertySlim<IImage> PreviewImage { get; } = new();
+    public ReactivePropertySlim<Avalonia.Media.IImage> PreviewImage { get; } = new();
 
     public ReactivePropertySlim<bool> IsPlaying { get; } = new();
 
@@ -135,6 +140,12 @@ public sealed class PlayerViewModel : IDisposable
 
     public ReactiveCommand End { get; }
 
+    public ReactivePropertySlim<bool> IsMoveMode { get; } = new(true);
+
+    public ReactivePropertySlim<bool> IsHandMode { get; } = new(false);
+
+    public ReactivePropertySlim<Matrix> FrameMatrix { get; } = new(Matrix.Identity);
+
     public event EventHandler? PreviewInvalidated;
 
     // View側から設定
@@ -148,28 +159,46 @@ public sealed class PlayerViewModel : IDisposable
         IRenderer renderer = Scene.Renderer;
         renderer.RenderInvalidated -= Renderer_RenderInvalidated;
 
-        IsPlaying.Value = true;
-        int rate = GetFrameRate();
-
-        PlayAudio(Scene);
-
-        TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
-        TimeSpan curFrame = Scene.CurrentFrame;
-        TimeSpan duration = Scene.Duration;
-
-        using (var timer = new PeriodicTimer(tick))
+        try
         {
-            DateTime dateTime = DateTime.UtcNow;
-            while (await timer.WaitForNextTickAsync()
-                && curFrame <= duration
-                && IsPlaying.Value)
-            {
-                curFrame += tick;
-                Render(renderer, curFrame);
-            }
-        }
+            IsPlaying.Value = true;
+            int rate = GetFrameRate();
 
-        renderer.RenderInvalidated += Renderer_RenderInvalidated;
+            PlayAudio(Scene);
+
+            TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
+            TimeSpan startFrame = Scene.CurrentFrame;
+            DateTime startTime = DateTime.Now;
+            TimeSpan duration = Scene.Duration;
+            var tcs = new TaskCompletionSource();
+            using var timer = new System.Timers.Timer(tick);
+
+            timer.Elapsed += (_, e) =>
+            {
+                TimeSpan time = (e.SignalTime - startTime) + startFrame;
+
+                if (time > duration || !IsPlaying.Value)
+                {
+                    timer.Stop();
+                    tcs.SetResult();
+                }
+
+                Render(renderer, time);
+            };
+            timer.Start();
+
+            await tcs.Task;
+        }
+        catch (Exception ex)
+        {
+            // 本来ここには例外が来ないはず
+            Telemetry.Exception(ex);
+            _logger.Error(ex, "An exception occurred during the playback process.");
+        }
+        finally
+        {
+            renderer.RenderInvalidated += Renderer_RenderInvalidated;
+        }
     }
 
     private int GetFrameRate()
@@ -361,8 +390,9 @@ public sealed class PlayerViewModel : IDisposable
 
     private void Render(IRenderer renderer, TimeSpan timeSpan)
     {
-        if (renderer.IsGraphicsRendering)
+        if (_playingAndRendering)
             return;
+        _playingAndRendering = true;
 
         RenderThread.Dispatcher.Dispatch(() =>
         {
@@ -384,10 +414,14 @@ public sealed class PlayerViewModel : IDisposable
                 _logger.Error(ex, "An exception occurred while drawing the frame.");
                 IsPlaying.Value = false;
             }
+            finally
+            {
+                _playingAndRendering = false;
+            }
         });
     }
 
-    private unsafe void UpdateImage(Media.Bitmap<Bgra8888> source)
+    private unsafe void UpdateImage(Bitmap<Bgra8888> source)
     {
         WriteableBitmap bitmap;
 
@@ -425,14 +459,14 @@ public sealed class PlayerViewModel : IDisposable
             if (scale == 0)
                 scale = 1;
 
-            Graphics.ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
-            Graphics.Rect[] boundary = renderer.RenderScene[selected.Value].GetBoundaries();
+            ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
+            Rect[] boundary = renderer.RenderScene[selected.Value].GetBoundaries();
             if (boundary.Length > 0)
             {
                 var pen = new Media.Immutable.ImmutablePen(Media.Brushes.White, null, 0, 1 / scale);
                 bool exactBounds = GlobalConfiguration.Instance.ViewConfig.ShowExactBoundaries;
 
-                foreach (Graphics.Rect item in renderer.RenderScene[selected.Value].GetBoundaries())
+                foreach (Rect item in renderer.RenderScene[selected.Value].GetBoundaries())
                 {
                     var rect = item;
                     if (!exactBounds)
@@ -497,5 +531,90 @@ public sealed class PlayerViewModel : IDisposable
         _disposables.Dispose();
         PreviewInvalidated = null;
         Scene = null!;
+    }
+
+    public Task<Bitmap<Bgra8888>> DrawSelectedDrawable(Drawable drawable)
+    {
+        Pause();
+
+        return RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            if (Scene == null) throw new Exception("Scene is null.");
+            IRenderer renderer = Scene.Renderer;
+            PixelSize frameSize = renderer.FrameSize;
+            using var root = new DrawableNode(drawable);
+            using var dcanvas = new DeferradCanvas(root, frameSize);
+            drawable.Render(dcanvas);
+
+            Rect bounds = root.Bounds;
+            var rect = PixelRect.FromRect(bounds);
+            using SKSurface? surface = renderer.CreateRenderTarget(rect.Width, rect.Height)
+                ?? throw new Exception("surface is null");
+
+            using ImmediateCanvas icanvas = renderer.CreateCanvas(surface, true);
+
+            RenderCacheContext? cacheContext = renderer.GetCacheContext();
+            RenderCacheOptions? restoreCacheOptions = null;
+
+            if (cacheContext != null)
+            {
+                restoreCacheOptions = cacheContext.CacheOptions;
+                cacheContext.CacheOptions = RenderCacheOptions.Disabled;
+            }
+
+            try
+            {
+                using (icanvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
+                {
+                    icanvas.DrawNode(root);
+                }
+
+                return icanvas.GetBitmap();
+            }
+            finally
+            {
+                if (cacheContext != null && restoreCacheOptions != null)
+                {
+                    cacheContext.CacheOptions = restoreCacheOptions;
+                }
+            }
+        });
+    }
+
+    public Task<Bitmap<Bgra8888>> DrawFrame()
+    {
+        Pause();
+
+        return RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            if (Scene == null) throw new Exception("Scene is null.");
+            IRenderer renderer = Scene.Renderer;
+
+            RenderCacheContext? cacheContext = renderer.GetCacheContext();
+            RenderCacheOptions? restoreCacheOptions = null;
+
+            if (cacheContext != null)
+            {
+                restoreCacheOptions = cacheContext.CacheOptions;
+                cacheContext.CacheOptions = RenderCacheOptions.Disabled;
+            }
+
+            try
+            {
+                if (!renderer.Render(CurrentFrame.Value))
+                {
+                    throw new Exception("Failed to render.");
+                }
+
+                return renderer.Snapshot();
+            }
+            finally
+            {
+                if (cacheContext != null && restoreCacheOptions != null)
+                {
+                    cacheContext.CacheOptions = restoreCacheOptions;
+                }
+            }
+        });
     }
 }

@@ -6,11 +6,19 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 
 using Beutl.Controls;
 using Beutl.Services;
 using Beutl.ViewModels;
+
+using Reactive.Bindings.Extensions;
+
+using Serilog;
 
 namespace Beutl.Views;
 
@@ -18,12 +26,11 @@ public sealed partial class EditView : UserControl
 {
     private static readonly Binding s_isSelectedBinding = new("Context.IsSelected.Value", BindingMode.TwoWay);
     private static readonly Binding s_headerBinding = new("Context.Header");
+    private static readonly ILogger s_logger = Log.ForContext<EditView>();
     private readonly AvaloniaList<BcTabItem> _bottomTabItems = new();
     private readonly AvaloniaList<BcTabItem> _rightTabItems = new();
+    private readonly CompositeDisposable _disposables = new();
     private Image? _image;
-    private IDisposable? _disposable1;
-    private IDisposable? _disposable2;
-    private IDisposable? _disposable3;
 
     public EditView()
     {
@@ -50,18 +57,26 @@ public sealed partial class EditView : UserControl
     private void OnPlayerTemplateApplied(object? sender, TemplateAppliedEventArgs e)
     {
         // EditView.axaxml.MouseControl.cs
-        Image.PointerPressed += OnImagePointerPressed;
-        Image.PointerReleased += OnImagePointerReleased;
-        Image.PointerMoved += OnImagePointerMoved;
+        Panel control = Player.GetFramePanel();
+        ConfigureFrameContextMenu(control);
+        control.PointerPressed += OnFramePointerPressed;
+        control.PointerReleased += OnFramePointerReleased;
+        control.PointerMoved += OnFramePointerMoved;
+        control.AddHandler(PointerWheelChangedEvent, OnFramePointerWheelChanged, RoutingStrategies.Tunnel);
 
-        Player.GetObservable(BoundsProperty)
+        control.GetObservable(BoundsProperty)
             .Subscribe(s =>
             {
                 if (DataContext is EditViewModel { Player: { } player })
                 {
-                    player.MaxFrameSize = s.Size;
+                    player.MaxFrameSize = new((float)s.Size.Width, (float)s.Size.Height);
                 }
             });
+
+        // EditView.axaxml.DragAndDrop.cs
+        DragDrop.SetAllowDrop(control, true);
+        control.AddHandler(DragDrop.DragOverEvent, OnFrameDragOver);
+        control.AddHandler(DragDrop.DropEvent, OnFrameDrop);
     }
 
     private void OnTabViewSelectedItemChanged(object? obj)
@@ -155,10 +170,10 @@ public sealed partial class EditView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        _disposables.Clear();
         if (DataContext is EditViewModel vm)
         {
-            _disposable1?.Dispose();
-            _disposable1 = vm.BottomTabItems.ForEachItem(
+            vm.BottomTabItems.ForEachItem(
                 (item) =>
                 {
                     ToolTabExtension ext = item.Context.Extension;
@@ -210,10 +225,10 @@ Error:
                         }
                     }
                 },
-                () => throw new Exception());
+                () => throw new Exception())
+                .DisposeWith(_disposables);
 
-            _disposable2?.Dispose();
-            _disposable2 = vm.RightTabItems.ForEachItem(
+            vm.RightTabItems.ForEachItem(
                 (item) =>
                 {
                     ToolTabExtension ext = item.Context.Extension;
@@ -265,11 +280,44 @@ Error:
                         }
                     }
                 },
-                () => throw new Exception());
+                () => throw new Exception())
+                .DisposeWith(_disposables);
 
-            _disposable3?.Dispose();
             vm.Player.PreviewInvalidated += Player_PreviewInvalidated;
-            _disposable3 = Disposable.Create(vm, x => x.Player.PreviewInvalidated -= Player_PreviewInvalidated);
+            Disposable.Create(vm, x => x.Player.PreviewInvalidated -= Player_PreviewInvalidated)
+                .DisposeWith(_disposables);
+
+            vm.Player.FrameMatrix
+                .ObserveOnUIDispatcher()
+                .Select(matrix => (matrix, Player.GetImage(), Player.GetFramePanel()?.Children?.FirstOrDefault()!))
+                .Where(t => t.Item2 != null && t.Item3 != null)
+                .Subscribe(t =>
+                {
+                    t.Item3.RenderTransformOrigin = t.Item2.RenderTransformOrigin = RelativePoint.TopLeft;
+                    t.Item3.RenderTransform = t.Item2.RenderTransform = new ImmutableTransform(t.matrix.ToAvaMatrix());
+                    if (DataContext is EditViewModel vm)
+                    {
+                        var width = vm.Scene.Width;
+                        if (width == 0) return;
+                        var actualWidth = t.Item2.Bounds.Width * t.matrix.M11;
+                        var pixelSize = actualWidth / width;
+                        if (pixelSize >= 1)
+                        {
+                            RenderOptions.SetBitmapInterpolationMode(t.Item2, BitmapInterpolationMode.None);
+                        }
+                        else
+                        {
+                            RenderOptions.SetBitmapInterpolationMode(t.Item2, BitmapInterpolationMode.HighQuality);
+                        }
+                    }
+                })
+                .DisposeWith(_disposables);
+
+            vm.Player.IsHandMode
+                .ObserveOnUIDispatcher()
+                .Where(_ => Player.GetFramePanel() != null)
+                .Subscribe(v => Player.GetFramePanel().Cursor = v ? Cursors.Hand : null)
+                .DisposeWith(_disposables);
         }
     }
 

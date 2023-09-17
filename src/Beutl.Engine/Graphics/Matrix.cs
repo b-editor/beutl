@@ -2,6 +2,8 @@
 using System.ComponentModel.Design;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
+using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
@@ -300,8 +302,6 @@ public readonly struct Matrix
     /// </remarks>
     public float GetDeterminant()
     {
-        //return (_m11 * _m22) - (_m12 * _m21); //TODO: ensure new implementation yields the same result as before, when pers is 0,0,1
-
         // implemented using "Laplace expansion":
         return M11 * (M22 * M33 - M23 * M32)
              - M12 * (M21 * M33 - M23 * M31)
@@ -331,7 +331,7 @@ public readonly struct Matrix
                 0, 0, 0, 1
             );
 
-            var vector = new Vector3((float)p.X, (float)p.Y, 1);
+            var vector = new Vector3(p.X, p.Y, 1);
             var transformedVector = Vector3.Transform(vector, m44);
             float z = 1 / transformedVector.Z;
 
@@ -352,17 +352,22 @@ public readonly struct Matrix
     /// </summary>
     /// <param name="other">The other matrix to test equality against.</param>
     /// <returns>True if this matrix is equal to other; False otherwise.</returns>
-    public bool Equals(Matrix other)
+    public unsafe bool Equals(Matrix other)
     {
-        return M11 == other.M11 &&
-               M12 == other.M12 &&
-               M13 == other.M13 &&
-               M21 == other.M21 &&
-               M22 == other.M22 &&
-               M23 == other.M23 &&
-               M31 == other.M31 &&
-               M32 == other.M32 &&
-               M33 == other.M33;
+        // Todo: Benchmark
+        var thisSpan = new Span<float>(Unsafe.AsPointer(ref Unsafe.AsRef(in this)), 9);
+        var otherSpan = new Span<float>(Unsafe.AsPointer(ref Unsafe.AsRef(in other)), 9);
+        return thisSpan.SequenceEqual(otherSpan);
+
+        //return M11 == other.M11 &&
+        //       M12 == other.M12 &&
+        //       M13 == other.M13 &&
+        //       M21 == other.M21 &&
+        //       M22 == other.M22 &&
+        //       M23 == other.M23 &&
+        //       M31 == other.M31 &&
+        //       M32 == other.M32 &&
+        //       M33 == other.M33;
     }
 
     /// <summary>
@@ -437,15 +442,14 @@ public readonly struct Matrix
 
         inverted = new Matrix(
             (M22 * M33 - M32 * M23) * invdet,
-            (M13 * M31 - M12 * M33) * invdet,
+            (M13 * M32 - M12 * M33) * invdet,
             (M12 * M23 - M13 * M22) * invdet,
             (M23 * M31 - M21 * M33) * invdet,
             (M11 * M33 - M13 * M31) * invdet,
             (M21 * M13 - M11 * M23) * invdet,
             (M21 * M32 - M31 * M22) * invdet,
-            (M21 * M12 - M11 * M32) * invdet,
-            (M11 * M22 - M21 * M12) * invdet
-            );
+            (M31 * M12 - M11 * M32) * invdet,
+            (M11 * M22 - M21 * M12) * invdet);
 
         return true;
     }

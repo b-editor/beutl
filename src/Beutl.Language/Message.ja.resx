@@ -246,7 +246,7 @@
 制限モードでは拡張機能を読み込みません。</value>
   </data>
   <data name="Looks_like_it_ended_with_an_error_last_time" xml:space="preserve">
-    <value>前回エラーが発生して終了したようです</value>
+    <value>前回エラーが発生して終了したようです。</value>
   </data>
   <data name="Changes_to_the_package_are_in_progress" xml:space="preserve">
     <value>パッケージが変更中です。</value>
@@ -280,5 +280,8 @@
   </data>
   <data name="RightClickToShowMenu" xml:space="preserve">
     <value>右クリックでメニューを表示</value>
+  </data>
+  <data name="Failed_to_save_image" xml:space="preserve">
+    <value>画像の保存に失敗しました。</value>
   </data>
 </root>

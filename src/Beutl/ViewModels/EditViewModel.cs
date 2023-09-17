@@ -6,7 +6,14 @@ using Avalonia.Input;
 
 using Beutl.Animation;
 using Beutl.Api.Services;
+using Beutl.Graphics.Transformation;
+using Beutl.Helpers;
+using Beutl.Media.Decoding;
+using Beutl.Media.Source;
 using Beutl.Models;
+using Beutl.Operation;
+using Beutl.Operators.Configure;
+using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
@@ -15,6 +22,8 @@ using Beutl.ViewModels.Tools;
 using Reactive.Bindings;
 
 using Serilog;
+
+using LibraryService = Beutl.Services.LibraryService;
 
 namespace Beutl.ViewModels;
 
@@ -458,6 +467,182 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             return this;
 
         return null;
+    }
+
+    public void AddElement(ElementDescription desc)
+    {
+        Element CreateElement()
+        {
+            return new Element()
+            {
+                Start = desc.Start,
+                Length = desc.Length,
+                ZIndex = desc.Layer,
+                FileName = RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension)
+            };
+        }
+
+        void SetAccentColor(Element element, string str)
+        {
+            element.AccentColor = ColorGenerator.GenerateColor(str);
+        }
+
+        void SetTransform(SourceOperation operation, SourceOperator op)
+        {
+            if (!desc.Position.IsDefault)
+            {
+                if (op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is IAbstractProperty<ITransform?> transformp)
+                {
+                    ITransform? transform = transformp.GetValue();
+                    AddOrSetHelper.AddOrSet(ref transform, new TranslateTransform(desc.Position));
+                    transformp.SetValue(transform);
+                }
+                else
+                {
+                    var configure = new ConfigureTransformOperator();
+                    ITransform? transform = configure.Transform.Value;
+                    AddOrSetHelper.AddOrSet(ref transform, new TranslateTransform(desc.Position));
+                    configure.Transform.Value = transform;
+                    operation.Children.Add(configure);
+                }
+            }
+        }
+
+        if (desc.FileName != null)
+        {
+            Element CreateElementFor<T>(out T t)
+                where T : SourceOperator, new()
+            {
+                Element element = CreateElement();
+                element.Name = Path.GetFileName(desc.FileName!);
+                SetAccentColor(element, typeof(T).FullName!);
+
+                element.Operation.AddChild(t = new T()).Do();
+                SetTransform(element.Operation, t);
+
+                return element;
+            }
+
+            var list = new List<IRecordableCommand>();
+            if (MatchFileImage(desc.FileName))
+            {
+                Element element = CreateElementFor(out SourceImageOperator t);
+                MediaSourceManager.Shared.OpenImageSource(desc.FileName, out IImageSource? image);
+                t.Source.Value = image;
+
+                element.Save(element.FileName);
+                list.Add(Scene.AddChild(element));
+            }
+            else if (MatchFileVideoOnly(desc.FileName))
+            {
+                Element element1 = CreateElementFor(out SourceVideoOperator t1);
+                Element element2 = CreateElementFor(out SourceSoundOperator t2);
+                element2.ZIndex++;
+                MediaSourceManager.Shared.OpenVideoSource(desc.FileName, out IVideoSource? video);
+                MediaSourceManager.Shared.OpenSoundSource(desc.FileName, out ISoundSource? sound);
+                t1.Source.Value = video;
+                t2.Source.Value = sound;
+
+                if (video != null)
+                    element1.Length = video.Duration;
+                if (sound != null)
+                    element2.Length = sound.Duration;
+
+                element1.Save(element1.FileName);
+                element2.Save(element2.FileName);
+                list.Add(Scene.AddChild(element1));
+                list.Add(Scene.AddChild(element2));
+            }
+            else if (MatchFileAudioOnly(desc.FileName))
+            {
+                Element element = CreateElementFor(out SourceSoundOperator t);
+                MediaSourceManager.Shared.OpenSoundSource(desc.FileName, out ISoundSource? sound);
+                t.Source.Value = sound;
+                if (sound != null)
+                {
+                    element.Length = sound.Duration;
+                }
+
+                element.Save(element.FileName);
+                list.Add(Scene.AddChild(element));
+            }
+
+            list.ToArray()
+                .ToCommand()
+                .DoAndRecord(CommandRecorder.Default);
+        }
+        else
+        {
+            Element element = CreateElement();
+            if (desc.InitialOperator != null)
+            {
+                LibraryItem? item = LibraryService.Current.FindItem(desc.InitialOperator);
+                if (item != null)
+                {
+                    element.Name = item.DisplayName;
+                }
+
+                //Todo: レイヤーのアクセントカラー
+                //sLayer.AccentColor = item.InitialOperator.AccentColor;
+                element.AccentColor = ColorGenerator.GenerateColor(desc.InitialOperator.FullName ?? desc.InitialOperator.Name);
+                var operatour = (SourceOperator)Activator.CreateInstance(desc.InitialOperator)!;
+                element.Operation.AddChild(operatour).Do();
+                SetTransform(element.Operation, operatour);
+            }
+
+            element.Save(element.FileName);
+            Scene.AddChild(element).DoAndRecord(CommandRecorder.Default);
+        }
+    }
+
+    private static bool MatchFileExtensions(string filePath, IEnumerable<string> extensions)
+    {
+        return extensions
+            .Select(x =>
+            {
+                int idx = x.LastIndexOf('.');
+                if (0 <= idx)
+                    return x.Substring(idx);
+                else
+                    return x;
+            })
+            .Any(filePath.EndsWith);
+    }
+
+    private static bool MatchFileAudioOnly(string filePath)
+    {
+        return MatchFileExtensions(filePath, DecoderRegistry.EnumerateDecoder()
+            .SelectMany(x => x.AudioExtensions())
+            .Distinct());
+    }
+
+    private static bool MatchFileVideoOnly(string filePath)
+    {
+        return MatchFileExtensions(filePath, DecoderRegistry.EnumerateDecoder()
+            .SelectMany(x => x.VideoExtensions())
+            .Distinct());
+    }
+
+    private static bool MatchFileImage(string filePath)
+    {
+        string[] extensions = new string[]
+        {
+            "*.bmp",
+            "*.gif",
+            "*.ico",
+            "*.jpg",
+            "*.jpeg",
+            "*.png",
+            "*.wbmp",
+            "*.webp",
+            "*.pkm",
+            "*.ktx",
+            "*.astc",
+            "*.dng",
+            "*.heif",
+            "*.avif",
+        };
+        return MatchFileExtensions(filePath, extensions);
     }
 
     void ISupportCloseAnimation.Close(object obj)

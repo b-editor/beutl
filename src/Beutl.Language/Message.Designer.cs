@@ -327,6 +327,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Failed to save image. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Failed_to_save_image {
+            get {
+                return ResourceManager.GetString("Failed_to_save_image", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   File does not exist. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string FileDoesNotExist {
