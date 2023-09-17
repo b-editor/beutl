@@ -11,7 +11,7 @@ public sealed class TextBlockOperator : DrawablePublishOperator<TextBlock>
 {
     public Setter<float> Size { get; set; } = new Setter<float>(TextBlock.SizeProperty, 24);
 
-    public Setter<FontFamily> FontFamily { get; set; } = new Setter<FontFamily>(TextBlock.FontFamilyProperty, Media.FontFamily.Default);
+    public Setter<FontFamily?> FontFamily { get; set; } = new Setter<FontFamily?>(TextBlock.FontFamilyProperty, Media.FontFamily.Default);
 
     public Setter<FontStyle> FontStyle { get; set; } = new Setter<FontStyle>(TextBlock.FontStyleProperty, Media.FontStyle.Normal);
 
@@ -19,7 +19,7 @@ public sealed class TextBlockOperator : DrawablePublishOperator<TextBlock>
 
     public Setter<float> Spacing { get; set; } = new Setter<float>(TextBlock.SpacingProperty, 0);
 
-    public Setter<string> Text { get; set; } = new Setter<string>(TextBlock.TextProperty, string.Empty);
+    public Setter<string?> Text { get; set; } = new Setter<string?>(TextBlock.TextProperty, string.Empty);
 
     public Setter<ITransform?> Transform { get; set; } = new(Drawable.TransformProperty, new TransformGroup());
 
