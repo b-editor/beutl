@@ -5,9 +5,9 @@ using Beutl.Media;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class FontFamilyEditorViewModel : ValueEditorViewModel<FontFamily>
+public sealed class FontFamilyEditorViewModel : ValueEditorViewModel<FontFamily?>
 {
-    public FontFamilyEditorViewModel(IAbstractProperty<FontFamily> property)
+    public FontFamilyEditorViewModel(IAbstractProperty<FontFamily?> property)
         : base(property)
     {
     }
@@ -24,7 +24,7 @@ public sealed class FontFamilyEditorViewModel : ValueEditorViewModel<FontFamily>
 
     private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<FontFamily> args)
+        if (e is PropertyEditorValueChangedEventArgs<FontFamily?> args)
         {
             SetValue(args.OldValue, args.NewValue);
         }
