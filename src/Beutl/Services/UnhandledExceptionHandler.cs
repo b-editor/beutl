@@ -44,7 +44,7 @@ public static class UnhandledExceptionHandler
                 OperatingSystem.IsWindows() ? "Beutl.ExceptionHandler.exe" : "Beutl.ExceptionHandler");
             Process.Start(new ProcessStartInfo(exePath)
             {
-                UseShellExecute = true,
+                UseShellExecute = true
             });
         }
         catch
