@@ -38,8 +38,27 @@ public sealed class RangeDataAnnotationValidater<TNumber> : RangeValidator<TNumb
 
     public override bool TryCoerce(ValidationContext context, ref TNumber value)
     {
-        value = TNumber.Clamp(value, Minimum, Maximum);
-        return true;
+        switch ((Attribute?.MaximumIsExclusive, Attribute?.MinimumIsExclusive))
+        {
+            case (true, true):
+                return false;
+
+            case (true, false):
+                value = TNumber.Max(value, Minimum);
+                return true;
+
+            case (false, true):
+                value = TNumber.Min(value, Maximum);
+                return true;
+
+            case (false, false):
+                value = TNumber.Clamp(value, Minimum, Maximum);
+                value = TNumber.Min(value, Maximum);
+                return true;
+
+            default:
+                return false;
+        }
     }
 
     public override string? Validate(ValidationContext context, TNumber value)
