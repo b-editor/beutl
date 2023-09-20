@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.Collections.Frozen;
+using System.Reflection;
 
 using Microsoft.Extensions.DependencyModel;
 
@@ -9,8 +10,8 @@ namespace Beutl.Api.Services;
 
 internal static class CoreLibraries
 {
-    private static Dictionary<string, string>? s_runtimeMap;
-    private static Dictionary<string, string>? s_pkgMap;
+    private static FrozenDictionary<string, string>? s_runtimeMap;
+    private static FrozenDictionary<string, string>? s_pkgMap;
     private static List<PackageIdentity>? s_preferredVersions;
 
     public static IEnumerable<PackageIdentity> GetPreferredVersions()
@@ -98,9 +99,9 @@ internal static class CoreLibraries
         return library;
     }
 
-    private static Dictionary<string, string> RuntimeDepsMap => s_runtimeMap ??= CollectRuntimeDependencies().ToDictionary(x => x.Name, x => x.Version);
+    private static FrozenDictionary<string, string> RuntimeDepsMap => s_runtimeMap ??= CollectRuntimeDependencies().ToFrozenDictionary(x => x.Name, x => x.Version);
 
-    private static Dictionary<string, string> PackageDepsMap => s_pkgMap ??= CollectPackageDependencies().ToDictionary(x => x.Name, x => x.Version);
+    private static FrozenDictionary<string, string> PackageDepsMap => s_pkgMap ??= CollectPackageDependencies().ToFrozenDictionary(x => x.Name, x => x.Version);
 
     public static bool IncludedInRuntimeDependencies(string name, Version? version)
     {

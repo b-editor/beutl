@@ -1,4 +1,7 @@
-﻿using Beutl.Graphics.Operations;
+﻿using System.Collections.Frozen;
+using System.Collections.Immutable;
+
+using Beutl.Graphics.Operations;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 
@@ -10,22 +13,29 @@ namespace Beutl.Graphics;
 
 public static unsafe partial class Image
 {
-    private static readonly Dictionary<string, EncodedImageFormat> s_extensionToFormat = new()
+    private static readonly FrozenDictionary<string, EncodedImageFormat> s_extensionToFormat;
+
+    static Image()
     {
-        { ".bmp", EncodedImageFormat.Bmp },
-        { ".gif", EncodedImageFormat.Gif },
-        { ".ico", EncodedImageFormat.Ico },
-        { ".jpg", EncodedImageFormat.Jpeg },
-        { ".jpeg", EncodedImageFormat.Jpeg },
-        { ".png", EncodedImageFormat.Png },
-        { ".wbmp", EncodedImageFormat.Wbmp },
-        { ".webp", EncodedImageFormat.Webp },
-        { ".pkm", EncodedImageFormat.Pkm },
-        { ".ktx", EncodedImageFormat.Ktx },
-        { ".astc", EncodedImageFormat.Astc },
-        { ".dng", EncodedImageFormat.Dng },
-        { ".heif", EncodedImageFormat.Heif },
-    };
+        ImmutableArray<KeyValuePair<string, EncodedImageFormat>> list =
+        [
+            new KeyValuePair<string, EncodedImageFormat>(".bmp", EncodedImageFormat.Bmp),
+            new KeyValuePair<string, EncodedImageFormat>(".gif", EncodedImageFormat.Gif),
+            new KeyValuePair<string, EncodedImageFormat>(".ico", EncodedImageFormat.Ico),
+            new KeyValuePair<string, EncodedImageFormat>(".jpg", EncodedImageFormat.Jpeg),
+            new KeyValuePair<string, EncodedImageFormat>(".jpeg", EncodedImageFormat.Jpeg),
+            new KeyValuePair<string, EncodedImageFormat>(".png", EncodedImageFormat.Png),
+            new KeyValuePair<string, EncodedImageFormat>(".wbmp", EncodedImageFormat.Wbmp),
+            new KeyValuePair<string, EncodedImageFormat>(".webp", EncodedImageFormat.Webp),
+            new KeyValuePair<string, EncodedImageFormat>(".pkm", EncodedImageFormat.Pkm),
+            new KeyValuePair<string, EncodedImageFormat>(".ktx", EncodedImageFormat.Ktx),
+            new KeyValuePair<string, EncodedImageFormat>(".astc", EncodedImageFormat.Astc),
+            new KeyValuePair<string, EncodedImageFormat>(".dng", EncodedImageFormat.Dng),
+            new KeyValuePair<string, EncodedImageFormat>(".heif", EncodedImageFormat.Heif),
+        ];
+
+        s_extensionToFormat = list.ToFrozenDictionary();
+    }
 
     public static void AlphaSubtract(this Bitmap<Bgra8888> image, Bitmap<Bgra8888> mask)
     {
