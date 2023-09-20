@@ -29,7 +29,7 @@ public sealed class ExtensionProvider : IBeutlApiResource
         if (_cacheInvalidated)
         {
             _cache.Clear();
-            _cacheInvalidated = true;
+            _cacheInvalidated = false;
         }
 
         if (_cache.TryGetValue(typeof(TExtension), out Array? result))
