@@ -1,7 +1,9 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
+using System.Text.Unicode;
 
 using Beutl.Converters;
 using Beutl.Utilities;
@@ -14,7 +16,14 @@ namespace Beutl.Graphics;
 /// </summary>
 [JsonConverter(typeof(VectorJsonConverter))]
 [TypeConverter(typeof(VectorConverter))]
-public readonly struct Vector : IEquatable<Vector>, ITupleConvertible<Vector, float>
+public readonly struct Vector
+    : IEquatable<Vector>,
+      IParsable<Vector>,
+      ISpanParsable<Vector>,
+      ISpanFormattable,
+      IUtf8SpanFormattable,
+      IUtf8SpanParsable<Vector>,
+      ITupleConvertible<Vector, float>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="Vector"/> structure.
@@ -130,30 +139,20 @@ public readonly struct Vector : IEquatable<Vector>, ITupleConvertible<Vector, fl
     /// Parses a <see cref="Vector"/> string.
     /// </summary>
     /// <param name="s">The string.</param>
-    /// <param name="vector">The <see cref="Vector"/>.</param>
-    /// <returns>The status of the operation.</returns>
-    public static bool TryParse(ReadOnlySpan<char> s, out Vector vector)
-    {
-        try
-        {
-            vector = Parse(s);
-            return true;
-        }
-        catch
-        {
-            vector = default;
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Parses a <see cref="Vector"/> string.
-    /// </summary>
-    /// <param name="s">The string.</param>
     /// <returns>The <see cref="Vector"/>.</returns>
     public static Vector Parse(string s)
     {
         return Parse(s.AsSpan());
+    }
+
+    public static Vector Parse(string s, IFormatProvider? provider)
+    {
+        return Parse(s.AsSpan(), provider);
+    }
+
+    public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, out Vector result)
+    {
+        return TryParse(s.AsSpan(), provider, out result);
     }
 
     /// <summary>
@@ -163,12 +162,47 @@ public readonly struct Vector : IEquatable<Vector>, ITupleConvertible<Vector, fl
     /// <returns>The <see cref="Vector"/>.</returns>
     public static Vector Parse(ReadOnlySpan<char> s)
     {
-        using (var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid Vector."))
+        return Parse(s, null);
+    }
+
+    /// <summary>
+    /// Parses a <see cref="Vector"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <returns>The <see cref="Vector"/>.</returns>
+    public static Vector Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    {
+        using (var tokenizer = new RefStringTokenizer(s, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Vector."))
         {
             return new Vector(
                 tokenizer.ReadSingle(),
                 tokenizer.ReadSingle()
             );
+        }
+    }
+
+    /// <summary>
+    /// Parses a <see cref="Vector"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <param name="vector">The <see cref="Vector"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(ReadOnlySpan<char> s, out Vector vector)
+    {
+        return TryParse(s, null, out vector);
+    }
+
+    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out Vector result)
+    {
+        try
+        {
+            result = Parse(s, provider);
+            return true;
+        }
+        catch
+        {
+            result = default;
+            return false;
         }
     }
 
@@ -435,5 +469,60 @@ public readonly struct Vector : IEquatable<Vector>, ITupleConvertible<Vector, fl
     static void ITupleConvertible<Vector, float>.ConvertFrom(Span<float> tuple, out Vector self)
     {
         self = new Vector(tuple[0], tuple[1]);
+    }
+
+    public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    {
+        char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
+        return Utf8.TryWrite(utf8Destination, provider, $"{X}{separator} {Y}", out bytesWritten);
+    }
+
+    public static Vector Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider = null)
+    {
+        using (var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Vector."))
+        {
+            return new Vector(
+                tokenizer.ReadSingle(),
+                tokenizer.ReadSingle()
+            );
+        }
+    }
+
+    public static bool TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, out Vector result)
+    {
+        try
+        {
+            result = Parse(utf8Text, provider);
+            return true;
+        }
+        catch
+        {
+            result = default;
+            return false;
+        }
+    }
+
+    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    {
+        char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
+        return MemoryExtensions.TryWrite(destination, provider, $"{X}{separator} {Y}", out charsWritten);
+    }
+
+    public string ToString(IFormatProvider? formatProvider)
+    {
+        return ToString(null, formatProvider);
+    }
+
+    public string ToString(string? format, IFormatProvider? formatProvider)
+    {
+        if (formatProvider == null)
+        {
+            return ToString();
+        }
+        else
+        {
+            char separator = TokenizerHelper.GetSeparatorFromFormatProvider(formatProvider);
+            return string.Create(formatProvider, $"{X}{separator} {Y}");
+        }
     }
 }

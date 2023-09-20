@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
+using System.Text.Unicode;
 
 using Beutl.Converters;
 using Beutl.Utilities;
@@ -19,6 +20,9 @@ public readonly struct Rect
     : IEquatable<Rect>,
       IParsable<Rect>,
       ISpanParsable<Rect>,
+      ISpanFormattable,
+      IUtf8SpanParsable<Rect>,
+      IUtf8SpanFormattable,
       IEqualityOperators<Rect, Rect, bool>,
       IMultiplyOperators<Rect, Vector, Rect>,
       IMultiplyOperators<Rect, float, Rect>,
@@ -576,16 +580,7 @@ public readonly struct Rect
     /// <returns>The status of the operation.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, out Rect rect)
     {
-        try
-        {
-            rect = Parse(s);
-            return true;
-        }
-        catch
-        {
-            rect = default;
-            return false;
-        }
+        return TryParse(s, out rect);
     }
 
     /// <summary>
@@ -605,7 +600,22 @@ public readonly struct Rect
     /// <returns>The parsed <see cref="Rect"/>.</returns>
     public static Rect Parse(ReadOnlySpan<char> s)
     {
-        using var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid Rect.");
+        return Parse(s, null);
+    }
+
+    public static Rect Parse(string s, IFormatProvider? provider)
+    {
+        return Parse(s.AsSpan(), provider);
+    }
+
+    public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, out Rect result)
+    {
+        return TryParse(s.AsSpan(), provider, out result);
+    }
+
+    public static Rect Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    {
+        using var tokenizer = new RefStringTokenizer(s, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Rect.");
         return new Rect(
             tokenizer.ReadSingle(),
             tokenizer.ReadSingle(),
@@ -614,25 +624,42 @@ public readonly struct Rect
         );
     }
 
-    static Rect IParsable<Rect>.Parse(string s, IFormatProvider? provider)
+    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out Rect result)
     {
-        return Parse(s);
+        try
+        {
+            result = Parse(s, provider);
+            return true;
+        }
+        catch
+        {
+            result = default;
+            return false;
+        }
     }
 
-    static bool IParsable<Rect>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out Rect result)
+    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
     {
-        result = default;
-        return s != null && TryParse(s, out result);
+        char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
+        return MemoryExtensions.TryWrite(destination, provider, $"{X}{separator} {Y}{separator} {Width}{separator} {Height}", out charsWritten);
     }
 
-    static Rect ISpanParsable<Rect>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    public string ToString(string? format, IFormatProvider? formatProvider)
     {
-        return Parse(s);
+        return ToString(formatProvider);
     }
 
-    static bool ISpanParsable<Rect>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Rect result)
+    public string ToString(IFormatProvider? formatProvider)
     {
-        return TryParse(s, out result);
+        if (formatProvider == null)
+        {
+            return ToString();
+        }
+        else
+        {
+            char separator = TokenizerHelper.GetSeparatorFromFormatProvider(formatProvider);
+            return string.Create(formatProvider, $"{X}{separator} {Y}{separator} {Width}{separator} {Height}");
+        }
     }
 
     static void ITupleConvertible<Rect, float>.ConvertTo(Rect self, Span<float> tuple)
@@ -646,5 +673,46 @@ public readonly struct Rect
     static void ITupleConvertible<Rect, float>.ConvertFrom(Span<float> tuple, out Rect self)
     {
         self = new Rect(tuple[0], tuple[1], tuple[2], tuple[3]);
+    }
+
+    public static Rect Parse(ReadOnlySpan<byte> utf8Text)
+    {
+        return Parse(utf8Text, null);
+    }
+
+    public static Rect Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider)
+    {
+        using var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Rect.");
+        return new Rect(
+            tokenizer.ReadSingle(),
+            tokenizer.ReadSingle(),
+            tokenizer.ReadSingle(),
+            tokenizer.ReadSingle()
+        );
+    }
+
+    public static bool TryParse(ReadOnlySpan<byte> utf8Text, out Rect result)
+    {
+        return TryParse(utf8Text, out result);
+    }
+
+    public static bool TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, out Rect result)
+    {
+        try
+        {
+            result = Parse(utf8Text, provider);
+            return true;
+        }
+        catch
+        {
+            result = default;
+            return false;
+        }
+    }
+
+    public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    {
+        char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
+        return Utf8.TryWrite(utf8Destination, provider, $"{X}{separator} {Y}{separator} {Width}{separator} {Height}", out bytesWritten);
     }
 }
