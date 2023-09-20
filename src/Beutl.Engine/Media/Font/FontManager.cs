@@ -1,4 +1,7 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Frozen;
+using System.Collections.Immutable;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 using Beutl.Configuration;
 
@@ -9,7 +12,7 @@ namespace Beutl.Media;
 public sealed class FontManager
 {
     public static readonly FontManager Instance = new();
-    internal readonly Dictionary<FontFamily, TypefaceCollection> _fonts = new();
+    internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = new();
     private readonly string[] _fontDirs;
 
     private FontManager()
@@ -68,7 +71,7 @@ public sealed class FontManager
         foreach (IGrouping<string, SKTypeface> item in list.GroupBy(i => i.FamilyName))
         {
             var family = new FontFamily(item.Key);
-            _fonts.Add(family, new TypefaceCollection(item));
+            _fonts.Add(family, TypefaceCollection.Create(item.ToArray()));
         }
 
         DefaultTypeface = GetDefaultTypeface();
@@ -90,14 +93,19 @@ public sealed class FontManager
         string familyName = typeface.FamilyName;
         var fontFamily = new FontFamily(familyName);
 
-        if (_fonts.TryGetValue(fontFamily, out TypefaceCollection? value))
+        ref FrozenDictionary<Typeface, SKTypeface>? value
+            = ref CollectionsMarshal.GetValueRefOrAddDefault(_fonts, fontFamily, out bool exists);
+
+        if (exists)
         {
-            TypefaceCollection collection = value;
             var tf = typeface.ToTypeface();
 
-            if (!collection.ContainsKey(tf))
+            if (!value!.ContainsKey(tf))
             {
-                collection.Add(tf, typeface);
+                Debug.Fail("");
+                value = value.Append(new(tf, typeface))
+                    .ToFrozenDictionary();
+
                 return true;
             }
             else
@@ -107,7 +115,7 @@ public sealed class FontManager
         }
         else
         {
-            _fonts.Add(fontFamily, new TypefaceCollection(new SKTypeface[] { typeface }));
+            value = TypefaceCollection.Create([typeface]);
             return true;
         }
     }
@@ -123,25 +131,34 @@ public sealed class FontManager
             return null;
         }
     }
+
+    public ImmutableArray<Typeface> GetTypefaces(FontFamily fontFamily)
+    {
+        return _fonts.TryGetValue(fontFamily, out FrozenDictionary<Typeface, SKTypeface>? value)
+            ? value.Keys
+            : [];
+    }
 }
 
-
-internal class TypefaceCollection : Dictionary<Typeface, SKTypeface>
+internal static class TypefaceCollection
 {
-    public TypefaceCollection(IEnumerable<SKTypeface> typefaces)
+    public static FrozenDictionary<Typeface, SKTypeface> Create(SKTypeface[] typefaces)
     {
+        var list = new List<KeyValuePair<Typeface, SKTypeface>>(typefaces.Length);
         foreach (SKTypeface typeface in typefaces)
         {
-            TryAdd(typeface.ToTypeface(), typeface);
+            list.Add(new(typeface.ToTypeface(), typeface));
         }
+
+        return list.ToFrozenDictionary();
     }
 
-    public SKTypeface Get(Typeface typeface)
+    public static SKTypeface Get(this FrozenDictionary<Typeface, SKTypeface> typefaces, Typeface typeface)
     {
-        return GetNearestMatch(this, typeface);
+        return GetNearestMatch(typefaces, typeface);
     }
 
-    private static SKTypeface GetNearestMatch(IDictionary<Typeface, SKTypeface> typefaces, Typeface key)
+    private static SKTypeface GetNearestMatch(FrozenDictionary<Typeface, SKTypeface> typefaces, Typeface key)
     {
         if (typefaces.TryGetValue(key, out SKTypeface? typeface))
         {

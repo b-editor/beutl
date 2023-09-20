@@ -21,20 +21,7 @@ public class FontFamily : IEquatable<FontFamily?>
 
     public string Name { get; }
 
-    public IEnumerable<Typeface> Typefaces
-    {
-        get
-        {
-            if (FontManager.Instance._fonts.TryGetValue(this, out TypefaceCollection? value))
-            {
-                return value.Keys;
-            }
-            else
-            {
-                return Enumerable.Empty<Typeface>();
-            }
-        }
-    }
+    public IEnumerable<Typeface> Typefaces => FontManager.Instance.GetTypefaces(this);
 
     public override bool Equals(object? obj)
     {
