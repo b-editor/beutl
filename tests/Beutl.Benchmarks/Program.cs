@@ -1,3 +1,3 @@
 ﻿using BenchmarkDotNet.Running;
 
-BenchmarkRunner.Run<EnumToStringBenchmark>();
+BenchmarkRunner.Run<MatrixEqualityCompareBench>();

@@ -1,9 +1,6 @@
 ﻿using System.ComponentModel;
-using System.ComponentModel.Design;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
-using System.Runtime.CompilerServices;
-using System.Runtime.Intrinsics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
@@ -352,22 +349,17 @@ public readonly struct Matrix
     /// </summary>
     /// <param name="other">The other matrix to test equality against.</param>
     /// <returns>True if this matrix is equal to other; False otherwise.</returns>
-    public unsafe bool Equals(Matrix other)
+    public bool Equals(Matrix other)
     {
-        // Todo: Benchmark
-        var thisSpan = new Span<float>(Unsafe.AsPointer(ref Unsafe.AsRef(in this)), 9);
-        var otherSpan = new Span<float>(Unsafe.AsPointer(ref Unsafe.AsRef(in other)), 9);
-        return thisSpan.SequenceEqual(otherSpan);
-
-        //return M11 == other.M11 &&
-        //       M12 == other.M12 &&
-        //       M13 == other.M13 &&
-        //       M21 == other.M21 &&
-        //       M22 == other.M22 &&
-        //       M23 == other.M23 &&
-        //       M31 == other.M31 &&
-        //       M32 == other.M32 &&
-        //       M33 == other.M33;
+        return M11 == other.M11 &&
+               M12 == other.M12 &&
+               M13 == other.M13 &&
+               M21 == other.M21 &&
+               M22 == other.M22 &&
+               M23 == other.M23 &&
+               M31 == other.M31 &&
+               M32 == other.M32 &&
+               M33 == other.M33;
     }
 
     /// <summary>

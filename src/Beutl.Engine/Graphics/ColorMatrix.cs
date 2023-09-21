@@ -47,17 +47,7 @@ public readonly struct ColorMatrix : IEquatable<ColorMatrix>
             0F, 0F, 1F, 0F, 0F,
             0F, 0F, 0F, 1F, 0F);
 
-    public bool IsIdentity
-    {
-        get
-        {
-            return
-                M11 == 1F && M12 == 0F && M13 == 0F && M14 == 0F && M15 == 0F &&
-                M21 == 0F && M22 == 1F && M23 == 0F && M24 == 0F && M25 == 0F &&
-                M31 == 0F && M32 == 0F && M33 == 1F && M34 == 0F && M35 == 0F &&
-                M41 == 0F && M42 == 0F && M43 == 0F && M44 == 1F && M45 == 0F;
-        }
-    }
+    public bool IsIdentity => Equals(Identity);
 
     public float M11 { get; }
 
