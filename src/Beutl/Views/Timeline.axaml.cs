@@ -254,8 +254,14 @@ public sealed partial class Timeline : UserControl
     {
         TimelineViewModel viewModel = ViewModel;
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale)
-            .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
+        int rate = viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate();
+        _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
+
+        if (_pointerFrame >= viewModel.Scene.Duration)
+        {
+            _pointerFrame = viewModel.Scene.Duration - TimeSpan.FromSeconds(1d / rate);
+            _pointerFrame = _pointerFrame.RoundToRate(rate);
+        }
 
         if (_mouseFlag == MouseFlags.SeekBarPressed)
         {
