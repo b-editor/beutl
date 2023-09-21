@@ -36,10 +36,6 @@
                 <Setter Property="BorderBrush" Value="{Binding RestBorderColor.Value, Converter={StaticResource ColorToBrushConverter}}" />
             </Style>
         </Border.Styles>
-        <Border.Resources>
-            <Thickness x:Key="MenuFlyoutItemPlaceholderThemeThickness">0,0,0,0</Thickness>
-            <Thickness x:Key="MenuFlyoutItemDoublePlaceholderThemeThickness">28,0,0,0</Thickness>
-        </Border.Resources>
         <Border.ContextFlyout>
             <ui:FAMenuFlyout>
                 <ui:MenuFlyoutItem Command="{Binding Split}" Text="{x:Static lang:Strings.Split}">
