@@ -60,8 +60,7 @@ public sealed class PlayerViewModel : IDisposable
             .WithSubscribe(() =>
             {
                 int rate = GetFrameRate();
-
-                Scene.CurrentFrame += TimeSpan.FromSeconds(1d / rate);
+                UpdateCurrentFrame(Scene.CurrentFrame + TimeSpan.FromSeconds(1d / rate));
             })
             .DisposeWith(_disposables);
 
@@ -69,8 +68,7 @@ public sealed class PlayerViewModel : IDisposable
             .WithSubscribe(() =>
             {
                 int rate = GetFrameRate();
-
-                Scene.CurrentFrame -= TimeSpan.FromSeconds(1d / rate);
+                UpdateCurrentFrame(Scene.CurrentFrame - TimeSpan.FromSeconds(1d / rate));
             })
             .DisposeWith(_disposables);
 
@@ -176,18 +174,22 @@ public sealed class PlayerViewModel : IDisposable
             timer.Elapsed += (_, e) =>
             {
                 TimeSpan time = (e.SignalTime - startTime) + startFrame;
+                time = time.RoundToRate(rate);
 
-                if (time > duration || !IsPlaying.Value)
+                if (time >= duration || !IsPlaying.Value)
                 {
                     timer.Stop();
                     tcs.SetResult();
                 }
-
-                Render(renderer, time);
+                else
+                {
+                    Render(renderer, time);
+                }
             };
             timer.Start();
 
             await tcs.Task;
+            IsPlaying.Value = false;
         }
         catch (Exception ex)
         {
@@ -520,8 +522,16 @@ public sealed class PlayerViewModel : IDisposable
         if (Scene == null) return;
         if (Scene.CurrentFrame != timeSpan)
         {
-            int rate = Project?.GetFrameRate() ?? 30;
-            Scene.CurrentFrame = timeSpan.RoundToRate(rate);
+            int rate = Project.GetFrameRate();
+            timeSpan = timeSpan.RoundToRate(rate);
+
+            if (timeSpan >= Scene.Duration)
+            {
+                timeSpan = Scene.Duration - TimeSpan.FromSeconds(1d / rate);
+                timeSpan = timeSpan.RoundToRate(rate);
+            }
+
+            Scene.CurrentFrame = timeSpan;
         }
     }
 
