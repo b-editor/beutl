@@ -15,6 +15,8 @@
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="HarfBuzzSharp" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" />
     <PackageReference Include="ILGPU" />
     <PackageReference Include="Microsoft.Extensions.ObjectPool" />
     <PackageReference Include="NAudio.Core" />
@@ -25,6 +27,7 @@
     <PackageReference Include="OpenCvSharp4.runtime.win" />
     <PackageReference Include="OpenTK.OpenAL" />
     <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" />
+    <PackageReference Include="SkiaSharp.HarfBuzz" />
     <PackageReference Include="Vortice.XAudio2" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" />

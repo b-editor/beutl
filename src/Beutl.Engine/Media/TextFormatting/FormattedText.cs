@@ -3,6 +3,7 @@
 using Beutl.Graphics;
 
 using SkiaSharp;
+using SkiaSharp.HarfBuzz;
 
 namespace Beutl.Media.TextFormatting;
 
@@ -73,7 +74,7 @@ public struct FormattedText : IEquatable<FormattedText>
     public bool BeginOnNewLine { get; set; } = false;
 
     public IBrush? Brush { get; set; }
-    
+
     public IPen? Pen { get; set; }
 
     public FontMetrics Metrics => MeasureAndSetField().Metrics;
@@ -89,22 +90,39 @@ public struct FormattedText : IEquatable<FormattedText>
             Typeface = typeface
         };
 
-        Size size = Bounds;
-        Span<char> buffer = stackalloc char[1];
+        using var shaper = new SKShaper(typeface);
+        using var buffer = new HarfBuzzSharp.Buffer();
+        buffer.AddUtf16(Text.AsSpan());
+        buffer.GuessSegmentProperties();
 
-        foreach (char item in Text.AsSpan())
+        SKShaper.Result result = shaper.Shape(buffer, paint);
+
+        // create the text blob
+        using var builder = new SKTextBlobBuilder();
+        using SKFont font = paint.ToFont();
+        SKPositionedRunBuffer run = builder.AllocatePositionedRun(font, result.Codepoints.Length);
+
+        // copy the glyphs
+        Span<ushort> glyphs = run.GetGlyphSpan();
+        Span<SKPoint> positions = run.GetPositionSpan();
+        for (int i = 0; i < result.Codepoints.Length; i++)
         {
-            buffer[0] = item;
-            var bounds = default(SKRect);
-            float width = paint.MeasureText(buffer, ref bounds);
+            glyphs[i] = (ushort)result.Codepoints[i];
+            SKPoint p = result.Points[i];
+            p.X += i * Spacing;
+            positions[i] = p;
+        }
 
-            SKPath skPath = paint.GetTextPath(buffer, (bounds.Width / 2) - bounds.MidX, 0);
+        // build
+        using SKTextBlob textBlob = builder.Build();
 
-            path.AddPath(skPath, point.X + bounds.Left, point.Y);
+        for (int i = 0; i < glyphs.Length; i++)
+        {
+            ushort glyph = glyphs[i];
+            SKPoint p = positions[i] + point.ToSKPoint();
 
-            skPath.Dispose();
-
-            point += new Point(Spacing + width, 0);
+            using SKPath glyphPath = font.GetGlyphPath(glyph);
+            path.AddPath(glyphPath, p.X, p.Y);
         }
 
         return point;
@@ -119,10 +137,17 @@ public struct FormattedText : IEquatable<FormattedText>
             Typeface = typeface
         };
 
+        using var shaper = new SKShaper(typeface);
+        using var buffer = new HarfBuzzSharp.Buffer();
+        buffer.AddUtf16(Text.AsSpan());
+        buffer.GuessSegmentProperties();
+
+        SKShaper.Result result = shaper.Shape(buffer, paint);
+
         FontMetrics fontMetrics = paint.FontMetrics.ToFontMetrics();
-        float w = paint.MeasureText(Text.AsSpan());
+        float w = result.Width;
         var size = new Size(
-            w + (Text.Length - 1) * Spacing,
+            w + (buffer.Length - 1) * Spacing,
             fontMetrics.Descent - fontMetrics.Ascent);
 
         return (fontMetrics, size);

@@ -8,6 +8,7 @@ using Beutl.Rendering.Cache;
 using Beutl.Threading;
 
 using SkiaSharp;
+using SkiaSharp.HarfBuzz;
 
 namespace Beutl.Graphics;
 
@@ -327,45 +328,98 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         }
     }
 
+    private static SKPath CreateSKPathFromText(ReadOnlySpan<ushort> glyphs, ReadOnlySpan<SKPoint> positions, SKFont font)
+    {
+        var path = new SKPath();
+
+        for (int i = 0; i < glyphs.Length; i++)
+        {
+            ushort glyph = glyphs[i];
+            SKPoint point = positions[i];
+
+            using SKPath glyphPath = font.GetGlyphPath(glyph);
+            path.AddPath(glyphPath, point.X, point.Y);
+        }
+
+        return path;
+    }
+
+    private void DrawTextStroke(FormattedText text, IPen pen, SKTextBlob textBlob,
+        ReadOnlySpan<ushort> glyphs, ReadOnlySpan<SKPoint> positions, SKFont font)
+    {
+        ConfigureStrokePaint(new(text.Bounds), pen!);
+        if (pen.StrokeAlignment == StrokeAlignment.Center)
+        {
+            _canvas.DrawText(textBlob, 0, 0, _sharedStrokePaint);
+        }
+        else
+        {
+            using SKPath path = CreateSKPathFromText(glyphs, positions, font);
+
+            switch (pen!.StrokeAlignment)
+            {
+                case StrokeAlignment.Inside:
+                    _canvas.Save();
+                    _canvas.ClipPath(path, SKClipOperation.Intersect, true);
+                    _canvas.DrawText(textBlob, 0, 0, _sharedStrokePaint);
+                    _canvas.Restore();
+                    break;
+
+                case StrokeAlignment.Outside:
+                    _canvas.Save();
+                    _canvas.ClipPath(path, SKClipOperation.Difference, true);
+                    _canvas.DrawText(textBlob, 0, 0, _sharedStrokePaint);
+                    _canvas.Restore();
+                    break;
+            }
+        }
+    }
+
     public void DrawText(FormattedText text, IBrush? fill, IPen? pen)
     {
         VerifyAccess();
 
-        // SKPathに変換
         var typeface = new Typeface(text.Font, text.Style, text.Weight);
         SKTypeface sktypeface = typeface.ToSkia();
         _sharedFillPaint.Reset();
         _sharedFillPaint.TextSize = text.Size;
         _sharedFillPaint.Typeface = sktypeface;
 
-#if DEBUG
-        Span<char> sc = new char[1];
-#else
-        Span<char> sc = stackalloc char[1];
-#endif
-        float prevRight = 0;
-        using var path = new SKPath();
+        using var shaper = new SKShaper(sktypeface);
+        using var buffer = new HarfBuzzSharp.Buffer();
+        buffer.AddUtf16(text.Text.AsSpan());
+        buffer.GuessSegmentProperties();
 
-        foreach (char item in text.Text.AsSpan())
+        SKShaper.Result result = shaper.Shape(buffer, _sharedFillPaint);
+
+        // create the text blob
+        using var builder = new SKTextBlobBuilder();
+        using SKFont font = _sharedFillPaint.ToFont();
+        SKPositionedRunBuffer run = builder.AllocatePositionedRun(font, result.Codepoints.Length);
+
+        // copy the glyphs
+        Span<ushort> glyphs = run.GetGlyphSpan();
+        Span<SKPoint> positions = run.GetPositionSpan();
+        for (int i = 0; i < result.Codepoints.Length; i++)
         {
-            sc[0] = item;
-            var bounds = default(SKRect);
-            float w = _sharedFillPaint.MeasureText(sc, ref bounds);
-
-            using SKPath skPath = _sharedFillPaint.GetTextPath(
-                sc,
-                (bounds.Width / 2) - bounds.MidX,
-                0);
-
-            path.AddPath(skPath, prevRight + bounds.Left, 0);
-
-            prevRight += text.Spacing;
-            prevRight += w;
+            glyphs[i] = (ushort)result.Codepoints[i];
+            SKPoint point = result.Points[i];
+            point.X += i * text.Spacing;
+            positions[i] = point;
         }
 
-        // キャンバスに描画
-        Size size = text.Bounds;
-        DrawSKPath(path, false, fill, pen);
+        // build
+        using SKTextBlob textBlob = builder.Build();
+
+        // draw filled
+        ConfigureFillPaint(text.Bounds, fill);
+        _canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
+
+        // draw stroke
+        if (pen != null && pen.Thickness != 0)
+        {
+            DrawTextStroke(text, pen, textBlob, glyphs, positions, font);
+        }
     }
 
     internal void DrawSKPath(SKPath skPath, bool strokeOnly, IBrush? fill, IPen? pen)
