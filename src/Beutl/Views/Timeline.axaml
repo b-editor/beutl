@@ -96,6 +96,8 @@
                    PointerReleased="TimelinePanel_PointerReleased">
                 <Panel.ContextFlyout>
                     <ui:FAMenuFlyout>
+                        <ui:MenuFlyoutItem Command="{Binding AdjustDurationToPointer}" Text="{x:Static lang:Strings.AdjustDurationToPointer}" />
+                        <ui:MenuFlyoutItem Command="{Binding AdjustDurationToCurrent}" Text="{x:Static lang:Strings.AdjustDurationToCurrent}" />
                         <ui:MenuFlyoutItem Click="AddElementClick" Text="{x:Static lang:Strings.AddElement}" />
                         <ui:MenuFlyoutItem Command="{CompiledBinding Paste}"
                                            InputGesture="{DynamicResource PasteKeyGesture}"
