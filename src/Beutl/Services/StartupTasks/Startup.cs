@@ -6,7 +6,7 @@ namespace Beutl.Services.StartupTasks;
 
 public sealed class Startup
 {
-    private readonly Dictionary<Type, Func<StartupTask>> _tasks = new();
+    private readonly Dictionary<Type, Lazy<StartupTask>> _tasks = new();
     private readonly BeutlApiApplication _apiApp;
     private readonly MainViewModel _viewModel;
 
@@ -28,7 +28,7 @@ public sealed class Startup
 
     public async Task WaitAll()
     {
-        await Task.WhenAll(_tasks.Values.Select(v => v().Task)).ConfigureAwait(false);
+        await Task.WhenAll(_tasks.Values.Select(v => v.Value.Task)).ConfigureAwait(false);
     }
 
     public async Task WaitLoadingExtensions()
@@ -42,16 +42,16 @@ public sealed class Startup
     public T GetTask<T>()
         where T : StartupTask
     {
-        if (_tasks.TryGetValue(typeof(T), out Func<StartupTask>? func))
+        if (_tasks.TryGetValue(typeof(T), out Lazy<StartupTask>? lazy))
         {
-            return (T)func();
+            return (T)lazy.Value;
         }
 
-        foreach (KeyValuePair<Type, Func<StartupTask>> item in _tasks)
+        foreach (KeyValuePair<Type, Lazy<StartupTask>> item in _tasks)
         {
             if (item.Key.IsAssignableTo(typeof(T)))
             {
-                return (T)item.Value();
+                return (T)item.Value.Value;
             }
         }
 
@@ -71,11 +71,6 @@ public sealed class Startup
     private void Register<T>(Func<T> factory)
         where T : StartupTask
     {
-        StartupTask? obj = null;
-        _tasks.Add(typeof(T), () =>
-        {
-            obj ??= factory();
-            return obj;
-        });
+        _tasks.Add(typeof(T), new Lazy<StartupTask>(factory));
     }
 }
