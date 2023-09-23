@@ -973,4 +973,13 @@ and b-editor maintains the download URL.</value>
   <data name="Hand" xml:space="preserve">
     <value>Hand</value>
   </data>
+  <data name="AdjustDurationToCurrent" xml:space="preserve">
+    <value>Adjust duration to current frame</value>
+  </data>
+  <data name="AdjustDurationToPointer" xml:space="preserve">
+    <value>Adjust duration to pointer position</value>
+  </data>
+  <data name="Editor" xml:space="preserve">
+    <value>Editor</value>
+  </data>
 </root>

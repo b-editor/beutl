@@ -9,6 +9,8 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 
 using Beutl.Animation;
+using Beutl.Commands;
+using Beutl.Configuration;
 using Beutl.Helpers;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
@@ -111,6 +113,13 @@ public sealed class TimelineViewModel : IToolContext
             .DistinctUntilChanged()
             .Subscribe(TryApplyLayerCount);
 
+        AdjustDurationToPointer.Subscribe(OnAdjustDurationToPointer);
+        AdjustDurationToCurrent.Subscribe(OnAdjustDurationToCurrent);
+        var editorConfig = GlobalConfiguration.Instance.EditorConfig;
+
+        AutoAdjustSceneDuration = editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty).ToReactiveProperty();
+        AutoAdjustSceneDuration.Subscribe(b => editorConfig.AutoAdjustSceneDuration = b);
+
         // Todo: 設定からショートカットを変更できるようにする。
         KeyBindings = new List<KeyBinding>();
         PlatformHotkeyConfiguration? keyConf = Application.Current?.PlatformSettings?.HotkeyConfiguration;
@@ -130,6 +139,24 @@ public sealed class TimelineViewModel : IToolContext
                 Gesture = new KeyGesture(Key.V, keyConf?.CommandModifiers ?? KeyModifiers.Control)
             });
         }
+    }
+
+    private void OnAdjustDurationToPointer()
+    {
+        int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
+        TimeSpan time = ClickedFrame + TimeSpan.FromSeconds(1d / rate);
+
+        var command = new ChangePropertyCommand<TimeSpan>(Scene, Scene.DurationProperty, time, Scene.Duration);
+        command.DoAndRecord(CommandRecorder.Default);
+    }
+
+    private void OnAdjustDurationToCurrent()
+    {
+        int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
+        TimeSpan time = Scene.CurrentFrame + TimeSpan.FromSeconds(1d / rate);
+
+        var command = new ChangePropertyCommand<TimeSpan>(Scene, Scene.DurationProperty, time, Scene.Duration);
+        command.DoAndRecord(CommandRecorder.Default);
     }
 
     public Scene Scene { get; private set; }
@@ -155,6 +182,12 @@ public sealed class TimelineViewModel : IToolContext
     public CoreList<LayerHeaderViewModel> LayerHeaders { get; } = new();
 
     public ReactiveCommand Paste { get; } = new();
+
+    public ReactiveCommandSlim AdjustDurationToPointer { get; } = new();
+
+    public ReactiveCommandSlim AdjustDurationToCurrent { get; } = new();
+
+    public ReactiveProperty<bool> AutoAdjustSceneDuration { get; }
 
     public TimeSpan ClickedFrame { get; set; }
 

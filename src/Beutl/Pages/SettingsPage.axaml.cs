@@ -89,6 +89,15 @@ public sealed partial class SettingsPage : UserControl
             },
             new NavigationViewItem()
             {
+                Content = Strings.Editor,
+                Tag = typeof(EditorSettingsPage),
+                IconSource = new SymbolIconSource
+                {
+                    Symbol = Symbol.Edit
+                }
+            },
+            new NavigationViewItem()
+            {
                 Content = Strings.Font,
                 Tag = typeof(FontSettingsPage),
                 IconSource = new SymbolIconSource
@@ -149,6 +158,7 @@ public sealed partial class SettingsPage : UserControl
             {
                 "AccountSettingsPage" => settingsPage.Account,
                 "ViewSettingsPage" => settingsPage.View,
+                "EditorSettingsPage" => settingsPage.Editor,
                 "FontSettingsPage" => settingsPage.Font,
                 "ExtensionsSettingsPage" => settingsPage.ExtensionsPage,
                 "StorageSettingsPage" => settingsPage.Storage,
@@ -186,6 +196,7 @@ public sealed partial class SettingsPage : UserControl
         {
             if (pagetype == typeof(AccountSettingsPage)
                 || pagetype == typeof(ViewSettingsPage)
+                || pagetype == typeof(EditorSettingsPage)
                 || pagetype == typeof(FontSettingsPage)
                 || pagetype == typeof(ExtensionsSettingsPage)
                 || pagetype == typeof(StorageSettingsPage)
@@ -212,10 +223,11 @@ public sealed partial class SettingsPage : UserControl
             {
                 "AccountSettingsPage" => 0,
                 "ViewSettingsPage" => 1,
-                "FontSettingsPage" => 2,
-                "ExtensionsSettingsPage" or "EditorExtensionPriorityPage" or "DecoderPriorityPage" => 3,
-                "StorageSettingsPage" or "StorageDetailPage" => 4,
-                "InfomationPage" or "TelemetrySettingsPage" => 5,
+                "EditorSettingsPage" => 2,
+                "FontSettingsPage" => 3,
+                "ExtensionsSettingsPage" or "EditorExtensionPriorityPage" or "DecoderPriorityPage" => 4,
+                "StorageSettingsPage" or "StorageDetailPage" => 5,
+                "InfomationPage" or "TelemetrySettingsPage" => 6,
                 _ => 0,
             };
         }
@@ -226,6 +238,7 @@ public sealed partial class SettingsPage : UserControl
             {
                 "AccountSettingsPageViewModel" => typeof(AccountSettingsPage),
                 "ViewSettingsPageViewModel" => typeof(ViewSettingsPage),
+                "EditorSettingsPageViewModel" => typeof(EditorSettingsPage),
                 "FontSettingsPageViewModel" => typeof(FontSettingsPage),
                 "ExtensionsSettingsPageViewModel" => typeof(ExtensionsSettingsPage),
                 "EditorExtensionPriorityPageViewModel" => typeof(EditorExtensionPriorityPage),

@@ -273,4 +273,10 @@
   <data name="ShowExactBoundaries" xml:space="preserve">
     <value>正確な境界線を表示</value>
   </data>
+  <data name="AutoAdjustSceneDuration" xml:space="preserve">
+    <value>自動でシーンの長さを調整</value>
+  </data>
+  <data name="AutoAdjustSceneDuration_Description" xml:space="preserve">
+    <value>要素を追加したとき、シーンの長さを調整する必要がある場合、自動で調整します。</value>
+  </data>
 </root>

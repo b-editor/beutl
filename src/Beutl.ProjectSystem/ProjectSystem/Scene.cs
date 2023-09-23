@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
+using Beutl.Configuration;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Rendering;
@@ -220,9 +221,7 @@ public class Scene : ProjectItem
         return new RemoveCommand(this, element);
     }
 
-#pragma warning disable CA1822
     public IRecordableCommand MoveChild(int zIndex, TimeSpan start, TimeSpan length, Element element)
-#pragma warning restore CA1822
     {
         ArgumentNullException.ThrowIfNull(element);
 
@@ -232,7 +231,14 @@ public class Scene : ProjectItem
         if (length <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(length));
 
-        return new MoveCommand(zIndex, element, start, element.Start, length, element.Length);
+        return new MoveCommand(
+            zIndex: zIndex,
+            element: element,
+            newStart: start,
+            oldStart: element.Start,
+            newLength: length,
+            oldLength: element.Length,
+            scene: this);
     }
 
     public IRecordableCommand MoveChildren(int deltaIndex, TimeSpan deltaStart, Element[] elements)
@@ -643,6 +649,8 @@ public class Scene : ProjectItem
         private readonly Scene _scene;
         private readonly Element _element;
         private readonly ElementOverlapHandling _overlapHandling;
+        private readonly TimeSpan _oldSceneDuration;
+        private readonly bool _adjustSceneDuration;
         private int _zIndex;
         private TimeRange _range;
 
@@ -651,6 +659,8 @@ public class Scene : ProjectItem
             _scene = scene;
             _element = element;
             _overlapHandling = overlapHandling;
+            _oldSceneDuration = scene.Duration;
+            _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         }
 
         public void Do()
@@ -660,6 +670,11 @@ public class Scene : ProjectItem
             _element.Length = _range.Duration;
             _element.ZIndex = _zIndex;
             _scene.Children.Add(_element);
+
+            if (_adjustSceneDuration && _scene.Duration < _range.End)
+            {
+                _scene.Duration = _range.End;
+            }
         }
 
         public void Redo()
@@ -671,6 +686,10 @@ public class Scene : ProjectItem
         {
             _scene.Children.Remove(_element);
             _element.ZIndex = -1;
+            if (_adjustSceneDuration)
+            {
+                _scene.Duration = _oldSceneDuration;
+            }
         }
     }
 
@@ -707,6 +726,7 @@ public class Scene : ProjectItem
 
     private sealed class MoveCommand : IRecordableCommand
     {
+        private readonly Scene _scene;
         private readonly Element _element;
         private readonly int _zIndex;
         private readonly int _oldZIndex;
@@ -714,12 +734,15 @@ public class Scene : ProjectItem
         private readonly TimeSpan _oldStart;
         private readonly TimeSpan _newLength;
         private readonly TimeSpan _oldLength;
+        private readonly TimeSpan _oldSceneDuration;
+        private readonly bool _adjustSceneDuration;
 
         public MoveCommand(
             int zIndex,
             Element element,
             TimeSpan newStart, TimeSpan oldStart,
-            TimeSpan newLength, TimeSpan oldLength)
+            TimeSpan newLength, TimeSpan oldLength,
+            Scene scene)
         {
             _element = element;
             _zIndex = zIndex;
@@ -728,6 +751,9 @@ public class Scene : ProjectItem
             _oldStart = oldStart;
             _newLength = newLength;
             _oldLength = oldLength;
+            _scene = scene;
+            _oldSceneDuration = scene.Duration;
+            _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         }
 
         public void Do()
@@ -772,6 +798,12 @@ public class Scene : ProjectItem
                 _element.Length = _newLength;
                 _element.ZIndex = _zIndex;
             }
+
+            TimeRange range = _element.Range;
+            if (_adjustSceneDuration && _scene.Duration < range.End)
+            {
+                _scene.Duration = range.End;
+            }
         }
 
         public void Redo()
@@ -784,15 +816,23 @@ public class Scene : ProjectItem
             _element.ZIndex = _oldZIndex;
             _element.Start = _oldStart;
             _element.Length = _oldLength;
+            if (_adjustSceneDuration)
+            {
+                _scene.Duration = _oldSceneDuration;
+            }
         }
     }
 
     private sealed class MultipleMoveCommand : IRecordableCommand
     {
-        private readonly Element[] _element;
+        private readonly Scene _scene;
+        private readonly Element[] _elements;
         private readonly int _deltaZIndex;
         private readonly TimeSpan _deltaTime;
         private readonly bool _conflict;
+        private readonly bool _adjustSceneDuration;
+        private readonly TimeSpan _oldSceneDuration;
+        private readonly TimeSpan _newSceneDuration;
 
         public MultipleMoveCommand(
             Scene scene,
@@ -800,7 +840,8 @@ public class Scene : ProjectItem
             int deltaZIndex,
             TimeSpan deltaTime)
         {
-            _element = elements;
+            _scene = scene;
+            _elements = elements;
             _deltaZIndex = deltaZIndex;
             _deltaTime = deltaTime;
 
@@ -822,12 +863,24 @@ public class Scene : ProjectItem
             }
 
             _conflict = HasConflict(scene, _deltaZIndex, _deltaTime);
+            _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
+
+            if (_adjustSceneDuration)
+            {
+                _oldSceneDuration = _newSceneDuration = scene.Duration;
+
+                TimeSpan maxEndingTime = elements.Max(i => i.Range.End + _deltaTime);
+                if (_oldSceneDuration < maxEndingTime)
+                {
+                    _newSceneDuration = maxEndingTime;
+                }
+            }
         }
 
         private bool HasConflict(Scene scene, int deltaZIndex, TimeSpan deltaTime)
         {
-            Element[] others = scene.Children.Except(_element).ToArray();
-            foreach (Element item in _element)
+            Element[] others = scene.Children.Except(_elements).ToArray();
+            foreach (Element item in _elements)
             {
                 TimeRange newRange = item.Range.AddStart(deltaTime);
                 int newLayer = item.ZIndex + deltaZIndex;
@@ -852,7 +905,7 @@ public class Scene : ProjectItem
 
             TimeSpan newEnd = newStart + element.Length;
             int newIndex = element.ZIndex + _deltaZIndex;
-            (Element? before, Element? after, Element? _) = element.GetBeforeAndAfterAndCover(newIndex, newStart, _element);
+            (Element? before, Element? after, Element? _) = element.GetBeforeAndAfterAndCover(newIndex, newStart, _elements);
 
             if (before != null && before.Range.End >= newStart)
             {
@@ -881,10 +934,15 @@ public class Scene : ProjectItem
         {
             if (!_conflict)
             {
-                foreach (Element item in _element)
+                foreach (Element item in _elements)
                 {
                     item.Start += _deltaTime;
                     item.ZIndex += _deltaZIndex;
+                }
+
+                if (_adjustSceneDuration)
+                {
+                    _scene.Duration = _newSceneDuration;
                 }
             }
         }
@@ -898,10 +956,15 @@ public class Scene : ProjectItem
         {
             if (!_conflict)
             {
-                foreach (Element item in _element)
+                foreach (Element item in _elements)
                 {
                     item.Start -= _deltaTime;
                     item.ZIndex -= _deltaZIndex;
+                }
+
+                if (_adjustSceneDuration)
+                {
+                    _scene.Duration = _oldSceneDuration;
                 }
             }
         }

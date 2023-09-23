@@ -142,6 +142,24 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Adjust duration to current frame に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AdjustDurationToCurrent {
+            get {
+                return ResourceManager.GetString("AdjustDurationToCurrent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Adjust duration to pointer position に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AdjustDurationToPointer {
+            get {
+                return ResourceManager.GetString("AdjustDurationToPointer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Agree に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Agree {
@@ -850,6 +868,15 @@ namespace Beutl.Language {
         public static string EditJson {
             get {
                 return ResourceManager.GetString("EditJson", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Editor に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Editor {
+            get {
+                return ResourceManager.GetString("Editor", resourceCulture);
             }
         }
         

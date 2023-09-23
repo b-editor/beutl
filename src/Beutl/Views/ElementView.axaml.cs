@@ -505,7 +505,6 @@ public sealed partial class ElementView : UserControl
             if (AssociatedObject is { ViewModel: { } viewModel } view
                 && view._timeline is { } timeline && _pressed)
             {
-                Scene scene = viewModel.Scene;
                 Point point = e.GetPosition(view);
                 float scale = viewModel.Timeline.Options.Value.Scale;
                 TimeSpan pointerFrame = point.X.ToTimeSpan(scale);
@@ -514,7 +513,7 @@ public sealed partial class ElementView : UserControl
 
                 TimeSpan newframe = pointerFrame - _start.X.ToTimeSpan(scale);
 
-                newframe = TimeSpan.FromTicks(Math.Clamp(newframe.Ticks, TimeSpan.Zero.Ticks, scene.Duration.Ticks));
+                newframe = TimeSpan.FromTicks(Math.Max(newframe.Ticks, TimeSpan.Zero.Ticks));
 
                 var newTop = Math.Max(e.GetPosition(timeline.TimelinePanel).Y - _start.Y, 0);
                 var newLeft = newframe.ToPixel(scale);

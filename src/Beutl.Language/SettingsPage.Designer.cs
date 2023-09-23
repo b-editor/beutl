@@ -97,6 +97,24 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Automatically adjusts scene duration に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AutoAdjustSceneDuration {
+            get {
+                return ResourceManager.GetString("AutoAdjustSceneDuration", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   When elements are added, if the duration of the scene needs to be adjusted, it will automatically do so. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AutoAdjustSceneDuration_Description {
+            get {
+                return ResourceManager.GetString("AutoAdjustSceneDuration_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Change account settings に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string ChangeAccountSettings {

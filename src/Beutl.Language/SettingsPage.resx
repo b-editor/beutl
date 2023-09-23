@@ -273,4 +273,10 @@ Enabling this setting may make the border invisible.</value>
   <data name="ShowExactBoundaries" xml:space="preserve">
     <value>Display precise boundaries</value>
   </data>
+  <data name="AutoAdjustSceneDuration" xml:space="preserve">
+    <value>Automatically adjusts scene duration</value>
+  </data>
+  <data name="AutoAdjustSceneDuration_Description" xml:space="preserve">
+    <value>When elements are added, if the duration of the scene needs to be adjusted, it will automatically do so.</value>
+  </data>
 </root>
