@@ -14,7 +14,7 @@ public sealed class GlobalConfiguration
     {
         get
         {
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "settings.json");
+            return Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "settings.json");
         }
     }
 

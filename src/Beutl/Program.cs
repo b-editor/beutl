@@ -27,7 +27,7 @@ internal static class Program
         Telemetry.Started();
 
         // PGOを有効化
-        string jitProfiles = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "jitProfiles");
+        string jitProfiles = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "jitProfiles");
         if (!Directory.Exists(jitProfiles))
             Directory.CreateDirectory(jitProfiles);
 
@@ -103,7 +103,7 @@ internal static class Program
 
     private static void SetupLogger()
     {
-        string logFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "log", "log.txt");
+        string logFile = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "log", "log.txt");
         const string OutputTemplate = "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SourceContext:l}] {Message:lj}{NewLine}{Exception}";
         Log.Logger = new LoggerConfiguration()
             .Enrich.FromLogContext()
