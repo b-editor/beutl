@@ -482,7 +482,7 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
 
     public Rect TransformBounds(Range range)
     {
-        Rect rect = Bounds;
+        Rect rect = OriginalBounds;
         foreach (IFEItem item in _items.Span[range])
         {
             rect = item.TransformBounds(rect);
