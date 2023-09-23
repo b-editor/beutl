@@ -35,8 +35,12 @@ public class BeutlApiApplication
         App = new AppClient(httpClient) { BaseUrl = BaseUrl };
 
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        httpClient.DefaultRequestHeaders.AcceptLanguage.Clear();
-        httpClient.DefaultRequestHeaders.AcceptLanguage.Add(new StringWithQualityHeaderValue(viewConfig.UICulture.Name));
+        string culture = viewConfig.UICulture.Name;
+        if (!string.IsNullOrWhiteSpace(culture))
+        {
+            httpClient.DefaultRequestHeaders.AcceptLanguage.Clear();
+            httpClient.DefaultRequestHeaders.AcceptLanguage.Add(new StringWithQualityHeaderValue(culture));
+        }
 
         RegisterAll();
     }
