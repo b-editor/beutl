@@ -26,7 +26,7 @@ public class MainWindowViewModel
         Header = Resources.ErrorOccurred;
         Content.Value = Resources.Content;
 
-        string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "last-unhandled-exeption");
+        string path = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "last-unhandled-exeption");
         if (File.Exists(path))
         {
             Footer = File.ReadAllText(path);
@@ -36,7 +36,7 @@ public class MainWindowViewModel
             Footer = "Nothing";
         }
 
-        string logFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "log");
+        string logFolder = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "log");
 
         _logFile = Directory.GetFiles(logFolder)
             .OrderDescending()

@@ -103,7 +103,7 @@ public sealed class OutputService
     {
         _items = new CoreList<OutputQueueItem>();
 
-        _filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "outputlist.json");
+        _filePath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "outputlist.json");
     }
 
     public static OutputService Current { get; } = new();

@@ -4,6 +4,7 @@
     <NeutralLanguage>en</NeutralLanguage>
     <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
     <SelfContained>false</SelfContained>
+    <DefineConstants>$(DefineConstants);Beutl_ExceptionHandler</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
@@ -16,6 +17,9 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Api.Generated\Beutl.Api.Generated.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Beutl.Core\BeutlEnvironment.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Update="Properties\Resources.Designer.cs">

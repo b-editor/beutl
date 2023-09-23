@@ -23,7 +23,7 @@ internal static class Helper
 
     static Helper()
     {
-        AppRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl");
+        AppRoot = BeutlEnvironment.GetHomeDirectoryPath();
         LocalSourcePath = Path.Combine(AppRoot, "packageSource");
         InstallPath = Path.Combine(AppRoot, "packages");
         SideLoadsPath = Path.Combine(AppRoot, "sideloads");
