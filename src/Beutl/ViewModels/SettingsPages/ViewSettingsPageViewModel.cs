@@ -1,7 +1,7 @@
-﻿
-using Avalonia.Media;
+﻿using Avalonia.Media;
 
 using Beutl.Configuration;
+using Beutl.Controls.Navigation;
 
 using FluentAvalonia.Styling;
 
@@ -9,13 +9,17 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
 
-public sealed class ViewSettingsPageViewModel
+public sealed class ViewSettingsPageViewModel : PageContext
 {
     private readonly ViewConfig _config;
+    // 一部の設定を移動したので、ナビゲーションするために
+    private readonly Lazy<EditorSettingsPageViewModel> _editorSettings;
 
-    public ViewSettingsPageViewModel()
+    public ViewSettingsPageViewModel(Lazy<EditorSettingsPageViewModel> editorSettings)
     {
         _config = GlobalConfiguration.Instance.ViewConfig;
+        _editorSettings = editorSettings;
+
         SelectedTheme = _config.GetObservable(ViewConfig.ThemeProperty).Select(x => (int)x)
             .ToReactiveProperty();
         SelectedTheme.Subscribe(v => _config.Theme = (ViewConfig.ViewTheme)v);
@@ -24,17 +28,6 @@ public sealed class ViewSettingsPageViewModel
             .ToReactiveProperty()!;
 
         SelectedLanguage.Subscribe(ci => _config.UICulture = ci);
-
-        ShowExactBoundaries = _config.GetObservable(ViewConfig.ShowExactBoundariesProperty).ToReactiveProperty();
-        ShowExactBoundaries.Subscribe(b => _config.ShowExactBoundaries = b);
-        
-        HidePrimaryProperties = _config.GetObservable(ViewConfig.HidePrimaryPropertiesProperty).ToReactiveProperty();
-        HidePrimaryProperties.Subscribe(b => _config.HidePrimaryProperties = b);
-
-        PrimaryProperties = _config.PrimaryProperties;
-
-        RemovePrimaryProperty.Subscribe(v => PrimaryProperties.Remove(v));
-        ResetPrimaryProperty.Subscribe(_ => _config.ResetPrimaryProperties());
 
         GetPredefColors();
 
@@ -81,6 +74,15 @@ public sealed class ViewSettingsPageViewModel
             ListBoxColor.Value = value;
             UpdateAppAccentColor(value);
         });
+
+        NavigateToEditorSettings = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
+            {
+                INavigationProvider nav = await GetNavigation();
+                await nav.NavigateAsync(
+                    x => x is not null,
+                    () => _editorSettings.Value);
+            });
     }
 
     public ReactiveProperty<int> SelectedTheme { get; }
@@ -89,16 +91,6 @@ public sealed class ViewSettingsPageViewModel
 
     public IEnumerable<CultureInfo> Cultures { get; } = LocalizeService.Instance.SupportedCultures();
 
-    public ReactiveProperty<bool> ShowExactBoundaries { get; }
-
-    public ReactiveProperty<bool> HidePrimaryProperties { get; }
-
-    public CoreList<string> PrimaryProperties { get; }
-
-    public ReactiveCommand<string> RemovePrimaryProperty { get; } = new();
-
-    public ReactiveCommand ResetPrimaryProperty { get; } = new();
-
     public ReactiveProperty<bool> UseCustomAccent { get; }
     
     public ReactiveProperty<Color?> ListBoxColor { get; }
@@ -106,6 +98,8 @@ public sealed class ViewSettingsPageViewModel
     public ReactiveProperty<Color> CustomAccentColor { get; }
 
     public IReadOnlyList<Color> PredefinedColors { get; } = GetPredefColors();
+
+    public AsyncReactiveCommand NavigateToEditorSettings { get; }
 
     // https://github.com/amwx/FluentAvalonia/blob/master/samples/FAControlsGallery/ViewModels/SettingsPageViewModel.cs
     private static Color[] GetPredefColors()

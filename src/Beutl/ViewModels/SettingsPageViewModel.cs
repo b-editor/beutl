@@ -20,8 +20,8 @@ public sealed class SettingsPageViewModel : IPageContext
     public SettingsPageViewModel(BeutlApiApplication clients)
     {
         _account = new(() => new AccountSettingsPageViewModel(clients));
-        _view = new(() => new ViewSettingsPageViewModel());
         _editor = new(() => new EditorSettingsPageViewModel());
+        _view = new(() => new ViewSettingsPageViewModel(_editor));
         _font = new(() => new FontSettingsPageViewModel());
         _extensionsPage = new(() => new ExtensionsSettingsPageViewModel());
         _storage = new(() => new StorageSettingsPageViewModel(clients.AuthorizedUser));

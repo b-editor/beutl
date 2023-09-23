@@ -279,4 +279,7 @@
   <data name="AutoAdjustSceneDuration_Description" xml:space="preserve">
     <value>要素を追加したとき、シーンの長さを調整する必要がある場合、自動で調整します。</value>
   </data>
+  <data name="SomeSettingsHaveBeenMoved" xml:space="preserve">
+    <value>いくつかの設定が移動しました。</value>
+  </data>
 </root>
