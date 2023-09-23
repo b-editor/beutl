@@ -20,7 +20,7 @@ public class BeutlApiApplication
     private const string BaseUrl = "https://beutl.beditor.net";
     private readonly HttpClient _httpClient;
     private readonly ReactivePropertySlim<AuthorizedUser?> _authorizedUser = new();
-    private readonly Dictionary<Type, Func<object>> _services = new();
+    private readonly Dictionary<Type, Lazy<object>> _services = new();
 
     public BeutlApiApplication(HttpClient httpClient)
     {
@@ -66,16 +66,16 @@ public class BeutlApiApplication
     public T GetResource<T>()
         where T : IBeutlApiResource
     {
-        if (_services.TryGetValue(typeof(T), out Func<object>? func))
+        if (_services.TryGetValue(typeof(T), out Lazy<object>? lazy))
         {
-            return (T)func();
+            return (T)lazy.Value;
         }
 
-        foreach (KeyValuePair<Type, Func<object>> item in _services)
+        foreach (KeyValuePair<Type, Lazy<object>> item in _services)
         {
             if (item.Key.IsAssignableTo(typeof(T)))
             {
-                return (T)item.Value();
+                return (T)item.Value.Value;
             }
         }
 
@@ -97,12 +97,7 @@ public class BeutlApiApplication
     private void Register<T>(Func<T> factory)
         where T : IBeutlApiResource
     {
-        IBeutlApiResource? obj = null;
-        _services.Add(typeof(T), () =>
-        {
-            obj ??= factory();
-            return obj;
-        });
+        _services.Add(typeof(T), new Lazy<object>(() => factory()));
     }
 
     public void SignOut()
