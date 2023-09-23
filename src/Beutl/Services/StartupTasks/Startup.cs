@@ -71,6 +71,6 @@ public sealed class Startup
     private void Register<T>(Func<T> factory)
         where T : StartupTask
     {
-        _tasks.Add(typeof(T), new Lazy<StartupTask>(factory));
+        _tasks.Add(typeof(T), new Lazy<StartupTask>(() => factory()));
     }
 }

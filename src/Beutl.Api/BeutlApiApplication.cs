@@ -97,7 +97,7 @@ public class BeutlApiApplication
     private void Register<T>(Func<T> factory)
         where T : IBeutlApiResource
     {
-        _services.Add(typeof(T), new Lazy<object>(factory));
+        _services.Add(typeof(T), new Lazy<object>(() => factory()));
     }
 
     public void SignOut()
