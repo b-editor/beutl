@@ -31,6 +31,60 @@
                                       Theme="{StaticResource CompactToggleSwitchStyle}" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.ShowExactBoundaries_Description}" Header="{x:Static lang:SettingsPage.ShowExactBoundaries}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{CompiledBinding ShowExactBoundaries.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <!--  終了しなくても、新しい要素では変更が反映されている  -->
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.HidePrimaryProperties_Description}" Header="{x:Static lang:SettingsPage.HidePrimaryProperties}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{CompiledBinding HidePrimaryProperties.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.ChangePrimaryPropertiesToBeHidden}"
+                                          Expands="True"
+                                          Header="{x:Static lang:SettingsPage.PrimaryProperties}"
+                                          IsEnabled="{Binding HidePrimaryProperties.Value}">
+                    <ctrls:OptionsDisplayItem.Content>
+                        <Grid RowDefinitions="Auto,*">
+                            <ui:CommandBar DefaultLabelPosition="Right">
+                                <ui:CommandBar.PrimaryCommands>
+                                    <ui:CommandBarButton Click="AddPrimaryPropertyClick"
+                                                         IconSource="Add"
+                                                         Label="{x:Static lang:Strings.Add}" />
+
+                                    <ui:CommandBarButton Command="{Binding RemovePrimaryProperty}"
+                                                         CommandParameter="{Binding #primaryPropsList.SelectedItem}"
+                                                         IconSource="Delete"
+                                                         IsEnabled="{Binding #primaryPropsList.SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                         Label="{x:Static lang:Strings.Remove}" />
+                                </ui:CommandBar.PrimaryCommands>
+
+                                <ui:CommandBar.SecondaryCommands>
+                                    <ui:CommandBarButton Command="{Binding ResetPrimaryProperty}" Label="{x:Static lang:Strings.Reset}" />
+                                </ui:CommandBar.SecondaryCommands>
+                            </ui:CommandBar>
+
+                            <ListBox x:Name="primaryPropsList"
+                                     Grid.Row="1"
+                                     ItemsSource="{Binding PrimaryProperties}">
+                                <ListBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ListBox.ItemsPanel>
+                            </ListBox>
+                        </Grid>
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
             </StackPanel>
         </ScrollViewer>
     </Grid>

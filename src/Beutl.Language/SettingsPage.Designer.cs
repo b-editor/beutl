@@ -350,6 +350,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Some settings have been moved. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SomeSettingsHaveBeenMoved {
+            get {
+                return ResourceManager.GetString("SomeSettingsHaveBeenMoved", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Storage に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Storage {

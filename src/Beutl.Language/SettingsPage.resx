@@ -279,4 +279,7 @@ Enabling this setting may make the border invisible.</value>
   <data name="AutoAdjustSceneDuration_Description" xml:space="preserve">
     <value>When elements are added, if the duration of the scene needs to be adjusted, it will automatically do so.</value>
   </data>
+  <data name="SomeSettingsHaveBeenMoved" xml:space="preserve">
+    <value>Some settings have been moved.</value>
+  </data>
 </root>

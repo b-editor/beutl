@@ -174,7 +174,7 @@ public sealed partial class SettingsPage : UserControl
     {
         Telemetry.NavigateSettingsPage(e.SourcePageType.Name);
 
-        foreach (NavigationViewItem nvi in nav.MenuItems)
+        foreach (NavigationViewItem nvi in nav.MenuItemsSource)
         {
             if (nvi.Tag is Type tag)
             {
