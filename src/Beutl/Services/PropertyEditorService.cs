@@ -117,6 +117,15 @@ public static class PropertyEditorService
         return interfaceType?.GenericTypeArguments?.FirstOrDefault();
     }
 
+    private static BaseEditorViewModel? CreateDynamicEnumViewModel(IAbstractProperty s)
+    {
+        if (s.PropertyType.IsAbstract)
+            return null;
+
+        Type type = typeof(DynamicEnumEditorViewModel<>).MakeGenericType(s.PropertyType);
+        return Activator.CreateInstance(type, s) as BaseEditorViewModel;
+    }
+
     internal sealed class PropertyEditorExtensionImpl : IPropertyEditorExtensionImpl
     {
         private record struct Editor(Func<IAbstractProperty, Control?> CreateEditor, Func<IAbstractProperty, BaseEditorViewModel?> CreateViewModel);
@@ -157,6 +166,7 @@ public static class PropertyEditorService
             { typeof(AlignmentX), new(_ => new AlignmentXEditor(), s => new AlignmentXEditorViewModel(s.ToTyped<AlignmentX>())) },
             { typeof(AlignmentY), new(_ => new AlignmentYEditor(), s => new AlignmentYEditorViewModel(s.ToTyped<AlignmentY>())) },
             { typeof(Enum), new(CreateEnumEditor, CreateEnumViewModel) },
+            { typeof(IDynamicEnum), new(_ => new EnumEditor(), CreateDynamicEnumViewModel) },
             { typeof(FontFamily), new(_ => new FontFamilyEditor(), s => new FontFamilyEditorViewModel(s.ToTyped<FontFamily?>())) },
             { typeof(FileInfo), new(_ => new StorageFileEditor(), s => new StorageFileEditorViewModel(s.ToTyped<FileInfo>())) },
 
