@@ -36,6 +36,8 @@ public sealed class GlobalConfiguration
     public BackupConfig BackupConfig { get; } = new();
     
     public TelemetryConfig TelemetryConfig { get; } = new();
+    
+    public EditorConfig EditorConfig { get; } = new();
 
     [AllowNull]
     public string LastStartedVersion { get; private set; } = GitVersionInformation.SemVer;
@@ -76,6 +78,10 @@ public sealed class GlobalConfiguration
             var telemetryNode = new JsonObject();
             TelemetryConfig.WriteToJson(telemetryNode);
             json["Telemetry"] = telemetryNode;
+            
+            var editorNode = new JsonObject();
+            EditorConfig.WriteToJson(editorNode);
+            json["Editor"] = editorNode;
 
             json.JsonSave(file);
         }
@@ -116,6 +122,9 @@ public sealed class GlobalConfiguration
                 
                 if (GetNode("telemetry", "Telemetry") is JsonObject telemetry)
                     TelemetryConfig.ReadFromJson(telemetry);
+                
+                if (json["Editor"] is JsonObject editor)
+                    EditorConfig.ReadFromJson(editor);
 
                 if (json["Version"] is JsonValue version)
                 {
@@ -144,6 +153,7 @@ public sealed class GlobalConfiguration
         ViewConfig.ConfigurationChanged += OnConfigurationChanged;
         ExtensionConfig.ConfigurationChanged += OnConfigurationChanged;
         TelemetryConfig.ConfigurationChanged += OnConfigurationChanged;
+        EditorConfig.ConfigurationChanged += OnConfigurationChanged;
     }
 
     private void RemoveHandlers()
@@ -153,6 +163,7 @@ public sealed class GlobalConfiguration
         ViewConfig.ConfigurationChanged -= OnConfigurationChanged;
         ExtensionConfig.ConfigurationChanged -= OnConfigurationChanged;
         TelemetryConfig.ConfigurationChanged -= OnConfigurationChanged;
+        EditorConfig.ConfigurationChanged -= OnConfigurationChanged;
     }
 
     private void OnConfigurationChanged(object? sender, EventArgs e)

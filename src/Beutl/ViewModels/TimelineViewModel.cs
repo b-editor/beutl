@@ -10,6 +10,7 @@ using Avalonia.Input.Platform;
 
 using Beutl.Animation;
 using Beutl.Commands;
+using Beutl.Configuration;
 using Beutl.Helpers;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
@@ -114,6 +115,10 @@ public sealed class TimelineViewModel : IToolContext
 
         AdjustDurationToPointer.Subscribe(OnAdjustDurationToPointer);
         AdjustDurationToCurrent.Subscribe(OnAdjustDurationToCurrent);
+        var editorConfig = GlobalConfiguration.Instance.EditorConfig;
+
+        AutoAdjustSceneDuration = editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty).ToReactiveProperty();
+        AutoAdjustSceneDuration.Subscribe(b => editorConfig.AutoAdjustSceneDuration = b);
 
         // Todo: 設定からショートカットを変更できるようにする。
         KeyBindings = new List<KeyBinding>();
@@ -181,6 +186,8 @@ public sealed class TimelineViewModel : IToolContext
     public ReactiveCommandSlim AdjustDurationToPointer { get; } = new();
 
     public ReactiveCommandSlim AdjustDurationToCurrent { get; } = new();
+
+    public ReactiveProperty<bool> AutoAdjustSceneDuration { get; }
 
     public TimeSpan ClickedFrame { get; set; }
 

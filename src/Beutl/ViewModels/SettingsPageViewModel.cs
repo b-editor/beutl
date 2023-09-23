@@ -12,6 +12,7 @@ public sealed class SettingsPageViewModel : IPageContext
     private readonly Lazy<AccountSettingsPageViewModel> _account;
     private readonly Lazy<StorageSettingsPageViewModel> _storage;
     private readonly Lazy<ViewSettingsPageViewModel> _view;
+    private readonly Lazy<EditorSettingsPageViewModel> _editor;
     private readonly Lazy<FontSettingsPageViewModel> _font;
     private readonly Lazy<ExtensionsSettingsPageViewModel> _extensionsPage;
     private readonly Lazy<InfomationPageViewModel> _infomation;
@@ -20,6 +21,7 @@ public sealed class SettingsPageViewModel : IPageContext
     {
         _account = new(() => new AccountSettingsPageViewModel(clients));
         _view = new(() => new ViewSettingsPageViewModel());
+        _editor = new(() => new EditorSettingsPageViewModel());
         _font = new(() => new FontSettingsPageViewModel());
         _extensionsPage = new(() => new ExtensionsSettingsPageViewModel());
         _storage = new(() => new StorageSettingsPageViewModel(clients.AuthorizedUser));
@@ -29,6 +31,8 @@ public sealed class SettingsPageViewModel : IPageContext
     public AccountSettingsPageViewModel Account => _account.Value;
 
     public ViewSettingsPageViewModel View => _view.Value;
+    
+    public EditorSettingsPageViewModel Editor => _editor.Value;
 
     public FontSettingsPageViewModel Font => _font.Value;
 

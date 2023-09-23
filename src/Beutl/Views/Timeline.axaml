@@ -98,6 +98,8 @@
                     <ui:FAMenuFlyout>
                         <ui:MenuFlyoutItem Command="{Binding AdjustDurationToPointer}" Text="{x:Static lang:Strings.AdjustDurationToPointer}" />
                         <ui:MenuFlyoutItem Command="{Binding AdjustDurationToCurrent}" Text="{x:Static lang:Strings.AdjustDurationToCurrent}" />
+                        <ui:ToggleMenuFlyoutItem IsChecked="{Binding AutoAdjustSceneDuration.Value, Mode=TwoWay}" Text="{x:Static lang:SettingsPage.AutoAdjustSceneDuration}" />
+                        <ui:MenuFlyoutSeparator />
                         <ui:MenuFlyoutItem Click="AddElementClick" Text="{x:Static lang:Strings.AddElement}" />
                         <ui:MenuFlyoutItem Command="{CompiledBinding Paste}"
                                            InputGesture="{DynamicResource PasteKeyGesture}"

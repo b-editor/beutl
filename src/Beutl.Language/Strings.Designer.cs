@@ -872,6 +872,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Editor に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Editor {
+            get {
+                return ResourceManager.GetString("Editor", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Editors に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Editors {

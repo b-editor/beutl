@@ -979,7 +979,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="AdjustDurationToPointer" xml:space="preserve">
     <value>ポインターの位置に時間を調整</value>
   </data>
-  <data name="String1" xml:space="preserve">
-    <value />
+  <data name="Editor" xml:space="preserve">
+    <value>エディター</value>
   </data>
 </root>

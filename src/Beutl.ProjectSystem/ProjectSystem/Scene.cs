@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
+using Beutl.Configuration;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Rendering;
@@ -649,6 +650,7 @@ public class Scene : ProjectItem
         private readonly Element _element;
         private readonly ElementOverlapHandling _overlapHandling;
         private readonly TimeSpan _oldSceneDuration;
+        private readonly bool _adjustSceneDuration;
         private int _zIndex;
         private TimeRange _range;
 
@@ -658,6 +660,7 @@ public class Scene : ProjectItem
             _element = element;
             _overlapHandling = overlapHandling;
             _oldSceneDuration = scene.Duration;
+            _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         }
 
         public void Do()
@@ -668,7 +671,7 @@ public class Scene : ProjectItem
             _element.ZIndex = _zIndex;
             _scene.Children.Add(_element);
 
-            if (_scene.Duration < _range.End)
+            if (_adjustSceneDuration && _scene.Duration < _range.End)
             {
                 _scene.Duration = _range.End;
             }
@@ -683,7 +686,10 @@ public class Scene : ProjectItem
         {
             _scene.Children.Remove(_element);
             _element.ZIndex = -1;
-            _scene.Duration = _oldSceneDuration;
+            if (_adjustSceneDuration)
+            {
+                _scene.Duration = _oldSceneDuration;
+            }
         }
     }
 
@@ -729,6 +735,7 @@ public class Scene : ProjectItem
         private readonly TimeSpan _newLength;
         private readonly TimeSpan _oldLength;
         private readonly TimeSpan _oldSceneDuration;
+        private readonly bool _adjustSceneDuration;
 
         public MoveCommand(
             int zIndex,
@@ -746,6 +753,7 @@ public class Scene : ProjectItem
             _oldLength = oldLength;
             _scene = scene;
             _oldSceneDuration = scene.Duration;
+            _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         }
 
         public void Do()
@@ -792,7 +800,7 @@ public class Scene : ProjectItem
             }
 
             TimeRange range = _element.Range;
-            if (_scene.Duration < range.End)
+            if (_adjustSceneDuration && _scene.Duration < range.End)
             {
                 _scene.Duration = range.End;
             }
@@ -808,7 +816,10 @@ public class Scene : ProjectItem
             _element.ZIndex = _oldZIndex;
             _element.Start = _oldStart;
             _element.Length = _oldLength;
-            _scene.Duration = _oldSceneDuration;
+            if (_adjustSceneDuration)
+            {
+                _scene.Duration = _oldSceneDuration;
+            }
         }
     }
 
@@ -819,6 +830,7 @@ public class Scene : ProjectItem
         private readonly int _deltaZIndex;
         private readonly TimeSpan _deltaTime;
         private readonly bool _conflict;
+        private readonly bool _adjustSceneDuration;
         private readonly TimeSpan _oldSceneDuration;
         private readonly TimeSpan _newSceneDuration;
 
@@ -851,12 +863,17 @@ public class Scene : ProjectItem
             }
 
             _conflict = HasConflict(scene, _deltaZIndex, _deltaTime);
-            _oldSceneDuration = _newSceneDuration = scene.Duration;
+            _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
 
-            TimeSpan maxEndingTime = elements.Max(i => i.Range.End + _deltaTime);
-            if (_oldSceneDuration < maxEndingTime)
+            if (_adjustSceneDuration)
             {
-                _newSceneDuration = maxEndingTime;
+                _oldSceneDuration = _newSceneDuration = scene.Duration;
+
+                TimeSpan maxEndingTime = elements.Max(i => i.Range.End + _deltaTime);
+                if (_oldSceneDuration < maxEndingTime)
+                {
+                    _newSceneDuration = maxEndingTime;
+                }
             }
         }
 
@@ -923,7 +940,10 @@ public class Scene : ProjectItem
                     item.ZIndex += _deltaZIndex;
                 }
 
-                _scene.Duration = _newSceneDuration;
+                if (_adjustSceneDuration)
+                {
+                    _scene.Duration = _newSceneDuration;
+                }
             }
         }
 
@@ -942,7 +962,10 @@ public class Scene : ProjectItem
                     item.ZIndex -= _deltaZIndex;
                 }
 
-                _scene.Duration = _oldSceneDuration;
+                if (_adjustSceneDuration)
+                {
+                    _scene.Duration = _oldSceneDuration;
+                }
             }
         }
     }

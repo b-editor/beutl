@@ -979,4 +979,7 @@ and b-editor maintains the download URL.</value>
   <data name="AdjustDurationToPointer" xml:space="preserve">
     <value>Adjust duration to pointer position</value>
   </data>
+  <data name="Editor" xml:space="preserve">
+    <value>Editor</value>
+  </data>
 </root>
