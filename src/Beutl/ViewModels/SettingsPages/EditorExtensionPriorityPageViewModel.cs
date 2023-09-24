@@ -1,8 +1,13 @@
-﻿using Beutl.Api.Services;
+﻿using System.Collections.ObjectModel;
+
+using Beutl.Api.Services;
 
 using Beutl.Configuration;
 using Beutl.Controls.Navigation;
 using Beutl.ViewModels.ExtensionsPages;
+
+using DynamicData;
+using DynamicData.Binding;
 
 using Reactive.Bindings;
 
@@ -11,14 +16,23 @@ namespace Beutl.ViewModels.SettingsPages;
 public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
 {
     private readonly ExtensionConfig _extensionConfig = GlobalConfiguration.Instance.ExtensionConfig;
-    private readonly EditorExtension[] _loadedEExt;
+    private readonly ReadOnlyObservableCollection<EditorExtension> _loadedExtensions;
     private IDisposable? _disposable1;
 
     public sealed record EditorExtensionWrapper(string DisplayName, string Name, string TypeName);
 
     public EditorExtensionPriorityPageViewModel()
     {
-        _loadedEExt = ExtensionProvider.Current.AllExtensions.OfType<EditorExtension>().ToArray();
+        ICoreReadOnlyList<Extension> allExtension = ExtensionProvider.Current.AllExtensions;
+
+        var comparer = SortExpressionComparer<Extension>.Ascending(i => i.Name);
+        allExtension.ToObservableChangeSet<ICoreReadOnlyList<Extension>, Extension>()
+            .Filter(i => i is EditorExtension)
+            .Cast(item => (EditorExtension)item)
+            .Sort(comparer)
+            .Bind(out _loadedExtensions)
+            .Subscribe();
+
         FileExtensions.AddRange(_extensionConfig.EditorExtensions.Keys);
         SelectedFileExtension.Subscribe(fext =>
         {
@@ -50,7 +64,7 @@ public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
                     }));
                 }
 
-                EditorExtensions2.AddRange(_loadedEExt
+                EditorExtensions2.AddRange(_loadedExtensions
                     .Where(item => item.MatchFileExtension(fext))
                     .Select(item => new EditorExtensionWrapper(item.DisplayName, item.Name, TypeFormat.ToString(item.GetType()))));
 

@@ -35,7 +35,11 @@ internal static class CoreLibraries
             library.Add(new(lib.Name, lib.Version));
         }
 
+#if DEBUG
+        library.Add(new("Beutl.Sdk", "1.0.0-preview.4"));
+#else
         library.Add(new("Beutl.Sdk", GitVersionInformation.NuGetVersionV2));
+#endif
 
         return library;
     }
@@ -119,7 +123,7 @@ internal static class CoreLibraries
         if (PackageDepsMap.TryGetValue(name, out string? installedVersionStr))
         {
             var installedVersion = new NuGetVersion(installedVersionStr);
-            return installedVersion == version;
+            return installedVersion >= version;
 
         }
 

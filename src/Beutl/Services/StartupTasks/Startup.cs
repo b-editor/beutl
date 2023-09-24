@@ -8,12 +8,10 @@ public sealed class Startup
 {
     private readonly Dictionary<Type, Lazy<StartupTask>> _tasks = new();
     private readonly BeutlApiApplication _apiApp;
-    private readonly MainViewModel _viewModel;
 
-    public Startup(BeutlApiApplication apiApp, MainViewModel viewModel)
+    public Startup(BeutlApiApplication apiApp)
     {
         _apiApp = apiApp;
-        _viewModel = viewModel;
         Initialize();
     }
 
@@ -64,7 +62,7 @@ public sealed class Startup
         Register(() => new LoadInstalledExtensionTask(_apiApp.GetResource<PackageManager>()));
         Register(() => new LoadPrimitiveExtensionTask());
         Register(() => new LoadSideloadExtensionTask(_apiApp.GetResource<PackageManager>()));
-        Register(() => new AfterLoadingExtensionsTask(this, _viewModel));
+        Register(() => new AfterLoadingExtensionsTask(this));
         Register(() => new CheckForUpdatesTask(_apiApp));
     }
 
