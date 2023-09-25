@@ -107,6 +107,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Api.Generated", "src\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "_build", "nukebuild\_build.csproj", "{4C1B4AEA-3F44-43CA-900F-5CE1FE3BD8CD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XamlPreview", "tests\XamlPreview\XamlPreview.csproj", "{AC7E6F97-061C-47DA-B264-04A4EAE666B9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -361,6 +363,14 @@ Global
 		{4C1B4AEA-3F44-43CA-900F-5CE1FE3BD8CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4C1B4AEA-3F44-43CA-900F-5CE1FE3BD8CD}.Release|x64.ActiveCfg = Release|Any CPU
 		{4C1B4AEA-3F44-43CA-900F-5CE1FE3BD8CD}.Release|x64.Build.0 = Release|Any CPU
+		{AC7E6F97-061C-47DA-B264-04A4EAE666B9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC7E6F97-061C-47DA-B264-04A4EAE666B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC7E6F97-061C-47DA-B264-04A4EAE666B9}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{AC7E6F97-061C-47DA-B264-04A4EAE666B9}.Debug|x64.Build.0 = Debug|Any CPU
+		{AC7E6F97-061C-47DA-B264-04A4EAE666B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC7E6F97-061C-47DA-B264-04A4EAE666B9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AC7E6F97-061C-47DA-B264-04A4EAE666B9}.Release|x64.ActiveCfg = Release|Any CPU
+		{AC7E6F97-061C-47DA-B264-04A4EAE666B9}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -382,6 +392,7 @@ Global
 		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0} = {D6C0F32B-62A6-48BA-867E-BCDD88B71748}
 		{456F3A49-7881-4793-966D-FF647190F5CB} = {D2E28768-5899-48B0-B35C-41BABE9D9536}
 		{EED4AB04-13CD-4382-BD1A-64D7A258957F} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
+		{AC7E6F97-061C-47DA-B264-04A4EAE666B9} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {CC3F8F37-EB22-4418-978D-C844095F8C4D}
