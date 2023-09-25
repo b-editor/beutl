@@ -1,4 +1,5 @@
-﻿using System.Windows.Input;
+﻿using System.Collections.ObjectModel;
+using System.Windows.Input;
 
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -12,9 +13,14 @@ using Beutl.Services.PrimitiveImpls;
 using Beutl.Services.StartupTasks;
 using Beutl.ViewModels.ExtensionsPages;
 
+using DynamicData;
+using DynamicData.Binding;
+
 using NuGet.Packaging.Core;
 
 using Reactive.Bindings;
+
+using ReactiveUI;
 
 namespace Beutl.ViewModels;
 
@@ -65,6 +71,32 @@ public sealed class MainViewModel : BasePageViewModel
         SelectedPage.Value = Pages[0];
 
         KeyBindings = CreateKeyBindings();
+
+        ICoreReadOnlyList<Extension> allExtension = ExtensionProvider.Current.AllExtensions;
+
+        var comparer = SortExpressionComparer<Extension>.Ascending(i => i.Name);
+        IObservable<IChangeSet<Extension>> changeSet = allExtension.ToObservableChangeSet<ICoreReadOnlyList<Extension>, Extension>()
+            .Sort(comparer);
+
+        changeSet.Filter(i => i is ToolTabExtension)
+            .Cast(item => (ToolTabExtension)item)
+            .Bind(out ReadOnlyObservableCollection<ToolTabExtension>? list1)
+            .Subscribe();
+
+        changeSet.Filter(i => i is EditorExtension)
+            .Cast(item => (EditorExtension)item)
+            .Bind(out ReadOnlyObservableCollection<EditorExtension>? list2)
+            .Subscribe();
+
+        changeSet.Filter(i => i is PageExtension)
+            .Filter(item => !LoadPrimitiveExtensionTask.PrimitiveExtensions.Contains(item))
+            .Cast(item => (PageExtension)item)
+            .OnItemAdded(item => Pages.Add(new NavItemViewModel(item)))
+            .OnItemRemoved(item => Pages.RemoveAll(Pages.Where(v => v.Extension == item)))
+            .Subscribe();
+
+        ToolTabExtensions = list1;
+        EditorExtensions = list2;
     }
 
     public bool IsDebuggerAttached { get; } = Debugger.IsAttached;
@@ -85,9 +117,13 @@ public sealed class MainViewModel : BasePageViewModel
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 
+    public ReadOnlyObservableCollection<ToolTabExtension> ToolTabExtensions { get; }
+
+    public ReadOnlyObservableCollection<EditorExtension> EditorExtensions { get; }
+
     public Startup RunStartupTask()
     {
-        return new Startup(_beutlClients, this);
+        return new Startup(_beutlClients);
     }
 
     public void RegisterServices()

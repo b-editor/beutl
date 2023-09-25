@@ -8,6 +8,7 @@ namespace Beutl
 {
     internal static class TypeFormat
     {
+        // Todo: 未知の型の場合の処理
         public static Type? ToType(string fullName)
         {
             List<Token> tokens = new TypeNameTokenizer(fullName).Tokenize();

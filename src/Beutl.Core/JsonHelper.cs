@@ -82,11 +82,13 @@ public static class JsonHelper
         return JsonNode.Parse(stream);
     }
 
+    // Todo: 未知の型の場合の処理
     public static Type? GetDiscriminator(this JsonNode node)
     {
         return node.TryGetDiscriminator(out Type? type) ? type : null;
     }
 
+    // Todo: 未知の型の場合の処理
     public static bool TryGetDiscriminator(this JsonNode node, [NotNullWhen(true)] out Type? type)
     {
         type = null;

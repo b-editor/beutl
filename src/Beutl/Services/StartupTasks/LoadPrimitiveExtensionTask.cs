@@ -5,27 +5,28 @@ namespace Beutl.Services.StartupTasks;
 
 public sealed class LoadPrimitiveExtensionTask : StartupTask
 {
+    public static readonly Extension[] PrimitiveExtensions =
+    {
+        EditPageExtension.Instance,
+        ExtensionsPageExtension.Instance,
+        OutputPageExtension.Instance,
+        SettingsPageExtension.Instance,
+        SceneEditorExtension.Instance,
+        SceneOutputExtension.Instance,
+        SceneProjectItemExtension.Instance,
+        TimelineTabExtension.Instance,
+        ObjectPropertyTabExtension.Instance,
+        SourceOperatorsTabExtension.Instance,
+        PropertyEditorExtension.Instance,
+        NodeTreeTabExtension.Instance,
+        NodeTreeInputTabExtension.Instance,
+        GraphEditorTabExtension.Instance,
+        SceneSettingsTabExtension.Instance,
+        WaveReaderExtension.Instance,
+    };
+
     public LoadPrimitiveExtensionTask()
     {
-        PrimitiveExtensions = new Extension[]
-        {
-            EditPageExtension.Instance,
-            ExtensionsPageExtension.Instance,
-            OutputPageExtension.Instance,
-            SettingsPageExtension.Instance,
-            SceneEditorExtension.Instance,
-            SceneOutputExtension.Instance,
-            SceneProjectItemExtension.Instance,
-            TimelineTabExtension.Instance,
-            ObjectPropertyTabExtension.Instance,
-            SourceOperatorsTabExtension.Instance,
-            PropertyEditorExtension.Instance,
-            NodeTreeTabExtension.Instance,
-            NodeTreeInputTabExtension.Instance,
-            GraphEditorTabExtension.Instance,
-            SceneSettingsTabExtension.Instance,
-            WaveReaderExtension.Instance,
-        };
         Task = Task.Run(async () =>
         {
             using (Activity? activity = Telemetry.StartActivity("LoadPrimitiveExtensionTask"))
@@ -79,8 +80,6 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
             }
         });
     }
-
-    public Extension[] PrimitiveExtensions { get; }
 
     public override Task Task { get; }
 

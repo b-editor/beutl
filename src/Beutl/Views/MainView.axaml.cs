@@ -1,21 +1,26 @@
-﻿using System.Collections;
+﻿using System.Collections.ObjectModel;
 
 using Avalonia;
-using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 
-using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Services;
 using Beutl.Utilities;
 using Beutl.ViewModels;
 using Beutl.Views.Dialogs;
 
+using DynamicData;
+using DynamicData.Binding;
+
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
+
+using Reactive.Bindings.Extensions;
+
+using ReactiveUI;
 
 using Serilog;
 
@@ -75,7 +80,7 @@ public sealed partial class MainView : UserControl
         }
     }
 
-    private async void OnParentWindowOpened(object? sender, EventArgs e)
+    private void OnParentWindowOpened(object? sender, EventArgs e)
     {
         var topLevel = (TopLevel)sender!;
         topLevel.Opened -= OnParentWindowOpened;
@@ -96,9 +101,7 @@ public sealed partial class MainView : UserControl
 
         if (DataContext is MainViewModel viewModel)
         {
-            await App.WaitLoadingExtensions();
-
-            InitExtMenuItems();
+            InitExtMenuItems(viewModel);
         }
 
         _logger.Information("WindowOpened");
@@ -129,21 +132,11 @@ public sealed partial class MainView : UserControl
     }
 
     // 拡張機能を読み込んだ後に呼び出す
-    private void InitExtMenuItems()
+    private void InitExtMenuItems(MainViewModel viewModel)
     {
-        if (toolTabMenuItem.Items is not IList items1)
+        // ToolTabExtensionをメニューに表示する
+        static MenuItem CreateToolTabMenuItem(ToolTabExtension item)
         {
-            items1 = new AvaloniaList<object>();
-            toolTabMenuItem.ItemsSource = items1;
-        }
-
-        // Todo: Extensionの実行時アンロードの実現時、
-        //       ForEachItemメソッドを使うかeventにする
-        foreach (ToolTabExtension item in ExtensionProvider.Current.GetExtensions<ToolTabExtension>())
-        {
-            if (item.Header == null)
-                continue;
-
             var menuItem = new MenuItem()
             {
                 Header = item.Header,
@@ -164,31 +157,21 @@ public sealed partial class MainView : UserControl
                 }
             };
 
-            items1.Add(menuItem);
+            return menuItem;
         }
 
-        if (editorTabMenuItem.Items is not IList items2)
-        {
-            items2 = new AvaloniaList<object>();
-            editorTabMenuItem.ItemsSource = items2;
-        }
+        viewModel.ToolTabExtensions.ToObservableChangeSet()
+            .ObserveOnUIDispatcher()
+            .Filter(i => i.Header != null)
+            .Cast(CreateToolTabMenuItem)
+            .Bind(out ReadOnlyObservableCollection<MenuItem>? list1)
+            .Subscribe()
+            .DisposeWith(_disposables);
 
-        viewMenuItem.SubmenuOpened += (s, e) =>
-        {
-            EditorTabItem? selectedTab = EditorService.Current.SelectedTabItem.Value;
-            if (selectedTab != null)
-            {
-                foreach (MenuItem item in items2.OfType<MenuItem>())
-                {
-                    if (item.DataContext is EditorExtension editorExtension)
-                    {
-                        item.IsVisible = editorExtension.IsSupported(selectedTab.FilePath.Value);
-                    }
-                }
-            }
-        };
+        toolTabMenuItem.ItemsSource = list1;
 
-        foreach (EditorExtension item in ExtensionProvider.Current.GetExtensions<EditorExtension>())
+        // EditorExtensionをメニューに表示する
+        static MenuItem CreateEditorMenuItem(EditorExtension item)
         {
             var menuItem = new MenuItem()
             {
@@ -228,8 +211,32 @@ public sealed partial class MainView : UserControl
                 }
             };
 
-            items2.Add(menuItem);
+            return menuItem;
         }
+
+        viewModel.EditorExtensions.ToObservableChangeSet()
+            .ObserveOnUIDispatcher()
+            .Cast(CreateEditorMenuItem)
+            .Bind(out ReadOnlyObservableCollection<MenuItem>? list2)
+            .Subscribe()
+            .DisposeWith(_disposables);
+
+        editorTabMenuItem.ItemsSource = list2;
+
+        viewMenuItem.SubmenuOpened += (s, e) =>
+        {
+            EditorTabItem? selectedTab = EditorService.Current.SelectedTabItem.Value;
+            if (selectedTab != null)
+            {
+                foreach (MenuItem item in list2.OfType<MenuItem>())
+                {
+                    if (item.DataContext is EditorExtension editorExtension)
+                    {
+                        item.IsVisible = editorExtension.IsSupported(selectedTab.FilePath.Value);
+                    }
+                }
+            }
+        };
     }
 
     [Conditional("DEBUG")]
