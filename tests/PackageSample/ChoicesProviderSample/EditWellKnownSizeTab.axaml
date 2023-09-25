@@ -1,0 +1,43 @@
+<UserControl x:Class="PackageSample.EditWellKnownSizeTab"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="using:PackageSample"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="local:EditWellKnownSizeTabViewModel"
+             mc:Ignorable="d">
+    <TabControl>
+        <TabItem DataContext="{Binding AddScreen}" Header="Add">
+            <StackPanel>
+                <TextBlock Margin="0,8,0,0" Text="Name" />
+                <TextBox Text="{Binding Name.Value}" />
+                <TextBlock Margin="0,8,0,0" Text="Width" />
+                <TextBox Text="{Binding Width.Value}" />
+                <TextBlock Margin="0,8,0,0" Text="Height" />
+                <TextBox Text="{Binding Height.Value}" />
+
+                <Button Margin="0,16,0,0"
+                        Classes="accent"
+                        Command="{Binding Add}"
+                        Content="Add" />
+            </StackPanel>
+        </TabItem>
+        <TabItem DataContext="{Binding RemoveScreen}" Header="Remove">
+            <StackPanel>
+                <TextBlock Margin="0,8,0,0" Text="Item to be removed" />
+                <ComboBox HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding Items}"
+                          SelectedItem="{Binding SelectedItem.Value}" />
+
+                <Button Margin="0,16,0,0"
+                        Classes="accent"
+                        Command="{Binding Remove}"
+                        Content="Remove" />
+            </StackPanel>
+        </TabItem>
+    </TabControl>
+
+</UserControl>

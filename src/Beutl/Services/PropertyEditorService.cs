@@ -126,6 +126,12 @@ public static class PropertyEditorService
         return Activator.CreateInstance(type, s) as BaseEditorViewModel;
     }
 
+    private static BaseEditorViewModel? CreateChoiceViewModel(IAbstractProperty s, Type providerType)
+    {
+        Type type = typeof(ProvidedChoiceEditorViewModel<,>).MakeGenericType(s.PropertyType, providerType);
+        return Activator.CreateInstance(type, s) as BaseEditorViewModel;
+    }
+
     internal sealed class PropertyEditorExtensionImpl : IPropertyEditorExtensionImpl
     {
         private record struct Editor(Func<IAbstractProperty, Control?> CreateEditor, Func<IAbstractProperty, BaseEditorViewModel?> CreateViewModel);
@@ -208,8 +214,26 @@ public static class PropertyEditorService
             for (int i = 0; i < properties.Count; i++)
             {
                 IAbstractProperty item = properties[i];
-                if ((item.GetCoreProperty() is { Id: int id } && s_editorsOverride.ContainsKey(id))
-                    || s_editors.ContainsKey(item.PropertyType))
+                if (item.GetCoreProperty() is { Id: int id } coreProp)
+                {
+                    if (coreProp.TryGetMetadata<CorePropertyMetadata>(item.ImplementedType, out var metadata))
+                    {
+                        // 特殊処理
+                        if (metadata.Attributes.OfType<ChoicesProviderAttribute>().Any())
+                        {
+                            yield return item;
+                            yield break;
+                        }
+                    }
+
+                    if (s_editorsOverride.ContainsKey(id))
+                    {
+                        yield return item;
+                        yield break;
+                    }
+                }
+
+                if (s_editors.ContainsKey(item.PropertyType))
                 {
                     yield return item;
                     yield break;
@@ -286,15 +310,33 @@ public static class PropertyEditorService
 
             if (properties.Count > 0 && properties[0] is { } property)
             {
-                if (property.GetCoreProperty() is CoreProperty { Id: int propId }
-                    && s_editorsOverride.TryGetValue(propId, out Editor editorOverrided))
+                if (property.GetCoreProperty() is { Id: int propId } coreProp)
                 {
-                    viewModel = editorOverrided.CreateViewModel(property);
-                    if (viewModel != null)
+                    // 特殊処理
+                    if (coreProp.TryGetMetadata<CorePropertyMetadata>(property.ImplementedType, out var metadata))
                     {
-                        viewModel.Extension = extension;
-                        result = true;
-                        goto Return;
+                        var choiceAtt = metadata.Attributes.OfType<ChoicesProviderAttribute>().FirstOrDefault();
+                        if (choiceAtt != null)
+                        {
+                            viewModel = CreateChoiceViewModel(property, choiceAtt.ProviderType);
+                            if (viewModel != null)
+                            {
+                                viewModel.Extension = extension;
+                                result = true;
+                                goto Return;
+                            }
+                        }
+                    }
+
+                    if (s_editorsOverride.TryGetValue(propId, out Editor editorOverrided))
+                    {
+                        viewModel = editorOverrided.CreateViewModel(property);
+                        if (viewModel != null)
+                        {
+                            viewModel.Extension = extension;
+                            result = true;
+                            goto Return;
+                        }
                     }
                 }
 
@@ -418,13 +460,25 @@ public static class PropertyEditorService
             {
                 if (context is BaseEditorViewModel { WrappedProperty: { } property })
                 {
-                    if (property.GetCoreProperty() is CoreProperty { Id: int propId }
-                        && s_editorsOverride.TryGetValue(propId, out Editor editorOverrided))
+                    if (property.GetCoreProperty() is { Id: int propId } coreProp)
                     {
-                        control = editorOverrided.CreateEditor(property);
-                        if (control != null)
+                        if (coreProp.TryGetMetadata<CorePropertyMetadata>(property.ImplementedType, out var metadata))
                         {
-                            return true;
+                            // 特殊処理
+                            if (metadata.Attributes.OfType<ChoicesProviderAttribute>().Any())
+                            {
+                                control = new EnumEditor();
+                                return true;
+                            }
+                        }
+
+                        if (s_editorsOverride.TryGetValue(propId, out Editor editorOverrided))
+                        {
+                            control = editorOverrided.CreateEditor(property);
+                            if (control != null)
+                            {
+                                return true;
+                            }
                         }
                     }
 
