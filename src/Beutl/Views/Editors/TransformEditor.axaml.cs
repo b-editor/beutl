@@ -94,6 +94,7 @@ public partial class TransformEditor : UserControl
         if (e.Data.Contains(KnownLibraryItemFormats.Transform))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
+            e.Handled = true;
         }
         else
         {

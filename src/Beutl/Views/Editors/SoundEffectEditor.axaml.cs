@@ -69,6 +69,7 @@ public partial class SoundEffectEditor : UserControl
         if (e.Data.Contains(KnownLibraryItemFormats.SoundEffect))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
+            e.Handled = true;
         }
         else
         {
