@@ -69,6 +69,7 @@ public partial class FilterEffectEditor : UserControl
         if (e.Data.Contains(KnownLibraryItemFormats.FilterEffect))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
+            e.Handled = true;
         }
         else
         {
