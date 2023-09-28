@@ -1,5 +1,7 @@
 ﻿using System.Collections;
 using System.Reactive;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -8,13 +10,16 @@ namespace Beutl.Serialization;
 public class JsonSerializationContext : IJsonSerializationContext
 {
     public readonly Dictionary<string, (Type DefinedType, Type ActualType)> _knownTypes = new();
-    private readonly JsonObject _json = new();
+    private readonly JsonObject _json;
 
-    public JsonSerializationContext(Type ownerType, ISerializationErrorNotifier errorNotifier, ICoreSerializationContext? parent = null)
+    public JsonSerializationContext(
+        Type ownerType, ISerializationErrorNotifier errorNotifier,
+        ICoreSerializationContext? parent = null, JsonObject? json = null)
     {
         OwnerType = ownerType;
         Parent = parent;
         ErrorNotifier = errorNotifier;
+        _json = json ?? new JsonObject();
     }
 
     public ICoreSerializationContext? Parent { get; }
@@ -68,6 +73,30 @@ public class JsonSerializationContext : IJsonSerializationContext
     {
         if (node is JsonObject obj)
         {
+            if (baseType.IsAssignableTo(typeof(IDictionary))
+                && ArrayTypeHelpers.GetEntryType(baseType) is (Type keyType, Type valueType)
+                && keyType == typeof(string))
+            {
+                var output = new List<KeyValuePair<string, object?>>(obj.Count);
+                foreach (KeyValuePair<string, JsonNode?> item in obj)
+                {
+                    string name = item.Key;
+                    if (item.Value == null)
+                    {
+                        output.Add(new(name, DefaultValueHelpers.GetDefault(valueType)));
+                    }
+                    else
+                    {
+                        object? valueNode = Deserialize(
+                            item.Value, valueType, name,
+                            new RelaySerializationErrorNotifier(errorNotifier, name), parent);
+                        output.Add(new(name, valueNode));
+                    }
+                }
+
+                return ArrayTypeHelpers.ConvertDictionaryType(output, baseType, valueType);
+            }
+
             Type? actualType = baseType.IsSealed ? baseType : obj.GetDiscriminator(baseType);
             if (actualType?.IsAssignableTo(typeof(ICoreSerializable)) == true)
             {
@@ -162,32 +191,59 @@ public class JsonSerializationContext : IJsonSerializationContext
         {
             Type elementType = ArrayTypeHelpers.GetElementType(actualType) ?? typeof(object);
 
-            var jarray = new JsonArray();
-            int index = 0;
-            foreach (object? item in enm)
+            // 'Dictionary<string, U>' の場合、JsonObjectを返す
+            if (baseType.IsAssignableTo(typeof(IDictionary))
+                && ArrayTypeHelpers.GetEntryType(baseType) is (Type keyType, Type valueType)
+                && keyType == typeof(string))
             {
-                string innerName = index.ToString();
-                Serialize(
-                    innerName, item, item.GetType(), elementType,
-                    new RelaySerializationErrorNotifier(errorNotifier, innerName), parent);
+                if (!valueType.IsValueType)
+                {
+                    var jobj = new JsonObject();
+                    foreach (object? item in enm)
+                    {
+                        StringValuePair<object> typed = Unsafe.As<StringValuePair<object>>(item);
+                        string innerName = typed.Key;
 
-                index++;
+                        jobj[innerName] = Serialize(
+                            innerName, typed.Value, typed.Value.GetType(), valueType,
+                            new RelaySerializationErrorNotifier(errorNotifier, innerName), parent);
+                    }
+
+                    return jobj;
+                }
+                else
+                {
+                    goto UseJsonSerializer;
+                }
             }
+            else
+            {
+                var jarray = new JsonArray();
+                int index = 0;
+                foreach (object? item in enm)
+                {
+                    string innerName = index.ToString();
+                    jarray.Add(Serialize(
+                        innerName, item, item.GetType(), elementType,
+                        new RelaySerializationErrorNotifier(errorNotifier, innerName), parent));
 
-            return jarray;
+                    index++;
+                }
+
+                return jarray;
+            }
         }
-        else
+
+    UseJsonSerializer:
+        ISerializationErrorNotifier? captured = LocalSerializationErrorNotifier.Current;
+        try
         {
-            ISerializationErrorNotifier? captured = LocalSerializationErrorNotifier.Current;
-            try
-            {
-                LocalSerializationErrorNotifier.Current = new RelaySerializationErrorNotifier(errorNotifier, name);
-                return JsonSerializer.SerializeToNode(value, baseType, JsonHelper.SerializerOptions);
-            }
-            finally
-            {
-                LocalSerializationErrorNotifier.Current = captured;
-            }
+            LocalSerializationErrorNotifier.Current = new RelaySerializationErrorNotifier(errorNotifier, name);
+            return JsonSerializer.SerializeToNode(value, baseType, JsonHelper.SerializerOptions);
+        }
+        finally
+        {
+            LocalSerializationErrorNotifier.Current = captured;
         }
     }
 

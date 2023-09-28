@@ -51,8 +51,12 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
             notifier = NullSerializationErrorNotifier.Instance;
         }
 
+        Type valueType = value.GetType();
         var context = new JsonSerializationContext(value.GetType(), notifier);
         value.Serialize(context);
-        context.GetJsonObject().WriteTo(writer, options);
+
+        JsonObject obj = context.GetJsonObject();
+        obj.WriteDiscriminator(valueType);
+        obj.WriteTo(writer, options);
     }
 }

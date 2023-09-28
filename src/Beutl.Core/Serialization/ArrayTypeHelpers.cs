@@ -9,14 +9,48 @@ internal static class ArrayTypeHelpers
         if (type.IsArray)
         {
             var array = Array.CreateInstance(elementType, output.Count);
-            output.CopyTo((object?[])array);
-            return output.ToArray();
+            for (int i = 0; i < output.Count; i++)
+            {
+                array.SetValue(output[i], i);
+            }
+
+            return array;
         }
         else if (Activator.CreateInstance(type) is IList list)
         {
             foreach (object? item in output)
             {
                 list.Add(item);
+            }
+
+            return list;
+        }
+        else
+        {
+            return default!;
+        }
+    }
+
+    public static object ConvertDictionaryType(List<KeyValuePair<string, object?>> output, Type type, Type valueType)
+    {
+        if (type.IsArray)
+        {
+            Type kvpType = typeof(KeyValuePair<,>).MakeGenericType(typeof(string), valueType);
+            var array = Array.CreateInstance(kvpType, output.Count);
+            for (int i = 0; i < output.Count; i++)
+            {
+                KeyValuePair<string, object?> item = output[i];
+                array.SetValue(Activator.CreateInstance(kvpType, item.Key, item.Value), i);
+            }
+
+            return array;
+        }
+        else if (Activator.CreateInstance(type) is IList list)
+        {
+            Type kvpType = typeof(KeyValuePair<,>).MakeGenericType(typeof(string), valueType);
+            foreach (KeyValuePair<string, object?> item in output)
+            {
+                list.Add(Activator.CreateInstance(kvpType, item.Key, item.Value));
             }
 
             return list;
@@ -44,5 +78,18 @@ internal static class ArrayTypeHelpers
         }
 
         return null;
+    }
+
+    public static (Type? Key, Type? Value) GetEntryType(Type dictType)
+    {
+        if (GetElementType(dictType) is Type elementType
+            && elementType.IsGenericType
+            && elementType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+        {
+            Type[] args = elementType.GetGenericArguments();
+            return (args[0], args[1]);
+        }
+
+        return default;
     }
 }
