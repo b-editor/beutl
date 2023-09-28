@@ -168,7 +168,11 @@ public class JsonSerializationContext : IJsonSerializationContext
         string name, object value, Type actualType, Type baseType,
         ISerializationErrorNotifier errorNotifier, ICoreSerializationContext? parent)
     {
-        if (value is ICoreSerializable coreSerializable)
+        if (value is string)
+        {
+            goto UseJsonSerializer;
+        }
+        else if (value is ICoreSerializable coreSerializable)
         {
             var innerContext = new JsonSerializationContext(
                 actualType,
