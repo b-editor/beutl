@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 using Beutl.JsonConverters;
+using Beutl.Serialization;
 
 namespace Beutl;
 
@@ -86,6 +87,25 @@ public static class JsonHelper
     public static Type? GetDiscriminator(this JsonNode node)
     {
         return node.TryGetDiscriminator(out Type? type) ? type : null;
+    }
+
+    public static Type? GetDiscriminator(this JsonNode node, Type baseType)
+    {
+        if(node.TryGetDiscriminator(out Type? type))
+        {
+            return type;
+        }
+        else
+        {
+            if (Attribute.GetCustomAttribute(baseType, typeof(DummyTypeAttribute)) is DummyTypeAttribute att)
+            {
+                return att.DummyType;
+            }
+            else
+            {
+                return null;
+            }
+        }
     }
 
     // Todo: 未知の型の場合の処理
