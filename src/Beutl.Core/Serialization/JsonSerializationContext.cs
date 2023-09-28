@@ -101,9 +101,10 @@ public class JsonSerializationContext : IJsonSerializationContext
             if (actualType?.IsAssignableTo(typeof(ICoreSerializable)) == true)
             {
                 var context = new JsonSerializationContext(
-                    actualType,
-                    new RelaySerializationErrorNotifier(errorNotifier, propertyName),
-                    parent);
+                    ownerType: actualType,
+                    errorNotifier: new RelaySerializationErrorNotifier(errorNotifier, propertyName),
+                    parent: parent,
+                    json: obj);
 
                 if (Activator.CreateInstance(actualType) is ICoreSerializable instance)
                 {

@@ -25,7 +25,7 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
                 notifier = NullSerializationErrorNotifier.Instance;
             }
 
-            var context = new JsonSerializationContext(typeToConvert, notifier);
+            var context = new JsonSerializationContext(typeToConvert, notifier, json: jsonObject);
 
             Type? actualType = typeToConvert.IsSealed ? typeToConvert : jsonObject.GetDiscriminator(typeToConvert);
             if (actualType?.IsAssignableTo(typeToConvert) == true
