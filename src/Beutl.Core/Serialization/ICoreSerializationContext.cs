@@ -11,4 +11,6 @@ public interface ICoreSerializationContext
     void SetValue<T>(string name, T? value);
 
     T? GetValue<T>(string name);
+
+    void Populate(string name, ICoreSerializable obj);
 }

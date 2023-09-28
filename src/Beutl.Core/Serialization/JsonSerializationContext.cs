@@ -282,4 +282,18 @@ public class JsonSerializationContext : IJsonSerializationContext
             _knownTypes[name] = (typeof(T), actualType);
         }
     }
+
+    public void Populate(string name, ICoreSerializable obj)
+    {
+        if (_json[name] is JsonObject jobj)
+        {
+            var context = new JsonSerializationContext(
+                ownerType: obj.GetType(),
+                errorNotifier: new RelaySerializationErrorNotifier(ErrorNotifier, name),
+                parent: this,
+                json: jobj);
+
+            obj.Deserialize(context);
+        }
+    }
 }
