@@ -28,6 +28,7 @@ public static class JsonHelper
             new CultureInfoConverter(),
             new DirectoryInfoConverter(),
             new FileInfoConverter(),
+            new CoreSerializableJsonConverter(),
             new CoreObjectJsonConverter()
         }
     };

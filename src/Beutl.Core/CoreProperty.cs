@@ -5,6 +5,8 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+using Beutl.Serialization;
+
 namespace Beutl;
 
 public abstract class CoreProperty : ICoreProperty
@@ -70,9 +72,15 @@ public abstract class CoreProperty : ICoreProperty
 
     internal abstract void NotifyChanged(CorePropertyChangedEventArgs e);
 
+    [ObsoleteSerializationApi]
     internal abstract JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value);
 
+    [ObsoleteSerializationApi]
     internal abstract object? RouteReadFromJson(CorePropertyMetadata metadata, JsonNode? node);
+
+    internal abstract void RouteSerialize(ICoreSerializationContext context, object? value);
+
+    internal abstract Optional<object?> RouteDeserialize(ICoreSerializationContext context);
 
     protected abstract IObservable<CorePropertyChangedEventArgs> GetChanged();
 
@@ -237,6 +245,7 @@ public class CoreProperty<T> : CoreProperty
         return o.GetValue<T>(this);
     }
 
+    [ObsoleteSerializationApi]
     internal override JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value)
     {
         var typedMetadata = (CorePropertyMetadata<T>)metadata;
@@ -268,6 +277,7 @@ public class CoreProperty<T> : CoreProperty
         }
     }
 
+    [ObsoleteSerializationApi]
     internal override object? RouteReadFromJson(CorePropertyMetadata metadata, JsonNode? node)
     {
         var typedMetadata = (CorePropertyMetadata<T>)metadata;
@@ -311,5 +321,52 @@ public class CoreProperty<T> : CoreProperty
     protected override IObservable<CorePropertyChangedEventArgs> GetChanged()
     {
         return Changed;
+    }
+
+    internal override void RouteSerialize(ICoreSerializationContext context, object? value)
+    {
+        var metadata = GetMetadata<CorePropertyMetadata<T>>(context.OwnerType);
+        if (metadata.ShouldSerialize && (this is not IStaticProperty sprop || sprop.CanWrite))
+        {
+            if (context is IJsonSerializationContext jsonCtxt
+                && metadata.JsonConverter is { } jsonConverter)
+            {
+                var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
+
+                options.Converters.Add(jsonConverter);
+                if (value != null)
+                {
+                    JsonNode? node = JsonSerializer.SerializeToNode(value, PropertyType, options);
+                    jsonCtxt.SetNode(Name, PropertyType, value.GetType(), node);
+                }
+            }
+            else
+            {
+                context.SetValue(Name, (T?)value);
+            }
+        }
+    }
+
+    internal override Optional<object?> RouteDeserialize(ICoreSerializationContext context)
+    {
+        CorePropertyMetadata<T> metadata = GetMetadata<CorePropertyMetadata<T>>(context.OwnerType);
+        if (metadata.ShouldSerialize && (this is not IStaticProperty sprop || sprop.CanWrite))
+        {
+            if (context is IJsonSerializationContext jsonCtxt
+                && metadata.JsonConverter is { } jsonConverter)
+            {
+                Type type = PropertyType;
+                JsonNode? node = jsonCtxt.GetNode(Name);
+
+                var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
+
+                options.Converters.Add(jsonConverter);
+                return JsonSerializer.Deserialize(node, type, options);
+            }
+
+            return context.GetValue<Optional<T>>(Name);
+        }
+
+        return default;
     }
 }

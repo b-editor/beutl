@@ -4,11 +4,12 @@ using System.Linq.Expressions;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
+using Beutl.Serialization;
 using Beutl.Validation;
 
 namespace Beutl;
 
-public interface ICoreObject : INotifyPropertyChanged, IJsonSerializable, INotifyDataErrorInfo
+public interface ICoreObject : INotifyPropertyChanged, IJsonSerializable, INotifyDataErrorInfo, ICoreSerializable
 {
     Guid Id { get; set; }
 
@@ -343,7 +344,7 @@ public abstract class CoreObject : ICoreObject
 
     public void ClearValue<TValue>(CoreProperty<TValue> property)
     {
-        var metadata = property.GetMetadata<CorePropertyMetadata<TValue>>(GetType());
+        CorePropertyMetadata<TValue> metadata = property.GetMetadata<CorePropertyMetadata<TValue>>(GetType());
         if (metadata.HasDefaultValue)
         {
             SetValue(property, metadata.DefaultValue);
@@ -355,6 +356,7 @@ public abstract class CoreObject : ICoreObject
         SetValue(property, property.GetMetadata<CorePropertyMetadata>(GetType()).GetDefaultValue());
     }
 
+    [ObsoleteSerializationApi]
     public virtual void WriteToJson(JsonObject json)
     {
         Type ownerType = GetType();
@@ -372,6 +374,7 @@ public abstract class CoreObject : ICoreObject
         }
     }
 
+    [ObsoleteSerializationApi]
     public virtual void ReadFromJson(JsonObject json)
     {
         Type ownerType = GetType();
@@ -468,5 +471,33 @@ public abstract class CoreObject : ICoreObject
         var eventArgs = new CorePropertyChangedEventArgs<T>(this, property, metadata, newValue, oldValue);
 
         OnPropertyChanged(eventArgs);
+    }
+
+    public virtual void Serialize(ICoreSerializationContext context)
+    {
+        Type ownerType = GetType();
+
+        IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(ownerType);
+        for (int i = 0; i < list.Count; i++)
+        {
+            CoreProperty item = list[i];
+            item.RouteSerialize(context, GetValue(item));
+        }
+    }
+
+    public virtual void Deserialize(ICoreSerializationContext context)
+    {
+        Type ownerType = GetType();
+
+        IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(ownerType);
+        for (int i = 0; i < list.Count; i++)
+        {
+            CoreProperty item = list[i];
+            Optional<object?> value = item.RouteDeserialize(context);
+            if (value.HasValue)
+            {
+                SetValue(item, value.Value);
+            }
+        }
     }
 }
