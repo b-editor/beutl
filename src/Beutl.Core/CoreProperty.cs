@@ -364,7 +364,7 @@ public class CoreProperty<T> : CoreProperty
                 return JsonSerializer.Deserialize(node, type, options);
             }
 
-            return context.GetValue<Optional<T>>(Name);
+            return context.GetValue<Optional<T>>(Name).ToObject();
         }
 
         return default;
