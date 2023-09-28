@@ -5,6 +5,7 @@ using Beutl.Animation;
 using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.NodeTree.Nodes.Group;
+using Beutl.Serialization;
 using Beutl.Styling;
 
 namespace Beutl.NodeTree.Nodes;
@@ -81,6 +82,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             }
         }
 
+        [ObsoleteSerializationApi]
         public override void ReadFromJson(JsonObject json)
         {
             base.ReadFromJson(json);
@@ -99,11 +101,38 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             }
         }
 
+        [ObsoleteSerializationApi]
         public override void WriteToJson(JsonObject json)
         {
             base.WriteToJson(json);
             GetProperty()?.WriteToJson(json);
         }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            GetProperty()?.Serialize(context);
+        }
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            if (context.GetValue<CorePropertyRecord>(nameof(AssociatedProperty)) is { } prop)
+            {
+                Type ownerType = TypeFormat.ToType(prop.Target)!;
+
+                AssociatedProperty = PropertyRegistry.GetRegistered(ownerType)
+                    .FirstOrDefault(x => x.Name == prop.Property);
+                if (AssociatedProperty != null)
+                {
+                    SetupProperty(AssociatedProperty);
+
+                    GetProperty()?.Deserialize(context);
+                }
+            }
+        }
+
+        private record CorePropertyRecord(string Property, string Target);
     }
 
     public bool AddSocket(ISocket socket, [NotNullWhen(true)] out Connection? connection)

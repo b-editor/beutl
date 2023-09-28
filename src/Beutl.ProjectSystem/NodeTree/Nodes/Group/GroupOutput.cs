@@ -1,6 +1,8 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
+using Beutl.Serialization;
+
 namespace Beutl.NodeTree.Nodes.Group;
 
 public class GroupOutput : Node, ISocketsCanBeAdded
@@ -11,6 +13,7 @@ public class GroupOutput : Node, ISocketsCanBeAdded
     {
         public CoreProperty? AssociatedProperty { get; set; }
 
+        [ObsoleteSerializationApi]
         public override void ReadFromJson(JsonObject json)
         {
             base.ReadFromJson(json);
@@ -24,6 +27,7 @@ public class GroupOutput : Node, ISocketsCanBeAdded
                 .FirstOrDefault(x => x.Name == name);
         }
 
+        [ObsoleteSerializationApi]
         public override void WriteToJson(JsonObject json)
         {
             base.WriteToJson(json);
@@ -39,6 +43,31 @@ public class GroupOutput : Node, ISocketsCanBeAdded
                 };
             }
         }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            if (AssociatedProperty is { OwnerType: Type ownerType } property)
+            {
+                context.SetValue(
+                    nameof(AssociatedProperty),
+                    new CorePropertyRecord(property.Name, TypeFormat.ToString(ownerType)));
+            }
+        }
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            if (context.GetValue<CorePropertyRecord>(nameof(AssociatedProperty)) is { } prop)
+            {
+                Type ownerType = TypeFormat.ToType(prop.Owner)!;
+
+                AssociatedProperty = PropertyRegistry.GetRegistered(ownerType)
+                    .FirstOrDefault(x => x.Name == prop.Name);
+            }
+        }
+
+        private record CorePropertyRecord(string Name, string Owner);
     }
 
     public bool AddSocket(ISocket socket, [NotNullWhen(true)] out Connection? connection)

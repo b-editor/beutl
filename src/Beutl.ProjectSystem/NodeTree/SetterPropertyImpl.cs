@@ -3,6 +3,7 @@
 using Beutl.Animation;
 using Beutl.Extensibility;
 using Beutl.Reactive;
+using Beutl.Serialization;
 using Beutl.Styling;
 
 namespace Beutl.NodeTree;
@@ -97,6 +98,7 @@ public sealed class SetterPropertyImpl<T> : IAbstractAnimatableProperty<T>
         Setter.Value = value;
     }
 
+    [ObsoleteSerializationApi]
     public void WriteToJson(JsonObject json)
     {
         json[nameof(Property)] = Property.Name;
@@ -105,6 +107,7 @@ public sealed class SetterPropertyImpl<T> : IAbstractAnimatableProperty<T>
         json[nameof(Setter)] = StyleSerializer.ToJson(Setter, ImplementedType).Item2;
     }
 
+    [ObsoleteSerializationApi]
     public void ReadFromJson(JsonObject json)
     {
         if (json.TryGetPropertyValue(nameof(Setter), out JsonNode? setterNode)
@@ -125,5 +128,29 @@ public sealed class SetterPropertyImpl<T> : IAbstractAnimatableProperty<T>
     public object? GetDefaultValue()
     {
         return Property.GetMetadata<ICorePropertyMetadata>(ImplementedType).GetDefaultValue();
+    }
+
+    public void Serialize(ICoreSerializationContext context)
+    {
+        context.SetValue(nameof(Property), Property.Name);
+        context.SetValue("Target", TypeFormat.ToString(ImplementedType));
+
+        context.SetValue(nameof(Setter), StyleSerializer.ToJson(Setter, ImplementedType).Item2);
+    }
+
+    public void Deserialize(ICoreSerializationContext context)
+    {
+        if (context.GetValue<JsonNode>(nameof(Setter)) is { } setterNode)
+        {
+            if (StyleSerializer.ToSetter(setterNode, Property.Name, ImplementedType) is Setter<T> setter)
+            {
+                if (setter.Animation != null)
+                {
+                    Setter.Animation = setter.Animation;
+                }
+
+                Setter.Value = setter.Value;
+            }
+        }
     }
 }

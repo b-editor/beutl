@@ -1,9 +1,12 @@
 ﻿using System.Text.Json.Nodes;
 
+using Beutl.Serialization;
+
 namespace Beutl.Animation;
 
 internal static class AnimationSerializer
 {
+    [ObsoleteSerializationApi]
     public static JsonNode? ToJson(this IAnimation animation)
     {
         var json = new JsonObject();
@@ -28,6 +31,7 @@ internal static class AnimationSerializer
         }
     }
 
+    [ObsoleteSerializationApi]
     public static IAnimation? ToAnimation(this JsonNode json, string name, Type targetType)
     {
         CoreProperty? property = PropertyRegistry.GetRegistered(targetType).FirstOrDefault(x => x.Name == name);
@@ -38,6 +42,7 @@ internal static class AnimationSerializer
         return json.ToAnimation(property);
     }
 
+    [ObsoleteSerializationApi]
     public static IAnimation? ToAnimation(this JsonNode json, CoreProperty property)
     {
         if (json is JsonObject obj)

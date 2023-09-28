@@ -2,6 +2,7 @@
 using System.Text.Json.Nodes;
 
 using Beutl.Media;
+using Beutl.Serialization;
 
 namespace Beutl.Animation;
 
@@ -40,6 +41,7 @@ public abstract class Animatable : CoreObject, IAnimatable
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -60,6 +62,7 @@ public abstract class Animatable : CoreObject, IAnimatable
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
@@ -76,6 +79,30 @@ public abstract class Animatable : CoreObject, IAnimatable
         if (animations.Count > 0)
         {
             json["animations"] = animations;
+        }
+    }
+
+    // NOTE: 互換性のため、JsonArrayではなくJsonObjectになるようにしている
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        context.SetValue(nameof(Animations), Animations.ToDictionary(x => x.Property.Name, y => y));
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        var animations = context.GetValue<Dictionary<string, IAnimation>>(nameof(Animations));
+
+        if (animations != null)
+        {
+            Animations.Clear();
+            Animations.EnsureCapacity(animations.Count);
+
+            foreach (IAnimation item in animations.Values)
+            {
+                Animations.Add(item);
+            }
         }
     }
 }

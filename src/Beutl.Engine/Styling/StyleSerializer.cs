@@ -1,11 +1,13 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Animation;
+using Beutl.Serialization;
 
 namespace Beutl.Styling;
 
 public static class StyleSerializer
 {
+    [ObsoleteSerializationApi]
     public static JsonNode ToJson(this IStyle style)
     {
         var styleJson = new JsonObject
@@ -24,6 +26,7 @@ public static class StyleSerializer
         return styleJson;
     }
 
+    [ObsoleteSerializationApi]
     public static (string, JsonNode?) ToJson(this ISetter setter, Type targetType)
     {
         string? owner = null;
@@ -72,6 +75,7 @@ public static class StyleSerializer
         }
     }
 
+    [ObsoleteSerializationApi]
     public static Style? ToStyle(this JsonObject json)
     {
         if (json.TryGetPropertyValue("Target", out JsonNode? targetNode)
@@ -102,6 +106,7 @@ public static class StyleSerializer
         return null;
     }
 
+    [ObsoleteSerializationApi]
     public static ISetter? ToSetter(this JsonNode? json, string name, Type targetType)
     {
         JsonNode? animationNode = null;
@@ -153,6 +158,7 @@ public static class StyleSerializer
         return helper.InitializeSetter(property, value, animationNode?.ToAnimation(property));
     }
 
+    [ObsoleteSerializationApi]
     public static object? DeserializeValue(CoreProperty property, JsonNode jsonNode, CorePropertyMetadata metadata)
     {
         return property.RouteReadFromJson(metadata, jsonNode);

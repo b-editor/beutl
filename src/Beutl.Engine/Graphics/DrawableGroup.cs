@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Graphics.Effects;
+using Beutl.Serialization;
 
 namespace Beutl.Graphics;
 
@@ -31,6 +32,7 @@ public sealed class DrawableGroup : Drawable
         set => _children.Replace(value);
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -53,6 +55,7 @@ public sealed class DrawableGroup : Drawable
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
@@ -69,6 +72,21 @@ public sealed class DrawableGroup : Drawable
         }
 
         json[nameof(Children)] = array;
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        context.SetValue(nameof(Children), Children);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        if(context.GetValue<Drawables>(nameof(Children)) is { } children)
+        {
+            Children = children;
+        }
     }
 
     public override void Measure(Size availableSize)

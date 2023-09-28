@@ -6,6 +6,7 @@ using Beutl.Animation;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
+using Beutl.Serialization;
 
 using SkiaSharp;
 
@@ -145,6 +146,7 @@ public class TextBlock : Drawable
         set => SetAndRaise(ElementsProperty, ref _elements, value);
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -166,6 +168,7 @@ public class TextBlock : Drawable
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
@@ -181,6 +184,22 @@ public class TextBlock : Drawable
             }
 
             json["elements"] = array;
+        }
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        OnUpdateText();
+        context.SetValue(nameof(Elements), Elements?.ToArray());
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        if (context.GetValue<TextElement[]>(nameof(Elements)) is { } elements)
+        {
+            Elements = new TextElements(elements);
         }
     }
 

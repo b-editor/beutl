@@ -1,8 +1,8 @@
 ﻿using System.Collections.Specialized;
-using System.Reflection;
 using System.Text.Json.Nodes;
 
 using Beutl.Collections;
+using Beutl.Serialization;
 
 namespace Beutl;
 
@@ -73,7 +73,7 @@ public sealed class Project : Hierarchical, IStorable
         _fileName = filename;
         _rootDirectory = Path.GetDirectoryName(filename);
 
-        this.JsonRestore(filename);
+        this.JsonRestore2(filename);
         LastSavedTime = File.GetLastWriteTimeUtc(filename);
 
         _restored?.Invoke(this, EventArgs.Empty);
@@ -85,12 +85,13 @@ public sealed class Project : Hierarchical, IStorable
         _rootDirectory = Path.GetDirectoryName(filename);
         LastSavedTime = DateTime.UtcNow;
 
-        this.JsonSave(filename);
+        this.JsonSave2(filename);
         File.SetLastWriteTimeUtc(filename, LastSavedTime);
 
         _saved?.Invoke(this, EventArgs.Empty);
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -125,6 +126,7 @@ public sealed class Project : Hierarchical, IStorable
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
@@ -149,6 +151,38 @@ public sealed class Project : Hierarchical, IStorable
         }
 
         json["variables"] = variables;
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+
+        AppVersion = context.GetValue<string>("appVersion") ?? AppVersion;
+        MinAppVersion = context.GetValue<string>("minAppVersion") ?? MinAppVersion;
+
+        SyncronizeScenes(context.GetValue<string[]>("items")!);
+
+        if (context.GetValue<Dictionary<string, string>>("variables") is { } vars)
+        {
+            Variables.Clear();
+            foreach (KeyValuePair<string, string> item in vars)
+            {
+                Variables.Add(item);
+            }
+        }
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+
+        context.SetValue("appVersion", AppVersion);
+        context.SetValue("minAppVersion", MinAppVersion);
+
+        context.SetValue("items", Items
+            .Select(item => Path.GetRelativePath(RootDirectory, item.FileName).Replace('\\', '/')));
+
+        context.SetValue("variables", Variables);
     }
 
     public void Dispose()

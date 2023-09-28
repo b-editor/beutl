@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using Beutl.Collections;
+using Beutl.Serialization;
 
 namespace Beutl.Configuration;
 
@@ -144,21 +145,21 @@ public sealed class ViewConfig : ConfigurationBase
         set => SetAndRaise(ShowExactBoundariesProperty, ref _showExactBoundaries, value);
     }
 
-    [NotAutoSerialized()]
+    [NotAutoSerialized]
     public CoreList<string> PrimaryProperties
     {
         get => _primaryProperties;
         set => _primaryProperties.Replace(value);
     }
 
-    [NotAutoSerialized()]
+    [NotAutoSerialized]
     public CoreList<string> RecentFiles
     {
         get => _recentFiles;
         set => _recentFiles.Replace(value);
     }
 
-    [NotAutoSerialized()]
+    [NotAutoSerialized]
     public CoreList<string> RecentProjects
     {
         get => _recentProjects;
@@ -173,6 +174,7 @@ public sealed class ViewConfig : ConfigurationBase
         System
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -226,6 +228,7 @@ public sealed class ViewConfig : ConfigurationBase
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
@@ -253,6 +256,46 @@ public sealed class ViewConfig : ConfigurationBase
 
     }
 
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        PrimaryProperties = context.GetValue<CoreList<string>>(nameof(PrimaryProperties))!;
+        RecentFiles = context.GetValue<CoreList<string>>(nameof(RecentFiles))!;
+        RecentProjects = context.GetValue<CoreList<string>>(nameof(RecentProjects))!;
+
+        WindowPosition = null;
+        if (context.GetValue<WindowPositionRecord?>(nameof(WindowPosition)) is { } pos)
+        {
+            WindowPosition = (pos.X, pos.Y);
+        }
+
+        WindowSize = null;
+        if (context.GetValue<WindowSizeRecord?>(nameof(WindowSize)) is { } size)
+        {
+            WindowSize = (size.Width, size.Height);
+        }
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        context.SetValue(nameof(PrimaryProperties), PrimaryProperties);
+        context.SetValue(nameof(RecentFiles), RecentFiles);
+        context.SetValue(nameof(RecentProjects), RecentProjects);
+
+        if (WindowPosition.HasValue)
+        {
+            (int X, int Y) pos = WindowPosition.Value;
+            context.SetValue(nameof(WindowPosition), new WindowPositionRecord(pos.X, pos.Y));
+        }
+
+        if (WindowSize.HasValue)
+        {
+            (int Width, int Height) pos = WindowSize.Value;
+            context.SetValue(nameof(WindowSize), new WindowSizeRecord(pos.Width, pos.Height));
+        }
+    }
+
     public void UpdateRecentFile(string filename)
     {
         _recentFiles.Remove(filename);
@@ -278,4 +321,8 @@ public sealed class ViewConfig : ConfigurationBase
             OnChanged();
         }
     }
+
+    private record WindowPositionRecord(int X, int Y);
+
+    private record WindowSizeRecord(int Width, int Height);
 }

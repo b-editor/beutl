@@ -1,8 +1,9 @@
 ﻿using Beutl.Media;
+using Beutl.Serialization;
 
 namespace Beutl.Animation;
 
-public interface IAnimation : IJsonSerializable, IAffectsRender
+public interface IAnimation : IJsonSerializable, IAffectsRender, ICoreSerializable
 {
     CoreProperty Property { get; }
 

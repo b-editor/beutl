@@ -1,6 +1,8 @@
 ﻿using System.ComponentModel;
 using System.Text.Json.Nodes;
 
+using Beutl.Serialization;
+
 namespace Beutl.NodeTree;
 
 public delegate bool InputSocketReceiver<T>(object? obj, out T? received);
@@ -178,6 +180,7 @@ public class InputSocket<T> : Socket<T>, IInputSocket
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -190,12 +193,29 @@ public class InputSocket<T> : Socket<T>, IInputSocket
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
         if (Connection != null)
         {
             json["connection-output"] = Connection.Output.Id;
+        }
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        _outputId = context.GetValue<Guid>("connection-output");
+        TryRestoreConnection();
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        if (Connection != null)
+        {
+            context.SetValue("connection-output", Connection.Output.Id);
         }
     }
 

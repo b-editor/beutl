@@ -2,6 +2,7 @@
 
 using Beutl.Collections;
 using Beutl.Media;
+using Beutl.Serialization;
 
 namespace Beutl.NodeTree;
 
@@ -40,6 +41,7 @@ public abstract class NodeTreeModel : Hierarchical, IAffectsRender
         return null;
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -59,6 +61,7 @@ public abstract class NodeTreeModel : Hierarchical, IAffectsRender
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);

@@ -53,19 +53,32 @@ public static class JsonHelper
 
         serializable.WriteToJson(json);
 
-        using var stream = new FileStream(filename, FileMode.Create, FileAccess.Write, FileShare.Write);
-        using var writer = new Utf8JsonWriter(stream, WriterOptions);
-        json.WriteTo(writer, SerializerOptions);
+        json.JsonSave(filename);
     }
 
     public static void JsonRestore(this IJsonSerializable serializable, string filename)
     {
-        using var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
-        var node = JsonNode.Parse(stream);
-
-        if (node is JsonObject obj)
+        if (JsonRestore(filename) is JsonObject obj)
         {
             serializable.ReadFromJson(obj);
+        }
+    }
+    
+    public static void JsonSave2(this ICoreSerializable serializable, string filename)
+    {
+        var context = new JsonSerializationContext(serializable.GetType(), NullSerializationErrorNotifier.Instance);
+        serializable.Serialize(context);
+
+        context.GetJsonObject().JsonSave(filename);
+    }
+
+    public static void JsonRestore2(this ICoreSerializable serializable, string filename)
+    {
+        if (JsonRestore(filename) is JsonObject obj)
+        {
+            var context = new JsonSerializationContext(
+                serializable.GetType(), NullSerializationErrorNotifier.Instance, json: obj);
+            serializable.Deserialize(context);
         }
     }
 

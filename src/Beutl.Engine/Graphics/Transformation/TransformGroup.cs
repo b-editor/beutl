@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Animation;
+using Beutl.Serialization;
 
 namespace Beutl.Graphics.Transformation;
 
@@ -45,6 +46,7 @@ public sealed class TransformGroup : Transform
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -67,6 +69,7 @@ public sealed class TransformGroup : Transform
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
@@ -86,6 +89,21 @@ public sealed class TransformGroup : Transform
         }
 
         json[nameof(Children)] = array;
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        context.SetValue(nameof(Children), Children);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        if (context.GetValue<Transforms>(nameof(Children)) is { } children)
+        {
+            Children = children;
+        }
     }
 
     public override void ApplyAnimations(IClock clock)
