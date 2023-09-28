@@ -197,8 +197,8 @@ public class JsonSerializationContext : IJsonSerializationContext
             Type elementType = ArrayTypeHelpers.GetElementType(actualType) ?? typeof(object);
 
             // 'Dictionary<string, U>' の場合、JsonObjectを返す
-            if (baseType.IsAssignableTo(typeof(IDictionary))
-                && ArrayTypeHelpers.GetEntryType(baseType) is (Type keyType, Type valueType)
+            if (actualType.IsAssignableTo(typeof(IDictionary))
+                && ArrayTypeHelpers.GetEntryType(actualType) is (Type keyType, Type valueType)
                 && keyType == typeof(string))
             {
                 if (!valueType.IsValueType)
