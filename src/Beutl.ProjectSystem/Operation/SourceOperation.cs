@@ -9,6 +9,7 @@ using Beutl.Collections.Pooled;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;
+using Beutl.Serialization;
 
 namespace Beutl.Operation;
 
@@ -48,6 +49,7 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
             .ToCommand();
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -71,6 +73,7 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
@@ -93,6 +96,21 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
             }
 
             json[nameof(Children)] = array;
+        }
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        context.SetValue(nameof(Children), Children);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        if (context.GetValue<SourceOperator[]>(nameof(Children)) is { } children)
+        {
+            Children.Replace(children);
         }
     }
 

@@ -83,4 +83,19 @@ public abstract class NodeTreeModel : Hierarchical, IAffectsRender
             json[nameof(Nodes)] = array;
         }
     }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        context.SetValue(nameof(Nodes), Nodes);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        if (context.GetValue<Node[]>(nameof(Nodes)) is { } nodes)
+        {
+            Nodes.Replace(nodes);
+        }
+    }
 }

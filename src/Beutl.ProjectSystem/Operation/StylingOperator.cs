@@ -13,6 +13,7 @@ using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Reactive;
+using Beutl.Serialization;
 using Beutl.Styling;
 
 using static Beutl.Operation.StylingOperatorPropertyDefinition;
@@ -281,6 +282,7 @@ public abstract class StylingOperator : SourceOperator
         RaiseInvalidated(new RenderInvalidatedEventArgs(this, nameof(Style)));
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -291,11 +293,6 @@ public abstract class StylingOperator : SourceOperator
             string name = item.Property.Name;
             if (json.TryGetPropertyValue(name, out JsonNode? propNode))
             {
-                if (propNode == null)
-                {
-
-                }
-
                 ISetter knownSetter = item.Getter.Invoke(this);
 
                 if (propNode.ToSetter(knownSetter.Property.Name, _style.TargetType) is ISetter setter)
@@ -309,6 +306,7 @@ public abstract class StylingOperator : SourceOperator
         RaiseInvalidated(new RenderInvalidatedEventArgs(this));
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
@@ -319,6 +317,41 @@ public abstract class StylingOperator : SourceOperator
             ISetter setter = item.Getter.Invoke(this);
             json[name] = setter.ToJson(_style.TargetType).Item2;
         }
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        Definition[] defs = GetDefintions(GetType());
+        foreach (Definition item in defs.AsSpan())
+        {
+            string name = item.Property.Name;
+            ISetter setter = item.Getter.Invoke(this);
+            context.SetValue(name, setter.ToJson(_style.TargetType).Item2);
+        }
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+
+        Definition[] defs = GetDefintions(GetType());
+        foreach (Definition item in defs.AsSpan())
+        {
+            string name = item.Property.Name;
+            if (context.GetValue<JsonNode?>(name) is { } propNode)
+            {
+                ISetter knownSetter = item.Getter.Invoke(this);
+
+                if (propNode.ToSetter(knownSetter.Property.Name, _style.TargetType) is ISetter setter)
+                {
+                    item.Setter.Invoke(this, setter);
+                }
+            }
+        }
+
+        Style = OnInitializeStyle(() => GetSetters(this));
+        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
     }
 
     private void Setters_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

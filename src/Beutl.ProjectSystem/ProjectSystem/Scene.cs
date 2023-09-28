@@ -9,6 +9,7 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.Rendering;
 using Beutl.Rendering.Cache;
+using Beutl.Serialization;
 
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
@@ -251,6 +252,7 @@ public class Scene : ProjectItem
         return new MultipleMoveCommand(this, elements, deltaIndex, deltaStart);
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         static void Process(Func<string, Matcher> add, JsonNode node, List<string> list)
@@ -314,6 +316,7 @@ public class Scene : ProjectItem
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         static void Process(JsonObject jobject, string jsonName, List<string> list)
@@ -355,6 +358,106 @@ public class Scene : ProjectItem
         json["Elements"] = elementsNode;
     }
 
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        static void Process(JsonObject jobject, string jsonName, List<string> list)
+        {
+            if (list.Count == 1)
+            {
+                jobject[jsonName] = JsonValue.Create(list[0]);
+            }
+            else if (list.Count >= 2)
+            {
+                var jarray = new JsonArray();
+                foreach (string item in list)
+                {
+                    jarray.Add(JsonValue.Create(item));
+                }
+
+                jobject[jsonName] = jarray;
+            }
+            else
+            {
+                jobject.Remove(jsonName);
+            }
+        }
+
+        if (_renderer != null)
+        {
+            context.SetValue(nameof(Width), _renderer.RenderScene.Size.Width);
+            context.SetValue(nameof(Height), _renderer.RenderScene.Size.Height);
+        }
+
+        var elementsNode = new JsonObject();
+
+        UpdateInclude();
+
+        Process(elementsNode, "Include", _includeElements);
+        Process(elementsNode, "Exclude", _excludeElements);
+
+        context.SetValue("Elements", elementsNode);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+
+        static void Process(Func<string, Matcher> add, JsonNode node, List<string> list)
+        {
+            list.Clear();
+            if (node is JsonValue jvalue &&
+                jvalue.TryGetValue(out string? pattern))
+            {
+                list.Add(pattern);
+                add(pattern);
+            }
+            else if (node is JsonArray array)
+            {
+                foreach (JsonValue item in array.OfType<JsonValue>())
+                {
+                    if (item.TryGetValue(out pattern))
+                    {
+                        list.Add(pattern);
+                        add(pattern);
+                    }
+                }
+            }
+        }
+
+        Optional<int> width = context.GetValue<Optional<int>>(nameof(Width));
+        Optional<int> height = context.GetValue<Optional<int>>(nameof(Height));
+        if (width.HasValue && height.HasValue)
+        {
+            Initialize(width.Value, height.Value);
+        }
+
+        if (context.GetValue<JsonObject>(nameof(Elements)) is JsonObject elementsJson)
+        {
+            var matcher = new Matcher();
+            var directory = new DirectoryInfoWrapper(new DirectoryInfo(Path.GetDirectoryName(FileName)!));
+
+            // 含めるクリップ
+            if (elementsJson.TryGetPropertyValue("Include", out JsonNode? includeNode))
+            {
+                Process(matcher.AddInclude, includeNode!, _includeElements);
+            }
+
+            // 除外するクリップ
+            if (elementsJson.TryGetPropertyValue("Exclude", out JsonNode? excludeNode))
+            {
+                Process(matcher.AddExclude, excludeNode!, _excludeElements);
+            }
+
+            PatternMatchingResult result = matcher.Execute(directory);
+            SyncronizeFiles(result.Files.Select(x => x.Path));
+        }
+        else
+        {
+            Children.Clear();
+        }
+    }
+
     protected override void SaveCore(string filename)
     {
         string? directory = Path.GetDirectoryName(filename);
@@ -364,12 +467,12 @@ public class Scene : ProjectItem
             Directory.CreateDirectory(directory);
         }
 
-        this.JsonSave(filename);
+        this.JsonSave2(filename);
     }
 
     protected override void RestoreCore(string filename)
     {
-        this.JsonRestore(filename);
+        this.JsonRestore2(filename);
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)

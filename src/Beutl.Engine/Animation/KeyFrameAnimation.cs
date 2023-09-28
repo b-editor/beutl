@@ -1,13 +1,14 @@
 ﻿using System.ComponentModel;
 
 using Beutl.Media;
+using Beutl.Serialization;
 
 namespace Beutl.Animation;
 
 public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
 {
     public static readonly CoreProperty<bool> UseGlobalClockProperty;
-    private CoreProperty _property;
+    private CoreProperty? _property;
     private bool _useGlobalClock;
 
     static KeyFrameAnimation()
@@ -20,6 +21,12 @@ public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
     public KeyFrameAnimation(CoreProperty property)
     {
         _property = property;
+        KeyFrames.Attached += OnKeyFrameAttached;
+        KeyFrames.Detached += OnKeyFrameDetached;
+    }
+
+    public KeyFrameAnimation()
+    {
         KeyFrames.Attached += OnKeyFrameAttached;
         KeyFrames.Detached += OnKeyFrameDetached;
     }
@@ -111,7 +118,7 @@ public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
 
     public CoreProperty Property
     {
-        get => _property;
+        get => _property!;
         set
         {
             _property = value;
@@ -148,6 +155,21 @@ public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
         if (args.PropertyName is nameof(UseGlobalClock))
         {
             Invalidated?.Invoke(this, new(this));
+        }
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        context.SetValue(nameof(Property), Property);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        if (context.GetValue<CoreProperty>(nameof(Property)) is { } prop)
+        {
+            Property = prop;
         }
     }
 }

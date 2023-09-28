@@ -2,6 +2,7 @@
 using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.Rendering;
+using Beutl.Serialization;
 
 namespace Beutl.Operation;
 
@@ -12,6 +13,7 @@ public interface ISourceOperator : IAffectsRender
     ICoreList<IAbstractProperty> Properties { get; }
 }
 
+[DummyType(typeof(DummySourceOperator))]
 public class SourceOperator : Hierarchical, ISourceOperator
 {
     public static readonly CoreProperty<ICoreList<IAbstractProperty>> PropertiesProperty;

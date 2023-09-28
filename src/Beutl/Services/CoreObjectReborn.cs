@@ -2,6 +2,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+using Beutl.Serialization;
 using Beutl.Utilities;
 
 namespace Beutl.Services;
@@ -24,7 +25,8 @@ public static class CoreObjectReborn
 
         // JsonObjectに変換
         var jsonObject = new JsonObject();
-        obj.WriteToJson(jsonObject);
+        var context = new JsonSerializationContext(obj.GetType(), NullSerializationErrorNotifier.Instance, json: jsonObject);
+        obj.Serialize(context);
 
         // UTF-8に書き込む
         JsonSerializerOptions options = JsonHelper.SerializerOptions;

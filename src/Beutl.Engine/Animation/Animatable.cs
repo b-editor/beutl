@@ -99,9 +99,15 @@ public abstract class Animatable : CoreObject, IAnimatable
             Animations.Clear();
             Animations.EnsureCapacity(animations.Count);
 
-            foreach (IAnimation item in animations.Values)
+            Type type = GetType();
+            foreach (KeyValuePair<string, IAnimation> item in animations)
             {
-                Animations.Add(item);
+                if (item.Value is KeyFrameAnimation { Property: null } kfAnim)
+                {
+                    kfAnim.Property = PropertyRegistry.GetRegistered(type).FirstOrDefault(x => x.Name == item.Key)!;
+                }
+
+                Animations.Add(item.Value);
             }
         }
     }

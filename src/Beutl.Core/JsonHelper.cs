@@ -25,6 +25,7 @@ public static class JsonHelper
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         Converters =
         {
+            new OptionalJsonConverter(),
             new CultureInfoConverter(),
             new DirectoryInfoConverter(),
             new FileInfoConverter(),

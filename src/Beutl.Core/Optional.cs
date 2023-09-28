@@ -1,6 +1,6 @@
 ﻿namespace Beutl;
 
-public readonly struct Optional<T> : IEquatable<Optional<T>>
+public readonly struct Optional<T> : IEquatable<Optional<T>>, IOptional
 {
     private readonly T _value;
 
@@ -62,6 +62,8 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
             _value is TResult result ? result : default
             : defaultValue;
     }
+
+    Type IOptional.GetValueType() => typeof(T);
 
     public static implicit operator Optional<T>(T value) => new(value);
 
