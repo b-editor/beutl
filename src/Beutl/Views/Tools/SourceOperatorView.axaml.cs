@@ -85,7 +85,7 @@ public sealed partial class SourceOperatorView : UserControl
         base.OnDataContextChanged(e);
         if (DataContext is SourceOperatorViewModel viewModel)
         {
-            if (!viewModel.IsDummy)
+            if (!viewModel.IsDummy.Value)
             {
                 SourceOperator operation = viewModel.Model;
                 Type type = operation.GetType();
@@ -107,7 +107,7 @@ public sealed partial class SourceOperatorView : UserControl
 
                 if (panel.Children.Count == 1)
                 {
-                    panel.Children.Add(new UnknownSourceOperatorView());
+                    panel.Children.Add(new UnknownObjectView());
                 }
             }
         }

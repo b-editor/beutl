@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Nodes;
 
 using Beutl.Serialization;
 
@@ -43,5 +44,11 @@ public sealed class DummyBrush : Brush, IDummy
     public override IBrush ToImmutable()
     {
         return Brushes.Transparent;
+    }
+
+    public bool TryGetTypeName([NotNullWhen(true)] out string? result)
+    {
+        result = null;
+        return Json?.TryGetDiscriminator(out result) == true;
     }
 }

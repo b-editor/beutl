@@ -1,7 +1,9 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 
+using Beutl.Helpers;
 using Beutl.Operation;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
 
@@ -11,7 +13,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Tools;
 
-public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider
+public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider, IUnknownObjectViewModel
 {
     private SourceOperatorsTabViewModel _parent;
 
@@ -26,6 +28,12 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
         Init();
 
         model.Properties.CollectionChanged += Properties_CollectionChanged;
+
+        IsDummy = Observable.Return(model is IDummy)
+            .ToReadOnlyReactivePropertySlim();
+
+        ActualTypeName = Observable.Return(DummyHelper.GetTypeName(model))
+            .ToReadOnlyReactivePropertySlim()!;
     }
 
     private void Properties_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -47,24 +55,9 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
     public CoreList<IPropertyEditorContext?> Properties { get; } = new();
 
-    public bool IsDummy => Model is DummySourceOperator;
+    public IReadOnlyReactiveProperty<bool> IsDummy { get; }
 
-    public string ActualTypeName
-    {
-        get
-        {
-            if (Model is DummySourceOperator { Json: { } json }
-                && json.TryGetPropertyValueAsJsonValue("$type", out string? typeName)
-                && typeName != null)
-            {
-                return typeName;
-            }
-            else
-            {
-                return TypeFormat.ToString(Model.GetType());
-            }
-        }
-    }
+    public IReadOnlyReactiveProperty<string> ActualTypeName { get; }
 
     public void RestoreState(JsonNode json)
     {
@@ -194,7 +187,17 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
         return _parent.GetService(serviceType);
     }
 
-    public void SetJson(string? str)
+    public IObservable<string?> GetJsonString()
+    {
+        if (Model is DummySourceOperator { Json: JsonObject json })
+        {
+            return Observable.Return(json.ToJsonString(JsonHelper.SerializerOptions));
+        }
+
+        return Observable.Return((string?)null);
+    }
+
+    public void SetJsonString(string? str)
     {
         if (Model.HierarchicalParent is SourceOperation sourceOperation)
         {
@@ -214,7 +217,8 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
             if (@operator == null) throw new Exception(message);
 
-            @operator.ReadFromJson(json);
+            var context = new JsonSerializationContext(@operator.GetType(), NullSerializationErrorNotifier.Instance, null, json);
+            @operator.Deserialize(context);
 
             var command = new ReplaceItemCommand(sourceOperation.Children, index, @operator, Model);
             command.DoAndRecord(CommandRecorder.Default);

@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Nodes;
 
 using Beutl.Serialization;
 
@@ -47,5 +48,11 @@ public sealed class DummyDrawable : Drawable, IDummy
 
     protected override void OnDraw(ICanvas canvas)
     {
+    }
+
+    public bool TryGetTypeName([NotNullWhen(true)] out string? result)
+    {
+        result = null;
+        return Json?.TryGetDiscriminator(out result) == true;
     }
 }

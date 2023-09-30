@@ -1,26 +1,25 @@
-﻿using System.Text.Json.Nodes;
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 
-using Beutl.Operation;
 using Beutl.Services;
-using Beutl.ViewModels.Tools;
+using Beutl.ViewModels;
 
-namespace Beutl.Views.Tools;
-public partial class UnknownSourceOperatorView : UserControl
+namespace Beutl.Views;
+
+public partial class UnknownObjectView : UserControl
 {
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
 
     private CancellationTokenSource? _lastTransitionCts;
 
-    public UnknownSourceOperatorView()
+    private IDisposable? _textBindingRevoker;
+
+    public UnknownObjectView()
     {
         InitializeComponent();
-
         editJsonToggle.GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(v =>
             {
@@ -43,11 +42,11 @@ public partial class UnknownSourceOperatorView : UserControl
 
     private void OnSaveClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is SourceOperatorViewModel viewModel)
+        if (DataContext is IUnknownObjectViewModel viewModel)
         {
             try
             {
-                viewModel.SetJson(jsonTextBox.Text);
+                viewModel.SetJsonString(jsonTextBox.Text);
             }
             catch (Exception ex)
             {
@@ -61,14 +60,16 @@ public partial class UnknownSourceOperatorView : UserControl
     {
         base.OnDataContextChanged(e);
         jsonTextBox.Text = null;
+        _textBindingRevoker?.Dispose();
+        _textBindingRevoker = null;
     }
 
     private async void Show(CancellationToken cts)
     {
-        if (DataContext is SourceOperatorViewModel { Model: DummySourceOperator { Json: JsonObject json } }
-            && jsonTextBox.Text == null)
+        if (DataContext is IUnknownObjectViewModel viewModel
+            && _textBindingRevoker == null)
         {
-            jsonTextBox.Text = json.ToJsonString(JsonHelper.SerializerOptions);
+            _textBindingRevoker = jsonTextBox.Bind(TextBox.TextProperty, viewModel.GetJsonString().ToBinding());
         }
 
         await Task.WhenAll(s_transition.Start(null, jsonSaveButton, cts), s_transition.Start(null, jsonTextBox, cts));

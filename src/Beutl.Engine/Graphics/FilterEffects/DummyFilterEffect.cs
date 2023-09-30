@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Nodes;
 
 using Beutl.Serialization;
 
@@ -42,5 +43,11 @@ public sealed class DummyFilterEffect : FilterEffect, IDummy
     {
         base.Deserialize(context);
         Json = (context as IJsonSerializationContext)?.GetJsonObject();
+    }
+
+    public bool TryGetTypeName([NotNullWhen(true)] out string? result)
+    {
+        result = null;
+        return Json?.TryGetDiscriminator(out result) == true;
     }
 }

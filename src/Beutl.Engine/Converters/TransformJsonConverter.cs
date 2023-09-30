@@ -2,14 +2,14 @@
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
-using Beutl.Media;
+using Beutl.Graphics.Transformation;
 using Beutl.Serialization;
 
 namespace Beutl.Converters;
 
-internal sealed class BrushJsonConverter : JsonConverter<IBrush>
+internal sealed class TransformJsonConverter : JsonConverter<ITransform>
 {
-    public override IBrush Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override ITransform Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         var jsonNode = JsonNode.Parse(ref reader);
         if (jsonNode is JsonObject jsonObject)
@@ -28,18 +28,18 @@ internal sealed class BrushJsonConverter : JsonConverter<IBrush>
             Type? actualType = typeToConvert.IsSealed ? typeToConvert : jsonObject.GetDiscriminator(typeToConvert);
             if (actualType?.IsAssignableTo(typeToConvert) == true
                 && Activator.CreateInstance(actualType) is ICoreSerializable instance
-                && instance is IBrush brush)
+                && instance is ITransform transform)
             {
                 instance.Deserialize(context);
 
-                return brush;
+                return transform;
             }
         }
 
         throw new Exception("Invalid Transform");
     }
 
-    public override void Write(Utf8JsonWriter writer, IBrush value, JsonSerializerOptions options)
+    public override void Write(Utf8JsonWriter writer, ITransform value, JsonSerializerOptions options)
     {
         if (value is not ICoreSerializable serializable) return;
 

@@ -1,8 +1,7 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
 using Beutl.Serialization;
-using Beutl.Utilities;
 
 namespace Beutl.Operation;
 
@@ -40,5 +39,11 @@ public sealed class DummySourceOperator : SourceOperator, IDummy
     {
         base.Deserialize(context);
         Json = (context as IJsonSerializationContext)?.GetJsonObject();
+    }
+
+    public bool TryGetTypeName([NotNullWhen(true)] out string? result)
+    {
+        result = null;
+        return Json?.TryGetDiscriminator(out result) == true;
     }
 }
