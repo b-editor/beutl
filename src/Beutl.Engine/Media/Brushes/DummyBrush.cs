@@ -1,12 +1,10 @@
-﻿using System.Text.Json;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 
 using Beutl.Serialization;
-using Beutl.Utilities;
 
-namespace Beutl.Operation;
+namespace Beutl.Media;
 
-public sealed class DummySourceOperator : SourceOperator, IDummy
+public sealed class DummyBrush : Brush, IDummy
 {
     internal JsonObject? Json { get; set; }
 
@@ -40,5 +38,10 @@ public sealed class DummySourceOperator : SourceOperator, IDummy
     {
         base.Deserialize(context);
         Json = (context as IJsonSerializationContext)?.GetJsonObject();
+    }
+
+    public override IBrush ToImmutable()
+    {
+        return Brushes.Transparent;
     }
 }

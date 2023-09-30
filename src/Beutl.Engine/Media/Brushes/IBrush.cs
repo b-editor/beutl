@@ -3,6 +3,7 @@
 using Beutl.Converters;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
+using Beutl.Serialization;
 using Beutl.Styling;
 
 namespace Beutl.Media;
@@ -11,6 +12,7 @@ namespace Beutl.Media;
 /// Describes how an area is painted.
 /// </summary>
 [JsonConverter(typeof(BrushJsonConverter))]
+[DummyType(typeof(DummyBrush))]
 public interface IBrush
 {
     /// <summary>

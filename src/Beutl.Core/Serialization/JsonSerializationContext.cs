@@ -1,9 +1,10 @@
 ﻿using System.Collections;
 using System.Reactive;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+
+using Beutl.Utilities;
 
 namespace Beutl.Serialization;
 
@@ -33,6 +34,12 @@ public class JsonSerializationContext : IJsonSerializationContext
     public JsonObject GetJsonObject()
     {
         return _json;
+    }
+
+    public void SetJsonObject(JsonObject obj)
+    {
+        _json.Clear();
+        JsonDeepClone.CopyTo(obj, _json);
     }
 
     public JsonNode? GetNode(string name)

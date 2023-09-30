@@ -1,14 +1,16 @@
-﻿using System.Text.Json;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 
 using Beutl.Serialization;
-using Beutl.Utilities;
 
-namespace Beutl.Operation;
+namespace Beutl.Graphics.Effects;
 
-public sealed class DummySourceOperator : SourceOperator, IDummy
+public sealed class DummyFilterEffect : FilterEffect, IDummy
 {
     internal JsonObject? Json { get; set; }
+
+    public override void ApplyTo(FilterEffectContext context)
+    {
+    }
 
     [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)

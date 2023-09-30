@@ -1,12 +1,10 @@
-﻿using System.Text.Json;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 
 using Beutl.Serialization;
-using Beutl.Utilities;
 
-namespace Beutl.Operation;
+namespace Beutl.Graphics;
 
-public sealed class DummySourceOperator : SourceOperator, IDummy
+public sealed class DummyDrawable : Drawable, IDummy
 {
     internal JsonObject? Json { get; set; }
 
@@ -40,5 +38,14 @@ public sealed class DummySourceOperator : SourceOperator, IDummy
     {
         base.Deserialize(context);
         Json = (context as IJsonSerializationContext)?.GetJsonObject();
+    }
+
+    protected override Size MeasureCore(Size availableSize)
+    {
+        return Size.Empty;
+    }
+
+    protected override void OnDraw(ICanvas canvas)
+    {
     }
 }

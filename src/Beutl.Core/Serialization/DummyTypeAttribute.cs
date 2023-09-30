@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Beutl.Serialization;
 
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = true, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Interface, Inherited = true, AllowMultiple = false)]
 public sealed class DummyTypeAttribute : Attribute
 {
     public DummyTypeAttribute(Type dummyType)
