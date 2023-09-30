@@ -45,15 +45,14 @@ internal static class ArrayTypeHelpers
 
             return array;
         }
-        else if (Activator.CreateInstance(type) is IList list)
+        else if (Activator.CreateInstance(type) is IDictionary dict)
         {
-            Type kvpType = typeof(KeyValuePair<,>).MakeGenericType(typeof(string), valueType);
             foreach (KeyValuePair<string, object?> item in output)
             {
-                list.Add(Activator.CreateInstance(kvpType, item.Key, item.Value));
+                dict.Add(item.Key, item.Value);
             }
 
-            return list;
+            return dict;
         }
         else
         {
