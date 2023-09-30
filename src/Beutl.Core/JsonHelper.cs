@@ -144,6 +144,26 @@ public static class JsonHelper
         return type != null;
     }
 
+    public static bool TryGetDiscriminator(this JsonNode node, [NotNullWhen(true)] out string? result)
+    {
+        result = null;
+        if (node is JsonObject obj)
+        {
+            JsonNode? typeNode = obj.TryGetPropertyValue("$type", out JsonNode? typeNode1) ? typeNode1
+                               : obj.TryGetPropertyValue("@type", out JsonNode? typeNode2) ? typeNode2
+                               : null;
+
+            if (typeNode is JsonValue typeValue
+                && typeValue.TryGetValue(out string? typeStr)
+                && !string.IsNullOrWhiteSpace(typeStr))
+            {
+                result = typeStr;
+            }
+        }
+
+        return result != null;
+    }
+
     public static void WriteDiscriminator(this JsonNode obj, Type type)
     {
         obj["$type"] = TypeFormat.ToString(type);

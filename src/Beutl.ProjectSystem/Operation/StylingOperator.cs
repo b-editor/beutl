@@ -327,7 +327,7 @@ public abstract class StylingOperator : SourceOperator
         {
             string name = item.Property.Name;
             ISetter setter = item.Getter.Invoke(this);
-            context.SetValue(name, setter.ToJson(_style.TargetType).Item2);
+            context.SetValue(name, setter.ToJson(_style.TargetType, context).Item2);
         }
     }
 
@@ -343,7 +343,7 @@ public abstract class StylingOperator : SourceOperator
             {
                 ISetter knownSetter = item.Getter.Invoke(this);
 
-                if (propNode.ToSetter(knownSetter.Property.Name, _style.TargetType) is ISetter setter)
+                if (propNode.ToSetter(knownSetter.Property.Name, _style.TargetType, context) is ISetter setter)
                 {
                     item.Setter.Invoke(this, setter);
                 }

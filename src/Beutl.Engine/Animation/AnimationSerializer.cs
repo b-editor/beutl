@@ -6,6 +6,36 @@ namespace Beutl.Animation;
 
 internal static class AnimationSerializer
 {
+    public static JsonNode? ToJson(this IAnimation animation, ICoreSerializationContext context)
+    {
+        Type type = animation.GetType();
+        var json = new JsonObject();
+        var errorNotifier = new RelaySerializationErrorNotifier(context.ErrorNotifier, "Animation");
+        var innerContext = new JsonSerializationContext(type, errorNotifier, context, json);
+
+        animation.Serialize(innerContext);
+        json.WriteDiscriminator(type);
+        return json;
+    }
+
+    public static IAnimation? ToAnimation(this JsonNode json, CoreProperty property, ICoreSerializationContext context)
+    {
+        if (json is JsonObject obj)
+        {
+            if (obj.TryGetDiscriminator(out Type? type)
+                && Activator.CreateInstance(type, property) is IAnimation animation)
+            {
+                var errorNotifier = new RelaySerializationErrorNotifier(context.ErrorNotifier, "Animation");
+                var innerContext = new JsonSerializationContext(type, errorNotifier, context, obj);
+
+                animation.Deserialize(innerContext);
+                return animation;
+            }
+        }
+
+        return null;
+    }
+
     [ObsoleteSerializationApi]
     public static JsonNode? ToJson(this IAnimation animation)
     {
@@ -57,5 +87,4 @@ internal static class AnimationSerializer
 
         return null;
     }
-
 }
