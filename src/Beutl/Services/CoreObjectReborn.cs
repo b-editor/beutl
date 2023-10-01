@@ -26,7 +26,10 @@ public static class CoreObjectReborn
         // JsonObjectに変換
         var jsonObject = new JsonObject();
         var context = new JsonSerializationContext(obj.GetType(), NullSerializationErrorNotifier.Instance, json: jsonObject);
-        obj.Serialize(context);
+        using (ThreadLocalSerializationContext.Enter(context))
+        {
+            obj.Serialize(context);
+        }
 
         // UTF-8に書き込む
         JsonSerializerOptions options = JsonHelper.SerializerOptions;

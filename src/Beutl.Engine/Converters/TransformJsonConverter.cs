@@ -14,23 +14,23 @@ internal sealed class TransformJsonConverter : JsonConverter<ITransform>
         var jsonNode = JsonNode.Parse(ref reader);
         if (jsonNode is JsonObject jsonObject)
         {
-            if (LocalSerializationErrorNotifier.Current is { } notifier)
-            {
-                notifier = new RelaySerializationErrorNotifier(notifier, "[Unknown]");
-            }
-            else
+            if (LocalSerializationErrorNotifier.Current is not { } notifier)
             {
                 notifier = NullSerializationErrorNotifier.Instance;
             }
 
-            var context = new JsonSerializationContext(typeToConvert, notifier, json: jsonObject);
+            ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
+            var context = new JsonSerializationContext(typeToConvert, notifier, parent, jsonObject);
 
             Type? actualType = typeToConvert.IsSealed ? typeToConvert : jsonObject.GetDiscriminator(typeToConvert);
             if (actualType?.IsAssignableTo(typeToConvert) == true
                 && Activator.CreateInstance(actualType) is ICoreSerializable instance
                 && instance is ITransform transform)
             {
-                instance.Deserialize(context);
+                using (ThreadLocalSerializationContext.Enter(context))
+                {
+                    instance.Deserialize(context);
+                }
 
                 return transform;
             }
@@ -43,18 +43,18 @@ internal sealed class TransformJsonConverter : JsonConverter<ITransform>
     {
         if (value is not ICoreSerializable serializable) return;
 
-        if (LocalSerializationErrorNotifier.Current is { } notifier)
-        {
-            notifier = new RelaySerializationErrorNotifier(notifier, "[Unknown]");
-        }
-        else
+        if (LocalSerializationErrorNotifier.Current is not { } notifier)
         {
             notifier = NullSerializationErrorNotifier.Instance;
         }
 
+        ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
         Type valueType = value.GetType();
-        var context = new JsonSerializationContext(value.GetType(), notifier);
-        serializable.Serialize(context);
+        var context = new JsonSerializationContext(value.GetType(), notifier, parent);
+        using (ThreadLocalSerializationContext.Enter(context))
+        {
+            serializable.Serialize(context);
+        }
 
         JsonObject obj = context.GetJsonObject();
         obj.WriteDiscriminator(valueType);

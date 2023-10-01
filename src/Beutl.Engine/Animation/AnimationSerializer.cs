@@ -13,8 +13,11 @@ internal static class AnimationSerializer
         var errorNotifier = new RelaySerializationErrorNotifier(context.ErrorNotifier, "Animation");
         var innerContext = new JsonSerializationContext(type, errorNotifier, context, json);
 
-        animation.Serialize(innerContext);
-        json.WriteDiscriminator(type);
+        using (ThreadLocalSerializationContext.Enter(innerContext))
+        {
+            animation.Serialize(innerContext);
+            json.WriteDiscriminator(type);
+        }
         return json;
     }
 
@@ -28,7 +31,10 @@ internal static class AnimationSerializer
                 var errorNotifier = new RelaySerializationErrorNotifier(context.ErrorNotifier, "Animation");
                 var innerContext = new JsonSerializationContext(type, errorNotifier, context, obj);
 
-                animation.Deserialize(innerContext);
+                using (ThreadLocalSerializationContext.Enter(innerContext))
+                {
+                    animation.Deserialize(innerContext);
+                }
                 return animation;
             }
         }

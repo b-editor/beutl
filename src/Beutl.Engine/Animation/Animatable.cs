@@ -93,6 +93,7 @@ public abstract class Animatable : CoreObject, IAnimatable
     {
         base.Deserialize(context);
         var animations = context.GetValue<Dictionary<string, IAnimation>>(nameof(Animations));
+        animations ??= context.GetValue<Dictionary<string, IAnimation>>("animations");
 
         if (animations != null)
         {

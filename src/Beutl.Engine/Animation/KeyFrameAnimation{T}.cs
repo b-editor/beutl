@@ -10,6 +10,10 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
         : base(property)
     {
     }
+    
+    public KeyFrameAnimation()
+    {
+    }
 
     public new CoreProperty<T> Property
     {

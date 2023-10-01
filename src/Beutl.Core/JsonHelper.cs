@@ -3,6 +3,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 using Beutl.JsonConverters;
 using Beutl.Serialization;
@@ -23,6 +24,7 @@ public static class JsonHelper
     {
         WriteIndented = true,
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        TypeInfoResolver = null,
         Converters =
         {
             new OptionalJsonConverter(),
@@ -30,7 +32,7 @@ public static class JsonHelper
             new DirectoryInfoConverter(),
             new FileInfoConverter(),
             new CoreSerializableJsonConverter(),
-            new CoreObjectJsonConverter()
+            //new CoreObjectJsonConverter()
         }
     };
 
@@ -64,13 +66,16 @@ public static class JsonHelper
             serializable.ReadFromJson(obj);
         }
     }
-    
+
     public static void JsonSave2(this ICoreSerializable serializable, string filename)
     {
         var context = new JsonSerializationContext(serializable.GetType(), NullSerializationErrorNotifier.Instance);
-        serializable.Serialize(context);
+        using (ThreadLocalSerializationContext.Enter(context))
+        {
+            serializable.Serialize(context);
 
-        context.GetJsonObject().JsonSave(filename);
+            context.GetJsonObject().JsonSave(filename);
+        }
     }
 
     public static void JsonRestore2(this ICoreSerializable serializable, string filename)
@@ -79,7 +84,10 @@ public static class JsonHelper
         {
             var context = new JsonSerializationContext(
                 serializable.GetType(), NullSerializationErrorNotifier.Instance, json: obj);
-            serializable.Deserialize(context);
+            using (ThreadLocalSerializationContext.Enter(context))
+            {
+                serializable.Deserialize(context);
+            }
         }
     }
 
@@ -106,7 +114,7 @@ public static class JsonHelper
 
     public static Type? GetDiscriminator(this JsonNode node, Type baseType)
     {
-        if(node.TryGetDiscriminator(out Type? type))
+        if (node.TryGetDiscriminator(out Type? type))
         {
             return type;
         }

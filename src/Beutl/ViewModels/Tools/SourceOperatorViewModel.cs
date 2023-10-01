@@ -218,7 +218,10 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
             if (@operator == null) throw new Exception(message);
 
             var context = new JsonSerializationContext(@operator.GetType(), NullSerializationErrorNotifier.Instance, null, json);
-            @operator.Deserialize(context);
+            using (ThreadLocalSerializationContext.Enter(context))
+            {
+                @operator.Deserialize(context);
+            }
 
             var command = new ReplaceItemCommand(sourceOperation.Children, index, @operator, Model);
             command.DoAndRecord(CommandRecorder.Default);

@@ -7,9 +7,9 @@ using Beutl.Serialization;
 
 namespace Beutl.Converters;
 
-internal sealed class BrushJsonConverter : JsonConverter<IBrush>
+internal sealed class PenJsonConverter : JsonConverter<IPen>
 {
-    public override IBrush Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override IPen Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         var jsonNode = JsonNode.Parse(ref reader);
         if (jsonNode is JsonObject jsonObject)
@@ -22,24 +22,19 @@ internal sealed class BrushJsonConverter : JsonConverter<IBrush>
             ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
             var context = new JsonSerializationContext(typeToConvert, notifier, parent, jsonObject);
 
-            Type? actualType = typeToConvert.IsSealed ? typeToConvert : jsonObject.GetDiscriminator(typeToConvert);
-            if (actualType?.IsAssignableTo(typeToConvert) == true
-                && Activator.CreateInstance(actualType) is ICoreSerializable instance
-                && instance is IBrush brush)
+            var pen = new Pen();
+            using (ThreadLocalSerializationContext.Enter(context))
             {
-                using (ThreadLocalSerializationContext.Enter(context))
-                {
-                    instance.Deserialize(context);
-                }
-
-                return brush;
+                pen.Deserialize(context);
             }
+
+            return pen;
         }
 
-        throw new Exception("Invalid Transform");
+        throw new Exception("Invalid Pen");
     }
 
-    public override void Write(Utf8JsonWriter writer, IBrush value, JsonSerializerOptions options)
+    public override void Write(Utf8JsonWriter writer, IPen value, JsonSerializerOptions options)
     {
         if (value is not ICoreSerializable serializable) return;
 
@@ -49,7 +44,6 @@ internal sealed class BrushJsonConverter : JsonConverter<IBrush>
         }
 
         ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
-        Type valueType = value.GetType();
         var context = new JsonSerializationContext(value.GetType(), notifier, parent);
         using (ThreadLocalSerializationContext.Enter(context))
         {
@@ -57,7 +51,6 @@ internal sealed class BrushJsonConverter : JsonConverter<IBrush>
         }
 
         JsonObject obj = context.GetJsonObject();
-        obj.WriteDiscriminator(valueType);
         obj.WriteTo(writer, options);
     }
 }

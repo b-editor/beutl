@@ -61,7 +61,10 @@ public static class StyleSerializer
                 [property.Name] = valueNode
             };
             var innerContext = new JsonSerializationContext(ownerType, errorNotifier, context, simJson);
-            value = property.RouteDeserialize(innerContext);
+            using (ThreadLocalSerializationContext.Enter(innerContext))
+            {
+                value = property.RouteDeserialize(innerContext);
+            }
         }
 
         return helper.InitializeSetter(property, value, animationNode?.ToAnimation(property, context));
@@ -82,7 +85,10 @@ public static class StyleSerializer
         var simJson = new JsonObject();
         var errorNotifier = new RelaySerializationErrorNotifier(context.ErrorNotifier, name);
         var innerContext = new JsonSerializationContext(targetType, errorNotifier, context, simJson);
-        setter.Property.RouteSerialize(innerContext, setter.Value);
+        using (ThreadLocalSerializationContext.Enter(innerContext))
+        {
+            setter.Property.RouteSerialize(innerContext, setter.Value);
+        }
         JsonNode? value = simJson[name];
         simJson[name] = null;
 

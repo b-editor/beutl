@@ -1,8 +1,12 @@
-﻿using Beutl.Animation.Easings;
+﻿using System.Text.Json.Serialization;
+
+using Beutl.Animation.Easings;
+using Beutl.Converters;
 using Beutl.Media;
 
 namespace Beutl.Animation;
 
+[JsonConverter(typeof(KeyFrameJsonConverter))]
 public interface IKeyFrame : ICoreObject, IAffectsRender
 {
     event EventHandler? KeyTimeChanged;

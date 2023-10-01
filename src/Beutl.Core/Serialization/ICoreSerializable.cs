@@ -1,5 +1,8 @@
-﻿namespace Beutl.Serialization;
+﻿using System.Text.Json.Serialization;
 
+namespace Beutl.Serialization;
+
+[JsonConverter(typeof(CoreSerializableJsonConverter))]
 public interface ICoreSerializable
 {
     void Serialize(ICoreSerializationContext context);

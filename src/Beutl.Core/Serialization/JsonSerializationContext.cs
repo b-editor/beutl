@@ -113,11 +113,14 @@ public class JsonSerializationContext : IJsonSerializationContext
                     parent: parent,
                     json: obj);
 
-                if (Activator.CreateInstance(actualType) is ICoreSerializable instance)
+                using (ThreadLocalSerializationContext.Enter(context))
                 {
-                    instance.Deserialize(context);
+                    if (Activator.CreateInstance(actualType) is ICoreSerializable instance)
+                    {
+                        instance.Deserialize(context);
 
-                    return instance;
+                        return instance;
+                    }
                 }
             }
         }
@@ -186,7 +189,11 @@ public class JsonSerializationContext : IJsonSerializationContext
                 new RelaySerializationErrorNotifier(errorNotifier, name),
                 parent);
 
-            coreSerializable.Serialize(innerContext);
+            using (ThreadLocalSerializationContext.Enter(innerContext))
+            {
+                coreSerializable.Serialize(innerContext);
+            }
+
             JsonObject obj = innerContext.GetJsonObject();
             if (value is not IDummy && actualType != baseType)
             {
@@ -305,7 +312,10 @@ public class JsonSerializationContext : IJsonSerializationContext
                 parent: this,
                 json: jobj);
 
-            obj.Deserialize(context);
+            using (ThreadLocalSerializationContext.Enter(context))
+            {
+                obj.Deserialize(context);
+            }
         }
     }
 }

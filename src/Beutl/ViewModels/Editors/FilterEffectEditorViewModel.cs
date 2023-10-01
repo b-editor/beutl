@@ -237,7 +237,10 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         if (instance == null) throw new Exception(message);
 
         var context = new JsonSerializationContext(instance.GetType(), NullSerializationErrorNotifier.Instance, null, json);
-        instance.Deserialize(context);
+        using (ThreadLocalSerializationContext.Enter(context))
+        {
+            instance.Deserialize(context);
+        }
 
         SetValue(Value.Value, instance);
     }
