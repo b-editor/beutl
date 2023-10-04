@@ -75,7 +75,13 @@ public static class CoreObjectReborn
 
         JsonObject jsonObj = JsonNode.Parse(buffer)!.AsObject();
         var instance = new T();
-        instance.ReadFromJson(jsonObj);
+
+        var context = new JsonSerializationContext(
+            typeof(T), NullSerializationErrorNotifier.Instance, json: jsonObj);
+        using (ThreadLocalSerializationContext.Enter(context))
+        {
+            instance.Deserialize(context);
+        }
 
         newInstance = instance;
     }

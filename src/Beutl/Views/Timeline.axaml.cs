@@ -12,6 +12,7 @@ using Avalonia.Threading;
 using Beutl.Media;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
@@ -108,7 +109,14 @@ public sealed partial class Timeline : UserControl
                         if (json != null)
                         {
                             var oldElement = new Element();
-                            oldElement.ReadFromJson(JsonNode.Parse(json)!.AsObject());
+
+                            var context = new JsonSerializationContext(
+                                oldElement.GetType(), NullSerializationErrorNotifier.Instance, json: JsonNode.Parse(json)!.AsObject());
+                            using (ThreadLocalSerializationContext.Enter(context))
+                            {
+                                oldElement.Deserialize(context);
+                            }
+
                             CoreObjectReborn.Reborn(oldElement, out Element newElement);
 
                             newElement.Start = ViewModel.ClickedFrame;
