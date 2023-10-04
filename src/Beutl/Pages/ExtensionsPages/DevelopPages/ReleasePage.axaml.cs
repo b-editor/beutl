@@ -89,10 +89,7 @@ public sealed partial class ReleasePage : UserControl
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
                 long releaseId = viewModel.Release.Id;
-                frame.RemoveAllStack(item => item is ReleasePageViewModel p && p.Release.Id == releaseId);
-                PackageReleasesPageViewModel? releases
-                    = frame.FindParameter<PackageReleasesPageViewModel>(x => x.Package.Id == viewModel.Release.Package.Id);
-                releases?.Items.Remove(viewModel.Release);
+                frame.RemoveAllStack(item => item is Release p && p.Id == releaseId);
 
                 viewModel.Delete.Execute();
                 frame.GoBack();
