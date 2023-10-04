@@ -23,7 +23,10 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
             if (actualType?.IsAssignableTo(typeToConvert) == true
                 && Activator.CreateInstance(actualType) is ICoreSerializable instance)
             {
-                instance.Deserialize(context);
+                using (ThreadLocalSerializationContext.Enter(context))
+                {
+                    instance.Deserialize(context);
+                }
 
                 return instance;
             }

@@ -42,7 +42,11 @@ public sealed class OptionalJsonConverter : JsonConverter<IOptional>
                     if (actualType?.IsAssignableTo(valueType) == true
                         && Activator.CreateInstance(actualType) is ICoreSerializable serializable)
                     {
-                        serializable.Deserialize(context);
+                        using (ThreadLocalSerializationContext.Enter(context))
+                        {
+                            serializable.Deserialize(context);
+                        }
+
                         instance = serializable;
                         goto Return;
                     }
