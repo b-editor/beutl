@@ -209,6 +209,20 @@ public sealed class StorageSettingsPageViewModel : BasePageViewModel
             return KnownType.Other;
     }
 
+    public static string ToDisplayName(KnownType type)
+    {
+        return type switch
+        {
+            KnownType.Image => Strings.Image,
+            KnownType.Zip => SettingsPage.Zip,
+            KnownType.BeutlPackageFile => SettingsPage.BeutlPackageFile,
+            KnownType.Text => SettingsPage.TextFiles,
+            KnownType.Font => SettingsPage.FontFiles,
+            KnownType.Other => Strings.Others,
+            _ => Strings.Unknown,
+        };
+    }
+
     private void FillBlankItems()
     {
         Details.Clear();
@@ -244,7 +258,7 @@ public sealed class StorageSettingsPageViewModel : BasePageViewModel
             _ => Symbol.Folder,
         };
 
-        public string DisplayName => Type.ToString();
+        public string DisplayName => ToDisplayName(Type);
     }
 
     public enum KnownType

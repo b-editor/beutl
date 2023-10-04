@@ -25,6 +25,7 @@ public sealed class StorageDetailPageViewModel : BasePageViewModel
     {
         _user = user;
         Type = type;
+        TypeString = StorageSettingsPageViewModel.ToDisplayName(type);
 
         Refresh.Subscribe(async () =>
         {
@@ -82,6 +83,8 @@ public sealed class StorageDetailPageViewModel : BasePageViewModel
     }
 
     public StorageSettingsPageViewModel.KnownType Type { get; }
+
+    public string TypeString { get; }
 
     public AvaloniaList<AssetViewModel> Items { get; } = new();
 

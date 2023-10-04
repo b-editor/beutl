@@ -282,4 +282,16 @@
   <data name="SomeSettingsHaveBeenMoved" xml:space="preserve">
     <value>いくつかの設定が移動しました。</value>
   </data>
+  <data name="BeutlPackageFile" xml:space="preserve">
+    <value>パッケージファイル</value>
+  </data>
+  <data name="FontFiles" xml:space="preserve">
+    <value>フォントファイル</value>
+  </data>
+  <data name="TextFiles" xml:space="preserve">
+    <value>テキストファイル</value>
+  </data>
+  <data name="Zip" xml:space="preserve">
+    <value>Zip</value>
+  </data>
 </root>
