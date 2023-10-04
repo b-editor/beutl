@@ -67,7 +67,7 @@ public class CreateAssetViewModel
 
         CloseButtonText = PageIndex.CombineLatest(Submitting)
             .Select(x => x.First is >= 0 and <= 2 || x.Second ? Strings.Cancel : Strings.Close)
-            .ToReadOnlyReactivePropertySlim()!;
+            .ToReadOnlyReactivePropertySlim(Strings.Close)!;
 
         UseInternalServer = SelectedMethod.Select(x => x == 0).ToReadOnlyReactivePropertySlim();
         UseExternalServer = SelectedMethod.Select(x => x == 1).ToReadOnlyReactivePropertySlim();
@@ -75,7 +75,6 @@ public class CreateAssetViewModel
         File.SetValidateNotifyError(file => !System.IO.File.Exists(file) ? Message.FileDoesNotExist : null);
         Url.SetValidateNotifyError(url => url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
             || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
-            || url.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase)
                 ? null!
                 : Message.InvalidUrl);
         _user = user;
@@ -179,6 +178,7 @@ public class CreateAssetViewModel
                         Sha512 = Sha512.Value,
                     });
                 }
+                await Result.UpdateAsync(true);
 
                 ProgressStatus.Value = Strings.CreateAsset_Completed;
             }
