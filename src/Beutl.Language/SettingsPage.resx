@@ -282,4 +282,16 @@ Enabling this setting may make the border invisible.</value>
   <data name="SomeSettingsHaveBeenMoved" xml:space="preserve">
     <value>Some settings have been moved.</value>
   </data>
+  <data name="BeutlPackageFile" xml:space="preserve">
+    <value>Packages</value>
+  </data>
+  <data name="FontFiles" xml:space="preserve">
+    <value>Font Files</value>
+  </data>
+  <data name="TextFiles" xml:space="preserve">
+    <value>Text Files</value>
+  </data>
+  <data name="Zip" xml:space="preserve">
+    <value>Zip</value>
+  </data>
 </root>

@@ -27,7 +27,7 @@
 
             <Label Classes="breadcrumb" />
 
-            <TextBlock Classes="breadcrumb" Text="{CompiledBinding Type}" />
+            <TextBlock Classes="breadcrumb" Text="{CompiledBinding TypeString}" />
         </StackPanel>
 
         <ui:CommandBar Grid.Row="1" DefaultLabelPosition="Right">

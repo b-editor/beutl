@@ -115,6 +115,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Packages に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string BeutlPackageFile {
+            get {
+                return ResourceManager.GetString("BeutlPackageFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Change account settings に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string ChangeAccountSettings {
@@ -201,6 +210,15 @@ namespace Beutl.Language {
         public static string EditorSettings {
             get {
                 return ResourceManager.GetString("EditorSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Font Files に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FontFiles {
+            get {
+                return ResourceManager.GetString("FontFiles", resourceCulture);
             }
         }
         
@@ -514,6 +532,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Text Files に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string TextFiles {
+            get {
+                return ResourceManager.GetString("TextFiles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   The following characters are not allowed (&quot; &gt; &lt; | : ? * \ /) に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string The_following_characters_are_not_allowed {
@@ -546,6 +573,15 @@ namespace Beutl.Language {
         public static string UseCustomAccentColor {
             get {
                 return ResourceManager.GetString("UseCustomAccentColor", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Zip に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Zip {
+            get {
+                return ResourceManager.GetString("Zip", resourceCulture);
             }
         }
     }
