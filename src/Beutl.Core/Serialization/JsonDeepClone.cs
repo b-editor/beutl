@@ -32,4 +32,25 @@ internal static class JsonDeepClone
             }
         }
     }
+
+    public static void CopyTo(JsonArray source, JsonArray destination)
+    {
+        foreach (JsonNode? item in source)
+        {
+            if (item == null)
+            {
+                destination.Add(item);
+            }
+            else
+            {
+                using var bufferWriter = new PooledArrayBufferWriter<byte>();
+                using var writer = new Utf8JsonWriter(bufferWriter);
+                item.WriteTo(writer);
+
+                writer.Flush();
+
+                destination.Add(JsonNode.Parse(bufferWriter.WrittenSpan));
+            }
+        }
+    }
 }

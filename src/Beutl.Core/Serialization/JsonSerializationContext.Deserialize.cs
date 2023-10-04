@@ -36,65 +36,68 @@ public partial class JsonSerializationContext
         JsonNode node, Type baseType, string propertyName,
         ISerializationErrorNotifier errorNotifier, ICoreSerializationContext? parent)
     {
-        if (node is JsonObject obj)
+        if (!baseType.IsAssignableTo(typeof(JsonNode)))
         {
-            if (baseType.IsAssignableTo(typeof(IDictionary))
-                && ArrayTypeHelpers.GetEntryType(baseType) is (Type keyType, Type valueType)
-                && keyType == typeof(string))
+            if (node is JsonObject obj)
             {
-                var output = new List<KeyValuePair<string, object?>>(obj.Count);
-                foreach (KeyValuePair<string, JsonNode?> item in obj)
+                if (baseType.IsAssignableTo(typeof(IDictionary))
+                    && ArrayTypeHelpers.GetEntryType(baseType) is (Type keyType, Type valueType)
+                    && keyType == typeof(string))
                 {
-                    string name = item.Key;
-                    if (item.Value == null)
+                    var output = new List<KeyValuePair<string, object?>>(obj.Count);
+                    foreach (KeyValuePair<string, JsonNode?> item in obj)
                     {
-                        output.Add(new(name, DefaultValueHelpers.GetDefault(valueType)));
+                        string name = item.Key;
+                        if (item.Value == null)
+                        {
+                            output.Add(new(name, DefaultValueHelpers.GetDefault(valueType)));
+                        }
+                        else
+                        {
+                            object? valueNode = Deserialize(
+                                item.Value, valueType, name,
+                                new RelaySerializationErrorNotifier(errorNotifier, name), parent);
+                            output.Add(new(name, valueNode));
+                        }
                     }
-                    else
-                    {
-                        object? valueNode = Deserialize(
-                            item.Value, valueType, name,
-                            new RelaySerializationErrorNotifier(errorNotifier, name), parent);
-                        output.Add(new(name, valueNode));
-                    }
+
+                    return ArrayTypeHelpers.ConvertDictionaryType(output, baseType, valueType);
                 }
 
-                return ArrayTypeHelpers.ConvertDictionaryType(output, baseType, valueType);
-            }
-
-            Type? actualType = baseType.IsSealed ? baseType : obj.GetDiscriminator(baseType);
-            if (actualType?.IsAssignableTo(typeof(ICoreSerializable)) == true)
-            {
-                var context = new JsonSerializationContext(
-                    ownerType: actualType,
-                    errorNotifier: new RelaySerializationErrorNotifier(errorNotifier, propertyName),
-                    parent: parent,
-                    json: obj);
-
-                using (ThreadLocalSerializationContext.Enter(context))
+                Type? actualType = baseType.IsSealed ? baseType : obj.GetDiscriminator(baseType);
+                if (actualType?.IsAssignableTo(typeof(ICoreSerializable)) == true)
                 {
-                    if (Activator.CreateInstance(actualType) is ICoreSerializable instance)
-                    {
-                        instance.Deserialize(context);
+                    var context = new JsonSerializationContext(
+                        ownerType: actualType,
+                        errorNotifier: new RelaySerializationErrorNotifier(errorNotifier, propertyName),
+                        parent: parent,
+                        json: obj);
 
-                        return instance;
+                    using (ThreadLocalSerializationContext.Enter(context))
+                    {
+                        if (Activator.CreateInstance(actualType) is ICoreSerializable instance)
+                        {
+                            instance.Deserialize(context);
+
+                            return instance;
+                        }
                     }
                 }
             }
-        }
-        else if (node is JsonArray jarray)
-        {
-            // 要素の型を決定
-            Type? elementType = ArrayTypeHelpers.GetElementType(baseType);
-
-            if (elementType != null)
+            else if (node is JsonArray jarray)
             {
-                var output = new List<object?>(jarray.Count);
-                DeserializeArray(
-                    output, jarray, elementType,
-                    new RelaySerializationErrorNotifier(errorNotifier, propertyName), parent);
+                // 要素の型を決定
+                Type? elementType = ArrayTypeHelpers.GetElementType(baseType);
 
-                return ArrayTypeHelpers.ConvertArrayType(output, baseType, elementType);
+                if (elementType != null)
+                {
+                    var output = new List<object?>(jarray.Count);
+                    DeserializeArray(
+                        output, jarray, elementType,
+                        new RelaySerializationErrorNotifier(errorNotifier, propertyName), parent);
+
+                    return ArrayTypeHelpers.ConvertArrayType(output, baseType, elementType);
+                }
             }
         }
 

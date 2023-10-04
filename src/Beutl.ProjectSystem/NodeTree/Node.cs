@@ -474,7 +474,6 @@ public abstract class Node : Hierarchical
         json[nameof(Items)] = array;
     }
 
-    // Todo: JsonSerializableに依存している
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
@@ -509,9 +508,19 @@ public abstract class Node : Hierarchical
 
                     INodeItem? nodeItem = Items.FirstOrDefault(x => x.LocalId == localId);
 
-                    if (nodeItem is IJsonSerializable serializable)
+                    if (nodeItem is ICoreSerializable serializable)
                     {
-                        serializable.ReadFromJson(itemObj);
+                        if (LocalSerializationErrorNotifier.Current is not { } notifier)
+                        {
+                            notifier = NullSerializationErrorNotifier.Instance;
+                        }
+                        ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
+
+                        var innerContext = new JsonSerializationContext(nodeItem.GetType(), notifier, parent, itemObj);
+                        using (ThreadLocalSerializationContext.Enter(innerContext))
+                        {
+                            serializable.Deserialize(innerContext);
+                        }
                     }
                 }
 

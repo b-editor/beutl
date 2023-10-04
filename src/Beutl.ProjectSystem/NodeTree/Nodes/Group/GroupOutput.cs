@@ -103,6 +103,7 @@ public class GroupOutput : Node, ISocketsCanBeAdded
         return false;
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -116,6 +117,43 @@ public class GroupOutput : Node, ISocketsCanBeAdded
                     && Activator.CreateInstance(type) is IInputSocket socket)
                 {
                     (socket as IJsonSerializable)?.ReadFromJson(itemJson);
+                    Items.Add(socket);
+                    ((NodeItem)socket).LocalId = index;
+                }
+
+                index++;
+            }
+
+            NextLocalId = index;
+        }
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        if (context.GetValue<JsonArray>("Items") is { } itemsArray)
+        {
+            int index = 0;
+            foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
+            {
+                if (itemJson.TryGetDiscriminator(out Type? type)
+                    && Activator.CreateInstance(type) is IInputSocket socket)
+                {
+                    if (socket is ICoreSerializable serializable)
+                    {
+                        if (LocalSerializationErrorNotifier.Current is not { } notifier)
+                        {
+                            notifier = NullSerializationErrorNotifier.Instance;
+                        }
+                        ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
+
+                        var innerContext = new JsonSerializationContext(type, notifier, parent, itemJson);
+                        using (ThreadLocalSerializationContext.Enter(innerContext))
+                        {
+                            serializable.Deserialize(innerContext);
+                        }
+                    }
+
                     Items.Add(socket);
                     ((NodeItem)socket).LocalId = index;
                 }
