@@ -1,10 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Reactive.Linq;
 
-using Nito.AsyncEx;
-
-using OpenTelemetry.Trace;
-
 using Reactive.Bindings;
 
 namespace Beutl.Api.Objects;

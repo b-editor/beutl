@@ -80,10 +80,8 @@ public sealed partial class PackageSettingsPage : UserControl
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
                 frame.RemoveAllStack(
-                    item => (item is PackageDetailsPageViewModel p1 && p1.Package.Id == viewModel.Package.Id)
-                         || (item is PackageSettingsPageViewModel p2 && p2.Package.Id == viewModel.Package.Id)
-                         || (item is ReleasePageViewModel p4 && p4.Release.Package.Id == viewModel.Package.Id)
-                         || (item is PackageReleasesPageViewModel p5 && p5.Package.Id == viewModel.Package.Id));
+                    item => (item is Package p1 && p1.Id == viewModel.Package.Id)
+                          ||(item is Release p2 && p2.Package.Id == viewModel.Package.Id));
 
                 using (await viewModel.Package.Lock.LockAsync())
                 {
