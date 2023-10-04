@@ -23,6 +23,9 @@
         <KeyBinding Command="{CompiledBinding Refresh}" Gesture="F5" />
         <KeyBinding Command="{CompiledBinding Refresh}" Gesture="Ctrl+R" />
     </ui:ContentDialog.KeyBindings>
+    <ui:ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMaxWidth">320</x:Double>
+    </ui:ContentDialog.Resources>
     <Grid RowDefinitions="Auto,150">
         <ui:CommandBar DefaultLabelPosition="Right">
             <ui:CommandBar.PrimaryCommands>
