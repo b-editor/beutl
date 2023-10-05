@@ -9,19 +9,7 @@ branches:
     increment: Minor
     prevent-increment-of-merged-branch-version: false
     track-merge-target: true
-    regex: ^dev(elop)?(ment)?$
-    source-branches: []
-    tracks-release-branches: true
-    is-release-branch: false
-    is-mainline: false
-    pre-release-weight: 0
-  main:
-    mode: ContinuousDeployment
-    tag: preview
-    increment: Minor
-    prevent-increment-of-merged-branch-version: false
-    track-merge-target: true
-    regex: ^master$|^main$
+    regex: .*
     source-branches: []
     tracks-release-branches: true
     is-release-branch: false
