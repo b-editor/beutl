@@ -365,7 +365,14 @@ public class CoreProperty<T> : CoreProperty
                 return JsonSerializer.Deserialize(node, type, options);
             }
 
-            return context.GetValue<Optional<T>>(Name).ToObject();
+            if (context.Contains(Name))
+            {
+                return new Optional<object?>(context.GetValue<T>(Name));
+            }
+            else
+            {
+                return default;
+            }
         }
 
         return default;

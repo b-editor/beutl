@@ -63,4 +63,9 @@ public partial class JsonSerializationContext : IJsonSerializationContext
             }
         }
     }
+
+    public bool Contains(string name)
+    {
+        return _json.ContainsKey(name);
+    }
 }

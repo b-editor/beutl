@@ -12,5 +12,7 @@ public interface ICoreSerializationContext
 
     T? GetValue<T>(string name);
 
+    bool Contains(string name);
+
     void Populate(string name, ICoreSerializable obj);
 }
