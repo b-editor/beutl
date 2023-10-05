@@ -294,4 +294,10 @@
   <data name="Zip" xml:space="preserve">
     <value>Zip</value>
   </data>
+  <data name="AdjustOutOfScreenCursor" xml:space="preserve">
+    <value>画面外のカーソルを調整</value>
+  </data>
+  <data name="AdjustOutOfScreenCursor_Description" xml:space="preserve">
+    <value>プロパティエディタのドラッグ操作中にカーソルが画面外に到達すると、カーソル位置を画面の反対側へ移動します。</value>
+  </data>
 </root>
