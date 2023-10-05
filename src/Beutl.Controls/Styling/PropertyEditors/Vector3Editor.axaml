@@ -6,9 +6,20 @@
     <Design.PreviewWith>
         <Border Width="300">
             <StackPanel>
-                <local:Vector3Editor EditorStyle="ListItem" Header="Property 1" />
-                <local:Vector3Editor Header="Property 1" />
-                <local:Vector3Editor Header="Property 1" KeyFrameCount="3" />
+                <local:Vector3Editor EditorStyle="ListItem"
+                                     FirstText="0"
+                                     Header="Property 1"
+                                     SecondText="0"
+                                     ThirdText="0" />
+                <local:Vector3Editor FirstText="0"
+                                     Header="Property 1"
+                                     SecondText="0"
+                                     ThirdText="0" />
+                <local:Vector3Editor FirstText="0"
+                                     Header="Property 1"
+                                     KeyFrameCount="3"
+                                     SecondText="0"
+                                     ThirdText="0" />
             </StackPanel>
         </Border>
     </Design.PreviewWith>
@@ -33,59 +44,59 @@
                                    Text="{TemplateBinding Header}" />
 
                         <DataValidationErrors Grid.Row="2">
-                            <Grid ColumnDefinitions="*,*,*">
+                            <Grid ColumnDefinitions="Auto,*,1,Auto,*,1,Auto,*">
                                 <Border Name="PART_BackgroundBorder"
-                                        Grid.ColumnSpan="3"
+                                        Grid.ColumnSpan="8"
                                         Margin="4"
                                         Background="{DynamicResource TextControlBackground}"
                                         BorderBrush="{DynamicResource TextControlBorderBrush}"
                                         BorderThickness="{DynamicResource TextControlBorderThemeThickness}"
                                         CornerRadius="{DynamicResource ControlCornerRadius}" />
 
-                                <TextBox x:Name="PART_InnerFirstTextBox"
-                                         Grid.Column="0"
-                                         Margin="4"
-                                         HorizontalContentAlignment="Right"
-                                         IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                         Text="{TemplateBinding FirstText, Mode=TwoWay}"
-                                         Theme="{StaticResource VectorElementTextBox}">
-                                    <TextBox.InnerLeftContent>
-                                        <TextBlock Margin="8,0,-4,3"
-                                                   VerticalAlignment="Center"
-                                                   Text="{Binding FirstHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
-                                        <!--  ↓ 動かない ↓  -->
-                                        <!--  {Binding FirstHeader, RelativeSource={RelativeSource TemplatedParent}}  -->
-                                        <!--  {TemplateBinding FirstHeader}  -->
-                                    </TextBox.InnerLeftContent>
-                                </TextBox>
+                                <TextBlock Name="PART_HeaderHeaderTextBlock"
+                                           Margin="12,0,-8,3"
+                                           VerticalAlignment="Center"
+                                           Text="{Binding FirstHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
 
-                                <TextBox x:Name="PART_InnerSecondTextBox"
+                                <TextBox x:Name="PART_InnerFirstTextBox"
                                          Grid.Column="1"
                                          Margin="4"
                                          HorizontalContentAlignment="Right"
                                          IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                         Text="{TemplateBinding FirstText, Mode=TwoWay}"
+                                         Theme="{StaticResource VectorElementTextBox}" />
+
+                                <Separator Grid.Column="2" Theme="{StaticResource VectorComponentSeparator}" />
+
+                                <TextBlock Name="PART_HeaderSecondTextBlock"
+                                           Grid.Column="3"
+                                           Margin="8,0,-8,3"
+                                           VerticalAlignment="Center"
+                                           Text="{Binding SecondHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
+
+                                <TextBox x:Name="PART_InnerSecondTextBox"
+                                         Grid.Column="4"
+                                         Margin="4"
+                                         HorizontalContentAlignment="Right"
+                                         IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                          Text="{TemplateBinding SecondText, Mode=TwoWay}"
-                                         Theme="{StaticResource VectorElementTextBox}">
-                                    <TextBox.InnerLeftContent>
-                                        <TextBlock Margin="8,0,-4,3"
-                                                   VerticalAlignment="Center"
-                                                   Text="{Binding SecondHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
-                                    </TextBox.InnerLeftContent>
-                                </TextBox>
+                                         Theme="{StaticResource VectorElementTextBox}" />
+
+                                <Separator Grid.Column="5" Theme="{StaticResource VectorComponentSeparator}" />
+
+                                <TextBlock Name="PART_HeaderThirdTextBlock"
+                                           Grid.Column="6"
+                                           Margin="8,0,-8,3"
+                                           VerticalAlignment="Center"
+                                           Text="{Binding ThirdHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
 
                                 <TextBox x:Name="PART_InnerThirdTextBox"
-                                         Grid.Column="2"
+                                         Grid.Column="7"
                                          Margin="4"
                                          HorizontalContentAlignment="Right"
                                          IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                          Text="{TemplateBinding ThirdText, Mode=TwoWay}"
-                                         Theme="{StaticResource VectorElementTextBox}">
-                                    <TextBox.InnerLeftContent>
-                                        <TextBlock Margin="8,0,-4,3"
-                                                   VerticalAlignment="Center"
-                                                   Text="{Binding ThirdHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
-                                    </TextBox.InnerLeftContent>
-                                </TextBox>
+                                         Theme="{StaticResource VectorElementTextBox}" />
                             </Grid>
                         </DataValidationErrors>
 
@@ -124,59 +135,59 @@
                                     Theme="{StaticResource PropertyEditorReorderHandle}" />
 
                             <DataValidationErrors Grid.Column="1">
-                                <Grid ColumnDefinitions="*,*,*">
+                                <Grid ColumnDefinitions="Auto,*,1,Auto,*,1,Auto,*">
                                     <Border Name="PART_BackgroundBorder"
-                                            Grid.ColumnSpan="3"
+                                            Grid.ColumnSpan="8"
                                             Margin="4"
                                             Background="{DynamicResource TextControlBackground}"
                                             BorderBrush="{DynamicResource TextControlBorderBrush}"
                                             BorderThickness="{DynamicResource TextControlBorderThemeThickness}"
                                             CornerRadius="{DynamicResource ControlCornerRadius}" />
 
-                                    <TextBox x:Name="PART_InnerFirstTextBox"
-                                             Grid.Column="0"
-                                             Margin="4"
-                                             HorizontalContentAlignment="Right"
-                                             IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                             Text="{TemplateBinding FirstText, Mode=TwoWay}"
-                                             Theme="{StaticResource VectorElementTextBox}">
-                                        <TextBox.InnerLeftContent>
-                                            <TextBlock Margin="8,0,-4,3"
-                                                       VerticalAlignment="Center"
-                                                       Text="{Binding FirstHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
-                                            <!--  ↓ 動かない ↓  -->
-                                            <!--  {Binding FirstHeader, RelativeSource={RelativeSource TemplatedParent}}  -->
-                                            <!--  {TemplateBinding FirstHeader}  -->
-                                        </TextBox.InnerLeftContent>
-                                    </TextBox>
+                                    <TextBlock Name="PART_HeaderHeaderTextBlock"
+                                               Margin="12,0,-8,3"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding FirstHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
 
-                                    <TextBox x:Name="PART_InnerSecondTextBox"
+                                    <TextBox x:Name="PART_InnerFirstTextBox"
                                              Grid.Column="1"
                                              Margin="4"
                                              HorizontalContentAlignment="Right"
                                              IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                             Text="{TemplateBinding FirstText, Mode=TwoWay}"
+                                             Theme="{StaticResource VectorElementTextBox}" />
+
+                                    <Separator Grid.Column="2" Theme="{StaticResource VectorComponentSeparator}" />
+
+                                    <TextBlock Name="PART_HeaderSecondTextBlock"
+                                               Grid.Column="3"
+                                               Margin="8,0,-8,3"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding SecondHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
+
+                                    <TextBox x:Name="PART_InnerSecondTextBox"
+                                             Grid.Column="4"
+                                             Margin="4"
+                                             HorizontalContentAlignment="Right"
+                                             IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                              Text="{TemplateBinding SecondText, Mode=TwoWay}"
-                                             Theme="{StaticResource VectorElementTextBox}">
-                                        <TextBox.InnerLeftContent>
-                                            <TextBlock Margin="8,0,-4,3"
-                                                       VerticalAlignment="Center"
-                                                       Text="{Binding SecondHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
-                                        </TextBox.InnerLeftContent>
-                                    </TextBox>
+                                             Theme="{StaticResource VectorElementTextBox}" />
+
+                                    <Separator Grid.Column="5" Theme="{StaticResource VectorComponentSeparator}" />
+
+                                    <TextBlock Name="PART_HeaderThirdTextBlock"
+                                               Grid.Column="6"
+                                               Margin="8,0,-8,3"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding ThirdHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
 
                                     <TextBox x:Name="PART_InnerThirdTextBox"
-                                             Grid.Column="2"
+                                             Grid.Column="7"
                                              Margin="4"
                                              HorizontalContentAlignment="Right"
                                              IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                              Text="{TemplateBinding ThirdText, Mode=TwoWay}"
-                                             Theme="{StaticResource VectorElementTextBox}">
-                                        <TextBox.InnerLeftContent>
-                                            <TextBlock Margin="8,0,-4,3"
-                                                       VerticalAlignment="Center"
-                                                       Text="{Binding ThirdHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
-                                        </TextBox.InnerLeftContent>
-                                    </TextBox>
+                                             Theme="{StaticResource VectorElementTextBox}" />
                                 </Grid>
                             </DataValidationErrors>
 

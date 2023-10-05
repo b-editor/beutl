@@ -7,7 +7,6 @@ using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Styling;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -28,6 +27,8 @@ public class Vector2Editor<TElement> : Vector2Editor
     private TElement _oldFirstValue;
     private TElement _secondValue;
     private TElement _oldSecondValue;
+    private Point _headerDragStart;
+    private bool _headerPressed;
 
     public Vector2Editor()
     {
@@ -76,12 +77,108 @@ public class Vector2Editor<TElement> : Vector2Editor
             textBox.AddHandler(PointerWheelChangedEvent, OnInnerTextBoxPointerWheelChanged, RoutingStrategies.Tunnel);
         }
 
+        void SubscribeEvents2(TextBlock textBlock)
+        {
+            if (textBlock != null)
+            {
+                textBlock.AddHandler(PointerPressedEvent, OnTextBlockPointerPressed, RoutingStrategies.Tunnel);
+                textBlock.AddHandler(PointerReleasedEvent, OnTextBlockPointerReleased, RoutingStrategies.Tunnel);
+                textBlock.AddHandler(PointerMovedEvent, OnTextBlockPointerMoved, RoutingStrategies.Tunnel);
+                textBlock.Cursor = CursorHelper.SizeWestEast;
+            }
+        }
+
         base.OnApplyTemplate(e);
         FirstText = _firstValue.ToString();
         SecondText = _secondValue.ToString();
 
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
+
+        SubscribeEvents2(FirstHeaderTextBlock);
+        SubscribeEvents2(SecondHeaderTextBlock);
+    }
+
+    private void OnTextBlockPointerMoved(object sender, PointerEventArgs e)
+    {
+        if (!(InnerFirstTextBox.IsKeyboardFocusWithin || InnerSecondTextBox.IsKeyboardFocusWithin)
+            && _headerPressed
+            && sender is TextBlock headerText)
+        {
+            Point point = e.GetPosition(headerText);
+
+            // 値を更新
+            Point move = point - _headerDragStart;
+            TElement delta = TElement.CreateTruncating(move.X);
+            TElement oldValue;
+            TElement newValue;
+
+            var newValues = (FirstValue, SecondValue);
+            var oldValues = (FirstValue, SecondValue);
+            switch (headerText.Name)
+            {
+                case "PART_HeaderFirstTextBlock":
+                    oldValue = FirstValue;
+                    newValue = FirstValue + delta;
+                    newValues.FirstValue = newValue;
+                    oldValues.FirstValue = oldValue;
+                    break;
+                case "PART_HeaderSecondTextBlock":
+                    oldValue = SecondValue;
+                    newValue = SecondValue + delta;
+                    newValues.SecondValue = newValue;
+                    oldValues.SecondValue = oldValue;
+                    break;
+            }
+
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
+                newValues, oldValues, ValueChangingEvent));
+
+            _headerDragStart = point;
+
+            // ポインターの位置が画面の端に付いた場合、位置を変更する
+            CursorHelper.AdjustCursorPosition(headerText, point, ref _headerDragStart);
+
+            e.Handled = true;
+
+            UpdateErrors();
+        }
+    }
+
+    private void OnTextBlockPointerReleased(object sender, PointerReleasedEventArgs e)
+    {
+        if (_headerPressed)
+        {
+            if (FirstValue != _oldFirstValue
+                || SecondValue != _oldSecondValue)
+            {
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
+                    (FirstValue, SecondValue),
+                    (_oldFirstValue, _oldSecondValue),
+                    ValueChangedEvent));
+            }
+
+            _headerPressed = false;
+            e.Handled = true;
+        }
+    }
+
+    private void OnTextBlockPointerPressed(object sender, PointerPressedEventArgs e)
+    {
+        if (sender is TextBlock headerText)
+        {
+            PointerPoint pointerPoint = e.GetCurrentPoint(headerText);
+            if (pointerPoint.Properties.IsLeftButtonPressed
+                && !DataValidationErrors.GetHasErrors(this))
+            {
+                _oldFirstValue = FirstValue;
+                _oldSecondValue = SecondValue;
+
+                _headerDragStart = pointerPoint.Position;
+                _headerPressed = true;
+                e.Handled = true;
+            }
+        }
     }
 
     private void OnInnerTextBoxGotFocus(object sender, GotFocusEventArgs e)
@@ -97,8 +194,7 @@ public class Vector2Editor<TElement> : Vector2Editor
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
-            if (
-                FirstValue != _oldFirstValue
+            if (FirstValue != _oldFirstValue
                 || SecondValue != _oldSecondValue)
             {
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
@@ -122,25 +218,24 @@ public class Vector2Editor<TElement> : Vector2Editor
 
             if (invalidOldValue || newValue2 != oldValue2)
             {
+                var newValues = (FirstValue, SecondValue);
+                var oldValues = (FirstValue, SecondValue);
                 switch (sender.Name)
                 {
                     case "PART_InnerFirstTextBox":
                         FirstValue = newValue2;
-                        RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
-                            (newValue2, SecondValue),
-                            (oldValue2, SecondValue),
-                            ValueChangingEvent));
+                        newValues.FirstValue = newValue2;
+                        oldValues.FirstValue = oldValue2;
                         break;
                     case "PART_InnerSecondTextBox":
                         SecondValue = newValue2;
-                        RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
-                            (FirstValue, newValue2),
-                            (FirstValue, oldValue2),
-                            ValueChangingEvent));
-                        break;
-                    default:
+                        newValues.SecondValue = newValue2;
+                        oldValues.SecondValue = oldValue2;
                         break;
                 }
+
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
+                    newValues, oldValues, ValueChangingEvent));
             }
         }
 
@@ -149,8 +244,7 @@ public class Vector2Editor<TElement> : Vector2Editor
 
     private void UpdateErrors()
     {
-        if (
-            TElement.TryParse(InnerFirstTextBox.Text, CultureInfo.CurrentUICulture, out _)
+        if (TElement.TryParse(InnerFirstTextBox.Text, CultureInfo.CurrentUICulture, out _)
             && TElement.TryParse(InnerSecondTextBox.Text, CultureInfo.CurrentUICulture, out _))
         {
             DataValidationErrors.ClearErrors(this);
@@ -201,6 +295,8 @@ public class Vector2Editor<TElement> : Vector2Editor
 [PseudoClasses(FocusAnyTextBox, BorderPointerOver)]
 [TemplatePart("PART_InnerFirstTextBox", typeof(TextBox))]
 [TemplatePart("PART_InnerSecondTextBox", typeof(TextBox))]
+[TemplatePart("PART_HeaderFirstTextBlock", typeof(TextBlock))]
+[TemplatePart("PART_HeaderSecondTextBlock", typeof(TextBlock))]
 [TemplatePart("PART_BackgroundBorder", typeof(Border))]
 public class Vector2Editor : PropertyEditor
 {
@@ -256,6 +352,10 @@ public class Vector2Editor : PropertyEditor
 
     protected TextBox InnerSecondTextBox { get; private set; }
 
+    protected TextBlock FirstHeaderTextBlock { get; private set; }
+
+    protected TextBlock SecondHeaderTextBlock { get; private set; }
+
     protected override Type StyleKeyOverride => typeof(Vector2Editor);
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -270,10 +370,14 @@ public class Vector2Editor : PropertyEditor
         base.OnApplyTemplate(e);
         InnerFirstTextBox = e.NameScope.Get<TextBox>("PART_InnerFirstTextBox");
         InnerSecondTextBox = e.NameScope.Get<TextBox>("PART_InnerSecondTextBox");
+        FirstHeaderTextBlock = e.NameScope.Find<TextBlock>("PART_HeaderFirstTextBlock");
+        SecondHeaderTextBlock = e.NameScope.Find<TextBlock>("PART_HeaderSecondTextBlock");
         _backgroundBorder = e.NameScope.Get<Border>("PART_BackgroundBorder");
 
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
+        FirstHeaderTextBlock?.GetObservable(IsPointerOverProperty).Subscribe(IsPointerOverChanged);
+        SecondHeaderTextBlock?.GetObservable(IsPointerOverProperty).Subscribe(IsPointerOverChanged);
 
         _backgroundBorder.GetObservable(IsPointerOverProperty).Subscribe(IsPointerOverChanged);
     }
@@ -282,7 +386,9 @@ public class Vector2Editor : PropertyEditor
     {
         if (_backgroundBorder.IsPointerOver
             || InnerFirstTextBox.IsPointerOver
-            || InnerSecondTextBox.IsPointerOver)
+            || InnerSecondTextBox.IsPointerOver
+            || FirstHeaderTextBlock?.IsPointerOver == true
+            || SecondHeaderTextBlock?.IsPointerOver == true)
         {
             PseudoClasses.Add(BorderPointerOver);
         }

@@ -7,7 +7,6 @@ using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Styling;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -35,6 +34,9 @@ public class Vector3Editor<TElement> : Vector3Editor
     private TElement _oldSecondValue;
     private TElement _thirdValue;
     private TElement _oldThirdValue;
+
+    private Point _headerDragStart;
+    private bool _headerPressed;
 
     public Vector3Editor()
     {
@@ -96,6 +98,17 @@ public class Vector3Editor<TElement> : Vector3Editor
             textBox.AddHandler(PointerWheelChangedEvent, OnInnerTextBoxPointerWheelChanged, RoutingStrategies.Tunnel);
         }
 
+        void SubscribeEvents2(TextBlock textBlock)
+        {
+            if (textBlock != null)
+            {
+                textBlock.AddHandler(PointerPressedEvent, OnTextBlockPointerPressed, RoutingStrategies.Tunnel);
+                textBlock.AddHandler(PointerReleasedEvent, OnTextBlockPointerReleased, RoutingStrategies.Tunnel);
+                textBlock.AddHandler(PointerMovedEvent, OnTextBlockPointerMoved, RoutingStrategies.Tunnel);
+                textBlock.Cursor = CursorHelper.SizeWestEast;
+            }
+        }
+
         base.OnApplyTemplate(e);
         FirstText = _firstValue.ToString();
         SecondText = _secondValue.ToString();
@@ -104,6 +117,102 @@ public class Vector3Editor<TElement> : Vector3Editor
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
         SubscribeEvents(InnerThirdTextBox);
+
+        SubscribeEvents2(FirstHeaderTextBlock);
+        SubscribeEvents2(SecondHeaderTextBlock);
+        SubscribeEvents2(ThirdHeaderTextBlock);
+    }
+
+    private void OnTextBlockPointerMoved(object sender, PointerEventArgs e)
+    {
+        if (!(InnerFirstTextBox.IsKeyboardFocusWithin || InnerSecondTextBox.IsKeyboardFocusWithin)
+            && _headerPressed
+            && sender is TextBlock headerText)
+        {
+            Point point = e.GetPosition(headerText);
+
+            // 値を更新
+            Point move = point - _headerDragStart;
+            TElement delta = TElement.CreateTruncating(move.X);
+            TElement oldValue;
+            TElement newValue;
+
+            var newValues = (FirstValue, SecondValue, ThirdValue);
+            var oldValues = (FirstValue, SecondValue, ThirdValue);
+            switch (headerText.Name)
+            {
+                case "PART_HeaderFirstTextBlock":
+                    oldValue = FirstValue;
+                    newValue = FirstValue + delta;
+                    newValues.FirstValue = newValue;
+                    oldValues.FirstValue = oldValue;
+                    break;
+                case "PART_HeaderSecondTextBlock":
+                    oldValue = SecondValue;
+                    newValue = SecondValue + delta;
+                    newValues.SecondValue = newValue;
+                    oldValues.SecondValue = oldValue;
+                    break;
+                case "PART_HeaderThirdTextBlock":
+                    oldValue = ThirdValue;
+                    newValue = ThirdValue + delta;
+                    newValues.ThirdValue = newValue;
+                    oldValues.ThirdValue = oldValue;
+                    break;
+                default:
+                    break;
+            }
+
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
+                newValues, oldValues, ValueChangingEvent));
+
+            _headerDragStart = point;
+
+            // ポインターの位置が画面の端に付いた場合、位置を変更する
+            CursorHelper.AdjustCursorPosition(headerText, point, ref _headerDragStart);
+
+            e.Handled = true;
+
+            UpdateErrors();
+        }
+    }
+
+    private void OnTextBlockPointerReleased(object sender, PointerReleasedEventArgs e)
+    {
+        if (_headerPressed)
+        {
+            if (FirstValue != _oldFirstValue
+                || SecondValue != _oldSecondValue
+                || ThirdValue != _oldThirdValue)
+            {
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
+                    (FirstValue, SecondValue, ThirdValue),
+                    (_oldFirstValue, _oldSecondValue, _oldThirdValue),
+                    ValueChangedEvent));
+            }
+
+            _headerPressed = false;
+            e.Handled = true;
+        }
+    }
+
+    private void OnTextBlockPointerPressed(object sender, PointerPressedEventArgs e)
+    {
+        if (sender is TextBlock headerText)
+        {
+            PointerPoint pointerPoint = e.GetCurrentPoint(headerText);
+            if (pointerPoint.Properties.IsLeftButtonPressed
+                && !DataValidationErrors.GetHasErrors(this))
+            {
+                _oldFirstValue = FirstValue;
+                _oldSecondValue = SecondValue;
+                _oldThirdValue = ThirdValue;
+
+                _headerDragStart = pointerPoint.Position;
+                _headerPressed = true;
+                e.Handled = true;
+            }
+        }
     }
 
     private void OnInnerTextBoxGotFocus(object sender, GotFocusEventArgs e)
@@ -120,8 +229,7 @@ public class Vector3Editor<TElement> : Vector3Editor
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
-            if (
-                FirstValue != _oldFirstValue
+            if (FirstValue != _oldFirstValue
                 || SecondValue != _oldSecondValue
                 || ThirdValue != _oldThirdValue)
             {
@@ -146,32 +254,31 @@ public class Vector3Editor<TElement> : Vector3Editor
 
             if (invalidOldValue || newValue2 != oldValue2)
             {
+                var newValues = (FirstValue, SecondValue, ThirdValue);
+                var oldValues = (FirstValue, SecondValue, ThirdValue);
                 switch (sender.Name)
                 {
                     case "PART_InnerFirstTextBox":
                         FirstValue = newValue2;
-                        RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
-                            (newValue2, SecondValue, ThirdValue),
-                            (oldValue2, SecondValue, ThirdValue),
-                            ValueChangingEvent));
+                        newValues.FirstValue = newValue2;
+                        oldValues.FirstValue = oldValue2;
                         break;
                     case "PART_InnerSecondTextBox":
                         SecondValue = newValue2;
-                        RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
-                            (FirstValue, newValue2, ThirdValue),
-                            (FirstValue, oldValue2, ThirdValue),
-                            ValueChangingEvent));
+                        newValues.SecondValue = newValue2;
+                        oldValues.SecondValue = oldValue2;
                         break;
                     case "PART_InnerThirdTextBox":
                         ThirdValue = newValue2;
-                        RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
-                            (FirstValue, SecondValue, newValue2),
-                            (FirstValue, SecondValue, oldValue2),
-                            ValueChangingEvent));
+                        newValues.ThirdValue = newValue2;
+                        oldValues.ThirdValue = oldValue2;
                         break;
                     default:
                         break;
                 }
+
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
+                    newValues, oldValues, ValueChangingEvent));
             }
         }
 
@@ -237,6 +344,9 @@ public class Vector3Editor<TElement> : Vector3Editor
 [TemplatePart("PART_InnerFirstTextBox", typeof(TextBox))]
 [TemplatePart("PART_InnerSecondTextBox", typeof(TextBox))]
 [TemplatePart("PART_InnerThirdTextBox", typeof(TextBox))]
+[TemplatePart("PART_HeaderFirstTextBlock", typeof(TextBlock))]
+[TemplatePart("PART_HeaderSecondTextBlock", typeof(TextBlock))]
+[TemplatePart("PART_HeaderThirdTextBlock", typeof(TextBlock))]
 [TemplatePart("PART_BackgroundBorder", typeof(Border))]
 public class Vector3Editor : PropertyEditor
 {
@@ -316,6 +426,12 @@ public class Vector3Editor : PropertyEditor
 
     protected TextBox InnerThirdTextBox { get; private set; }
 
+    protected TextBlock FirstHeaderTextBlock { get; private set; }
+
+    protected TextBlock SecondHeaderTextBlock { get; private set; }
+
+    protected TextBlock ThirdHeaderTextBlock { get; private set; }
+
     protected override Type StyleKeyOverride => typeof(Vector3Editor);
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -331,11 +447,17 @@ public class Vector3Editor : PropertyEditor
         InnerFirstTextBox = e.NameScope.Get<TextBox>("PART_InnerFirstTextBox");
         InnerSecondTextBox = e.NameScope.Get<TextBox>("PART_InnerSecondTextBox");
         InnerThirdTextBox = e.NameScope.Get<TextBox>("PART_InnerThirdTextBox");
+        FirstHeaderTextBlock = e.NameScope.Find<TextBlock>("PART_HeaderFirstTextBlock");
+        SecondHeaderTextBlock = e.NameScope.Find<TextBlock>("PART_HeaderSecondTextBlock");
+        ThirdHeaderTextBlock = e.NameScope.Find<TextBlock>("PART_HeaderThirdTextBlock");
         _backgroundBorder = e.NameScope.Get<Border>("PART_BackgroundBorder");
 
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
         SubscribeEvents(InnerThirdTextBox);
+        FirstHeaderTextBlock?.GetObservable(IsPointerOverProperty).Subscribe(IsPointerOverChanged);
+        SecondHeaderTextBlock?.GetObservable(IsPointerOverProperty).Subscribe(IsPointerOverChanged);
+        ThirdHeaderTextBlock?.GetObservable(IsPointerOverProperty).Subscribe(IsPointerOverChanged);
 
         _backgroundBorder.GetObservable(IsPointerOverProperty).Subscribe(IsPointerOverChanged);
     }
@@ -345,7 +467,10 @@ public class Vector3Editor : PropertyEditor
         if (_backgroundBorder.IsPointerOver
             || InnerFirstTextBox.IsPointerOver
             || InnerSecondTextBox.IsPointerOver
-            || InnerThirdTextBox.IsPointerOver)
+            || InnerThirdTextBox.IsPointerOver
+            || FirstHeaderTextBlock?.IsPointerOver == true
+            || SecondHeaderTextBlock?.IsPointerOver == true
+            || ThirdHeaderTextBlock?.IsPointerOver == true)
         {
             PseudoClasses.Add(BorderPointerOver);
         }
