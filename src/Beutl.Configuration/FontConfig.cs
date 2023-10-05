@@ -1,6 +1,8 @@
 ﻿using System.Collections.ObjectModel;
 using System.Text.Json.Nodes;
 
+using Beutl.Serialization;
+
 namespace Beutl.Configuration;
 
 public sealed class FontConfig : ConfigurationBase
@@ -12,6 +14,7 @@ public sealed class FontConfig : ConfigurationBase
 
     public ObservableCollection<string> FontDirectories { get; } = CreateDefaultFontDirectories();
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -42,10 +45,35 @@ public sealed class FontConfig : ConfigurationBase
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
         json[nameof(FontDirectories)] = new JsonArray(FontDirectories.Select(i => JsonValue.Create(i)).ToArray());
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+
+        string[] array = context.GetValue<string[]>(Name) ?? Array.Empty<string>();
+        string[] fontDirs = FontDirectories.ToArray();
+
+        foreach (string item in array.Except(fontDirs))
+        {
+            FontDirectories.Add(item);
+        }
+
+        foreach (string item in fontDirs.Except(array))
+        {
+            FontDirectories.Remove(item);
+        }
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        context.SetValue(nameof(FontDirectories), FontDirectories);
     }
 
     private static ObservableCollection<string> CreateDefaultFontDirectories()

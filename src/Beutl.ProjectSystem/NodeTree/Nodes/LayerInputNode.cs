@@ -5,6 +5,7 @@ using Beutl.Animation;
 using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.NodeTree.Nodes.Group;
+using Beutl.Serialization;
 using Beutl.Styling;
 
 namespace Beutl.NodeTree.Nodes;
@@ -81,6 +82,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             }
         }
 
+        [ObsoleteSerializationApi]
         public override void ReadFromJson(JsonObject json)
         {
             base.ReadFromJson(json);
@@ -99,10 +101,35 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             }
         }
 
+        [ObsoleteSerializationApi]
         public override void WriteToJson(JsonObject json)
         {
             base.WriteToJson(json);
             GetProperty()?.WriteToJson(json);
+        }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            GetProperty()?.Serialize(context);
+        }
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            string name = context.GetValue<string>("Property")!;
+            string owner = context.GetValue<string>("Target")!;
+            Type ownerType = TypeFormat.ToType(owner)!;
+
+            AssociatedProperty = PropertyRegistry.GetRegistered(ownerType)
+                .FirstOrDefault(x => x.Name == name);
+
+            if (AssociatedProperty != null)
+            {
+                SetupProperty(AssociatedProperty);
+
+                GetProperty()?.Deserialize(context);
+            }
         }
     }
 
@@ -136,6 +163,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         return false;
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -149,6 +177,43 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
                     && Activator.CreateInstance(type) is ILayerInputSocket socket)
                 {
                     (socket as IJsonSerializable)?.ReadFromJson(itemJson);
+                    Items.Add(socket);
+                    ((NodeItem)socket).LocalId = index;
+                }
+
+                index++;
+            }
+
+            NextLocalId = index;
+        }
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        if (context.GetValue<JsonArray>("Items") is { } itemsArray)
+        {
+            int index = 0;
+            foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
+            {
+                if (itemJson.TryGetDiscriminator(out Type? type)
+                    && Activator.CreateInstance(type) is ILayerInputSocket socket)
+                {
+                    if(socket is ICoreSerializable serializable)
+                    {
+                        if (LocalSerializationErrorNotifier.Current is not { } notifier)
+                        {
+                            notifier = NullSerializationErrorNotifier.Instance;
+                        }
+                        ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
+
+                        var innerContext = new JsonSerializationContext(type, notifier, parent, itemJson);
+                        using (ThreadLocalSerializationContext.Enter(innerContext))
+                        {
+                            serializable.Deserialize(innerContext);
+                        }
+                    }
+
                     Items.Add(socket);
                     ((NodeItem)socket).LocalId = index;
                 }

@@ -1,5 +1,10 @@
-﻿namespace Beutl.Media;
+﻿using System.Text.Json.Serialization;
 
+using Beutl.Converters;
+
+namespace Beutl.Media;
+
+[JsonConverter(typeof(PenJsonConverter))]
 public interface IPen
 {
     IBrush? Brush { get; }

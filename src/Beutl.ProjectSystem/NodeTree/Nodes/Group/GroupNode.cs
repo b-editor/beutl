@@ -5,6 +5,7 @@ using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 
 using Beutl.Reactive;
+using Beutl.Serialization;
 
 namespace Beutl.NodeTree.Nodes.Group;
 
@@ -303,6 +304,7 @@ public class GroupNode : Node
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -342,6 +344,7 @@ public class GroupNode : Node
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
@@ -349,5 +352,46 @@ public class GroupNode : Node
         Group.WriteToJson(groupJson);
 
         json["node-tree"] = groupJson;
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        context.SetValue("node-tree", Group);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+
+        context.Populate("node-tree", Group);
+
+        OnOutputChanged(Group.Output, null);
+        OnInputChanged(Group.Input, null);
+
+        if (context.GetValue<JsonArray>(nameof(Items)) is { } itemsArray)
+        {
+            int index = 0;
+            foreach (JsonNode? item in itemsArray)
+            {
+                if (item is JsonObject itemObj)
+                {
+                    if (index < Items.Count)
+                    {
+                        INodeItem? nodeItem = Items[index];
+                        if (nodeItem is IJsonSerializable serializable)
+                        {
+                            serializable.ReadFromJson(itemObj);
+                        }
+
+                        ((NodeItem)nodeItem).LocalId = index;
+                    }
+                }
+
+                index++;
+            }
+
+            NextLocalId = index;
+        }
     }
 }

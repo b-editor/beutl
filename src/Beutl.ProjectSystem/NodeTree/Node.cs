@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 
 using Beutl.Collections;
 using Beutl.Media;
+using Beutl.Serialization;
 using Beutl.Styling;
 using Beutl.Utilities;
 
@@ -403,6 +404,7 @@ public abstract class Node : Hierarchical
         return requestedLocalId;
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -451,6 +453,7 @@ public abstract class Node : Hierarchical
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
@@ -469,6 +472,69 @@ public abstract class Node : Hierarchical
         }
 
         json[nameof(Items)] = array;
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        if (context.GetValue<string>(nameof(Position)) is { } posStr)
+        {
+            var tokenizer = new RefStringTokenizer(posStr);
+            if (tokenizer.TryReadDouble(out double x)
+                && tokenizer.TryReadDouble(out double y))
+            {
+                Position = (x, y);
+            }
+        }
+
+        if (context.GetValue<JsonArray>(nameof(Items)) is { } itemsArray)
+        {
+            int index = 0;
+            foreach (JsonNode? item in itemsArray)
+            {
+                if (item is JsonObject itemObj)
+                {
+                    int localId;
+                    if (itemObj.TryGetPropertyValue("LocalId", out var localIdNode)
+                        && localIdNode is JsonValue localIdValue
+                        && localIdValue.TryGetValue(out int actualLId))
+                    {
+                        localId = actualLId;
+                    }
+                    else
+                    {
+                        localId = index;
+                    }
+
+                    INodeItem? nodeItem = Items.FirstOrDefault(x => x.LocalId == localId);
+
+                    if (nodeItem is ICoreSerializable serializable)
+                    {
+                        if (LocalSerializationErrorNotifier.Current is not { } notifier)
+                        {
+                            notifier = NullSerializationErrorNotifier.Instance;
+                        }
+                        ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
+
+                        var innerContext = new JsonSerializationContext(nodeItem.GetType(), notifier, parent, itemObj);
+                        using (ThreadLocalSerializationContext.Enter(innerContext))
+                        {
+                            serializable.Deserialize(innerContext);
+                        }
+                    }
+                }
+
+                index++;
+            }
+        }
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        context.SetValue(nameof(Position), $"{Position.X},{Position.Y}");
+
+        context.SetValue(nameof(Items), Items);
     }
 
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)

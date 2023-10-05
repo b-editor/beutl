@@ -10,6 +10,7 @@ using Beutl.Media;
 using Beutl.NodeTree;
 using Beutl.Operation;
 using Beutl.Rendering;
+using Beutl.Serialization;
 
 namespace Beutl.ProjectSystem;
 
@@ -143,14 +144,15 @@ public class Element : ProjectItem
 
     protected override void SaveCore(string filename)
     {
-        this.JsonSave(filename);
+        this.JsonSave2(filename);
     }
 
     protected override void RestoreCore(string filename)
     {
-        this.JsonRestore(filename);
+        this.JsonRestore2(filename);
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -168,6 +170,7 @@ public class Element : ProjectItem
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
@@ -179,6 +182,20 @@ public class Element : ProjectItem
         var nodeTreeJson = new JsonObject();
         NodeTree.WriteToJson(nodeTreeJson);
         json[nameof(NodeTree)] = nodeTreeJson;
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        context.SetValue(nameof(Operation), Operation);
+        context.SetValue(nameof(NodeTree), NodeTree);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        context.Populate(nameof(Operation), Operation);
+        context.Populate(nameof(NodeTree), NodeTree);
     }
 
     public PooledList<Renderable> Evaluate(EvaluationTarget target, IClock clock, IRenderer renderer)

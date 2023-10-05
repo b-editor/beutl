@@ -2,7 +2,9 @@
 
 using Beutl.Commands;
 using Beutl.Graphics.Effects;
+using Beutl.Helpers;
 using Beutl.Operators.Configure;
+using Beutl.Serialization;
 using Beutl.Services;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -13,11 +15,19 @@ using ReactiveUI;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEffect?>
+public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEffect?>, IUnknownObjectViewModel
 {
     public FilterEffectEditorViewModel(IAbstractProperty<FilterEffect?> property)
         : base(property)
     {
+        IsDummy = Value.Select(v => v is IDummy)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        ActualTypeName = Value.Select(DummyHelper.GetTypeName)
+            .ToReadOnlyReactivePropertySlim(Strings.Unknown)
+            .DisposeWith(Disposables);
+
         FilterName = Value.Select(v =>
             {
                 if (v != null)
@@ -101,6 +111,10 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
 
     public ReactiveProperty<bool> IsEnabled { get; }
+
+    public IReadOnlyReactiveProperty<bool> IsDummy { get; }
+
+    public IReadOnlyReactiveProperty<string> ActualTypeName { get; }
 
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 
@@ -192,6 +206,43 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         catch
         {
         }
+    }
+
+    public IObservable<string?> GetJsonString()
+    {
+        return Value.Select(v =>
+        {
+            if (v is DummyFilterEffect { Json: JsonObject json })
+            {
+                return json.ToJsonString(JsonHelper.SerializerOptions);
+            }
+
+            return null;
+        });
+    }
+
+    public void SetJsonString(string? str)
+    {
+        string message = Strings.InvalidJson;
+        _ = str ?? throw new Exception(message);
+        JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
+
+        Type? type = json.GetDiscriminator();
+        FilterEffect? instance = null;
+        if (type?.IsAssignableTo(typeof(FilterEffect)) ?? false)
+        {
+            instance = Activator.CreateInstance(type) as FilterEffect;
+        }
+
+        if (instance == null) throw new Exception(message);
+
+        var context = new JsonSerializationContext(instance.GetType(), NullSerializationErrorNotifier.Instance, null, json);
+        using (ThreadLocalSerializationContext.Enter(context))
+        {
+            instance.Deserialize(context);
+        }
+
+        SetValue(Value.Value, instance);
     }
 
     private sealed record Visitor(FilterEffectEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor

@@ -19,6 +19,7 @@ public partial class FilterEffectEditor : UserControl
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
 
     private CancellationTokenSource? _lastTransitionCts;
+    private UnknownObjectView? _unknownObjectView;
 
     public FilterEffectEditor()
     {
@@ -43,6 +44,18 @@ public partial class FilterEffectEditor : UserControl
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, DragOver);
         AddHandler(DragDrop.DropEvent, Drop);
+
+        this.GetObservable(DataContextProperty)
+            .Select(x => x as FilterEffectEditorViewModel)
+            .Select(x => x?.IsDummy.Select(_ => x) ?? Observable.Return<FilterEffectEditorViewModel?>(null))
+            .Switch()
+            .Where(v => v?.IsDummy.Value == true)
+            .Take(1)
+            .Subscribe(_ =>
+            {
+                _unknownObjectView = new UnknownObjectView();
+                content.Children.Add(_unknownObjectView);
+            });
     }
 
     private void Drop(object? sender, DragEventArgs e)

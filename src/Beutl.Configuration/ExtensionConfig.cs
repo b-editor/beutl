@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Collections;
+using Beutl.Serialization;
 
 namespace Beutl.Configuration;
 
@@ -32,6 +33,7 @@ public sealed class ExtensionConfig : ConfigurationBase
     // Keyには拡張子を含める
     public CoreList<TypeLazy> DecoderPriority { get; } = new();
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -70,6 +72,7 @@ public sealed class ExtensionConfig : ConfigurationBase
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
@@ -87,5 +90,40 @@ public sealed class ExtensionConfig : ConfigurationBase
 
         json[nameof(EditorExtensions)] = eeObject;
         json[nameof(DecoderPriority)] = dpArray;
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+
+        context.SetValue(nameof(EditorExtensions), EditorExtensions
+            .ToDictionary(x => x.Key, y => y.Value.Select(z => z.FormattedTypeName).ToArray()));
+
+        context.SetValue(nameof(DecoderPriority), DecoderPriority.Select(v => v.FormattedTypeName).ToArray());
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        Dictionary<string, string[]>? ee = context.GetValue<Dictionary<string, string[]>>(nameof(EditorExtensions));
+        EditorExtensions.Clear();
+        if (ee != null)
+        {
+            foreach (KeyValuePair<string, string[]> item in ee)
+            {
+                EditorExtensions.Add(item.Key, new CoreList<TypeLazy>(item.Value
+                    .Select(str => new TypeLazy(str))
+                    .Where(type => type.FormattedTypeName != null)));
+            }
+        }
+
+        string[]? dp = context.GetValue<string[]>(nameof(DecoderPriority));
+        DecoderPriority.Clear();
+        if (dp != null)
+        {
+            DecoderPriority.AddRange(dp
+                .Where(v => v != null)
+                .Select(v => new TypeLazy(v!)));
+        }
     }
 }

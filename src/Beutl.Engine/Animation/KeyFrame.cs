@@ -2,6 +2,7 @@
 
 using Beutl.Animation.Easings;
 using Beutl.Language;
+using Beutl.Serialization;
 
 namespace Beutl.Animation;
 
@@ -44,6 +45,7 @@ public class KeyFrame : CoreObject
 
     internal virtual CoreProperty? Property { get; set; }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
@@ -64,6 +66,7 @@ public class KeyFrame : CoreObject
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -89,6 +92,53 @@ public class KeyFrame : CoreObject
 
                 Easing = new SplineEasing(x1, y1, x2, y2);
             }
+        }
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+
+        if (context.GetValue<JsonNode>(nameof(Easing)) is { } easingNode)
+        {
+            if (easingNode is JsonValue easingTypeValue
+                && easingTypeValue.TryGetValue(out string? easingType))
+            {
+                Type type = TypeFormat.ToType(easingType) ?? typeof(LinearEasing);
+
+                if (Activator.CreateInstance(type) is Easing easing)
+                {
+                    Easing = easing;
+                }
+            }
+            else if (easingNode is JsonObject easingObject)
+            {
+                float x1 = (float?)easingObject["X1"] ?? 0;
+                float y1 = (float?)easingObject["Y1"] ?? 0;
+                float x2 = (float?)easingObject["X2"] ?? 1;
+                float y2 = (float?)easingObject["Y2"] ?? 1;
+
+                Easing = new SplineEasing(x1, y1, x2, y2);
+            }
+        }
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        if (Easing is SplineEasing splineEasing)
+        {
+            context.SetValue(nameof(Easing), new JsonObject
+            {
+                ["X1"] = splineEasing.X1,
+                ["Y1"] = splineEasing.Y1,
+                ["X2"] = splineEasing.X2,
+                ["Y2"] = splineEasing.Y2,
+            });
+        }
+        else
+        {
+            context.SetValue(nameof(Easing), TypeFormat.ToString(Easing.GetType()));
         }
     }
 }

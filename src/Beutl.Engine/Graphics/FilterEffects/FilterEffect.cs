@@ -1,8 +1,10 @@
 ﻿using Beutl.Animation;
 using Beutl.Media;
+using Beutl.Serialization;
 
 namespace Beutl.Graphics.Effects;
 
+[DummyType(typeof(DummyFilterEffect))]
 public abstract class FilterEffect : Animatable, IAffectsRender
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;

@@ -6,9 +6,11 @@ using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Rendering;
+using Beutl.Serialization;
 
 namespace Beutl.Graphics;
 
+[DummyType(typeof(DummyDrawable))]
 public abstract class Drawable : Renderable
 {
     public static readonly CoreProperty<ITransform?> TransformProperty;

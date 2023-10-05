@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 
 using Beutl.Animation;
 using Beutl.Collections;
+using Beutl.Serialization;
 
 namespace Beutl.Styling;
 
@@ -107,6 +108,7 @@ public abstract class Styleable : Animatable, IStyleable, IModifiableHierarchica
         _styleInstance = instance;
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -127,6 +129,7 @@ public abstract class Styleable : Animatable, IStyleable, IModifiableHierarchica
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
@@ -140,6 +143,21 @@ public abstract class Styleable : Animatable, IStyleable, IModifiableHierarchica
             }
 
             json["styles"] = styles;
+        }
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        context.SetValue(nameof(Styles), Styles);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        if(context.GetValue<Styles>(nameof(Styles)) is { } styles)
+        {
+            Styles = styles;
         }
     }
 

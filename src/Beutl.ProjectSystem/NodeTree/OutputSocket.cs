@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 
 using Beutl.Collections;
+using Beutl.Serialization;
 
 namespace Beutl.NodeTree;
 
@@ -133,6 +134,7 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -162,6 +164,7 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
@@ -175,6 +178,23 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
             }
 
             json["connection-inputs"] = array;
+        }
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        context.SetValue("connection-inputs", Connections.Select(v => v.Input.Id).ToArray());
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+
+        if (context.GetValue<List<Guid>>("connection-inputs") is { } srcArray)
+        {
+            _inputIds = srcArray;
+            TryRestoreConnection();
         }
     }
 

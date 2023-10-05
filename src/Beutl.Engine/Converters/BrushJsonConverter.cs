@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 using Beutl.Media;
+using Beutl.Serialization;
 
 namespace Beutl.Converters;
 
@@ -10,34 +11,53 @@ internal sealed class BrushJsonConverter : JsonConverter<IBrush>
 {
     public override IBrush Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        var node = JsonNode.Parse(ref reader);
-        if (node != null)
+        var jsonNode = JsonNode.Parse(ref reader);
+        if (jsonNode is JsonObject jsonObject)
         {
-            if ((string?)node is string color)
+            if (LocalSerializationErrorNotifier.Current is not { } notifier)
             {
-                return new SolidColorBrush(Color.Parse(color));
+                notifier = NullSerializationErrorNotifier.Instance;
             }
-            else if (node.TryGetDiscriminator(out Type? type)
-                && Activator.CreateInstance(type) is IJsonSerializable jsonSerializable
-                && jsonSerializable is IBrush brush)
+
+            ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
+            var context = new JsonSerializationContext(typeToConvert, notifier, parent, jsonObject);
+
+            Type? actualType = typeToConvert.IsSealed ? typeToConvert : jsonObject.GetDiscriminator(typeToConvert);
+            if (actualType?.IsAssignableTo(typeToConvert) == true
+                && Activator.CreateInstance(actualType) is ICoreSerializable instance
+                && instance is IBrush brush)
             {
-                jsonSerializable.ReadFromJson(node.AsObject());
+                using (ThreadLocalSerializationContext.Enter(context))
+                {
+                    instance.Deserialize(context);
+                }
+
                 return brush;
             }
         }
 
-        throw new Exception("Invalid Brush");
+        throw new Exception("Invalid Transform");
     }
 
     public override void Write(Utf8JsonWriter writer, IBrush value, JsonSerializerOptions options)
     {
-        if (value is IJsonSerializable jsonSerializable)
-        {
-            var json = new JsonObject();
-            jsonSerializable.WriteToJson(json);
-            json.WriteDiscriminator(value.GetType());
+        if (value is not ICoreSerializable serializable) return;
 
-            json.WriteTo(writer);
+        if (LocalSerializationErrorNotifier.Current is not { } notifier)
+        {
+            notifier = NullSerializationErrorNotifier.Instance;
         }
+
+        ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
+        Type valueType = value.GetType();
+        var context = new JsonSerializationContext(value.GetType(), notifier, parent);
+        using (ThreadLocalSerializationContext.Enter(context))
+        {
+            serializable.Serialize(context);
+        }
+
+        JsonObject obj = context.GetJsonObject();
+        obj.WriteDiscriminator(valueType);
+        obj.WriteTo(writer, options);
     }
 }

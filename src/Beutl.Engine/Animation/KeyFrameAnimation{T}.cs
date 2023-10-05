@@ -1,11 +1,17 @@
 ﻿using System.Text.Json.Nodes;
 
+using Beutl.Serialization;
+
 namespace Beutl.Animation;
 
 public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
 {
     public KeyFrameAnimation(CoreProperty<T> property)
         : base(property)
+    {
+    }
+    
+    public KeyFrameAnimation()
     {
     }
 
@@ -70,6 +76,7 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -88,6 +95,7 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
         }
     }
 
+    [ObsoleteSerializationApi]
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
@@ -103,5 +111,21 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
         }
 
         json[nameof(KeyFrames)] = array;
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        context.SetValue(nameof(KeyFrames), KeyFrames);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+
+        if (context.GetValue<KeyFrames>(nameof(KeyFrames)) is { } keyframes)
+        {
+            KeyFrames.Replace(keyframes);
+        }
     }
 }
