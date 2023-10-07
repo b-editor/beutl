@@ -32,10 +32,10 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.AdjustOutOfScreenCursor_Description}" Header="{x:Static lang:SettingsPage.AdjustOutOfScreenCursor}">
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.EnablePointerLockInProperty_Description}" Header="{x:Static lang:SettingsPage.EnablePointerLockInProperty}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"
-                                      IsChecked="{CompiledBinding AdjustOutOfScreenCursor.Value}"
+                                      IsChecked="{CompiledBinding EnablePointerLockInProperty.Value}"
                                       Theme="{StaticResource CompactToggleSwitchStyle}" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
