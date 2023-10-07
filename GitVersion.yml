@@ -15,6 +15,9 @@ branches:
     is-release-branch: false
     is-mainline: false
     pre-release-weight: 0
+  main:
+    # この設定が使われないようにする
+    regex: ^\s*$
   # 正式にリリースしたら、下の設定を使う
   # main:
   #   mode: ContinuousDelivery
