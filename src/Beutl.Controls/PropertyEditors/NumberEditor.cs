@@ -9,6 +9,7 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
+using Beutl.Configuration;
 using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -63,7 +64,7 @@ public class NumberEditor<TValue> : StringEditor
                 .DisposeWith(_disposables);
             _headerText.AddDisposableHandler(PointerMovedEvent, OnTextBlockPointerMoved)
                 .DisposeWith(_disposables);
-            _headerText.Cursor = CursorHelper.SizeWestEast;
+            _headerText.Cursor = PointerLockHelper.SizeWestEast;
         }
     }
 
@@ -83,10 +84,9 @@ public class NumberEditor<TValue> : StringEditor
                 Value = newValue;
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue, oldValue, ValueChangingEvent));
             }
-            _headerDragStart = point;
 
-            // ポインターの位置が画面の端に付いた場合、位置を変更する
-            CursorHelper.AdjustCursorPosition(_headerText, point, ref _headerDragStart);
+            // ポインタロック
+            PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
 
             e.Handled = true;
 
@@ -103,6 +103,8 @@ public class NumberEditor<TValue> : StringEditor
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueChangedEvent));
             }
 
+            PointerLockHelper.Released();
+
             _headerPressed = false;
             e.Handled = true;
         }
@@ -115,6 +117,7 @@ public class NumberEditor<TValue> : StringEditor
             && !DataValidationErrors.GetHasErrors(InnerTextBox))
         {
             _oldValue = Value;
+            PointerLockHelper.Pressed();
 
             _headerDragStart = pointerPoint.Position;
             _headerPressed = true;

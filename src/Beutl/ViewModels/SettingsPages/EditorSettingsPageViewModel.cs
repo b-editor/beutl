@@ -17,8 +17,8 @@ public sealed class EditorSettingsPageViewModel
         AutoAdjustSceneDuration = _editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty).ToReactiveProperty();
         AutoAdjustSceneDuration.Subscribe(b => _editorConfig.AutoAdjustSceneDuration = b);
 
-        AdjustOutOfScreenCursor = _editorConfig.GetObservable(EditorConfig.AdjustOutOfScreenCursorProperty).ToReactiveProperty();
-        AdjustOutOfScreenCursor.Subscribe(b => _editorConfig.AdjustOutOfScreenCursor = b);
+        EnablePointerLockInProperty = _editorConfig.GetObservable(EditorConfig.EnablePointerLockInPropertyProperty).ToReactiveProperty();
+        EnablePointerLockInProperty.Subscribe(b => _editorConfig.EnablePointerLockInProperty = b);
 
         ShowExactBoundaries = _viewConfig.GetObservable(ViewConfig.ShowExactBoundariesProperty).ToReactiveProperty();
         ShowExactBoundaries.Subscribe(b => _viewConfig.ShowExactBoundaries = b);
@@ -34,7 +34,7 @@ public sealed class EditorSettingsPageViewModel
 
     public ReactiveProperty<bool> AutoAdjustSceneDuration { get; }
     
-    public ReactiveProperty<bool> AdjustOutOfScreenCursor { get; }
+    public ReactiveProperty<bool> EnablePointerLockInProperty { get; }
 
     public ReactiveProperty<bool> ShowExactBoundaries { get; }
 

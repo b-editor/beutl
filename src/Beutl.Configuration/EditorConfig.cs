@@ -5,7 +5,7 @@ namespace Beutl.Configuration;
 public sealed class EditorConfig : ConfigurationBase
 {
     public static readonly CoreProperty<bool> AutoAdjustSceneDurationProperty;
-    public static readonly CoreProperty<bool> AdjustOutOfScreenCursorProperty;
+    public static readonly CoreProperty<bool> EnablePointerLockInPropertyProperty;
 
     static EditorConfig()
     {
@@ -13,7 +13,7 @@ public sealed class EditorConfig : ConfigurationBase
             .DefaultValue(true)
             .Register();
 
-        AdjustOutOfScreenCursorProperty = ConfigureProperty<bool, EditorConfig>(nameof(AdjustOutOfScreenCursor))
+        EnablePointerLockInPropertyProperty = ConfigureProperty<bool, EditorConfig>(nameof(EnablePointerLockInProperty))
             .DefaultValue(true)
             .Register();
     }
@@ -24,10 +24,10 @@ public sealed class EditorConfig : ConfigurationBase
         set => SetValue(AutoAdjustSceneDurationProperty, value);
     }
     
-    public bool AdjustOutOfScreenCursor
+    public bool EnablePointerLockInProperty
     {
-        get => GetValue(AdjustOutOfScreenCursorProperty);
-        set => SetValue(AdjustOutOfScreenCursorProperty, value);
+        get => GetValue(EnablePointerLockInPropertyProperty);
+        set => SetValue(EnablePointerLockInPropertyProperty, value);
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)

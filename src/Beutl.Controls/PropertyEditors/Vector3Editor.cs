@@ -105,7 +105,7 @@ public class Vector3Editor<TElement> : Vector3Editor
                 textBlock.AddHandler(PointerPressedEvent, OnTextBlockPointerPressed, RoutingStrategies.Tunnel);
                 textBlock.AddHandler(PointerReleasedEvent, OnTextBlockPointerReleased, RoutingStrategies.Tunnel);
                 textBlock.AddHandler(PointerMovedEvent, OnTextBlockPointerMoved, RoutingStrategies.Tunnel);
-                textBlock.Cursor = CursorHelper.SizeWestEast;
+                textBlock.Cursor = PointerLockHelper.SizeWestEast;
             }
         }
 
@@ -163,13 +163,12 @@ public class Vector3Editor<TElement> : Vector3Editor
                     break;
             }
 
+            (FirstValue, SecondValue, ThirdValue) = newValues;
             RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
                 newValues, oldValues, ValueChangingEvent));
 
-            _headerDragStart = point;
-
-            // ポインターの位置が画面の端に付いた場合、位置を変更する
-            CursorHelper.AdjustCursorPosition(headerText, point, ref _headerDragStart);
+            // ポインタロック
+            PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
 
             e.Handled = true;
 
@@ -191,6 +190,8 @@ public class Vector3Editor<TElement> : Vector3Editor
                     ValueChangedEvent));
             }
 
+            PointerLockHelper.Released();
+
             _headerPressed = false;
             e.Handled = true;
         }
@@ -207,6 +208,8 @@ public class Vector3Editor<TElement> : Vector3Editor
                 _oldFirstValue = FirstValue;
                 _oldSecondValue = SecondValue;
                 _oldThirdValue = ThirdValue;
+
+                PointerLockHelper.Pressed();
 
                 _headerDragStart = pointerPoint.Position;
                 _headerPressed = true;
