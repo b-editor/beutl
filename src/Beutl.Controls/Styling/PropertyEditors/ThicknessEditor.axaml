@@ -30,9 +30,9 @@
                                    Text="{TemplateBinding Header}" />
 
                         <DataValidationErrors Grid.Row="2">
-                            <Grid ColumnDefinitions="Auto,*,*,*,*">
+                            <Grid ColumnDefinitions="Auto,*,1,*,1,*,1,*">
                                 <Border Name="PART_BackgroundBorder"
-                                        Grid.ColumnSpan="5"
+                                        Grid.ColumnSpan="8"
                                         Margin="4"
                                         Background="{DynamicResource TextControlBackground}"
                                         BorderBrush="{DynamicResource TextControlBorderBrush}"
@@ -41,7 +41,7 @@
                                 <icons:SymbolIcon Name="PART_SelectedSide"
                                                   Width="16"
                                                   Height="16"
-                                                  Margin="8,0,12,0"
+                                                  Margin="8,0,12,2"
                                                   ClipToBounds="False"
                                                   FontSize="18"
                                                   Symbol="BorderNone" />
@@ -54,24 +54,30 @@
                                          Text="{TemplateBinding FirstText, Mode=TwoWay}"
                                          Theme="{StaticResource VectorElementTextBox}" />
 
+                                <Separator Grid.Column="2" Theme="{StaticResource VectorComponentSeparator}" />
+
                                 <TextBox x:Name="PART_InnerSecondTextBox"
-                                         Grid.Column="2"
+                                         Grid.Column="3"
                                          Margin="0,4"
                                          HorizontalContentAlignment="Center"
                                          IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                          Text="{TemplateBinding SecondText, Mode=TwoWay}"
                                          Theme="{StaticResource VectorElementTextBox}" />
 
+                                <Separator Grid.Column="4" Theme="{StaticResource VectorComponentSeparator}" />
+
                                 <TextBox x:Name="PART_InnerThirdTextBox"
-                                         Grid.Column="3"
+                                         Grid.Column="5"
                                          Margin="0,4"
                                          HorizontalContentAlignment="Center"
                                          IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                          Text="{TemplateBinding ThirdText, Mode=TwoWay}"
                                          Theme="{StaticResource VectorElementTextBox}" />
 
+                                <Separator Grid.Column="6" Theme="{StaticResource VectorComponentSeparator}" />
+
                                 <TextBox x:Name="PART_InnerFourthTextBox"
-                                         Grid.Column="4"
+                                         Grid.Column="7"
                                          Margin="0,4,4,4"
                                          HorizontalContentAlignment="Center"
                                          IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
@@ -115,9 +121,9 @@
                                     Theme="{StaticResource PropertyEditorReorderHandle}" />
 
                             <DataValidationErrors Grid.Column="1">
-                                <Grid ColumnDefinitions="Auto,*,*,*,*">
+                                <Grid ColumnDefinitions="Auto,*,1,*,1,*,1,*">
                                     <Border Name="PART_BackgroundBorder"
-                                            Grid.ColumnSpan="5"
+                                            Grid.ColumnSpan="8"
                                             Margin="4"
                                             Background="{DynamicResource TextControlBackground}"
                                             BorderBrush="{DynamicResource TextControlBorderBrush}"
@@ -126,7 +132,7 @@
                                     <icons:SymbolIcon Name="PART_SelectedSide"
                                                       Width="16"
                                                       Height="16"
-                                                      Margin="8,0,12,0"
+                                                      Margin="8,0,12,2"
                                                       ClipToBounds="False"
                                                       FontSize="18"
                                                       Symbol="BorderNone" />
@@ -139,24 +145,30 @@
                                              Text="{TemplateBinding FirstText, Mode=TwoWay}"
                                              Theme="{StaticResource VectorElementTextBox}" />
 
+                                    <Separator Grid.Column="2" Theme="{StaticResource VectorComponentSeparator}" />
+
                                     <TextBox x:Name="PART_InnerSecondTextBox"
-                                             Grid.Column="2"
+                                             Grid.Column="3"
                                              Margin="0,4"
                                              HorizontalContentAlignment="Center"
                                              IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                              Text="{TemplateBinding SecondText, Mode=TwoWay}"
                                              Theme="{StaticResource VectorElementTextBox}" />
 
+                                    <Separator Grid.Column="4" Theme="{StaticResource VectorComponentSeparator}" />
+
                                     <TextBox x:Name="PART_InnerThirdTextBox"
-                                             Grid.Column="3"
+                                             Grid.Column="5"
                                              Margin="0,4"
                                              HorizontalContentAlignment="Center"
                                              IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                              Text="{TemplateBinding ThirdText, Mode=TwoWay}"
                                              Theme="{StaticResource VectorElementTextBox}" />
 
+                                    <Separator Grid.Column="6" Theme="{StaticResource VectorComponentSeparator}" />
+
                                     <TextBox x:Name="PART_InnerFourthTextBox"
-                                             Grid.Column="4"
+                                             Grid.Column="7"
                                              Margin="0,4,4,4"
                                              HorizontalContentAlignment="Center"
                                              IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"

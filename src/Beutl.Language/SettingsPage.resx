@@ -294,4 +294,10 @@ Enabling this setting may make the border invisible.</value>
   <data name="Zip" xml:space="preserve">
     <value>Zip</value>
   </data>
+  <data name="AdjustOutOfScreenCursor" xml:space="preserve">
+    <value>Adjust out-of-screen cursor</value>
+  </data>
+  <data name="AdjustOutOfScreenCursor_Description" xml:space="preserve">
+    <value>If the cursor reaches out of the screen during a drag operation in the property editor, the cursor position moves to the opposite side of the screen.</value>
+  </data>
 </root>

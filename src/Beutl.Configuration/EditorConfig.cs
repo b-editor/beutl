@@ -5,10 +5,15 @@ namespace Beutl.Configuration;
 public sealed class EditorConfig : ConfigurationBase
 {
     public static readonly CoreProperty<bool> AutoAdjustSceneDurationProperty;
+    public static readonly CoreProperty<bool> AdjustOutOfScreenCursorProperty;
 
     static EditorConfig()
     {
         AutoAdjustSceneDurationProperty = ConfigureProperty<bool, EditorConfig>(nameof(AutoAdjustSceneDuration))
+            .DefaultValue(true)
+            .Register();
+
+        AdjustOutOfScreenCursorProperty = ConfigureProperty<bool, EditorConfig>(nameof(AdjustOutOfScreenCursor))
             .DefaultValue(true)
             .Register();
     }
@@ -17,6 +22,12 @@ public sealed class EditorConfig : ConfigurationBase
     {
         get => GetValue(AutoAdjustSceneDurationProperty);
         set => SetValue(AutoAdjustSceneDurationProperty, value);
+    }
+    
+    public bool AdjustOutOfScreenCursor
+    {
+        get => GetValue(AdjustOutOfScreenCursorProperty);
+        set => SetValue(AdjustOutOfScreenCursorProperty, value);
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)

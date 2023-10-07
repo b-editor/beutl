@@ -88,6 +88,24 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Adjust out-of-screen cursor に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AdjustOutOfScreenCursor {
+            get {
+                return ResourceManager.GetString("AdjustOutOfScreenCursor", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   If the cursor reaches out of the screen during a drag operation in the property editor, the cursor position moves to the opposite side of the screen. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AdjustOutOfScreenCursor_Description {
+            get {
+                return ResourceManager.GetString("AdjustOutOfScreenCursor_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   All Editor Extensions に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string All_Editor_Extensions {
