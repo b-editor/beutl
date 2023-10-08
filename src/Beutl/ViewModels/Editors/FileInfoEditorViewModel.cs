@@ -24,11 +24,11 @@ public sealed class StorageFileEditorViewModel : BaseEditorViewModel<FileInfo>
         if (visitor is StorageFileEditor editor)
         {
             editor[!StorageFileEditor.ValueProperty] = Value.ToBinding();
-            editor.ValueChanged += OnValueChanged;
+            editor.ValueConfirmed += OnValueConfirmed;
         }
     }
 
-    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (e is PropertyEditorValueChangedEventArgs<FileInfo> args)
         {

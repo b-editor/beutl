@@ -129,7 +129,7 @@ public class RelativePointEditor : Vector2Editor
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativePoint>(
                     new Graphics.RelativePoint(FirstValue, SecondValue, Unit),
                     new Graphics.RelativePoint(_oldFirstValue, _oldSecondValue, _oldUnit),
-                    ValueChangedEvent));
+                    ValueConfirmedEvent));
             }
         }
     }

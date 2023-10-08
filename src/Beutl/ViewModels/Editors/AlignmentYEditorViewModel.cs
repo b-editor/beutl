@@ -18,11 +18,11 @@ public sealed class AlignmentYEditorViewModel : ValueEditorViewModel<AlignmentY>
         if (visitor is AlignmentYEditor view)
         {
             view[!AlignmentYEditor.ValueProperty] = Value.ToBinding();
-            view.ValueChanged += OnValueChanged;
+            view.ValueConfirmed += OnValueConfirmed;
         }
     }
 
-    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (e is PropertyEditorValueChangedEventArgs<AlignmentY> args)
         {

@@ -60,11 +60,11 @@ public sealed class ProvidedChoiceEditorViewModel<T, TProvider> : ValueEditorVie
         {
             editor.Items = _choices;
             editor[!EnumEditor.SelectedIndexProperty] = SelectedIndex.ToBinding();
-            editor.ValueChanged += OnValueChanged;
+            editor.ValueConfirmed += OnValueConfirmed;
         }
     }
 
-    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (e is PropertyEditorValueChangedEventArgs<int> args)
         {

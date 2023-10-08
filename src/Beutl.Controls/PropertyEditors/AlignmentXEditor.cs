@@ -100,7 +100,7 @@ public class AlignmentXEditor : PropertyEditor
                 AlignmentX oldValue = Value;
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<AlignmentX>(value.Value, oldValue, ValueChangingEvent));
                 Value = value.Value;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<AlignmentX>(value.Value, oldValue, ValueChangedEvent));
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<AlignmentX>(value.Value, oldValue, ValueConfirmedEvent));
             }
         }
     }

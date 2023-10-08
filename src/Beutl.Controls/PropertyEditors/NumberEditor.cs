@@ -100,7 +100,7 @@ public class NumberEditor<TValue> : StringEditor
         {
             if (Value != _oldValue)
             {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueChangedEvent));
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueConfirmedEvent));
             }
 
             PointerLockHelper.Released();
@@ -138,7 +138,7 @@ public class NumberEditor<TValue> : StringEditor
         if (!DataValidationErrors.GetHasErrors(InnerTextBox)
             && Value != _oldValue)
         {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueChangedEvent));
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueConfirmedEvent));
         }
     }
 

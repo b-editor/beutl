@@ -187,7 +187,7 @@ public class Vector3Editor<TElement> : Vector3Editor
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
                     (FirstValue, SecondValue, ThirdValue),
                     (_oldFirstValue, _oldSecondValue, _oldThirdValue),
-                    ValueChangedEvent));
+                    ValueConfirmedEvent));
             }
 
             PointerLockHelper.Released();
@@ -239,7 +239,7 @@ public class Vector3Editor<TElement> : Vector3Editor
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
                     (FirstValue, SecondValue, ThirdValue),
                     (_oldFirstValue, _oldSecondValue, _oldThirdValue),
-                    ValueChangedEvent));
+                    ValueConfirmedEvent));
             }
         }
     }

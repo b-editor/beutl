@@ -154,7 +154,7 @@ public class Vector2Editor<TElement> : Vector2Editor
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
                     (FirstValue, SecondValue),
                     (_oldFirstValue, _oldSecondValue),
-                    ValueChangedEvent));
+                    ValueConfirmedEvent));
             }
 
             PointerLockHelper.Released();
@@ -203,7 +203,7 @@ public class Vector2Editor<TElement> : Vector2Editor
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
                     (FirstValue, SecondValue),
                     (_oldFirstValue, _oldSecondValue),
-                    ValueChangedEvent));
+                    ValueConfirmedEvent));
             }
         }
     }

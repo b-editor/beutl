@@ -164,7 +164,7 @@ public class Vector4Editor<TElement> : Vector4Editor
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
                     (FirstValue, SecondValue, ThirdValue, FourthValue),
                     (_oldFirstValue, _oldSecondValue, _oldThirdValue, _oldFourthValue),
-                    ValueChangedEvent));
+                    ValueConfirmedEvent));
             }
         }
     }

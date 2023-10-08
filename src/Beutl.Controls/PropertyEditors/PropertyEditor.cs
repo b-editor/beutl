@@ -54,8 +54,8 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     public static readonly RoutedEvent<PropertyEditorValueChangedEventArgs> ValueChangingEvent =
         RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueChanging), RoutingStrategies.Bubble);
 
-    public static readonly RoutedEvent<PropertyEditorValueChangedEventArgs> ValueChangedEvent =
-        RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueChanged), RoutingStrategies.Bubble);
+    public static readonly RoutedEvent<PropertyEditorValueChangedEventArgs> ValueConfirmedEvent =
+        RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueConfirmed), RoutingStrategies.Bubble);
 
     private readonly CompositeDisposable _eventRevokers = new(3);
 
@@ -120,10 +120,10 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         remove => RemoveHandler(ValueChangingEvent, value);
     }
 
-    public event EventHandler<PropertyEditorValueChangedEventArgs> ValueChanged
+    public event EventHandler<PropertyEditorValueChangedEventArgs> ValueConfirmed
     {
-        add => AddHandler(ValueChangedEvent, value);
-        remove => RemoveHandler(ValueChangedEvent, value);
+        add => AddHandler(ValueConfirmedEvent, value);
+        remove => RemoveHandler(ValueConfirmedEvent, value);
     }
 
     public virtual void Visit(IPropertyEditorContext context)

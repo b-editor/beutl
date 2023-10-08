@@ -88,7 +88,7 @@ public class StringEditor : PropertyEditor
     {
         if (Text != _oldValue)
         {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<string>(Text, _oldValue, ValueChangedEvent));
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<string>(Text, _oldValue, ValueConfirmedEvent));
         }
     }
 
