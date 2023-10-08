@@ -12,8 +12,8 @@ namespace Beutl.ViewModels;
 
 public sealed class GraphEditorViewModel<T> : GraphEditorViewModel
 {
-    public GraphEditorViewModel(EditViewModel editViewModel, KeyFrameAnimation<T> animation, Element? layer)
-        : base(editViewModel, animation, layer)
+    public GraphEditorViewModel(EditViewModel editViewModel, KeyFrameAnimation<T> animation, Element? element)
+        : base(editViewModel, animation, element)
     {
     }
 
@@ -89,13 +89,13 @@ public abstract class GraphEditorViewModel : IDisposable
     private readonly CompositeDisposable _disposables = new();
     private readonly EditViewModel _editViewModel;
     private readonly GraphEditorViewViewModelFactory[] _factories;
-    protected Element? Layer;
+    protected Element? Element;
     private bool _editting;
 
-    protected GraphEditorViewModel(EditViewModel editViewModel, IKeyFrameAnimation animation, Element? layer)
+    protected GraphEditorViewModel(EditViewModel editViewModel, IKeyFrameAnimation animation, Element? element)
     {
         _editViewModel = editViewModel;
-        Layer = layer;
+        Element = element;
         Animation = animation;
 
         UseGlobalClock = ((CoreObject)animation).GetObservable(KeyFrameAnimation.UseGlobalClockProperty)
@@ -103,7 +103,7 @@ public abstract class GraphEditorViewModel : IDisposable
             .DisposeWith(_disposables);
 
         Margin = UseGlobalClock.Select(v => !v
-            ? Layer?.GetObservable(Element.StartProperty)
+            ? Element?.GetObservable(Element.StartProperty)
                 .CombineLatest(Options)
                 .Select(item => new Thickness(item.First.ToPixel(item.Second.Scale), 0, 0, 0))
             : null)
@@ -228,7 +228,7 @@ public abstract class GraphEditorViewModel : IDisposable
 
     public TimeSpan ConvertKeyTime(TimeSpan globalkeyTime)
     {
-        TimeSpan localKeyTime = Layer != null ? globalkeyTime - Layer.Start : globalkeyTime;
+        TimeSpan localKeyTime = Element != null ? globalkeyTime - Element.Start : globalkeyTime;
         TimeSpan keyTime = Animation.UseGlobalClock ? globalkeyTime : localKeyTime;
 
         Project? proj = Scene.FindHierarchicalParent<Project>();
@@ -263,7 +263,7 @@ public abstract class GraphEditorViewModel : IDisposable
             item.Dispose();
         }
 
-        Layer = null;
+        Element = null;
         GC.SuppressFinalize(this);
     }
 }
