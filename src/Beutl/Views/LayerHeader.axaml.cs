@@ -10,7 +10,7 @@ using Beutl.ViewModels;
 
 using FluentAvalonia.UI.Controls;
 
-using TLVM = Beutl.ViewModels.ElementViewModel;
+using ElementViewModel = Beutl.ViewModels.ElementViewModel;
 
 namespace Beutl.Views;
 
@@ -26,7 +26,7 @@ public sealed partial class LayerHeader : UserControl
     private Timeline? _timeline;
     private Point _startRel;
     private Point _start;
-    private TLVM[] _layers = Array.Empty<TLVM>();
+    private ElementViewModel[] _elements = Array.Empty<ElementViewModel>();
     private int _newLayer;
     private double _positionY;
 
@@ -80,7 +80,7 @@ public sealed partial class LayerHeader : UserControl
             {
                 vm.PosY.Value = position.Y - _start.Y;
             }
-            foreach (TLVM item in _layers)
+            foreach (ElementViewModel item in _elements)
             {
                 item.Margin.Value = newMargin;
             }
@@ -95,8 +95,8 @@ public sealed partial class LayerHeader : UserControl
 
         int newLayerNum = _newLayer;
         int oldLayerNum = ViewModel.Number.Value;
-        new MoveLayerCommand(ViewModel, newLayerNum, oldLayerNum, _layers).DoAndRecord(CommandRecorder.Default);
-        _layers = Array.Empty<TLVM>();
+        new MoveLayerCommand(ViewModel, newLayerNum, oldLayerNum, _elements).DoAndRecord(CommandRecorder.Default);
+        _elements = Array.Empty<ElementViewModel>();
     }
 
     private void Border_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -107,7 +107,7 @@ public sealed partial class LayerHeader : UserControl
             _pressed = true;
             _startRel = point.Position;
             _start = e.GetCurrentPoint(timeline.TimelinePanel).Position;
-            _layers = ViewModel.Timeline.Layers
+            _elements = ViewModel.Timeline.Elements
                 .Where(i => i.Model.ZIndex == ViewModel.Number.Value)
                 .ToArray();
         }
@@ -136,22 +136,22 @@ public sealed partial class LayerHeader : UserControl
     {
         private readonly int _newLayerNum;
         private readonly int _oldLayerNum;
-        private readonly TLVM[] _items1;
-        private readonly List<TLVM> _items2;
+        private readonly ElementViewModel[] _items1;
+        private readonly List<ElementViewModel> _items2;
         private readonly LayerHeaderViewModel _viewModel;
         private readonly List<LayerHeaderViewModel> _viewModels;
 
-        public MoveLayerCommand(LayerHeaderViewModel viewModel, int newLayerNum, int oldLayerNum, TLVM[] items)
+        public MoveLayerCommand(LayerHeaderViewModel viewModel, int newLayerNum, int oldLayerNum, ElementViewModel[] items)
         {
             _viewModel = viewModel;
             _newLayerNum = newLayerNum;
             _oldLayerNum = oldLayerNum;
             _items1 = items;
             _items2 = new();
-            CoreListMarshal<TLVM> span1 = _viewModel.Timeline.Layers.GetMarshal();
+            CoreListMarshal<ElementViewModel> span1 = _viewModel.Timeline.Elements.GetMarshal();
             CoreListMarshal<LayerHeaderViewModel> span2 = _viewModel.Timeline.LayerHeaders.GetMarshal();
 
-            foreach (TLVM item in span1.Value)
+            foreach (ElementViewModel item in span1.Value)
             {
                 if (item.Model.ZIndex != oldLayerNum
                     && ((item.Model.ZIndex > oldLayerNum && item.Model.ZIndex <= newLayerNum)
@@ -184,12 +184,12 @@ public sealed partial class LayerHeader : UserControl
 
             _viewModel.Timeline.LayerHeaders.Move(_oldLayerNum, _newLayerNum);
 
-            foreach (TLVM item in _items1)
+            foreach (ElementViewModel item in _items1)
             {
                 item.AnimationRequest(_newLayerNum);
             }
 
-            foreach (TLVM item in CollectionsMarshal.AsSpan(_items2))
+            foreach (ElementViewModel item in CollectionsMarshal.AsSpan(_items2))
             {
                 item.AnimationRequest(item.Model.ZIndex + x);
             }
@@ -211,12 +211,12 @@ public sealed partial class LayerHeader : UserControl
 
             _viewModel.Timeline.LayerHeaders.Move(_newLayerNum, _oldLayerNum);
 
-            foreach (TLVM item in _items1)
+            foreach (ElementViewModel item in _items1)
             {
                 item.AnimationRequest(_oldLayerNum);
             }
 
-            foreach (TLVM item in CollectionsMarshal.AsSpan(_items2))
+            foreach (ElementViewModel item in CollectionsMarshal.AsSpan(_items2))
             {
                 item.AnimationRequest(item.Model.ZIndex + x);
             }

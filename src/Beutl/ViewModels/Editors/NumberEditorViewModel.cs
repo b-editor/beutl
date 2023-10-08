@@ -20,12 +20,12 @@ public sealed class NumberEditorViewModel<T> : ValueEditorViewModel<T>
         if (visitor is NumberEditor<T> editor)
         {
             editor[!NumberEditor<T>.ValueProperty] = Value.ToBinding();
-            editor.ValueChanging += OnValueChanging;
             editor.ValueChanged += OnValueChanged;
+            editor.ValueConfirmed += OnValueConfirmed;
         }
     }
 
-    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (e is PropertyEditorValueChangedEventArgs<T> args)
         {
@@ -33,7 +33,7 @@ public sealed class NumberEditorViewModel<T> : ValueEditorViewModel<T>
         }
     }
 
-    private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (sender is NumberEditor<T> editor)
         {

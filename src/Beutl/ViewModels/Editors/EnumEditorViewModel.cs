@@ -18,11 +18,11 @@ public sealed class EnumEditorViewModel<T> : ValueEditorViewModel<T>
         if (visitor is EnumEditor<T> editor)
         {
             editor[!EnumEditor<T>.SelectedValueProperty] = Value.ToBinding();
-            editor.ValueChanged += OnValueChanged;
+            editor.ValueConfirmed += OnValueConfirmed;
         }
     }
 
-    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (e is PropertyEditorValueChangedEventArgs<T> args)
         {

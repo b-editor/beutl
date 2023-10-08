@@ -62,19 +62,19 @@ public sealed class NodeTreeTabViewModel : IToolContext
     private readonly ReactiveProperty<bool> _isSelected = new(false);
     private readonly CompositeDisposable _disposables = new();
     private EditViewModel _editViewModel;
-    private Element? _oldLayer;
+    private Element? _oldElement;
 
     public NodeTreeTabViewModel(EditViewModel editViewModel)
     {
         _editViewModel = editViewModel;
 
-        Layer.Subscribe(v =>
+        Element.Subscribe(v =>
         {
-            if (_oldLayer != null)
+            if (_oldElement != null)
             {
-                SaveState(_oldLayer);
+                SaveState(_oldElement);
             }
-            _oldLayer = v;
+            _oldElement = v;
 
             foreach (NodeTreeNavigationItem item in Items)
             {
@@ -112,7 +112,10 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
     public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Bottom;
 
-    public ReactivePropertySlim<Element?> Layer { get; } = new();
+    public ReactivePropertySlim<Element?> Element { get; } = new();
+
+    [Obsolete("Use Element property instead.")]
+    public ReactivePropertySlim<Element?> Layer => Element;
 
     public ReactivePropertySlim<NodeTreeViewModel?> NodeTree { get; } = new();
 
@@ -120,7 +123,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
     public void Dispose()
     {
-        Layer.Value = null;
+        Element.Value = null;
 
         _disposables.Dispose();
         foreach (NodeTreeNavigationItem item in Items)
@@ -216,9 +219,9 @@ public sealed class NodeTreeTabViewModel : IToolContext
         }
     }
 
-    private static string ViewStateDirectory(Element layer)
+    private static string ViewStateDirectory(Element element)
     {
-        string directory = Path.GetDirectoryName(layer.FileName)!;
+        string directory = Path.GetDirectoryName(element.FileName)!;
 
         directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
         if (!Directory.Exists(directory))
@@ -229,9 +232,9 @@ public sealed class NodeTreeTabViewModel : IToolContext
         return directory;
     }
 
-    private void SaveState(Element layer)
+    private void SaveState(Element element)
     {
-        string viewStateDir = ViewStateDirectory(layer);
+        string viewStateDir = ViewStateDirectory(element);
 
         var itemsJson = new JsonObject();
         foreach (NodeTreeNavigationItem item in Items.GetMarshal().Value)
@@ -250,13 +253,13 @@ public sealed class NodeTreeTabViewModel : IToolContext
             json["Selected"] = NodeTree.Value.NodeTree.Id;
         }
 
-        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.nodetree.config"));
+        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(element.FileName)}.nodetree.config"));
     }
 
-    private void RestoreState(Element layer)
+    private void RestoreState(Element element)
     {
-        string viewStateDir = ViewStateDirectory(layer);
-        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.nodetree.config");
+        string viewStateDir = ViewStateDirectory(element);
+        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(element.FileName)}.nodetree.config");
 
         if (File.Exists(viewStateFile))
         {
@@ -264,7 +267,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
             JsonObject json = JsonNode.Parse(stream)!.AsObject();
             Guid? selected = (Guid?)json["Selected"];
             if (selected.HasValue
-                && layer.FindById(selected.Value) is NodeTreeModel selectedModel)
+                && element.FindById(selected.Value) is NodeTreeModel selectedModel)
             {
                 NavigateTo(selectedModel);
             }
@@ -283,18 +286,18 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
-        if (Layer.Value == null
+        if (Element.Value == null
             && json?.TryGetPropertyValue("layer-filename", out JsonNode? filenameNode) == true
             && (filenameNode as JsonValue)?.TryGetValue(out string? filename) == true
             && filename != null)
         {
-            Layer.Value = _editViewModel.Scene.Children.FirstOrDefault(x => x.FileName == filename);
+            Element.Value = _editViewModel.Scene.Children.FirstOrDefault(x => x.FileName == filename);
         }
     }
 
     public void WriteToJson(JsonObject json)
     {
-        if (Layer.Value is { FileName: { } filename })
+        if (Element.Value is { FileName: { } filename })
         {
             json["layer-filename"] = filename;
         }
@@ -303,7 +306,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
     public object? GetService(Type serviceType)
     {
         if (serviceType == typeof(Element))
-            return Layer.Value;
+            return Element.Value;
 
         return _editViewModel.GetService(serviceType);
     }

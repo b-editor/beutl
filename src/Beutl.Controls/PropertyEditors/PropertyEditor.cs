@@ -33,9 +33,6 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     public static readonly StyledProperty<bool> IsReadOnlyProperty =
         TextBox.IsReadOnlyProperty.AddOwner<PropertyEditor>();
 
-    public static readonly StyledProperty<bool> UseCompactProperty =
-        AvaloniaProperty.Register<PropertyEditor, bool>(nameof(UseCompact), false);
-
     public static readonly StyledProperty<PropertyEditorStyle> EditorStyleProperty =
         AvaloniaProperty.Register<PropertyEditor, PropertyEditorStyle>(nameof(EditorStyle), PropertyEditorStyle.Normal);
 
@@ -54,11 +51,11 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     public static readonly StyledProperty<Control> ReorderHandleProperty =
         AvaloniaProperty.Register<PropertyEditor, Control>(nameof(ReorderHandle), null);
 
-    public static readonly RoutedEvent<PropertyEditorValueChangedEventArgs> ValueChangingEvent =
-        RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueChanging), RoutingStrategies.Bubble);
-
     public static readonly RoutedEvent<PropertyEditorValueChangedEventArgs> ValueChangedEvent =
         RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueChanged), RoutingStrategies.Bubble);
+
+    public static readonly RoutedEvent<PropertyEditorValueChangedEventArgs> ValueConfirmedEvent =
+        RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueConfirmed), RoutingStrategies.Bubble);
 
     private readonly CompositeDisposable _eventRevokers = new(3);
 
@@ -83,12 +80,6 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     {
         get => GetValue(EditorStyleProperty);
         set => SetValue(EditorStyleProperty, value);
-    }
-
-    public bool UseCompact
-    {
-        get => GetValue(UseCompactProperty);
-        private set => SetValue(UseCompactProperty, value);
     }
 
     public object MenuContent
@@ -123,16 +114,16 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
 
     public event EventHandler DeleteRequested;
 
-    public event EventHandler<PropertyEditorValueChangedEventArgs> ValueChanging
-    {
-        add => AddHandler(ValueChangingEvent, value);
-        remove => RemoveHandler(ValueChangingEvent, value);
-    }
-
     public event EventHandler<PropertyEditorValueChangedEventArgs> ValueChanged
     {
         add => AddHandler(ValueChangedEvent, value);
         remove => RemoveHandler(ValueChangedEvent, value);
+    }
+
+    public event EventHandler<PropertyEditorValueChangedEventArgs> ValueConfirmed
+    {
+        add => AddHandler(ValueConfirmedEvent, value);
+        remove => RemoveHandler(ValueConfirmedEvent, value);
     }
 
     public virtual void Visit(IPropertyEditorContext context)
@@ -160,7 +151,6 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         base.OnPropertyChanged(change);
         if (change.Property == EditorStyleProperty)
         {
-            UseCompact = EditorStyle == PropertyEditorStyle.Compact;
             UpdateStyle();
         }
         else if (change.Property == MenuContentProperty)

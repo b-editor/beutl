@@ -52,13 +52,13 @@ namespace PropertyEditorViewTests
             stack.Children.Add(typedenumEditor);
             stack.Children.Add(indexEditor);
 
-            indexEditor.ValueChanging += IndexEditor_ValueChanged;
-            typedenumEditor.ValueChanged += EnumEditor_ValueChanged;
+            indexEditor.ValueChanged += IndexEditor_ValueChanged;
+            typedenumEditor.ValueConfirmed += EnumEditor_ValueConfirmed;
         }
 
-        private void EnumEditor_ValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void EnumEditor_ValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
-            Debug.WriteLine($"EnumEditor.ValueChanged: {e.NewValue}");
+            Debug.WriteLine($"EnumEditor.ValueConfiemed: {e.NewValue}");
         }
 
         private void IndexEditor_ValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)

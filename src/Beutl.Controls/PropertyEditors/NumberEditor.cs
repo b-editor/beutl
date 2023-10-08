@@ -82,7 +82,7 @@ public class NumberEditor<TValue> : StringEditor
             if (newValue != oldValue)
             {
                 Value = newValue;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue, oldValue, ValueChangingEvent));
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue, oldValue, ValueChangedEvent));
             }
 
             // ポインタロック
@@ -100,7 +100,7 @@ public class NumberEditor<TValue> : StringEditor
         {
             if (Value != _oldValue)
             {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueChangedEvent));
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueConfirmedEvent));
             }
 
             PointerLockHelper.Released();
@@ -138,7 +138,7 @@ public class NumberEditor<TValue> : StringEditor
         if (!DataValidationErrors.GetHasErrors(InnerTextBox)
             && Value != _oldValue)
         {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueChangedEvent));
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueConfirmedEvent));
         }
     }
 
@@ -156,7 +156,7 @@ public class NumberEditor<TValue> : StringEditor
             if (invalidOldValue || newValue2 != oldValue2)
             {
                 Value = newValue2;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue2, oldValue2, ValueChangingEvent));
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue2, oldValue2, ValueChangedEvent));
             }
         }
 

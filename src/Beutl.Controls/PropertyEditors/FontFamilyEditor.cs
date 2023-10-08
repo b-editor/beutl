@@ -182,7 +182,7 @@ public class FontFamilyEditor : PropertyEditor
             }
             else
             {
-                if (!UseCompact)
+                if (EditorStyle != PropertyEditorStyle.Compact)
                     PseudoClasses.Remove(":compact");
             }
         }
@@ -218,7 +218,7 @@ public class FontFamilyEditor : PropertyEditor
         {
             Media.FontFamily oldValue = Value;
             Value = s_flyout.Picker.SelectedItem;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<Media.FontFamily>(Value, oldValue, ValueChangedEvent));
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<Media.FontFamily>(Value, oldValue, ValueConfirmedEvent));
         }
     }
 

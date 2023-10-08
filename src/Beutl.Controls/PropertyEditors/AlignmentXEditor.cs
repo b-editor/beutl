@@ -75,7 +75,7 @@ public class AlignmentXEditor : PropertyEditor
             }
             else
             {
-                if (!UseCompact)
+                if (EditorStyle != PropertyEditorStyle.Compact)
                     PseudoClasses.Remove(":compact");
             }
         }
@@ -98,9 +98,9 @@ public class AlignmentXEditor : PropertyEditor
             if (value.HasValue)
             {
                 AlignmentX oldValue = Value;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<AlignmentX>(value.Value, oldValue, ValueChangingEvent));
-                Value = value.Value;
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<AlignmentX>(value.Value, oldValue, ValueChangedEvent));
+                Value = value.Value;
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<AlignmentX>(value.Value, oldValue, ValueConfirmedEvent));
             }
         }
     }

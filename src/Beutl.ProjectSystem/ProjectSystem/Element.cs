@@ -69,16 +69,16 @@ public class Element : ProjectItem
 
         IsEnabledProperty.Changed.Subscribe(args =>
         {
-            if (args.Sender is Element layer)
+            if (args.Sender is Element element)
             {
-                layer.ForceRender();
+                element.ForceRender();
             }
         });
         UseNodeProperty.Changed.Subscribe(args =>
         {
-            if (args.Sender is Element layer)
+            if (args.Sender is Element element)
             {
-                layer.ForceRender();
+                element.ForceRender();
             }
         });
     }

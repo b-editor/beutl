@@ -18,11 +18,11 @@
              mc:Ignorable="d">
     <Panel>
         <Border x:Name="border"
-                Width="{CompiledBinding Layer.Width.Value, Mode=OneWay}"
-                Margin="{CompiledBinding Layer.BorderMargin.Value, Mode=OneWay}"
+                Width="{CompiledBinding Element.Width.Value, Mode=OneWay}"
+                Margin="{CompiledBinding Element.BorderMargin.Value, Mode=OneWay}"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Stretch"
-                BorderBrush="{CompiledBinding Layer.Color.Value, Converter={StaticResource ColorToBrushConverter}}"
+                BorderBrush="{CompiledBinding Element.Color.Value, Converter={StaticResource ColorToBrushConverter}}"
                 BorderThickness="1,0" />
 
         <ItemsControl x:Name="items"

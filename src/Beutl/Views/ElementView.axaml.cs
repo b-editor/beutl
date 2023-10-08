@@ -263,9 +263,9 @@ public sealed partial class ElementView : UserControl
         Element model = ViewModel.Model;
         EditViewModel context = ViewModel.Timeline.EditorContext;
         NodeTreeTabViewModel? nodeTree = context.FindToolTab<NodeTreeTabViewModel>(
-            v => v.Layer.Value == model || v.Layer.Value == null);
+            v => v.Element.Value == model || v.Element.Value == null);
         nodeTree ??= new NodeTreeTabViewModel(context);
-        nodeTree.Layer.Value = model;
+        nodeTree.Element.Value = model;
 
         context.OpenToolTab(nodeTree);
     }

@@ -87,7 +87,7 @@ public sealed partial class PropertyEditorMenu : UserControl
         if (DataContext is BaseEditorViewModel viewModel
             && viewModel.WrappedProperty is IAbstractAnimatableProperty animatableProperty
             && viewModel.GetService<EditViewModel>() is { } editViewModel
-            && viewModel.GetService<Element>() is { } layer
+            && viewModel.GetService<Element>() is { } element
             && editViewModel.FindToolTab<TimelineViewModel>() is { } timeline)
         {
             viewModel.PrepareToEditAnimation();
@@ -95,7 +95,7 @@ public sealed partial class PropertyEditorMenu : UserControl
             if (animatableProperty.Animation is IKeyFrameAnimation)
             {
                 // タイムラインのタブを開く
-                timeline.AttachInline(animatableProperty, layer);
+                timeline.AttachInline(animatableProperty, element);
             }
         }
     }

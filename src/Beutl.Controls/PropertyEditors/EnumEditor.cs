@@ -76,7 +76,7 @@ public class EnumEditor<TEnum> : EnumEditor
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<TEnum>(
                     s_enumValues[newIndex],
                     s_enumValues[oldIndex],
-                    ValueChangedEvent));
+                    ValueConfirmedEvent));
             }
         }
     }
@@ -140,7 +140,7 @@ public class EnumEditor : PropertyEditor
             }
             else
             {
-                if (!UseCompact)
+                if (EditorStyle != PropertyEditorStyle.Compact)
                     PseudoClasses.Remove(":compact");
             }
         }
@@ -156,7 +156,7 @@ public class EnumEditor : PropertyEditor
             // 必ず選択されている
             if (e.AddedItems.Count > 0)
             {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<int>(_comboBox.SelectedIndex, _prevSelectedIndex, ValueChangedEvent));
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<int>(_comboBox.SelectedIndex, _prevSelectedIndex, ValueConfirmedEvent));
             }
         }
     }

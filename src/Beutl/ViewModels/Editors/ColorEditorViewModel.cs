@@ -32,12 +32,12 @@ public sealed class ColorEditorViewModel : ValueEditorViewModel<Color>, IConfigu
         {
             editor[!ColorEditor.ValueProperty] = Value2.ToBinding();
             editor[!ColorEditor.IsLivePreviewEnabledProperty] = IsLivePreviewEnabled.ToBinding();
+            editor.ValueConfirmed += OnValueConfirmed;
             editor.ValueChanged += OnValueChanged;
-            editor.ValueChanging += OnValueChanging;
         }
     }
 
-    private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (sender is ColorEditor editor)
         {
@@ -45,7 +45,7 @@ public sealed class ColorEditorViewModel : ValueEditorViewModel<Color>, IConfigu
         }
     }
 
-    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (e is PropertyEditorValueChangedEventArgs<AColor> args)
         {

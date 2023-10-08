@@ -45,10 +45,10 @@ public class ElementNodeTreeModel : NodeTreeModel
         obj.Invalidated -= OnNodeInvalidated;
     }
 
-    public PooledList<Renderable> Evaluate(EvaluationTarget target, IRenderer renderer, Element layer)
+    public PooledList<Renderable> Evaluate(EvaluationTarget target, IRenderer renderer, Element element)
     {
         _ = target;
-        Build(renderer, layer.Clock);
+        Build(renderer, element.Clock);
 
         var list = new PooledList<Renderable>();
         try
@@ -69,8 +69,8 @@ public class ElementNodeTreeModel : NodeTreeModel
             // Todo: LayerOutputNodeに移動
             foreach (Renderable item in list.Span)
             {
-                item.ZIndex = layer.ZIndex;
-                item.TimeRange = new TimeRange(layer.Start, layer.Length);
+                item.ZIndex = element.ZIndex;
+                item.TimeRange = new TimeRange(element.Start, element.Length);
             }
 
             return list;

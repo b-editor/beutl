@@ -714,9 +714,9 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         public ValueTask<bool> OnSave()
         {
             _scene.Save(_scene.FileName);
-            foreach (Element layer in _scene.Children)
+            foreach (Element element in _scene.Children)
             {
-                layer.Save(layer.FileName);
+                element.Save(element.FileName);
             }
             _viewModel.SaveState();
 

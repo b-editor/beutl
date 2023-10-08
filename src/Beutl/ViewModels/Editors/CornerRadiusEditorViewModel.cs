@@ -50,12 +50,12 @@ public sealed class CornerRadiusEditorViewModel : ValueEditorViewModel<Media.Cor
             editor[!Vector4Editor<float>.SecondValueProperty] = SecondValue.ToBinding();
             editor[!Vector4Editor<float>.ThirdValueProperty] = ThirdValue.ToBinding();
             editor[!Vector4Editor<float>.FourthValueProperty] = FourthValue.ToBinding();
+            editor.ValueConfirmed += OnValueConfirmed;
             editor.ValueChanged += OnValueChanged;
-            editor.ValueChanging += OnValueChanging;
         }
     }
 
-    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (e is PropertyEditorValueChangedEventArgs<(float TopLeft, float TopRight, float BottomRight, float BottomLeft)> args)
         {
@@ -64,7 +64,7 @@ public sealed class CornerRadiusEditorViewModel : ValueEditorViewModel<Media.Cor
         }
     }
 
-    private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (sender is Vector4Editor<float> editor)
         {

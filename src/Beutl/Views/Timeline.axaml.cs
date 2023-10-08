@@ -36,8 +36,8 @@ public sealed partial class Timeline : UserControl
     internal TimeSpan _pointerFrame;
     private TimelineViewModel? _viewModel;
     private readonly CompositeDisposable _disposables = new();
-    private ElementView? _selectedLayer;
-    private readonly List<(ElementViewModel Layer, bool IsSelectedOriginal)> _rangeSelection = new();
+    private ElementView? _selectedElement;
+    private readonly List<(ElementViewModel Element, bool IsSelectedOriginal)> _rangeSelection = new();
 
     public Timeline()
     {
@@ -75,7 +75,7 @@ public sealed partial class Timeline : UserControl
         _viewModel = null;
 
         TimelinePanel.Children.RemoveRange(2, TimelinePanel.Children.Count - 2);
-        _selectedLayer = null;
+        _selectedElement = null;
         _rangeSelection.Clear();
 
         _disposables.Clear();
@@ -85,7 +85,7 @@ public sealed partial class Timeline : UserControl
     {
         _viewModel = vm;
 
-        vm.Layers.ForEachItem(
+        vm.Elements.ForEachItem(
             AddElement,
             RemoveElement,
             () => { })
@@ -133,20 +133,20 @@ public sealed partial class Timeline : UserControl
 
         ViewModel.EditorContext.SelectedObject.Subscribe(e =>
             {
-                if (_selectedLayer != null)
+                if (_selectedElement != null)
                 {
-                    foreach (ElementViewModel item in ViewModel.Layers.GetMarshal().Value)
+                    foreach (ElementViewModel item in ViewModel.Elements.GetMarshal().Value)
                     {
                         item.IsSelected.Value = false;
                     }
 
-                    _selectedLayer = null;
+                    _selectedElement = null;
                 }
 
-                if (e is Element layer && FindLayerView(layer) is ElementView { DataContext: ElementViewModel viewModel } newView)
+                if (e is Element element && FindElementView(element) is ElementView { DataContext: ElementViewModel viewModel } newView)
                 {
                     viewModel.IsSelected.Value = true;
-                    _selectedLayer = newView;
+                    _selectedElement = newView;
                 }
             })
             .DisposeWith(_disposables);
@@ -303,9 +303,9 @@ public sealed partial class Timeline : UserControl
     private void UpdateRangeSelection()
     {
         TimelineViewModel viewModel = ViewModel;
-        foreach ((ElementViewModel layer, bool isSelectedOriginal) in _rangeSelection)
+        foreach ((ElementViewModel element, bool isSelectedOriginal) in _rangeSelection)
         {
-            layer.IsSelected.Value = isSelectedOriginal;
+            element.IsSelected.Value = isSelectedOriginal;
         }
 
         _rangeSelection.Clear();
@@ -317,7 +317,7 @@ public sealed partial class Timeline : UserControl
         int startLayer = viewModel.ToLayerNumber(rect.Top);
         int endLayer = viewModel.ToLayerNumber(rect.Bottom);
 
-        foreach (ElementViewModel item in viewModel.Layers)
+        foreach (ElementViewModel item in viewModel.Elements)
         {
             if (timeRange.Intersects(item.Model.Range)
                 && startLayer <= item.Model.ZIndex && item.Model.ZIndex <= endLayer)
@@ -391,7 +391,7 @@ public sealed partial class Timeline : UserControl
             }
             else
             {
-                viewModel.AddLayer.Execute(new ElementDescription(
+                viewModel.AddElement.Execute(new ElementDescription(
                     viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(), InitialOperator: type));
             }
         }
@@ -400,7 +400,7 @@ public sealed partial class Timeline : UserControl
             ?.Select(v => v.TryGetLocalPath())
             .FirstOrDefault(v => v != null) is { } fileName)
         {
-            viewModel.AddLayer.Execute(new ElementDescription(
+            viewModel.AddElement.Execute(new ElementDescription(
                 viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(), FileName: fileName));
         }
     }
@@ -499,9 +499,9 @@ public sealed partial class Timeline : UserControl
         }
     }
 
-    private ElementView? FindLayerView(Element layer)
+    private ElementView? FindElementView(Element element)
     {
-        return TimelinePanel.Children.FirstOrDefault(ctr => ctr.DataContext is ElementViewModel vm && vm.Model == layer) as ElementView;
+        return TimelinePanel.Children.FirstOrDefault(ctr => ctr.DataContext is ElementViewModel vm && vm.Model == element) as ElementView;
     }
 
     private void ZoomClick(object? sender, RoutedEventArgs e)

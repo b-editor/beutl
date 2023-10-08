@@ -71,7 +71,7 @@ public class StringEditor : PropertyEditor
             }
             else
             {
-                if (!UseCompact)
+                if (EditorStyle != PropertyEditorStyle.Compact)
                     PseudoClasses.Remove(":compact");
             }
         }
@@ -88,7 +88,7 @@ public class StringEditor : PropertyEditor
     {
         if (Text != _oldValue)
         {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<string>(Text, _oldValue, ValueChangedEvent));
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<string>(Text, _oldValue, ValueConfirmedEvent));
         }
     }
 
@@ -96,7 +96,7 @@ public class StringEditor : PropertyEditor
     {
         if (InnerTextBox?.IsKeyboardFocusWithin == true)
         {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<string>(newValue, oldValue, ValueChangingEvent));
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<string>(newValue, oldValue, ValueChangedEvent));
         }
     }
 }

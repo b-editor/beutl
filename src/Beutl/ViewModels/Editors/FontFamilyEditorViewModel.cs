@@ -18,11 +18,11 @@ public sealed class FontFamilyEditorViewModel : ValueEditorViewModel<FontFamily?
         if (visitor is FontFamilyEditor editor)
         {
             editor[!FontFamilyEditor.ValueProperty] = Value.ToBinding();
-            editor.ValueChanged += OnValueChanged;
+            editor.ValueConfirmed += OnValueConfirmed;
         }
     }
 
-    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (e is PropertyEditorValueChangedEventArgs<FontFamily?> args)
         {

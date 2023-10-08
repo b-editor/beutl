@@ -18,30 +18,30 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
     private readonly IDisposable _disposable0;
     private EditViewModel _editViewModel;
     private IDisposable? _disposable1;
-    private Element? _oldLayer;
+    private Element? _oldElement;
 
     public SourceOperatorsTabViewModel(EditViewModel editViewModel)
     {
         _editViewModel = editViewModel;
-        Layer = editViewModel.SelectedObject
+        Element = editViewModel.SelectedObject
             .Select(x => x as Element)
             .ToReactiveProperty();
 
-        _disposable0 = Layer.Subscribe(layer =>
+        _disposable0 = Element.Subscribe(element =>
         {
-            if (_oldLayer != null)
+            if (_oldElement != null)
             {
-                SaveState(_oldLayer);
+                SaveState(_oldElement);
             }
-            _oldLayer = layer;
+            _oldElement = element;
 
             ClearItems();
-            if (layer != null)
+            if (element != null)
             {
                 _disposable1?.Dispose();
 
-                Items.AddRange(layer.Operation.Children.Select(x => new SourceOperatorViewModel(x, this)));
-                _disposable1 = layer.Operation.Children.CollectionChangedAsObservable()
+                Items.AddRange(element.Operation.Children.Select(x => new SourceOperatorViewModel(x, this)));
+                _disposable1 = element.Operation.Children.CollectionChangedAsObservable()
                     .Subscribe(e =>
                     {
                         void RemoveItems(CoreList<SourceOperatorViewModel> items, int index, int count)
@@ -95,7 +95,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
                                 break;
                         }
                     });
-                //_disposable1 = layer.Operators.ForEachItem(
+                //_disposable1 = element.Operators.ForEachItem(
                 //    (idx, item) => Items.Insert(idx, new StreamOperatorViewModel(item)),
                 //    (idx, _) =>
                 //    {
@@ -104,7 +104,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
                 //    },
                 //    () => ClearItems());
 
-                RestoreState(layer);
+                RestoreState(element);
             }
         });
     }
@@ -113,7 +113,10 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
 
     public Action<SourceOperator>? RequestScroll { get; set; }
 
-    public ReactiveProperty<Element?> Layer { get; }
+    public ReactiveProperty<Element?> Element { get; }
+
+    [Obsolete("Use Element property instead.")]
+    public ReactiveProperty<Element?> Layer => Element;
 
     public CoreList<SourceOperatorViewModel> Items { get; } = new();
 
@@ -130,22 +133,22 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
 
     public void Dispose()
     {
-        if (Layer.Value != null)
+        if (Element.Value != null)
         {
-            SaveState(Layer.Value);
-            Layer.Value = null;
+            SaveState(Element.Value);
+            Element.Value = null;
         }
         _disposable0.Dispose();
         _disposable1?.Dispose();
 
-        Layer.Dispose();
+        Element.Dispose();
         _editViewModel = null!;
         RequestScroll = null;
     }
 
-    private static string ViewStateDirectory(Element layer)
+    private static string ViewStateDirectory(Element element)
     {
-        string directory = Path.GetDirectoryName(layer.FileName)!;
+        string directory = Path.GetDirectoryName(element.FileName)!;
 
         directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
         if (!Directory.Exists(directory))
@@ -156,22 +159,22 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
         return directory;
     }
 
-    private void SaveState(Element layer)
+    private void SaveState(Element element)
     {
-        string viewStateDir = ViewStateDirectory(layer);
+        string viewStateDir = ViewStateDirectory(element);
         var json = new JsonArray();
         foreach (SourceOperatorViewModel? item in Items.GetMarshal().Value)
         {
             json.Add(item?.SaveState());
         }
 
-        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.operators.config"));
+        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(element.FileName)}.operators.config"));
     }
 
-    private void RestoreState(Element layer)
+    private void RestoreState(Element element)
     {
-        string viewStateDir = ViewStateDirectory(layer);
-        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.operators.config");
+        string viewStateDir = ViewStateDirectory(element);
+        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(element.FileName)}.operators.config");
 
         if (File.Exists(viewStateFile))
         {
@@ -203,24 +206,24 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
-        if (Layer.Value != null)
+        if (Element.Value != null)
         {
-            RestoreState(Layer.Value);
+            RestoreState(Element.Value);
         }
     }
 
     public void WriteToJson(JsonObject json)
     {
-        if (Layer.Value != null)
+        if (Element.Value != null)
         {
-            SaveState(Layer.Value);
+            SaveState(Element.Value);
         }
     }
 
     public object? GetService(Type serviceType)
     {
         if (serviceType == typeof(Element))
-            return Layer.Value;
+            return Element.Value;
 
         return _editViewModel.GetService(serviceType);
     }

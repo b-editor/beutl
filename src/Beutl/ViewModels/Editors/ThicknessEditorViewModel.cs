@@ -50,12 +50,12 @@ public sealed class ThicknessEditorViewModel : ValueEditorViewModel<Graphics.Thi
             editor[!Vector4Editor<float>.SecondValueProperty] = SecondValue.ToBinding();
             editor[!Vector4Editor<float>.ThirdValueProperty] = ThirdValue.ToBinding();
             editor[!Vector4Editor<float>.FourthValueProperty] = FourthValue.ToBinding();
+            editor.ValueConfirmed += OnValueConfirmed;
             editor.ValueChanged += OnValueChanged;
-            editor.ValueChanging += OnValueChanging;
         }
     }
 
-    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (e is PropertyEditorValueChangedEventArgs<(float Left, float Top, float Right, float Bottom)> args)
         {
@@ -64,7 +64,7 @@ public sealed class ThicknessEditorViewModel : ValueEditorViewModel<Graphics.Thi
         }
     }
 
-    private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (sender is Vector4Editor<float> editor)
         {

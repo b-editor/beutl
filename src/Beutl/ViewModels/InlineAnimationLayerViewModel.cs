@@ -11,8 +11,8 @@ namespace Beutl.ViewModels;
 
 public sealed class InlineAnimationLayerViewModel<T> : InlineAnimationLayerViewModel
 {
-    public InlineAnimationLayerViewModel(IAbstractAnimatableProperty<T> property, TimelineViewModel timeline, ElementViewModel layer)
-        : base(property, timeline, layer)
+    public InlineAnimationLayerViewModel(IAbstractAnimatableProperty<T> property, TimelineViewModel timeline, ElementViewModel element)
+        : base(property, timeline, element)
     {
     }
 
@@ -98,22 +98,22 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
     protected InlineAnimationLayerViewModel(
         IAbstractAnimatableProperty property,
         TimelineViewModel timeline,
-        ElementViewModel layer)
+        ElementViewModel element)
     {
         Property = property;
         Timeline = timeline;
-        Layer = layer;
+        Element = element;
 
-        Layer.LayerHeader.Subscribe(OnLayerHeaderChanged).DisposeWith(_disposables);
+        Element.LayerHeader.Subscribe(OnLayerHeaderChanged).DisposeWith(_disposables);
 
-        LeftMargin = _useGlobalClock.Select(v => !v ? layer.BorderMargin : Observable.Return<Thickness>(default))
+        LeftMargin = _useGlobalClock.Select(v => !v ? element.BorderMargin : Observable.Return<Thickness>(default))
             .Switch()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
         Margin = new TrackedInlineLayerTopObservable(this)
             .Select(x => new Thickness(0, x, 0, 0))
-            .CombineLatest(layer.Margin)
+            .CombineLatest(element.Margin)
             .Select(x => x.First + x.Second)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
@@ -168,8 +168,10 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public TimelineViewModel Timeline { get; }
 
-    // Todo: Rename to Element
-    public ElementViewModel Layer { get; }
+    public ElementViewModel Element { get; }
+
+    [Obsolete("Use Element property instead.")]
+    public ElementViewModel Layer => Element;
 
     public CoreList<InlineKeyFrameViewModel> Items { get; } = new();
 
@@ -185,7 +187,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public ReactiveCommand Close { get; }
 
-    public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader => Layer.LayerHeader;
+    public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader => Element.LayerHeader;
 
     public abstract void DropEasing(Easing easing, TimeSpan keyTime);
 
@@ -193,7 +195,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public TimeSpan ConvertKeyTime(TimeSpan globalkeyTime, IAnimation animation)
     {
-        TimeSpan localKeyTime = globalkeyTime - Layer.Model.Start;
+        TimeSpan localKeyTime = globalkeyTime - Element.Model.Start;
         TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
 
         int rate = Timeline.Scene?.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;

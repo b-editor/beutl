@@ -114,9 +114,9 @@ public partial class MainView
     {
         if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
             && viewModel.Scene is Scene scene
-            && viewModel.SelectedObject.Value is Element layer)
+            && viewModel.SelectedObject.Value is Element element)
         {
-            string name = Path.GetFileName(layer.FileName);
+            string name = Path.GetFileName(element.FileName);
             var dialog = new ContentDialog
             {
                 CloseButtonText = Strings.Cancel,
@@ -127,10 +127,10 @@ public partial class MainView
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                scene.RemoveChild(layer).Do();
-                if (File.Exists(layer.FileName))
+                scene.RemoveChild(element).Do();
+                if (File.Exists(element.FileName))
                 {
-                    File.Delete(layer.FileName);
+                    File.Delete(element.FileName);
                 }
             }
         }

@@ -56,7 +56,7 @@ public class ColorEditor : PropertyEditor
         if (IsLivePreviewEnabled)
         {
             RaiseEvent(new PropertyEditorValueChangedEventArgs<Color>(
-                Value, _oldValue, ValueChangedEvent));
+                Value, _oldValue, ValueConfirmedEvent));
         }
     }
 
@@ -66,7 +66,7 @@ public class ColorEditor : PropertyEditor
         {
             Value = args.NewColor.GetValueOrDefault();
             RaiseEvent(new PropertyEditorValueChangedEventArgs<Color>(
-                Value, args.OldColor.GetValueOrDefault(), ValueChangedEvent));
+                Value, args.OldColor.GetValueOrDefault(), ValueConfirmedEvent));
         }
     }
 
@@ -76,7 +76,7 @@ public class ColorEditor : PropertyEditor
         {
             Value = args.NewColor.GetValueOrDefault();
             RaiseEvent(new PropertyEditorValueChangedEventArgs<Color>(
-                args.NewColor.GetValueOrDefault(), args.OldColor.GetValueOrDefault(), ValueChangingEvent));
+                args.NewColor.GetValueOrDefault(), args.OldColor.GetValueOrDefault(), ValueChangedEvent));
         }
     }
 }
