@@ -1,14 +1,14 @@
-﻿using Avalonia;
+using Avalonia;
 
 using Beutl.Controls.PropertyEditors;
-
+using Beutl.Extensibility;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors
 {
     // Vector2
-    public sealed class PixelPointEditorViewModel : ValueEditorViewModel<Media.PixelPoint>
+    public sealed class PixelPointEditorViewModel : ValueEditorViewModel<Media.PixelPoint>, IConfigureUniformEditor
     {
         public PixelPointEditorViewModel(IAbstractProperty<Media.PixelPoint> property)
             : base(property)
@@ -28,6 +28,8 @@ namespace Beutl.ViewModels.Editors
 
         public ReadOnlyReactivePropertySlim<int> SecondValue { get; }
 
+        public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
+
         public override void Accept(IPropertyEditorContextVisitor visitor)
         {
             base.Accept(visitor);
@@ -37,8 +39,9 @@ namespace Beutl.ViewModels.Editors
                 editor.SecondHeader = "Y";
                 editor[!Vector2Editor<int>.FirstValueProperty] = FirstValue.ToBinding();
                 editor[!Vector2Editor<int>.SecondValueProperty] = SecondValue.ToBinding();
+                editor[!Vector2Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
                 editor.ValueConfirmed += OnValueConfirmed;
-                editor.ValueChanged += OnValueChanged;
+                editor.ValueChanged += ValueChanged;
             }
         }
 
@@ -51,7 +54,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
 
-        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void ValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (sender is Vector2Editor<int> editor)
             {
@@ -62,7 +65,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
     }
-    public sealed class PixelSizeEditorViewModel : ValueEditorViewModel<Media.PixelSize>
+    public sealed class PixelSizeEditorViewModel : ValueEditorViewModel<Media.PixelSize>, IConfigureUniformEditor
     {
         public PixelSizeEditorViewModel(IAbstractProperty<Media.PixelSize> property)
             : base(property)
@@ -82,6 +85,8 @@ namespace Beutl.ViewModels.Editors
 
         public ReadOnlyReactivePropertySlim<int> SecondValue { get; }
 
+        public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
+
         public override void Accept(IPropertyEditorContextVisitor visitor)
         {
             base.Accept(visitor);
@@ -91,12 +96,13 @@ namespace Beutl.ViewModels.Editors
                 editor.SecondHeader = Strings.Height;
                 editor[!Vector2Editor<int>.FirstValueProperty] = FirstValue.ToBinding();
                 editor[!Vector2Editor<int>.SecondValueProperty] = SecondValue.ToBinding();
-                editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanged += OnValueChanging;
+                editor[!Vector2Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
+                editor.ValueConfirmed += OnValueConfirmed;
+                editor.ValueChanged += ValueChanged;
             }
         }
 
-        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (e is PropertyEditorValueChangedEventArgs<(int Width, int Height)> args)
             {
@@ -105,7 +111,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
 
-        private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void ValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (sender is Vector2Editor<int> editor)
             {
@@ -116,7 +122,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
     }
-    public sealed class PointEditorViewModel : ValueEditorViewModel<Graphics.Point>
+    public sealed class PointEditorViewModel : ValueEditorViewModel<Graphics.Point>, IConfigureUniformEditor
     {
         public PointEditorViewModel(IAbstractProperty<Graphics.Point> property)
             : base(property)
@@ -136,6 +142,8 @@ namespace Beutl.ViewModels.Editors
 
         public ReadOnlyReactivePropertySlim<float> SecondValue { get; }
 
+        public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
+
         public override void Accept(IPropertyEditorContextVisitor visitor)
         {
             base.Accept(visitor);
@@ -145,12 +153,13 @@ namespace Beutl.ViewModels.Editors
                 editor.SecondHeader = "Y";
                 editor[!Vector2Editor<float>.FirstValueProperty] = FirstValue.ToBinding();
                 editor[!Vector2Editor<float>.SecondValueProperty] = SecondValue.ToBinding();
-                editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanged += OnValueChanging;
+                editor[!Vector2Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
+                editor.ValueConfirmed += OnValueConfirmed;
+                editor.ValueChanged += ValueChanged;
             }
         }
 
-        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (e is PropertyEditorValueChangedEventArgs<(float X, float Y)> args)
             {
@@ -159,7 +168,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
 
-        private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void ValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (sender is Vector2Editor<float> editor)
             {
@@ -170,7 +179,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
     }
-    public sealed class SizeEditorViewModel : ValueEditorViewModel<Graphics.Size>
+    public sealed class SizeEditorViewModel : ValueEditorViewModel<Graphics.Size>, IConfigureUniformEditor
     {
         public SizeEditorViewModel(IAbstractProperty<Graphics.Size> property)
             : base(property)
@@ -190,6 +199,8 @@ namespace Beutl.ViewModels.Editors
 
         public ReadOnlyReactivePropertySlim<float> SecondValue { get; }
 
+        public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
+
         public override void Accept(IPropertyEditorContextVisitor visitor)
         {
             base.Accept(visitor);
@@ -199,12 +210,13 @@ namespace Beutl.ViewModels.Editors
                 editor.SecondHeader = Strings.Height;
                 editor[!Vector2Editor<float>.FirstValueProperty] = FirstValue.ToBinding();
                 editor[!Vector2Editor<float>.SecondValueProperty] = SecondValue.ToBinding();
-                editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanged += OnValueChanging;
+                editor[!Vector2Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
+                editor.ValueConfirmed += OnValueConfirmed;
+                editor.ValueChanged += ValueChanged;
             }
         }
 
-        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (e is PropertyEditorValueChangedEventArgs<(float Width, float Height)> args)
             {
@@ -213,7 +225,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
 
-        private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void ValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (sender is Vector2Editor<float> editor)
             {
@@ -224,7 +236,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
     }
-    public sealed class VectorEditorViewModel : ValueEditorViewModel<Graphics.Vector>
+    public sealed class VectorEditorViewModel : ValueEditorViewModel<Graphics.Vector>, IConfigureUniformEditor
     {
         public VectorEditorViewModel(IAbstractProperty<Graphics.Vector> property)
             : base(property)
@@ -244,6 +256,8 @@ namespace Beutl.ViewModels.Editors
 
         public ReadOnlyReactivePropertySlim<float> SecondValue { get; }
 
+        public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
+
         public override void Accept(IPropertyEditorContextVisitor visitor)
         {
             base.Accept(visitor);
@@ -253,12 +267,13 @@ namespace Beutl.ViewModels.Editors
                 editor.SecondHeader = "Y";
                 editor[!Vector2Editor<float>.FirstValueProperty] = FirstValue.ToBinding();
                 editor[!Vector2Editor<float>.SecondValueProperty] = SecondValue.ToBinding();
-                editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanged += OnValueChanging;
+                editor[!Vector2Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
+                editor.ValueConfirmed += OnValueConfirmed;
+                editor.ValueChanged += ValueChanged;
             }
         }
 
-        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (e is PropertyEditorValueChangedEventArgs<(float X, float Y)> args)
             {
@@ -267,7 +282,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
 
-        private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void ValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (sender is Vector2Editor<float> editor)
             {
@@ -278,7 +293,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
     }
-    public sealed class Vector2EditorViewModel : ValueEditorViewModel<System.Numerics.Vector2>
+    public sealed class Vector2EditorViewModel : ValueEditorViewModel<System.Numerics.Vector2>, IConfigureUniformEditor
     {
         public Vector2EditorViewModel(IAbstractProperty<System.Numerics.Vector2> property)
             : base(property)
@@ -298,6 +313,8 @@ namespace Beutl.ViewModels.Editors
 
         public ReadOnlyReactivePropertySlim<float> SecondValue { get; }
 
+        public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
+
         public override void Accept(IPropertyEditorContextVisitor visitor)
         {
             base.Accept(visitor);
@@ -307,12 +324,13 @@ namespace Beutl.ViewModels.Editors
                 editor.SecondHeader = "Y";
                 editor[!Vector2Editor<float>.FirstValueProperty] = FirstValue.ToBinding();
                 editor[!Vector2Editor<float>.SecondValueProperty] = SecondValue.ToBinding();
-                editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanged += OnValueChanging;
+                editor[!Vector2Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
+                editor.ValueConfirmed += OnValueConfirmed;
+                editor.ValueChanged += ValueChanged;
             }
         }
 
-        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (e is PropertyEditorValueChangedEventArgs<(float X, float Y)> args)
             {
@@ -321,7 +339,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
 
-        private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void ValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (sender is Vector2Editor<float> editor)
             {
@@ -334,7 +352,7 @@ namespace Beutl.ViewModels.Editors
     }
 
     // Vector3
-    public sealed class Vector3EditorViewModel : ValueEditorViewModel<System.Numerics.Vector3>
+    public sealed class Vector3EditorViewModel : ValueEditorViewModel<System.Numerics.Vector3>, IConfigureUniformEditor
     {
         public Vector3EditorViewModel(IAbstractProperty<System.Numerics.Vector3> property)
             : base(property)
@@ -360,6 +378,8 @@ namespace Beutl.ViewModels.Editors
         public ReadOnlyReactivePropertySlim<float> SecondValue { get; }
 
         public ReadOnlyReactivePropertySlim<float> ThirdValue { get; }
+        
+        public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
 
         public override void Accept(IPropertyEditorContextVisitor visitor)
         {
@@ -373,12 +393,13 @@ namespace Beutl.ViewModels.Editors
                 editor[!Vector3Editor<float>.FirstValueProperty] = FirstValue.ToBinding();
                 editor[!Vector3Editor<float>.SecondValueProperty] = SecondValue.ToBinding();
                 editor[!Vector3Editor<float>.ThirdValueProperty] = ThirdValue.ToBinding();
-                editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanged += OnValueChanging;
+                editor[!Vector3Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
+                editor.ValueConfirmed += OnValueConfirmed;
+                editor.ValueChanged += ValueChanged;
             }
         }
 
-        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (e is PropertyEditorValueChangedEventArgs<(float X, float Y, float Z)> args)
             {
@@ -387,7 +408,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
 
-        private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void ValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (sender is Vector3Editor<float> editor)
             {
@@ -401,7 +422,7 @@ namespace Beutl.ViewModels.Editors
     }
 
     // Vector4
-    public sealed class PixelRectEditorViewModel : ValueEditorViewModel<Media.PixelRect>
+    public sealed class PixelRectEditorViewModel : ValueEditorViewModel<Media.PixelRect>, IConfigureUniformEditor
     {
         public PixelRectEditorViewModel(IAbstractProperty<Media.PixelRect> property)
             : base(property)
@@ -434,6 +455,8 @@ namespace Beutl.ViewModels.Editors
         public ReadOnlyReactivePropertySlim<int> ThirdValue { get; }
 
         public ReadOnlyReactivePropertySlim<int> FourthValue { get; }
+        
+        public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
 
         public override void Accept(IPropertyEditorContextVisitor visitor)
         {
@@ -449,12 +472,13 @@ namespace Beutl.ViewModels.Editors
                 editor[!Vector4Editor<int>.SecondValueProperty] = SecondValue.ToBinding();
                 editor[!Vector4Editor<int>.ThirdValueProperty] = ThirdValue.ToBinding();
                 editor[!Vector4Editor<int>.FourthValueProperty] = FourthValue.ToBinding();
-                editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanged += OnValueChanging;
+                editor[!Vector4Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
+                editor.ValueConfirmed += OnValueConfirmed;
+                editor.ValueChanged += OnValueChanged;
             }
         }
 
-        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (e is PropertyEditorValueChangedEventArgs<(int X, int Y, int Width, int Height)> args)
             {
@@ -463,7 +487,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
 
-        private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (sender is Vector4Editor<int> editor)
             {
@@ -476,7 +500,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
     }
-    public sealed class RectEditorViewModel : ValueEditorViewModel<Graphics.Rect>
+    public sealed class RectEditorViewModel : ValueEditorViewModel<Graphics.Rect>, IConfigureUniformEditor
     {
         public RectEditorViewModel(IAbstractProperty<Graphics.Rect> property)
             : base(property)
@@ -509,6 +533,8 @@ namespace Beutl.ViewModels.Editors
         public ReadOnlyReactivePropertySlim<float> ThirdValue { get; }
 
         public ReadOnlyReactivePropertySlim<float> FourthValue { get; }
+        
+        public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
 
         public override void Accept(IPropertyEditorContextVisitor visitor)
         {
@@ -524,12 +550,13 @@ namespace Beutl.ViewModels.Editors
                 editor[!Vector4Editor<float>.SecondValueProperty] = SecondValue.ToBinding();
                 editor[!Vector4Editor<float>.ThirdValueProperty] = ThirdValue.ToBinding();
                 editor[!Vector4Editor<float>.FourthValueProperty] = FourthValue.ToBinding();
-                editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanged += OnValueChanging;
+                editor[!Vector4Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
+                editor.ValueConfirmed += OnValueConfirmed;
+                editor.ValueChanged += OnValueChanged;
             }
         }
 
-        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (e is PropertyEditorValueChangedEventArgs<(float X, float Y, float Width, float Height)> args)
             {
@@ -538,7 +565,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
 
-        private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (sender is Vector4Editor<float> editor)
             {
@@ -551,7 +578,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
     }
-    public sealed class Vector4EditorViewModel : ValueEditorViewModel<System.Numerics.Vector4>
+    public sealed class Vector4EditorViewModel : ValueEditorViewModel<System.Numerics.Vector4>, IConfigureUniformEditor
     {
         public Vector4EditorViewModel(IAbstractProperty<System.Numerics.Vector4> property)
             : base(property)
@@ -584,6 +611,8 @@ namespace Beutl.ViewModels.Editors
         public ReadOnlyReactivePropertySlim<float> ThirdValue { get; }
 
         public ReadOnlyReactivePropertySlim<float> FourthValue { get; }
+        
+        public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
 
         public override void Accept(IPropertyEditorContextVisitor visitor)
         {
@@ -599,12 +628,13 @@ namespace Beutl.ViewModels.Editors
                 editor[!Vector4Editor<float>.SecondValueProperty] = SecondValue.ToBinding();
                 editor[!Vector4Editor<float>.ThirdValueProperty] = ThirdValue.ToBinding();
                 editor[!Vector4Editor<float>.FourthValueProperty] = FourthValue.ToBinding();
-                editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanged += OnValueChanging;
+                editor[!Vector4Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
+                editor.ValueConfirmed += OnValueConfirmed;
+                editor.ValueChanged += OnValueChanged;
             }
         }
 
-        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (e is PropertyEditorValueChangedEventArgs<(float X, float Y, float Z, float W)> args)
             {
@@ -613,7 +643,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
 
-        private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (sender is Vector4Editor<float> editor)
             {

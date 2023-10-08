@@ -7,7 +7,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class RelativePointEditorViewModel : ValueEditorViewModel<Graphics.RelativePoint>
+public sealed class RelativePointEditorViewModel : ValueEditorViewModel<Graphics.RelativePoint>,IConfigureUniformEditor
 {
     public RelativePointEditorViewModel(IAbstractProperty<Graphics.RelativePoint> property)
         : base(property)
@@ -34,6 +34,8 @@ public sealed class RelativePointEditorViewModel : ValueEditorViewModel<Graphics
 
     public ReadOnlyReactivePropertySlim<Graphics.RelativeUnit> UnitValue { get; }
 
+    public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
+
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
@@ -42,6 +44,7 @@ public sealed class RelativePointEditorViewModel : ValueEditorViewModel<Graphics
             editor[!RelativePointEditor.FirstValueProperty] = FirstValue.ToBinding();
             editor[!RelativePointEditor.SecondValueProperty] = SecondValue.ToBinding();
             editor[!RelativePointEditor.UnitProperty] = UnitValue.ToBinding();
+            editor[!Vector2Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
             editor.ValueConfirmed += OnValueConfirmed;
             editor.ValueChanged += OnValueChanged;
         }

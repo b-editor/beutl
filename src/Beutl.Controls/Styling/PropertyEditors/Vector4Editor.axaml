@@ -9,6 +9,15 @@
                 <local:Vector4Editor EditorStyle="ListItem" Header="Property 1" />
                 <local:Vector4Editor Header="Property 1" />
                 <local:Vector4Editor Header="Property 1" KeyFrameCount="3" />
+                <local:Vector4Editor FirstText="0"
+                                     Header="Property 1"
+                                     IsUniform="True"
+                                     KeyFrameCount="3" />
+                <local:Vector4Editor EditorStyle="Compact"
+                                     FirstText="0"
+                                     Header="Property 1"
+                                     IsUniform="True"
+                                     KeyFrameCount="3" />
             </StackPanel>
         </Border>
     </Design.PreviewWith>
@@ -27,7 +36,8 @@
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}">
                     <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,*">
-                        <TextBlock Grid.Row="0"
+                        <TextBlock Name="PART_HeaderTextBlock"
+                                   Grid.Row="0"
                                    Margin="4,0,0,0"
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
@@ -225,6 +235,133 @@
                                     Theme="{StaticResource TransparentButton}">
                                 <icons:SymbolIcon Symbol="Delete" />
                             </Button>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="^:uniform">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Name="PART_HeaderTextBlock"
+                                       Margin="4,0,0,0"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"
+                                       ClipToBounds="False"
+                                       Text="{TemplateBinding Header}"
+                                       TextTrimming="CharacterEllipsis" />
+
+                            <GridSplitter Grid.Column="1" Background="Transparent" />
+
+                            <Grid Grid.Column="2"
+                                  MinWidth="120"
+                                  Margin="4"
+                                  ColumnDefinitions="*,Auto">
+                                <DataValidationErrors Grid.Row="2">
+                                    <Panel>
+                                        <Border Name="PART_BackgroundBorder"
+                                                Background="{DynamicResource TextControlBackground}"
+                                                BorderBrush="{DynamicResource TextControlBorderBrush}"
+                                                BorderThickness="{DynamicResource TextControlBorderThemeThickness}"
+                                                CornerRadius="{DynamicResource ControlCornerRadius}" />
+
+                                        <TextBox x:Name="PART_InnerFirstTextBox"
+                                                 HorizontalAlignment="Stretch"
+                                                 HorizontalContentAlignment="Left"
+                                                 IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                                 Text="{TemplateBinding FirstText, Mode=TwoWay}"
+                                                 Theme="{StaticResource VectorElementTextBox}" />
+                                    </Panel>
+                                </DataValidationErrors>
+
+                                <StackPanel Name="LeftRightButtons"
+                                            Grid.Column="1"
+                                            Margin="4,0,0,0"
+                                            Orientation="Horizontal">
+                                    <Button Name="PART_LeftButton"
+                                            Classes="left"
+                                            Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                                    <Button Name="PART_RightButton"
+                                            Classes="right"
+                                            Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <ContentPresenter Name="PART_MenuContentPresenter"
+                                              Grid.Column="3"
+                                              Content="{TemplateBinding MenuContent}"
+                                              ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="^:uniform:compact">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,*">
+                            <TextBlock Name="PART_HeaderTextBlock"
+                                       Grid.Row="0"
+                                       Margin="4,0,0,0"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"
+                                       Text="{TemplateBinding Header}" />
+
+                            <DataValidationErrors Grid.Row="2">
+                                <Panel>
+                                    <Border Name="PART_BackgroundBorder"
+                                            Margin="4"
+                                            Background="{DynamicResource TextControlBackground}"
+                                            BorderBrush="{DynamicResource TextControlBorderBrush}"
+                                            BorderThickness="{DynamicResource TextControlBorderThemeThickness}"
+                                            CornerRadius="{DynamicResource ControlCornerRadius}" />
+
+                                    <TextBox x:Name="PART_InnerFirstTextBox"
+                                             Margin="4,4"
+                                             HorizontalAlignment="Stretch"
+                                             HorizontalContentAlignment="Left"
+                                             IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                             Text="{TemplateBinding FirstText, Mode=TwoWay}"
+                                             Theme="{StaticResource VectorElementTextBox}" />
+                                </Panel>
+                            </DataValidationErrors>
+
+                            <StackPanel Name="LeftRightButtons"
+                                        Margin="0,0,4,0"
+                                        HorizontalAlignment="Right"
+                                        Orientation="Horizontal">
+                                <Button Name="PART_LeftButton"
+                                        Classes="left"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                                <Button Name="PART_RightButton"
+                                        Classes="right"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                            </StackPanel>
+
+                            <ContentPresenter Grid.Row="2"
+                                              Grid.Column="1"
+                                              Content="{TemplateBinding MenuContent}"
+                                              ContentTemplate="{TemplateBinding MenuContentTemplate}" />
                         </Grid>
                     </Border>
                 </ControlTemplate>

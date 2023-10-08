@@ -36,6 +36,11 @@
                                                                        Mode=TwoWay}"
                                          IsVisible="False"
                                          Text="{x:Static lang:Strings.EnableLivePreview}" />
+                <ui:ToggleMenuFlyoutItem x:Name="uniformEditorToggle"
+                                         IsChecked="{ReflectionBinding IsUniformEditorEnabled.Value,
+                                                                       Mode=TwoWay}"
+                                         IsVisible="False"
+                                         Text="一定な値" />
             </ui:FAMenuFlyout>
         </Button.ContextFlyout>
         <icons:SymbolIcon x:Name="symbolIcon"

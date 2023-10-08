@@ -27,6 +27,7 @@ public sealed partial class PropertyEditorMenu : UserControl
     {
         base.OnDataContextChanged(e);
         toggleLivePreview.IsVisible = DataContext is IConfigureLivePreview;
+        uniformEditorToggle.IsVisible = DataContext is IConfigureUniformEditor;
     }
 
     private void Button_Click(object? sender, RoutedEventArgs e)
