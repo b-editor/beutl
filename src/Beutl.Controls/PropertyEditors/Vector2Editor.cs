@@ -133,7 +133,7 @@ public class Vector2Editor<TElement> : Vector2Editor
 
             (FirstValue, SecondValue) = newValues;
             RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
-                newValues, oldValues, ValueChangingEvent));
+                newValues, oldValues, ValueChangedEvent));
 
             // ポインタロック
             PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
@@ -238,7 +238,7 @@ public class Vector2Editor<TElement> : Vector2Editor
                 }
 
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
-                    newValues, oldValues, ValueChangingEvent));
+                    newValues, oldValues, ValueChangedEvent));
             }
         }
 

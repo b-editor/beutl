@@ -76,7 +76,7 @@ public class ColorEditor : PropertyEditor
         {
             Value = args.NewColor.GetValueOrDefault();
             RaiseEvent(new PropertyEditorValueChangedEventArgs<Color>(
-                args.NewColor.GetValueOrDefault(), args.OldColor.GetValueOrDefault(), ValueChangingEvent));
+                args.NewColor.GetValueOrDefault(), args.OldColor.GetValueOrDefault(), ValueChangedEvent));
         }
     }
 }

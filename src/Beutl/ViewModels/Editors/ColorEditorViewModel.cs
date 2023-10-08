@@ -33,11 +33,11 @@ public sealed class ColorEditorViewModel : ValueEditorViewModel<Color>, IConfigu
             editor[!ColorEditor.ValueProperty] = Value2.ToBinding();
             editor[!ColorEditor.IsLivePreviewEnabledProperty] = IsLivePreviewEnabled.ToBinding();
             editor.ValueConfirmed += OnValueConfirmed;
-            editor.ValueChanging += OnValueChanging;
+            editor.ValueChanged += OnValueChanged;
         }
     }
 
-    private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (sender is ColorEditor editor)
         {

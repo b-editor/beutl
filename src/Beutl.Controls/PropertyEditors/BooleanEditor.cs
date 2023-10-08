@@ -42,7 +42,7 @@ public class BooleanEditor : PropertyEditor
             && toggleButton.IsChecked.HasValue)
         {
             bool value = toggleButton.IsChecked.Value;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<bool>(value, !value, ValueChangingEvent));
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<bool>(value, !value, ValueChangedEvent));
             Value = value;
             RaiseEvent(new PropertyEditorValueChangedEventArgs<bool>(value, !value, ValueConfirmedEvent));
 

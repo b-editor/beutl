@@ -38,7 +38,7 @@ namespace Beutl.ViewModels.Editors
                 editor[!Vector2Editor<int>.FirstValueProperty] = FirstValue.ToBinding();
                 editor[!Vector2Editor<int>.SecondValueProperty] = SecondValue.ToBinding();
                 editor.ValueConfirmed += OnValueConfirmed;
-                editor.ValueChanging += OnValueChanging;
+                editor.ValueChanged += OnValueChanged;
             }
         }
 
@@ -51,7 +51,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
 
-        private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (sender is Vector2Editor<int> editor)
             {
@@ -92,7 +92,7 @@ namespace Beutl.ViewModels.Editors
                 editor[!Vector2Editor<int>.FirstValueProperty] = FirstValue.ToBinding();
                 editor[!Vector2Editor<int>.SecondValueProperty] = SecondValue.ToBinding();
                 editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanging += OnValueChanging;
+                editor.ValueChanged += OnValueChanging;
             }
         }
 
@@ -146,7 +146,7 @@ namespace Beutl.ViewModels.Editors
                 editor[!Vector2Editor<float>.FirstValueProperty] = FirstValue.ToBinding();
                 editor[!Vector2Editor<float>.SecondValueProperty] = SecondValue.ToBinding();
                 editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanging += OnValueChanging;
+                editor.ValueChanged += OnValueChanging;
             }
         }
 
@@ -200,7 +200,7 @@ namespace Beutl.ViewModels.Editors
                 editor[!Vector2Editor<float>.FirstValueProperty] = FirstValue.ToBinding();
                 editor[!Vector2Editor<float>.SecondValueProperty] = SecondValue.ToBinding();
                 editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanging += OnValueChanging;
+                editor.ValueChanged += OnValueChanging;
             }
         }
 
@@ -254,7 +254,7 @@ namespace Beutl.ViewModels.Editors
                 editor[!Vector2Editor<float>.FirstValueProperty] = FirstValue.ToBinding();
                 editor[!Vector2Editor<float>.SecondValueProperty] = SecondValue.ToBinding();
                 editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanging += OnValueChanging;
+                editor.ValueChanged += OnValueChanging;
             }
         }
 
@@ -308,7 +308,7 @@ namespace Beutl.ViewModels.Editors
                 editor[!Vector2Editor<float>.FirstValueProperty] = FirstValue.ToBinding();
                 editor[!Vector2Editor<float>.SecondValueProperty] = SecondValue.ToBinding();
                 editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanging += OnValueChanging;
+                editor.ValueChanged += OnValueChanging;
             }
         }
 
@@ -374,7 +374,7 @@ namespace Beutl.ViewModels.Editors
                 editor[!Vector3Editor<float>.SecondValueProperty] = SecondValue.ToBinding();
                 editor[!Vector3Editor<float>.ThirdValueProperty] = ThirdValue.ToBinding();
                 editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanging += OnValueChanging;
+                editor.ValueChanged += OnValueChanging;
             }
         }
 
@@ -450,7 +450,7 @@ namespace Beutl.ViewModels.Editors
                 editor[!Vector4Editor<int>.ThirdValueProperty] = ThirdValue.ToBinding();
                 editor[!Vector4Editor<int>.FourthValueProperty] = FourthValue.ToBinding();
                 editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanging += OnValueChanging;
+                editor.ValueChanged += OnValueChanging;
             }
         }
 
@@ -525,7 +525,7 @@ namespace Beutl.ViewModels.Editors
                 editor[!Vector4Editor<float>.ThirdValueProperty] = ThirdValue.ToBinding();
                 editor[!Vector4Editor<float>.FourthValueProperty] = FourthValue.ToBinding();
                 editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanging += OnValueChanging;
+                editor.ValueChanged += OnValueChanging;
             }
         }
 
@@ -600,7 +600,7 @@ namespace Beutl.ViewModels.Editors
                 editor[!Vector4Editor<float>.ThirdValueProperty] = ThirdValue.ToBinding();
                 editor[!Vector4Editor<float>.FourthValueProperty] = FourthValue.ToBinding();
                 editor.ValueConfirmed += OnValueChanged;
-                editor.ValueChanging += OnValueChanging;
+                editor.ValueChanged += OnValueChanging;
             }
         }
 

@@ -165,7 +165,7 @@ public class Vector3Editor<TElement> : Vector3Editor
 
             (FirstValue, SecondValue, ThirdValue) = newValues;
             RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
-                newValues, oldValues, ValueChangingEvent));
+                newValues, oldValues, ValueChangedEvent));
 
             // ポインタロック
             PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
@@ -281,7 +281,7 @@ public class Vector3Editor<TElement> : Vector3Editor
                 }
 
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
-                    newValues, oldValues, ValueChangingEvent));
+                    newValues, oldValues, ValueChangedEvent));
             }
         }
 

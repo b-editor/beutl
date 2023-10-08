@@ -96,7 +96,7 @@ public class StringEditor : PropertyEditor
     {
         if (InnerTextBox?.IsKeyboardFocusWithin == true)
         {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<string>(newValue, oldValue, ValueChangingEvent));
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<string>(newValue, oldValue, ValueChangedEvent));
         }
     }
 }

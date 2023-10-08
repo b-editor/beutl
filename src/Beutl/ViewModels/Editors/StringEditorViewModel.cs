@@ -27,7 +27,7 @@ public sealed class StringEditorViewModel : ValueEditorViewModel<string?>
             }
 
             editor[!StringEditor.TextProperty] = Value.ToBinding();
-            editor.ValueChanging += OnValueChanging;
+            editor.ValueChanged += OnValueChanged;
             editor.ValueConfirmed += OnValueConfirmed;
             editor.Classes.Set("multiline", multiline);
         }
@@ -41,7 +41,7 @@ public sealed class StringEditorViewModel : ValueEditorViewModel<string?>
         }
     }
 
-    private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (sender is StringEditor editor)
         {

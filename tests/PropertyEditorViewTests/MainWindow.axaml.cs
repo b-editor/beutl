@@ -52,7 +52,7 @@ namespace PropertyEditorViewTests
             stack.Children.Add(typedenumEditor);
             stack.Children.Add(indexEditor);
 
-            indexEditor.ValueChanging += IndexEditor_ValueChanged;
+            indexEditor.ValueChanged += IndexEditor_ValueChanged;
             typedenumEditor.ValueConfirmed += EnumEditor_ValueConfirmed;
         }
 

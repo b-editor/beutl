@@ -51,8 +51,8 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     public static readonly StyledProperty<Control> ReorderHandleProperty =
         AvaloniaProperty.Register<PropertyEditor, Control>(nameof(ReorderHandle), null);
 
-    public static readonly RoutedEvent<PropertyEditorValueChangedEventArgs> ValueChangingEvent =
-        RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueChanging), RoutingStrategies.Bubble);
+    public static readonly RoutedEvent<PropertyEditorValueChangedEventArgs> ValueChangedEvent =
+        RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueChanged), RoutingStrategies.Bubble);
 
     public static readonly RoutedEvent<PropertyEditorValueChangedEventArgs> ValueConfirmedEvent =
         RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueConfirmed), RoutingStrategies.Bubble);
@@ -114,10 +114,10 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
 
     public event EventHandler DeleteRequested;
 
-    public event EventHandler<PropertyEditorValueChangedEventArgs> ValueChanging
+    public event EventHandler<PropertyEditorValueChangedEventArgs> ValueChanged
     {
-        add => AddHandler(ValueChangingEvent, value);
-        remove => RemoveHandler(ValueChangingEvent, value);
+        add => AddHandler(ValueChangedEvent, value);
+        remove => RemoveHandler(ValueChangedEvent, value);
     }
 
     public event EventHandler<PropertyEditorValueChangedEventArgs> ValueConfirmed

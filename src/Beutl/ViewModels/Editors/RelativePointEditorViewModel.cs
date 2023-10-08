@@ -43,7 +43,7 @@ public sealed class RelativePointEditorViewModel : ValueEditorViewModel<Graphics
             editor[!RelativePointEditor.SecondValueProperty] = SecondValue.ToBinding();
             editor[!RelativePointEditor.UnitProperty] = UnitValue.ToBinding();
             editor.ValueConfirmed += OnValueConfirmed;
-            editor.ValueChanging += OnValueChanging;
+            editor.ValueChanged += OnValueChanged;
         }
     }
 
@@ -55,7 +55,7 @@ public sealed class RelativePointEditorViewModel : ValueEditorViewModel<Graphics
         }
     }
 
-    private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (e is PropertyEditorValueChangedEventArgs<Graphics.RelativePoint> args
             && sender is RelativePointEditor editor)

@@ -155,8 +155,7 @@ public class Vector4Editor<TElement> : Vector4Editor
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
-            if (
-                FirstValue != _oldFirstValue
+            if (FirstValue != _oldFirstValue
                 || SecondValue != _oldSecondValue
                 || ThirdValue != _oldThirdValue
                 || FourthValue != _oldFourthValue)
@@ -182,39 +181,36 @@ public class Vector4Editor<TElement> : Vector4Editor
 
             if (invalidOldValue || newValue2 != oldValue2)
             {
+                var newValues = (FirstValue, SecondValue, ThirdValue, FourthValue);
+                var oldValues = (FirstValue, SecondValue, ThirdValue, FourthValue);
                 switch (sender.Name)
                 {
                     case "PART_InnerFirstTextBox":
                         FirstValue = newValue2;
-                        RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
-                            (newValue2, SecondValue, ThirdValue, FourthValue),
-                            (oldValue2, SecondValue, ThirdValue, FourthValue),
-                            ValueChangingEvent));
+                        newValues.FirstValue = newValue2;
+                        oldValues.FirstValue = oldValue2;
                         break;
                     case "PART_InnerSecondTextBox":
                         SecondValue = newValue2;
-                        RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
-                            (FirstValue, newValue2, ThirdValue, FourthValue),
-                            (FirstValue, oldValue2, ThirdValue, FourthValue),
-                            ValueChangingEvent));
+                        newValues.SecondValue = newValue2;
+                        oldValues.SecondValue = oldValue2;
                         break;
                     case "PART_InnerThirdTextBox":
                         ThirdValue = newValue2;
-                        RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
-                            (FirstValue, SecondValue, newValue2, FourthValue),
-                            (FirstValue, SecondValue, oldValue2, FourthValue),
-                            ValueChangingEvent));
+                        newValues.ThirdValue = newValue2;
+                        oldValues.ThirdValue = oldValue2;
                         break;
                     case "PART_InnerFourthTextBox":
                         FourthValue = newValue2;
-                        RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
-                            (FirstValue, SecondValue, ThirdValue, newValue2),
-                            (FirstValue, SecondValue, ThirdValue, oldValue2),
-                            ValueChangingEvent));
+                        newValues.FourthValue = newValue2;
+                        oldValues.FourthValue = oldValue2;
                         break;
                     default:
                         break;
                 }
+
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
+                    newValues, oldValues, ValueChangedEvent));
             }
         }
 
@@ -223,8 +219,7 @@ public class Vector4Editor<TElement> : Vector4Editor
 
     private void UpdateErrors()
     {
-        if (
-            TElement.TryParse(InnerFirstTextBox.Text, CultureInfo.CurrentUICulture, out _)
+        if (TElement.TryParse(InnerFirstTextBox.Text, CultureInfo.CurrentUICulture, out _)
             && TElement.TryParse(InnerSecondTextBox.Text, CultureInfo.CurrentUICulture, out _)
             && TElement.TryParse(InnerThirdTextBox.Text, CultureInfo.CurrentUICulture, out _)
             && TElement.TryParse(InnerFourthTextBox.Text, CultureInfo.CurrentUICulture, out _))
@@ -463,8 +458,7 @@ public class Vector4Editor : PropertyEditor
         else if (InnerFourthTextBox.IsFocused)
             PseudoClasses.Add(FocusFourthTextBox);
 
-        if (
-            InnerFirstTextBox.IsFocused
+        if (InnerFirstTextBox.IsFocused
             || InnerSecondTextBox.IsFocused
             || InnerThirdTextBox.IsFocused
             || InnerFourthTextBox.IsFocused)

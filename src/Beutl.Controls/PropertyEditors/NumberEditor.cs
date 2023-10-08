@@ -82,7 +82,7 @@ public class NumberEditor<TValue> : StringEditor
             if (newValue != oldValue)
             {
                 Value = newValue;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue, oldValue, ValueChangingEvent));
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue, oldValue, ValueChangedEvent));
             }
 
             // ポインタロック
@@ -156,7 +156,7 @@ public class NumberEditor<TValue> : StringEditor
             if (invalidOldValue || newValue2 != oldValue2)
             {
                 Value = newValue2;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue2, oldValue2, ValueChangingEvent));
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue2, oldValue2, ValueChangedEvent));
             }
         }
 

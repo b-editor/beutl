@@ -191,7 +191,7 @@ public class RelativePointEditor : Vector2Editor
                         RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativePoint>(
                             new Graphics.RelativePoint(newValue2, SecondValue, newUnit),
                             new Graphics.RelativePoint(oldValue2, SecondValue, oldUnit),
-                            ValueChangingEvent));
+                            ValueChangedEvent));
                         break;
                     case "PART_InnerSecondTextBox":
                         SecondValue = newValue2;
@@ -199,7 +199,7 @@ public class RelativePointEditor : Vector2Editor
                         RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativePoint>(
                             new Graphics.RelativePoint(FirstValue, newValue2, newUnit),
                             new Graphics.RelativePoint(FirstValue, oldValue2, oldUnit),
-                            ValueChangingEvent));
+                            ValueChangedEvent));
                         break;
                     default:
                         break;
