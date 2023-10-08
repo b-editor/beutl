@@ -1,7 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Nodes;
 
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Serialization;
+using Beutl.Serialization.Migration;
 
 namespace Beutl.Graphics.Effects;
 
@@ -85,5 +88,50 @@ public sealed class DropShadow : FilterEffect
             .Inflate(new Thickness(_sigma.Width * 3, _sigma.Height * 3));
 
         return _shadowOnly ? shadowBounds : bounds.Union(shadowBounds);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        // Todo: 互換性処理
+        if (context is IJsonSerializationContext jsonContext)
+        {
+            JsonObject json = jsonContext.GetJsonObject();
+
+            try
+            {
+                JsonNode? animations = json["Animations"] ?? json["animations"];
+                JsonNode? sigma = animations?[nameof(Sigma)];
+
+                if (sigma != null)
+                {
+                    Migration_ChangeSigmaType.Update(sigma);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        base.Deserialize(context);
+    }
+
+    [ObsoleteSerializationApi]
+    public override void ReadFromJson(JsonObject json)
+    {
+        try
+        {
+            JsonNode? animations = json["Animations"] ?? json["animations"];
+            JsonNode? sigma = animations?[nameof(Sigma)];
+
+            if (sigma != null)
+            {
+                Migration_ChangeSigmaType.Update(sigma);
+            }
+        }
+        catch
+        {
+        }
+
+        base.ReadFromJson(json);
     }
 }
