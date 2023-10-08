@@ -9,9 +9,9 @@
                 <local:StorageFileEditor EditorStyle="ListItem" Header="Property 1" />
                 <local:StorageFileEditor Header="Property 1" />
                 <local:StorageFileEditor Header="Property 2" KeyFrameCount="3" />
-                <local:StorageFileEditor Header="Property 2"
-                                         KeyFrameCount="3"
-                                         UseCompact="True" />
+                <local:StorageFileEditor EditorStyle="Compact"
+                                         Header="Property 2"
+                                         KeyFrameCount="3" />
             </StackPanel>
         </Border>
     </Design.PreviewWith>

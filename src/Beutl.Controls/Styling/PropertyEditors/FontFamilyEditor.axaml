@@ -9,9 +9,9 @@
                 <local:FontFamilyEditor EditorStyle="ListItem" Header="Property 2" />
                 <local:FontFamilyEditor Header="Property 1" KeyFrameCount="3" />
                 <local:FontFamilyEditor Header="Property 2" />
-                <local:FontFamilyEditor Header="Property 2"
-                                        KeyFrameCount="3"
-                                        UseCompact="True" />
+                <local:FontFamilyEditor EditorStyle="Compact"
+                                        Header="Property 2"
+                                        KeyFrameCount="3" />
             </StackPanel>
         </Border>
     </Design.PreviewWith>

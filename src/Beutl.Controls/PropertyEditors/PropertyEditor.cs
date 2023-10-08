@@ -33,9 +33,6 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     public static readonly StyledProperty<bool> IsReadOnlyProperty =
         TextBox.IsReadOnlyProperty.AddOwner<PropertyEditor>();
 
-    public static readonly StyledProperty<bool> UseCompactProperty =
-        AvaloniaProperty.Register<PropertyEditor, bool>(nameof(UseCompact), false);
-
     public static readonly StyledProperty<PropertyEditorStyle> EditorStyleProperty =
         AvaloniaProperty.Register<PropertyEditor, PropertyEditorStyle>(nameof(EditorStyle), PropertyEditorStyle.Normal);
 
@@ -83,12 +80,6 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     {
         get => GetValue(EditorStyleProperty);
         set => SetValue(EditorStyleProperty, value);
-    }
-
-    public bool UseCompact
-    {
-        get => GetValue(UseCompactProperty);
-        private set => SetValue(UseCompactProperty, value);
     }
 
     public object MenuContent
@@ -160,7 +151,6 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         base.OnPropertyChanged(change);
         if (change.Property == EditorStyleProperty)
         {
-            UseCompact = EditorStyle == PropertyEditorStyle.Compact;
             UpdateStyle();
         }
         else if (change.Property == MenuContentProperty)

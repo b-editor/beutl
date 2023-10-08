@@ -9,9 +9,9 @@
                 <local:EnumEditor EditorStyle="ListItem" Header="Property 1" />
                 <local:EnumEditor Header="Property 1" />
                 <local:EnumEditor Header="Property 2" KeyFrameCount="3" />
-                <local:EnumEditor Header="Property 2"
-                                  KeyFrameCount="3"
-                                  UseCompact="True" />
+                <local:EnumEditor EditorStyle="Compact"
+                                  Header="Property 2"
+                                  KeyFrameCount="3" />
             </StackPanel>
         </Border>
     </Design.PreviewWith>
