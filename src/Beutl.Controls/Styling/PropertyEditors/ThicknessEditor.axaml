@@ -27,7 +27,8 @@
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}">
                     <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,*">
-                        <TextBlock Grid.Row="0"
+                        <TextBlock Name="PART_HeaderTextBlock"
+                                   Grid.Row="0"
                                    Margin="4,0,0,0"
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
@@ -283,7 +284,8 @@
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{TemplateBinding CornerRadius}">
                         <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,*">
-                            <TextBlock Grid.Row="0"
+                            <TextBlock Name="PART_HeaderTextBlock"
+                                       Grid.Row="0"
                                        Margin="4,0,0,0"
                                        HorizontalAlignment="Left"
                                        VerticalAlignment="Center"

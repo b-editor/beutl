@@ -39,6 +39,7 @@ public class Vector3Editor<TElement> : Vector3Editor
     private TElement _thirdValue;
     private TElement _oldThirdValue;
 
+    private TextBlock _headerText;
     private Point _headerDragStart;
     private bool _headerPressed;
 
@@ -137,13 +138,17 @@ public class Vector3Editor<TElement> : Vector3Editor
         SubscribeEvents2(FirstHeaderTextBlock);
         SubscribeEvents2(SecondHeaderTextBlock);
         SubscribeEvents2(ThirdHeaderTextBlock);
+        _headerText = e.NameScope.Find<TextBlock>("PART_HeaderTextBlock");
+        SubscribeEvents2(_headerText);
 
         UpdateErrors();
     }
 
     private void OnTextBlockPointerMoved(object sender, PointerEventArgs e)
     {
-        if (!(InnerFirstTextBox.IsKeyboardFocusWithin || InnerSecondTextBox.IsKeyboardFocusWithin)
+        if (!(InnerFirstTextBox.IsKeyboardFocusWithin
+            || InnerSecondTextBox.IsKeyboardFocusWithin
+            || InnerThirdTextBox.IsKeyboardFocusWithin)
             && _headerPressed
             && sender is TextBlock headerText)
         {
@@ -152,30 +157,24 @@ public class Vector3Editor<TElement> : Vector3Editor
             // 値を更新
             Point move = point - _headerDragStart;
             TElement delta = TElement.CreateTruncating(move.X);
-            TElement oldValue;
-            TElement newValue;
 
             var newValues = (FirstValue, SecondValue, ThirdValue);
             var oldValues = (FirstValue, SecondValue, ThirdValue);
             switch (headerText.Name)
             {
                 case "PART_HeaderFirstTextBlock":
-                    oldValue = FirstValue;
-                    newValue = FirstValue + delta;
-                    newValues.FirstValue = newValue;
-                    oldValues.FirstValue = oldValue;
+                    newValues.FirstValue += delta;
                     break;
                 case "PART_HeaderSecondTextBlock":
-                    oldValue = SecondValue;
-                    newValue = SecondValue + delta;
-                    newValues.SecondValue = newValue;
-                    oldValues.SecondValue = oldValue;
+                    newValues.SecondValue += delta;
                     break;
                 case "PART_HeaderThirdTextBlock":
-                    oldValue = ThirdValue;
-                    newValue = ThirdValue + delta;
-                    newValues.ThirdValue = newValue;
-                    oldValues.ThirdValue = oldValue;
+                    newValues.ThirdValue += delta;
+                    break;
+                case "PART_HeaderTextBlock":
+                    newValues.FirstValue += delta;
+                    newValues.SecondValue += delta;
+                    newValues.ThirdValue += delta;
                     break;
                 default:
                     break;

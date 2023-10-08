@@ -56,6 +56,9 @@ public class Vector4Editor<TElement> : Vector4Editor
     private TElement _oldThirdValue;
     private TElement _fourthValue;
     private TElement _oldFourthValue;
+    private TextBlock _headerText;
+    private Point _headerDragStart;
+    private bool _headerPressed;
 
     public Vector4Editor()
     {
@@ -150,7 +153,87 @@ public class Vector4Editor<TElement> : Vector4Editor
         SubscribeEvents(InnerThirdTextBox);
         SubscribeEvents(InnerFourthTextBox);
 
+
+        _headerText = e.NameScope.Find<TextBlock>("PART_HeaderTextBlock");
+        if (_headerText != null)
+        {
+            _headerText.AddDisposableHandler(PointerPressedEvent, OnTextBlockPointerPressed)
+                .DisposeWith(_disposables);
+            _headerText.AddDisposableHandler(PointerReleasedEvent, OnTextBlockPointerReleased)
+                .DisposeWith(_disposables);
+            _headerText.AddDisposableHandler(PointerMovedEvent, OnTextBlockPointerMoved)
+                .DisposeWith(_disposables);
+            _headerText.Cursor = PointerLockHelper.SizeWestEast;
+        }
+
         UpdateErrors();
+    }
+
+    private void OnTextBlockPointerMoved(object sender, PointerEventArgs e)
+    {
+        if (!(InnerFirstTextBox.IsKeyboardFocusWithin
+            || InnerSecondTextBox.IsKeyboardFocusWithin
+            || InnerThirdTextBox.IsKeyboardFocusWithin
+            || InnerFourthTextBox.IsKeyboardFocusWithin)
+            && _headerPressed)
+        {
+            Point point = e.GetPosition(_headerText);
+
+            // 値を更新
+            Point move = point - _headerDragStart;
+            TElement delta = TElement.CreateTruncating(move.X);
+
+            var newValues = (FirstValue + delta, SecondValue + delta, ThirdValue + delta, FourthValue + delta);
+            var oldValues = (FirstValue, SecondValue, ThirdValue, FourthValue);
+
+            (FirstValue, SecondValue, ThirdValue, FourthValue) = newValues;
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
+                newValues, oldValues, ValueChangedEvent));
+
+            // ポインタロック
+            PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
+
+            e.Handled = true;
+
+            UpdateErrors();
+        }
+    }
+
+    private void OnTextBlockPointerReleased(object sender, PointerReleasedEventArgs e)
+    {
+        if (_headerPressed)
+        {
+            if (FirstValue != _oldFirstValue
+                || SecondValue != _oldSecondValue)
+            {
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
+                    (FirstValue, SecondValue),
+                    (_oldFirstValue, _oldSecondValue),
+                    ValueConfirmedEvent));
+            }
+
+            PointerLockHelper.Released();
+
+            _headerPressed = false;
+            e.Handled = true;
+        }
+    }
+
+    private void OnTextBlockPointerPressed(object sender, PointerPressedEventArgs e)
+    {
+        PointerPoint pointerPoint = e.GetCurrentPoint(_headerText);
+        if (pointerPoint.Properties.IsLeftButtonPressed
+            && !DataValidationErrors.GetHasErrors(this))
+        {
+            _oldFirstValue = FirstValue;
+            _oldSecondValue = SecondValue;
+
+            PointerLockHelper.Pressed();
+
+            _headerDragStart = pointerPoint.Position;
+            _headerPressed = true;
+            e.Handled = true;
+        }
     }
 
     private void OnInnerTextBoxGotFocus(object sender, GotFocusEventArgs e)

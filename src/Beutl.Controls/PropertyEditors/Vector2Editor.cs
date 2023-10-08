@@ -31,6 +31,7 @@ public class Vector2Editor<TElement> : Vector2Editor
     private TElement _oldFirstValue;
     private TElement _secondValue;
     private TElement _oldSecondValue;
+    private TextBlock _headerText;
     private Point _headerDragStart;
     private bool _headerPressed;
 
@@ -112,6 +113,8 @@ public class Vector2Editor<TElement> : Vector2Editor
 
         SubscribeEvents2(FirstHeaderTextBlock);
         SubscribeEvents2(SecondHeaderTextBlock);
+        _headerText = e.NameScope.Find<TextBlock>("PART_HeaderTextBlock");
+        SubscribeEvents2(_headerText);
 
         UpdateErrors();
     }
@@ -127,24 +130,22 @@ public class Vector2Editor<TElement> : Vector2Editor
             // 値を更新
             Point move = point - _headerDragStart;
             TElement delta = TElement.CreateTruncating(move.X);
-            TElement oldValue;
-            TElement newValue;
 
             var newValues = (FirstValue, SecondValue);
             var oldValues = (FirstValue, SecondValue);
             switch (headerText.Name)
             {
                 case "PART_HeaderFirstTextBlock":
-                    oldValue = FirstValue;
-                    newValue = FirstValue + delta;
-                    newValues.FirstValue = newValue;
-                    oldValues.FirstValue = oldValue;
+                    newValues.FirstValue += delta;
                     break;
                 case "PART_HeaderSecondTextBlock":
-                    oldValue = SecondValue;
-                    newValue = SecondValue + delta;
-                    newValues.SecondValue = newValue;
-                    oldValues.SecondValue = oldValue;
+                    newValues.SecondValue += delta;
+                    break;
+                case "PART_HeaderTextBlock":
+                    newValues.FirstValue += delta;
+                    newValues.SecondValue += delta;
+                    break;
+                default:
                     break;
             }
 
