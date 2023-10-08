@@ -39,7 +39,7 @@ namespace Beutl.ViewModels.Editors
     // Vector2
 <# foreach(var t in vec2Types) { #>
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
-    public sealed class <#= t.Name #>EditorViewModel : ValueEditorViewModel<<#= fullName #>>
+    public sealed class <#= t.Name #>EditorViewModel : ValueEditorViewModel<<#= fullName #>>, IConfigureUniformEditor
     {
         public <#= t.Name #>EditorViewModel(IAbstractProperty<<#= fullName #>> property)
             : base(property)
@@ -59,6 +59,8 @@ namespace Beutl.ViewModels.Editors
 
         public ReadOnlyReactivePropertySlim<<#= t.Element #>> SecondValue { get; }
 
+        public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
+
         public override void Accept(IPropertyEditorContextVisitor visitor)
         {
             base.Accept(visitor);
@@ -73,12 +75,13 @@ namespace Beutl.ViewModels.Editors
 <# } #>
                 editor[!Vector2Editor<<#= t.Element #>>.FirstValueProperty] = FirstValue.ToBinding();
                 editor[!Vector2Editor<<#= t.Element #>>.SecondValueProperty] = SecondValue.ToBinding();
-                editor.ValueChanged += OnValueChanged;
-                editor.ValueChanging += OnValueChanging;
+                editor[!Vector2Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
+                editor.ValueConfirmed += OnValueConfirmed;
+                editor.ValueChanged += ValueChanged;
             }
         }
 
-        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (e is PropertyEditorValueChangedEventArgs<(<#= t.Element #> <#= t.FieldX #>, <#= t.Element #> <#= t.FieldY #>)> args)
             {
@@ -87,7 +90,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
 
-        private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void ValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (sender is Vector2Editor<<#= t.Element #>> editor)
             {
@@ -103,7 +106,7 @@ namespace Beutl.ViewModels.Editors
     // Vector3
 <# foreach(var t in vec3Types) { #>
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
-    public sealed class <#= t.Name #>EditorViewModel : ValueEditorViewModel<<#= fullName #>>
+    public sealed class <#= t.Name #>EditorViewModel : ValueEditorViewModel<<#= fullName #>>, IConfigureUniformEditor
     {
         public <#= t.Name #>EditorViewModel(IAbstractProperty<<#= fullName #>> property)
             : base(property)
@@ -129,6 +132,8 @@ namespace Beutl.ViewModels.Editors
         public ReadOnlyReactivePropertySlim<<#= t.Element #>> SecondValue { get; }
 
         public ReadOnlyReactivePropertySlim<<#= t.Element #>> ThirdValue { get; }
+        
+        public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
 
         public override void Accept(IPropertyEditorContextVisitor visitor)
         {
@@ -142,12 +147,13 @@ namespace Beutl.ViewModels.Editors
                 editor[!Vector3Editor<<#= t.Element #>>.FirstValueProperty] = FirstValue.ToBinding();
                 editor[!Vector3Editor<<#= t.Element #>>.SecondValueProperty] = SecondValue.ToBinding();
                 editor[!Vector3Editor<<#= t.Element #>>.ThirdValueProperty] = ThirdValue.ToBinding();
-                editor.ValueChanged += OnValueChanged;
-                editor.ValueChanging += OnValueChanging;
+                editor[!Vector3Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
+                editor.ValueConfirmed += OnValueConfirmed;
+                editor.ValueChanged += ValueChanged;
             }
         }
 
-        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (e is PropertyEditorValueChangedEventArgs<(<#= t.Element #> <#= t.FieldX #>, <#= t.Element #> <#= t.FieldY #>, <#= t.Element #> <#= t.FieldZ #>)> args)
             {
@@ -156,7 +162,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
 
-        private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void ValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (sender is Vector3Editor<<#= t.Element #>> editor)
             {
@@ -173,7 +179,7 @@ namespace Beutl.ViewModels.Editors
     // Vector4
 <# foreach(var t in vec4Types) { #>
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
-    public sealed class <#= t.Name #>EditorViewModel : ValueEditorViewModel<<#= fullName #>>
+    public sealed class <#= t.Name #>EditorViewModel : ValueEditorViewModel<<#= fullName #>>, IConfigureUniformEditor
     {
         public <#= t.Name #>EditorViewModel(IAbstractProperty<<#= fullName #>> property)
             : base(property)
@@ -206,6 +212,8 @@ namespace Beutl.ViewModels.Editors
         public ReadOnlyReactivePropertySlim<<#= t.Element #>> ThirdValue { get; }
 
         public ReadOnlyReactivePropertySlim<<#= t.Element #>> FourthValue { get; }
+        
+        public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
 
         public override void Accept(IPropertyEditorContextVisitor visitor)
         {
@@ -226,12 +234,13 @@ namespace Beutl.ViewModels.Editors
                 editor[!Vector4Editor<<#= t.Element #>>.SecondValueProperty] = SecondValue.ToBinding();
                 editor[!Vector4Editor<<#= t.Element #>>.ThirdValueProperty] = ThirdValue.ToBinding();
                 editor[!Vector4Editor<<#= t.Element #>>.FourthValueProperty] = FourthValue.ToBinding();
+                editor[!Vector4Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
+                editor.ValueConfirmed += OnValueConfirmed;
                 editor.ValueChanged += OnValueChanged;
-                editor.ValueChanging += OnValueChanging;
             }
         }
 
-        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (e is PropertyEditorValueChangedEventArgs<(<#= t.Element #> <#= t.FieldX #>, <#= t.Element #> <#= t.FieldY #>, <#= t.Element #> <#= t.FieldZ #>, <#= t.Element #> <#= t.FieldW #>)> args)
             {
@@ -240,7 +249,7 @@ namespace Beutl.ViewModels.Editors
             }
         }
 
-        private void OnValueChanging(object? sender, PropertyEditorValueChangedEventArgs e)
+        private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
         {
             if (sender is Vector4Editor<<#= t.Element #>> editor)
             {
