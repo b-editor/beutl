@@ -356,15 +356,15 @@ public sealed class ElementViewModel : IDisposable
         if (forwardLength < minLength || backwardLength < minLength)
             return;
 
-        CoreObjectReborn.Reborn(Model, out Element backwardLayer);
+        CoreObjectReborn.Reborn(Model, out Element backward);
 
         IRecordableCommand command1 = Scene.MoveChild(Model.ZIndex, Model.Start, forwardLength, Model);
-        backwardLayer.Start = absTime;
-        backwardLayer.Length = backwardLength;
+        backward.Start = absTime;
+        backward.Length = backwardLength;
 
-        backwardLayer.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension));
-        IRecordableCommand command2 = Scene.AddChild(backwardLayer);
-        IRecordableCommand command3 = backwardLayer.Operation.OnSplit(true, forwardLength, -forwardLength);
+        backward.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension));
+        IRecordableCommand command2 = Scene.AddChild(backward);
+        IRecordableCommand command3 = backward.Operation.OnSplit(true, forwardLength, -forwardLength);
         IRecordableCommand command4 = Model.Operation.OnSplit(false, TimeSpan.Zero, -backwardLength);
 
         command1.Append(command2)

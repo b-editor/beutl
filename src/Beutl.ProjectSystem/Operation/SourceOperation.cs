@@ -114,9 +114,9 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
         }
     }
 
-    public PooledList<Renderable> Evaluate(EvaluationTarget target, IRenderer renderer, Element layer)
+    public PooledList<Renderable> Evaluate(EvaluationTarget target, IRenderer renderer, Element element)
     {
-        Initialize(renderer, layer.Clock);
+        Initialize(renderer, element.Clock);
         var flow = new PooledList<Renderable>();
 
         try
@@ -137,11 +137,11 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
 
                 foreach (Renderable item in flow.Span)
                 {
-                    item.ZIndex = layer.ZIndex;
-                    item.TimeRange = new TimeRange(layer.Start, layer.Length);
-                    item.ApplyStyling(layer.Clock);
-                    item.ApplyAnimations(layer.Clock);
-                    item.IsVisible = layer.IsEnabled;
+                    item.ZIndex = element.ZIndex;
+                    item.TimeRange = new TimeRange(element.Start, element.Length);
+                    item.ApplyStyling(element.Clock);
+                    item.ApplyAnimations(element.Clock);
+                    item.IsVisible = element.IsEnabled;
 
                     while (item.BatchUpdate)
                     {

@@ -23,7 +23,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     private bool _disposedValue;
     private IDisposable? _currentFrameRevoker;
     private bool _skipKeyFrameIndexSubscription;
-    private Element? _layer;
+    private Element? _element;
     private EditViewModel? _editViewModel;
     private IServiceProvider? _parentServices;
 
@@ -85,7 +85,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
                             if (!_skipKeyFrameIndexSubscription && newIndex != oldIndex)
                             {
-                                TimeSpan start = _layer?.Start ?? default;
+                                TimeSpan start = _element?.Start ?? default;
                                 TimeSpan keyTime = EditingKeyFrame.Value.KeyTime;
                                 TimeSpan globalKeyTime = animation.UseGlobalClock ? keyTime : keyTime + start;
 
@@ -176,7 +176,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         if (visitor is IServiceProvider serviceProvider)
         {
             _parentServices = serviceProvider;
-            _layer = serviceProvider.GetService<Element>();
+            _element = serviceProvider.GetService<Element>();
             _editViewModel = serviceProvider.GetService<EditViewModel>();
 
             if (_editViewModel != null)
@@ -202,7 +202,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                                 int rate = _editViewModel?.Scene?.FindHierarchicalParent<Project>().GetFrameRate() ?? 30;
 
                                 TimeSpan globalkeyTime = t.First;
-                                TimeSpan localKeyTime = _layer != null ? globalkeyTime - _layer.Start : globalkeyTime;
+                                TimeSpan localKeyTime = _element != null ? globalkeyTime - _element.Start : globalkeyTime;
                                 TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
                                 keyTime = keyTime.RoundToRate(rate);
 
@@ -245,7 +245,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         _currentFrameRevoker = null;
         _editViewModel = null!;
         _parentServices = null;
-        _layer = null;
+        _element = null;
         WrappedProperty = null!;
     }
 
@@ -328,8 +328,8 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     private TimeSpan ConvertKeyTime(TimeSpan globalkeyTime, IAnimation animation)
     {
-        Element? layer = this.GetService<Element>();
-        TimeSpan localKeyTime = layer != null ? globalkeyTime - layer.Start : globalkeyTime;
+        Element? element = this.GetService<Element>();
+        TimeSpan localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
         TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
 
         int rate = this.GetService<EditViewModel>()?.Scene?.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;

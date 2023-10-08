@@ -35,8 +35,8 @@ public sealed partial class SourceOperatorView : UserControl
         if (DataContext is SourceOperatorViewModel viewModel2)
         {
             SourceOperator operation = viewModel2.Model;
-            Element layer = operation.FindRequiredHierarchicalParent<Element>();
-            layer.Operation.RemoveChild(operation)
+            Element element = operation.FindRequiredHierarchicalParent<Element>();
+            element.Operation.RemoveChild(operation)
                 .DoAndRecord(CommandRecorder.Default);
         }
     }
@@ -47,20 +47,20 @@ public sealed partial class SourceOperatorView : UserControl
             && DataContext is SourceOperatorViewModel viewModel2)
         {
             SourceOperator operation = viewModel2.Model;
-            Element layer = operation.FindRequiredHierarchicalParent<Element>();
+            Element element = operation.FindRequiredHierarchicalParent<Element>();
             Rect bounds = Bounds;
             Point position = e.GetPosition(this);
             double half = bounds.Height / 2;
-            int index = layer.Operation.Children.IndexOf(operation);
+            int index = element.Operation.Children.IndexOf(operation);
 
             if (half < position.Y)
             {
-                layer.Operation.InsertChild(index + 1, (SourceOperator)Activator.CreateInstance(item2)!)
+                element.Operation.InsertChild(index + 1, (SourceOperator)Activator.CreateInstance(item2)!)
                     .DoAndRecord(CommandRecorder.Default);
             }
             else
             {
-                layer.Operation.InsertChild(index, (SourceOperator)Activator.CreateInstance(item2)!)
+                element.Operation.InsertChild(index, (SourceOperator)Activator.CreateInstance(item2)!)
                     .DoAndRecord(CommandRecorder.Default);
             }
 
@@ -117,7 +117,7 @@ public sealed partial class SourceOperatorView : UserControl
     {
         protected override void OnMoveDraggedItem(ItemsControl? itemsControl, int oldIndex, int newIndex)
         {
-            if (itemsControl?.DataContext is SourceOperatorsTabViewModel { Layer.Value.Operation.Children: { } list })
+            if (itemsControl?.DataContext is SourceOperatorsTabViewModel { Element.Value.Operation.Children: { } list })
             {
                 list.BeginRecord<SourceOperator>()
                     .Move(oldIndex, newIndex)

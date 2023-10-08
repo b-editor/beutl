@@ -72,7 +72,7 @@ public sealed class AddElementDialogViewModel
 
         Add.Subscribe(() =>
         {
-            var sLayer = new Element()
+            var element = new Element()
             {
                 Name = Name.Value,
                 Start = Start.Value,
@@ -85,7 +85,7 @@ public sealed class AddElementDialogViewModel
             if (_description.InitialOperator != null)
             {
                 var op = (SourceOperator)Activator.CreateInstance(_description.InitialOperator)!;
-                sLayer.Operation.AddChild(op).Do();
+                element.Operation.AddChild(op).Do();
 
                 if (!_description.Position.IsDefault
                     && op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is IAbstractProperty<ITransform?> transformp)
@@ -110,8 +110,8 @@ public sealed class AddElementDialogViewModel
                 }
             }
 
-            sLayer.Save(sLayer.FileName);
-            _scene.AddChild(sLayer).DoAndRecord(CommandRecorder.Default);
+            element.Save(element.FileName);
+            _scene.AddChild(element).DoAndRecord(CommandRecorder.Default);
         });
     }
 

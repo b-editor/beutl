@@ -31,7 +31,7 @@ public sealed class SceneComposer : Composer
         IClock clock = Clock;
         var timeSpan = new TimeRange(clock.AudioStartTime, TimeSpan.FromSeconds(1));
         SortLayers(timeSpan, out _);
-        Span<Element> layers = CollectionsMarshal.AsSpan(_current);
+        Span<Element> elements = CollectionsMarshal.AsSpan(_current);
         Span<Element> entered = CollectionsMarshal.AsSpan(_entered);
         Span<Element> exited = CollectionsMarshal.AsSpan(_exited);
 
@@ -45,9 +45,9 @@ public sealed class SceneComposer : Composer
             EnterSourceOperators(item);
         }
 
-        foreach (Element layer in layers)
+        foreach (Element element in elements)
         {
-            using (PooledList<Renderable> list = layer.Evaluate(EvaluationTarget.Audio, clock, _scene.Renderer))
+            using (PooledList<Renderable> list = element.Evaluate(EvaluationTarget.Audio, clock, _scene.Renderer))
             {
                 foreach (Renderable item in list.Span)
                 {
@@ -62,17 +62,17 @@ public sealed class SceneComposer : Composer
         _lastTime = timeSpan;
     }
 
-    private static void EnterSourceOperators(Element layer)
+    private static void EnterSourceOperators(Element element)
     {
-        foreach (SourceOperator item in layer.Operation.Children.GetMarshal().Value)
+        foreach (SourceOperator item in element.Operation.Children.GetMarshal().Value)
         {
             item.Enter();
         }
     }
 
-    private static void ExitSourceOperators(Element layer)
+    private static void ExitSourceOperators(Element element)
     {
-        foreach (SourceOperator item in layer.Operation.Children.GetMarshal().Value)
+        foreach (SourceOperator item in element.Operation.Children.GetMarshal().Value)
         {
             item.Exit();
         }

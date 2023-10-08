@@ -97,9 +97,9 @@ public partial class MenuBarViewModel
     {
         if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
             && viewModel.Scene is Scene scene
-            && viewModel.SelectedObject.Value is Element layer)
+            && viewModel.SelectedObject.Value is Element element)
         {
-            scene.RemoveChild(layer).DoAndRecord(CommandRecorder.Default);
+            scene.RemoveChild(element).DoAndRecord(CommandRecorder.Default);
         }
     }
 

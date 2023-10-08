@@ -49,8 +49,8 @@ internal sealed class SceneGraphicsEvaluator : IDisposable
 
         for (int i = 0; i < _current.Count; i++)
         {
-            Element layer = _current[i];
-            using (PooledList<Renderable> list = layer.Evaluate(EvaluationTarget.Graphics, clock, _renderer))
+            Element element = _current[i];
+            using (PooledList<Renderable> list = element.Evaluate(EvaluationTarget.Graphics, clock, _renderer))
             {
                 foreach (Renderable item in list.Span)
                 {
@@ -66,17 +66,17 @@ internal sealed class SceneGraphicsEvaluator : IDisposable
         _lastTime = timeSpan;
     }
 
-    private static void EnterSourceOperators(Element layer)
+    private static void EnterSourceOperators(Element element)
     {
-        foreach (SourceOperator item in layer.Operation.Children.GetMarshal().Value)
+        foreach (SourceOperator item in element.Operation.Children.GetMarshal().Value)
         {
             item.Enter();
         }
     }
 
-    private static void ExitSourceOperators(Element layer)
+    private static void ExitSourceOperators(Element element)
     {
-        foreach (SourceOperator item in layer.Operation.Children.GetMarshal().Value)
+        foreach (SourceOperator item in element.Operation.Children.GetMarshal().Value)
         {
             item.Exit();
         }
