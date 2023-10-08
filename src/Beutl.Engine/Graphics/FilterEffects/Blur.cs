@@ -8,22 +8,22 @@ namespace Beutl.Graphics.Effects;
 
 public sealed class Blur : FilterEffect
 {
-    public static readonly CoreProperty<Vector> SigmaProperty;
-    private Vector _sigma;
+    public static readonly CoreProperty<Size> SigmaProperty;
+    private Size _sigma;
 
     static Blur()
     {
-        SigmaProperty = ConfigureProperty<Vector, Blur>(nameof(Sigma))
+        SigmaProperty = ConfigureProperty<Size, Blur>(nameof(Sigma))
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
-            .DefaultValue(Vector.Zero)
+            .DefaultValue(Size.Empty)
             .Register();
 
         AffectsRender<Blur>(SigmaProperty);
     }
 
     [Display(Name = nameof(Strings.Sigma), ResourceType = typeof(Strings))]
-    [Range(typeof(Vector), "0,0", "max,max")]
-    public Vector Sigma
+    [Range(typeof(Size), "0,0", "max,max")]
+    public Size Sigma
     {
         get => _sigma;
         set => SetAndRaise(SigmaProperty, ref _sigma, value);
@@ -36,6 +36,6 @@ public sealed class Blur : FilterEffect
 
     public override Rect TransformBounds(Rect bounds)
     {
-        return bounds.Inflate(new Thickness(_sigma.X * 3, _sigma.Y * 3));
+        return bounds.Inflate(new Thickness(_sigma.Width * 3, _sigma.Height * 3));
     }
 }

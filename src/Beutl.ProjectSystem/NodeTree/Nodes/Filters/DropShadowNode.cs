@@ -7,7 +7,7 @@ namespace Beutl.NodeTree.Nodes.Effects;
 public class DropShadowNode : FilterEffectNode
 {
     private readonly InputSocket<Point> _posSocket;
-    private readonly InputSocket<Vector> _sigmaSocket;
+    private readonly InputSocket<Size> _sigmaSocket;
     private readonly InputSocket<Color> _colorSocket;
     private readonly InputSocket<bool> _shadowOnlySocket;
 

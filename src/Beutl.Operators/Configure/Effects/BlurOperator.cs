@@ -6,5 +6,5 @@ namespace Beutl.Operators.Configure.Effects;
 
 public sealed class BlurOperator : FilterEffectOperator<Blur>
 {
-    public Setter<Vector> Sigma { get; set; } = new(Blur.SigmaProperty, new(10, 10));
+    public Setter<Size> Sigma { get; set; } = new(Blur.SigmaProperty, new(10, 10));
 }

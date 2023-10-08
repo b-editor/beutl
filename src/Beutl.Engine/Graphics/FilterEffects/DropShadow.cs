@@ -8,11 +8,11 @@ namespace Beutl.Graphics.Effects;
 public sealed class DropShadow : FilterEffect
 {
     public static readonly CoreProperty<Point> PositionProperty;
-    public static readonly CoreProperty<Vector> SigmaProperty;
+    public static readonly CoreProperty<Size> SigmaProperty;
     public static readonly CoreProperty<Color> ColorProperty;
     public static readonly CoreProperty<bool> ShadowOnlyProperty;
     private Point _position;
-    private Vector _sigma;
+    private Size _sigma;
     private Color _color;
     private bool _shadowOnly;
 
@@ -23,9 +23,9 @@ public sealed class DropShadow : FilterEffect
             .DefaultValue(new Point())
             .Register();
 
-        SigmaProperty = ConfigureProperty<Vector, DropShadow>(nameof(Sigma))
+        SigmaProperty = ConfigureProperty<Size, DropShadow>(nameof(Sigma))
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
-            .DefaultValue(Vector.Zero)
+            .DefaultValue(Size.Empty)
             .Register();
 
         ColorProperty = ConfigureProperty<Color, DropShadow>(nameof(Color))
@@ -49,8 +49,8 @@ public sealed class DropShadow : FilterEffect
     }
 
     [Display(Name = nameof(Strings.Sigma), ResourceType = typeof(Strings))]
-    [Range(typeof(Vector), "0,0", "max,max")]
-    public Vector Sigma
+    [Range(typeof(Size), "0,0", "max,max")]
+    public Size Sigma
     {
         get => _sigma;
         set => SetAndRaise(SigmaProperty, ref _sigma, value);
@@ -82,7 +82,7 @@ public sealed class DropShadow : FilterEffect
     {
         Rect shadowBounds = bounds
             .Translate(_position)
-            .Inflate(new Thickness(_sigma.X * 3, _sigma.Y * 3));
+            .Inflate(new Thickness(_sigma.Width * 3, _sigma.Height * 3));
 
         return _shadowOnly ? shadowBounds : bounds.Union(shadowBounds);
     }
