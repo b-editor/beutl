@@ -9,28 +9,28 @@ namespace Beutl.Threading;
 internal sealed class OperationQueue
 {
     private readonly object _lock = new();
-    private readonly Queue<Action>[] _queuedOperations = new Queue<Action>[]
+    private readonly Queue<DispatcherOperation>[] _queuedOperations = new Queue<DispatcherOperation>[]
     {
-        new Queue<Action>(),
-        new Queue<Action>(),
-        new Queue<Action>()
+        new Queue<DispatcherOperation>(),
+        new Queue<DispatcherOperation>(),
+        new Queue<DispatcherOperation>()
     };
 
-    public void Enqueue(DispatchPriority priority, Action operation)
+    public void Enqueue(DispatcherOperation operation)
     {
         lock (_lock)
         {
-            _queuedOperations[(int)priority].Enqueue(operation);
+            _queuedOperations[(int)operation.Priority].Enqueue(operation);
         }
     }
 
-    public bool TryDequeue([NotNullWhen(true)] out Action? operation)
+    public bool TryDequeue([NotNullWhen(true)] out DispatcherOperation? operation)
     {
         lock (_lock)
         {
             for (DispatchPriority priority = DispatchPriority.High; priority >= DispatchPriority.Low; --priority)
             {
-                Queue<Action> queue = _queuedOperations[(int)priority];
+                Queue<DispatcherOperation> queue = _queuedOperations[(int)priority];
                 if (queue.Count > 0)
                 {
                     operation = queue.Dequeue();
