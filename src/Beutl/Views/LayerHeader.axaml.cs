@@ -107,7 +107,7 @@ public sealed partial class LayerHeader : UserControl
             _pressed = true;
             _startRel = point.Position;
             _start = e.GetCurrentPoint(timeline.TimelinePanel).Position;
-            _layers = ViewModel.Timeline.Layers
+            _layers = ViewModel.Timeline.Elements
                 .Where(i => i.Model.ZIndex == ViewModel.Number.Value)
                 .ToArray();
         }
@@ -148,7 +148,7 @@ public sealed partial class LayerHeader : UserControl
             _oldLayerNum = oldLayerNum;
             _items1 = items;
             _items2 = new();
-            CoreListMarshal<TLVM> span1 = _viewModel.Timeline.Layers.GetMarshal();
+            CoreListMarshal<TLVM> span1 = _viewModel.Timeline.Elements.GetMarshal();
             CoreListMarshal<LayerHeaderViewModel> span2 = _viewModel.Timeline.LayerHeaders.GetMarshal();
 
             foreach (TLVM item in span1.Value)

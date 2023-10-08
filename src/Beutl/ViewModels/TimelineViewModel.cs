@@ -11,13 +11,8 @@ using Avalonia.Input.Platform;
 using Beutl.Animation;
 using Beutl.Commands;
 using Beutl.Configuration;
-using Beutl.Helpers;
-using Beutl.Media.Decoding;
-using Beutl.Media.Source;
 using Beutl.Models;
-using Beutl.Operation;
 using Beutl.Operators.Configure;
-using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Beutl.Reactive;
 using Beutl.Services;
@@ -81,7 +76,7 @@ public sealed class TimelineViewModel : IToolContext
             .Subscribe(v => Scene.CacheOptions = Scene.CacheOptions with { IsEnabled = v })
             .AddTo(_disposables);
 
-        AddLayer.Subscribe(editViewModel.AddElement).AddTo(_disposables);
+        AddElement.Subscribe(editViewModel.AddElement).AddTo(_disposables);
 
         TimelineOptions options = editViewModel.Options.Value;
         LayerHeaders.AddRange(Enumerable.Range(0, options.MaxLayerCount).Select(num => new LayerHeaderViewModel(num, this)));
@@ -89,20 +84,20 @@ public sealed class TimelineViewModel : IToolContext
             (idx, item) =>
             {
                 AddLayerHeaders(item.ZIndex + 1);
-                Layers.Insert(idx, new ElementViewModel(item, this));
+                Elements.Insert(idx, new ElementViewModel(item, this));
             },
             (idx, _) =>
             {
-                ElementViewModel layer = Layers[idx];
-                this.GetService<ISupportCloseAnimation>()?.Close(layer.Model);
-                Layers.RemoveAt(idx);
-                layer.Dispose();
+                ElementViewModel element = Elements[idx];
+                this.GetService<ISupportCloseAnimation>()?.Close(element.Model);
+                Elements.RemoveAt(idx);
+                element.Dispose();
             },
             () =>
             {
-                ElementViewModel[] tmp = Layers.ToArray();
-                Layers.Clear();
-                foreach (ElementViewModel? item in Layers.GetMarshal().Value)
+                ElementViewModel[] tmp = Elements.ToArray();
+                Elements.Clear();
+                foreach (ElementViewModel? item in Elements.GetMarshal().Value)
                 {
                     item.Dispose();
                 }
@@ -173,9 +168,15 @@ public sealed class TimelineViewModel : IToolContext
 
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
 
-    public ReactiveCommand<ElementDescription> AddLayer { get; } = new();
+    public ReactiveCommand<ElementDescription> AddElement { get; } = new();
 
-    public CoreList<ElementViewModel> Layers { get; } = new();
+    [Obsolete("Use AddElement property instead.")]
+    public ReactiveCommand<ElementDescription> AddLayer => AddElement;
+
+    public CoreList<ElementViewModel> Elements { get; } = new();
+
+    [Obsolete("Use Elements property instead.")]
+    public CoreList<ElementViewModel> Layers => Elements;
 
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = new();
 
@@ -210,7 +211,7 @@ public sealed class TimelineViewModel : IToolContext
     public void Dispose()
     {
         _disposables.Dispose();
-        foreach (ElementViewModel? item in Layers.GetMarshal().Value)
+        foreach (ElementViewModel? item in Elements.GetMarshal().Value)
         {
             item.Dispose();
         }
@@ -237,7 +238,7 @@ public sealed class TimelineViewModel : IToolContext
 
         Inlines.Clear();
         LayerHeaders.Clear();
-        Layers.Clear();
+        Elements.Clear();
         Scene = null!;
         Player = null!;
         EditorContext = null!;
@@ -442,10 +443,10 @@ public sealed class TimelineViewModel : IToolContext
         json[nameof(Inlines)] = inlines;
     }
 
-    public void AttachInline(IAbstractAnimatableProperty property, Element layer)
+    public void AttachInline(IAbstractAnimatableProperty property, Element element)
     {
-        if (!Inlines.Any(x => x.Element.Model == layer && x.Property == property)
-            && GetViewModelFor(layer) is { } viewModel)
+        if (!Inlines.Any(x => x.Element.Model == element && x.Property == property)
+            && GetViewModelFor(element) is { } viewModel)
         {
             // タイムラインのタブを開く
             Type type = typeof(InlineAnimationLayerViewModel<>).MakeGenericType(property.PropertyType);
@@ -545,7 +546,7 @@ public sealed class TimelineViewModel : IToolContext
 
     public bool AnySelected(ElementViewModel? exclude = null)
     {
-        foreach (ElementViewModel item in Layers)
+        foreach (ElementViewModel item in Elements)
         {
             if ((exclude == null || exclude != item) && item.IsSelected.Value)
             {
@@ -558,7 +559,7 @@ public sealed class TimelineViewModel : IToolContext
 
     public IEnumerable<ElementViewModel> GetSelected(ElementViewModel? exclude = null)
     {
-        foreach (ElementViewModel item in Layers)
+        foreach (ElementViewModel item in Elements)
         {
             if ((exclude == null || exclude != item) && item.IsSelected.Value)
             {
@@ -579,7 +580,7 @@ public sealed class TimelineViewModel : IToolContext
 
     public ElementViewModel? GetViewModelFor(Element element)
     {
-        return Layers.FirstOrDefault(x => x.Model == element);
+        return Elements.FirstOrDefault(x => x.Model == element);
     }
 
     private sealed class TrackedLayerTopObservable : LightweightObservableBase<double>, IDisposable
