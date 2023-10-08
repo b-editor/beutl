@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Numerics;
+using System.Reactive.Disposables;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -7,6 +8,8 @@ using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+
+using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -23,6 +26,7 @@ public class Vector2Editor<TElement> : Vector2Editor
             o => o.SecondValue,
             (o, v) => o.SecondValue = v);
 
+    private readonly CompositeDisposable _disposables = new();
     private TElement _firstValue;
     private TElement _oldFirstValue;
     private TElement _secondValue;
@@ -64,26 +68,37 @@ public class Vector2Editor<TElement> : Vector2Editor
     {
         void SubscribeEvents(TextBox textBox)
         {
-            textBox.GotFocus += OnInnerTextBoxGotFocus;
-            textBox.LostFocus += OnInnerTextBoxLostFocus;
-            textBox.GetPropertyChangedObservable(TextBox.TextProperty).Subscribe(e =>
+            if (textBox != null)
             {
-                if (e is AvaloniaPropertyChangedEventArgs<string> args
-                    && args.Sender is TextBox textBox)
-                {
-                    OnInnerTextBoxTextChanged(textBox, args.NewValue.GetValueOrDefault(), args.OldValue.GetValueOrDefault());
-                }
-            });
-            textBox.AddHandler(PointerWheelChangedEvent, OnInnerTextBoxPointerWheelChanged, RoutingStrategies.Tunnel);
+                textBox.AddDisposableHandler(GotFocusEvent, OnInnerTextBoxGotFocus)
+                    .DisposeWith(_disposables);
+                textBox.AddDisposableHandler(LostFocusEvent, OnInnerTextBoxLostFocus)
+                    .DisposeWith(_disposables);
+                textBox.GetPropertyChangedObservable(TextBox.TextProperty)
+                    .Subscribe(e =>
+                    {
+                        if (e is AvaloniaPropertyChangedEventArgs<string> args
+                            && args.Sender is TextBox textBox)
+                        {
+                            OnInnerTextBoxTextChanged(textBox, args.NewValue.GetValueOrDefault(), args.OldValue.GetValueOrDefault());
+                        }
+                    })
+                    .DisposeWith(_disposables);
+                textBox.AddDisposableHandler(PointerWheelChangedEvent, OnInnerTextBoxPointerWheelChanged, RoutingStrategies.Tunnel)
+                    .DisposeWith(_disposables);
+            }
         }
 
         void SubscribeEvents2(TextBlock textBlock)
         {
             if (textBlock != null)
             {
-                textBlock.AddHandler(PointerPressedEvent, OnTextBlockPointerPressed, RoutingStrategies.Tunnel);
-                textBlock.AddHandler(PointerReleasedEvent, OnTextBlockPointerReleased, RoutingStrategies.Tunnel);
-                textBlock.AddHandler(PointerMovedEvent, OnTextBlockPointerMoved, RoutingStrategies.Tunnel);
+                textBlock.AddDisposableHandler(PointerPressedEvent, OnTextBlockPointerPressed, RoutingStrategies.Tunnel)
+                    .DisposeWith(_disposables);
+                textBlock.AddDisposableHandler(PointerReleasedEvent, OnTextBlockPointerReleased, RoutingStrategies.Tunnel)
+                    .DisposeWith(_disposables);
+                textBlock.AddDisposableHandler(PointerMovedEvent, OnTextBlockPointerMoved, RoutingStrategies.Tunnel)
+                    .DisposeWith(_disposables);
                 textBlock.Cursor = PointerLockHelper.SizeWestEast;
             }
         }
@@ -97,6 +112,8 @@ public class Vector2Editor<TElement> : Vector2Editor
 
         SubscribeEvents2(FirstHeaderTextBlock);
         SubscribeEvents2(SecondHeaderTextBlock);
+
+        UpdateErrors();
     }
 
     private void OnTextBlockPointerMoved(object sender, PointerEventArgs e)
@@ -223,18 +240,27 @@ public class Vector2Editor<TElement> : Vector2Editor
             {
                 var newValues = (FirstValue, SecondValue);
                 var oldValues = (FirstValue, SecondValue);
-                switch (sender.Name)
+                if (IsUniform)
                 {
-                    case "PART_InnerFirstTextBox":
-                        FirstValue = newValue2;
-                        newValues.FirstValue = newValue2;
-                        oldValues.FirstValue = oldValue2;
-                        break;
-                    case "PART_InnerSecondTextBox":
-                        SecondValue = newValue2;
-                        newValues.SecondValue = newValue2;
-                        oldValues.SecondValue = oldValue2;
-                        break;
+                    FirstValue = SecondValue = newValue2;
+                    newValues = (newValue2, newValue2);
+                    oldValues = (oldValue2, oldValue2);
+                }
+                else
+                {
+                    switch (sender.Name)
+                    {
+                        case "PART_InnerFirstTextBox":
+                            FirstValue = newValue2;
+                            newValues.FirstValue = newValue2;
+                            oldValues.FirstValue = oldValue2;
+                            break;
+                        case "PART_InnerSecondTextBox":
+                            SecondValue = newValue2;
+                            newValues.SecondValue = newValue2;
+                            oldValues.SecondValue = oldValue2;
+                            break;
+                    }
                 }
 
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
@@ -248,7 +274,8 @@ public class Vector2Editor<TElement> : Vector2Editor
     private void UpdateErrors()
     {
         if (TElement.TryParse(InnerFirstTextBox.Text, CultureInfo.CurrentUICulture, out _)
-            && TElement.TryParse(InnerSecondTextBox.Text, CultureInfo.CurrentUICulture, out _))
+            && (IsUniform
+            || TElement.TryParse(InnerSecondTextBox.Text, CultureInfo.CurrentUICulture, out _)))
         {
             DataValidationErrors.ClearErrors(this);
         }
@@ -278,16 +305,23 @@ public class Vector2Editor<TElement> : Vector2Editor
                 _ => value
             };
 
-            switch (textBox.Name)
+            if (IsUniform)
             {
-                case "PART_InnerFirstTextBox":
-                    FirstValue = value;
-                    break;
-                case "PART_InnerSecondTextBox":
-                    SecondValue = value;
-                    break;
-                default:
-                    break;
+                FirstValue = SecondValue = value;
+            }
+            else
+            {
+                switch (textBox.Name)
+                {
+                    case "PART_InnerFirstTextBox":
+                        FirstValue = value;
+                        break;
+                    case "PART_InnerSecondTextBox":
+                        SecondValue = value;
+                        break;
+                    default:
+                        break;
+                }
             }
 
             e.Handled = true;
@@ -295,7 +329,9 @@ public class Vector2Editor<TElement> : Vector2Editor
     }
 }
 
-[PseudoClasses(FocusAnyTextBox, BorderPointerOver)]
+[PseudoClasses(
+    FocusAnyTextBox, FocusFirstTextBox, FocusSecondTextBox,
+    BorderPointerOver, Uniform)]
 [TemplatePart("PART_InnerFirstTextBox", typeof(TextBox))]
 [TemplatePart("PART_InnerSecondTextBox", typeof(TextBox))]
 [TemplatePart("PART_HeaderFirstTextBlock", typeof(TextBlock))]
@@ -319,10 +355,15 @@ public class Vector2Editor : PropertyEditor
     public static readonly StyledProperty<string> SecondHeaderProperty =
         Vector4Editor.SecondHeaderProperty.AddOwner<Vector2Editor>();
 
+    public static readonly StyledProperty<bool> IsUniformProperty =
+        Vector4Editor.IsUniformProperty.AddOwner<Vector2Editor>();
+
     private const string FocusAnyTextBox = ":focus-any-textbox";
     private const string FocusFirstTextBox = ":focus-1st-textbox";
     private const string FocusSecondTextBox = ":focus-2nd-textbox";
     private const string BorderPointerOver = ":border-pointerover";
+    private const string Uniform = ":uniform";
+    private readonly CompositeDisposable _disposables = new();
     private Border _backgroundBorder;
     private string _firstText;
     private string _secondText;
@@ -351,6 +392,12 @@ public class Vector2Editor : PropertyEditor
         set => SetValue(SecondHeaderProperty, value);
     }
 
+    public bool IsUniform
+    {
+        get => GetValue(IsUniformProperty);
+        set => SetValue(IsUniformProperty, value);
+    }
+
     protected TextBox InnerFirstTextBox { get; private set; }
 
     protected TextBox InnerSecondTextBox { get; private set; }
@@ -365,31 +412,53 @@ public class Vector2Editor : PropertyEditor
     {
         void SubscribeEvents(TextBox textBox)
         {
-            textBox.GotFocus += OnInnerTextBoxGotFocus;
-            textBox.LostFocus += OnInnerTextBoxLostFocus;
-            textBox.GetObservable(IsPointerOverProperty).Subscribe(IsPointerOverChanged);
+            if (textBox != null)
+            {
+                textBox.AddDisposableHandler(GotFocusEvent, OnInnerTextBoxGotFocus)
+                    .DisposeWith(_disposables);
+                textBox.AddDisposableHandler(LostFocusEvent, OnInnerTextBoxLostFocus)
+                    .DisposeWith(_disposables);
+                textBox.GetObservable(IsPointerOverProperty)
+                    .Subscribe(IsPointerOverChanged)
+                    .DisposeWith(_disposables);
+            }
         }
 
         base.OnApplyTemplate(e);
         InnerFirstTextBox = e.NameScope.Get<TextBox>("PART_InnerFirstTextBox");
-        InnerSecondTextBox = e.NameScope.Get<TextBox>("PART_InnerSecondTextBox");
+        InnerSecondTextBox = e.NameScope.Find<TextBox>("PART_InnerSecondTextBox");
         FirstHeaderTextBlock = e.NameScope.Find<TextBlock>("PART_HeaderFirstTextBlock");
         SecondHeaderTextBlock = e.NameScope.Find<TextBlock>("PART_HeaderSecondTextBlock");
         _backgroundBorder = e.NameScope.Get<Border>("PART_BackgroundBorder");
 
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
-        FirstHeaderTextBlock?.GetObservable(IsPointerOverProperty).Subscribe(IsPointerOverChanged);
-        SecondHeaderTextBlock?.GetObservable(IsPointerOverProperty).Subscribe(IsPointerOverChanged);
+        FirstHeaderTextBlock?.GetObservable(IsPointerOverProperty)
+            ?.Subscribe(IsPointerOverChanged)
+            ?.DisposeWith(_disposables);
+        SecondHeaderTextBlock?.GetObservable(IsPointerOverProperty)
+            ?.Subscribe(IsPointerOverChanged)
+            ?.DisposeWith(_disposables);
 
-        _backgroundBorder.GetObservable(IsPointerOverProperty).Subscribe(IsPointerOverChanged);
+        _backgroundBorder.GetObservable(IsPointerOverProperty)
+            .Subscribe(IsPointerOverChanged)
+            .DisposeWith(_disposables);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == IsUniformProperty)
+        {
+            PseudoClasses.Set(Uniform, change.GetNewValue<bool>());
+        }
     }
 
     private void IsPointerOverChanged(bool obj)
     {
         if (_backgroundBorder.IsPointerOver
             || InnerFirstTextBox.IsPointerOver
-            || InnerSecondTextBox.IsPointerOver
+            || InnerSecondTextBox?.IsPointerOver == true
             || FirstHeaderTextBlock?.IsPointerOver == true
             || SecondHeaderTextBlock?.IsPointerOver == true)
         {
@@ -417,12 +486,11 @@ public class Vector2Editor : PropertyEditor
         PseudoClasses.Remove(FocusSecondTextBox);
         if (InnerFirstTextBox.IsFocused)
             PseudoClasses.Add(FocusFirstTextBox);
-        else if (InnerSecondTextBox.IsFocused)
+        else if (InnerSecondTextBox?.IsFocused == true)
             PseudoClasses.Add(FocusSecondTextBox);
 
-        if (
-            InnerFirstTextBox.IsFocused
-            || InnerSecondTextBox.IsFocused)
+        if (InnerFirstTextBox.IsFocused
+            || InnerSecondTextBox?.IsFocused == true)
         {
             PseudoClasses.Add(FocusAnyTextBox);
         }

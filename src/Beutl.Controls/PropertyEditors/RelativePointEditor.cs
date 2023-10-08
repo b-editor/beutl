@@ -1,9 +1,13 @@
-﻿using Avalonia;
+﻿using System.Reactive.Disposables;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+
+using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -26,6 +30,7 @@ public class RelativePointEditor : Vector2Editor
             (o, v) => o.Unit = v,
             defaultBindingMode: BindingMode.TwoWay);
 
+    private readonly CompositeDisposable _disposables = new();
     private float _firstValue;
     private float _oldFirstValue;
     private float _secondValue;
@@ -87,24 +92,35 @@ public class RelativePointEditor : Vector2Editor
     {
         void SubscribeEvents(TextBox textBox)
         {
-            textBox.GotFocus += OnInnerTextBoxGotFocus;
-            textBox.LostFocus += OnInnerTextBoxLostFocus;
-            textBox.GetPropertyChangedObservable(TextBox.TextProperty).Subscribe(e =>
+            if (textBox != null)
             {
-                if (e is AvaloniaPropertyChangedEventArgs<string> args
-                    && args.Sender is TextBox textBox)
-                {
-                    OnInnerTextBoxTextChanged(textBox, args.NewValue.GetValueOrDefault(), args.OldValue.GetValueOrDefault());
-                }
-            });
-            textBox.AddHandler(PointerWheelChangedEvent, OnInnerTextBoxPointerWheelChanged, RoutingStrategies.Tunnel);
+                textBox.AddDisposableHandler(GotFocusEvent, OnInnerTextBoxGotFocus)
+                    .DisposeWith(_disposables);
+                textBox.AddDisposableHandler(LostFocusEvent, OnInnerTextBoxLostFocus)
+                    .DisposeWith(_disposables);
+                textBox.GetPropertyChangedObservable(TextBox.TextProperty)
+                    .Subscribe(e =>
+                    {
+                        if (e is AvaloniaPropertyChangedEventArgs<string> args
+                            && args.Sender is TextBox textBox)
+                        {
+                            OnInnerTextBoxTextChanged(textBox, args.NewValue.GetValueOrDefault(), args.OldValue.GetValueOrDefault());
+                        }
+                    })
+                    .DisposeWith(_disposables);
+                textBox.AddDisposableHandler(PointerWheelChangedEvent, OnInnerTextBoxPointerWheelChanged, RoutingStrategies.Tunnel)
+                    .DisposeWith(_disposables);
+            }
         }
 
+        _disposables.Clear();
         base.OnApplyTemplate(e);
         UpdateText();
 
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
+
+        UpdateErrors();
     }
 
     private void OnInnerTextBoxGotFocus(object sender, GotFocusEventArgs e)
@@ -121,8 +137,7 @@ public class RelativePointEditor : Vector2Editor
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
-            if (
-                FirstValue != _oldFirstValue
+            if (FirstValue != _oldFirstValue
                 || SecondValue != _oldSecondValue
                 || Unit != _oldUnit)
             {
@@ -183,27 +198,36 @@ public class RelativePointEditor : Vector2Editor
 
             if (invalidOldValue || newValue2 != oldValue2)
             {
-                switch (sender.Name)
+                var newValues = (FirstValue, SecondValue);
+                var oldValues = (FirstValue, SecondValue);
+                Unit = newUnit;
+                if (IsUniform)
                 {
-                    case "PART_InnerFirstTextBox":
-                        FirstValue = newValue2;
-                        Unit = newUnit;
-                        RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativePoint>(
-                            new Graphics.RelativePoint(newValue2, SecondValue, newUnit),
-                            new Graphics.RelativePoint(oldValue2, SecondValue, oldUnit),
-                            ValueChangedEvent));
-                        break;
-                    case "PART_InnerSecondTextBox":
-                        SecondValue = newValue2;
-                        Unit = newUnit;
-                        RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativePoint>(
-                            new Graphics.RelativePoint(FirstValue, newValue2, newUnit),
-                            new Graphics.RelativePoint(FirstValue, oldValue2, oldUnit),
-                            ValueChangedEvent));
-                        break;
-                    default:
-                        break;
+                    FirstValue = SecondValue = newValue2;
+                    newValues = (newValue2, newValue2);
+                    oldValues = (oldValue2, oldValue2);
                 }
+                else
+                {
+                    switch (sender.Name)
+                    {
+                        case "PART_InnerFirstTextBox":
+                            FirstValue = newValue2;
+                            newValues.FirstValue = newValue2;
+                            oldValues.FirstValue = oldValue2;
+                            break;
+                        case "PART_InnerSecondTextBox":
+                            SecondValue = newValue2;
+                            newValues.SecondValue = newValue2;
+                            oldValues.SecondValue = oldValue2;
+                            break;
+                    }
+                }
+
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativePoint>(
+                    new Graphics.RelativePoint(newValues.FirstValue, newValues.SecondValue, newUnit),
+                    new Graphics.RelativePoint(oldValues.FirstValue, oldValues.SecondValue, oldUnit),
+                    ValueChangedEvent));
             }
         }
 
@@ -213,7 +237,7 @@ public class RelativePointEditor : Vector2Editor
     private void UpdateErrors()
     {
         if (TryParse(InnerFirstTextBox.Text, out _, out _)
-            && TryParse(InnerSecondTextBox.Text, out _, out _))
+            && (IsUniform || TryParse(InnerSecondTextBox.Text, out _, out _)))
         {
             DataValidationErrors.ClearErrors(this);
         }
@@ -251,16 +275,23 @@ public class RelativePointEditor : Vector2Editor
                 _ => value
             };
 
-            switch (textBox.Name)
+            if (IsUniform)
             {
-                case "PART_InnerFirstTextBox":
-                    FirstValue = value;
-                    break;
-                case "PART_InnerSecondTextBox":
-                    SecondValue = value;
-                    break;
-                default:
-                    break;
+                FirstValue = SecondValue = value;
+            }
+            else
+            {
+                switch (textBox.Name)
+                {
+                    case "PART_InnerFirstTextBox":
+                        FirstValue = value;
+                        break;
+                    case "PART_InnerSecondTextBox":
+                        SecondValue = value;
+                        break;
+                    default:
+                        break;
+                }
             }
 
             e.Handled = true;
