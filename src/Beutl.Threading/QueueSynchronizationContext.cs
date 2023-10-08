@@ -35,9 +35,9 @@ internal sealed class QueueSynchronizationContext : SynchronizationContext
     {
         FlushTimerQueue();
 
-        while (_running && _operationQueue.TryDequeue(out Action? operation))
+        while (_running && _operationQueue.TryDequeue(out DispatcherOperation? operation))
         {
-            operation();
+            operation.Run();
             FlushTimerQueue();
         }
     }
@@ -82,7 +82,13 @@ internal sealed class QueueSynchronizationContext : SynchronizationContext
 
     internal void Post(DispatchPriority priority, Action operation)
     {
-        _operationQueue.Enqueue(priority, operation);
+        _operationQueue.Enqueue(new(operation, priority));
+        _waitToken?.Cancel();
+    }
+    
+    internal void Post(DispatcherOperation operation)
+    {
+        _operationQueue.Enqueue(operation);
         _waitToken?.Cancel();
     }
 
@@ -99,11 +105,11 @@ internal sealed class QueueSynchronizationContext : SynchronizationContext
 
     private void FlushTimerQueue()
     {
-        while (_timerQueue.TryDequeue(out List<(DispatchPriority Priority, Action Operation)>? operations))
+        while (_timerQueue.TryDequeue(out List<DispatcherOperation>? operations))
         {
-            foreach ((DispatchPriority priority, Action operation) in operations)
+            foreach (DispatcherOperation operation in operations)
             {
-                Post(priority, operation);
+                Post(operation);
             }
         }
     }

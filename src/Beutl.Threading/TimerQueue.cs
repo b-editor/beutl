@@ -5,7 +5,7 @@ namespace Beutl.Threading;
 internal sealed class TimerQueue
 {
     private readonly object _lock = new();
-    private readonly SortedDictionary<DateTime, List<(DispatchPriority Priority, Action Operation)>> _operations = new();
+    private readonly SortedDictionary<DateTime, List<DispatcherOperation>> _operations = new();
 
     public DateTime? Next
     {
@@ -13,7 +13,7 @@ internal sealed class TimerQueue
         {
             lock (_lock)
             {
-                SortedDictionary<DateTime, List<(DispatchPriority Priority, Action Operation)>>.Enumerator enumerator;
+                SortedDictionary<DateTime, List<DispatcherOperation>>.Enumerator enumerator;
                 enumerator = _operations.GetEnumerator();
                 return enumerator.MoveNext() ? enumerator.Current.Key : null;
             }
@@ -24,22 +24,22 @@ internal sealed class TimerQueue
     {
         lock (_lock)
         {
-            if (_operations.TryGetValue(timestamp, out List<(DispatchPriority Priority, Action Operation)>? stampedOperations))
+            if (_operations.TryGetValue(timestamp, out List<DispatcherOperation>? stampedOperations))
             {
-                stampedOperations.Add((priority, operation));
+                stampedOperations.Add(new(operation, priority));
             }
             else
             {
-                _operations.Add(timestamp, new List<(DispatchPriority, Action)> { (priority, operation) });
+                _operations.Add(timestamp, new List<DispatcherOperation> { new(operation, priority) });
             }
         }
     }
 
-    public bool TryDequeue([NotNullWhen(true)] out List<(DispatchPriority Priority, Action Operation)>? operations)
+    public bool TryDequeue([NotNullWhen(true)] out List<DispatcherOperation>? operations)
     {
         lock (_lock)
         {
-            SortedDictionary<DateTime, List<(DispatchPriority Priority, Action Operation)>>.Enumerator enumerator;
+            SortedDictionary<DateTime, List<DispatcherOperation>>.Enumerator enumerator;
             enumerator = _operations.GetEnumerator();
             if (enumerator.MoveNext() && enumerator.Current.Key <= DateTime.UtcNow)
             {
