@@ -204,7 +204,7 @@ public sealed class ElementViewModel : IDisposable
     public async void AnimationRequest(int layerNum, bool affectModel = true, CancellationToken cancellationToken = default)
     {
         var inlines = Timeline.Inlines
-            .Where(x => x.Layer == this)
+            .Where(x => x.Element == this)
             .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
             .ToArray();
         var scope = Scope.PrepareAnimation();
@@ -293,7 +293,7 @@ public sealed class ElementViewModel : IDisposable
             BorderMargin: BorderMargin.Value,
             Width: Width.Value,
             Inlines: Timeline.Inlines
-                .Where(x => x.Layer == this)
+                .Where(x => x.Element == this)
                 .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
                 .ToArray(),
             Scope: Scope.PrepareAnimation());
@@ -314,7 +314,7 @@ public sealed class ElementViewModel : IDisposable
     {
         if (LayerHeader.Value is { } layerHeader)
         {
-            InlineAnimationLayerViewModel[] inlines = Timeline.Inlines.Where(x => x.Layer == this).ToArray();
+            InlineAnimationLayerViewModel[] inlines = Timeline.Inlines.Where(x => x.Element == this).ToArray();
             Array.Sort(inlines, (x, y) => x.Index.Value - y.Index.Value);
 
             for (int i = 0; i < inlines.Length; i++)
@@ -331,7 +331,7 @@ public sealed class ElementViewModel : IDisposable
 
     private void OnFinishEditingAnimation()
     {
-        foreach (InlineAnimationLayerViewModel item in Timeline.Inlines.Where(x => x.Layer == this).ToArray())
+        foreach (InlineAnimationLayerViewModel item in Timeline.Inlines.Where(x => x.Element == this).ToArray())
         {
             Timeline.DetachInline(item);
         }

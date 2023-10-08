@@ -34,7 +34,7 @@ public partial class InlineAnimationLayerHeader : UserControl
 
             Type viewModelType = typeof(GraphEditorViewModel<>).MakeGenericType(propType);
             anmTimelineViewModel.SelectedAnimation.Value = (GraphEditorViewModel)Activator.CreateInstance(
-                viewModelType, editViewModel, kfAnimation, viewModel.Layer.Model)!;
+                viewModelType, editViewModel, kfAnimation, viewModel.Element.Model)!;
 
             editViewModel.OpenToolTab(anmTimelineViewModel);
         }

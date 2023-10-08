@@ -429,7 +429,7 @@ public sealed class TimelineViewModel : IToolContext
         {
             if (item.Property.Animation is KeyFrameAnimation { Id: Guid anmId })
             {
-                Guid elementId = item.Layer.Model.Id;
+                Guid elementId = item.Element.Model.Id;
 
                 inlines.Add(new JsonObject
                 {
@@ -444,7 +444,7 @@ public sealed class TimelineViewModel : IToolContext
 
     public void AttachInline(IAbstractAnimatableProperty property, Element layer)
     {
-        if (!Inlines.Any(x => x.Layer.Model == layer && x.Property == property)
+        if (!Inlines.Any(x => x.Element.Model == layer && x.Property == property)
             && GetViewModelFor(layer) is { } viewModel)
         {
             // タイムラインのタブを開く
