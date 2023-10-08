@@ -9,7 +9,7 @@ public sealed class InnerShadowOperator : FilterEffectOperator<InnerShadow>
 {
     public Setter<Point> Position { set; get; } = new(InnerShadow.PositionProperty, new(10, 10));
 
-    public Setter<Vector> Sigma { set; get; } = new(InnerShadow.SigmaProperty, new(10, 10));
+    public Setter<Size> Sigma { set; get; } = new(InnerShadow.SigmaProperty, new(10, 10));
 
     public Setter<Color> Color { set; get; } = new(InnerShadow.ColorProperty, Colors.Black);
 

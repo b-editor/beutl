@@ -1,8 +1,11 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Nodes;
 
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
+using Beutl.Serialization;
+using Beutl.Serialization.Migration;
 
 using OpenCvSharp;
 
@@ -13,10 +16,10 @@ namespace Beutl.Graphics.Effects.OpenCv;
 public class GaussianBlur : FilterEffect
 {
     public static readonly CoreProperty<PixelSize> KernelSizeProperty;
-    public static readonly CoreProperty<Vector> SigmaProperty;
+    public static readonly CoreProperty<Size> SigmaProperty;
     public static readonly CoreProperty<bool> FixImageSizeProperty;
     private PixelSize _kernelSize;
-    private Vector _sigma;
+    private Size _sigma;
     private bool _fixImageSize;
 
     static GaussianBlur()
@@ -26,9 +29,9 @@ public class GaussianBlur : FilterEffect
             .DefaultValue(PixelSize.Empty)
             .Register();
 
-        SigmaProperty = ConfigureProperty<Vector, GaussianBlur>(nameof(Sigma))
+        SigmaProperty = ConfigureProperty<Size, GaussianBlur>(nameof(Sigma))
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
-            .DefaultValue(Vector.Zero)
+            .DefaultValue(Size.Empty)
             .Register();
 
         FixImageSizeProperty = ConfigureProperty<bool, GaussianBlur>(nameof(FixImageSize))
@@ -47,7 +50,7 @@ public class GaussianBlur : FilterEffect
     }
 
     [Display(Name = nameof(Strings.Sigma), ResourceType = typeof(Strings))]
-    public Vector Sigma
+    public Size Sigma
     {
         get => _sigma;
         set => SetAndRaise(SigmaProperty, ref _sigma, value);
@@ -65,7 +68,7 @@ public class GaussianBlur : FilterEffect
         context.Custom((KernelSize, Sigma, FixImageSize), Apply, TransformBounds);
     }
 
-    private static Rect TransformBounds((PixelSize KernelSize, Vector Sigma, bool FixImageSize) data, Rect rect)
+    private static Rect TransformBounds((PixelSize KernelSize, Size Sigma, bool FixImageSize) data, Rect rect)
     {
         if (!data.FixImageSize)
         {
@@ -76,7 +79,7 @@ public class GaussianBlur : FilterEffect
         return rect;
     }
 
-    private static void Apply((PixelSize KernelSize, Vector Sigma, bool FixImageSize) data, FilterEffectCustomOperationContext context)
+    private static void Apply((PixelSize KernelSize, Size Sigma, bool FixImageSize) data, FilterEffectCustomOperationContext context)
     {
         if (context.Target.Surface is { } surface)
         {
@@ -108,7 +111,7 @@ public class GaussianBlur : FilterEffect
                 }
 
                 using var mat = dst.ToMat();
-                Cv2.GaussianBlur(mat, mat, new(kwidth, kheight), data.Sigma.X, data.Sigma.Y);
+                Cv2.GaussianBlur(mat, mat, new(kwidth, kheight), data.Sigma.Width, data.Sigma.Height);
 
                 using EffectTarget target = context.CreateTarget(dst.Width, dst.Height);
                 target.Surface!.Value.Canvas.DrawBitmap(dst.ToSKBitmap(), 0, 0);
@@ -124,5 +127,50 @@ public class GaussianBlur : FilterEffect
     public override Rect TransformBounds(Rect rect)
     {
         return TransformBounds((KernelSize, Sigma, FixImageSize), rect);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        // Todo: 互換性処理
+        if (context is IJsonSerializationContext jsonContext)
+        {
+            JsonObject json = jsonContext.GetJsonObject();
+
+            try
+            {
+                JsonNode? animations = json["Animations"] ?? json["animations"];
+                JsonNode? sigma = animations?[nameof(Sigma)];
+
+                if (sigma != null)
+                {
+                    Migration_ChangeSigmaType.Update(sigma);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        base.Deserialize(context);
+    }
+
+    [ObsoleteSerializationApi]
+    public override void ReadFromJson(JsonObject json)
+    {
+        try
+        {
+            JsonNode? animations = json["Animations"] ?? json["animations"];
+            JsonNode? sigma = animations?[nameof(Sigma)];
+
+            if (sigma != null)
+            {
+                Migration_ChangeSigmaType.Update(sigma);
+            }
+        }
+        catch
+        {
+        }
+
+        base.ReadFromJson(json);
     }
 }

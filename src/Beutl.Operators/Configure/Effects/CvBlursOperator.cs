@@ -16,7 +16,7 @@ public sealed class CvGaussianBlurOperator : FilterEffectOperator<GaussianBlur>
 {
     public Setter<PixelSize> KernelSize { get; set; } = new(GaussianBlur.KernelSizeProperty, new(10, 10));
 
-    public Setter<Vector> Sigma { get; set; } = new(GaussianBlur.SigmaProperty, new(0, 0));
+    public Setter<Size> Sigma { get; set; } = new(GaussianBlur.SigmaProperty, new(0, 0));
 
     public Setter<bool> FixImageSize { get; set; } = new(GaussianBlur.FixImageSizeProperty, false);
 }

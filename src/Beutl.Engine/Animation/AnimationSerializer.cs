@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Serialization;
+using Beutl.Serialization.Migration;
 
 namespace Beutl.Animation;
 
@@ -25,6 +26,11 @@ internal static class AnimationSerializer
     {
         if (json is JsonObject obj)
         {
+            if (Migration_ChangeSigmaType.ShouldMigrate(property))
+            {
+                Migration_ChangeSigmaType.Update(json);
+            }
+
             if (obj.TryGetDiscriminator(out Type? type)
                 && Activator.CreateInstance(type, property) is IAnimation animation)
             {
@@ -83,6 +89,11 @@ internal static class AnimationSerializer
     {
         if (json is JsonObject obj)
         {
+            if (Migration_ChangeSigmaType.ShouldMigrate(property))
+            {
+                Migration_ChangeSigmaType.Update(json);
+            }
+
             if (obj.TryGetDiscriminator(out Type? type)
                 && Activator.CreateInstance(type, property) is IAnimation animation)
             {

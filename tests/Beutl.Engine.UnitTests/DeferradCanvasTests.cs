@@ -64,7 +64,7 @@ public class DeferradCanvasTests
         using (dcanvas.PushTransform(Matrix.CreateTranslation(75, 0)))
         using (dcanvas.PushTransform(Matrix.CreateRotation(MathF.PI / 4)))
         {
-            using (dcanvas.PushFilterEffect(new Blur() { Sigma = new Vector(10, 10) }))
+            using (dcanvas.PushFilterEffect(new Blur() { Sigma = new Size(10, 10) }))
             {
                 dcanvas.DrawRectangle(new Rect(0, 0, 100, 100), Brushes.White, null);
             }

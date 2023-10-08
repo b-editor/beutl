@@ -4,7 +4,9 @@ using System.Runtime.InteropServices;
 
 using Beutl.Collections.Pooled;
 using Beutl.Media;
+
 using Microsoft.Extensions.ObjectPool;
+
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -89,43 +91,61 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
         _items.Add(new FEItem_SKColorFilter<T>(data, factory));
     }
 
-    public void DropShadowOnly(Point position, Vector sigma, Color color)
+    public void DropShadowOnly(Point position, Size sigma, Color color)
     {
         AppendSkiaFilter(
             data: (position, sigma, color),
-            factory: static (t, input, _) => SKImageFilter.CreateDropShadowOnly(t.position.X, t.position.Y, t.sigma.X, t.sigma.Y, t.color.ToSKColor(), input),
+            factory: static (t, input, _) => SKImageFilter.CreateDropShadowOnly(t.position.X, t.position.Y, t.sigma.Width, t.sigma.Height, t.color.ToSKColor(), input),
             transformBounds: static (t, bounds) => bounds
                 .Translate(t.position)
-                .Inflate(new Thickness(t.sigma.X * 3, t.sigma.Y * 3)));
+                .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3)));
     }
 
-    public void DropShadow(Point position, Vector sigma, Color color)
+    [Obsolete("Use DropShadowOnly(Point, Size, Color)")]
+    public void DropShadowOnly(Point position, Vector sigma, Color color)
+    {
+        DropShadowOnly(position, new Size(sigma.X, sigma.Y), color);
+    }
+
+    public void DropShadow(Point position, Size sigma, Color color)
     {
         AppendSkiaFilter(
             data: (position, sigma, color),
-            factory: static (t, input, _) => SKImageFilter.CreateDropShadow(t.position.X, t.position.Y, t.sigma.X, t.sigma.Y, t.color.ToSKColor(), input),
+            factory: static (t, input, _) => SKImageFilter.CreateDropShadow(t.position.X, t.position.Y, t.sigma.Width, t.sigma.Height, t.color.ToSKColor(), input),
             transformBounds: static (t, bounds) => bounds.Union(bounds
                 .Translate(t.position)
-                .Inflate(new Thickness(t.sigma.X * 3, t.sigma.Y * 3))));
+                .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3))));
     }
 
-    public void Blur(Vector sigma)
+    [Obsolete("Use DropShadow(Point, Size, Color)")]
+    public void DropShadow(Point position, Vector sigma, Color color)
     {
-        if (sigma.X < 0)
-            sigma = sigma.WithX(0);
-        if (sigma.Y < 0)
-            sigma = sigma.WithY(0);
+        DropShadow(position, new Size(sigma.X, sigma.Y), color);
+    }
+
+    public void Blur(Size sigma)
+    {
+        if (sigma.Width < 0)
+            sigma = sigma.WithWidth(0);
+        if (sigma.Height < 0)
+            sigma = sigma.WithHeight(0);
 
         AppendSkiaFilter(
             data: sigma,
             factory: static (sigma, input, _) =>
             {
-                if (sigma.X == 0 && sigma.Y == 0)
+                if (sigma.Width == 0 && sigma.Height == 0)
                     return null;
 
-                return SKImageFilter.CreateBlur(sigma.X, sigma.Y, input);
+                return SKImageFilter.CreateBlur(sigma.Width, sigma.Height, input);
             },
-            transformBounds: static (sigma, bounds) => bounds.Inflate(new Thickness(sigma.X * 3, sigma.Y * 3)));
+            transformBounds: static (sigma, bounds) => bounds.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)));
+    }
+
+    [Obsolete("Use Blur(Size)")]
+    public void Blur(Vector sigma)
+    {
+        Blur(new Size(sigma.X, sigma.Y));
     }
 
     public void DisplacementMap(
@@ -154,7 +174,7 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     }
 
     // https://github.com/Shopify/react-native-skia/blob/c7740e30234e6b0a49721ab954c4a848e42d7edb/package/src/dom/nodes/paint/ImageFilters.ts#L25
-    public void InnerShadow(Point position, Vector sigma, Color color)
+    public void InnerShadow(Point position, Size sigma, Color color)
     {
         AppendSkiaFilter(
             data: (position, sigma, color),
@@ -169,7 +189,7 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
                 using var srcOut = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
                 using var f1 = SKImageFilter.CreateColorFilter(srcOut);
                 using var f2 = SKImageFilter.CreateOffset(data.position.X, data.position.Y, f1);
-                using var f3 = SKImageFilter.CreateBlur(data.sigma.X, data.sigma.Y, SKShaderTileMode.Decal, f2);
+                using var f3 = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height, SKShaderTileMode.Decal, f2);
                 using var f4 = SKImageFilter.CreateBlendMode(SKBlendMode.SrcIn, sourceAlpha, f3);
 
                 using var srcOver = SKImageFilter.CreateBlendMode(SKBlendMode.SrcOver, sourceGraphic, f4);
@@ -178,7 +198,13 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
             transformBounds: static (_, bounds) => bounds);
     }
 
-    public void InnerShadowOnly(Point position, Vector sigma, Color color)
+    [Obsolete("Use InnerShadow(Point, Size, Color)")]
+    public void InnerShadow(Point position, Vector sigma, Color color)
+    {
+        InnerShadow(position, new Size(sigma.X, sigma.Y), color);
+    }
+
+    public void InnerShadowOnly(Point position, Size sigma, Color color)
     {
         AppendSkiaFilter(
             data: (position, sigma, color),
@@ -193,10 +219,16 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
                 using var srcOut = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
                 using var f1 = SKImageFilter.CreateColorFilter(srcOut);
                 using var f2 = SKImageFilter.CreateOffset(data.position.X, data.position.Y, f1);
-                using var f3 = SKImageFilter.CreateBlur(data.sigma.X, data.sigma.Y, SKShaderTileMode.Decal, f2);
+                using var f3 = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height, SKShaderTileMode.Decal, f2);
                 return SKImageFilter.CreateBlendMode(SKBlendMode.SrcIn, sourceAlpha, f3);
             },
             transformBounds: static (_, bounds) => bounds);
+    }
+
+    [Obsolete("Use InnerShadowOnly(Point, Size, Color)")]
+    public void InnerShadowOnly(Point position, Vector sigma, Color color)
+    {
+        InnerShadowOnly(position, new Size(sigma.X, sigma.Y), color);
     }
 
     public void Transform(Matrix matrix, BitmapInterpolationMode bitmapInterpolationMode)

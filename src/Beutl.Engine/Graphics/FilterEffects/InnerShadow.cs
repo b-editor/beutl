@@ -1,7 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Nodes;
 
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Serialization;
+using Beutl.Serialization.Migration;
 
 using OpenCvSharp;
 
@@ -10,11 +13,11 @@ namespace Beutl.Graphics.Effects;
 public class InnerShadow : FilterEffect
 {
     public static readonly CoreProperty<Point> PositionProperty;
-    public static readonly CoreProperty<Vector> SigmaProperty;
+    public static readonly CoreProperty<Size> SigmaProperty;
     public static readonly CoreProperty<Color> ColorProperty;
     public static readonly CoreProperty<bool> ShadowOnlyProperty;
     private Point _position;
-    private Vector _sigma;
+    private Size _sigma;
     private Color _color;
     private bool _shadowOnly;
 
@@ -25,9 +28,9 @@ public class InnerShadow : FilterEffect
             .DefaultValue(new Point())
             .Register();
 
-        SigmaProperty = ConfigureProperty<Vector, InnerShadow>(nameof(Sigma))
+        SigmaProperty = ConfigureProperty<Size, InnerShadow>(nameof(Sigma))
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
-            .DefaultValue(Vector.Zero)
+            .DefaultValue(Size.Empty)
             .Register();
 
         ColorProperty = ConfigureProperty<Color, InnerShadow>(nameof(Color))
@@ -51,8 +54,8 @@ public class InnerShadow : FilterEffect
     }
 
     [Display(Name = nameof(Strings.Sigma), ResourceType = typeof(Strings))]
-    [Range(typeof(Vector), "0,0", "max,max")]
-    public Vector Sigma
+    [Range(typeof(Size), "0,0", "max,max")]
+    public Size Sigma
     {
         get => _sigma;
         set => SetAndRaise(SigmaProperty, ref _sigma, value);
@@ -78,5 +81,50 @@ public class InnerShadow : FilterEffect
             context.InnerShadowOnly(Position, Sigma, Color);
         else
             context.InnerShadow(Position, Sigma, Color);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        // Todo: 互換性処理
+        if (context is IJsonSerializationContext jsonContext)
+        {
+            JsonObject json = jsonContext.GetJsonObject();
+
+            try
+            {
+                JsonNode? animations = json["Animations"] ?? json["animations"];
+                JsonNode? sigma = animations?[nameof(Sigma)];
+
+                if (sigma != null)
+                {
+                    Migration_ChangeSigmaType.Update(sigma);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        base.Deserialize(context);
+    }
+
+    [ObsoleteSerializationApi]
+    public override void ReadFromJson(JsonObject json)
+    {
+        try
+        {
+            JsonNode? animations = json["Animations"] ?? json["animations"];
+            JsonNode? sigma = animations?[nameof(Sigma)];
+
+            if (sigma != null)
+            {
+                Migration_ChangeSigmaType.Update(sigma);
+            }
+        }
+        catch
+        {
+        }
+
+        base.ReadFromJson(json);
     }
 }
