@@ -7,7 +7,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class ThicknessEditorViewModel : ValueEditorViewModel<Graphics.Thickness>
+public sealed class ThicknessEditorViewModel : ValueEditorViewModel<Graphics.Thickness>, IConfigureUniformEditor
 {
     public ThicknessEditorViewModel(IAbstractProperty<Graphics.Thickness> property)
         : base(property)
@@ -41,6 +41,8 @@ public sealed class ThicknessEditorViewModel : ValueEditorViewModel<Graphics.Thi
 
     public ReadOnlyReactivePropertySlim<float> FourthValue { get; }
 
+    public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
+
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
@@ -50,6 +52,7 @@ public sealed class ThicknessEditorViewModel : ValueEditorViewModel<Graphics.Thi
             editor[!Vector4Editor<float>.SecondValueProperty] = SecondValue.ToBinding();
             editor[!Vector4Editor<float>.ThirdValueProperty] = ThirdValue.ToBinding();
             editor[!Vector4Editor<float>.FourthValueProperty] = FourthValue.ToBinding();
+            editor[!Vector4Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
             editor.ValueConfirmed += OnValueConfirmed;
             editor.ValueChanged += OnValueChanged;
         }
