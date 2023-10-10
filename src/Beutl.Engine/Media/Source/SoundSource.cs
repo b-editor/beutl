@@ -33,6 +33,26 @@ public class SoundSource : ISoundSource
 
     public string Name { get; }
 
+    public static SoundSource Open(string fileName)
+    {
+        var reader = MediaReader.Open(fileName, new(MediaMode.Audio));
+        return new SoundSource(Ref<MediaReader>.Create(reader), fileName);
+    }
+
+    public static bool TryOpen(string fileName, out SoundSource? result)
+    {
+        try
+        {
+            result = Open(fileName);
+            return true;
+        }
+        catch
+        {
+            result = null;
+            return false;
+        }
+    }
+
     public void Dispose()
     {
         if (!IsDisposed)

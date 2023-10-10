@@ -82,7 +82,7 @@ public partial class VideoSourceEditor : UserControl
             IReadOnlyList<IStorageFile> result = await topLevel.StorageProvider.OpenFilePickerAsync(options);
             if (result.Count > 0
                 && result[0].TryGetLocalPath() is string localPath
-                && MediaSourceManager.Shared.OpenVideoSource(localPath, out IVideoSource? videoSource))
+                && VideoSource.TryOpen(localPath, out VideoSource? videoSource))
             {
                 IVideoSource? oldValue = vm.WrappedProperty.GetValue();
                 vm.SetValueAndDispose(oldValue, videoSource);

@@ -527,7 +527,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             if (MatchFileImage(desc.FileName))
             {
                 Element element = CreateElementFor(out SourceImageOperator t);
-                MediaSourceManager.Shared.OpenImageSource(desc.FileName, out IImageSource? image);
+                BitmapSource.TryOpen(desc.FileName, out BitmapSource? image);
                 t.Source.Value = image;
 
                 element.Save(element.FileName);
@@ -538,8 +538,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 Element element1 = CreateElementFor(out SourceVideoOperator t1);
                 Element element2 = CreateElementFor(out SourceSoundOperator t2);
                 element2.ZIndex++;
-                MediaSourceManager.Shared.OpenVideoSource(desc.FileName, out IVideoSource? video);
-                MediaSourceManager.Shared.OpenSoundSource(desc.FileName, out ISoundSource? sound);
+                VideoSource.TryOpen(desc.FileName, out VideoSource? video);
+                SoundSource.TryOpen(desc.FileName, out SoundSource? sound);
                 t1.Source.Value = video;
                 t2.Source.Value = sound;
 
@@ -556,7 +556,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             else if (MatchFileAudioOnly(desc.FileName))
             {
                 Element element = CreateElementFor(out SourceSoundOperator t);
-                MediaSourceManager.Shared.OpenSoundSource(desc.FileName, out ISoundSource? sound);
+                SoundSource.TryOpen(desc.FileName, out SoundSource? sound);
                 t.Source.Value = sound;
                 if (sound != null)
                 {

@@ -49,7 +49,7 @@ public sealed class SourceVideoOperator : DrawablePublishOperator<SourceVideo>
         base.OnAttachedToHierarchy(args);
         if (Source is { Value: null } setter
             && _sourceName != null
-            && MediaSourceManager.Shared.OpenVideoSource(_sourceName, out IVideoSource? videoSource))
+            && VideoSource.TryOpen(_sourceName, out VideoSource? videoSource))
         {
             setter.Value = videoSource;
         }

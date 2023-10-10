@@ -9,7 +9,7 @@ public sealed class ImageSourceJsonConverter : JsonConverter<IImageSource?>
     {
         string? s = reader.GetString();
 
-        return s != null && MediaSourceManager.Shared.OpenImageSource(s, out var imageSource)
+        return s != null && BitmapSource.TryOpen(s, out var imageSource)
             ? imageSource
             : null;
     }

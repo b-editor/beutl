@@ -43,7 +43,7 @@ public sealed class SourceImageOperator : DrawablePublishOperator<SourceImage>
         base.OnAttachedToHierarchy(args);
         if (Source is { Value: null } setter
             && _sourceName != null
-            && MediaSourceManager.Shared.OpenImageSource(_sourceName, out IImageSource? imageSource))
+            && BitmapSource.TryOpen(_sourceName, out BitmapSource? imageSource))
         {
             setter.Value = imageSource;
         }

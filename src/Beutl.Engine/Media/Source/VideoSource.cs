@@ -25,7 +25,7 @@ public sealed class VideoSource : IVideoSource
     }
 
     public TimeSpan Duration { get; }
-    
+
     public Rational FrameRate { get; }
 
     public PixelSize FrameSize { get; }
@@ -33,6 +33,26 @@ public sealed class VideoSource : IVideoSource
     public bool IsDisposed { get; private set; }
 
     public string Name { get; }
+
+    public static VideoSource Open(string fileName)
+    {
+        var reader = MediaReader.Open(fileName, new(MediaMode.Video));
+        return new VideoSource(Ref<MediaReader>.Create(reader), fileName);
+    }
+
+    public static bool TryOpen(string fileName, out VideoSource? result)
+    {
+        try
+        {
+            result = Open(fileName);
+            return true;
+        }
+        catch
+        {
+            result = null;
+            return false;
+        }
+    }
 
     public void Dispose()
     {
@@ -63,7 +83,7 @@ public sealed class VideoSource : IVideoSource
         double frameNum = frame.TotalSeconds * _frameRate;
         return _mediaReader.Value.ReadVideo((int)frameNum, out bitmap);
     }
-    
+
     public bool Read(int frame, [NotNullWhen(true)] out IBitmap? bitmap)
     {
         if (IsDisposed)

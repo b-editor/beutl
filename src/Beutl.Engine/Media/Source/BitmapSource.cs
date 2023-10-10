@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
+using Beutl.Media.Pixel;
+
 namespace Beutl.Media.Source;
 
 public sealed class BitmapSource : ImageSource
@@ -18,6 +20,26 @@ public sealed class BitmapSource : ImageSource
     public override string Name { get; }
 
     public override bool IsGenerated => true;
+
+    public static BitmapSource Open(string fileName)
+    {
+        var bitmap = Bitmap<Bgra8888>.FromFile(fileName);
+        return new BitmapSource(Ref<IBitmap>.Create(bitmap), fileName);
+    }
+
+    public static bool TryOpen(string fileName, out BitmapSource? result)
+    {
+        try
+        {
+            result = Open(fileName);
+            return true;
+        }
+        catch
+        {
+            result = null;
+            return false;
+        }
+    }
 
     public override IImageSource Clone()
     {

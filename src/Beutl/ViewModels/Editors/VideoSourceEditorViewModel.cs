@@ -53,7 +53,8 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
         {
             if (_newValue == null && _newName != null)
             {
-                MediaSourceManager.Shared.OpenVideoSource(_newName, out _newValue);
+                VideoSource.TryOpen(_newName, out VideoSource? newValue);
+                _newValue = newValue;
             }
 
             _keyframe.SetValue(KeyFrame<IVideoSource?>.ValueProperty, _newValue);
@@ -70,7 +71,8 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
         {
             if (_oldValue == null && _oldName != null)
             {
-                MediaSourceManager.Shared.OpenVideoSource(_oldName, out _oldValue);
+                VideoSource.TryOpen(_oldName, out VideoSource? oldValue);
+                _oldValue = oldValue;
             }
 
             _keyframe.SetValue(KeyFrame<IVideoSource?>.ValueProperty, _oldValue);
@@ -100,7 +102,8 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
         {
             if (_newValue == null && _newName != null)
             {
-                MediaSourceManager.Shared.OpenVideoSource(_newName, out _newValue);
+                VideoSource.TryOpen(_newName, out VideoSource? newValue);
+                _newValue = newValue;
             }
 
             _setter.SetValue(_newValue);
@@ -117,7 +120,8 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
         {
             if (_oldValue == null && _oldName != null)
             {
-                MediaSourceManager.Shared.OpenVideoSource(_oldName, out _oldValue);
+                VideoSource.TryOpen(_oldName, out VideoSource? oldValue);
+                _oldValue = oldValue;
             }
 
             _setter.SetValue(_oldValue);

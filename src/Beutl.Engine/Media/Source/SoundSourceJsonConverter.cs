@@ -9,7 +9,7 @@ public sealed class SoundSourceJsonConverter : JsonConverter<ISoundSource?>
     {
         string? s = reader.GetString();
         
-        return s != null && MediaSourceManager.Shared.OpenSoundSource(s, out var soundSource)
+        return s != null && SoundSource.TryOpen(s, out var soundSource)
             ? soundSource
             : null;
     }
