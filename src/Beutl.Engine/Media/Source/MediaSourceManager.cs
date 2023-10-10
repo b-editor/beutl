@@ -6,6 +6,8 @@ using Beutl.Media.Pixel;
 
 namespace Beutl.Media.Source;
 
+[EditorBrowsable(EditorBrowsableState.Never)]
+[Obsolete("Use the Open method of each MediaSource.")]
 public class MediaSourceManager
 {
     public static readonly MediaSourceManager Shared = new();
@@ -46,14 +48,12 @@ public class MediaSourceManager
         return value != null;
     }
 
-    [EditorBrowsable(EditorBrowsableState.Never)]
     [Obsolete("Do not use.")]
     public bool TryGetMediaReader(string name, [NotNullWhen(true)] out Ref<MediaReader>? value)
     {
         return TryGetMediaReaderOrOpen(name, out value);
     }
 
-    [EditorBrowsable(EditorBrowsableState.Never)]
     [Obsolete("Do not use.")]
     public bool TryGetMediaReaderOrOpen(string fileName, [NotNullWhen(true)] out Ref<MediaReader>? value)
     {
@@ -70,14 +70,12 @@ public class MediaSourceManager
         }
     }
 
-    [EditorBrowsable(EditorBrowsableState.Never)]
     [Obsolete("Do not use.")]
     public bool TryGetBitmap(string name, [NotNullWhen(true)] out Ref<IBitmap>? value)
     {
         return TryGetBitmapOrOpen(name, out value);
     }
 
-    [EditorBrowsable(EditorBrowsableState.Never)]
     [Obsolete("Do not use.")]
     public bool TryGetBitmapOrOpen(string fileName, [NotNullWhen(true)] out Ref<IBitmap>? value)
     {
@@ -96,7 +94,6 @@ public class MediaSourceManager
     }
 
     // 移譲する側は今後、valueを直接参照しない。
-    [EditorBrowsable(EditorBrowsableState.Never)]
     [Obsolete("Do not use.")]
     public Ref<MediaReader>? TryTransferMediaReader(string name, MediaReader mediaReader)
     {
@@ -104,7 +101,6 @@ public class MediaSourceManager
     }
 
     // 移譲する側は今後、valueを直接参照しない。
-    [EditorBrowsable(EditorBrowsableState.Never)]
     [Obsolete("Do not use.")]
     public Ref<IBitmap>? TryTransferBitmap(string name, IBitmap bitmap)
     {
