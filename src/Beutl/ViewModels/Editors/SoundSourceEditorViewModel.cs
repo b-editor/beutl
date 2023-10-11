@@ -53,7 +53,8 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
         {
             if (_newValue == null && _newName != null)
             {
-                MediaSourceManager.Shared.OpenSoundSource(_newName, out _newValue);
+                SoundSource.TryOpen(_newName, out SoundSource? newValue);
+                _newValue = newValue;
             }
 
             _keyframe.SetValue(KeyFrame<ISoundSource?>.ValueProperty, _newValue);
@@ -70,7 +71,8 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
         {
             if (_oldValue == null && _oldName != null)
             {
-                MediaSourceManager.Shared.OpenSoundSource(_oldName, out _oldValue);
+                SoundSource.TryOpen(_oldName, out SoundSource? oldValue);
+                _oldValue = oldValue;
             }
 
             _keyframe.SetValue(KeyFrame<ISoundSource?>.ValueProperty, _oldValue);
@@ -100,7 +102,8 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
         {
             if (_newValue == null && _newName != null)
             {
-                MediaSourceManager.Shared.OpenSoundSource(_newName, out _newValue);
+                SoundSource.TryOpen(_newName, out SoundSource? newValue);
+                _newValue = newValue;
             }
 
             _setter.SetValue(_newValue);
@@ -117,7 +120,8 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
         {
             if (_oldValue == null && _oldName != null)
             {
-                MediaSourceManager.Shared.OpenSoundSource(_oldName, out _oldValue);
+                SoundSource.TryOpen(_oldName, out SoundSource? oldValue);
+                _oldValue = oldValue;
             }
 
             _setter.SetValue(_oldValue);

@@ -53,7 +53,8 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
         {
             if (_newValue == null && _newName != null)
             {
-                MediaSourceManager.Shared.OpenImageSource(_newName, out _newValue);
+                BitmapSource.TryOpen(_newName, out BitmapSource? newValue);
+                _newValue = newValue;
             }
 
             _keyframe.SetValue(KeyFrame<IImageSource?>.ValueProperty, _newValue);
@@ -70,7 +71,8 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
         {
             if (_oldValue == null && _oldName != null)
             {
-                MediaSourceManager.Shared.OpenImageSource(_oldName, out _oldValue);
+                BitmapSource.TryOpen(_oldName, out BitmapSource? oldValue);
+                _oldValue = oldValue;
             }
 
             _keyframe.SetValue(KeyFrame<IImageSource?>.ValueProperty, _oldValue);
@@ -100,7 +102,8 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
         {
             if (_newValue == null && _newName != null)
             {
-                MediaSourceManager.Shared.OpenImageSource(_newName, out _newValue);
+                BitmapSource.TryOpen(_newName, out BitmapSource? newValue);
+                _newValue = newValue;
             }
 
             _setter.SetValue(_newValue);
@@ -117,7 +120,8 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
         {
             if (_oldValue == null && _oldName != null)
             {
-                MediaSourceManager.Shared.OpenImageSource(_oldName, out _oldValue);
+                BitmapSource.TryOpen(_oldName, out BitmapSource? oldValue);
+                _oldValue = oldValue;
             }
 
             _setter.SetValue(_oldValue);

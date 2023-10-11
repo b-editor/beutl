@@ -9,7 +9,7 @@ public sealed class VideoSourceJsonConverter : JsonConverter<IVideoSource?>
     {
         string? s = reader.GetString();
         
-        return s != null && MediaSourceManager.Shared.OpenVideoSource(s, out var videoSource)
+        return s != null && VideoSource.TryOpen(s, out var videoSource)
             ? videoSource
             : null;
     }
