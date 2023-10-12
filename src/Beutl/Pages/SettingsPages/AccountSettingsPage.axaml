@@ -1,209 +1,31 @@
 <UserControl x:Class="Beutl.Pages.SettingsPages.AccountSettingsPage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:asyncImage="using:AsyncImageLoader"
-             xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:icons="using:FluentIcons.FluentAvalonia"
-             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.SettingsPages"
              d:DesignHeight="800"
              d:DesignWidth="800"
+             x:CompileBindings="True"
              x:DataType="vm:AccountSettingsPageViewModel"
              Focusable="True"
              RenderOptions.BitmapInterpolationMode="HighQuality"
              mc:Ignorable="d">
     <UserControl.KeyBindings>
-        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="F5" />
-        <KeyBinding Command="{CompiledBinding Refresh}" Gesture="Ctrl+R" />
+        <KeyBinding Command="{Binding Refresh}" Gesture="F5" />
+        <KeyBinding Command="{Binding Refresh}" Gesture="Ctrl+R" />
     </UserControl.KeyBindings>
     <Panel>
-        <ScrollViewer x:Name="scrollViewer"
-                      Padding="18"
-                      IsVisible="{CompiledBinding SignedIn.Value}">
-            <StackPanel Margin="10,0"
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Stretch"
-                        Orientation="Vertical"
-                        Spacing="4">
-                <Grid Margin="0,32,0,0" ColumnDefinitions="Auto,16,Auto,*">
-                    <!--  プロフィール画像  -->
-                    <Border Width="64"
-                            Height="64"
-                            Background="{DynamicResource ControlSolidFillColorDefaultBrush}"
-                            CornerRadius="32"
-                            IsVisible="{CompiledBinding ProfileImage.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}">
+        <ContentControl x:Name="settingsContainer" IsVisible="{Binding SignedIn.Value}" />
 
-                        <icons:SymbolIcon FontSize="30" Symbol="Person" />
-                    </Border>
-                    <Image Width="64"
-                           Height="64"
-                           asyncImage:ImageLoader.Source="{CompiledBinding ProfileImage.Value}"
-                           IsVisible="{CompiledBinding ProfileImage.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                        <Image.Clip>
-                            <EllipseGeometry Center="32,32"
-                                             RadiusX="32"
-                                             RadiusY="32" />
-                        </Image.Clip>
-                    </Image>
-                    <Button Width="64"
-                            Height="64"
-                            Padding="0"
-                            HorizontalContentAlignment="Stretch"
-                            VerticalContentAlignment="Stretch"
-                            Background="Transparent"
-                            Click="UpdateProfileImage_Click"
-                            CornerRadius="32">
-                        <Button.Styles>
-                            <Style Selector="Button:pointerover">
-                                <Setter Property="Content">
-                                    <Template>
-                                        <Border HorizontalAlignment="Stretch"
-                                                VerticalAlignment="Stretch"
-                                                Background="Gray"
-                                                CornerRadius="32"
-                                                Opacity="0.8">
-                                            <icons:SymbolIcon VerticalAlignment="Center" Symbol="Edit" />
-                                        </Border>
-                                    </Template>
-                                </Setter>
-                            </Style>
-                        </Button.Styles>
-                    </Button>
+        <ContentControl x:Name="signInContainer"
+                        Width="400"
+                        MinHeight="300"
+                        Padding="0,12"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        IsVisible="{Binding !SignedIn.Value}" />
 
-                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-
-                            <!--  名前表示  -->
-                            <TextBlock Classes="SubtitleTextBlockStyle" Text="{CompiledBinding DisplayName.Value}" />
-
-                            <!--<ui:InfoBadge Classes="Success Icon"
-                                          IsVisible="{CompiledBinding User.Value.Info.IsEmailVerified}"
-                                          ToolTip.Tip="{DynamicResource S.AccountSettingsPage.YourEmailAddressHasBeenVerified}" />-->
-
-                        </StackPanel>
-
-                        <!--  識別可能な名前  -->
-                        <TextBlock Classes="CaptionTextBlockStyle"
-                                   Opacity="0.8"
-                                   Text="{CompiledBinding Name.Value}" />
-                    </StackPanel>
-
-                    <ui:CommandBar Grid.Column="3"
-                                   HorizontalAlignment="Right"
-                                   VerticalAlignment="Center"
-                                   DefaultLabelPosition="Right">
-                        <ui:CommandBar.PrimaryCommands>
-                            <ui:CommandBarButton Command="{CompiledBinding SignOut}" Label="{x:Static lang:SettingsPage.SignOut}">
-                                <ui:CommandBarButton.IconSource>
-                                    <icons:SymbolIconSource Symbol="SignOut" />
-                                </ui:CommandBarButton.IconSource>
-                            </ui:CommandBarButton>
-                        </ui:CommandBar.PrimaryCommands>
-                    </ui:CommandBar>
-                </Grid>
-
-                <ctrls:OptionsDisplayItem x:Name="optionsItem1"
-                                          Margin="0,24,0,0"
-                                          Header="{x:Static lang:SettingsPage.ChangeAccountSettings}"
-                                          Navigates="True"
-                                          NavigationCommand="{CompiledBinding OpenAccountSettings}">
-
-                    <ctrls:OptionsDisplayItem.Icon>
-                        <icons:SymbolIcon Symbol="Open" />
-                    </ctrls:OptionsDisplayItem.Icon>
-                </ctrls:OptionsDisplayItem>
-            </StackPanel>
-
-
-        </ScrollViewer>
-
-        <Border Width="400"
-                MinHeight="300"
-                Padding="0,12"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                IsVisible="{CompiledBinding !SignedIn.Value}">
-            <StackPanel>
-                <TextBlock Margin="0,0,0,24"
-                           Text="{x:Static lang:SettingsPage.SignIn}"
-                           Theme="{StaticResource SubtitleTextBlockStyle}" />
-                <TextBlock Margin="0,0,0,8"
-                           Text="{x:Static lang:SettingsPage.SignInWith}"
-                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
-                <Grid ColumnDefinitions="*,16,*">
-
-                    <Button Height="48"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Center"
-                            Command="{CompiledBinding SignInWithGoogle}">
-                        <Grid ColumnDefinitions="48,*">
-                            <Svg Height="48" Path="/Assets/social/btn_google_light_normal_ios.svg" />
-
-                            <TextBlock Grid.Column="1"
-                                       VerticalAlignment="Center"
-                                       FontSize="16"
-                                       Text="Google" />
-                        </Grid>
-                    </Button>
-                    <Button Grid.Column="2"
-                            Height="48"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Center"
-                            Command="{CompiledBinding SignInWithGitHub}">
-                        <Grid ColumnDefinitions="48,*">
-                            <Image x:Name="githubLightLogo"
-                                   Height="24"
-                                   IsVisible="False"
-                                   Source="/Assets/social/GitHub-Mark-120px-plus.png" />
-                            <Image x:Name="githubDarkLogo"
-                                   Height="24"
-                                   IsVisible="False"
-                                   Source="/Assets/social/GitHub-Mark-Light-120px-plus.png" />
-
-                            <TextBlock Grid.Column="1"
-                                       VerticalAlignment="Center"
-                                       FontSize="16"
-                                       Text="GitHub" />
-                        </Grid>
-                    </Button>
-
-                </Grid>
-
-                <TextBlock MinHeight="16"
-                           Margin="0,16,0,0"
-                           Classes="error"
-                           Text="{CompiledBinding Error.Value}" />
-
-                <Button Height="40"
-                        Margin="0,8,0,0"
-                        HorizontalAlignment="Stretch"
-                        Classes="accent"
-                        Command="{CompiledBinding SignIn}"
-                        Content="{x:Static lang:SettingsPage.SignInViaBrowser}" />
-
-                <Grid Margin="0,16,0,0" ColumnDefinitions="*,*">
-                    <ui:HyperlinkButton Grid.Column="0"
-                                        HorizontalAlignment="Center"
-                                        Content="{x:Static lang:Strings.PrivacyPolicy}"
-                                        NavigateUri="https://beutl.beditor.net/Privacy" />
-                    <ui:HyperlinkButton Grid.Column="1"
-                                        HorizontalAlignment="Center"
-                                        Content="{x:Static lang:Strings.TermsOfService}"
-                                        NavigateUri="https://beutl.beditor.net/TermsOfService" />
-                </Grid>
-
-                <Button Height="40"
-                        Margin="0,16,0,0"
-                        HorizontalAlignment="Stretch"
-                        Classes.transparent="{CompiledBinding !SigningIn.Value}"
-                        Command="{CompiledBinding Cancel}"
-                        Content="{x:Static lang:Strings.Cancel}" />
-            </StackPanel>
-        </Border>
-
-        <ProgressRing IsIndeterminate="{CompiledBinding IsLoading.Value}" IsVisible="{CompiledBinding IsLoading.Value}" />
+        <ProgressRing IsIndeterminate="{Binding IsLoading.Value}" IsVisible="{Binding IsLoading.Value}" />
     </Panel>
 </UserControl>
