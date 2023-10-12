@@ -14,7 +14,7 @@ using Serilog;
 
 namespace Beutl.ViewModels.ExtensionsPages;
 
-public sealed class LibraryPageViewModel : BasePageViewModel
+public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
     private readonly ILogger _logger = Log.ForContext<LibraryPageViewModel>();
     private readonly AuthorizedUser _user;

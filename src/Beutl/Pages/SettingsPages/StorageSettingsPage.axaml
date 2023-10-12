@@ -128,6 +128,13 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
+            <ProgressRing Width="24"
+                          Height="24"
+                          HorizontalAlignment="Left"
+                          BorderThickness="4"
+                          IsIndeterminate="{CompiledBinding IsBusy.Value}"
+                          IsVisible="{CompiledBinding IsBusy.Value}" />
+
             <TextBlock Margin="0,16,0,0"
                        Text="{x:Static lang:Strings.Settings}"
                        Theme="{StaticResource BodyStrongTextBlockStyle}" />

@@ -13,7 +13,7 @@ using static Beutl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
 
 namespace Beutl.ViewModels.ExtensionsPages.DevelopPages;
 
-public sealed class ReleasePageViewModel : BasePageViewModel
+public sealed class ReleasePageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
     private readonly ILogger _logger = Log.ForContext<ReleasePageViewModel>();
     private readonly CompositeDisposable _disposables = new();

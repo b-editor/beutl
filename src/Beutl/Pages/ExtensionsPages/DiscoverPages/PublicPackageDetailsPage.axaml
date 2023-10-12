@@ -91,7 +91,8 @@
 
                     <TextBlock Margin="0,64,0,0"
                                HorizontalAlignment="Center"
-                               Text="{Binding Package.ShortDescription.Value}" />
+                               Text="{Binding Package.ShortDescription.Value}"
+                               TextWrapping="WrapWithOverflow" />
                 </StackPanel>
             </Border>
         </ScrollViewer>
@@ -133,7 +134,9 @@
                                    Theme="{StaticResource BodyStrongTextBlockStyle}" />
                         <Border Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
 
-                        <SelectableTextBlock Margin="16" Text="{Binding Package.Description.Value}" />
+                        <SelectableTextBlock Margin="16"
+                                             Text="{Binding Package.Description.Value}"
+                                             TextWrapping="WrapWithOverflow" />
                     </StackPanel>
                 </Border>
 
@@ -145,7 +148,9 @@
                         <Border Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
 
                         <TextBlock Margin="16,16,16,0" Text="{Binding LatestRelease.Value.Title.Value}" />
-                        <SelectableTextBlock Margin="16" Text="{Binding LatestRelease.Value.Body.Value}" />
+                        <SelectableTextBlock Margin="16"
+                                             Text="{Binding LatestRelease.Value.Body.Value}"
+                                             TextWrapping="WrapWithOverflow" />
                     </StackPanel>
                 </Border>
 
@@ -225,5 +230,9 @@
             </StackPanel>
         </ScrollViewer>
 
+        <ProgressRing Grid.RowSpan="2"
+                      Grid.ColumnSpan="2"
+                      IsIndeterminate="{CompiledBinding IsBusy.Value}"
+                      IsVisible="{CompiledBinding IsBusy.Value}" />
     </Grid>
 </UserControl>

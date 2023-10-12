@@ -11,7 +11,7 @@ using Serilog;
 
 namespace Beutl.ViewModels.ExtensionsPages;
 
-public sealed class DevelopPageViewModel : BasePageViewModel
+public sealed class DevelopPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
     private readonly ILogger _logger = Log.ForContext<DevelopPageViewModel>();
     private readonly CompositeDisposable _disposables = new();
