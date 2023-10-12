@@ -176,7 +176,7 @@ public class CoreList<T> : ICoreList<T>
 
             if (eventArgs != null)
             {
-                CollectionChanged!(this, eventArgs);
+                CollectionChanged?.Invoke(this, eventArgs);
             }
 
             NotifyCountChanged();
