@@ -12,6 +12,7 @@
                 <ResourceInclude Source="/Styling/ToggleSwitchStyles.axaml" />
                 <ResourceInclude Source="/Styling/ToggleButtonStyles.axaml" />
 
+                <ResourceInclude Source="/Styling/ProgressRing.axaml" />
                 <ResourceInclude Source="/Styling/FileInputArea.axaml" />
                 <ResourceInclude Source="/Styling/ContextMenu.axaml" />
                 <ResourceInclude Source="/Styling/Separator.axaml" />
