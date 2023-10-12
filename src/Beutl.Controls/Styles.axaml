@@ -104,4 +104,5 @@
     </Style>
 
     <StyleInclude Source="avares://Beutl.Controls/Styling/NavigationView.axaml" />
+    <StyleInclude Source="avares://Beutl.Controls/Styling/Placeholder.axaml" />
 </Styles>

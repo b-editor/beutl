@@ -1,0 +1,100 @@
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Design.PreviewWith>
+        <ThemeVariantScope RequestedThemeVariant="Dark">
+            <Border Padding="16" Background="{DynamicResource SolidBackgroundFillColorBaseBrush}">
+                <Button Padding="0"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch">
+                    <Grid Margin="16" ColumnDefinitions="Auto,16,*">
+                        <Border Width="80"
+                                Height="80"
+                                Classes="placeholder"
+                                CornerRadius="8" />
+
+                        <Grid Grid.Column="2"
+                              Margin="0,2"
+                              VerticalAlignment="Stretch"
+                              RowDefinitions="*,Auto">
+                            <StackPanel Spacing="4">
+                                <Border Width="80"
+                                        Height="14"
+                                        HorizontalAlignment="Left"
+                                        Classes="placeholder"
+                                        CornerRadius="8" />
+
+                                <Border Width="100"
+                                        Height="16"
+                                        HorizontalAlignment="Left"
+                                        Classes="placeholder"
+                                        CornerRadius="8" />
+                            </StackPanel>
+
+                            <Border Grid.Row="1"
+                                    Width="60"
+                                    Height="16"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Bottom"
+                                    Classes="placeholder"
+                                    CornerRadius="8" />
+                        </Grid>
+                    </Grid>
+                </Button>
+            </Border>
+        </ThemeVariantScope>
+    </Design.PreviewWith>
+
+    <Style Selector="Border.placeholder">
+        <Style.Animations>
+            <Animation IterationCount="Infinite" Duration="00:00:02">
+                <KeyFrame KeyTime="00:00:00">
+                    <Setter Property="Background">
+                        <LinearGradientBrush Transform="translateX(-50px) scaleX(2)" StartPoint="0%,0%" EndPoint="100,0">
+                            <GradientStop Offset="0.08" Color="{DynamicResource SubtleFillColorSecondary}" />
+                            <GradientStop Offset="0.18" Color="{DynamicResource SubtleFillColorTertiary}" />
+                            <GradientStop Offset="0.33" Color="{DynamicResource SubtleFillColorSecondary}" />
+                        </LinearGradientBrush>
+                    </Setter>
+                </KeyFrame>
+                <KeyFrame KeyTime="00:00:01">
+                    <Setter Property="Background">
+                        <LinearGradientBrush Transform="translateX(50px) scaleX(2)" StartPoint="0%,0%" EndPoint="100,0">
+                            <GradientStop Offset="0.08" Color="{DynamicResource SubtleFillColorSecondary}" />
+                            <GradientStop Offset="0.18" Color="{DynamicResource SubtleFillColorTertiary}" />
+                            <GradientStop Offset="0.33" Color="{DynamicResource SubtleFillColorSecondary}" />
+                        </LinearGradientBrush>
+                    </Setter>
+                </KeyFrame>
+                <KeyFrame KeyTime="00:00:02">
+                    <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                </KeyFrame>
+            </Animation>
+        </Style.Animations>
+    </Style>
+    <!--<Style Selector="Border.placeholder">
+        <Style.Animations>
+            <Animation IterationCount="Infinite" Duration="00:00:02">
+                <KeyFrame KeyTime="00:00:00">
+                    <Setter Property="Background">
+                        <LinearGradientBrush Transform="translateX(-50px) scaleX(2)" StartPoint="0%,50%" EndPoint="100%,50%">
+                            <GradientStop Offset="0.08" Color="{DynamicResource ControlFillColorDefault}" />
+                            <GradientStop Offset="0.18" Color="{DynamicResource ControlFillColorSecondary}" />
+                            <GradientStop Offset="0.33" Color="{DynamicResource ControlFillColorDefault}" />
+                        </LinearGradientBrush>
+                    </Setter>
+                </KeyFrame>
+                <KeyFrame KeyTime="00:00:01">
+                    <Setter Property="Background">
+                        <LinearGradientBrush Transform="translateX(50px) scaleX(2)" StartPoint="0%,50%" EndPoint="100%,50%">
+                            <GradientStop Offset="0.08" Color="{DynamicResource ControlFillColorDefault}" />
+                            <GradientStop Offset="0.18" Color="{DynamicResource ControlFillColorSecondary}" />
+                            <GradientStop Offset="0.33" Color="{DynamicResource ControlFillColorDefault}" />
+                        </LinearGradientBrush>
+                    </Setter>
+                </KeyFrame>
+                <KeyFrame KeyTime="00:00:02">
+                    <Setter Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}" />
+                </KeyFrame>
+            </Animation>
+        </Style.Animations>
+    </Style>-->
+</Styles>
