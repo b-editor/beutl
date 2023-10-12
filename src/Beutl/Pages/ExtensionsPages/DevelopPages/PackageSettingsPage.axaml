@@ -111,10 +111,18 @@
                                           Expands="True"
                                           Header="{x:Static lang:ExtensionsPage.Package_LogoImage}">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock MaxWidth="150"
-                                   Classes="description"
-                                   Text="{CompiledBinding ActualLogo.Value.Name}"
-                                   TextTrimming="CharacterEllipsis" />
+                        <Panel>
+                            <TextBlock MaxWidth="150"
+                                       Classes="description"
+                                       Text="{CompiledBinding ActualLogo.Value.Name}"
+                                       TextTrimming="CharacterEllipsis" />
+
+                            <ProgressRing Width="16"
+                                          Height="16"
+                                          BorderThickness="4"
+                                          IsIndeterminate="{CompiledBinding IsLogoLoading.Value}"
+                                          IsVisible="{CompiledBinding IsLogoLoading.Value}" />
+                        </Panel>
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel Spacing="16">
