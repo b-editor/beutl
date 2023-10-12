@@ -204,10 +204,6 @@
             </StackPanel>
         </Border>
 
-        <ProgressBar Width="400"
-                     HorizontalAlignment="Center"
-                     VerticalAlignment="Center"
-                     IsIndeterminate="{CompiledBinding IsLoading.Value}"
-                     IsVisible="{CompiledBinding IsLoading.Value}" />
+        <ProgressRing IsIndeterminate="{CompiledBinding IsLoading.Value}" IsVisible="{CompiledBinding IsLoading.Value}" />
     </Panel>
 </UserControl>

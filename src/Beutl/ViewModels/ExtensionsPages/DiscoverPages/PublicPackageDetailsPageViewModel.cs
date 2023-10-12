@@ -16,7 +16,7 @@ using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
-public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel
+public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
     private readonly ILogger _logger = Log.ForContext<PublicPackageDetailsPageViewModel>();
     private readonly CompositeDisposable _disposables = new();

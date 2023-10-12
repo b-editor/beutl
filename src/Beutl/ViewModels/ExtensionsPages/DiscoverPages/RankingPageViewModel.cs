@@ -21,7 +21,7 @@ public enum RankingType
 
 public record RankingModel(string DisplayName, RankingType Type);
 
-public sealed class RankingPageViewModel : BasePageViewModel
+public sealed class RankingPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
     private readonly ILogger _logger = Log.ForContext<RankingPageViewModel>();
     private readonly CompositeDisposable _disposables = new();

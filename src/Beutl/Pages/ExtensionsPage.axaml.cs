@@ -8,6 +8,7 @@ using Beutl.Pages.ExtensionsPages.DevelopPages;
 using Beutl.Pages.ExtensionsPages.DiscoverPages;
 using Beutl.Services;
 using Beutl.ViewModels;
+using Beutl.ViewModels.ExtensionsPages;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 using Beutl.Views;
 
@@ -134,6 +135,15 @@ public sealed partial class ExtensionsPage : UserControl
     private void Frame_Navigating(object sender, NavigatingCancelEventArgs e)
     {
         Telemetry.NavigateExtensionsPage(e.SourcePageType.Name);
+        Type type1 = frame.CurrentSourcePageType;
+        Type type2 = e.SourcePageType;
+
+        if (type1 == type2
+            && frame.Content is Control { DataContext: ISupportRefreshViewModel { Refresh: { } refreshCommand } }
+            && refreshCommand.CanExecute())
+        {
+            refreshCommand.Execute();
+        }
 
         if (e.NavigationTransitionInfo is EntranceNavigationTransitionInfo entrance)
         {
@@ -147,8 +157,6 @@ public sealed partial class ExtensionsPage : UserControl
             }
             else
             {
-                Type type1 = frame.CurrentSourcePageType;
-                Type type2 = e.SourcePageType;
                 int num1 = ToNumber(type1);
                 int num2 = ToNumber(type2);
                 if (num1 > num2)
