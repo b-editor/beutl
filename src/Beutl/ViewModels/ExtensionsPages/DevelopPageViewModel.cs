@@ -29,13 +29,16 @@ public sealed class DevelopPageViewModel : BasePageViewModel, ISupportRefreshVie
             try
             {
                 IsBusy.Value = true;
+
+                Packages.Clear();
+                // for placeholder
+                Packages.AddRange(Enumerable.Repeat(new DummyItem(), 3));
+
                 using (await _user.Lock.LockAsync())
                 {
                     activity?.AddEvent(new("Entered_AsyncLock"));
 
                     await _user.RefreshAsync();
-
-                    Packages.Clear();
 
                     int prevCount = 0;
                     int count = 0;
@@ -43,7 +46,12 @@ public sealed class DevelopPageViewModel : BasePageViewModel, ISupportRefreshVie
                     do
                     {
                         Package[] items = await _user.Profile.GetPackagesAsync(count, 30);
-                        Packages.AddRange(items.AsSpan());
+                        if (count == 0)
+                        {
+                            Packages.Clear();
+                        }
+
+                        Packages.AddRange(items);
                         prevCount = items.Length;
                         count += items.Length;
                     } while (prevCount == 30);
@@ -65,7 +73,7 @@ public sealed class DevelopPageViewModel : BasePageViewModel, ISupportRefreshVie
         Refresh.Execute();
     }
 
-    public CoreList<Package> Packages { get; } = new();
+    public CoreList<object> Packages { get; } = new();
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 

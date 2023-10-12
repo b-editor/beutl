@@ -63,9 +63,9 @@ public sealed partial class DevelopPage : UserControl
                     if (await dialog.ShowAsync() == ContentDialogResult.Primary
                         && dialogViewModel.Result != null)
                     {
-                        if (!viewModel.Packages.Any(x => x.Id == dialogViewModel.Result.Package.Id))
+                        if (!viewModel.Packages.Any(x => ((Package)x).Id == dialogViewModel.Result.Package.Id))
                         {
-                            viewModel.Packages.OrderedAdd(dialogViewModel.Result.Package, x => x.Id);
+                            viewModel.Packages.OrderedAdd(dialogViewModel.Result.Package, x => ((Package)x).Id);
                         }
 
                         frame.Navigate(typeof(ReleasePage), dialogViewModel.Result, SharedNavigationTransitionInfo.Instance);
@@ -144,7 +144,7 @@ public sealed partial class DevelopPage : UserControl
             if (await dialog.ShowAsync() == ContentDialogResult.Primary
                 && dialogViewModel.Result != null)
             {
-                viewModel.Packages.OrderedAdd(dialogViewModel.Result, x => x.Id);
+                viewModel.Packages.OrderedAdd(dialogViewModel.Result, x => ((Package)x).Id);
                 frame.Navigate(typeof(PackageDetailsPage), dialogViewModel.Result, SharedNavigationTransitionInfo.Instance);
             }
         }

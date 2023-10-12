@@ -1,0 +1,111 @@
+<UserControl x:Class="Beutl.Pages.SettingsPages.AccountSettingsScreen"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:asyncImage="using:AsyncImageLoader"
+             xmlns:ctrls="using:Beutl.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.ViewModels.SettingsPages"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="vm:AccountSettingsPageViewModel"
+             RenderOptions.BitmapInterpolationMode="HighQuality"
+             mc:Ignorable="d">
+    <ScrollViewer Padding="18">
+        <StackPanel Margin="10,0"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    Orientation="Vertical"
+                    Spacing="4">
+            <Grid Margin="0,32,0,0" ColumnDefinitions="Auto,16,Auto,*">
+                <!--  プロフィール画像  -->
+                <Border Width="64"
+                        Height="64"
+                        Background="{DynamicResource ControlSolidFillColorDefaultBrush}"
+                        CornerRadius="32"
+                        IsVisible="{Binding ProfileImage.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}">
+
+                    <icons:SymbolIcon VerticalAlignment="Center"
+                                      FontSize="30"
+                                      Symbol="Person" />
+                </Border>
+                <asyncImage:AdvancedImage Width="64"
+                                          Height="64"
+                                          IsVisible="{Binding ProfileImage.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                          Source="{Binding ProfileImage.Value}">
+                    <asyncImage:AdvancedImage.Clip>
+                        <EllipseGeometry Center="32,32"
+                                         RadiusX="32"
+                                         RadiusY="32" />
+                    </asyncImage:AdvancedImage.Clip>
+
+                </asyncImage:AdvancedImage>
+                <Button Width="64"
+                        Height="64"
+                        Padding="0"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch"
+                        Background="Transparent"
+                        Click="UpdateProfileImage_Click"
+                        CornerRadius="32">
+                    <Button.Styles>
+                        <Style Selector="Button:pointerover">
+                            <Setter Property="Content">
+                                <Template>
+                                    <Border HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch"
+                                            Background="Gray"
+                                            CornerRadius="32"
+                                            Opacity="0.8">
+                                        <icons:SymbolIcon VerticalAlignment="Center" Symbol="Edit" />
+                                    </Border>
+                                </Template>
+                            </Setter>
+                        </Style>
+                    </Button.Styles>
+                </Button>
+
+                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                    <!--  名前表示  -->
+                    <TextBlock Classes="SubtitleTextBlockStyle" Text="{Binding DisplayName.Value}" />
+
+                    <!--  識別可能な名前  -->
+                    <TextBlock Classes="CaptionTextBlockStyle"
+                               Opacity="0.8"
+                               Text="{Binding Name.Value}" />
+                </StackPanel>
+
+                <Button Grid.Column="3"
+                        Padding="8"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Command="{Binding SignOut}"
+                        Theme="{StaticResource TransparentButton}">
+                    <Grid ColumnDefinitions="Auto,8,Auto">
+                        <icons:SymbolIcon FontSize="20" Symbol="SignOut" />
+                        <TextBlock Grid.Column="2"
+                                   VerticalAlignment="Center"
+                                   FontSize="12"
+                                   Text="{x:Static lang:SettingsPage.SignOut}" />
+                    </Grid>
+                </Button>
+            </Grid>
+
+            <ctrls:OptionsDisplayItem Margin="0,24,0,0"
+                                      Header="{x:Static lang:SettingsPage.ChangeAccountSettings}"
+                                      Navigates="True"
+                                      NavigationCommand="{Binding OpenAccountSettings}">
+
+                <ctrls:OptionsDisplayItem.Icon>
+                    <icons:SymbolIcon Symbol="Open" />
+                </ctrls:OptionsDisplayItem.Icon>
+            </ctrls:OptionsDisplayItem>
+        </StackPanel>
+
+
+    </ScrollViewer>
+</UserControl>

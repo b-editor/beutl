@@ -1,4 +1,6 @@
-﻿using Avalonia.Collections;
+﻿using System.Reactive.Concurrency;
+
+using Avalonia.Collections;
 
 using Beutl.Api.Objects;
 using Beutl.ViewModels.Dialogs;
@@ -24,12 +26,21 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel, ISupportRe
         Package = package;
 
         ActualLogo = package.LogoId
+            .ObserveOn(TaskPoolScheduler.Default)
             .SelectMany(async id =>
             {
-                using (await _user.Lock.LockAsync())
+                try
                 {
-                    await _user.RefreshAsync();
-                    return id.HasValue ? await _user.Profile.GetAssetAsync(id.Value) : null;
+                    IsLogoLoading.Value = true;
+                    using (await _user.Lock.LockAsync())
+                    {
+                        await _user.RefreshAsync();
+                        return id.HasValue ? await _user.Profile.GetAssetAsync(id.Value) : null;
+                    }
+                }
+                finally
+                {
+                    IsLogoLoading.Value = false;
                 }
             })
             .ToReadOnlyReactivePropertySlim()
@@ -238,6 +249,8 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel, ISupportRe
     public AsyncReactiveCommand MakePrivate { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
+
+    public ReactivePropertySlim<bool> IsLogoLoading { get; } = new();
 
     public AsyncReactiveCommand Refresh { get; }
 

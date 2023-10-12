@@ -982,4 +982,7 @@ and b-editor maintains the download URL.</value>
   <data name="Editor" xml:space="preserve">
     <value>Editor</value>
   </data>
+  <data name="RunningStartupTasks" xml:space="preserve">
+    <value>Running startup tasks</value>
+  </data>
 </root>

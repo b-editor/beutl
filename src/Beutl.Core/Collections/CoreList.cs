@@ -144,7 +144,7 @@ public class CoreList<T> : ICoreList<T>
     
     public virtual void AddRange(T[] items)
     {
-        InsertRange(Inner.Count, items.AsSpan());
+        InsertRange(Inner.Count, items);
     }
 
     public virtual void Clear()
@@ -337,6 +337,23 @@ public class CoreList<T> : ICoreList<T>
             }
 
             NotifyAdd(items, index);
+        }
+    }
+    
+    public virtual void InsertRange(int index, T[] items)
+    {
+        if (items.Length > 0)
+        {
+            EnsureCapacity(Inner.Count + items.Length);
+
+            int insertIndex = index;
+
+            for (int i = 0; i < items.Length; i++)
+            {
+                Inner.Insert(insertIndex++, items[i]);
+            }
+
+            NotifyAdd((IList)items, index);
         }
     }
 

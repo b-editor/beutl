@@ -86,9 +86,17 @@
                             <TextBlock VerticalAlignment="Center"
                                        Classes="description"
                                        Text="{CompiledBinding ActualAsset.Value.Name}" />
+
+                            <ProgressRing Width="16"
+                                          Height="16"
+                                          BorderThickness="4"
+                                          IsIndeterminate="{CompiledBinding IsAssetLoading.Value}"
+                                          IsVisible="{CompiledBinding IsAssetLoading.Value}" />
+
                             <Button Classes="accent"
                                     Click="SelectAsset_Click"
-                                    Content="{x:Static lang:Strings.Open}" />
+                                    Content="{x:Static lang:Strings.Open}"
+                                    IsEnabled="{CompiledBinding !IsAssetLoading.Value}" />
                         </StackPanel>
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>

@@ -20,25 +20,28 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
 
     public DiscoverPageViewModel(BeutlApiApplication clients)
     {
-        static async Task LoadAsync(CoreList<Package> packages, Func<int, int, Task<Package[]>> func, int maxCount = int.MaxValue)
+        static async Task LoadAsync(CoreList<object> packages, Func<int, int, Task<Package[]>> func, int maxCount = int.MaxValue)
         {
-            packages.Clear();
-
             int prevCount = 0;
             int count = 0;
 
             do
             {
                 Package[] items = await func(count, 30).ConfigureAwait(false);
+                if (count == 0)
+                {
+                    packages.Clear();
+                }
+
                 count += items.Length;
 
                 if (maxCount < count)
                 {
-                    packages.AddRange(items.AsSpan<Package>().Slice(0, count - maxCount));
+                    packages.AddRange(items.Take(count - maxCount));
                 }
                 else
                 {
-                    packages.AddRange(items.AsSpan<Package>());
+                    packages.AddRange((IEnumerable<object>)items);
                     prevCount = items.Length;
                 }
             } while (prevCount == 30 && maxCount > count);
@@ -55,6 +58,13 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
             {
                 IsBusy.Value = true;
                 AuthorizedUser? user = _clients.AuthorizedUser.Value;
+                // placeholder
+                DummyItem[] dummy = Enumerable.Repeat(new DummyItem(), 6).ToArray();
+                foreach (CoreList<object>? item in new[] { DailyRanking, WeeklyRanking, Top10, RecentlyRanking })
+                {
+                    item.Clear();
+                    item.AddRange(dummy);
+                }
 
                 using (await _clients.Lock.LockAsync().ConfigureAwait(false))
                 {
@@ -87,13 +97,13 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
         Refresh.Execute();
     }
 
-    public CoreList<Package> Top10 { get; } = new();
+    public CoreList<object> Top10 { get; } = new();
 
-    public CoreList<Package> DailyRanking { get; } = new();
+    public CoreList<object> DailyRanking { get; } = new();
 
-    public CoreList<Package> WeeklyRanking { get; } = new();
+    public CoreList<object> WeeklyRanking { get; } = new();
 
-    public CoreList<Package> RecentlyRanking { get; } = new();
+    public CoreList<object> RecentlyRanking { get; } = new();
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 

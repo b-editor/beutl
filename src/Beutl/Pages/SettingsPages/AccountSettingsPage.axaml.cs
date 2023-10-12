@@ -1,12 +1,10 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Styling;
 
-using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.SettingsPages;
-using Beutl.Views.Dialogs;
 
-using FluentAvalonia.Styling;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.Pages.SettingsPages;
 
@@ -15,41 +13,23 @@ public sealed partial class AccountSettingsPage : UserControl
     public AccountSettingsPage()
     {
         InitializeComponent();
-        OnActualThemeVariantChanged(null, EventArgs.Empty);
-        ActualThemeVariantChanged += OnActualThemeVariantChanged;
-    }
+        IObservable<AccountSettingsPageViewModel?> viewModel = this.GetObservable(DataContextProperty)
+            .Select(v => v as AccountSettingsPageViewModel);
 
-    private void OnActualThemeVariantChanged(object? sender, EventArgs e)
-    {
-        ThemeVariant theme = ActualThemeVariant;
-        if (theme == ThemeVariant.Light || theme == FluentAvaloniaTheme.HighContrastTheme)
-        {
-            githubLightLogo.IsVisible = true;
-            githubDarkLogo.IsVisible = false;
-        }
-        else
-        {
-            githubLightLogo.IsVisible = false;
-            githubDarkLogo.IsVisible = true;
-        }
-    }
+        IObservable<bool?> signedIn = viewModel
+            .Select(v => v?.SignedIn.Select(v => (bool?)v) ?? Observable.Return<bool?>(null))
+            .Switch();
 
-    private async void UpdateProfileImage_Click(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is AccountSettingsPageViewModel viewModel)
-        {
-            SelectImageAssetViewModel dialogViewModel = viewModel.CreateSelectAvatarImage();
-            var dialog = new SelectImageAsset
-            {
-                DataContext = dialogViewModel
-            };
+        signedIn
+            .Where(v => v == false)
+            .Take(1)
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ => signInContainer.Content = new SignInScreen());
 
-            await dialog.ShowAsync();
-
-            if (dialogViewModel.SelectedItem.Value is { } selectedItem)
-            {
-                await viewModel.UpdateAvatarImage(selectedItem);
-            }
-        }
+        signedIn
+            .Where(v => v == true)
+            .Take(1)
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ => settingsContainer.Content = new AccountSettingsScreen());
     }
 }

@@ -101,6 +101,8 @@ public sealed class MainViewModel : BasePageViewModel
 
     public bool IsDebuggerAttached { get; } = Debugger.IsAttached;
 
+    public ReactivePropertySlim<bool> IsRunningStartupTasks { get; } = new();
+
     public ReadOnlyReactivePropertySlim<string?> NameOfOpenProject { get; }
 
     public ReadOnlyReactivePropertySlim<string> WindowTitle { get; }
@@ -123,7 +125,11 @@ public sealed class MainViewModel : BasePageViewModel
 
     public Startup RunStartupTask()
     {
-        return new Startup(_beutlClients);
+        IsRunningStartupTasks.Value = true;
+        var startup = new Startup(_beutlClients);
+        startup.WaitAll().ContinueWith(_ => IsRunningStartupTasks.Value = false);
+
+        return startup;
     }
 
     public void RegisterServices()

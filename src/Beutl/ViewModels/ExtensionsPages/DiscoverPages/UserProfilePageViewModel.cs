@@ -25,6 +25,9 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
 
                 try
                 {
+                    Packages.Clear();
+                    Packages.AddRange(Enumerable.Repeat(new DummyItem(), 6));
+
                     using (await Profile.Lock.LockAsync())
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
@@ -105,7 +108,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
 
     public IReadOnlyReactiveProperty<string?> Email { get; }
 
-    public AvaloniaList<Package?> Packages { get; } = new();
+    public AvaloniaList<object> Packages { get; } = new();
 
     public AsyncReactiveCommand Refresh { get; }
 
@@ -120,13 +123,13 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
 
     private async Task RefreshPackages()
     {
-        Packages.Clear();
         Package[] array = await Profile.GetPackagesAsync(0, 30);
+        Packages.Clear();
         Packages.AddRange(array);
 
         if (array.Length == 30)
         {
-            Packages.Add(null);
+            Packages.Add(new LoadMoreItem());
         }
     }
 
@@ -138,7 +141,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
 
         if (array.Length == 30)
         {
-            Packages.Add(null);
+            Packages.Add(new LoadMoreItem());
         }
     }
 }

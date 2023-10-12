@@ -1,4 +1,6 @@
-﻿using Beutl.Api;
+﻿using System.Reactive.Concurrency;
+
+using Beutl.Api;
 using Beutl.Api.Objects;
 
 using Beutl.ViewModels.Dialogs;
@@ -24,10 +26,22 @@ public sealed class ReleasePageViewModel : BasePageViewModel, ISupportRefreshVie
         _user = user;
         Release = release;
         ActualAsset = Release.AssetId
+            .ObserveOn(TaskPoolScheduler.Default)
             .SelectMany(async id =>
             {
-                await _user.RefreshAsync();
-                return id.HasValue ? await _user.Profile.GetAssetAsync(id.Value) : null;
+                try
+                {
+                    IsAssetLoading.Value = true;
+                    using (await _user.Lock.LockAsync())
+                    {
+                        await _user.RefreshAsync();
+                        return id.HasValue ? await _user.Profile.GetAssetAsync(id.Value) : null;
+                    }
+                }
+                finally
+                {
+                    IsAssetLoading.Value = false;
+                }
             })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -207,6 +221,8 @@ public sealed class ReleasePageViewModel : BasePageViewModel, ISupportRefreshVie
     public AsyncReactiveCommand MakePrivate { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
+    
+    public ReactivePropertySlim<bool> IsAssetLoading { get; } = new();
 
     public AsyncReactiveCommand Refresh { get; }
 

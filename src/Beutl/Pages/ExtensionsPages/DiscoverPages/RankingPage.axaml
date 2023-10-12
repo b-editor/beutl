@@ -1,8 +1,10 @@
 <UserControl x:Class="Beutl.Pages.ExtensionsPages.DiscoverPages.RankingPage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:api="using:Beutl.Api.Objects"
              xmlns:asyncImageLoader="using:AsyncImageLoader"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:extensionsPage="using:Beutl.ViewModels.ExtensionsPages"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -85,61 +87,114 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Button Width="160"
-                                    Height="270"
-                                    Margin="8"
-                                    Padding="0"
-                                    HorizontalContentAlignment="Stretch"
-                                    VerticalContentAlignment="Stretch"
-                                    Click="Package_Click">
-                                <Panel>
-                                    <Grid Margin="16"
-                                          IsVisible="{Binding Converter={x:Static ObjectConverters.IsNotNull}}"
-                                          RowDefinitions="Auto,16,*">
-                                        <Image Width="120"
-                                               Height="120"
-                                               asyncImageLoader:ImageLoader.Source="{Binding LogoUrl.Value}"
-                                               ImageClipping.CornerRadius="8" />
+                            <ContentControl Content="{Binding}">
+                                <ContentControl.DataTemplates>
+                                    <DataTemplate x:DataType="extensionsPage:LoadMoreItem">
+                                        <Button Width="160"
+                                                Height="270"
+                                                Margin="8"
+                                                Padding="0"
+                                                HorizontalContentAlignment="Stretch"
+                                                VerticalContentAlignment="Stretch"
+                                                Click="Package_Click">
+                                            <Grid Margin="16" RowDefinitions="Auto,16,*">
+                                                <Border Width="120" Height="120">
+                                                    <icons:SymbolIcon FontSize="32" Symbol="MoreHorizontal" />
+                                                </Border>
 
-                                        <Grid Grid.Row="2"
-                                              Margin="0,2"
-                                              VerticalAlignment="Stretch"
-                                              RowDefinitions="*,Auto">
-                                            <StackPanel Spacing="4">
-                                                <TextBlock Text="{Binding Name}" />
+                                                <TextBlock Grid.Row="2"
+                                                           VerticalAlignment="Center"
+                                                           Text="{x:Static lang:Strings.ShowMore}" />
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                    <DataTemplate x:DataType="api:Package">
+                                        <Button Width="160"
+                                                Height="270"
+                                                Margin="8"
+                                                Padding="0"
+                                                HorizontalContentAlignment="Stretch"
+                                                VerticalContentAlignment="Stretch"
+                                                Click="Package_Click">
+                                            <Grid Margin="16" RowDefinitions="Auto,16,*">
+                                                <asyncImageLoader:AdvancedImage Width="120"
+                                                                                Height="120"
+                                                                                ImageClipping.CornerRadius="8"
+                                                                                Source="{Binding LogoUrl.Value}" />
 
-                                                <TextBlock IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding DisplayName.Value}">
-                                                    <TextBlock.Styles>
-                                                        <Style Selector="TextBlock">
-                                                            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
-                                                            <Setter Property="FontSize" Value="16" />
-                                                            <Setter Property="FontWeight" Value="SemiBold" />
-                                                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                                                            <Setter Property="TextWrapping" Value="Wrap" />
-                                                        </Style>
-                                                    </TextBlock.Styles>
-                                                </TextBlock>
-                                            </StackPanel>
+                                                <Grid Grid.Row="2"
+                                                      Margin="0,2"
+                                                      VerticalAlignment="Stretch"
+                                                      RowDefinitions="*,Auto">
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock Text="{Binding Name}" />
 
-                                            <TextBlock Grid.Row="1"
-                                                       VerticalAlignment="Bottom"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                       Text="{Binding Owner.Name}" />
-                                        </Grid>
-                                    </Grid>
-                                    <Grid Margin="16"
-                                          IsVisible="{Binding Converter={x:Static ObjectConverters.IsNull}}"
-                                          RowDefinitions="Auto,16,*">
-                                        <Border Width="120" Height="120">
-                                            <icons:SymbolIcon FontSize="32" Symbol="MoreHorizontal" />
-                                        </Border>
+                                                        <TextBlock IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding DisplayName.Value}">
+                                                            <TextBlock.Styles>
+                                                                <Style Selector="TextBlock">
+                                                                    <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+                                                                    <Setter Property="FontSize" Value="16" />
+                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                                                    <Setter Property="TextWrapping" Value="Wrap" />
+                                                                </Style>
+                                                            </TextBlock.Styles>
+                                                        </TextBlock>
+                                                    </StackPanel>
 
-                                        <TextBlock Grid.Row="2"
-                                                   VerticalAlignment="Center"
-                                                   Text="{x:Static lang:Strings.ShowMore}" />
-                                    </Grid>
-                                </Panel>
-                            </Button>
+                                                    <TextBlock Grid.Row="1"
+                                                               VerticalAlignment="Bottom"
+                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                               Text="{Binding Owner.Name}" />
+                                                </Grid>
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                    <DataTemplate x:DataType="extensionsPage:DummyItem">
+                                        <Button Width="160"
+                                                Height="270"
+                                                Margin="8"
+                                                Padding="0"
+                                                HorizontalContentAlignment="Stretch"
+                                                VerticalContentAlignment="Stretch"
+                                                IsHitTestVisible="False">
+                                            <Grid Margin="16" RowDefinitions="Auto,16,*">
+                                                <Border Width="120"
+                                                        Height="120"
+                                                        Classes="placeholder"
+                                                        CornerRadius="8" />
+
+                                                <Grid Grid.Row="2"
+                                                      Margin="0,2"
+                                                      VerticalAlignment="Stretch"
+                                                      RowDefinitions="*,Auto">
+                                                    <StackPanel Spacing="4">
+                                                        <Border Width="80"
+                                                                Height="14"
+                                                                HorizontalAlignment="Left"
+                                                                Classes="placeholder"
+                                                                CornerRadius="8" />
+
+                                                        <Border Width="100"
+                                                                Height="16"
+                                                                HorizontalAlignment="Left"
+                                                                Classes="placeholder"
+                                                                CornerRadius="8" />
+                                                    </StackPanel>
+
+                                                    <Border Grid.Row="1"
+                                                            Width="60"
+                                                            Height="16"
+                                                            HorizontalAlignment="Left"
+                                                            VerticalAlignment="Bottom"
+                                                            Classes="placeholder"
+                                                            CornerRadius="8" />
+                                                </Grid>
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ContentControl.DataTemplates>
+                            </ContentControl>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

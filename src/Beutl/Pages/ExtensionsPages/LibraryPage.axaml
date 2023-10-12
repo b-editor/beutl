@@ -32,106 +32,155 @@
     </UserControl.KeyBindings>
 
     <UserControl.Resources>
-        <DataTemplate x:Key="YourPackageItemTemplate" x:DataType="viewModel:IYourPackageViewModel">
-            <Button Padding="0"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Stretch"
-                    VerticalContentAlignment="Stretch"
-                    Click="Package_Click">
-                <Panel>
-                    <Grid Margin="16"
-                          ColumnDefinitions="Auto,16,*,16,Auto,16,Auto"
-                          IsVisible="{Binding Converter={x:Static ObjectConverters.IsNotNull}}">
-                        <Image Width="48"
-                               Height="48"
-                               asyncImageLoader:ImageLoader.Source="{Binding LogoUrl.Value}"
-                               ImageClipping.CornerRadius="8" />
-
-                        <Grid Grid.Column="2"
-                              Margin="0,2"
-                              VerticalAlignment="Stretch"
-                              ColumnDefinitions="Auto,16,Auto"
-                              RowDefinitions="Auto,Auto,Auto">
-                            <TextBlock Text="{Binding Name}" />
-
-                            <TextBlock Grid.Row="1"
-                                       Classes="name"
-                                       IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                       Text="{Binding DisplayName.Value}" />
-
-                            <TextBlock Grid.Column="2"
-                                       VerticalAlignment="Top"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                       Text="{Binding Publisher}" />
-                        </Grid>
-
-                        <Button Grid.Column="4"
-                                Padding="40,5,40,6"
+        <DataTemplate x:Key="YourPackageItemTemplate">
+            <ContentControl Content="{ReflectionBinding}">
+                <ContentControl.DataTemplates>
+                    <DataTemplate x:DataType="viewModel:LoadMoreItem">
+                        <Button Padding="0"
                                 HorizontalAlignment="Stretch"
-                                Classes.transparent="{Binding !IsInstallButtonVisible.Value}"
-                                Click="ActionButton_Click"
-                                Command="{Binding Install}"
-                                Content="{x:Static lang:ExtensionsPage.Install}" />
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch"
+                                Click="Package_Click">
+                            <Grid Margin="16" ColumnDefinitions="Auto,16,*">
+                                <Border Width="48" Height="48">
+                                    <icons:SymbolIcon FontSize="32" Symbol="MoreHorizontal" />
+                                </Border>
 
-                        <Button Grid.Column="4"
-                                Padding="40,5,40,6"
-                                HorizontalAlignment="Stretch"
-                                Classes.transparent="{Binding !IsUninstallButtonVisible.Value}"
-                                Click="ActionButton_Click"
-                                Command="{Binding Uninstall}"
-                                Content="{x:Static lang:ExtensionsPage.Uninstall}" />
-
-                        <Button Grid.Column="4"
-                                Padding="40,5,40,6"
-                                HorizontalAlignment="Stretch"
-                                Classes.transparent="{Binding !IsUpdateButtonVisible.Value}"
-                                Click="ActionButton_Click"
-                                Command="{Binding Update}"
-                                Content="{x:Static lang:ExtensionsPage.Update}" />
-
-                        <Button Grid.Column="4"
-                                Padding="40,5,40,6"
-                                HorizontalAlignment="Stretch"
-                                Classes.transparent="{Binding !CanCancel.Value}"
-                                Click="ActionButton_Click"
-                                Command="{Binding Cancel}"
-                                Content="{x:Static lang:Strings.Cancel}" />
-
-                        <Button Grid.Column="6"
-                                Click="Overflow_Click"
-                                Theme="{StaticResource TransparentButton}">
-                            <Button.ContextMenu>
-                                <ContextMenu>
-                                    <MenuItem Command="{Binding Install}"
-                                              Header="{x:Static lang:ExtensionsPage.Install}"
-                                              IsEnabled="{Binding IsInstallButtonVisible.Value}" />
-                                    <MenuItem Command="{Binding Uninstall}"
-                                              Header="{x:Static lang:ExtensionsPage.Uninstall}"
-                                              IsEnabled="{Binding IsUninstallButtonVisible.Value}" />
-                                    <MenuItem Command="{Binding Update}"
-                                              Header="{x:Static lang:ExtensionsPage.Update}"
-                                              IsEnabled="{Binding IsUpdateButtonVisible.Value}" />
-                                    <MenuItem Command="{ReflectionBinding RemoveFromLibrary}"
-                                              Header="{x:Static lang:ExtensionsPage.RemoveFromLibrary}"
-                                              IsVisible="{Binding IsRemote}" />
-                                </ContextMenu>
-                            </Button.ContextMenu>
-                            <icons:SymbolIcon FontSize="20" Symbol="MoreHorizontal" />
+                                <TextBlock Grid.Column="2"
+                                           VerticalAlignment="Center"
+                                           Text="{x:Static lang:Strings.ShowMore}" />
+                            </Grid>
                         </Button>
-                    </Grid>
-                    <Grid Margin="16"
-                          ColumnDefinitions="Auto,16,*"
-                          IsVisible="{Binding Converter={x:Static ObjectConverters.IsNull}}">
-                        <Border Width="48" Height="48">
-                            <icons:SymbolIcon FontSize="32" Symbol="MoreHorizontal" />
-                        </Border>
+                    </DataTemplate>
+                    <DataTemplate x:DataType="viewModel:IYourPackageViewModel">
+                        <Button Padding="0"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch"
+                                Click="Package_Click">
+                            <Grid Margin="16" ColumnDefinitions="Auto,16,*,16,Auto,16,Auto">
+                                <asyncImageLoader:AdvancedImage Width="48"
+                                                                Height="48"
+                                                                ImageClipping.CornerRadius="8"
+                                                                Source="{Binding LogoUrl.Value}" />
 
-                        <TextBlock Grid.Column="2"
-                                   VerticalAlignment="Center"
-                                   Text="{x:Static lang:Strings.ShowMore}" />
-                    </Grid>
-                </Panel>
-            </Button>
+                                <Grid Grid.Column="2"
+                                      Margin="0,2"
+                                      VerticalAlignment="Stretch"
+                                      ColumnDefinitions="Auto,16,Auto"
+                                      RowDefinitions="Auto,Auto,Auto">
+                                    <TextBlock Text="{Binding Name}" />
+
+                                    <TextBlock Grid.Row="1"
+                                               Classes="name"
+                                               IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                               Text="{Binding DisplayName.Value}" />
+
+                                    <TextBlock Grid.Column="2"
+                                               VerticalAlignment="Top"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               Text="{Binding Publisher}" />
+                                </Grid>
+
+                                <Button Grid.Column="4"
+                                        Padding="40,5,40,6"
+                                        HorizontalAlignment="Stretch"
+                                        Classes.transparent="{Binding !IsInstallButtonVisible.Value}"
+                                        Click="ActionButton_Click"
+                                        Command="{Binding Install}"
+                                        Content="{x:Static lang:ExtensionsPage.Install}" />
+
+                                <Button Grid.Column="4"
+                                        Padding="40,5,40,6"
+                                        HorizontalAlignment="Stretch"
+                                        Classes.transparent="{Binding !IsUninstallButtonVisible.Value}"
+                                        Click="ActionButton_Click"
+                                        Command="{Binding Uninstall}"
+                                        Content="{x:Static lang:ExtensionsPage.Uninstall}" />
+
+                                <Button Grid.Column="4"
+                                        Padding="40,5,40,6"
+                                        HorizontalAlignment="Stretch"
+                                        Classes.transparent="{Binding !IsUpdateButtonVisible.Value}"
+                                        Click="ActionButton_Click"
+                                        Command="{Binding Update}"
+                                        Content="{x:Static lang:ExtensionsPage.Update}" />
+
+                                <Button Grid.Column="4"
+                                        Padding="40,5,40,6"
+                                        HorizontalAlignment="Stretch"
+                                        Classes.transparent="{Binding !CanCancel.Value}"
+                                        Click="ActionButton_Click"
+                                        Command="{Binding Cancel}"
+                                        Content="{x:Static lang:Strings.Cancel}" />
+
+                                <Button Grid.Column="6"
+                                        Click="Overflow_Click"
+                                        Theme="{StaticResource TransparentButton}">
+                                    <Button.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Command="{Binding Install}"
+                                                      Header="{x:Static lang:ExtensionsPage.Install}"
+                                                      IsEnabled="{Binding IsInstallButtonVisible.Value}" />
+                                            <MenuItem Command="{Binding Uninstall}"
+                                                      Header="{x:Static lang:ExtensionsPage.Uninstall}"
+                                                      IsEnabled="{Binding IsUninstallButtonVisible.Value}" />
+                                            <MenuItem Command="{Binding Update}"
+                                                      Header="{x:Static lang:ExtensionsPage.Update}"
+                                                      IsEnabled="{Binding IsUpdateButtonVisible.Value}" />
+                                            <MenuItem Command="{ReflectionBinding RemoveFromLibrary}"
+                                                      Header="{x:Static lang:ExtensionsPage.RemoveFromLibrary}"
+                                                      IsVisible="{Binding IsRemote}" />
+                                        </ContextMenu>
+                                    </Button.ContextMenu>
+                                    <icons:SymbolIcon FontSize="20" Symbol="MoreHorizontal" />
+                                </Button>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                    <DataTemplate x:DataType="viewModel:DummyItem">
+                        <Button Padding="0"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch"
+                                IsHitTestVisible="False">
+                            <Grid Margin="16" ColumnDefinitions="Auto,16,*">
+                                <Border Width="48"
+                                        Height="48"
+                                        Classes="placeholder"
+                                        CornerRadius="8" />
+
+                                <Grid Grid.Column="2"
+                                      Margin="0,2"
+                                      VerticalAlignment="Stretch"
+                                      ColumnDefinitions="Auto,16,Auto"
+                                      RowDefinitions="Auto,Auto,Auto">
+                                    <Border Width="80"
+                                            Height="14"
+                                            HorizontalAlignment="Left"
+                                            Classes="placeholder"
+                                            CornerRadius="8" />
+
+                                    <Border Grid.Row="1"
+                                            Width="100"
+                                            Height="16"
+                                            HorizontalAlignment="Left"
+                                            Classes="placeholder"
+                                            CornerRadius="8" />
+
+                                    <Border Grid.Column="2"
+                                            Width="60"
+                                            Height="16"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Top"
+                                            Classes="placeholder"
+                                            CornerRadius="8" />
+                                </Grid>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ContentControl.DataTemplates>
+            </ContentControl>
         </DataTemplate>
     </UserControl.Resources>
 

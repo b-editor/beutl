@@ -109,9 +109,9 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
 
     public string Keyword { get; }
 
-    public AvaloniaList<Package?> Packages { get; } = new();
+    public AvaloniaList<object> Packages { get; } = new();
 
-    public AvaloniaList<Profile?> Users { get; } = new();
+    public AvaloniaList<object> Users { get; } = new();
 
     public AsyncReactiveCommand Refresh { get; }
 
@@ -133,15 +133,18 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
 
     private async Task RefreshPackages()
     {
+        Packages.Clear();
+        Packages.AddRange(Enumerable.Repeat(new DummyItem(), 6));
+
         using (await _discoverService.Lock.LockAsync())
         {
-            Packages.Clear();
             Package[] array = await SearchPackages(0, 30);
+            Packages.Clear();
             Packages.AddRange(array);
 
             if (array.Length == 30)
             {
-                Packages.Add(null);
+                Packages.Add(new LoadMoreItem());
             }
         }
     }
@@ -156,7 +159,7 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
 
             if (array.Length == 30)
             {
-                Packages.Add(null);
+                Packages.Add(new LoadMoreItem());
             }
         }
     }
@@ -168,15 +171,18 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
 
     private async Task RefreshUsers()
     {
+        Users.Clear();
+        Users.AddRange(Enumerable.Repeat(new DummyItem(), 6));
+
         using (await _discoverService.Lock.LockAsync())
         {
-            Users.Clear();
             Profile[] array = await SearchUsers(0, 30);
+            Users.Clear();
             Users.AddRange(array);
 
             if (array.Length == 30)
             {
-                Users.Add(null);
+                Users.Add(new LoadMoreItem());
             }
         }
     }
@@ -191,7 +197,7 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
 
             if (array.Length == 30)
             {
-                Users.Add(null);
+                Users.Add(new LoadMoreItem());
             }
         }
     }

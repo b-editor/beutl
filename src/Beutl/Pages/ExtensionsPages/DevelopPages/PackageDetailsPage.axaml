@@ -27,13 +27,13 @@
                     BorderThickness="1"
                     CornerRadius="{StaticResource ControlCornerRadius}">
                 <StackPanel>
-                    <Image x:Name="logoImage"
-                           Width="125"
-                           Height="125"
-                           Margin="0,16,0,0"
-                           asyncImageLoader:ImageLoader.Source="{CompiledBinding Package.LogoUrl.Value}"
-                           ImageClipping.CornerRadius="8"
-                           IsVisible="{Binding $self.Source, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    <asyncImageLoader:AdvancedImage x:Name="logoImage"
+                                                    Width="125"
+                                                    Height="125"
+                                                    Margin="0,16,0,0"
+                                                    ImageClipping.CornerRadius="8"
+                                                    IsVisible="{Binding $self.Source, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                    Source="{CompiledBinding Package.LogoUrl.Value}" />
 
                     <Label Width="125"
                            Height="125"

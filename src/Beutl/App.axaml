@@ -2,6 +2,7 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:aconverters="using:Avalonia.Markup.Xaml.Converters"
+             xmlns:asyncImageLoader="using:AsyncImageLoader"
              xmlns:convert="using:Beutl.Converters"
              xmlns:local="using:Beutl"
              xmlns:sty="using:FluentAvalonia.Styling"
@@ -47,6 +48,21 @@
         <sty:FluentAvaloniaTheme PreferUserAccentColor="True" />
         <StyleInclude Source="avares://Beutl.Controls/Styles.axaml" />
         <StyleInclude Source="avares://FluentAvalonia.BreadcrumbBar/Styling/Styles.axaml" />
+        <StyleInclude Source="avares://AsyncImageLoader.Avalonia/AdvancedImage.axaml" />
+
+        <Style Selector="asyncImageLoader|AdvancedImage">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid>
+                        <!--  CurrentImage will be rendered with codebehind, just as it is done in the Image  -->
+                        <Border HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                Classes.placeholder="{TemplateBinding IsLoading}"
+                                IsVisible="{TemplateBinding IsLoading}" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
 
         <Style Selector="TextBlock.error">
             <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />

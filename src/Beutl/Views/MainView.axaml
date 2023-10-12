@@ -192,6 +192,19 @@
                            IsVisible="{CompiledBinding IsDebuggerAttached}"
                            Text="Debug" />
 
+                <Border Margin="4,0,0,0"
+                        wnd:AppWindow.AllowInteractionInTitleBar="True"
+                        Background="Transparent"
+                        ToolTip.Tip="{x:Static lang:Strings.RunningStartupTasks}">
+                    <ProgressRing Width="20"
+                                  Height="20"
+                                  MinWidth="0"
+                                  MinHeight="0"
+                                  BorderThickness="4"
+                                  IsIndeterminate="{Binding IsRunningStartupTasks.Value}"
+                                  IsVisible="{Binding IsRunningStartupTasks.Value}" />
+                </Border>
+
                 <Button x:Name="OpenNotificationsButton"
                         Margin="0,4"
                         VerticalAlignment="Stretch"
