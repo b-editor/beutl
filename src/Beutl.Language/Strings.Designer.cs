@@ -2042,6 +2042,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Running startup tasks に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RunningStartupTasks {
+            get {
+                return ResourceManager.GetString("RunningStartupTasks", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Sample rate に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string SampleRate {

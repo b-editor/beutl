@@ -982,4 +982,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Editor" xml:space="preserve">
     <value>エディター</value>
   </data>
+  <data name="RunningStartupTasks" xml:space="preserve">
+    <value>スタートアップタスクを実行中</value>
+  </data>
 </root>
