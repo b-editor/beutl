@@ -95,7 +95,7 @@ public sealed partial class PackageReleasesPage : UserControl
             if (await dialog.ShowAsync() == ContentDialogResult.Primary
                 && dialogViewModel.Result != null)
             {
-                viewModel.Items.OrderedAddDescending(dialogViewModel.Result, x => x.Version.Value);
+                viewModel.Items.OrderedAddDescending(dialogViewModel.Result, x => ((Release)x).Version.Value);
             }
         }
     }

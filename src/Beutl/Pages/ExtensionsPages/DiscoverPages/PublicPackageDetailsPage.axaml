@@ -34,13 +34,13 @@
         <ScrollViewer Margin="10,12,0,8">
             <Border Padding="12" Classes="card">
                 <StackPanel>
-                    <Image x:Name="logoImage"
-                           Width="125"
-                           Height="125"
-                           Margin="0,16,0,0"
-                           asyncImageLoader:ImageLoader.Source="{Binding Package.LogoUrl.Value}"
-                           ImageClipping.CornerRadius="8"
-                           IsVisible="{Binding $self.Source, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    <asyncImageLoader:AdvancedImage x:Name="logoImage"
+                                                    Width="125"
+                                                    Height="125"
+                                                    Margin="0,16,0,0"
+                                                    ImageClipping.CornerRadius="8"
+                                                    IsVisible="{Binding $self.Source, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                    Source="{Binding Package.LogoUrl.Value}" />
 
                     <Label Width="125"
                            Height="125"
@@ -117,9 +117,9 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Image Height="240"
-                                               asyncImageLoader:ImageLoader.Source="{ReflectionBinding Value}"
-                                               ImageClipping.CornerRadius="12" />
+                                        <asyncImageLoader:AdvancedImage Height="240"
+                                                                        ImageClipping.CornerRadius="12"
+                                                                        Source="{ReflectionBinding Value}" />
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -232,7 +232,7 @@
 
         <ProgressRing Grid.RowSpan="2"
                       Grid.ColumnSpan="2"
-                      IsIndeterminate="{CompiledBinding IsBusy.Value}"
-                      IsVisible="{CompiledBinding IsBusy.Value}" />
+                      IsIndeterminate="{Binding IsBusy.Value}"
+                      IsVisible="{Binding IsBusy.Value}" />
     </Grid>
 </UserControl>

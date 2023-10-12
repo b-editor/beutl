@@ -1,4 +1,6 @@
-﻿using Avalonia.Collections;
+﻿using System.Collections;
+
+using Avalonia.Collections;
 
 using Beutl.Api;
 using Beutl.Api.Objects;
@@ -36,6 +38,11 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                 try
                 {
                     IsBusy.Value = true;
+                    Task task = RefreshLocalPackages();
+                    DisposeAll(Packages.OfType<IDisposable>());
+                    Packages.Clear();
+                    Packages.AddRange(Enumerable.Repeat(new DummyItem(), 6));
+
                     using (await _clients.Lock.LockAsync())
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
@@ -45,7 +52,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                         await RefreshPackages();
                         activity?.AddEvent(new("Refreshed_Packages"));
                     }
-                    await RefreshLocalPackages();
+                    await task;
                 }
                 catch (Exception e)
                 {
@@ -120,10 +127,12 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                                 localPackage.LatestRelease.Value = item.NewVersion;
                             }
 
-                            RemoteYourPackageViewModel? remotePackage = Packages.FirstOrDefault(
-                                x => x?.Package?.Name?.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase) == true);
+                            RemoteYourPackageViewModel? remotePackage = Packages.OfType<RemoteYourPackageViewModel>()
+                                .FirstOrDefault(
+                                    x => x?.Package?.Name?.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase) == true);
 
-                            Packages.Remove(remotePackage);
+                            if (remotePackage != null)
+                                Packages.Remove(remotePackage);
                             remotePackage ??= new RemoteYourPackageViewModel(item.Package, _clients)
                             {
                                 OnRemoveFromLibrary = OnPackageRemoveFromLibrary
@@ -150,7 +159,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
             .DisposeWith(_disposables);
     }
 
-    public AvaloniaList<RemoteYourPackageViewModel?> Packages { get; } = new();
+    public AvaloniaList<object> Packages { get; } = new();
 
     public AvaloniaList<LocalYourPackageViewModel> LocalPackages { get; } = new();
 
@@ -221,9 +230,8 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
     private async Task RefreshPackages()
     {
-        DisposeAll(Packages);
-        Packages.Clear();
         Package[] array = await _service.GetPackages(0, 30);
+        Packages.Clear();
 
         foreach (Package item in array)
         {
@@ -235,7 +243,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
         if (array.Length == 30)
         {
-            Packages.Add(null);
+            Packages.Add(new LoadMoreItem());
         }
     }
 
@@ -254,7 +262,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
         if (array.Length == 30)
         {
-            Packages.Add(null);
+            Packages.Add(new LoadMoreItem());
         }
     }
 

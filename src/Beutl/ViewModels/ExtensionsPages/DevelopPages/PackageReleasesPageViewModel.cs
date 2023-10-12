@@ -24,6 +24,10 @@ public sealed class PackageReleasesPageViewModel : BasePageViewModel, ISupportRe
 
             try
             {
+                Items.Clear();
+                // placeholder
+                Items.AddRange(Enumerable.Repeat(new DummyItem(), 6));
+
                 using (await _user.Lock.LockAsync())
                 {
                     activity?.AddEvent(new("Entered_AsyncLock"));
@@ -33,15 +37,19 @@ public sealed class PackageReleasesPageViewModel : BasePageViewModel, ISupportRe
 
                     await Package.RefreshAsync();
 
-                    Items.Clear();
-
                     int prevCount = 0;
                     int count = 0;
 
                     do
                     {
+                        await Task.Delay(1000);
                         Release[] items = await Package.GetReleasesAsync(count, 30);
-                        Items.AddRange(items.AsSpan<Release>());
+                        if (count == 0)
+                        {
+                            Items.Clear();
+                        }
+
+                        Items.AddRange(items);
                         prevCount = items.Length;
                         count += items.Length;
                     } while (prevCount == 30);
@@ -68,7 +76,7 @@ public sealed class PackageReleasesPageViewModel : BasePageViewModel, ISupportRe
 
     public Package Package { get; }
 
-    public CoreList<Release> Items { get; } = new();
+    public CoreList<object> Items { get; } = new();
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 

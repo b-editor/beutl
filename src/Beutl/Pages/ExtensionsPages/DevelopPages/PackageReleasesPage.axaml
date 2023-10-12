@@ -1,8 +1,10 @@
 <UserControl x:Class="Beutl.Pages.ExtensionsPages.DevelopPages.PackageReleasesPage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:api="using:Beutl.Api.Objects"
              xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:extPages="using:Beutl.ViewModels.ExtensionsPages"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -49,44 +51,96 @@
                  ItemsSource="{CompiledBinding Items}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Grid MaxHeight="64" ColumnDefinitions="Auto,*,2*,Auto,Auto">
-                        <icons:SymbolIcon Margin="0,0,16,0"
-                                          VerticalAlignment="Center"
-                                          IsVisible="{CompiledBinding IsPublic.Value}"
-                                          Symbol="Eye" />
-                        <icons:SymbolIcon Margin="0,0,16,0"
-                                          VerticalAlignment="Center"
-                                          IsVisible="{CompiledBinding !IsPublic.Value}"
-                                          Symbol="EyeOff" />
+                    <ContentControl Content="{Binding}">
+                        <ContentControl.DataTemplates>
+                            <DataTemplate x:DataType="api:Release">
+                                <Grid MaxHeight="64" ColumnDefinitions="Auto,*,2*,Auto,Auto">
+                                    <icons:SymbolIcon Margin="0,0,16,0"
+                                                      VerticalAlignment="Center"
+                                                      IsVisible="{CompiledBinding IsPublic.Value}"
+                                                      Symbol="Eye" />
+                                    <icons:SymbolIcon Margin="0,0,16,0"
+                                                      VerticalAlignment="Center"
+                                                      IsVisible="{CompiledBinding !IsPublic.Value}"
+                                                      Symbol="EyeOff" />
 
-                        <StackPanel Grid.Column="1"
-                                    Margin="0,0,16,0"
-                                    HorizontalAlignment="Left"
-                                    VerticalAlignment="Center"
-                                    Orientation="Vertical">
-                            <TextBlock Text="{CompiledBinding Title.Value}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                                    <StackPanel Grid.Column="1"
+                                                Margin="0,0,16,0"
+                                                HorizontalAlignment="Left"
+                                                VerticalAlignment="Center"
+                                                Orientation="Vertical">
+                                        <TextBlock Text="{CompiledBinding Title.Value}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-                            <TextBlock Text="{CompiledBinding Version.Value}" />
-                        </StackPanel>
+                                        <TextBlock Text="{CompiledBinding Version.Value}" />
+                                    </StackPanel>
 
-                        <TextBlock Grid.Column="2"
-                                   Margin="0,0,16,0"
-                                   HorizontalAlignment="Left"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                   Text="{CompiledBinding Body.Value}"
-                                   TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="2"
+                                               Margin="0,0,16,0"
+                                               HorizontalAlignment="Left"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               Text="{CompiledBinding Body.Value}"
+                                               TextTrimming="CharacterEllipsis" />
 
-                        <ui:CommandBarButton Grid.Column="3"
-                                             Click="Edit_Click"
-                                             IconSource="Edit"
-                                             Label="{x:Static lang:Strings.Edit}" />
+                                    <ui:CommandBarButton Grid.Column="3"
+                                                         Click="Edit_Click"
+                                                         IconSource="Edit"
+                                                         Label="{x:Static lang:Strings.Edit}" />
 
-                        <ui:CommandBarButton Grid.Column="4"
-                                             Click="Delete_Click"
-                                             IconSource="Delete"
-                                             Label="{x:Static lang:Strings.Delete}" />
-                    </Grid>
+                                    <ui:CommandBarButton Grid.Column="4"
+                                                         Click="Delete_Click"
+                                                         IconSource="Delete"
+                                                         Label="{x:Static lang:Strings.Delete}" />
+                                </Grid>
+                            </DataTemplate>
+                            <DataTemplate x:DataType="extPages:DummyItem">
+                                <Grid MaxHeight="64"
+                                      ColumnDefinitions="Auto,*,2*,Auto,Auto"
+                                      IsHitTestVisible="False">
+                                    <icons:SymbolIcon Margin="0,0,16,0"
+                                                      VerticalAlignment="Center"
+                                                      Symbol="Eye" />
+
+                                    <StackPanel Grid.Column="1"
+                                                Margin="0,0,16,0"
+                                                HorizontalAlignment="Left"
+                                                VerticalAlignment="Center"
+                                                Orientation="Vertical"
+                                                Spacing="2">
+                                        <Border Width="100"
+                                                Height="15"
+                                                HorizontalAlignment="Left"
+                                                Classes="placeholder"
+                                                CornerRadius="8" />
+
+                                        <Border Width="80"
+                                                Height="15"
+                                                HorizontalAlignment="Left"
+                                                Classes="placeholder"
+                                                CornerRadius="8" />
+                                    </StackPanel>
+
+
+                                    <Border Grid.Column="2"
+                                            Width="200"
+                                            Height="16"
+                                            Margin="0,0,16,0"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center"
+                                            Classes="placeholder"
+                                            CornerRadius="8" />
+
+                                    <ui:CommandBarButton Grid.Column="3"
+                                                         IconSource="Edit"
+                                                         Label="{x:Static lang:Strings.Edit}" />
+
+                                    <ui:CommandBarButton Grid.Column="4"
+                                                         IconSource="Delete"
+                                                         Label="{x:Static lang:Strings.Delete}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ContentControl.DataTemplates>
+                    </ContentControl>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>

@@ -126,10 +126,10 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel Spacing="16">
-                            <Image MaxWidth="140"
-                                   MaxHeight="140"
-                                   HorizontalAlignment="Left"
-                                   asyncImageLoader:ImageLoader.Source="{CompiledBinding Logo.Value.DownloadUrl}" />
+                            <asyncImageLoader:AdvancedImage MaxWidth="140"
+                                                            MaxHeight="140"
+                                                            HorizontalAlignment="Left"
+                                                            Source="{CompiledBinding Logo.Value.DownloadUrl}" />
 
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Click="OpenLogoFile_Click" Content="{x:Static lang:Strings.Open}" />

@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Pages.ExtensionsPages.DiscoverPage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:api="using:Beutl.Api.Objects"
              xmlns:asyncImageLoader="using:AsyncImageLoader"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
@@ -19,6 +20,177 @@
         <KeyBinding Command="{CompiledBinding Refresh}" Gesture="Ctrl+R" />
     </UserControl.KeyBindings>
 
+    <UserControl.Styles>
+        <Style Selector="TextBlock.PackageNameTextBlock">
+            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.Resources>
+        <DataTemplate x:Key="HorizontalRankingItemTemplate">
+            <ContentControl Content="{Binding}">
+                <ContentControl.DataTemplates>
+                    <DataTemplate x:DataType="api:Package">
+                        <Button Padding="0"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                Click="Package_Click">
+                            <Grid Margin="16" ColumnDefinitions="Auto,16,*">
+                                <asyncImageLoader:AdvancedImage Width="80"
+                                                                Height="80"
+                                                                ImageClipping.CornerRadius="8"
+                                                                Source="{Binding LogoUrl.Value}" />
+
+                                <Grid Grid.Column="2"
+                                      Margin="0,2"
+                                      VerticalAlignment="Stretch"
+                                      RowDefinitions="*,Auto">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{Binding Name}" />
+
+                                        <TextBlock Classes="PackageNameTextBlock"
+                                                   IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                   Text="{Binding DisplayName.Value}" />
+                                    </StackPanel>
+
+                                    <TextBlock Grid.Row="1"
+                                               VerticalAlignment="Bottom"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               Text="{Binding Owner.Name}" />
+                                </Grid>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                    <DataTemplate x:DataType="viewModel:DummyItem">
+                        <Button Padding="0"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                IsHitTestVisible="False">
+                            <Grid Margin="16" ColumnDefinitions="Auto,16,*">
+                                <Border Width="80"
+                                        Height="80"
+                                        Classes="placeholder"
+                                        CornerRadius="8" />
+
+                                <Grid Grid.Column="2"
+                                      Margin="0,2"
+                                      VerticalAlignment="Stretch"
+                                      RowDefinitions="*,Auto">
+                                    <StackPanel Spacing="4">
+                                        <Border Width="80"
+                                                Height="14"
+                                                HorizontalAlignment="Left"
+                                                Classes="placeholder"
+                                                CornerRadius="8" />
+
+                                        <Border Width="100"
+                                                Height="16"
+                                                HorizontalAlignment="Left"
+                                                Classes="placeholder"
+                                                CornerRadius="8" />
+                                    </StackPanel>
+
+                                    <Border Grid.Row="1"
+                                            Width="60"
+                                            Height="16"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Bottom"
+                                            Classes="placeholder"
+                                            CornerRadius="8" />
+                                </Grid>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ContentControl.DataTemplates>
+            </ContentControl>
+        </DataTemplate>
+        <DataTemplate x:Key="VerticalRankingItemTemplate">
+            <ContentControl Content="{Binding}">
+                <ContentControl.DataTemplates>
+                    <DataTemplate x:DataType="api:Package">
+                        <Button Width="160"
+                                Height="270"
+                                Padding="0"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch"
+                                Click="Package_Click">
+                            <Grid Margin="16" RowDefinitions="Auto,16,*">
+                                <Image Width="120"
+                                       Height="120"
+                                       asyncImageLoader:ImageLoader.Source="{Binding LogoUrl.Value}"
+                                       ImageClipping.CornerRadius="8" />
+
+                                <Grid Grid.Row="2"
+                                      Margin="0,2"
+                                      VerticalAlignment="Stretch"
+                                      RowDefinitions="*,Auto">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{Binding Name}" />
+
+                                        <TextBlock Classes="PackageNameTextBlock"
+                                                   IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                   Text="{Binding DisplayName.Value}" />
+                                    </StackPanel>
+
+                                    <TextBlock Grid.Row="1"
+                                               VerticalAlignment="Bottom"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               Text="{Binding Owner.Name}" />
+                                </Grid>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                    <DataTemplate x:DataType="viewModel:DummyItem">
+                        <Button Width="160"
+                                Height="270"
+                                Padding="0"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch"
+                                IsHitTestVisible="False">
+                            <Grid Margin="16" RowDefinitions="Auto,16,*">
+                                <Border Width="120"
+                                        Height="120"
+                                        Classes="placeholder"
+                                        CornerRadius="8" />
+
+                                <Grid Grid.Row="2"
+                                      Margin="0,2"
+                                      VerticalAlignment="Stretch"
+                                      RowDefinitions="*,Auto">
+                                    <StackPanel Spacing="4">
+                                        <Border Width="80"
+                                                Height="14"
+                                                HorizontalAlignment="Left"
+                                                Classes="placeholder"
+                                                CornerRadius="8" />
+
+                                        <Border Width="100"
+                                                Height="16"
+                                                HorizontalAlignment="Left"
+                                                Classes="placeholder"
+                                                CornerRadius="8" />
+                                    </StackPanel>
+
+                                    <Border Grid.Row="1"
+                                            Width="60"
+                                            Height="16"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Bottom"
+                                            Classes="placeholder"
+                                            CornerRadius="8" />
+                                </Grid>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ContentControl.DataTemplates>
+            </ContentControl>
+        </DataTemplate>
+    </UserControl.Resources>
+
     <Panel>
         <ScrollViewer Padding="18">
             <StackPanel Margin="10,0">
@@ -35,7 +207,7 @@
                 <ScrollViewer Margin="0,8,0,0"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Disabled">
-                    <ItemsRepeater ItemsSource="{Binding Top10}">
+                    <ItemsRepeater ItemTemplate="{StaticResource HorizontalRankingItemTemplate}" ItemsSource="{Binding Top10}">
                         <ItemsRepeater.Layout>
                             <UniformGridLayout MaximumRowsOrColumns="2"
                                                MinColumnSpacing="16"
@@ -44,47 +216,6 @@
                                                MinRowSpacing="16"
                                                Orientation="Vertical" />
                         </ItemsRepeater.Layout>
-                        <ItemsRepeater.ItemTemplate>
-                            <DataTemplate>
-                                <Button Padding="0"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Stretch"
-                                        Click="Package_Click">
-                                    <Grid Margin="16" ColumnDefinitions="Auto,16,*">
-                                        <Image Width="80"
-                                               Height="80"
-                                               asyncImageLoader:ImageLoader.Source="{Binding LogoUrl.Value}"
-                                               ImageClipping.CornerRadius="8" />
-
-                                        <Grid Grid.Column="2"
-                                              Margin="0,2"
-                                              VerticalAlignment="Stretch"
-                                              RowDefinitions="*,Auto">
-                                            <StackPanel Spacing="4">
-                                                <TextBlock Text="{Binding Name}" />
-
-                                                <TextBlock IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding DisplayName.Value}">
-                                                    <TextBlock.Styles>
-                                                        <Style Selector="TextBlock">
-                                                            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
-                                                            <Setter Property="FontSize" Value="16" />
-                                                            <Setter Property="FontWeight" Value="SemiBold" />
-                                                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                                                            <Setter Property="TextWrapping" Value="Wrap" />
-                                                        </Style>
-                                                    </TextBlock.Styles>
-                                                </TextBlock>
-                                            </StackPanel>
-
-                                            <TextBlock Grid.Row="1"
-                                                       VerticalAlignment="Bottom"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                       Text="{Binding Owner.Name}" />
-                                        </Grid>
-                                    </Grid>
-                                </Button>
-                            </DataTemplate>
-                        </ItemsRepeater.ItemTemplate>
                     </ItemsRepeater>
                 </ScrollViewer>
 
@@ -145,53 +276,10 @@
                 <ScrollViewer Margin="0,8,0,0"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Disabled">
-                    <ItemsRepeater ItemsSource="{Binding #RankingComboBox.SelectedItem.Tag}">
+                    <ItemsRepeater ItemTemplate="{StaticResource VerticalRankingItemTemplate}" ItemsSource="{Binding #RankingComboBox.SelectedItem.Tag}">
                         <ItemsRepeater.Layout>
                             <StackLayout Orientation="Horizontal" Spacing="16" />
                         </ItemsRepeater.Layout>
-                        <ItemsRepeater.ItemTemplate>
-                            <DataTemplate>
-                                <Button Width="160"
-                                        Height="270"
-                                        Padding="0"
-                                        HorizontalContentAlignment="Stretch"
-                                        VerticalContentAlignment="Stretch"
-                                        Click="Package_Click">
-                                    <Grid Margin="16" RowDefinitions="Auto,16,*">
-                                        <Image Width="120"
-                                               Height="120"
-                                               asyncImageLoader:ImageLoader.Source="{Binding LogoUrl.Value}"
-                                               ImageClipping.CornerRadius="8" />
-
-                                        <Grid Grid.Row="2"
-                                              Margin="0,2"
-                                              VerticalAlignment="Stretch"
-                                              RowDefinitions="*,Auto">
-                                            <StackPanel Spacing="4">
-                                                <TextBlock Text="{Binding Name}" />
-
-                                                <TextBlock IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding DisplayName.Value}">
-                                                    <TextBlock.Styles>
-                                                        <Style Selector="TextBlock">
-                                                            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
-                                                            <Setter Property="FontSize" Value="16" />
-                                                            <Setter Property="FontWeight" Value="SemiBold" />
-                                                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                                                            <Setter Property="TextWrapping" Value="Wrap" />
-                                                        </Style>
-                                                    </TextBlock.Styles>
-                                                </TextBlock>
-                                            </StackPanel>
-
-                                            <TextBlock Grid.Row="1"
-                                                       VerticalAlignment="Bottom"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                       Text="{Binding Owner.Name}" />
-                                        </Grid>
-                                    </Grid>
-                                </Button>
-                            </DataTemplate>
-                        </ItemsRepeater.ItemTemplate>
                     </ItemsRepeater>
                 </ScrollViewer>
 
@@ -208,53 +296,10 @@
                 <ScrollViewer Margin="0,8,0,0"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Disabled">
-                    <ItemsRepeater ItemsSource="{Binding RecentlyRanking}">
+                    <ItemsRepeater ItemTemplate="{StaticResource VerticalRankingItemTemplate}" ItemsSource="{Binding RecentlyRanking}">
                         <ItemsRepeater.Layout>
                             <StackLayout Orientation="Horizontal" Spacing="16" />
                         </ItemsRepeater.Layout>
-                        <ItemsRepeater.ItemTemplate>
-                            <DataTemplate>
-                                <Button Width="160"
-                                        Height="270"
-                                        Padding="0"
-                                        HorizontalContentAlignment="Stretch"
-                                        VerticalContentAlignment="Stretch"
-                                        Click="Package_Click">
-                                    <Grid Margin="16" RowDefinitions="Auto,16,*">
-                                        <Image Width="120"
-                                               Height="120"
-                                               asyncImageLoader:ImageLoader.Source="{Binding LogoUrl.Value}"
-                                               ImageClipping.CornerRadius="8" />
-
-                                        <Grid Grid.Row="2"
-                                              Margin="0,2"
-                                              VerticalAlignment="Stretch"
-                                              RowDefinitions="*,Auto">
-                                            <StackPanel Spacing="4">
-                                                <TextBlock Text="{Binding Name}" />
-
-                                                <TextBlock IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding DisplayName.Value}">
-                                                    <TextBlock.Styles>
-                                                        <Style Selector="TextBlock">
-                                                            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
-                                                            <Setter Property="FontSize" Value="16" />
-                                                            <Setter Property="FontWeight" Value="SemiBold" />
-                                                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                                                            <Setter Property="TextWrapping" Value="Wrap" />
-                                                        </Style>
-                                                    </TextBlock.Styles>
-                                                </TextBlock>
-                                            </StackPanel>
-
-                                            <TextBlock Grid.Row="1"
-                                                       VerticalAlignment="Bottom"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                       Text="{Binding Owner.Name}" />
-                                        </Grid>
-                                    </Grid>
-                                </Button>
-                            </DataTemplate>
-                        </ItemsRepeater.ItemTemplate>
                     </ItemsRepeater>
                 </ScrollViewer>
 

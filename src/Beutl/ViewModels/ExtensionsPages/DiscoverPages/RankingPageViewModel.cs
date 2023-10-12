@@ -48,12 +48,15 @@ public sealed class RankingPageViewModel : BasePageViewModel, ISupportRefreshVie
                 {
                     IsBusy.Value = true;
                     Items.Clear();
+                    Items.AddRange(Enumerable.Repeat(new DummyItem(), 10));
+
                     Package[] array = await LoadItems(SelectedRanking.Value.Type, 0, 30, activity);
+                    Items.Clear();
                     Items.AddRange(array);
 
                     if (array.Length == 30)
                     {
-                        Items.Add(null);
+                        Items.Add(new LoadMoreItem());
                     }
                 }
                 catch (Exception e)
@@ -87,7 +90,7 @@ public sealed class RankingPageViewModel : BasePageViewModel, ISupportRefreshVie
 
                     if (array.Length == 30)
                     {
-                        Items.Add(null);
+                        Items.Add(new LoadMoreItem());
                     }
                 }
                 catch (Exception e)
@@ -109,7 +112,7 @@ public sealed class RankingPageViewModel : BasePageViewModel, ISupportRefreshVie
 
     public RankingModel[] Rankings { get; }
 
-    public AvaloniaList<Package?> Items { get; } = new();
+    public AvaloniaList<object> Items { get; } = new();
 
     public AsyncReactiveCommand Refresh { get; }
 
