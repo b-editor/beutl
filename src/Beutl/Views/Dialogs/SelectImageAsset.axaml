@@ -65,5 +65,12 @@
                    IsVisible="{Binding !Items.Count}">
             Nothing
         </TextBlock>
+
+        <ProgressRing Grid.Row="1"
+                      Width="64"
+                      Height="64"
+                      BorderThickness="5"
+                      IsIndeterminate="{Binding IsBusy.Value}"
+                      IsVisible="{Binding IsBusy.Value}" />
     </Grid>
 </ui:ContentDialog>
