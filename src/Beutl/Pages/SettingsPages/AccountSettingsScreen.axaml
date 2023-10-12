@@ -33,16 +33,17 @@
                                       FontSize="30"
                                       Symbol="Person" />
                 </Border>
-                <Image Width="64"
-                       Height="64"
-                       asyncImage:ImageLoader.Source="{Binding ProfileImage.Value}"
-                       IsVisible="{Binding ProfileImage.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                    <Image.Clip>
+                <asyncImage:AdvancedImage Width="64"
+                                          Height="64"
+                                          IsVisible="{Binding ProfileImage.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                          Source="{Binding ProfileImage.Value}">
+                    <asyncImage:AdvancedImage.Clip>
                         <EllipseGeometry Center="32,32"
                                          RadiusX="32"
                                          RadiusY="32" />
-                    </Image.Clip>
-                </Image>
+                    </asyncImage:AdvancedImage.Clip>
+
+                </asyncImage:AdvancedImage>
                 <Button Width="64"
                         Height="64"
                         Padding="0"

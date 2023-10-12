@@ -50,11 +50,11 @@
             </ListBox.ItemsPanel>
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Image Width="72"
-                           Height="72"
-                           Margin="8"
-                           asyncImage:ImageLoader.Source="{Binding DownloadUrl}"
-                           ToolTip.Tip="{Binding Name}" />
+                    <asyncImage:AdvancedImage Width="72"
+                                              Height="72"
+                                              Margin="8"
+                                              Source="{Binding DownloadUrl}"
+                                              ToolTip.Tip="{Binding Name}" />
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
