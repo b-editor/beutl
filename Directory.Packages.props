@@ -72,6 +72,6 @@
     <PackageVersion Include="System.Interactive" Version="6.0.1" />
     <PackageVersion Include="System.Interactive.Async" Version="6.0.1" />
     <PackageVersion Include="System.Reactive" Version="6.0.0" />
-    <PackageVersion Include="Vortice.XAudio2" Version="3.2.0" />
+    <PackageVersion Include="Vortice.XAudio2" Version="3.3.4" />
   </ItemGroup>
 </Project>
