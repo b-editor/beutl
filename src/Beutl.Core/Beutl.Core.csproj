@@ -20,4 +20,8 @@
     <PackageReference Include="Microsoft.Extensions.Logging" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Beutl\GitVersionInformation.cs" />
+  </ItemGroup>
+
 </Project>

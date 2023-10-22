@@ -1,0 +1,17 @@
+{
+    "$schema": "https://raw.githubusercontent.com/dotnet/Nerdbank.GitVersioning/main/src/NerdBank.GitVersioning/version.schema.json",
+    "version": "1.0.0-preview3",
+    "nugetPackageVersion": {
+        "semVer": 2,
+        "precision": "build" // optional. Use when you want to use a more or less precise package version than the default major.minor.build.
+    },
+    "release": {
+        "tagName": "v{version}",
+        "branchName": "v{version}",
+        "versionIncrement": "minor",
+        "firstUnstableTag": "preview"
+    },
+    "publicReleaseRefSpec": [
+        "^refs/tags/v\\d+\\.\\d+" // we also release tags starting with vN.N
+    ]
+}
