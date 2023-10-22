@@ -303,6 +303,11 @@ public static class PropertyEditorService
             return result;
         }
 
+        public bool TryCreateContextForSettings(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
+        {
+            return TryCreateContextCore(extension, properties, out context);
+        }
+
         private static bool TryCreateContextCore(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
         {
             BaseEditorViewModel? viewModel = null;
@@ -449,6 +454,35 @@ public static class PropertyEditorService
                 if (control is PropertyEditor pe)
                 {
                     pe.EditorStyle = PropertyEditorStyle.ListItem;
+                }
+            }
+        }
+
+        public bool TryCreateControlForSettings(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
+        {
+            control = null;
+            try
+            {
+                if (TryCreateControlCore(context, out control))
+                {
+                    return true;
+                }
+                else if (context is PropertyEditorGroupContext)
+                {
+                    control = new PropertyEditorGroup();
+                    return true;
+                }
+                else
+                {
+                    control = null;
+                    return false;
+                }
+            }
+            finally
+            {
+                if (control is PropertyEditor pe)
+                {
+                    pe.EditorStyle = PropertyEditorStyle.Settings;
                 }
             }
         }
