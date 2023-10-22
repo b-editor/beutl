@@ -212,6 +212,38 @@
             </Setter>
         </Style>
 
+        <Style Selector="^:settings">
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="{DynamicResource ButtonBorderThemeThickness}" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <OptionsDisplayItem Padding="{TemplateBinding Padding}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        Clickable="False"
+                                        CornerRadius="{TemplateBinding CornerRadius}"
+                                        Description="{TemplateBinding Description}"
+                                        Header="{TemplateBinding Header}">
+                        <OptionsDisplayItem.ActionButton>
+                            <TextBox x:Name="PART_InnerTextBox"
+                                     Width="188"
+                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                     Text="{TemplateBinding Text, Mode=TwoWay}">
+                                <TextBox.InnerRightContent>
+                                    <Button Name="PART_Button"
+                                            FontSize="{TemplateBinding FontSize}"
+                                            Theme="{StaticResource TextBoxOpenButtonStyle}" />
+                                </TextBox.InnerRightContent>
+                            </TextBox>
+                        </OptionsDisplayItem.ActionButton>
+                    </OptionsDisplayItem>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
         <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
             <Setter Property="IsEnabled" Value="False" />
         </Style>
