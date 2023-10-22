@@ -25,4 +25,8 @@
     <ProjectReference Include="..\Beutl.Api.Generated\Beutl.Api.Generated.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Beutl\GitVersionInformation.cs" />
+  </ItemGroup>
+
 </Project>

@@ -46,9 +46,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Root", "Root", "{80264A90-C
 		.gitattributes = .gitattributes
 		.gitignore = .gitignore
 		Directory.Build.props = Directory.Build.props
+		Directory.Build.targets = Directory.Build.targets
 		Directory.Packages.props = Directory.Packages.props
 		LICENSE = LICENSE
 		README.md = README.md
+		version.json = version.json
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.ProjectSystem", "src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj", "{379DEB93-0602-4000-B776-E187B9EBCD06}"
@@ -107,7 +109,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Api.Generated", "src\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "_build", "nukebuild\_build.csproj", "{4C1B4AEA-3F44-43CA-900F-5CE1FE3BD8CD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XamlPreview", "tests\XamlPreview\XamlPreview.csproj", "{AC7E6F97-061C-47DA-B264-04A4EAE666B9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XamlPreview", "tests\XamlPreview\XamlPreview.csproj", "{AC7E6F97-061C-47DA-B264-04A4EAE666B9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

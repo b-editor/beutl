@@ -9,26 +9,16 @@ jobs:
   determine-version:
     runs-on: windows-latest
     outputs:
-      escapedBranchName: ${{ steps.gitversion.outputs.escapedBranchName }}
-      nuGetVersionV2: ${{ steps.gitversion.outputs.nuGetVersionV2 }}
-      fullSemVer: ${{ steps.gitversion.outputs.fullSemVer }}
-      versionString: "${{ steps.gitversion.outputs.escapedBranchName }}-${{ steps.gitversion.outputs.fullSemVer }}"
+      semVer: ${{ steps.nbgv.outputs.SemVer2 }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v0
-        with:
-          versionSpec: '5.x'
-
-      - name: Determine Version
-        uses: gittools/actions/gitversion/execute@v0
-        id: gitversion
-        with:
-          useConfigFile: true
+      - name: Nerdbank.GitVersioning
+        id: nbgv
+        uses: dotnet/nbgv@v0.4.1
 
   build-executable:
     needs: [determine-version]
@@ -58,8 +48,8 @@ jobs:
       - name: Save
         uses: actions/upload-artifact@v3
         with:
-          name: beutl-${{matrix.rid}}-${{needs.determine-version.outputs.versionString}}
-          path: ./artifacts/Beutl-${{matrix.rid}}-${{needs.determine-version.outputs.versionString}}.zip
+          name: beutl-${{matrix.rid}}-${{needs.determine-version.outputs.semVer}}
+          path: ./artifacts/Beutl-${{matrix.rid}}-${{needs.determine-version.outputs.semVer}}.zip
 
   build-nuget:
     needs: [determine-version]
@@ -87,8 +77,8 @@ jobs:
       - name: Save
         uses: actions/upload-artifact@v3
         with:
-          name: Beutl.Sdk.${{needs.determine-version.outputs.nuGetVersionV2}}
-          path: ./artifacts/Beutl.Sdk.${{needs.determine-version.outputs.nuGetVersionV2}}.nupkg
+          name: Beutl.Sdk.${{needs.determine-version.outputs.semVer}}
+          path: ./artifacts/Beutl.Sdk.${{needs.determine-version.outputs.semVer}}.nupkg
 
   create-release:
     needs: [build-executable, build-nuget]
