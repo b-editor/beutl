@@ -506,7 +506,7 @@ public class Vector3Editor : PropertyEditor
         FirstHeaderTextBlock = e.NameScope.Find<TextBlock>("PART_HeaderFirstTextBlock");
         SecondHeaderTextBlock = e.NameScope.Find<TextBlock>("PART_HeaderSecondTextBlock");
         ThirdHeaderTextBlock = e.NameScope.Find<TextBlock>("PART_HeaderThirdTextBlock");
-        _backgroundBorder = e.NameScope.Get<Border>("PART_BackgroundBorder");
+        _backgroundBorder = e.NameScope.Find<Border>("PART_BackgroundBorder");
 
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
@@ -521,9 +521,9 @@ public class Vector3Editor : PropertyEditor
             ?.Subscribe(IsPointerOverChanged)
             ?.DisposeWith(_disposables);
 
-        _backgroundBorder.GetObservable(IsPointerOverProperty)
-            .Subscribe(IsPointerOverChanged)
-            .DisposeWith(_disposables);
+        _backgroundBorder?.GetObservable(IsPointerOverProperty)
+            ?.Subscribe(IsPointerOverChanged)
+            ?.DisposeWith(_disposables);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -537,7 +537,7 @@ public class Vector3Editor : PropertyEditor
 
     private void IsPointerOverChanged(bool obj)
     {
-        if (_backgroundBorder.IsPointerOver
+        if (_backgroundBorder?.IsPointerOver == true
             || InnerFirstTextBox.IsPointerOver
             || InnerSecondTextBox?.IsPointerOver == true
             || InnerThirdTextBox?.IsPointerOver == true

@@ -543,16 +543,16 @@ public class Vector4Editor : PropertyEditor
         InnerSecondTextBox = e.NameScope.Find<TextBox>("PART_InnerSecondTextBox");
         InnerThirdTextBox = e.NameScope.Find<TextBox>("PART_InnerThirdTextBox");
         InnerFourthTextBox = e.NameScope.Find<TextBox>("PART_InnerFourthTextBox");
-        _backgroundBorder = e.NameScope.Get<Border>("PART_BackgroundBorder");
+        _backgroundBorder = e.NameScope.Find<Border>("PART_BackgroundBorder");
 
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
         SubscribeEvents(InnerThirdTextBox);
         SubscribeEvents(InnerFourthTextBox);
 
-        _backgroundBorder.GetObservable(IsPointerOverProperty)
-            .Subscribe(IsPointerOverChanged)
-            .DisposeWith(_disposables);
+        _backgroundBorder?.GetObservable(IsPointerOverProperty)
+            ?.Subscribe(IsPointerOverChanged)
+            ?.DisposeWith(_disposables);
 
         UpdateFocusState();
     }
@@ -590,7 +590,7 @@ public class Vector4Editor : PropertyEditor
 
     private void IsPointerOverChanged(bool obj)
     {
-        if (_backgroundBorder.IsPointerOver
+        if (_backgroundBorder?.IsPointerOver == true
             || InnerFirstTextBox.IsPointerOver
             || InnerSecondTextBox?.IsPointerOver == true
             || InnerThirdTextBox?.IsPointerOver == true

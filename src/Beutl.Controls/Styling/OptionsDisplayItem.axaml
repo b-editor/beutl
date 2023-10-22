@@ -13,6 +13,10 @@
                 <local:OptionsDisplayItem Description="This is a description of whatver this does"
                                           Header="Header"
                                           Icon="Save" />
+                <local:OptionsDisplayItem Clickable="False"
+                                          Description="This is a description of whatver this does"
+                                          Header="Header"
+                                          Icon="Save" />
 
                 <local:OptionsDisplayItem Content="Hello World"
                                           Description="This is a description of whatver this does"
@@ -132,11 +136,11 @@
                 </Transitions>
             </Setter>
         </Style>
-        <Style Selector="^ /template/ Border#LayoutRoot:pointerover">
+        <Style Selector="^:clickable /template/ Border#LayoutRoot:pointerover">
             <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
             <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPointerOver}" />
         </Style>
-        <Style Selector="^:pressed /template/ Border#LayoutRoot:pointerover">
+        <Style Selector="^:clickable:pressed /template/ Border#LayoutRoot:pointerover">
             <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPressed}" />
             <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPressed}" />
         </Style>

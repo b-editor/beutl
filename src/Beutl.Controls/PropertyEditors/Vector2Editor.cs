@@ -430,7 +430,7 @@ public class Vector2Editor : PropertyEditor
         InnerSecondTextBox = e.NameScope.Find<TextBox>("PART_InnerSecondTextBox");
         FirstHeaderTextBlock = e.NameScope.Find<TextBlock>("PART_HeaderFirstTextBlock");
         SecondHeaderTextBlock = e.NameScope.Find<TextBlock>("PART_HeaderSecondTextBlock");
-        _backgroundBorder = e.NameScope.Get<Border>("PART_BackgroundBorder");
+        _backgroundBorder = e.NameScope.Find<Border>("PART_BackgroundBorder");
 
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
@@ -441,9 +441,9 @@ public class Vector2Editor : PropertyEditor
             ?.Subscribe(IsPointerOverChanged)
             ?.DisposeWith(_disposables);
 
-        _backgroundBorder.GetObservable(IsPointerOverProperty)
-            .Subscribe(IsPointerOverChanged)
-            .DisposeWith(_disposables);
+        _backgroundBorder?.GetObservable(IsPointerOverProperty)
+            ?.Subscribe(IsPointerOverChanged)
+            ?.DisposeWith(_disposables);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -457,7 +457,7 @@ public class Vector2Editor : PropertyEditor
 
     private void IsPointerOverChanged(bool obj)
     {
-        if (_backgroundBorder.IsPointerOver
+        if (_backgroundBorder?.IsPointerOver == true
             || InnerFirstTextBox.IsPointerOver
             || InnerSecondTextBox?.IsPointerOver == true
             || FirstHeaderTextBlock?.IsPointerOver == true

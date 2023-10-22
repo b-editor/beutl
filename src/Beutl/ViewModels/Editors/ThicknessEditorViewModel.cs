@@ -53,6 +53,10 @@ public sealed class ThicknessEditorViewModel : ValueEditorViewModel<Graphics.Thi
             editor[!Vector4Editor<float>.ThirdValueProperty] = ThirdValue.ToBinding();
             editor[!Vector4Editor<float>.FourthValueProperty] = FourthValue.ToBinding();
             editor[!Vector4Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
+            editor.FirstHeader = Strings.Left;
+            editor.SecondHeader = Strings.Top;
+            editor.ThirdHeader = Strings.Right;
+            editor.FourthHeader = Strings.Bottom;
             editor.ValueConfirmed += OnValueConfirmed;
             editor.ValueChanged += OnValueChanged;
         }
