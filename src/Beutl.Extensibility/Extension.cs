@@ -7,6 +7,8 @@ public abstract class Extension
 
     public abstract string DisplayName { get; }
 
+    public virtual ExtensionSettings? Settings { get; }
+
     public virtual void Load()
     {
     }
