@@ -21,7 +21,7 @@
     <PackageVersion Include="FFmpeg.AutoGen" Version="6.0.0.2" />
     <PackageVersion Include="FluentAvalonia.BreadcrumbBar" Version="2.0.2" />
     <PackageVersion Include="FluentAvaloniaUI" Version="2.0.4" />
-    <PackageVersion Include="FluentIcons.FluentAvalonia" Version="1.1.219" />
+    <PackageVersion Include="FluentIcons.FluentAvalonia" Version="1.1.220" />
     <PackageVersion Include="FluentTextTable" Version="1.0.0" />
     <PackageVersion Include="GitVersion.MsBuild" Version="5.12.0" />
     <PackageVersion Include="HarfBuzzSharp" Version="7.3.0" />
