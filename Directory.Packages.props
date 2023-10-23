@@ -7,7 +7,7 @@
     <PackageVersion Include="Avalonia" Version="11.0.4" />
     <PackageVersion Include="Avalonia.Controls.PanAndZoom" Version="11.0.0" />
     <PackageVersion Include="Avalonia.Desktop" Version="11.0.4" />
-    <PackageVersion Include="Avalonia.Diagnostics" Version="11.0.4" />
+    <PackageVersion Include="Avalonia.Diagnostics" Version="11.0.5" />
     <PackageVersion Include="Avalonia.ReactiveUI" Version="11.0.4" />
     <PackageVersion Include="Avalonia.Svg.Skia" Version="11.0.0.3" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.0.4" />
