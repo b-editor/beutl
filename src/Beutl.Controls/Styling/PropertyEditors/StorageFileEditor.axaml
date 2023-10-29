@@ -230,8 +230,8 @@
                         <OptionsDisplayItem.ActionButton>
                             <TextBox x:Name="PART_InnerTextBox"
                                      Width="188"
-                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                     Text="{TemplateBinding Text, Mode=TwoWay}">
+                                     IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:StorageFileEditor}}}"
+                                     Text="{Binding Text, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:StorageFileEditor}}}">
                                 <TextBox.InnerRightContent>
                                     <Button Name="PART_Button"
                                             FontSize="{TemplateBinding FontSize}"

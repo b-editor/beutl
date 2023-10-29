@@ -231,7 +231,7 @@
                                         Expands="True"
                                         Header="{TemplateBinding Header}">
                         <OptionsDisplayItem.Content>
-                            <DataValidationErrors Grid.Row="2">
+                            <DataValidationErrors Grid.Row="2" IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}">
                                 <StackPanel Margin="40,0" Spacing="16">
                                     <Grid Margin="4" ColumnDefinitions="*,Auto">
                                         <TextBlock Name="PART_HeaderFirstTextBlock"
@@ -241,8 +241,7 @@
                                         <TextBox Name="PART_InnerFirstTextBox"
                                                  Grid.Column="1"
                                                  Width="160"
-                                                 IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                                 Text="{TemplateBinding FirstText, Mode=TwoWay}" />
+                                                 Text="{Binding FirstText, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
                                     </Grid>
                                     <Grid Margin="4" ColumnDefinitions="*,Auto">
                                         <TextBlock Name="PART_HeaderSecondTextBlock"
@@ -252,8 +251,7 @@
                                         <TextBox Name="PART_InnerSecondTextBox"
                                                  Grid.Column="1"
                                                  Width="160"
-                                                 IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                                 Text="{TemplateBinding SecondText, Mode=TwoWay}" />
+                                                 Text="{Binding SecondText, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
                                     </Grid>
                                     <Grid Margin="4" ColumnDefinitions="*,Auto">
                                         <TextBlock Name="PART_HeaderThirdTextBlock"
@@ -263,8 +261,7 @@
                                         <TextBox Name="PART_InnerThirdTextBox"
                                                  Grid.Column="1"
                                                  Width="160"
-                                                 IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                                 Text="{TemplateBinding ThirdText, Mode=TwoWay}" />
+                                                 Text="{Binding ThirdText, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
                                     </Grid>
                                 </StackPanel>
                             </DataValidationErrors>

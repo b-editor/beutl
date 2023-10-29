@@ -258,7 +258,7 @@
                                         Expands="True"
                                         Header="{TemplateBinding Header}">
                         <OptionsDisplayItem.Content>
-                            <DataValidationErrors Grid.Row="2">
+                            <DataValidationErrors Grid.Row="2" IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:Vector4Editor}}}">
                                 <StackPanel Margin="40,0" Spacing="16">
                                     <Grid Margin="4" ColumnDefinitions="*,Auto">
                                         <TextBlock VerticalAlignment="Center" Text="{Binding FirstHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector4Editor}}}" />
@@ -266,8 +266,7 @@
                                         <TextBox Name="PART_InnerFirstTextBox"
                                                  Grid.Column="1"
                                                  Width="160"
-                                                 IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                                 Text="{TemplateBinding FirstText, Mode=TwoWay}" />
+                                                 Text="{Binding FirstText, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:Vector4Editor}}}" />
                                     </Grid>
                                     <Grid Margin="4" ColumnDefinitions="*,Auto">
                                         <TextBlock VerticalAlignment="Center" Text="{Binding SecondHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector4Editor}}}" />
@@ -275,8 +274,7 @@
                                         <TextBox Name="PART_InnerSecondTextBox"
                                                  Grid.Column="1"
                                                  Width="160"
-                                                 IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                                 Text="{TemplateBinding SecondText, Mode=TwoWay}" />
+                                                 Text="{Binding SecondText, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:Vector4Editor}}}" />
                                     </Grid>
                                     <Grid Margin="4" ColumnDefinitions="*,Auto">
                                         <TextBlock VerticalAlignment="Center" Text="{Binding ThirdHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector4Editor}}}" />
@@ -284,8 +282,7 @@
                                         <TextBox Name="PART_InnerThirdTextBox"
                                                  Grid.Column="1"
                                                  Width="160"
-                                                 IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                                 Text="{TemplateBinding ThirdText, Mode=TwoWay}" />
+                                                 Text="{Binding ThirdText, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:Vector4Editor}}}" />
                                     </Grid>
                                     <Grid Margin="4" ColumnDefinitions="*,Auto">
                                         <TextBlock VerticalAlignment="Center" Text="{Binding FourthHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector4Editor}}}" />
@@ -293,8 +290,7 @@
                                         <TextBox Name="PART_InnerFourthTextBox"
                                                  Grid.Column="1"
                                                  Width="160"
-                                                 IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                                 Text="{TemplateBinding FourthText, Mode=TwoWay}" />
+                                                 Text="{Binding FourthText, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:Vector4Editor}}}" />
                                     </Grid>
                                 </StackPanel>
                             </DataValidationErrors>

@@ -99,8 +99,8 @@
                         <OptionsDisplayItem.ActionButton>
                             <ToggleSwitch Name="PART_CheckBox"
                                           Classes="left"
-                                          IsChecked="{TemplateBinding Value, Mode=TwoWay}"
-                                          IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                          IsChecked="{Binding Value, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:BooleanEditor}}}"
+                                          IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:BooleanEditor}}}"
                                           Theme="{DynamicResource CompactToggleSwitchStyle}" />
                         </OptionsDisplayItem.ActionButton>
                     </OptionsDisplayItem>

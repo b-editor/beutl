@@ -174,9 +174,9 @@
                             <ComboBox x:Name="PART_InnerComboBox"
                                       Width="188"
                                       HorizontalAlignment="Stretch"
-                                      IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                      ItemsSource="{TemplateBinding Items, Mode=TwoWay}"
-                                      SelectedIndex="{TemplateBinding SelectedIndex, Mode=TwoWay}" />
+                                      IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:EnumEditor}}}"
+                                      ItemsSource="{Binding Items, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:EnumEditor}}}"
+                                      SelectedIndex="{Binding SelectedIndex, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:EnumEditor}}}" />
                         </OptionsDisplayItem.ActionButton>
                     </OptionsDisplayItem>
                 </ControlTemplate>

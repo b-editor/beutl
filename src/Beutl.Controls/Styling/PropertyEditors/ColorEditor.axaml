@@ -114,10 +114,10 @@
                         <OptionsDisplayItem.ActionButton>
                             <ui:ColorPickerButton x:Name="PART_ColorPickerButton"
                                                   CustomPaletteColors="{DynamicResource PaletteColors}"
-                                                  IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                                  ShowAcceptDismissButtons="{TemplateBinding IsLivePreviewEnabled, Converter={x:Static BoolConverters.Not}}"
+                                                  IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:EnumEditor}}}"
+                                                  ShowAcceptDismissButtons="{Binding IsLivePreviewEnabled, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:EnumEditor}}}"
                                                   UseColorPalette="True"
-                                                  Color="{Binding Value, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
+                                                  Color="{Binding Value, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type local:EnumEditor}}}" />
                         </OptionsDisplayItem.ActionButton>
                     </OptionsDisplayItem>
                 </ControlTemplate>
