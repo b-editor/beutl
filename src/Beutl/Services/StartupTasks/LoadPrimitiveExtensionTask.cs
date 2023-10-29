@@ -5,6 +5,7 @@ namespace Beutl.Services.StartupTasks;
 
 public sealed class LoadPrimitiveExtensionTask : StartupTask
 {
+    private readonly PackageManager _manager;
     public static readonly Extension[] PrimitiveExtensions =
     {
         EditPageExtension.Instance,
@@ -25,8 +26,9 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         WaveReaderExtension.Instance,
     };
 
-    public LoadPrimitiveExtensionTask()
+    public LoadPrimitiveExtensionTask(PackageManager manager)
     {
+        _manager = manager;
         Task = Task.Run(async () =>
         {
             using (Activity? activity = Telemetry.StartActivity("LoadPrimitiveExtensionTask"))
@@ -34,6 +36,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                 ExtensionProvider provider = ExtensionProvider.Current;
                 foreach (Extension item in PrimitiveExtensions)
                 {
+                    _manager.SetupExtensionSettings(item);
                     item.Load();
                 }
                 provider.AddExtensions(LocalPackage.Reserved0, PrimitiveExtensions);
@@ -60,6 +63,8 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                 {
                     var decoding = new Embedding.FFmpeg.Decoding.FFmpegDecodingExtension();
                     var encoding = new Embedding.FFmpeg.Encoding.FFmpegEncodingExtension();
+                    _manager.SetupExtensionSettings(decoding);
+                    _manager.SetupExtensionSettings(encoding);
                     decoding.Load();
                     encoding.Load();
 

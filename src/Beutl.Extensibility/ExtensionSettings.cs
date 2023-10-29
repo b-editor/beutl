@@ -1,5 +1,7 @@
-﻿namespace Beutl.Extensibility;
+﻿using Beutl.Configuration;
 
-public abstract class ExtensionSettings : CoreObject
+namespace Beutl.Extensibility;
+
+public abstract class ExtensionSettings : ConfigurationBase
 {
 }
