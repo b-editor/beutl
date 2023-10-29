@@ -469,7 +469,7 @@ public static class PropertyEditorService
                 }
                 else if (context is PropertyEditorGroupContext)
                 {
-                    control = new PropertyEditorGroup();
+                    control = new Pages.SettingsPages.PropertyEditorGroup();
                     return true;
                 }
                 else
