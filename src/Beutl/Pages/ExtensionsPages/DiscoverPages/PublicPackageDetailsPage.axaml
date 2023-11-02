@@ -230,6 +230,17 @@
                                            IsVisible="{Binding LatestRelease.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                                            Text="{Binding LatestRelease.Value.Version.Value}" />
                             </Grid>
+                            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
+                                <icons:SymbolIcon Margin="0,0,8,0"
+                                                  VerticalAlignment="Bottom"
+                                                  Symbol="ArrowMinimize" />
+                                <TextBlock Grid.Column="1" Text="{x:Static lang:ExtensionsPage.Release_TargetVersion}" />
+
+                                <TextBlock Grid.Row="1"
+                                           Grid.Column="1"
+                                           Margin="0,8,0,0"
+                                           Text="{Binding SelectedRelease.Value.TargetVersion.Value}" />
+                            </Grid>
                             <Grid ColumnDefinitions="Auto,*"
                                   IsVisible="{Binding CurrentRelease.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                                   RowDefinitions="Auto,Auto">

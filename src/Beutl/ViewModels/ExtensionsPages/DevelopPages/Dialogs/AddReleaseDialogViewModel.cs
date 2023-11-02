@@ -59,7 +59,7 @@ public sealed class AddReleaseDialogViewModel
             {
                 await _user.RefreshAsync();
 
-                var request = new CreateReleaseRequest(Body.Value, Title.Value);
+                var request = new CreateReleaseRequest(Body.Value, "*", Title.Value);
                 return Result = await _package.AddReleaseAsync(Version.Value, request);
             }
         }

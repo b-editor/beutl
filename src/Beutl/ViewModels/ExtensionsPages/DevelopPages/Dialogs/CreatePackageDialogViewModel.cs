@@ -17,12 +17,13 @@ public sealed class CreatePackageDialogViewModel
 {
     private readonly ILogger _logger = Log.ForContext<CreatePackageDialogViewModel>();
     private readonly AuthorizedUser _user;
+    private readonly DiscoverService _discoverService;
     private LocalPackage? _localPackage;
 
-    public CreatePackageDialogViewModel(AuthorizedUser user)
+    public CreatePackageDialogViewModel(AuthorizedUser user, DiscoverService discoverService)
     {
         _user = user;
-
+        _discoverService = discoverService;
         Name.SetValidateNotifyError(NotNullOrWhitespace);
 
         IsValid = Name.ObserveHasErrors
@@ -109,17 +110,42 @@ public sealed class CreatePackageDialogViewModel
                     request = new CreatePackageRequest("", "", "", Array.Empty<string>(), "");
                 }
 
-                Result = await _user.Profile.AddPackageAsync(Name.Value, request);
+                // nupkgから作成された場合のために、既にパッケージがある場合そのリリースに追加する。
+                try
+                {
+                    Package existing = await _discoverService.GetPackage(Name.Value);
+                    if (existing.Owner.Id != _user.Profile.Id)
+                    {
+                        throw new Exception("Invalid Owner.");
+                    }
+
+                    Result = existing;
+                }
+                catch (BeutlApiException<ApiErrorResponse> ex)
+                when (ex.Result.Error_code is ApiErrorCode.PackageNotFound or ApiErrorCode.PackageNotFoundById)
+                {
+                    Result = await _user.Profile.AddPackageAsync(Name.Value, request);
+                }
+                catch
+                {
+                    throw;
+                }
 
                 if (_localPackage != null)
                 {
                     try
                     {
                         await Result.AddReleaseAsync(
-                            _localPackage.Version, new CreateReleaseRequest("", _localPackage.Version));
+                            _localPackage.Version, new CreateReleaseRequest("", _localPackage.TargetVersion, _localPackage.Version));
+
+                        //_user.Profile.AddAssetAsync()
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        activity?.SetStatus(ActivityStatusCode.Error);
+                        activity?.RecordException(ex);
+                        _logger.Error(ex, "An unexpected error has occurred.");
+                        ex.Handle();
                     }
                 }
 

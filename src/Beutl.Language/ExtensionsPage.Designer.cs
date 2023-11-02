@@ -640,6 +640,25 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Target version に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Release_TargetVersion {
+            get {
+                return ResourceManager.GetString("Release_TargetVersion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Beutl versions supported by this extension.
+        ///You can use NuGet Package Versioning. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Release_TargetVersion_Tip {
+            get {
+                return ResourceManager.GetString("Release_TargetVersion_Tip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Title に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Release_Title {

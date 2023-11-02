@@ -360,4 +360,11 @@ URLが不審な場合、開かないことをお勧めします。</value>
   <data name="Package_SelectedRelease" xml:space="preserve">
     <value>選択中のリリース</value>
   </data>
+  <data name="Release_TargetVersion" xml:space="preserve">
+    <value>ターゲットバージョン</value>
+  </data>
+  <data name="Release_TargetVersion_Tip" xml:space="preserve">
+    <value>この拡張機能がサポートする Beutl のバージョン。
+NuGet Package Versioning を使用できます。</value>
+  </data>
 </root>

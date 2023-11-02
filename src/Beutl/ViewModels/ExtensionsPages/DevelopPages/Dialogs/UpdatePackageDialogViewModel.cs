@@ -116,7 +116,7 @@ public sealed class UpdatePackageDialogViewModel
                     website: localPackage.WebSite);
 
                 return Result = await package.AddReleaseAsync(
-                    localPackage.Version, new CreateReleaseRequest("", localPackage.Version));
+                    localPackage.Version, new CreateReleaseRequest("", localPackage.TargetVersion, localPackage.Version));
             }
         }
         catch (BeutlApiException<ApiErrorResponse> e)

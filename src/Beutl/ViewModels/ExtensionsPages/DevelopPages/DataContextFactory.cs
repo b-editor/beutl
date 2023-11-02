@@ -24,7 +24,7 @@ public class DataContextFactory
 
     public CreatePackageDialogViewModel CreatePackageDialog()
     {
-        return new CreatePackageDialogViewModel(_user);
+        return new CreatePackageDialogViewModel(_user, _discoverService);
     }
 
     public UpdatePackageDialogViewModel UpdatePackageDialog()
