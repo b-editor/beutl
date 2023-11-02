@@ -312,6 +312,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   May not work correctly when downgrading に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string May_not_work_correctly_when_downgrading {
+            get {
+                return ResourceManager.GetString("May_not_work_correctly_when_downgrading", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   No logo image available に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string NoLogoImageAvailable {
@@ -480,6 +489,15 @@ namespace Beutl.Language {
         public static string Package_Screenshots_Tip {
             get {
                 return ResourceManager.GetString("Package_Screenshots_Tip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Selected release に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Package_SelectedRelease {
+            get {
+                return ResourceManager.GetString("Package_SelectedRelease", resourceCulture);
             }
         }
         

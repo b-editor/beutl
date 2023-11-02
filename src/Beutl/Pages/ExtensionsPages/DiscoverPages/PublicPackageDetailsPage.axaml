@@ -62,6 +62,13 @@
                             Content="{Binding Package.Owner.Name}" />
 
                     <StackPanel HorizontalAlignment="Center" Spacing="8">
+                        <ComboBox Margin="0,0,-32,0"
+                                  HorizontalAlignment="Center"
+                                  DisplayMemberBinding="{Binding Version.Value}"
+                                  ItemsSource="{Binding AllReleases}"
+                                  SelectedItem="{Binding SelectedRelease.Value}"
+                                  Theme="{StaticResource LiteComboBoxStyle}" />
+
                         <Button Padding="48,5,48,6"
                                 HorizontalAlignment="Stretch"
                                 Classes="accent"
@@ -88,6 +95,13 @@
                                 Content="{x:Static lang:Strings.Cancel}"
                                 IsVisible="{Binding CanCancel.Value}" />
                     </StackPanel>
+
+                    <TextBlock Margin="0,16,0,0"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                               IsVisible="{Binding Downgrade.Value}"
+                               Text="{x:Static lang:ExtensionsPage.May_not_work_correctly_when_downgrading}"
+                               Theme="{StaticResource CaptionTextBlockStyle}" />
 
                     <TextBlock Margin="0,64,0,0"
                                HorizontalAlignment="Center"
@@ -140,16 +154,22 @@
                     </StackPanel>
                 </Border>
 
-                <Border Classes="card" IsVisible="{Binding LatestRelease.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <Border Classes="card" IsVisible="{Binding SelectedRelease.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
                     <StackPanel>
                         <TextBlock Margin="16,8"
+                                   IsVisible="{Binding SelectingLatestVersion.Value}"
                                    Text="{x:Static lang:ExtensionsPage.Package_LatestRelease}"
                                    Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Margin="16,8"
+                                   IsVisible="{Binding !SelectingLatestVersion.Value}"
+                                   Text="{x:Static lang:ExtensionsPage.Package_SelectedRelease}"
+                                   Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
                         <Border Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
 
-                        <TextBlock Margin="16,16,16,0" Text="{Binding LatestRelease.Value.Title.Value}" />
+                        <TextBlock Margin="16,16,16,0" Text="{Binding SelectedRelease.Value.Title.Value}" />
                         <SelectableTextBlock Margin="16"
-                                             Text="{Binding LatestRelease.Value.Body.Value}"
+                                             Text="{Binding SelectedRelease.Value.Body.Value}"
                                              TextWrapping="WrapWithOverflow" />
                     </StackPanel>
                 </Border>
