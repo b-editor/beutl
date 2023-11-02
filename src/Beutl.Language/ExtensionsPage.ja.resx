@@ -367,4 +367,8 @@ URLが不審な場合、開かないことをお勧めします。</value>
     <value>この拡張機能がサポートする Beutl のバージョン。
 NuGet Package Versioning を使用できます。</value>
   </data>
+  <data name="This_extension_does_not_support_your_Beutl_version" xml:space="preserve">
+    <value>この拡張機能は、お客様の Beutl バージョンに対応していません。
+強制的にインストールする場合、CLIツールをご利用ください。</value>
+  </data>
 </root>

@@ -99,6 +99,13 @@
                     <TextBlock Margin="0,16,0,0"
                                HorizontalAlignment="Center"
                                Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                               IsVisible="{Binding !CanInstallOrUpdate.Value}"
+                               Text="{x:Static lang:ExtensionsPage.This_extension_does_not_support_your_Beutl_version}"
+                               Theme="{StaticResource CaptionTextBlockStyle}" />
+
+                    <TextBlock Margin="0,16,0,0"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
                                IsVisible="{Binding Downgrade.Value}"
                                Text="{x:Static lang:ExtensionsPage.May_not_work_correctly_when_downgrading}"
                                Theme="{StaticResource CaptionTextBlockStyle}" />

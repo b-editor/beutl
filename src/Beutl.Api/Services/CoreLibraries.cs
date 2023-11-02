@@ -136,19 +136,7 @@ internal static class CoreLibraries
         {
             var version = new NuGetVersion(versionStr);
 
-            // インストールされているバージョンがMinよりも小さい
-            if (versionRange.HasLowerBound && versionRange.MinVersion > version)
-            {
-                return false;
-            }
-
-            // インストールされているバージョンがMaxよりも大きい
-            if (versionRange.HasUpperBound && versionRange.MaxVersion < version)
-            {
-                return false;
-            }
-
-            return true;
+            return versionRange.Satisfies(version);
         }
 
         return false;

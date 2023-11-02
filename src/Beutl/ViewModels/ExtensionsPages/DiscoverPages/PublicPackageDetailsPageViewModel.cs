@@ -102,16 +102,35 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
+        CanInstallOrUpdate = SelectedRelease.Select(v =>
+            {
+#pragma warning disable CS0436 // 型がインポートされた型と競合しています
+                const string beutlVersion = ThisAssembly.NuGetPackageVersion;
+#pragma warning restore CS0436 // 型がインポートされた型と競合しています
+
+                if (v?.TargetVersion?.Value is { } target
+                    && VersionRange.TryParse(target, out VersionRange? versionRange)
+                    && NuGetVersion.TryParse(beutlVersion, out NuGetVersion? version))
+                {
+                    return versionRange.Satisfies(version);
+                }
+                else
+                {
+                    return true;
+                }
+            })
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
         IObservable<bool> installed = _installedPackageRepository.GetObservable(package.Name);
-        IsInstallButtonVisible = installed
-            .AnyTrue(CanCancel)
-            .Not()
+        IsInstallButtonVisible = installed.Not()
+            .AreTrue(CanCancel.Not(), CanInstallOrUpdate)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         IsUpdateButtonVisible = CurrentRelease.CombineLatest(SelectedRelease)
             .Select(x => x.First != null && x.First.Version.Value != x.Second?.Version.Value)
-            .AreTrue(CanCancel.Not())
+            .AreTrue(CanCancel.Not(), CanInstallOrUpdate)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -288,8 +307,10 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
     public ReadOnlyReactivePropertySlim<bool> CanCancel { get; }
 
     public ReadOnlyReactivePropertySlim<bool> Downgrade { get; }
-    
+
     public ReadOnlyReactivePropertySlim<bool> SelectingLatestVersion { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> CanInstallOrUpdate { get; }
 
     public AsyncReactiveCommand Install { get; }
 

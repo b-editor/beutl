@@ -731,6 +731,16 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   This extension does not support your Beutl version.
+        ///To force installation, use the CLI tool. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string This_extension_does_not_support_your_Beutl_version {
+            get {
+                return ResourceManager.GetString("This_extension_does_not_support_your_Beutl_version", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   To open a file, drop the file here or click here. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string To_open_a_file_drop_the_file_here_or_click_here {
