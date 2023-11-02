@@ -87,8 +87,10 @@
                                    TextTrimming="CharacterEllipsis" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
-                        <TextBox AcceptsReturn="True"
-                                 Classes="customStyle"
+                        <TextBox MaxHeight="160"
+                                 Margin="44,0"
+                                 AcceptsReturn="True"
+                                 AcceptsTab="True"
                                  Text="{CompiledBinding Description.Value}" />
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
@@ -103,7 +105,9 @@
                                    TextTrimming="CharacterEllipsis" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
-                        <TextBox Classes="customStyle" Text="{CompiledBinding ShortDescription.Value}" />
+                        <TextBox MaxHeight="160"
+                                 Margin="44,0"
+                                 Text="{CompiledBinding ShortDescription.Value}" />
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
