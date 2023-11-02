@@ -1,0 +1,35 @@
+<UserControl x:Class="Beutl.Pages.SettingsPages.AnExtensionSettingsPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrls="using:Beutl.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Pages.SettingsPages"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.ViewModels.SettingsPages"
+             x:Name="root"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="vm:AnExtensionSettingsPageViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="18" RowDefinitions="Auto,*">
+        <StackPanel Margin="10,8"
+                    Orientation="Horizontal"
+                    Spacing="16">
+            <Button Classes="breadcrumb"
+                    Command="{Binding NavigateParent}"
+                    Content="{x:Static lang:Strings.Extensions}" />
+
+            <Label Classes="breadcrumb" />
+
+            <TextBlock Classes="breadcrumb" Text="{Binding Extension.DisplayName}" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" Margin="0,12,0,0">
+            <local:PropertiesEditor />
+        </ScrollViewer>
+    </Grid>
+</UserControl>

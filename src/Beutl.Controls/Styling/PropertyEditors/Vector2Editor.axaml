@@ -4,8 +4,12 @@
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
     <Design.PreviewWith>
-        <Border Width="300">
+        <Border Width="500">
             <StackPanel>
+                <local:Vector2Editor EditorStyle="Settings"
+                                     FirstText="0"
+                                     Header="Property 1"
+                                     SecondText="0" />
                 <local:Vector2Editor EditorStyle="ListItem"
                                      FirstText="0"
                                      Header="Property 1"
@@ -265,6 +269,52 @@
                             </Button>
                         </Grid>
                     </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="^:settings">
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="{DynamicResource ButtonBorderThemeThickness}" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <OptionsDisplayItem Padding="{TemplateBinding Padding}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        CornerRadius="{TemplateBinding CornerRadius}"
+                                        Description="{TemplateBinding Description}"
+                                        Expands="True"
+                                        Header="{TemplateBinding Header}">
+                        <OptionsDisplayItem.Content>
+                            <DataValidationErrors Grid.Row="2" IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:Vector2Editor}}}">
+                                <StackPanel Margin="40,0" Spacing="16">
+                                    <Grid Margin="4" ColumnDefinitions="*,Auto">
+                                        <TextBlock Name="PART_HeaderFirstTextBlock"
+                                                   VerticalAlignment="Center"
+                                                   Text="{Binding FirstHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector2Editor}}}" />
+
+                                        <TextBox Name="PART_InnerFirstTextBox"
+                                                 Grid.Column="1"
+                                                 Width="160"
+                                                 Text="{Binding FirstText, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:Vector2Editor}}}" />
+                                    </Grid>
+                                    <Grid Margin="4" ColumnDefinitions="*,Auto">
+                                        <TextBlock Name="PART_HeaderSecondTextBlock"
+                                                   VerticalAlignment="Center"
+                                                   Text="{Binding SecondHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector2Editor}}}" />
+
+                                        <TextBox Name="PART_InnerSecondTextBox"
+                                                 Grid.Column="1"
+                                                 Width="160"
+                                                 Text="{Binding SecondText, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:Vector2Editor}}}" />
+                                    </Grid>
+                                </StackPanel>
+                            </DataValidationErrors>
+                        </OptionsDisplayItem.Content>
+                    </OptionsDisplayItem>
                 </ControlTemplate>
             </Setter>
         </Style>

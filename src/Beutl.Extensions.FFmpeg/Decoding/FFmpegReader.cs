@@ -30,6 +30,7 @@ public sealed unsafe class FFmpegReader : MediaReader
         }
     };
     private readonly MediaOptions _options;
+    private readonly FFmpegDecodingSettings _settings;
     private readonly string _file;
     private readonly AudioStreamInfo? _audioInfo;
     private readonly VideoStreamInfo? _videoInfo;
@@ -57,11 +58,11 @@ public sealed unsafe class FFmpegReader : MediaReader
     private double _videoTimeBaseDouble;
     private double _videoAvgFrameRateDouble;
 
-    public FFmpegReader(string file, MediaOptions options)
+    public FFmpegReader(string file, MediaOptions options, FFmpegDecodingSettings settings)
     {
         _file = file;
         _options = options;
-
+        _settings = settings;
         try
         {
             fixed (AVFormatContext** fmtctx = &_formatContext)
@@ -602,7 +603,7 @@ public sealed unsafe class FFmpegReader : MediaReader
             _videoCodecContext->height,
             AVPixelFormat.AV_PIX_FMT_BGRA,
             // scaling_algorithm
-            ffmpeg.SWS_BICUBIC,
+            (int)_settings.Scaling,
             null,
             null,
             null);

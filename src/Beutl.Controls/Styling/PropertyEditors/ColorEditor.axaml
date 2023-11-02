@@ -6,6 +6,7 @@
     <Design.PreviewWith>
         <Border Width="300">
             <StackPanel>
+                <local:ColorEditor EditorStyle="Settings" Header="Property 1" />
                 <local:ColorEditor EditorStyle="ListItem"
                                    Header="Property 1"
                                    KeyFrameCount="3" />
@@ -91,6 +92,34 @@
                             </Button>
                         </Grid>
                     </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="^:settings">
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="{DynamicResource ButtonBorderThemeThickness}" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <OptionsDisplayItem Padding="{TemplateBinding Padding}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        Clickable="False"
+                                        CornerRadius="{TemplateBinding CornerRadius}"
+                                        Description="{TemplateBinding Description}"
+                                        Header="{TemplateBinding Header}">
+                        <OptionsDisplayItem.ActionButton>
+                            <ui:ColorPickerButton x:Name="PART_ColorPickerButton"
+                                                  CustomPaletteColors="{DynamicResource PaletteColors}"
+                                                  IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:EnumEditor}}}"
+                                                  ShowAcceptDismissButtons="{Binding IsLivePreviewEnabled, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:EnumEditor}}}"
+                                                  UseColorPalette="True"
+                                                  Color="{Binding Value, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type local:EnumEditor}}}" />
+                        </OptionsDisplayItem.ActionButton>
+                    </OptionsDisplayItem>
                 </ControlTemplate>
             </Setter>
         </Style>

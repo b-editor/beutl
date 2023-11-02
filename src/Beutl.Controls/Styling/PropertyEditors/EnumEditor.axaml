@@ -155,6 +155,34 @@
             </Setter>
         </Style>
 
+        <Style Selector="^:settings">
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="{DynamicResource ButtonBorderThemeThickness}" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <OptionsDisplayItem Padding="{TemplateBinding Padding}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        Clickable="False"
+                                        CornerRadius="{TemplateBinding CornerRadius}"
+                                        Description="{TemplateBinding Description}"
+                                        Header="{TemplateBinding Header}">
+                        <OptionsDisplayItem.ActionButton>
+                            <ComboBox x:Name="PART_InnerComboBox"
+                                      Width="188"
+                                      HorizontalAlignment="Stretch"
+                                      IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:EnumEditor}}}"
+                                      ItemsSource="{Binding Items, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:EnumEditor}}}"
+                                      SelectedIndex="{Binding SelectedIndex, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:EnumEditor}}}" />
+                        </OptionsDisplayItem.ActionButton>
+                    </OptionsDisplayItem>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
         <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
             <Setter Property="IsEnabled" Value="False" />
         </Style>

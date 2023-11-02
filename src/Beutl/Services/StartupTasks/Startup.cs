@@ -60,7 +60,7 @@ public sealed class Startup
     {
         Register(() => new AuthenticationTask(_apiApp));
         Register(() => new LoadInstalledExtensionTask(_apiApp.GetResource<PackageManager>()));
-        Register(() => new LoadPrimitiveExtensionTask());
+        Register(() => new LoadPrimitiveExtensionTask(_apiApp.GetResource<PackageManager>()));
         Register(() => new LoadSideloadExtensionTask(_apiApp.GetResource<PackageManager>()));
         Register(() => new AfterLoadingExtensionsTask(this));
         Register(() => new CheckForUpdatesTask(_apiApp));

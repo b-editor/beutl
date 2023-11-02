@@ -6,6 +6,9 @@
     <Design.PreviewWith>
         <Border Width="300">
             <StackPanel>
+                <local:StringEditor Classes="multiline"
+                                    EditorStyle="Settings"
+                                    Header="Property 1" />
                 <local:StringEditor EditorStyle="ListItem" Header="Property 1" />
                 <local:StringEditor Header="Property 1" KeyFrameCount="3" />
                 <local:StringEditor Classes="multiline"
@@ -195,6 +198,56 @@
                     </Border>
                 </ControlTemplate>
             </Setter>
+        </Style>
+
+        <Style Selector="^:settings">
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="{DynamicResource ButtonBorderThemeThickness}" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <OptionsDisplayItem Padding="{TemplateBinding Padding}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        Clickable="False"
+                                        CornerRadius="{TemplateBinding CornerRadius}"
+                                        Description="{TemplateBinding Description}"
+                                        Header="{TemplateBinding Header}">
+                        <OptionsDisplayItem.ActionButton>
+                            <TextBox Name="PART_InnerTextBox"
+                                     Width="188"
+                                     IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:StringEditor}}}"
+                                     Text="{Binding Text, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:StringEditor}}}" />
+                        </OptionsDisplayItem.ActionButton>
+                    </OptionsDisplayItem>
+                </ControlTemplate>
+            </Setter>
+
+            <Style Selector="^.multiline">
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <OptionsDisplayItem Padding="{TemplateBinding Padding}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="{TemplateBinding CornerRadius}"
+                                            Description="{TemplateBinding Description}"
+                                            Expands="True"
+                                            Header="{TemplateBinding Header}">
+                            <OptionsDisplayItem.Content>
+                                <TextBox Name="PART_InnerTextBox"
+                                         MaxHeight="160"
+                                         Margin="44,0"
+                                         AcceptsReturn="True"
+                                         AcceptsTab="True"
+                                         IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:StringEditor}}}"
+                                         Text="{Binding Text, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:StringEditor}}}" />
+                            </OptionsDisplayItem.Content>
+                        </OptionsDisplayItem>
+                    </ControlTemplate>
+                </Setter>
+            </Style>
         </Style>
 
         <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">

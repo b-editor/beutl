@@ -20,6 +20,7 @@ public sealed class PackageManager : PackageLoader
     private readonly ConcurrentBag<LocalPackage> _loadedPackage = new();
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly BeutlApiApplication _apiApplication;
+    private readonly ExtensionSettingsStore _settingsStore = new();
     private readonly Subject<(PackageIdentity Package, bool Loaded)> _subject = new();
 
     public PackageManager(
@@ -278,7 +279,7 @@ public sealed class PackageManager : PackageLoader
         }
     }
 
-    private static void LoadExtensions(Assembly assembly, List<Extension> extensions)
+    private void LoadExtensions(Assembly assembly, List<Extension> extensions)
     {
         foreach (Type type in assembly.GetExportedTypes())
         {
@@ -287,11 +288,22 @@ public sealed class PackageManager : PackageLoader
                 if (type.IsAssignableTo(typeof(Extension))
                     && Activator.CreateInstance(type) is Extension extension)
                 {
+                    SetupExtensionSettings(extension);
                     extension.Load();
 
                     extensions.Add(extension);
                 }
             }
+        }
+    }
+
+    internal void SetupExtensionSettings(Extension extension)
+    {
+        if (extension.Settings is { } settings)
+        {
+            _settingsStore.Restore(extension, settings);
+
+            settings.ConfigurationChanged += (_, _) => _settingsStore.Save(extension, settings);
         }
     }
 

@@ -35,6 +35,9 @@ public class OptionsDisplayItem : TemplatedControl
     public static readonly StyledProperty<bool> ExpandsProperty =
         AvaloniaProperty.Register<OptionsDisplayItem, bool>(nameof(Expands));
 
+    public static readonly StyledProperty<bool> ClickableProperty =
+        AvaloniaProperty.Register<OptionsDisplayItem, bool>(nameof(Clickable), true);
+
     public static readonly StyledProperty<object> ContentProperty =
         ContentControl.ContentProperty.AddOwner<OptionsDisplayItem>();
 
@@ -49,6 +52,11 @@ public class OptionsDisplayItem : TemplatedControl
 
     public static readonly StyledProperty<IPageTransition> ContentTransitionProperty =
         AvaloniaProperty.Register<OptionsDisplayItem, IPageTransition>(nameof(ContentTransition));
+
+    public OptionsDisplayItem()
+    {
+        PseudoClasses.Set(":clickable", Clickable);
+    }
 
     public object Header
     {
@@ -72,6 +80,12 @@ public class OptionsDisplayItem : TemplatedControl
     {
         get => GetValue(NavigatesProperty);
         set => SetValue(NavigatesProperty, value);
+    }
+
+    public bool Clickable
+    {
+        get => GetValue(ClickableProperty);
+        set => SetValue(ClickableProperty, value);
     }
 
     public Control ActionButton
@@ -151,6 +165,10 @@ public class OptionsDisplayItem : TemplatedControl
 
                 OnIsExpandedChanged(change);
             }
+            else if (change.Property == ClickableProperty)
+            {
+                PseudoClasses.Set(":clickable", boolChanges.NewValue.GetValueOrDefault<bool>());
+            }
         }
         else if (change.Property == IconProperty)
         {
@@ -200,7 +218,8 @@ public class OptionsDisplayItem : TemplatedControl
 
     private void OnLayoutRootPointerPressed(object sender, PointerPressedEventArgs e)
     {
-        if (e.GetCurrentPoint(this).Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonPressed)
+        if (Clickable
+            && e.GetCurrentPoint(this).Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonPressed)
         {
             _isPressed = true;
             PseudoClasses.Set(":pressed", true);

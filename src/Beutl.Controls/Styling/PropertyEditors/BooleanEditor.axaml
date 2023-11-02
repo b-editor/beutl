@@ -10,6 +10,7 @@
                 <local:BooleanEditor EditorStyle="ListItem"
                                      Header="Property 1"
                                      KeyFrameCount="3" />
+                <local:BooleanEditor EditorStyle="Settings" Header="Property 1" />
             </StackPanel>
         </Border>
     </Design.PreviewWith>
@@ -76,6 +77,33 @@
                             </Button>
                         </Grid>
                     </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="^:settings">
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="{DynamicResource ButtonBorderThemeThickness}" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <OptionsDisplayItem Padding="{TemplateBinding Padding}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        Clickable="False"
+                                        CornerRadius="{TemplateBinding CornerRadius}"
+                                        Description="{TemplateBinding Description}"
+                                        Header="{TemplateBinding Header}">
+                        <OptionsDisplayItem.ActionButton>
+                            <ToggleSwitch Name="PART_CheckBox"
+                                          Classes="left"
+                                          IsChecked="{Binding Value, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:BooleanEditor}}}"
+                                          IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:BooleanEditor}}}"
+                                          Theme="{DynamicResource CompactToggleSwitchStyle}" />
+                        </OptionsDisplayItem.ActionButton>
+                    </OptionsDisplayItem>
                 </ControlTemplate>
             </Setter>
         </Style>

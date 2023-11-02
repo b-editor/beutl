@@ -2,8 +2,6 @@
 
 using Avalonia.Controls;
 
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Beutl.Extensibility;
 
 internal interface IPropertyEditorExtensionImpl
@@ -16,11 +14,15 @@ internal interface IPropertyEditorExtensionImpl
 
     bool TryCreateContextForListItem(PropertyEditorExtension extension, IAbstractProperty property, [NotNullWhen(true)] out IPropertyEditorContext? context);
 
+    bool TryCreateContextForSettings(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context);
+
     bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control);
 
     bool TryCreateControlForNode(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control);
 
     bool TryCreateControlForListItem(IPropertyEditorContext context, [NotNullWhen(true)] out IListItemEditor? control);
+
+    bool TryCreateControlForSettings(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control);
 }
 
 [PrimitiveImpl]
@@ -77,6 +79,16 @@ public class PropertyEditorExtension : Extension
         [NotNullWhen(true)] out IListItemEditor? control)
     {
         return DefaultHandler.TryCreateControlForListItem(context, out control);
+    }
+
+    public virtual bool TryCreateContextForSettings(IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
+    {
+        return DefaultHandler.TryCreateContextForSettings(this, properties, out context);
+    }
+
+    public virtual bool TryCreateControlForSettings(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
+    {
+        return DefaultHandler.TryCreateControlForSettings(context, out control);
     }
 }
 

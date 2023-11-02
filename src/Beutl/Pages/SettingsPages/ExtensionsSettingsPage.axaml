@@ -6,6 +6,7 @@
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.SettingsPages"
              x:Name="root"
@@ -38,6 +39,31 @@
                 <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.DecoderPriority}"
                                           Navigates="True"
                                           NavigationCommand="{Binding NavigateToDecoderPriority}" />
+
+                <ctrls:OptionsDisplayItem Expands="True" Header="拡張機能の設定">
+                    <ctrls:OptionsDisplayItem.Styles>
+                        <Style Selector="ctrls|OptionsDisplayItem /template/ ContentPresenter#ExpandedContentPresenter">
+                            <Setter Property="Background" Value="Transparent" />
+                        </Style>
+                    </ctrls:OptionsDisplayItem.Styles>
+                    <ctrls:OptionsDisplayItem.Icon>
+                        <icons:SymbolIcon Symbol="Settings" />
+                    </ctrls:OptionsDisplayItem.Icon>
+
+                    <ctrls:OptionsDisplayItem.Content>
+                        <ItemsControl Margin="-12,0,-12,-12" ItemsSource="{Binding Extensions}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <ctrls:OptionsDisplayItem Background="Transparent"
+                                                              Header="{Binding DisplayName}"
+                                                              Navigates="True"
+                                                              NavigationCommand="{Binding #root.DataContext.NavigateToExtensionSettings}"
+                                                              NavigationCommandParameter="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
             </StackPanel>
         </ScrollViewer>
     </Grid>

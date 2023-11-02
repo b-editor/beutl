@@ -17,10 +17,11 @@ public enum PropertyEditorStyle
 {
     Normal,
     Compact,
-    ListItem
+    ListItem,
+    Settings,
 }
 
-[PseudoClasses(":compact", ":list-item", ":visible-left-button", ":visible-right-button")]
+[PseudoClasses(":compact", ":list-item", ":settings", ":visible-left-button", ":visible-right-button")]
 [TemplatePart("PART_LeftButton", typeof(Button))]
 [TemplatePart("PART_RightButton", typeof(Button))]
 [TemplatePart("PART_DeleteButton", typeof(Button))]
@@ -29,6 +30,9 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
 {
     public static readonly StyledProperty<string> HeaderProperty =
         AvaloniaProperty.Register<PropertyEditor, string>(nameof(Header));
+    
+    public static readonly StyledProperty<string> DescriptionProperty =
+        AvaloniaProperty.Register<PropertyEditor, string>(nameof(Description));
 
     public static readonly StyledProperty<bool> IsReadOnlyProperty =
         TextBox.IsReadOnlyProperty.AddOwner<PropertyEditor>();
@@ -68,6 +72,12 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     {
         get => GetValue(HeaderProperty);
         set => SetValue(HeaderProperty, value);
+    }
+    
+    public string Description
+    {
+        get => GetValue(DescriptionProperty);
+        set => SetValue(DescriptionProperty, value);
     }
 
     public bool IsReadOnly
@@ -134,6 +144,7 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     {
         PseudoClasses.Remove(":compact");
         PseudoClasses.Remove(":list-item");
+        PseudoClasses.Remove(":settings");
         switch (EditorStyle)
         {
             case PropertyEditorStyle.Compact:
@@ -142,6 +153,10 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
 
             case PropertyEditorStyle.ListItem:
                 PseudoClasses.Add(":list-item");
+                break;
+
+            case PropertyEditorStyle.Settings:
+                PseudoClasses.Add(":settings");
                 break;
         }
     }
