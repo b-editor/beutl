@@ -104,7 +104,7 @@ public partial class JsonSerializationContext
     {
         if (value is Unit || value == null)
         {
-            _json[name] = null;
+            _json.Remove(name);
             _knownTypes.Remove(name);
         }
         else
