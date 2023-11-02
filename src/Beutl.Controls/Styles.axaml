@@ -11,6 +11,7 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="/Styling/ToggleSwitchStyles.axaml" />
                 <ResourceInclude Source="/Styling/ToggleButtonStyles.axaml" />
+                <ResourceInclude Source="/Styling/ComboBoxStyles.axaml" />
 
                 <ResourceInclude Source="/Styling/ProgressRing.axaml" />
                 <ResourceInclude Source="/Styling/FileInputArea.axaml" />

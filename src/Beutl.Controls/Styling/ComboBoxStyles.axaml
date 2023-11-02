@@ -1,0 +1,55 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Design.PreviewWith>
+        <Border Width="300" Height="300">
+            <ComboBox HorizontalAlignment="Center"
+                      VerticalAlignment="Center"
+                      Theme="{DynamicResource LiteComboBoxStyle}">
+                <ComboBoxItem>AAA</ComboBoxItem>
+                <ComboBoxItem>BBB</ComboBoxItem>
+            </ComboBox>
+        </Border>
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="LiteComboBoxStyle"
+                  BasedOn="{StaticResource ResourceKey={x:Type ComboBox}}"
+                  TargetType="ComboBox">
+        <Setter Property="Padding" Value="0,5,0,7" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+
+        <Style Selector="^:pointerover">
+            <Setter Property="Opacity" Value="0.8" />
+
+            <Style Selector="^ /template/ ContentPresenter#ContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
+            </Style>
+            <Style Selector="^ /template/ TextBlock#PlaceholderTextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
+            </Style>
+            <Style Selector="^ /template/ Border#Background">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+            </Style>
+        </Style>
+
+        <Style Selector="^:pressed">
+            <Setter Property="Opacity" Value="0.5" />
+
+            <Style Selector="^ /template/ TextBlock#PlaceholderTextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
+            </Style>
+            <Style Selector="^ /template/ ContentPresenter#ContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
+            </Style>
+            <Style Selector="^ /template/ Border#Background">
+                <Setter Property="Background" Value="Transparent" />
+            </Style>
+        </Style>
+
+        <Style Selector="^:dropdownopen">
+            <Setter Property="Opacity" Value="0.5" />
+        </Style>
+    </ControlTheme>
+
+</ResourceDictionary>
