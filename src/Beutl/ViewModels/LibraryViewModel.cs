@@ -214,11 +214,10 @@ public class LibraryItemViewModel
 public sealed class LibraryViewModel : IDisposable
 {
     private readonly Nito.AsyncEx.AsyncLock _asyncLock = new();
-    private EditViewModel _editViewModel;
 
     public LibraryViewModel(EditViewModel editViewModel)
     {
-        _editViewModel = editViewModel;
+        _ = editViewModel;
 
         IReadOnlyList<LibraryItem> libItems = LibraryService.Current.Items;
         LibraryItems = new List<LibraryItemViewModel>(libItems.Count);
@@ -296,7 +295,7 @@ public sealed class LibraryViewModel : IDisposable
                 SearchResult.ClearOnScheduler();
                 await Task.Run(() =>
                 {
-                    Regex[] regices = RegexHelper.CreateRegices(str);
+                    Regex[] regices = RegexHelper.CreateRegexes(str);
                     for (int i = 0; i < AllItems.Count; i++)
                     {
                         KeyValuePair<int, LibraryItemViewModel> item = AllItems[i];
@@ -324,6 +323,5 @@ public sealed class LibraryViewModel : IDisposable
         Nodes.Clear();
         AllItems.Clear();
         SearchResult.Clear();
-        _editViewModel = null!;
     }
 }

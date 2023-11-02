@@ -2,7 +2,7 @@
 
 namespace Beutl.Audio.Platforms.OpenAL;
 
-public unsafe sealed class AudioContext : IDisposable
+public sealed unsafe class AudioContext : IDisposable
 {
     private readonly ALDevice _device;
     private readonly ALContext _context;
@@ -12,7 +12,7 @@ public unsafe sealed class AudioContext : IDisposable
         _device = ALC.OpenDevice(null);
         _context = ALC.CreateContext(_device, (int[])null!);
 
-        var alcError = ALC.GetError(_device);
+        AlcError alcError = ALC.GetError(_device);
 
         if (alcError is not AlcError.NoError)
         {
@@ -32,7 +32,7 @@ public unsafe sealed class AudioContext : IDisposable
         {
             ThrowIfDisposed();
             MakeCurrent();
-            AL.GetListener(ALListenerf.Gain, out var v);
+            AL.GetListener(ALListenerf.Gain, out float v);
 
             CheckError();
 
@@ -50,14 +50,14 @@ public unsafe sealed class AudioContext : IDisposable
 
     internal void CheckError()
     {
-        var error = AL.GetError();
+        ALError error = AL.GetError();
 
         if (error is not ALError.NoError)
         {
             throw new Exception(AL.GetErrorString(error));
         }
 
-        var alcError = ALC.GetError(_device);
+        AlcError alcError = ALC.GetError(_device);
 
         if (alcError is not AlcError.NoError)
         {
@@ -99,7 +99,7 @@ public unsafe sealed class AudioContext : IDisposable
 
     public static int GenBuffer()
     {
-        var buf = AL.GenBuffer();
+        int buf = AL.GenBuffer();
         ALError error = AL.GetError();
         if (error is not ALError.NoError)
         {
@@ -111,7 +111,7 @@ public unsafe sealed class AudioContext : IDisposable
 
     public static int GenSource()
     {
-        var src = AL.GenSource();
+        int src = AL.GenSource();
         ALError error = AL.GetError();
         if (error is not ALError.NoError)
         {

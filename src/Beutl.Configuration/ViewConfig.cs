@@ -285,14 +285,14 @@ public sealed class ViewConfig : ConfigurationBase
 
         if (WindowPosition.HasValue)
         {
-            (int X, int Y) pos = WindowPosition.Value;
-            context.SetValue(nameof(WindowPosition), new WindowPositionRecord(pos.X, pos.Y));
+            (int x, int y) = WindowPosition.Value;
+            context.SetValue(nameof(WindowPosition), new WindowPositionRecord(x, y));
         }
 
         if (WindowSize.HasValue)
         {
-            (int Width, int Height) pos = WindowSize.Value;
-            context.SetValue(nameof(WindowSize), new WindowSizeRecord(pos.Width, pos.Height));
+            (int width, int height) = WindowSize.Value;
+            context.SetValue(nameof(WindowSize), new WindowSizeRecord(width, height));
         }
     }
 

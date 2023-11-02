@@ -8,13 +8,8 @@ namespace System.Runtime.Loader
 {
     internal partial struct LibraryNameVariation
     {
-        private static readonly string LibraryNamePrefix = "lib";
-        //#if TARGET_OSX || TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
-        //        private const string LibraryNameSuffix = ".dylib";
-        //#else
-        //        private const string LibraryNameSuffix = ".so";
-        //#endif
-        private static readonly string LibraryNameSuffix;
+        private static readonly string s_libraryNamePrefix = "lib";
+        private static readonly string s_libraryNameSuffix;
 
         static LibraryNameVariation()
         {
@@ -23,16 +18,16 @@ namespace System.Runtime.Loader
                 || OperatingSystem.IsIOS()
                 || OperatingSystem.IsTvOS())
             {
-                LibraryNameSuffix = ".dylib";
+                s_libraryNameSuffix = ".dylib";
             }
             else if(OperatingSystem.IsWindows())
             {
-                LibraryNameSuffix = ".dll";
-                LibraryNamePrefix = "";
+                s_libraryNameSuffix = ".dll";
+                s_libraryNamePrefix = "";
             }
             else
             {
-                LibraryNameSuffix = ".so";
+                s_libraryNameSuffix = ".so";
             }
         }
 
@@ -47,10 +42,10 @@ namespace System.Runtime.Loader
             else
             {
                 bool containsSuffix = false;
-                int indexOfSuffix = libName.IndexOf(LibraryNameSuffix, StringComparison.OrdinalIgnoreCase);
+                int indexOfSuffix = libName.IndexOf(s_libraryNameSuffix, StringComparison.OrdinalIgnoreCase);
                 if (indexOfSuffix >= 0)
                 {
-                    indexOfSuffix += LibraryNameSuffix.Length;
+                    indexOfSuffix += s_libraryNameSuffix.Length;
                     containsSuffix = indexOfSuffix == libName.Length || libName[indexOfSuffix] == '.';
                 }
 
@@ -61,25 +56,25 @@ namespace System.Runtime.Loader
                     yield return new LibraryNameVariation(string.Empty, string.Empty);
                     if (!containsDelim)
                     {
-                        yield return new LibraryNameVariation(LibraryNamePrefix, string.Empty);
+                        yield return new LibraryNameVariation(s_libraryNamePrefix, string.Empty);
                     }
-                    yield return new LibraryNameVariation(string.Empty, LibraryNameSuffix);
+                    yield return new LibraryNameVariation(string.Empty, s_libraryNameSuffix);
                     if (!containsDelim)
                     {
-                        yield return new LibraryNameVariation(LibraryNamePrefix, LibraryNameSuffix);
+                        yield return new LibraryNameVariation(s_libraryNamePrefix, s_libraryNameSuffix);
                     }
                 }
                 else
                 {
-                    yield return new LibraryNameVariation(string.Empty, LibraryNameSuffix);
+                    yield return new LibraryNameVariation(string.Empty, s_libraryNameSuffix);
                     if (!containsDelim)
                     {
-                        yield return new LibraryNameVariation(LibraryNamePrefix, LibraryNameSuffix);
+                        yield return new LibraryNameVariation(s_libraryNamePrefix, s_libraryNameSuffix);
                     }
                     yield return new LibraryNameVariation(string.Empty, string.Empty);
                     if (!containsDelim)
                     {
-                        yield return new LibraryNameVariation(LibraryNamePrefix, string.Empty);
+                        yield return new LibraryNameVariation(s_libraryNamePrefix, string.Empty);
                     }
                 }
             }

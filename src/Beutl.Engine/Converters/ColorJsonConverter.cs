@@ -9,10 +9,7 @@ internal sealed class ColorJsonConverter : JsonConverter<Color>
 {
     public override Color Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        string? s = reader.GetString();
-        if (s == null)
-            throw new Exception("Invalid Color.");
-
+        string s = reader.GetString() ?? throw new Exception("Invalid Color.");
         return Color.Parse(s);
     }
 

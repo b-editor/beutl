@@ -317,7 +317,7 @@ public class GroupNode : Node
         OnOutputChanged(Group.Output, null);
         OnInputChanged(Group.Input, null);
 
-        if (json.TryGetPropertyValue("items", out var itemsNode)
+        if (json.TryGetPropertyValue("items", out JsonNode? itemsNode)
             && itemsNode is JsonArray itemsArray)
         {
             int index = 0;

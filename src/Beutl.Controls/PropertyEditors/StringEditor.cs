@@ -25,7 +25,6 @@ public class StringEditor : PropertyEditor
     private readonly CompositeDisposable _disposables = new();
     private string _text;
     private string _oldValue;
-    private TextBox _innerTextBox;
 
     public string Text
     {
@@ -33,7 +32,7 @@ public class StringEditor : PropertyEditor
         set => SetAndRaise(TextProperty, ref _text, value);
     }
 
-    protected TextBox InnerTextBox => _innerTextBox;
+    protected TextBox InnerTextBox { get; private set; }
 
     protected override Type StyleKeyOverride => typeof(StringEditor);
 
@@ -41,12 +40,12 @@ public class StringEditor : PropertyEditor
     {
         _disposables.Clear();
         base.OnApplyTemplate(e);
-        _innerTextBox = e.NameScope.Get<TextBox>("PART_InnerTextBox");
-        _innerTextBox.AddDisposableHandler(GotFocusEvent, (_, e) => OnTextBoxGotFocus(e))
+        InnerTextBox = e.NameScope.Get<TextBox>("PART_InnerTextBox");
+        InnerTextBox.AddDisposableHandler(GotFocusEvent, (_, e) => OnTextBoxGotFocus(e))
             .DisposeWith(_disposables);
-        _innerTextBox.AddDisposableHandler(LostFocusEvent, (_, e) => OnTextBoxLostFocus(e))
+        InnerTextBox.AddDisposableHandler(LostFocusEvent, (_, e) => OnTextBoxLostFocus(e))
             .DisposeWith(_disposables);
-        _innerTextBox.GetPropertyChangedObservable(TextBox.TextProperty)
+        InnerTextBox.GetPropertyChangedObservable(TextBox.TextProperty)
             .Subscribe(e =>
             {
                 if (e is AvaloniaPropertyChangedEventArgs<string> args)

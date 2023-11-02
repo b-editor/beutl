@@ -33,8 +33,7 @@ public class PluginLoadContext : AssemblyLoadContext
             }
         }
 
-        var a = base.Load(name);
-        return a;
+        return base.Load(name);
     }
 
     protected override IntPtr LoadUnmanagedDll(string unmanagedDllName)

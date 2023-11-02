@@ -75,8 +75,7 @@ public class ProgressRing : RangeBase
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        var e = change as AvaloniaPropertyChangedEventArgs<bool>;
-        if (e is null) return;
+        if (change is not AvaloniaPropertyChangedEventArgs<bool> e) return;
 
         if (e.Property == IsIndeterminateProperty)
         {

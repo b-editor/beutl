@@ -176,6 +176,7 @@ public partial class PackageInstaller : IBeutlApiResource
         }
     }
 
+#pragma warning disable CA1822 // メンバーを static に設定します
     public async Task VerifyPackageFile(
         PackageInstallContext context,
         IProgress<double>? progress = null,
@@ -268,6 +269,7 @@ public partial class PackageInstaller : IBeutlApiResource
             }
         }
     }
+#pragma warning restore CA1822 // メンバーを static に設定します
 
     public async Task ResolveDependencies(
         PackageInstallContext context,

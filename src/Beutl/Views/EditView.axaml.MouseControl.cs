@@ -156,8 +156,6 @@ public partial class EditView
     {
         private bool _imagePressed;
         private AvaPoint _scaledStartPosition;
-        private Element? _mouseSelectedElement;
-        private Drawable? _mouseSelected;
         private TranslateTransform? _translateTransform;
         private Matrix _preMatrix = Matrix.Identity;
         private Point _oldTranslation;
@@ -168,9 +166,9 @@ public partial class EditView
 
         public required EditViewModel viewModel { get; init; }
 
-        public Drawable? Drawable => _mouseSelected;
+        public Drawable? Drawable { get; private set; }
 
-        public Element? Element => _mouseSelectedElement;
+        public Element? Element { get; private set; }
 
         private static (TranslateTransform?, Matrix) FindOrCreateTranslation(Drawable drawable)
         {
@@ -224,7 +222,7 @@ public partial class EditView
         {
             int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
             TimeSpan globalkeyTime = viewModel.Scene.CurrentFrame;
-            TimeSpan localKeyTime = _mouseSelectedElement != null ? globalkeyTime - _mouseSelectedElement.Start : globalkeyTime;
+            TimeSpan localKeyTime = Element != null ? globalkeyTime - Element.Start : globalkeyTime;
 
             if (_translateTransform!.Animations.FirstOrDefault(v => v.Property == property) is KeyFrameAnimation<float> animation)
             {
@@ -244,7 +242,7 @@ public partial class EditView
 
         public void OnMoved(PointerEventArgs e)
         {
-            if (_imagePressed && _mouseSelected != null)
+            if (_imagePressed && Drawable != null)
             {
                 if (!viewModel.Player.IsMoveMode.Value)
                     return;
@@ -256,7 +254,7 @@ public partial class EditView
                 AvaPoint delta = scaledPosition - _scaledStartPosition;
                 if (_translateTransform == null && Length(delta) >= 1)
                 {
-                    (_translateTransform, _preMatrix) = FindOrCreateTranslation(_mouseSelected);
+                    (_translateTransform, _preMatrix) = FindOrCreateTranslation(Drawable);
 
                     // 最初の一回だけ、キーフレームを探す
                     if (_translateTransform != null)
@@ -344,9 +342,9 @@ public partial class EditView
                     CommandHelper.Compose(_xKeyFrame?.CreateCommand(), _yKeyFrame?.CreateCommand()));
                 command?.DoAndRecord(CommandRecorder.Default);
 
-                _mouseSelectedElement = null;
+                Element = null;
                 _translateTransform = null;
-                _mouseSelected = null;
+                Drawable = null;
                 _xKeyFrame = default;
                 _yKeyFrame = default;
                 e.Handled = true;
@@ -361,21 +359,21 @@ public partial class EditView
             double scaleX = Image.Bounds.Size.Width / viewModel.Scene.Width;
             _scaledStartPosition = imagePosition / scaleX;
 
-            _mouseSelected = viewModel.Scene.Renderer.HitTest(new((float)_scaledStartPosition.X, (float)_scaledStartPosition.Y));
+            Drawable = viewModel.Scene.Renderer.HitTest(new((float)_scaledStartPosition.X, (float)_scaledStartPosition.Y));
 
-            if (_mouseSelected != null)
+            if (Drawable != null)
             {
-                int zindex = (_mouseSelected as DrawableDecorator)?.OriginalZIndex ?? _mouseSelected.ZIndex;
+                int zindex = (Drawable as DrawableDecorator)?.OriginalZIndex ?? Drawable.ZIndex;
                 Scene scene = viewModel.Scene;
 
-                _mouseSelectedElement = scene.Children.FirstOrDefault(v =>
+                Element = scene.Children.FirstOrDefault(v =>
                     v.ZIndex == zindex
                     && v.Start <= scene.CurrentFrame
                     && scene.CurrentFrame < v.Range.End);
 
-                if (_mouseSelectedElement != null)
+                if (Element != null)
                 {
-                    viewModel.SelectedObject.Value = _mouseSelectedElement;
+                    viewModel.SelectedObject.Value = Element;
                 }
             }
 

@@ -92,8 +92,6 @@ public class EnumEditor : PropertyEditor
             o => o.SelectedIndex, (o, v) => o.SelectedIndex = v, defaultBindingMode: BindingMode.TwoWay);
 
     private int _selectedIndex;
-    private int _prevSelectedIndex;
-    private ComboBox _comboBox;
     private IDisposable _disposable;
 
     public IReadOnlyList<string> Items
@@ -107,23 +105,23 @@ public class EnumEditor : PropertyEditor
         get => _selectedIndex;
         set
         {
-            _prevSelectedIndex = value;
+            PrevSelectedIndex = value;
             SetAndRaise(SelectedIndexProperty, ref _selectedIndex, value);
         }
     }
 
-    protected ComboBox InnerComboBox => _comboBox;
+    protected ComboBox InnerComboBox { get; private set; }
 
-    protected int PrevSelectedIndex => _prevSelectedIndex;
+    protected int PrevSelectedIndex { get; private set; }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         _disposable?.Dispose();
         base.OnApplyTemplate(e);
-        _comboBox = e.NameScope.Get<ComboBox>("PART_InnerComboBox");
+        InnerComboBox = e.NameScope.Get<ComboBox>("PART_InnerComboBox");
 
-        _disposable = _comboBox.AddDisposableHandler(SelectingItemsControl.SelectionChangedEvent, OnComboBoxSelectionChanged);
-        _prevSelectedIndex = SelectedIndex;
+        _disposable = InnerComboBox.AddDisposableHandler(SelectingItemsControl.SelectionChangedEvent, OnComboBoxSelectionChanged);
+        PrevSelectedIndex = SelectedIndex;
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -151,12 +149,12 @@ public class EnumEditor : PropertyEditor
     protected virtual void OnComboBoxSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         // EnumEditor.SelectedIndexが先に設定された場合、受け付けない
-        if (_comboBox.SelectedIndex != _prevSelectedIndex)
+        if (InnerComboBox.SelectedIndex != PrevSelectedIndex)
         {
             // 必ず選択されている
             if (e.AddedItems.Count > 0)
             {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<int>(_comboBox.SelectedIndex, _prevSelectedIndex, ValueConfirmedEvent));
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<int>(InnerComboBox.SelectedIndex, PrevSelectedIndex, ValueConfirmedEvent));
             }
         }
     }

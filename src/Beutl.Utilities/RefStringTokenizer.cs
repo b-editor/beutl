@@ -38,9 +38,9 @@ public ref struct RefStringTokenizer
         }
     }
 
-    public ReadOnlySpan<char> CurrentToken => _tokenIndex < 0 ? default : _s.Slice(_tokenIndex, _tokenLength);
+    public readonly ReadOnlySpan<char> CurrentToken => _tokenIndex < 0 ? default : _s.Slice(_tokenIndex, _tokenLength);
 
-    public void Dispose()
+    public readonly void Dispose()
     {
         if (_index != _length)
         {
@@ -271,7 +271,7 @@ public ref struct RefStringTokenizer
         }
     }
 
-    private FormatException GetFormatException() =>
+    private readonly FormatException GetFormatException() =>
         _exceptionMessage != null ? new FormatException(_exceptionMessage) : new FormatException();
 
     private static char GetSeparatorFromFormatProvider(IFormatProvider provider)

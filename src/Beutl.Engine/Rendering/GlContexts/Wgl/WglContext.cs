@@ -5,13 +5,13 @@ namespace Beutl.Rendering.GlContexts;
 //https://github.com/mono/SkiaSharp/blob/main/tests/Tests/SkiaSharp/GlContexts/Wgl/WglContext.cs
 internal class WglContext : GlContext
 {
-    private static readonly object s_lock = new object();
+    private static readonly object s_lock = new();
 
     private static readonly Win32Window s_window = new("WglContext");
 
-    private nint pbufferHandle;
-    private nint pbufferDeviceContextHandle;
-    private nint pbufferGlContextHandle;
+    private nint _pbufferHandle;
+    private nint _pbufferDeviceContextHandle;
+    private nint _pbufferGlContextHandle;
 
     public WglContext()
     {
@@ -57,15 +57,15 @@ internal class WglContext : GlContext
             throw new Exception("Could not get pixel formats.");
         }
 
-        pbufferHandle = Wgl.wglCreatePbufferARB(s_window.DeviceContextHandle, piFormats[0], 1, 1, null);
-        if (pbufferHandle == nint.Zero)
+        _pbufferHandle = Wgl.wglCreatePbufferARB(s_window.DeviceContextHandle, piFormats[0], 1, 1, null);
+        if (_pbufferHandle == nint.Zero)
         {
             Destroy();
             throw new Exception("Could not create Pbuffer.");
         }
 
-        pbufferDeviceContextHandle = Wgl.wglGetPbufferDCARB(pbufferHandle);
-        if (pbufferDeviceContextHandle == nint.Zero)
+        _pbufferDeviceContextHandle = Wgl.wglGetPbufferDCARB(_pbufferHandle);
+        if (_pbufferDeviceContextHandle == nint.Zero)
         {
             Destroy();
             throw new Exception("Could not get Pbuffer DC.");
@@ -74,11 +74,11 @@ internal class WglContext : GlContext
         nint prevDC = Wgl.wglGetCurrentDC();
         nint prevGLRC = Wgl.wglGetCurrentContext();
 
-        pbufferGlContextHandle = Wgl.wglCreateContext(pbufferDeviceContextHandle);
+        _pbufferGlContextHandle = Wgl.wglCreateContext(_pbufferDeviceContextHandle);
 
         Wgl.wglMakeCurrent(prevDC, prevGLRC);
 
-        if (pbufferGlContextHandle == nint.Zero)
+        if (_pbufferGlContextHandle == nint.Zero)
         {
             Destroy();
             throw new Exception("Could not creeate Pbuffer GL context.");
@@ -87,7 +87,7 @@ internal class WglContext : GlContext
 
     public override void MakeCurrent()
     {
-        if (!Wgl.wglMakeCurrent(pbufferDeviceContextHandle, pbufferGlContextHandle))
+        if (!Wgl.wglMakeCurrent(_pbufferDeviceContextHandle, _pbufferGlContextHandle))
         {
             Destroy();
             throw new Exception("Could not set the context.");
@@ -96,7 +96,7 @@ internal class WglContext : GlContext
 
     public override void SwapBuffers()
     {
-        if (!Gdi32.SwapBuffers(pbufferDeviceContextHandle))
+        if (!Gdi32.SwapBuffers(_pbufferDeviceContextHandle))
         {
             Destroy();
             throw new Exception("Could not complete SwapBuffers.");
@@ -105,35 +105,35 @@ internal class WglContext : GlContext
 
     public override void Destroy()
     {
-        if (pbufferGlContextHandle != nint.Zero)
+        if (_pbufferGlContextHandle != nint.Zero)
         {
-            Wgl.wglDeleteContext(pbufferGlContextHandle);
-            pbufferGlContextHandle = nint.Zero;
+            Wgl.wglDeleteContext(_pbufferGlContextHandle);
+            _pbufferGlContextHandle = nint.Zero;
         }
 
-        if (pbufferHandle != nint.Zero)
+        if (_pbufferHandle != nint.Zero)
         {
-            if (pbufferDeviceContextHandle != nint.Zero)
+            if (_pbufferDeviceContextHandle != nint.Zero)
             {
-                if (!Wgl.HasExtension(pbufferDeviceContextHandle, "WGL_ARB_pbuffer"))
+                if (!Wgl.HasExtension(_pbufferDeviceContextHandle, "WGL_ARB_pbuffer"))
                 {
                     // ASSERT
                 }
 
-                Wgl.wglReleasePbufferDCARB?.Invoke(pbufferHandle, pbufferDeviceContextHandle);
-                pbufferDeviceContextHandle = nint.Zero;
+                Wgl.wglReleasePbufferDCARB?.Invoke(_pbufferHandle, _pbufferDeviceContextHandle);
+                _pbufferDeviceContextHandle = nint.Zero;
             }
 
-            Wgl.wglDestroyPbufferARB?.Invoke(pbufferHandle);
-            pbufferHandle = nint.Zero;
+            Wgl.wglDestroyPbufferARB?.Invoke(_pbufferHandle);
+            _pbufferHandle = nint.Zero;
         }
     }
 
     public override GRGlTextureInfo CreateTexture(SKSizeI textureSize)
     {
-        var textures = new uint[1];
+        uint[] textures = new uint[1];
         Wgl.glGenTextures(textures.Length, textures);
-        var textureId = textures[0];
+        uint textureId = textures[0];
 
         Wgl.glBindTexture(Wgl.GL_TEXTURE_2D, textureId);
         Wgl.glTexImage2D(Wgl.GL_TEXTURE_2D, 0, Wgl.GL_RGBA, textureSize.Width, textureSize.Height, 0, Wgl.GL_RGBA, Wgl.GL_UNSIGNED_BYTE, nint.Zero);

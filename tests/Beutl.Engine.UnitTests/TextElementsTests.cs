@@ -101,7 +101,7 @@ public class TextElementsTests
             }
         });
 
-        foreach (Span<FormattedText> item in items.Lines)
+        foreach (Span<FormattedText> _ in items.Lines)
         {
 
         }

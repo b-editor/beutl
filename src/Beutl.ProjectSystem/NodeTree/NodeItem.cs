@@ -32,13 +32,7 @@ public abstract class NodeItem : Hierarchical
 
 public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
 {
-    private IAbstractProperty<T>? _property;
-
-    public IAbstractProperty<T>? Property
-    {
-        get => _property;
-        protected set => _property = value;
-    }
+    public IAbstractProperty<T>? Property { get; protected set; }
 
     // レンダリング時に変更されるので、変更通知は必要ない
     public T? Value { get; set; }

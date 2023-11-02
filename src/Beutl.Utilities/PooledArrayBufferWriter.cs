@@ -12,14 +12,12 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
 
     private readonly ArrayPool<T> _pool = ArrayPool<T>.Shared;
     private T[] _buffer;
-    private int _index;
-
 
     public PooledArrayBufferWriter(ArrayPool<T>? pool = null)
     {
         _pool = pool ?? ArrayPool<T>.Shared;
         _buffer = _pool.Rent(0);
-        _index = 0;
+        WrittenCount = 0;
     }
 
     public PooledArrayBufferWriter(int initialCapacity, ArrayPool<T>? pool = null)
@@ -29,7 +27,7 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
 
         _pool = pool ?? ArrayPool<T>.Shared;
         _buffer = _pool.Rent(initialCapacity);
-        _index = 0;
+        WrittenCount = 0;
     }
 
     ~PooledArrayBufferWriter()
@@ -42,7 +40,7 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
         get
         {
             Verify();
-            return _buffer.AsMemory(0, _index);
+            return _buffer.AsMemory(0, WrittenCount);
         }
     }
 
@@ -51,15 +49,15 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
         get
         {
             Verify();
-            return _buffer.AsSpan(0, _index);
+            return _buffer.AsSpan(0, WrittenCount);
         }
     }
 
-    public int WrittenCount => _index;
+    public int WrittenCount { get; private set; }
 
     public int Capacity => _buffer.Length;
 
-    public int FreeCapacity => _buffer.Length - _index;
+    public int FreeCapacity => _buffer.Length - WrittenCount;
 
     public bool IsDisposed { get; private set; }
 
@@ -72,9 +70,9 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
     public void Clear()
     {
         Verify();
-        Debug.Assert(_buffer.Length >= _index);
-        _buffer.AsSpan(0, _index).Clear();
-        _index = 0;
+        Debug.Assert(_buffer.Length >= WrittenCount);
+        _buffer.AsSpan(0, WrittenCount).Clear();
+        WrittenCount = 0;
     }
 
     public void Advance(int count)
@@ -83,26 +81,26 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
         if (count < 0)
             throw new ArgumentException(null, nameof(count));
 
-        if (_index > _buffer.Length - count)
+        if (WrittenCount > _buffer.Length - count)
             ThrowInvalidOperationException_AdvancedTooFar(_buffer.Length);
 
-        _index += count;
+        WrittenCount += count;
     }
 
     public Memory<T> GetMemory(int sizeHint = 0)
     {
         Verify();
         CheckAndResizeBuffer(sizeHint);
-        Debug.Assert(_buffer.Length > _index);
-        return _buffer.AsMemory(_index);
+        Debug.Assert(_buffer.Length > WrittenCount);
+        return _buffer.AsMemory(WrittenCount);
     }
 
     public Span<T> GetSpan(int sizeHint = 0)
     {
         Verify();
         CheckAndResizeBuffer(sizeHint);
-        Debug.Assert(_buffer.Length > _index);
-        return _buffer.AsSpan(_index);
+        Debug.Assert(_buffer.Length > WrittenCount);
+        return _buffer.AsSpan(WrittenCount);
     }
 
     public static T[] GetArray(PooledArrayBufferWriter<T> self) => self._buffer;
@@ -110,7 +108,7 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
     private void CheckAndResizeBuffer(int sizeHint)
     {
         if (sizeHint < 0)
-            throw new ArgumentException(nameof(sizeHint));
+            throw new ArgumentException(null, nameof(sizeHint));
 
         if (sizeHint == 0)
         {

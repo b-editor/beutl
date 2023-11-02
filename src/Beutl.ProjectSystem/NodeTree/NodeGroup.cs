@@ -83,6 +83,7 @@ public class NodeGroup : NodeTreeModel
         }
     }
 
+#pragma warning disable CA1822 // メンバーを static に設定します
     public void Evaluate(NodeEvaluationContext parentContext, object state)
     {
         if (state is List<NodeEvaluationContext[]> contexts)
@@ -139,6 +140,7 @@ public class NodeGroup : NodeTreeModel
             contexts.Clear();
         }
     }
+#pragma warning restore CA1822 // メンバーを static に設定します
 
     private void BuildNode(Node node, Stack<NodeEvaluationContext> stack)
     {

@@ -20,7 +20,10 @@ public sealed unsafe class FFmpegReader : MediaReader
 {
     private static readonly byte* s_swr_buf = (byte*)NativeMemory.AllocZeroed((nuint)(2048 * sizeof(Stereo32BitFloat)));
     private static readonly AVRational s_time_base = new() { num = 1, den = ffmpeg.AV_TIME_BASE };
+
+#pragma warning disable IDE1006 // 命名スタイル
     private static readonly AVChannelLayout AV_CHANNEL_LAYOUT_STEREO = new()
+#pragma warning restore IDE1006 // 命名スタイル
     {
         order = AVChannelOrder.AV_CHANNEL_ORDER_NATIVE,
         nb_channels = 2,
@@ -29,6 +32,7 @@ public sealed unsafe class FFmpegReader : MediaReader
             mask = ffmpeg.AV_CH_LAYOUT_STEREO
         }
     };
+
     private readonly MediaOptions _options;
     private readonly FFmpegDecodingSettings _settings;
     private readonly string _file;
@@ -227,7 +231,7 @@ public sealed unsafe class FFmpegReader : MediaReader
 
                 if (len > 0)
                 {
-                    var size = sizeof(Stereo32BitFloat);
+                    int size = sizeof(Stereo32BitFloat);
                     Buffer.MemoryCopy(s_swr_buf + (skip * size), ((byte*)buf) + (decoded * size), len * size, len * size);
                     decoded += len;
                 }
@@ -369,6 +373,8 @@ public sealed unsafe class FFmpegReader : MediaReader
             {
                 ffmpeg.swr_free(swr);
             }
+
+            _swrContext = null;
         }
 
         if (_localSwrContext != null)
@@ -377,11 +383,14 @@ public sealed unsafe class FFmpegReader : MediaReader
             {
                 ffmpeg.swr_free(swr);
             }
+
+            _localSwrContext = null;
         }
 
         if (_swsContext != null)
         {
             ffmpeg.sws_freeContext(_swsContext);
+            _swsContext = null;
         }
 
         if (HasVideo)
@@ -512,7 +521,7 @@ public sealed unsafe class FFmpegReader : MediaReader
     private void SeekAudio(long sample_pos)
     {
         var tb = new AVRational() { num = 1, den = _audioCodecContext->sample_rate };
-        var timestamp = sample_pos * 1000000 / _audioCodecContext->sample_rate + _formatContext->start_time;
+        long timestamp = sample_pos * 1000000 / _audioCodecContext->sample_rate + _formatContext->start_time;
         ffmpeg.avformat_seek_file(_formatContext, -1, long.MinValue, timestamp, long.MaxValue, ffmpeg.AVSEEK_FLAG_BACKWARD);
         ffmpeg.avcodec_flush_buffers(_audioCodecContext);
         _audioSeek = true;

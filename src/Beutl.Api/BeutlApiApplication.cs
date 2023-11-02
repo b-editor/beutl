@@ -341,11 +341,6 @@ public class BeutlApiApplication
     {
         Stream? stream = typeof(BeutlApiApplication).Assembly.GetManifestResourceStream("Beutl.Api.Resources.index.html");
 
-        if (stream == null)
-        {
-            throw new Exception("Embedded resource not found.");
-        }
-
-        return stream;
+        return stream ?? throw new Exception("Embedded resource not found.");
     }
 }

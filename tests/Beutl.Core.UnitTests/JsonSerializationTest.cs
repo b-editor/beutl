@@ -25,7 +25,7 @@ public class JsonSerializationTest
     [Test]
     public void Serialize()
     {
-        var app = BeutlApplication.Current;
+        BeutlApplication app = BeutlApplication.Current;
         var proj = new Project();
 
         proj.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.bproj"));
@@ -40,8 +40,7 @@ public class JsonSerializationTest
         elm1.Operation.Children.Add(new EllipseOperator());
         elm1.Operation.Children.Add(new TranslateOperator());
 
-        var elm2 = new Element();
-        elm2.ZIndex = 2;
+        var elm2 = new Element { ZIndex = 2 };
         elm2.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"1.layer"));
         scene.AddChild(elm2).Do();
         var rectNode = new RectGeometryNode();

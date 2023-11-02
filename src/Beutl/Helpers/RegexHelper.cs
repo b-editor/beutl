@@ -2,17 +2,17 @@
 
 namespace Beutl;
 
-internal static class RegexHelper
+internal static partial class RegexHelper
 {
-    public static Regex[] CreateRegices(string pattern)
+    public static Regex[] CreateRegexes(string pattern)
     {
         return pattern.ToUpperInvariant()
             .Split(' ')
             .Select(i => i.Trim())
             .Where(i => !string.IsNullOrWhiteSpace(i))
-            .Select(i => Regex.Replace(i, ".", m =>
+            .Select(i => MyRegex().Replace(i, m =>
             {
-                var s = m.Value;
+                string s = m.Value;
                 if (s.Equals("?"))
                 {
                     return ".";
@@ -32,14 +32,17 @@ internal static class RegexHelper
 
     public static bool IsMatch(Regex[] regices, string str)
     {
-        var upper = str.ToUpperInvariant();
-        var result = false;
+        string upper = str.ToUpperInvariant();
+        bool result = false;
 
-        foreach (var item in regices)
+        foreach (Regex item in regices)
         {
             result |= item.IsMatch(upper);
         }
 
         return result;
     }
+
+    [GeneratedRegex(".")]
+    private static partial Regex MyRegex();
 }

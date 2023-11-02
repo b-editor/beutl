@@ -91,7 +91,8 @@ public abstract class Animatable : CoreObject, IAnimatable
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        var animations = context.GetValue<Dictionary<string, IAnimation>>(nameof(Animations));
+        Dictionary<string, IAnimation>? animations
+            = context.GetValue<Dictionary<string, IAnimation>>(nameof(Animations));
         animations ??= context.GetValue<Dictionary<string, IAnimation>>("animations");
 
         if (animations != null)

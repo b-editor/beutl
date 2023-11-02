@@ -58,7 +58,7 @@ public sealed partial class ExtensionsPage : UserControl
 
     private void OpenSettings_Click(object? sender, RoutedEventArgs e)
     {
-        if (this.FindLogicalAncestorOfType<MainView>() is { DataContext: MainViewModel viewModel } mainView)
+        if (this.FindLogicalAncestorOfType<MainView>() is { DataContext: MainViewModel viewModel })
         {
             viewModel.SelectedPage.Value = viewModel.SettingsPage;
         }
@@ -174,7 +174,7 @@ public sealed partial class ExtensionsPage : UserControl
 
     private void Frame_Navigated(object sender, NavigationEventArgs e)
     {
-        foreach (NavigationViewItem nvi in nav.MenuItems)
+        foreach (NavigationViewItem nvi in nav.MenuItems.OfType<NavigationViewItem>())
         {
             if (nvi.Tag is Type tag && tag == e.SourcePageType)
             {
@@ -183,7 +183,7 @@ public sealed partial class ExtensionsPage : UserControl
             }
         }
 
-        foreach (NavigationViewItem nvi in nav.MenuItems)
+        foreach (NavigationViewItem nvi in nav.MenuItems.OfType<NavigationViewItem>())
         {
             if (nvi.Tag is Type tag && e.SourcePageType.Namespace?.EndsWith($"{tag.Name}s") == true)
             {
@@ -195,18 +195,32 @@ public sealed partial class ExtensionsPage : UserControl
 
     private static int ToNumber(Type type)
     {
-        if (type == typeof(DevelopPage) || type == typeof(DiscoverPage))
+        if (type == typeof(DevelopPage)
+            || type == typeof(DiscoverPage))
+        {
             return 0;
+        }
         else if (type == typeof(PackageDetailsPage)
             || type == typeof(PublicPackageDetailsPage)
             || type == typeof(RankingPageViewModel))
+        {
             return 1;
+        }
         else if (type == typeof(PackageReleasesPage))
+        {
             return 2;
+        }
         else if (type == typeof(PackageSettingsPage))
+        {
             return 2;
+        }
         else if (type == typeof(ReleasePage))
+        {
             return 3;
-        return -1;
+        }
+        else
+        {
+            return -1;
+        }
     }
 }

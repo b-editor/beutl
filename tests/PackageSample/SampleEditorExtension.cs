@@ -90,10 +90,6 @@ public class TextEditor : TextBox
     }
 
     protected override Type StyleKeyOverride => typeof(TextBox);
-
-    public void Close()
-    {
-    }
 }
 
 [Export]

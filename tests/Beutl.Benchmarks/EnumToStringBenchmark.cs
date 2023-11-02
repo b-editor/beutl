@@ -1,15 +1,17 @@
-﻿
-using BenchmarkDotNet.Attributes;
+﻿using BenchmarkDotNet.Attributes;
 
+namespace Beutl.Benchmarks;
+
+#pragma warning disable CA1822 // メンバーを static に設定します
 public class EnumToStringBenchmark
 {
     [Benchmark]
     public void ObjectToString()
     {
-        var a = MyEnum.Alpha;
-        var b = MyEnum.Beta;
-        var g = MyEnum.Gamma;
-        var d = MyEnum.Delta;
+        MyEnum a = MyEnum.Alpha;
+        MyEnum b = MyEnum.Beta;
+        MyEnum g = MyEnum.Gamma;
+        MyEnum d = MyEnum.Delta;
 
         for (int i = 0; i < 500; i++)
         {
@@ -19,14 +21,14 @@ public class EnumToStringBenchmark
             _ = d.ToString();
         }
     }
-    
+
     [Benchmark]
     public void ToStringEx()
     {
-        var a = MyEnum.Alpha;
-        var b = MyEnum.Beta;
-        var g = MyEnum.Gamma;
-        var d = MyEnum.Delta;
+        MyEnum a = MyEnum.Alpha;
+        MyEnum b = MyEnum.Beta;
+        MyEnum g = MyEnum.Gamma;
+        MyEnum d = MyEnum.Delta;
 
         for (int i = 0; i < 500; i++)
         {

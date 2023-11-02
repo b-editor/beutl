@@ -5,48 +5,48 @@ namespace Beutl.Audio.Platforms.XAudio2;
 public sealed class XAudioSource : IDisposable
 {
     private readonly XAudioContext _context;
-    private IXAudio2SourceVoice? SourceVoice;
+    private IXAudio2SourceVoice? _sourceVoice;
 
     public XAudioSource(XAudioContext context)
     {
         _context = context;
     }
 
-    public int BuffersQueued => SourceVoice?.State.BuffersQueued ?? -1;
+    public int BuffersQueued => _sourceVoice?.State.BuffersQueued ?? -1;
 
     public void Dispose()
     {
-        SourceVoice?.DestroyVoice();
-        SourceVoice?.Dispose();
+        _sourceVoice?.DestroyVoice();
+        _sourceVoice?.Dispose();
     }
 
     public bool IsPlaying()
     {
-        return SourceVoice?.State.BuffersQueued > 0;
+        return _sourceVoice?.State.BuffersQueued > 0;
     }
 
     public void Play()
     {
-        SourceVoice?.Start();
+        _sourceVoice?.Start();
     }
 
     public void Stop()
     {
-        SourceVoice?.Stop();
+        _sourceVoice?.Stop();
     }
 
     public void QueueBuffer(XAudioBuffer buffer)
     {
-        if (SourceVoice == null)
+        if (_sourceVoice == null)
         {
-            SourceVoice = _context.Device.CreateSourceVoice(buffer.Format!);
+            _sourceVoice = _context.Device.CreateSourceVoice(buffer.Format!);
         }
 
-        SourceVoice.SubmitSourceBuffer(buffer.Buffer);
+        _sourceVoice.SubmitSourceBuffer(buffer.Buffer);
     }
 
     public void Flush()
     {
-        SourceVoice?.FlushSourceBuffers();
+        _sourceVoice?.FlushSourceBuffers();
     }
 }

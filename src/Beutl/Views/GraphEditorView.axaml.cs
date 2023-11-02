@@ -21,10 +21,10 @@ namespace Beutl.Views;
 
 public partial class GraphEditorView : UserControl
 {
+    private readonly CompositeDisposable _disposables = new();
     private bool _pressed;
     private TimeSpan _lastRightClickPoint;
     private TimeSpan _pointerFrame;
-    private CompositeDisposable _disposables = new();
 
     public GraphEditorView()
     {
@@ -302,13 +302,13 @@ public partial class GraphEditorView : UserControl
     private void OnControlPointPointerMoved(object? sender, PointerEventArgs e)
     {
         if (_cPointPressed
-            && sender is Shape { DataContext: GraphEditorKeyFrameViewModel viewModel, Tag: string tag } shape)
+            && sender is Shape { DataContext: GraphEditorKeyFrameViewModel viewModel, Tag: string tag })
         {
             Point position = new(e.GetPosition(views).X, e.GetPosition(grid).Y);
             position = position.WithX(Math.Clamp(position.X, viewModel.Left.Value, viewModel.Right.Value));
             Point delta = position - _cPointstart;
             _cPointstart = position;
-            bool result = tag switch
+            _ = tag switch
             {
                 "ControlPoint1" => viewModel.UpdateControlPoint1(viewModel.ControlPoint1.Value + delta),
                 "ControlPoint2" => viewModel.UpdateControlPoint2(viewModel.ControlPoint2.Value + delta),

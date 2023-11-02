@@ -45,7 +45,7 @@ public partial class BcTabView
     public static readonly StyledProperty<bool> ImmediateDragProperty =
         AvaloniaProperty.Register<BcTabView, bool>(nameof(ImmediateDrag), true);
 
-    public static readonly new StyledProperty<SelectionMode> SelectionModeProperty =
+    public static new readonly StyledProperty<SelectionMode> SelectionModeProperty =
         SelectingItemsControl.SelectionModeProperty;
 
     private object _fallbackcontent = new TextBlock

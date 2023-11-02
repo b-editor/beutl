@@ -37,7 +37,7 @@ public sealed class NodeEvaluationContext : EvaluationContext
             return t;
         }
 
-        T? value = new T();
+        T? value = new();
         State = value;
         return value;
     }

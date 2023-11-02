@@ -38,7 +38,7 @@ public static class JsonHelper
 
     public static JsonConverter GetOrCreateConverterInstance(Type converterType)
     {
-        if (s_converters.TryGetValue(converterType, out var converter))
+        if (s_converters.TryGetValue(converterType, out JsonConverter? converter))
         {
             return converter;
         }
@@ -207,7 +207,7 @@ public static class JsonHelper
     public static bool TryGetPropertyValueAsJsonValue<T>(this JsonObject obj, string propertyName, [NotNullWhen(true)] out T? value)
     {
         value = default;
-        return obj.TryGetPropertyValue(propertyName, out var node)
+        return obj.TryGetPropertyValue(propertyName, out JsonNode? node)
             && node is JsonValue val
             && val.TryGetValue(out value);
     }

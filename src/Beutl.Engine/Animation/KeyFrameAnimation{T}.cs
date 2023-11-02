@@ -102,7 +102,7 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
 
         var array = new JsonArray();
 
-        foreach (KeyFrame<T> item in KeyFrames.GetMarshal().Value)
+        foreach (IKeyFrame item in KeyFrames.GetMarshal().Value)
         {
             var itemJson = new JsonObject();
             item.WriteToJson(itemJson);

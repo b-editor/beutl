@@ -113,7 +113,7 @@ public class StorageFileEditor : StringEditor
         return false;
     }
 
-    private FileInfo GetStorageFile(string value)
+    private static FileInfo GetStorageFile(string value)
     {
         if (File.Exists(value))
         {

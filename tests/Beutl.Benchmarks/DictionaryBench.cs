@@ -1,5 +1,6 @@
-﻿
-using BenchmarkDotNet.Attributes;
+﻿using BenchmarkDotNet.Attributes;
+
+namespace Beutl.Benchmarks;
 
 [MemoryDiagnoser]
 public class DictionaryBench
@@ -15,7 +16,7 @@ public class DictionaryBench
     public void ForEach()
     {
         int sum = 0;
-        foreach (var item in _dictionary)
+        foreach (KeyValuePair<int, int> item in _dictionary)
         {
             sum += item.Value;
         }
@@ -27,7 +28,7 @@ public class DictionaryBench
         KeyValuePair<int, int>[] array = new KeyValuePair<int, int>[_dictionary.Count];
         (_dictionary as ICollection<KeyValuePair<int, int>>).CopyTo(array, 0);
         int sum = 0;
-        foreach (var item in array)
+        foreach (KeyValuePair<int, int> item in array)
         {
             sum += item.Value;
         }
@@ -37,7 +38,7 @@ public class DictionaryBench
     public void ForEachKey()
     {
         int sum = 0;
-        foreach (var item in _dictionary.Keys)
+        foreach (int item in _dictionary.Keys)
         {
             sum += _dictionary[item];
         }
@@ -47,7 +48,7 @@ public class DictionaryBench
     public void ForEachValue()
     {
         int sum = 0;
-        foreach (var item in _dictionary.Values)
+        foreach (int item in _dictionary.Values)
         {
             sum += item;
         }
@@ -59,7 +60,7 @@ public class DictionaryBench
         int[] array = new int[_dictionary.Count];
         _dictionary.Keys.CopyTo(array, 0);
         int sum = 0;
-        foreach (var item in array)
+        foreach (int item in array)
         {
             sum += _dictionary[item];
         }
@@ -71,7 +72,7 @@ public class DictionaryBench
         int[] array = new int[_dictionary.Count];
         _dictionary.Values.CopyTo(array, 0);
         int sum = 0;
-        foreach (var item in array)
+        foreach (int item in array)
         {
             sum += item;
         }

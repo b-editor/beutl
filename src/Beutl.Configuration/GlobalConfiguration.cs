@@ -1,6 +1,4 @@
-﻿#pragma warning disable CS0436
-
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
 using Beutl.Serialization;

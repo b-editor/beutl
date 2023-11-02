@@ -230,6 +230,7 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         {
             ffmpeg.av_dict_free(dictionary);
         }
+        _dictionary = null;
     }
 
     private void CloseAudio()
@@ -336,8 +337,8 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         if (_videoStream == null)
             throw new Exception("avformat_new_stream failed");
 
-        var framerateDen = (int)VideoConfig.FrameRate.Denominator;
-        var framerateNum = (int)VideoConfig.FrameRate.Numerator;
+        int framerateDen = (int)VideoConfig.FrameRate.Denominator;
+        int framerateNum = (int)VideoConfig.FrameRate.Numerator;
         _videoStream->time_base.num = framerateDen;
         _videoStream->time_base.den = framerateNum;
         _videoStream->r_frame_rate.num = framerateNum;
