@@ -3,6 +3,8 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
+using Beutl.Serialization;
+
 namespace Beutl.Configuration;
 
 public sealed class GlobalConfiguration
@@ -46,6 +48,15 @@ public sealed class GlobalConfiguration
     {
         try
         {
+            static void Serialize(ICoreSerializable serializable, JsonObject obj)
+            {
+                var context = new JsonSerializationContext(serializable.GetType(), NullSerializationErrorNotifier.Instance, json: obj);
+                using (ThreadLocalSerializationContext.Enter(context))
+                {
+                    serializable.Serialize(context);
+                }
+            }
+
             _filePath = file;
             RemoveHandlers();
             string dir = Path.GetDirectoryName(file)!;
@@ -60,27 +71,27 @@ public sealed class GlobalConfiguration
             };
 
             var fontNode = new JsonObject();
-            FontConfig.WriteToJson(fontNode);
+            Serialize(FontConfig, fontNode);
             json["Font"] = fontNode;
 
             var viewNode = new JsonObject();
-            ViewConfig.WriteToJson(viewNode);
+            Serialize(ViewConfig, viewNode);
             json["View"] = viewNode;
 
             var extensionNode = new JsonObject();
-            ExtensionConfig.WriteToJson(extensionNode);
+            Serialize(ExtensionConfig, extensionNode);
             json["Extension"] = extensionNode;
 
             var backupNode = new JsonObject();
-            BackupConfig.WriteToJson(backupNode);
+            Serialize(BackupConfig, backupNode);
             json["Backup"] = backupNode;
             
             var telemetryNode = new JsonObject();
-            TelemetryConfig.WriteToJson(telemetryNode);
+            Serialize(TelemetryConfig, telemetryNode);
             json["Telemetry"] = telemetryNode;
             
             var editorNode = new JsonObject();
-            EditorConfig.WriteToJson(editorNode);
+            Serialize(EditorConfig, editorNode);
             json["Editor"] = editorNode;
 
             json.JsonSave(file);
@@ -107,24 +118,33 @@ public sealed class GlobalConfiguration
                     else
                         return null;
                 }
+                static void Deserialize(ICoreSerializable serializable, JsonObject obj)
+                {
+                    var context = new JsonSerializationContext(
+                        serializable.GetType(), NullSerializationErrorNotifier.Instance, json: obj);
+                    using (ThreadLocalSerializationContext.Enter(context))
+                    {
+                        serializable.Deserialize(context);
+                    }
+                }
 
                 if (GetNode("font", "Font") is JsonObject font)
-                    FontConfig.ReadFromJson(font);
+                    Deserialize(FontConfig, font);
 
                 if (GetNode("view", "View") is JsonObject view)
-                    ViewConfig.ReadFromJson(view);
+                    Deserialize(ViewConfig, view);
 
                 if (GetNode("extension", "Extension") is JsonObject extension)
-                    ExtensionConfig.ReadFromJson(extension);
+                    Deserialize(ExtensionConfig, extension);
 
                 if (GetNode("backup", "Backup") is JsonObject backup)
-                    BackupConfig.ReadFromJson(backup);
+                    Deserialize(BackupConfig, backup);
                 
                 if (GetNode("telemetry", "Telemetry") is JsonObject telemetry)
-                    TelemetryConfig.ReadFromJson(telemetry);
+                    Deserialize(TelemetryConfig, telemetry);
                 
                 if (json["Editor"] is JsonObject editor)
-                    EditorConfig.ReadFromJson(editor);
+                    Deserialize(EditorConfig, editor);
 
                 if (json["Version"] is JsonValue version)
                 {
