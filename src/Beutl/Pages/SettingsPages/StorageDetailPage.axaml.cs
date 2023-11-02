@@ -74,7 +74,6 @@ public partial class StorageDetailPage : UserControl
 
     private async void UploadClick(object? sender, RoutedEventArgs e)
     {
-        // Todo:
         if (DataContext is StorageDetailPageViewModel viewModel)
         {
             var dialog = new CreateAsset

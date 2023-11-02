@@ -5,7 +5,6 @@ using NuGet.Packaging;
 
 namespace Beutl.Api.Services;
 
-// Todo: 最初に許可されたアセンブリのリストから探すようにする。
 public class PluginLoadContext : AssemblyLoadContext
 {
     private readonly AssemblyDependencyResolver _resolver;

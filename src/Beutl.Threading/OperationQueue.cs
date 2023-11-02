@@ -2,10 +2,6 @@
 
 namespace Beutl.Threading;
 
-// Todo: ExecutionContext
-//   https://github.com/dotnet/wpf/blob/main/src/Microsoft.DotNet.Wpf/src/WindowsBase/System/Windows/Threading/Dispatcher.cs#L514
-//   https://github.com/dotnet/wpf/blob/main/src/Microsoft.DotNet.Wpf/src/WindowsBase/System/Windows/Threading/DispatcherOperation.cs#L22
-//   https://github.com/dotnet/wpf/blob/11b45badc1a514ac9a3311145316b2e7cb543eae/src/Microsoft.DotNet.Wpf/src/Shared/MS/Internal/CulturePreservingExecutionContext.cs#L68
 internal sealed class OperationQueue
 {
     private readonly object _lock = new();

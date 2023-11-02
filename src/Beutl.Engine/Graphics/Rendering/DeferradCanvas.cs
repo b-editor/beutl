@@ -183,7 +183,6 @@ public sealed class DeferradCanvas : ICanvas
         ++_drawOperationindex;
     }
 
-    // Todo: テスト
     public void DrawDrawable(Drawable drawable)
     {
         DrawableNode? next = Next<DrawableNode>();

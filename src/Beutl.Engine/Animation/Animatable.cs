@@ -32,7 +32,6 @@ public abstract class Animatable : CoreObject, IAnimatable
         remove => Animations.Invalidated -= value;
     }
 
-    // Todo: オブジェクトを作成したものがIClockを指定する
     public virtual void ApplyAnimations(IClock clock)
     {
         foreach (IAnimation? item in Animations.GetMarshal().Value)
