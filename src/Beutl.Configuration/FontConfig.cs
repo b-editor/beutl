@@ -56,7 +56,7 @@ public sealed class FontConfig : ConfigurationBase
     {
         base.Deserialize(context);
 
-        string[] array = context.GetValue<string[]>(Name) ?? Array.Empty<string>();
+        string[] array = context.GetValue<string[]>(nameof(FontDirectories)) ?? Array.Empty<string>();
         string[] fontDirs = FontDirectories.ToArray();
 
         foreach (string item in array.Except(fontDirs))
