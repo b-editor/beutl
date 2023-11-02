@@ -14,7 +14,7 @@
     <PackageVersion Include="Avalonia.Xaml.Behaviors" Version="11.0.2" />
     <PackageVersion Include="Avalonia.Xaml.Interactivity" Version="11.0.2" />
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.0.0" />
-    <PackageVersion Include="BenchmarkDotNet" Version="0.13.9" />
+    <PackageVersion Include="BenchmarkDotNet" Version="0.13.10" />
     <PackageVersion Include="coverlet.collector" Version="6.0.0" />
     <PackageVersion Include="DeviceId" Version="6.4.0" />
     <PackageVersion Include="DynamicData" Version="8.1.1" />
@@ -36,7 +36,7 @@
     <PackageVersion Include="Microsoft.Extensions.FileSystemGlobbing" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="7.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="7.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="7.0.13" />
     <PackageVersion Include="NAudio.Core" Version="2.2.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.7.2" />
     <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
@@ -57,8 +57,8 @@
     <PackageVersion Include="OpenTK.OpenAL" Version="5.0.0-pre.8" />
     <PackageVersion Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="5.0.0-pre.9" />
     <PackageVersion Include="PanelExtension" Version="1.0.0" />
-    <PackageVersion Include="ReactiveProperty" Version="9.3.3" />
-    <PackageVersion Include="Roslynator.Analyzers" Version="4.6.0" />
+    <PackageVersion Include="ReactiveProperty" Version="9.3.4" />
+    <PackageVersion Include="Roslynator.Analyzers" Version="4.6.1" />
     <PackageVersion Include="Serilog.Extensions.Logging" Version="7.0.0" />
     <PackageVersion Include="Serilog.Sinks.ApplicationInsights" Version="4.0.1-dev-00043" />
     <PackageVersion Include="Serilog.Sinks.Async" Version="1.5.0" />
