@@ -10,7 +10,7 @@ namespace Beutl.Extensions.FFmpeg.Decoding;
 
 public sealed class FFmpegDecodingSettings : ExtensionSettings
 {
-    public static CoreProperty<ScalingAlgorithm> ScalingProperty;
+    public static readonly CoreProperty<ScalingAlgorithm> ScalingProperty;
 
     static FFmpegDecodingSettings()
     {
