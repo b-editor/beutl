@@ -32,22 +32,16 @@
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*,Auto">
-        <StackPanel Margin="10,8"
-                    Orientation="Horizontal"
-                    Spacing="16">
-            <Button Classes="breadcrumb"
-                    Click="NavigatePackageDetailsPage_Click"
-                    Content="{CompiledBinding Release.Package.Name}" />
+        <StackPanel Margin="10,8" Classes="simple-breadcrumb-bar">
+            <Button Click="NavigatePackageDetailsPage_Click" Content="{CompiledBinding Release.Package.Name}" />
 
-            <Label Classes="breadcrumb" />
+            <Separator />
 
-            <Button Classes="breadcrumb"
-                    Click="NavigatePackageReleasesPage_Click"
-                    Content="{x:Static lang:ExtensionsPage.Package_Releases_Tip}" />
+            <Button Click="NavigatePackageReleasesPage_Click" Content="{x:Static lang:ExtensionsPage.Package_Releases_Tip}" />
 
-            <Label Classes="breadcrumb" />
+            <Separator />
 
-            <TextBlock Classes="breadcrumb" Text="{CompiledBinding Release.Version.Value}" />
+            <TextBlock Text="{CompiledBinding Release.Version.Value}" />
         </StackPanel>
 
 

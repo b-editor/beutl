@@ -15,16 +15,12 @@
              x:DataType="vm:DecoderPriorityPageViewModel"
              mc:Ignorable="d">
     <Grid Margin="18" RowDefinitions="Auto,*">
-        <StackPanel Margin="10,8"
-                    Orientation="Horizontal"
-                    Spacing="16">
-            <Button Classes="breadcrumb"
-                    Command="{Binding NavigateParent}"
-                    Content="{x:Static lang:Strings.Extensions}" />
+        <StackPanel Margin="10,8" Classes="simple-breadcrumb-bar">
+            <Button Command="{Binding NavigateParent}" Content="{x:Static lang:Strings.Extensions}" />
 
-            <Label Classes="breadcrumb" />
+            <Separator />
 
-            <TextBlock Classes="breadcrumb" Text="{x:Static lang:SettingsPage.DecoderPriority}" />
+            <TextBlock Text="{x:Static lang:SettingsPage.DecoderPriority}" />
         </StackPanel>
 
         <ScrollViewer Grid.Row="1">

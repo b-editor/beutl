@@ -20,16 +20,12 @@
     <Panel>
 
         <Grid Margin="18" RowDefinitions="Auto,Auto,Auto">
-            <StackPanel Margin="10,8"
-                        Orientation="Horizontal"
-                        Spacing="16">
-                <Button Classes="breadcrumb"
-                        Command="{CompiledBinding NavigateParent}"
-                        Content="{x:Static lang:SettingsPage.Storage}" />
+            <StackPanel Margin="10,8" Classes="simple-breadcrumb-bar">
+                <Button Command="{CompiledBinding NavigateParent}" Content="{x:Static lang:SettingsPage.Storage}" />
 
-                <Label Classes="breadcrumb" />
+                <Separator />
 
-                <TextBlock Classes="breadcrumb" Text="{CompiledBinding TypeString}" />
+                <TextBlock Text="{CompiledBinding TypeString}" />
             </StackPanel>
 
             <ui:CommandBar Grid.Row="1" DefaultLabelPosition="Right">

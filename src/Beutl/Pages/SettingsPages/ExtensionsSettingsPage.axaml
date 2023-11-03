@@ -20,8 +20,8 @@
     <Grid Margin="18" RowDefinitions="Auto,*">
 
         <TextBlock Margin="10,8"
-                   Classes="breadcrumb"
-                   Text="{x:Static lang:Strings.Extensions}" />
+                   Text="{x:Static lang:Strings.Extensions}"
+                   Theme="{StaticResource SimpleLargeBreadcrumbBarTextBlock}" />
 
         <ScrollViewer Grid.Row="1">
             <StackPanel Margin="10,16,10,0"

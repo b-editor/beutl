@@ -10,9 +10,10 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="/Styling/ButtonStyles.axaml" />
+                <ResourceInclude Source="/Styling/ComboBoxStyles.axaml" />
                 <ResourceInclude Source="/Styling/ToggleSwitchStyles.axaml" />
                 <ResourceInclude Source="/Styling/ToggleButtonStyles.axaml" />
-                <ResourceInclude Source="/Styling/ComboBoxStyles.axaml" />
+                <ResourceInclude Source="/Styling/SimpleBreadcrumbBar.axaml" />
 
                 <ResourceInclude Source="/Styling/ProgressRing.axaml" />
                 <ResourceInclude Source="/Styling/FileInputArea.axaml" />
@@ -103,6 +104,21 @@
     <Style Selector=":is(Control).size-24x24">
         <Setter Property="Width" Value="24" />
         <Setter Property="Height" Value="24" />
+    </Style>
+
+    <Style Selector="StackPanel.simple-breadcrumb-bar">
+        <Setter Property="Orientation" Value="Horizontal" />
+        <Setter Property="Spacing" Value="16" />
+
+        <Style Selector="^ > Separator">
+            <Setter Property="Theme" Value="{StaticResource SimpleLargeBreadcrumbBarSeparator}" />
+        </Style>
+        <Style Selector="^ > Button">
+            <Setter Property="Theme" Value="{StaticResource SimpleLargeBreadcrumbBarButton}" />
+        </Style>
+        <Style Selector="^ > TextBlock">
+            <Setter Property="Theme" Value="{StaticResource SimpleLargeBreadcrumbBarTextBlock}" />
+        </Style>
     </Style>
 
     <StyleInclude Source="avares://Beutl.Controls/Styling/NavigationView.axaml" />
