@@ -57,9 +57,9 @@
 
                     <Button Margin="0,0,0,32"
                             HorizontalAlignment="Center"
-                            Classes="simple"
                             Click="OpenPublisherPage_Click"
-                            Content="{Binding Package.Owner.Name}" />
+                            Content="{Binding Package.Owner.Name}"
+                            Theme="{StaticResource LiteButtonStyle}" />
 
                     <StackPanel HorizontalAlignment="Center" Spacing="8">
                         <ComboBox Margin="0,0,-32,0"

@@ -9,6 +9,7 @@
     <Styles.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="/Styling/ButtonStyles.axaml" />
                 <ResourceInclude Source="/Styling/ToggleSwitchStyles.axaml" />
                 <ResourceInclude Source="/Styling/ToggleButtonStyles.axaml" />
                 <ResourceInclude Source="/Styling/ComboBoxStyles.axaml" />

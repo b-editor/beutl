@@ -26,7 +26,7 @@ internal static class Program
         using IDisposable _ = Telemetry.GetDisposable();
         Telemetry.Started();
 
-        // PGOを有効化
+        // ProfileOptimizationを有効化
         string jitProfiles = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "jitProfiles");
         if (!Directory.Exists(jitProfiles))
             Directory.CreateDirectory(jitProfiles);
