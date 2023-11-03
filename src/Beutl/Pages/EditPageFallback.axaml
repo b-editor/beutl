@@ -80,9 +80,8 @@
             <ComboBox x:Name="FilterComboBox"
                       Grid.Column="1"
                       VerticalAlignment="Center"
-                      Background="Transparent"
-                      BorderBrush="Transparent"
-                      SelectedIndex="1">
+                      SelectedIndex="1"
+                      Theme="{StaticResource LiteComboBoxStyle}">
                 <ComboBoxItem Content="{x:Static lang:Strings.All}" />
                 <ComboBoxItem Content="{x:Static lang:Strings.Projects}" />
                 <ComboBoxItem Content="{x:Static lang:Strings.Files}" />
