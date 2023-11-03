@@ -101,3 +101,14 @@ public sealed class BlendEffectOperator : FilterEffectOperator<BlendEffect>
 
     public Setter<BlendMode> BlendMode { get; set; } = new(BlendEffect.BlendModeProperty);
 }
+
+public sealed class NegaposiOperator : FilterEffectOperator<Negaposi>
+{
+    public Setter<byte> Red { get; set; } = new(Negaposi.RedProperty, 0);
+
+    public Setter<byte> Green { get; set; } = new(Negaposi.GreenProperty, 0);
+
+    public Setter<byte> Blue { get; set; } = new(Negaposi.BlueProperty, 0);
+
+    public Setter<float> Strength { get; set; } = new(Negaposi.StrengthProperty, 100);
+}

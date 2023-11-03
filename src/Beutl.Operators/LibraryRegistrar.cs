@@ -202,6 +202,11 @@ public static class LibraryRegistrar
                     .BindSourceOperator<Configure.Effects.BlendEffectOperator>()
                     .BindFilterEffect<BlendEffect>()
                 )
+                
+                .AddMultiple("Negaposi", m => m
+                    .BindSourceOperator<Configure.Effects.NegaposiOperator>()
+                    .BindFilterEffect<Negaposi>()
+                )
 
                 .AddMultiple(Strings.Transform, m => m
                     .BindSourceOperator<Configure.Effects.TransformEffectOperator>()
