@@ -52,6 +52,9 @@ public sealed class ReleasePageViewModel : BasePageViewModel, ISupportRefreshVie
         Body = Release.Body
             .CopyToReactiveProperty()
             .DisposeWith(_disposables);
+        TargetVersion = Release.TargetVersion
+            .CopyToReactiveProperty()
+            .DisposeWith(_disposables);
         Asset = ActualAsset
             .CopyToReactiveProperty()
             .DisposeWith(_disposables);
@@ -59,6 +62,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel, ISupportRefreshVie
         IsChanging = Title.EqualTo(Release.Title)
             .AreTrue(
                 Body.EqualTo(Release.Body),
+                TargetVersion.EqualTo(Release.TargetVersion),
                 Asset.EqualTo(ActualAsset, (x, y) => x?.Id == y?.Id))
             .Not()
             .ToReadOnlyReactivePropertySlim()
@@ -86,6 +90,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel, ISupportRefreshVie
                             Asset.Value?.Id,
                             Body.Value,
                             Release.IsPublic.Value,
+                            TargetVersion.Value,
                             Title.Value));
                     }
                 }
@@ -108,6 +113,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel, ISupportRefreshVie
                 {
                     Title.Value = Release.Title.Value;
                     Body.Value = Release.Body.Value;
+                    TargetVersion.Value = Release.TargetVersion.Value;
                     if (Asset.Value?.Id != Release.AssetId.Value)
                     {
                         using (await _user.Lock.LockAsync())
@@ -204,6 +210,8 @@ public sealed class ReleasePageViewModel : BasePageViewModel, ISupportRefreshVie
 
     public ReactiveProperty<string?> Body { get; }
 
+    public ReactiveProperty<string?> TargetVersion { get; }
+
     public ReactiveProperty<Asset?> Asset { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsChanging { get; }
@@ -221,7 +229,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel, ISupportRefreshVie
     public AsyncReactiveCommand MakePrivate { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
-    
+
     public ReactivePropertySlim<bool> IsAssetLoading { get; } = new();
 
     public AsyncReactiveCommand Refresh { get; }

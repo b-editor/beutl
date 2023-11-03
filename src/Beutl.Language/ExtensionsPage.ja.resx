@@ -354,4 +354,21 @@ URLが不審な場合、開かないことをお勧めします。</value>
   <data name="AnAccountIsRequiredToGetExtension" xml:space="preserve">
     <value>拡張機能を取得するにはアカウントが必要です。</value>
   </data>
+  <data name="May_not_work_correctly_when_downgrading" xml:space="preserve">
+    <value>ダウングレードをする場合、正常に動作しない場合があります</value>
+  </data>
+  <data name="Package_SelectedRelease" xml:space="preserve">
+    <value>選択中のリリース</value>
+  </data>
+  <data name="Release_TargetVersion" xml:space="preserve">
+    <value>ターゲットバージョン</value>
+  </data>
+  <data name="Release_TargetVersion_Tip" xml:space="preserve">
+    <value>この拡張機能がサポートする Beutl のバージョン。
+NuGet Package Versioning を使用できます。</value>
+  </data>
+  <data name="This_extension_does_not_support_your_Beutl_version" xml:space="preserve">
+    <value>この拡張機能は、お客様の Beutl バージョンに対応していません。
+強制的にインストールする場合、CLIツールをご利用ください。</value>
+  </data>
 </root>

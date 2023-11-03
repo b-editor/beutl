@@ -10,8 +10,6 @@ using Beutl.Services;
 
 using Microsoft.Extensions.Logging;
 
-using NuGet.Versioning;
-
 using Serilog;
 
 namespace Beutl;

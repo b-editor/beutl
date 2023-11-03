@@ -354,4 +354,21 @@ To apply the package changes, exit Beutl.</value>
   <data name="Description" xml:space="preserve">
     <value>Description</value>
   </data>
+  <data name="May_not_work_correctly_when_downgrading" xml:space="preserve">
+    <value>May not work correctly when downgrading</value>
+  </data>
+  <data name="Package_SelectedRelease" xml:space="preserve">
+    <value>Selected release</value>
+  </data>
+  <data name="Release_TargetVersion" xml:space="preserve">
+    <value>Target version</value>
+  </data>
+  <data name="Release_TargetVersion_Tip" xml:space="preserve">
+    <value>Beutl versions supported by this extension.
+You can use NuGet Package Versioning.</value>
+  </data>
+  <data name="This_extension_does_not_support_your_Beutl_version" xml:space="preserve">
+    <value>This extension does not support your Beutl version.
+To force installation, use the CLI tool.</value>
+  </data>
 </root>

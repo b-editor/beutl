@@ -153,31 +153,10 @@ public sealed class PackageManager : PackageLoader
         }
     }
 
-    public async Task<IReadOnlyList<LocalPackage>> GetPackages()
+    public Task<IReadOnlyList<LocalPackage>> GetPackages()
     {
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("GetPackages"))
         {
-            async Task<Package?> GetPackage(string id)
-            {
-                using (Activity? activity = Telemetry.ActivitySource.StartActivity("GetPackages.GetPackage"))
-                {
-                    try
-                    {
-                        PackageResponse package = await _apiApplication.Packages.GetPackageAsync(id).ConfigureAwait(false);
-                        ProfileResponse profile = await _apiApplication.Users.GetUserAsync(package.Owner.Name).ConfigureAwait(false);
-
-                        return new Package(
-                            profile: new Profile(profile, _apiApplication),
-                            package,
-                            _apiApplication);
-                    }
-                    catch
-                    {
-                        return null;
-                    }
-                }
-            }
-
             PackageIdentity[] packages = _installedPackageRepository.GetLocalPackages().ToArray();
             activity?.SetTag("Packages_Count", packages.Length);
 
@@ -188,30 +167,15 @@ public sealed class PackageManager : PackageLoader
                 string directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
                 if (Directory.Exists(directory))
                 {
-                    activity?.AddEvent(new("Start_GetPackage"));
-                    Package? package = await GetPackage(packageId.Id).ConfigureAwait(false);
-                    activity?.AddEvent(new("Done_GetPackage"));
-
-                    if (package == null)
+                    var reader = new PackageFolderReader(directory);
+                    list.Add(new LocalPackage(reader.NuspecReader)
                     {
-                        var reader = new PackageFolderReader(directory);
-                        list.Add(new LocalPackage(reader.NuspecReader)
-                        {
-                            InstalledPath = directory
-                        });
-                    }
-                    else
-                    {
-                        list.Add(new LocalPackage(package)
-                        {
-                            Version = packageId.Version.ToString(),
-                            InstalledPath = directory,
-                        });
-                    }
+                        InstalledPath = directory
+                    });
                 }
             }
 
-            return list;
+            return Task.FromResult<IReadOnlyList<LocalPackage>>(list);
         }
     }
 

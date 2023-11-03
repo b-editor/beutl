@@ -312,6 +312,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   May not work correctly when downgrading に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string May_not_work_correctly_when_downgrading {
+            get {
+                return ResourceManager.GetString("May_not_work_correctly_when_downgrading", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   No logo image available に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string NoLogoImageAvailable {
@@ -484,6 +493,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Selected release に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Package_SelectedRelease {
+            get {
+                return ResourceManager.GetString("Package_SelectedRelease", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Settings of this package. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Package_Settings_Tip {
@@ -622,6 +640,25 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Target version に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Release_TargetVersion {
+            get {
+                return ResourceManager.GetString("Release_TargetVersion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Beutl versions supported by this extension.
+        ///You can use NuGet Package Versioning. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Release_TargetVersion_Tip {
+            get {
+                return ResourceManager.GetString("Release_TargetVersion_Tip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Title に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Release_Title {
@@ -690,6 +727,16 @@ namespace Beutl.Language {
         public static string Shortcuts {
             get {
                 return ResourceManager.GetString("Shortcuts", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   This extension does not support your Beutl version.
+        ///To force installation, use the CLI tool. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string This_extension_does_not_support_your_Beutl_version {
+            get {
+                return ResourceManager.GetString("This_extension_does_not_support_your_Beutl_version", resourceCulture);
             }
         }
         

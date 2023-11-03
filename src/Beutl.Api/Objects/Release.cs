@@ -21,6 +21,7 @@ public class Release
         Version = _response.Select(x => x.Version).ToReadOnlyReactivePropertySlim()!;
         Title = _response.Select(x => x.Title).ToReadOnlyReactivePropertySlim()!;
         Body = _response.Select(x => x.Body).ToReadOnlyReactivePropertySlim()!;
+        TargetVersion = _response.Select(x => x.Target_version).ToReadOnlyReactivePropertySlim()!;
         AssetId = _response.Select(x => x.Asset_id).ToReadOnlyReactivePropertySlim()!;
         IsPublic = _response.Select(x => x.Public).ToReadOnlyReactivePropertySlim()!;
     }
@@ -36,6 +37,8 @@ public class Release
     public IReadOnlyReactiveProperty<string?> Title { get; }
 
     public IReadOnlyReactiveProperty<string?> Body { get; }
+    
+    public IReadOnlyReactiveProperty<string?> TargetVersion { get; }
 
     public IReadOnlyReactiveProperty<long?> AssetId { get; }
 
@@ -52,9 +55,9 @@ public class Release
         _isDeleted.Value = false;
     }
 
-    public Task UpdateAsync(long? assetId = null, string? body = null, bool? isPublic = null, string? title = null)
+    public Task UpdateAsync(long? assetId = null, string? body = null, bool? isPublic = null, string? title = null, string? targetVersion = null)
     {
-        return UpdateAsync(new UpdateReleaseRequest(assetId, body, isPublic, title));
+        return UpdateAsync(new UpdateReleaseRequest(assetId, body, isPublic, targetVersion, title));
     }
 
     public async Task UpdateAsync(UpdateReleaseRequest request)

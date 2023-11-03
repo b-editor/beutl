@@ -1,8 +1,8 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-using Beutl.Api.Objects;
-
+using NuGet.Frameworks;
 using NuGet.Packaging;
+using NuGet.Packaging.Core;
 
 namespace Beutl.Api.Services;
 
@@ -18,24 +18,6 @@ public class LocalPackage
         LocalId = Interlocked.Increment(ref s_nextId);
     }
 
-    public LocalPackage(Package package)
-        : this()
-    {
-        Name = package.Name;
-        DisplayName = package.DisplayName.Value ?? "";
-        Publisher = package.Owner.Name ?? "";
-        WebSite = package.WebSite.Value ?? "";
-        Description = package.Description.Value ?? "";
-        ShortDescription = package.ShortDescription.Value ?? "";
-        Tags = package.Tags.Value.ToList();
-    }
-
-    public LocalPackage(Package package, Release release)
-        : this(package)
-    {
-        Version = release.Version.Value;
-    }
-
     public LocalPackage(NuspecReader nuspecReader)
     {
         Name = nuspecReader.GetId();
@@ -45,6 +27,23 @@ public class LocalPackage
         WebSite = nuspecReader.GetProjectUrl();
         Description = nuspecReader.GetReleaseNotes();
         ShortDescription = nuspecReader.GetDescription();
+
+        NuGetFramework framework = Helper.GetFrameworkName();
+        IEnumerable<PackageDependencyGroup> depGroups = nuspecReader.GetDependencyGroups();
+        NuGetFramework? nearest = Helper.FrameworkReducer.GetNearest(
+            framework,
+            depGroups.Select(v => v.TargetFramework));
+
+        if (nearest != null)
+        {
+            PackageDependencyGroup depGroup = depGroups.First(v => v.TargetFramework == nearest);
+            PackageDependency? sdkDep = depGroup.Packages.FirstOrDefault(v => v.Id == "Beutl.Sdk");
+            if (sdkDep != null)
+            {
+                TargetVersion = sdkDep.VersionRange.ToShortString();
+            }
+        }
+
         //Logo = nuspecReader.GetIcon();
         Tags = nuspecReader.GetTags().Split(' ', ';').ToList();
     }
@@ -64,6 +63,9 @@ public class LocalPackage
     public string ShortDescription { get; set; } = string.Empty;
 
     public string Logo { get; set; } = string.Empty;
+
+    // VersionRange
+    public string? TargetVersion { get; set; }
 
     public List<string> Tags { get; set; } = new List<string>();
 

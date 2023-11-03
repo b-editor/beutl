@@ -227,42 +227,8 @@
 
                         <ComboBox x:Name="RankingComboBox"
                                   VerticalAlignment="Bottom"
-                                  SelectedIndex="0">
-                            <ComboBox.Styles>
-                                <Style Selector="ComboBox">
-                                    <Setter Property="Padding" Value="0,5,0,7" />
-                                    <Setter Property="Background" Value="Transparent" />
-                                    <Setter Property="BorderBrush" Value="Transparent" />
-                                    <Setter Property="BorderThickness" Value="0" />
-
-                                    <Style Selector="^:pointerover">
-                                        <Style Selector="^ /template/ ContentPresenter#ContentPresenter">
-                                            <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
-                                        </Style>
-                                        <Style Selector="^ /template/ TextBlock#PlaceholderTextBlock">
-                                            <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
-                                        </Style>
-                                        <Style Selector="^ /template/ Border#Background">
-                                            <Setter Property="Background" Value="Transparent" />
-                                            <Setter Property="BorderBrush" Value="Transparent" />
-                                        </Style>
-                                    </Style>
-
-                                    <Style Selector="^:pressed">
-                                        <Style Selector="^ /template/ TextBlock#PlaceholderTextBlock">
-                                            <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
-                                            <Setter Property="Opacity" Value="0.5" />
-                                        </Style>
-                                        <Style Selector="^ /template/ ContentPresenter#ContentPresenter">
-                                            <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
-                                            <Setter Property="Opacity" Value="0.5" />
-                                        </Style>
-                                        <Style Selector="^ /template/ Border#Background">
-                                            <Setter Property="Background" Value="Transparent" />
-                                        </Style>
-                                    </Style>
-                                </Style>
-                            </ComboBox.Styles>
+                                  SelectedIndex="0"
+                                  Theme="{StaticResource LiteComboBoxStyle}">
                             <ComboBoxItem Content="{x:Static lang:ExtensionsPage.Daily}" Tag="{Binding DailyRanking}" />
                             <ComboBoxItem Content="{x:Static lang:ExtensionsPage.Weekly}" Tag="{Binding WeeklyRanking}" />
                         </ComboBox>
