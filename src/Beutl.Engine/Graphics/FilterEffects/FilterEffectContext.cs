@@ -510,6 +510,13 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
         });
     }
 
+    public void BlendMode(Color color, BlendMode blendMode)
+    {
+        AppendSKColorFilter(
+            (color, blendMode),
+            (data, _) => SKColorFilter.CreateBlendMode(data.color.ToSKColor(), (SKBlendMode)data.blendMode));
+    }
+
     public void Custom<T>(T data, Action<T, FilterEffectCustomOperationContext> action, Func<T, Rect, Rect> transformBounds)
         where T : IEquatable<T>
     {

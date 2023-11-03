@@ -94,3 +94,10 @@ public sealed class LutEffectOperator : FilterEffectOperator<LutEffect>
 
     public Setter<float> Strength { get; set; } = new(LutEffect.StrengthProperty, 100);
 }
+
+public sealed class BlendEffectOperator : FilterEffectOperator<BlendEffect>
+{
+    public Setter<Color> Color { get; set; } = new(BlendEffect.ColorProperty);
+
+    public Setter<BlendMode> BlendMode { get; set; } = new(BlendEffect.BlendModeProperty);
+}

@@ -197,6 +197,11 @@ public static class LibraryRegistrar
                     .BindSourceOperator<Configure.Effects.LutEffectOperator>()
                     .BindFilterEffect<LutEffect>()
                 )
+                
+                .AddMultiple("Blend Effect", m => m
+                    .BindSourceOperator<Configure.Effects.BlendEffectOperator>()
+                    .BindFilterEffect<BlendEffect>()
+                )
 
                 .AddMultiple(Strings.Transform, m => m
                     .BindSourceOperator<Configure.Effects.TransformEffectOperator>()
