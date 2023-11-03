@@ -112,3 +112,19 @@ public sealed class NegaposiOperator : FilterEffectOperator<Negaposi>
 
     public Setter<float> Strength { get; set; } = new(Negaposi.StrengthProperty, 100);
 }
+
+public sealed class ChromaKeyOperator : FilterEffectOperator<ChromaKey>
+{
+    public Setter<Color> Color { get; set; } = new(ChromaKey.ColorProperty);
+
+    public Setter<float> HueRange { get; set; } = new(ChromaKey.HueRangeProperty);
+
+    public Setter<float> SaturationRange { get; set; } = new(ChromaKey.SaturationRangeProperty);
+}
+
+public sealed class ColorKeyOperator : FilterEffectOperator<ColorKey>
+{
+    public Setter<Color> Color { get; set; } = new(ColorKey.ColorProperty);
+
+    public Setter<float> Range { get; set; } = new(ColorKey.RangeProperty);
+}

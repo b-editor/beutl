@@ -207,6 +207,16 @@ public static class LibraryRegistrar
                     .BindSourceOperator<Configure.Effects.NegaposiOperator>()
                     .BindFilterEffect<Negaposi>()
                 )
+                
+                .AddMultiple("Chroma Key", m => m
+                    .BindSourceOperator<Configure.Effects.ChromaKeyOperator>()
+                    .BindFilterEffect<ChromaKey>()
+                )
+                
+                .AddMultiple("Color Key", m => m
+                    .BindSourceOperator<Configure.Effects.ColorKeyOperator>()
+                    .BindFilterEffect<ColorKey>()
+                )
 
                 .AddMultiple(Strings.Transform, m => m
                     .BindSourceOperator<Configure.Effects.TransformEffectOperator>()

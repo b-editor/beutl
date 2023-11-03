@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
+using OpenCvSharp;
+
 namespace Beutl.Graphics.Effects;
 
 public class Negaposi : FilterEffect
