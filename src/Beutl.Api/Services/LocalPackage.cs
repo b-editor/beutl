@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-using Beutl.Api.Objects;
-
 using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
@@ -42,7 +40,7 @@ public class LocalPackage
             PackageDependency? sdkDep = depGroup.Packages.FirstOrDefault(v => v.Id == "Beutl.Sdk");
             if (sdkDep != null)
             {
-                TargetVersion = sdkDep.VersionRange.ToString();
+                TargetVersion = sdkDep.VersionRange.ToShortString();
             }
         }
 
