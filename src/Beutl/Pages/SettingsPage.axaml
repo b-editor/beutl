@@ -1,23 +1,16 @@
-<UserControl
-    xmlns="https://github.com/avaloniaui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    xmlns:ui="using:FluentAvalonia.UI.Controls"
-    x:Class="Beutl.Pages.SettingsPage">
-    <UserControl.Styles>
-        <Style Selector="Border.item">
-            <Setter Property="MaxHeight" Value="64" />
-            <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}"/>
-            <Setter Property="Padding" Value="16"/>
-            <Setter Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}" />
-        </Style>
-    </UserControl.Styles>
-    <ui:NavigationView IsSettingsVisible="False"
+<UserControl x:Class="Beutl.Pages.SettingsPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             mc:Ignorable="d">
+    <ui:NavigationView x:Name="nav"
                        IsBackButtonVisible="True"
                        IsBackEnabled="{Binding #frame.CanGoBack}"
-                       x:Name="nav">
+                       IsSettingsVisible="False">
         <ui:NavigationView.Styles>
             <Style Selector="ui|NavigationView /template/ SplitView Border#ContentGridBorder">
                 <Setter Property="Background" Value="Transparent" />

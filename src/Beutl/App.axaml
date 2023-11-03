@@ -3,11 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:aconverters="using:Avalonia.Markup.Xaml.Converters"
              xmlns:asyncImageLoader="using:AsyncImageLoader"
-             xmlns:convert="using:Beutl.Converters"
-             xmlns:local="using:Beutl"
-             xmlns:sty="using:FluentAvalonia.Styling"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives">
+             xmlns:sty="using:FluentAvalonia.Styling">
     <Application.Resources>
         <ResourceDictionary>
             <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />

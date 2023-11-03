@@ -18,11 +18,8 @@
 
     <UserControl.Styles>
         <Style Selector="TextBlock.name">
-            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+            <Setter Property="Theme" Value="{StaticResource BaseTextBlockStyle}" />
             <Setter Property="FontSize" Value="16" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-            <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
     </UserControl.Styles>
 
