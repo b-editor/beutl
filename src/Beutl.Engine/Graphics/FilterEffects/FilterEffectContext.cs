@@ -176,26 +176,40 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     // https://github.com/Shopify/react-native-skia/blob/c7740e30234e6b0a49721ab954c4a848e42d7edb/package/src/dom/nodes/paint/ImageFilters.ts#L25
     public void InnerShadow(Point position, Size sigma, Color color)
     {
-        AppendSkiaFilter(
+        Custom(
             data: (position, sigma, color),
-            factory: static (data, input, activator) =>
+            action: (data, context) =>
             {
-                using var dst = SKColorFilter.CreateBlendMode(SKColors.Black, SKBlendMode.Dst);
-                using var sourceGraphic = SKImageFilter.CreateColorFilter(dst);
+                EffectTarget target = context.Target;
+                if (target.Surface != null)
+                {
+                    using SKImage skimage = target.Surface.Value.Snapshot();
+                    using EffectTarget newTarget = context.CreateTarget((int)target.Size.Width, (int)target.Size.Height);
+                    using (ImmediateCanvas canvas = context.Open(newTarget))
+                    {
+                        using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
+                        using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
+                        using var filter = SKImageFilter.CreateColorFilter(blend, blur);
+                        using var paint = new SKPaint
+                        {
+                            ImageFilter = filter
+                        };
 
-                using var srcIn = SKColorFilter.CreateBlendMode(SKColors.Black, SKBlendMode.SrcIn);
-                using var sourceAlpha = SKImageFilter.CreateColorFilter(srcIn);
+                        using (canvas.PushPaint(paint))
+                        {
+                            canvas.DrawSurface(target.Surface.Value, data.position);
+                        }
 
-                using var srcOut = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
-                using var f1 = SKImageFilter.CreateColorFilter(srcOut);
-                using var f2 = SKImageFilter.CreateOffset(data.position.X, data.position.Y, f1);
-                using var f3 = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height, SKShaderTileMode.Decal, f2);
-                using var f4 = SKImageFilter.CreateBlendMode(SKBlendMode.SrcIn, sourceAlpha, f3);
+                        using (canvas.PushBlendMode(Graphics.BlendMode.DstATop))
+                        {
+                            canvas.DrawSurface(target.Surface.Value, default);
+                        }
+                    }
 
-                using var srcOver = SKImageFilter.CreateBlendMode(SKBlendMode.SrcOver, sourceGraphic, f4);
-                return SKImageFilter.CreateCompose(srcOver, input);
+                    context.ReplaceTarget(newTarget);
+                }
             },
-            transformBounds: static (_, bounds) => bounds);
+            transformBounds: (_, bounds) => bounds);
     }
 
     [Obsolete("Use InnerShadow(Point, Size, Color)")]
@@ -206,23 +220,40 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
 
     public void InnerShadowOnly(Point position, Size sigma, Color color)
     {
-        AppendSkiaFilter(
+        Custom(
             data: (position, sigma, color),
-            factory: static (data, input, activator) =>
+            action: (data, context) =>
             {
-                using var dst = SKColorFilter.CreateBlendMode(SKColors.Black, SKBlendMode.Dst);
-                using var sourceGraphic = SKImageFilter.CreateColorFilter(dst);
+                EffectTarget target = context.Target;
+                if (target.Surface != null)
+                {
+                    using SKImage skimage = target.Surface.Value.Snapshot();
+                    using EffectTarget newTarget = context.CreateTarget((int)target.Size.Width, (int)target.Size.Height);
+                    using (ImmediateCanvas canvas = context.Open(newTarget))
+                    {
+                        using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
+                        using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
+                        using var filter = SKImageFilter.CreateColorFilter(blend, blur);
+                        using var paint = new SKPaint
+                        {
+                            ImageFilter = filter
+                        };
 
-                using var srcIn = SKColorFilter.CreateBlendMode(SKColors.Black, SKBlendMode.SrcIn);
-                using var sourceAlpha = SKImageFilter.CreateColorFilter(srcIn);
+                        using (canvas.PushPaint(paint))
+                        {
+                            canvas.DrawSurface(target.Surface.Value, data.position);
+                        }
 
-                using var srcOut = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
-                using var f1 = SKImageFilter.CreateColorFilter(srcOut);
-                using var f2 = SKImageFilter.CreateOffset(data.position.X, data.position.Y, f1);
-                using var f3 = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height, SKShaderTileMode.Decal, f2);
-                return SKImageFilter.CreateBlendMode(SKBlendMode.SrcIn, sourceAlpha, f3);
+                        using (canvas.PushBlendMode(Graphics.BlendMode.DstIn))
+                        {
+                            canvas.DrawSurface(target.Surface.Value, default);
+                        }
+                    }
+
+                    context.ReplaceTarget(newTarget);
+                }
             },
-            transformBounds: static (_, bounds) => bounds);
+            transformBounds: (_, bounds) => bounds);
     }
 
     [Obsolete("Use InnerShadowOnly(Point, Size, Color)")]
