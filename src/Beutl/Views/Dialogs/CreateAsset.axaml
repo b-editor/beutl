@@ -108,10 +108,10 @@
                 <TextBlock Text="{Binding ProgressStatus.Value}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
                 <ProgressBar Maximum="100" Value="{Binding ProgressValue.Value}" />
 
-                <TextBlock Classes="error"
-                           IsVisible="{Binding Error.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                <TextBlock IsVisible="{Binding Error.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                            Text="{Binding Error.Value}"
-                           TextWrapping="WrapWithOverflow" />
+                           TextWrapping="WrapWithOverflow"
+                           Theme="{StaticResource ErrorTextBlockStyle}" />
             </StackPanel>
 
         </Carousel.Items>

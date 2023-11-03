@@ -12,15 +12,6 @@
         <ResourceDictionary>
             <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
 
-            <ControlTheme x:Key="LabelTextBlockStyle" TargetType="TextBlock">
-                <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
-                <Setter Property="FontSize" Value="14" />
-                <Setter Property="FontWeight" Value="Normal" />
-                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                <Setter Property="TextWrapping" Value="Wrap" />
-                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-            </ControlTheme>
-
             <KeyGesture x:Key="CreateNewProjectKeyGesture">Ctrl+Shift+N</KeyGesture>
             <KeyGesture x:Key="CreateNewKeyGesture">Ctrl+N</KeyGesture>
             <KeyGesture x:Key="OpenProjectKeyGesture">Ctrl+Shift+O</KeyGesture>
@@ -62,11 +53,6 @@
                     </Grid>
                 </ControlTemplate>
             </Setter>
-        </Style>
-
-        <Style Selector="TextBlock.error">
-            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
 
         <Style Selector="TextBox">

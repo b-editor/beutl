@@ -35,9 +35,9 @@
                    Theme="{StaticResource LabelTextBlockStyle}" />
         <TextBox Text="{CompiledBinding Version.Value}" ToolTip.Tip="{x:Static lang:ExtensionsPage.Release_Version_Tip}" />
 
-        <TextBlock Classes="error"
-                   IsVisible="{CompiledBinding Error.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+        <TextBlock IsVisible="{CompiledBinding Error.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                    Text="{CompiledBinding Error.Value}"
-                   TextWrapping="WrapWithOverflow" />
+                   TextWrapping="WrapWithOverflow"
+                   Theme="{StaticResource ErrorTextBlockStyle}" />
     </StackPanel>
 </ui:ContentDialog>

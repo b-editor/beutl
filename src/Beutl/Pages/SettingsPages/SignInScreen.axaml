@@ -58,7 +58,7 @@
 
         <TextBlock MinHeight="16"
                    Margin="0,16,0,0"
-                   Classes="error"
+                   Theme="{StaticResource ErrorTextBlockStyle}"
                    Text="{CompiledBinding Error.Value}" />
 
         <Button Height="40"

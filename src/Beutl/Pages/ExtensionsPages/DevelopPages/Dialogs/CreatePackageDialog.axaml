@@ -31,7 +31,7 @@
             <ProgressBar IsIndeterminate="{Binding IsFileLoading.Value}" IsVisible="{Binding IsFileLoading.Value}" />
         </FileInputArea>
 
-        <TextBlock Classes="error"
+        <TextBlock Theme="{StaticResource ErrorTextBlockStyle}"
                    IsVisible="{Binding Error.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                    Text="{Binding Error.Value}"
                    TextWrapping="WrapWithOverflow" />

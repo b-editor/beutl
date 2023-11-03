@@ -1,0 +1,25 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Design.PreviewWith>
+        <StackPanel>
+            <TextBlock Text="Label" Theme="{DynamicResource LabelTextBlockStyle}" />
+            <TextBlock Text="Error" Theme="{DynamicResource ErrorTextBlockStyle}" />
+        </StackPanel>
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="LabelTextBlockStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    </ControlTheme>
+
+
+    <ControlTheme x:Key="ErrorTextBlockStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </ControlTheme>
+
+</ResourceDictionary>
