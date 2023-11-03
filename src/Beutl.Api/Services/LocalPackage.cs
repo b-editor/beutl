@@ -19,6 +19,7 @@ public class LocalPackage
     }
 
     public LocalPackage(NuspecReader nuspecReader)
+        : this()
     {
         Name = nuspecReader.GetId();
         DisplayName = nuspecReader.GetTitle();
