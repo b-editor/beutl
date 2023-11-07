@@ -54,7 +54,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
             using var props = new PooledList<IAbstractProperty>();
             Span<IAbstractProperty> span = props.AddSpan(4);
             span[0] = new AnimatableCorePropertyImpl<float>(Pen.ThicknessProperty, mutablePen);
-            span[1] = new AnimatableCorePropertyImpl<StrokeCap>(Pen.StrokeCapProperty, mutablePen);
+            span[1] = new AnimatableCorePropertyImpl<StrokeJoin>(Pen.StrokeJoinProperty, mutablePen);
             span[2] = new AnimatableCorePropertyImpl<StrokeAlignment>(Pen.StrokeAlignmentProperty, mutablePen);
             span[3] = new AnimatableCorePropertyImpl<IBrush?>(Pen.BrushProperty, mutablePen);
 
@@ -63,7 +63,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
             props.Clear();
             span = props.AddSpan(4);
             span[0] = new AnimatableCorePropertyImpl<float>(Pen.MiterLimitProperty, mutablePen);
-            span[1] = new AnimatableCorePropertyImpl<StrokeJoin>(Pen.StrokeJoinProperty, mutablePen);
+            span[1] = new AnimatableCorePropertyImpl<StrokeCap>(Pen.StrokeCapProperty, mutablePen);
             span[2] = new AnimatableCorePropertyImpl<CoreList<float>?>(Pen.DashArrayProperty, mutablePen);
             span[3] = new AnimatableCorePropertyImpl<float>(Pen.DashOffsetProperty, mutablePen);
 

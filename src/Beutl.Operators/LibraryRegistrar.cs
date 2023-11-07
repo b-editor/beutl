@@ -110,7 +110,7 @@ public static class LibraryRegistrar
                     .BindNode<Rotation3DTransformNode>()
                 )
             );
-
+        
         LibraryService.Current
             .RegisterGroup(Strings.FilterEffect, g => g
                 .AddMultiple(Strings.Blur, m => m
@@ -127,10 +127,15 @@ public static class LibraryRegistrar
                     .BindSourceOperator<Configure.Effects.InnerShadowOperator>()
                     .BindFilterEffect<InnerShadow>()
                 )
-
-                .AddMultiple(Strings.Border, m => m
+                
+                .AddMultiple($"{Strings.Border} (deprecated)", m => m
                     .BindSourceOperator<Configure.Effects.BorderOperator>()
                     .BindFilterEffect<Border>()
+                )
+                
+                .AddMultiple("Stroke Effect", m => m
+                    .BindSourceOperator<Configure.Effects.StrokeEffectOperator>()
+                    .BindFilterEffect<StrokeEffect>()
                 )
 
                 .AddMultiple(Strings.Clipping, m => m

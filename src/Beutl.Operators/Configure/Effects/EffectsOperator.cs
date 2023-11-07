@@ -128,3 +128,12 @@ public sealed class ColorKeyOperator : FilterEffectOperator<ColorKey>
 
     public Setter<float> Range { get; set; } = new(ColorKey.RangeProperty);
 }
+
+public sealed class StrokeEffectOperator : FilterEffectOperator<StrokeEffect>
+{
+    public Setter<IPen?> Pen { get; set; } = new(StrokeEffect.PenProperty, new Pen());
+
+    public Setter<Point> Offset { get; set; } = new(StrokeEffect.OffsetProperty);
+
+    public new Setter<Border.BorderStyles> Style { get; set; } = new(StrokeEffect.StyleProperty);
+}
