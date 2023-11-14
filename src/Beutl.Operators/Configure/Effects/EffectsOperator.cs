@@ -137,3 +137,14 @@ public sealed class StrokeEffectOperator : FilterEffectOperator<StrokeEffect>
 
     public new Setter<Border.BorderStyles> Style { get; set; } = new(StrokeEffect.StyleProperty);
 }
+
+public sealed class FlatShadowOperator : FilterEffectOperator<FlatShadow>
+{
+    public Setter<float> Angle { get; set; } = new(FlatShadow.AngleProperty, 45);
+
+    public Setter<float> Length { get; set; } = new(FlatShadow.LengthProperty, 50);
+
+    public Setter<IBrush?> Brush { get; set; } = new(FlatShadow.BrushProperty, new SolidColorBrush(Colors.Gray));
+
+    public Setter<bool> ShadowOnly { get; set; } = new(FlatShadow.ShadowOnlyProperty);
+}
