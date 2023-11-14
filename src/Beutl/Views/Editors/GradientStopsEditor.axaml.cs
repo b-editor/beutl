@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media.Immutable;
 using Avalonia.Media.Transformation;
 
+using Beutl.Helpers;
 using Beutl.Utilities;
 using Beutl.ViewModels.Editors;
 
@@ -29,7 +30,7 @@ public sealed partial class GradientStopsEditor : UserControl
         Resources["ColorToBrush"] = new FuncValueConverter<AM.Color, ImmutableSolidColorBrush>(
             x => new ImmutableSolidColorBrush(x));
         Resources["ColorToBorderBrush"] = new FuncValueConverter<AM.Color, ImmutableSolidColorBrush>(
-            x => new ImmutableSolidColorBrush(((FAM.Color2)x).Lightnessf > 0.5f ? AM.Colors.Gray : AM.Colors.White));
+            x => new ImmutableSolidColorBrush(ColorGenerator.GetTextColor(x)));
         InitializeComponent();
 
         colorPicker.FlyoutConfirmed += ColorPicker_FlyoutConfirmed;
