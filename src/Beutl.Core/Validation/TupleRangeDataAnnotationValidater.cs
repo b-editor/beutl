@@ -10,6 +10,9 @@ public sealed class TupleRangeDataAnnotationValidater<TTuple, TNumber> : RangeVa
 {
     public TupleRangeDataAnnotationValidater(RangeAttribute attribute)
     {
+        if (attribute.MaximumIsExclusive || attribute.MinimumIsExclusive)
+            throw new NotSupportedException("'MaximumIsExclusive' or 'MinimumIsExclusive' cannot be set to True.");
+
         Attribute = attribute;
         if (Attribute.OperandType == typeof(TTuple)
             && Attribute.Maximum is string maximumStr
