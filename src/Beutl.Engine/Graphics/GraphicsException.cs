@@ -18,9 +18,4 @@ public sealed class GraphicsException : Exception
         : base(message, inner)
     {
     }
-
-    private GraphicsException(SerializationInfo info, StreamingContext context)
-        : base(info, context)
-    {
-    }
 }
