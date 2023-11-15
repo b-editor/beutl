@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
+using System.Text.Unicode;
 
 using Beutl.Converters;
 using Beutl.Utilities;
@@ -18,6 +19,9 @@ public readonly struct Thickness
     : IEquatable<Thickness>,
       IParsable<Thickness>,
       ISpanParsable<Thickness>,
+      ISpanFormattable,
+      IUtf8SpanFormattable,
+      IUtf8SpanParsable<Thickness>,
       IEqualityOperators<Thickness, Thickness, bool>,
       IAdditionOperators<Thickness, Thickness, Thickness>,
       ISubtractionOperators<Thickness, Thickness, Thickness>,
@@ -182,16 +186,7 @@ public readonly struct Thickness
     /// <returns>The status of the operation.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, out Thickness thickness)
     {
-        try
-        {
-            thickness = Parse(s);
-            return true;
-        }
-        catch
-        {
-            thickness = default;
-            return false;
-        }
+        return TryParse(s, null, out thickness);
     }
 
     /// <summary>
@@ -211,25 +206,7 @@ public readonly struct Thickness
     /// <returns>The <see cref="Thickness"/>.</returns>
     public static Thickness Parse(ReadOnlySpan<char> s)
     {
-        const string exceptionMessage = "Invalid Thickness.";
-
-        using var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage);
-        if (tokenizer.TryReadSingle(out float a))
-        {
-            if (tokenizer.TryReadSingle(out float b))
-            {
-                if (tokenizer.TryReadSingle(out float c))
-                {
-                    return new Thickness(a, b, c, tokenizer.ReadSingle());
-                }
-
-                return new Thickness(a, b);
-            }
-
-            return new Thickness(a);
-        }
-
-        throw new FormatException(exceptionMessage);
+        return Parse(s, null);
     }
 
     /// <summary>
@@ -340,25 +317,41 @@ public readonly struct Thickness
         bottom = Bottom;
     }
 
-    static Thickness IParsable<Thickness>.Parse(string s, IFormatProvider? provider)
+    public static Thickness Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
     {
-        return Parse(s);
+        const string exceptionMessage = "Invalid Thickness.";
+
+        using var tokenizer = new RefStringTokenizer(s, provider ?? CultureInfo.InvariantCulture, exceptionMessage);
+        if (tokenizer.TryReadSingle(out float a))
+        {
+            if (tokenizer.TryReadSingle(out float b))
+            {
+                if (tokenizer.TryReadSingle(out float c))
+                {
+                    return new Thickness(a, b, c, tokenizer.ReadSingle());
+                }
+
+                return new Thickness(a, b);
+            }
+
+            return new Thickness(a);
+        }
+
+        throw new FormatException(exceptionMessage);
     }
 
-    static bool IParsable<Thickness>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out Thickness result)
+    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out Thickness result)
     {
-        result = default;
-        return s != null && TryParse(s, out result);
-    }
-
-    static Thickness ISpanParsable<Thickness>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
-    {
-        return Parse(s);
-    }
-
-    static bool ISpanParsable<Thickness>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Thickness result)
-    {
-        return TryParse(s, out result);
+        try
+        {
+            result = Parse(s, provider);
+            return true;
+        }
+        catch
+        {
+            result = default;
+            return false;
+        }
     }
 
     static void ITupleConvertible<Thickness, float>.ConvertTo(Thickness self, Span<float> tuple)
@@ -372,5 +365,123 @@ public readonly struct Thickness
     static void ITupleConvertible<Thickness, float>.ConvertFrom(Span<float> tuple, out Thickness self)
     {
         self = new Thickness(tuple[0], tuple[1], tuple[2], tuple[3]);
+    }
+
+    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    {
+        char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
+        if (Left == Right && Top == Bottom)
+        {
+            if (Left == Top)
+            {
+                return Left.TryFormat(destination, out charsWritten, format, provider);
+            }
+
+            return MemoryExtensions.TryWrite(destination, provider, $"{Left}{separator} {Top}", out charsWritten);
+        }
+
+        return MemoryExtensions.TryWrite(destination, provider, $"{Left}{separator} {Top}{separator} {Right}{separator} {Bottom}", out charsWritten);
+    }
+
+    public string ToString(IFormatProvider? formatProvider)
+    {
+        return ToString(null, formatProvider);
+    }
+
+    public string ToString(string? format, IFormatProvider? formatProvider)
+    {
+        if (formatProvider == null)
+        {
+            return ToString();
+        }
+        else
+        {
+            char separator = TokenizerHelper.GetSeparatorFromFormatProvider(formatProvider);
+
+            if (Left == Right && Top == Bottom)
+            {
+                if (Left == Top)
+                {
+                    return Left.ToString(formatProvider);
+                }
+
+                return string.Create(formatProvider, $"{Left}{separator} {Top}");
+            }
+
+            return string.Create(formatProvider, $"{Left}{separator} {Top}{separator} {Right}{separator} {Bottom}");
+        }
+    }
+
+    public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    {
+        char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
+        if (Left == Right && Top == Bottom)
+        {
+            if (Left == Top)
+            {
+                return Left.TryFormat(utf8Destination, out bytesWritten, format, provider);
+            }
+
+            return Utf8.TryWrite(utf8Destination, provider, $"{Left}{separator} {Top}", out bytesWritten);
+        }
+
+        return Utf8.TryWrite(utf8Destination, provider, $"{Left}{separator} {Top}{separator} {Right}{separator} {Bottom}", out bytesWritten);
+    }
+
+    public static Thickness Parse(ReadOnlySpan<byte> utf8Text)
+    {
+        return Parse(utf8Text, null);
+    }
+
+    public static bool TryParse(ReadOnlySpan<byte> utf8Text, out Thickness result)
+    {
+        return TryParse(utf8Text, null, out result);
+    }
+
+    public static Thickness Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider)
+    {
+        const string exceptionMessage = "Invalid Thickness.";
+
+        using var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider ?? CultureInfo.InvariantCulture, exceptionMessage);
+        if (tokenizer.TryReadSingle(out float a))
+        {
+            if (tokenizer.TryReadSingle(out float b))
+            {
+                if (tokenizer.TryReadSingle(out float c))
+                {
+                    return new Thickness(a, b, c, tokenizer.ReadSingle());
+                }
+
+                return new Thickness(a, b);
+            }
+
+            return new Thickness(a);
+        }
+
+        throw new FormatException(exceptionMessage);
+    }
+
+    public static bool TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, out Thickness result)
+    {
+        try
+        {
+            result = Parse(utf8Text, provider);
+            return true;
+        }
+        catch
+        {
+            result = default;
+            return false;
+        }
+    }
+
+    public static Thickness Parse(string s, IFormatProvider? provider)
+    {
+        return Parse(s.AsSpan(), provider);
+    }
+
+    public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, out Thickness result)
+    {
+        return TryParse(s.AsSpan(), provider, out result);
     }
 }

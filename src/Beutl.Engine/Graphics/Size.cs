@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
+using System.Text.Unicode;
 
 using Beutl.Converters;
 using Beutl.Media;
@@ -19,6 +20,9 @@ public readonly struct Size
     : IEquatable<Size>,
       IParsable<Size>,
       ISpanParsable<Size>,
+      ISpanFormattable,
+      IUtf8SpanFormattable,
+      IUtf8SpanParsable<Size>,
       IEqualityOperators<Size, Size, bool>,
       IMultiplyOperators<Size, Vector, Size>,
       IDivisionOperators<Size, Vector, Size>,
@@ -206,16 +210,7 @@ public readonly struct Size
     /// <returns>The status of the operation.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, out Size size)
     {
-        try
-        {
-            size = Parse(s);
-            return true;
-        }
-        catch
-        {
-            size = default;
-            return false;
-        }
+        return TryParse(s, null, out size);
     }
 
     /// <summary>
@@ -235,10 +230,7 @@ public readonly struct Size
     /// <returns>The <see cref="Size"/>.</returns>
     public static Size Parse(ReadOnlySpan<char> s)
     {
-        using var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid Size.");
-        return new Size(
-            tokenizer.ReadSingle(),
-            tokenizer.ReadSingle());
+        return Parse(s, null);
     }
 
     /// <summary>
@@ -391,25 +383,36 @@ public readonly struct Size
         height = Height;
     }
 
-    static Size IParsable<Size>.Parse(string s, IFormatProvider? provider)
+    public static Size Parse(string s, IFormatProvider? provider)
     {
-        return Parse(s);
+        return Parse(s.AsSpan(), provider);
     }
 
-    static bool IParsable<Size>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out Size result)
+    public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, out Size result)
     {
-        result = default;
-        return s != null && TryParse(s, out result);
+        return TryParse(s.AsSpan(), provider, out result);
     }
 
-    static Size ISpanParsable<Size>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    public static Size Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
     {
-        return Parse(s);
+        using var tokenizer = new RefStringTokenizer(s, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Size.");
+        return new Size(
+            tokenizer.ReadSingle(),
+            tokenizer.ReadSingle());
     }
 
-    static bool ISpanParsable<Size>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Size result)
+    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out Size result)
     {
-        return TryParse(s, out result);
+        try
+        {
+            result = Parse(s, provider);
+            return true;
+        }
+        catch
+        {
+            result = default;
+            return false;
+        }
     }
 
     static void ITupleConvertible<Size, float>.ConvertTo(Size self, Span<float> tuple)
@@ -421,5 +424,64 @@ public readonly struct Size
     static void ITupleConvertible<Size, float>.ConvertFrom(Span<float> tuple, out Size self)
     {
         self = new Size(tuple[0], tuple[1]);
+    }
+
+    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    {
+        char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
+        return MemoryExtensions.TryWrite(destination, provider, $"{Width}{separator} {Height}", out charsWritten);
+    }
+
+    public string ToString(string? format, IFormatProvider? formatProvider)
+    {
+        char separator = TokenizerHelper.GetSeparatorFromFormatProvider(formatProvider);
+        return string.Create(formatProvider, $"{Width}{separator} {Height}");
+    }
+
+    public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    {
+        char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
+        return Utf8.TryWrite(utf8Destination, provider, $"{Width}{separator} {Height}", out bytesWritten);
+    }
+
+    public static Size Parse(ReadOnlySpan<byte> utf8Text)
+    {
+        return Parse(utf8Text, null);
+    }
+
+    public static bool TryParse(ReadOnlySpan<byte> utf8Text, out Size result)
+    {
+        try
+        {
+            result = Parse(utf8Text, null);
+            return true;
+        }
+        catch
+        {
+            result = default;
+            return false;
+        }
+    }
+
+    public static Size Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider)
+    {
+        using var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Size.");
+        return new Size(
+            tokenizer.ReadSingle(),
+            tokenizer.ReadSingle());
+    }
+
+    public static bool TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, out Size result)
+    {
+        try
+        {
+            result = Parse(utf8Text, provider);
+            return true;
+        }
+        catch
+        {
+            result = default;
+            return false;
+        }
     }
 }

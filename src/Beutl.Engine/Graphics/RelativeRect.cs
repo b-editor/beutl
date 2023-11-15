@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
+using System.Text.Unicode;
 
 using Beutl.Utilities;
 
@@ -13,6 +14,9 @@ public readonly struct RelativeRect
     : IEquatable<RelativeRect>,
       IParsable<RelativeRect>,
       ISpanParsable<RelativeRect>,
+      ISpanFormattable,
+      IUtf8SpanParsable<RelativeRect>,
+      IUtf8SpanFormattable,
       IEqualityOperators<RelativeRect, RelativeRect, bool>
 {
     private static readonly char[] s_percentChar = { '%' };
@@ -178,16 +182,7 @@ public readonly struct RelativeRect
     /// <returns>The status of the operation.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, out RelativeRect rect)
     {
-        try
-        {
-            rect = Parse(s);
-            return true;
-        }
-        catch
-        {
-            rect = default;
-            return false;
-        }
+        return TryParse(s, null, out rect);
     }
 
     /// <summary>
@@ -207,7 +202,34 @@ public readonly struct RelativeRect
     /// <returns>The parsed <see cref="RelativeRect"/>.</returns>
     public static RelativeRect Parse(ReadOnlySpan<char> s)
     {
-        using (var tokenizer = new RefStringTokenizer(s, exceptionMessage: "Invalid RelativeRect."))
+        return Parse(s, null);
+    }
+
+    /// <summary>
+    /// Returns a String representing this RelativeRect instance.
+    /// </summary>
+    /// <returns>The string representation.</returns>
+    public override string ToString()
+    {
+        return Unit == RelativeUnit.Absolute ?
+            Rect.ToString() :
+            FormattableString.Invariant($"{Rect.X * 100}%, {Rect.Y * 100}%, {Rect.Width * 100}%, {Rect.Height * 100}%");
+    }
+
+    public static RelativeRect Parse(string s, IFormatProvider? provider)
+    {
+        return Parse(s.AsSpan(), provider);
+    }
+
+    public static bool TryParse(string? s, IFormatProvider? provider, out RelativeRect result)
+    {
+        return TryParse(s.AsSpan(), provider, out result);
+    }
+
+    public static RelativeRect Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    {
+        provider ??= CultureInfo.InvariantCulture;
+        using (var tokenizer = new RefStringTokenizer(s, provider, "Invalid RelativeRect."))
         {
             ReadOnlySpan<char> x = tokenizer.ReadString();
             ReadOnlySpan<char> y = tokenizer.ReadString();
@@ -238,43 +260,146 @@ public readonly struct RelativeRect
             }
 
             return new RelativeRect(
-                float.Parse(x, provider: CultureInfo.InvariantCulture) * scale,
-                float.Parse(y, provider: CultureInfo.InvariantCulture) * scale,
-                float.Parse(width, provider: CultureInfo.InvariantCulture) * scale,
-                float.Parse(height, provider: CultureInfo.InvariantCulture) * scale,
+                float.Parse(x, provider: provider) * scale,
+                float.Parse(y, provider: provider) * scale,
+                float.Parse(width, provider: provider) * scale,
+                float.Parse(height, provider: provider) * scale,
                 unit);
         }
     }
 
-    /// <summary>
-    /// Returns a String representing this RelativeRect instance.
-    /// </summary>
-    /// <returns>The string representation.</returns>
-    public override string ToString()
+    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out RelativeRect result)
     {
-        return Unit == RelativeUnit.Absolute ?
-            Rect.ToString() :
-            FormattableString.Invariant($"{Rect.X * 100}%, {Rect.Y * 100}%, {Rect.Width * 100}%, {Rect.Height * 100}%");
+        try
+        {
+            result = Parse(s, provider);
+            return true;
+        }
+        catch
+        {
+            result = default;
+            return false;
+        }
     }
 
-    static RelativeRect IParsable<RelativeRect>.Parse(string s, IFormatProvider? provider)
+    public string ToString(IFormatProvider? formatProvider)
     {
-        return Parse(s);
+        if (Unit == RelativeUnit.Absolute)
+        {
+            return Rect.ToString(formatProvider);
+        }
+        else
+        {
+            char separator = TokenizerHelper.GetSeparatorFromFormatProvider(formatProvider);
+            return string.Create(
+                formatProvider,
+                $"{Rect.X * 100}%{separator} {Rect.Y * 100}%{separator} {Rect.Width * 100}%{separator} {Rect.Height * 100}%");
+        }
     }
 
-    static bool IParsable<RelativeRect>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out RelativeRect result)
+    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
     {
-        result = default;
-        return s != null && TryParse(s, out result);
+        if (Unit == RelativeUnit.Absolute)
+        {
+            return Rect.TryFormat(destination, out charsWritten, default, provider);
+        }
+        else
+        {
+            char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
+            return MemoryExtensions.TryWrite(
+                destination,
+                provider,
+                $"{Rect.X * 100}%{separator} {Rect.Y * 100}%{separator} {Rect.Width * 100}%{separator} {Rect.Height * 100}%",
+                out charsWritten);
+        }
     }
 
-    static RelativeRect ISpanParsable<RelativeRect>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    public string ToString(string? format, IFormatProvider? formatProvider)
     {
-        return Parse(s);
+        return ToString(formatProvider);
     }
 
-    static bool ISpanParsable<RelativeRect>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out RelativeRect result)
+    public static RelativeRect Parse(ReadOnlySpan<byte> utf8Text)
     {
-        return TryParse(s, out result);
+        return Parse(utf8Text, null);
+    }
+
+    public static RelativeRect Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider)
+    {
+        provider ??= CultureInfo.InvariantCulture;
+        using (var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider, "Invalid RelativeRect."))
+        {
+            ReadOnlySpan<byte> x = tokenizer.ReadString();
+            ReadOnlySpan<byte> y = tokenizer.ReadString();
+            ReadOnlySpan<byte> width = tokenizer.ReadString();
+            ReadOnlySpan<byte> height = tokenizer.ReadString();
+
+            RelativeUnit unit = RelativeUnit.Absolute;
+            float scale = 1.0f;
+
+            ReadOnlySpan<byte> percentChar = "%"u8;
+            bool xRelative = x.EndsWith(percentChar);
+            bool yRelative = y.EndsWith(percentChar);
+            bool widthRelative = width.EndsWith(percentChar);
+            bool heightRelative = height.EndsWith(percentChar);
+
+            if (xRelative && yRelative && widthRelative && heightRelative)
+            {
+                x = x.TrimEnd(percentChar);
+                y = y.TrimEnd(percentChar);
+                width = width.TrimEnd(percentChar);
+                height = height.TrimEnd(percentChar);
+
+                unit = RelativeUnit.Relative;
+                scale = 0.01f;
+            }
+            else if (xRelative || yRelative || widthRelative || heightRelative)
+            {
+                throw new FormatException("If one coordinate is relative, all must be.");
+            }
+
+            return new RelativeRect(
+                float.Parse(x, provider: provider) * scale,
+                float.Parse(y, provider: provider) * scale,
+                float.Parse(width, provider: provider) * scale,
+                float.Parse(height, provider: provider) * scale,
+                unit);
+        }
+    }
+
+    public static bool TryParse(ReadOnlySpan<byte> utf8Text, out RelativeRect result)
+    {
+        return TryParse(utf8Text, null, out result);
+    }
+
+    public static bool TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, out RelativeRect result)
+    {
+        try
+        {
+            result = Parse(utf8Text, provider);
+            return true;
+        }
+        catch
+        {
+            result = default;
+            return false;
+        }
+    }
+
+    public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    {
+        if (Unit == RelativeUnit.Absolute)
+        {
+            return Rect.TryFormat(utf8Destination, out bytesWritten, default, provider);
+        }
+        else
+        {
+            char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
+            return Utf8.TryWrite(
+                utf8Destination,
+                provider,
+                $"{Rect.X * 100}%{separator} {Rect.Y * 100}%{separator} {Rect.Width * 100}%{separator} {Rect.Height * 100}%",
+                out bytesWritten);
+        }
     }
 }

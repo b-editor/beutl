@@ -1,3 +1,6 @@
+﻿using System.Globalization;
+using System.Text;
+
 using NUnit.Framework;
 
 namespace Beutl.Graphics.UnitTests;
@@ -11,6 +14,56 @@ public class RectTests
         var rect = Rect.Parse(str);
 
         Assert.AreEqual(new Rect(20, 80, 1900, 1000), rect);
+    }
+    
+    [Test]
+    public void ParseWithProvider()
+    {
+        const string str = "20;80;1900;1000";
+        var rect = Rect.Parse(str, CultureInfo.GetCultureInfo("fr"));
+
+        Assert.AreEqual(new Rect(20, 80, 1900, 1000), rect);
+    }
+    
+    [Test]
+    public void ParseUtf8()
+    {
+        ReadOnlySpan<byte> str = "20,80,1900,1000"u8;
+        var rect = Rect.Parse(str);
+
+        Assert.AreEqual(new Rect(20, 80, 1900, 1000), rect);
+    }
+    
+    [Test]
+    public void ParseUtf8WithProvider()
+    {
+        ReadOnlySpan<byte> str = "20;80;1900;1000"u8;
+        var rect = Rect.Parse(str, CultureInfo.GetCultureInfo("fr"));
+
+        Assert.AreEqual(new Rect(20, 80, 1900, 1000), rect);
+    }
+
+    [Test]
+    public void FormatToSpan()
+    {
+        const string str = "20, 80, 1900, 1000";
+        var rect = new Rect(20, 80, 1900, 1000);
+        Span<char> s = stackalloc char[64];
+
+        rect.TryFormat(s, out int written);
+        Assert.AreEqual(str, s.Slice(0, written).ToString());
+    }
+
+    [Test]
+    public void FormatToUtf8()
+    {
+        const string str = "20, 80, 1900, 1000";
+        var rect = new Rect(20, 80, 1900, 1000);
+        Span<byte> s = stackalloc byte[64];
+
+        rect.TryFormat(s, out int written);
+
+        Assert.AreEqual(str, Encoding.UTF8.GetString(s.Slice(0, written)));
     }
 
     [Test]

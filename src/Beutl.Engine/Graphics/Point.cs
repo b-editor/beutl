@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
+using System.Text.Unicode;
 
 using Beutl.Converters;
 using Beutl.Utilities;
@@ -18,7 +19,11 @@ namespace Beutl.Graphics;
 public readonly struct Point
     : IEquatable<Point>,
       IParsable<Point>,
+      IFormattable,
       ISpanParsable<Point>,
+      ISpanFormattable,
+      IUtf8SpanParsable<Point>,
+      IUtf8SpanFormattable,
       IEqualityOperators<Point, Point, bool>,
       IUnaryNegationOperators<Point, Point>,
       IAdditionOperators<Point, Point, Point>,
@@ -192,7 +197,7 @@ public readonly struct Point
     /// <returns>The status of the operation.</returns>
     public static bool TryParse(string s, out Point point)
     {
-        return TryParse(s.AsSpan(), out point);
+        return TryParse(s.AsSpan(), null, out point);
     }
 
     /// <summary>
@@ -203,16 +208,7 @@ public readonly struct Point
     /// <returns>The status of the operation.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, out Point point)
     {
-        try
-        {
-            point = Parse(s);
-            return true;
-        }
-        catch
-        {
-            point = default;
-            return false;
-        }
+        return TryParse(s, null, out point);
     }
 
     /// <summary>
@@ -222,7 +218,7 @@ public readonly struct Point
     /// <returns>The <see cref="Point"/>.</returns>
     public static Point Parse(string s)
     {
-        return Parse(s.AsSpan());
+        return Parse(s.AsSpan(), null);
     }
 
     /// <summary>
@@ -232,11 +228,7 @@ public readonly struct Point
     /// <returns>The <see cref="Point"/>.</returns>
     public static Point Parse(ReadOnlySpan<char> s)
     {
-        using var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid Point.");
-        return new Point(
-            tokenizer.ReadSingle(),
-            tokenizer.ReadSingle()
-        );
+        return Parse(s, null);
     }
 
     /// <summary>
@@ -321,25 +313,37 @@ public readonly struct Point
         y = Y;
     }
 
-    static Point IParsable<Point>.Parse(string s, IFormatProvider? provider)
+    public static Point Parse(string s, IFormatProvider? provider)
     {
-        return Parse(s);
+        return Parse(s.AsSpan(), provider);
     }
 
-    static bool IParsable<Point>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out Point result)
+    public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, out Point result)
     {
-        result = default;
-        return s != null && TryParse(s, out result);
+        return TryParse(s.AsSpan(), provider, out result);
     }
 
-    static Point ISpanParsable<Point>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    public static Point Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
     {
-        return Parse(s);
+        using var tokenizer = new RefStringTokenizer(s, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Point.");
+        return new Point(
+            tokenizer.ReadSingle(),
+            tokenizer.ReadSingle()
+        );
     }
 
-    static bool ISpanParsable<Point>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Point result)
+    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out Point result)
     {
-        return TryParse(s, out result);
+        try
+        {
+            result = Parse(s, provider);
+            return true;
+        }
+        catch
+        {
+            result = default;
+            return false;
+        }
     }
 
     static void ITupleConvertible<Point, float>.ConvertTo(Point self, Span<float> tuple)
@@ -351,5 +355,68 @@ public readonly struct Point
     static void ITupleConvertible<Point, float>.ConvertFrom(Span<float> tuple, out Point self)
     {
         self = new Point(tuple[0], tuple[1]);
+    }
+
+    public string ToString(IFormatProvider? formatProvider)
+    {
+        if (formatProvider == null)
+        {
+            return ToString();
+        }
+        else
+        {
+            char separator = TokenizerHelper.GetSeparatorFromFormatProvider(formatProvider);
+            return string.Create(formatProvider, $"{X}{separator} {Y}");
+        }
+    }
+
+    public string ToString(string? format, IFormatProvider? formatProvider)
+    {
+        return ToString(formatProvider);
+    }
+
+    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    {
+        char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
+        return MemoryExtensions.TryWrite(destination, provider, $"{X}{separator} {Y}", out charsWritten);
+    }
+
+    public static Point Parse(ReadOnlySpan<byte> utf8Text)
+    {
+        return Parse(utf8Text, null);
+    }
+
+    public static Point Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider)
+    {
+        using var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Point.");
+        return new Point(
+            tokenizer.ReadSingle(),
+            tokenizer.ReadSingle()
+        );
+    }
+
+    public static bool TryParse(ReadOnlySpan<byte> utf8Text, out Point result)
+    {
+        return TryParse(utf8Text, null, out result);
+    }
+
+    public static bool TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, out Point result)
+    {
+        try
+        {
+            result = Parse(utf8Text, provider);
+            return true;
+        }
+        catch
+        {
+            result = default;
+            return false;
+        }
+    }
+
+    public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    {
+        char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
+        return Utf8.TryWrite(utf8Destination, provider, $"{X}{separator} {Y}", out bytesWritten);
     }
 }
