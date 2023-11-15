@@ -21,9 +21,7 @@
     <PackageReference Include="Microsoft.Extensions.ObjectPool" />
     <PackageReference Include="NAudio.Core" />
     <PackageReference Include="OpenCvSharp4" />
-    <PackageReference Include="OpenCvSharp4.runtime.centos7-x64" />
     <PackageReference Include="OpenCvSharp4.runtime.osx.10.15-x64" />
-    <PackageReference Include="OpenCvSharp4.runtime.ubuntu.18.04-x64" />
     <PackageReference Include="OpenCvSharp4.runtime.win" />
     <PackageReference Include="OpenTK.OpenAL" />
     <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" />
