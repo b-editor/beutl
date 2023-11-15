@@ -1,12 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using System.Threading.Tasks;
-
-using Beutl.Utilities;
+﻿using System.Text.Json.Nodes;
 
 namespace Beutl.Serialization;
 
@@ -16,20 +8,7 @@ internal static class JsonDeepClone
     {
         foreach (KeyValuePair<string, JsonNode?> item in source)
         {
-            if (item.Value == null)
-            {
-                destination[item.Key] = null;
-            }
-            else
-            {
-                using var bufferWriter = new PooledArrayBufferWriter<byte>();
-                using var writer = new Utf8JsonWriter(bufferWriter);
-                item.Value.WriteTo(writer);
-
-                writer.Flush();
-
-                destination[item.Key] = JsonNode.Parse(bufferWriter.WrittenSpan);
-            }
+            destination[item.Key] = item.Value?.DeepClone();
         }
     }
 
@@ -37,20 +16,7 @@ internal static class JsonDeepClone
     {
         foreach (JsonNode? item in source)
         {
-            if (item == null)
-            {
-                destination.Add(item);
-            }
-            else
-            {
-                using var bufferWriter = new PooledArrayBufferWriter<byte>();
-                using var writer = new Utf8JsonWriter(bufferWriter);
-                item.WriteTo(writer);
-
-                writer.Flush();
-
-                destination.Add(JsonNode.Parse(bufferWriter.WrittenSpan));
-            }
+            destination.Add(item?.DeepClone());
         }
     }
 }

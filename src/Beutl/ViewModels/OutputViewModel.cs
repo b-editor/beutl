@@ -170,12 +170,6 @@ public sealed class VideoOutputViewModel
 
     public JsonNode WriteToJson()
     {
-        JsonNode? options = null;
-        if (OptionsJson.Value?.ToJsonString() is string opt)
-        {
-            options = JsonNode.Parse(opt);
-        }
-
         return new JsonObject
         {
             [nameof(Width)] = Width.Value,
@@ -184,7 +178,7 @@ public sealed class VideoOutputViewModel
             [nameof(FrameRate)] = InputFrameRate.Value,
             [nameof(BitRate)] = BitRate.Value,
             [nameof(KeyFrameRate)] = KeyFrameRate.Value,
-            ["Options"] = options,
+            ["Options"] = OptionsJson.Value?.DeepClone(),
             [nameof(IsOptionsExpanded)] = IsOptionsExpanded.Value,
         };
     }
@@ -291,18 +285,12 @@ public sealed class AudioOutputViewModel
 
     public JsonNode WriteToJson()
     {
-        JsonNode? options = null;
-        if (OptionsJson.Value?.ToJsonString() is string opt)
-        {
-            options = JsonNode.Parse(opt);
-        }
-
         return new JsonObject
         {
             [nameof(SampleRate)] = SampleRate.Value,
             [nameof(Channels)] = Channels.Value,
             [nameof(BitRate)] = BitRate.Value,
-            ["Options"] = options,
+            ["Options"] = OptionsJson.Value?.DeepClone(),
             [nameof(IsOptionsExpanded)] = IsOptionsExpanded.Value,
         };
     }
