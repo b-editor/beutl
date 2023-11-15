@@ -102,7 +102,6 @@ public sealed class FontManager
 
             if (!value!.ContainsKey(tf))
             {
-                Debug.Fail("");
                 value = value.Append(new(tf, typeface))
                     .ToFrozenDictionary();
 
