@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.Collections.Frozen;
+using System.Reflection;
 
 using Beutl.Media.Immutable;
 
@@ -32,8 +33,8 @@ internal static class KnownColors
             }
         }
 
-        s_knownColorNames = knownColorNames;
-        s_knownColors = knownColors;
+        s_knownColorNames = knownColorNames.ToFrozenDictionary();
+        s_knownColors = knownColors.ToFrozenDictionary();
         s_knownBrushes = new Dictionary<KnownColor, ISolidColorBrush>();
     }
 
