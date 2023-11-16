@@ -376,6 +376,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Perlin noise に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Brush_PerlinNoise {
+            get {
+                return ResourceManager.GetString("Brush_PerlinNoise", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Radial gradient に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Brush_RadialGradient {

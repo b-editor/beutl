@@ -45,6 +45,10 @@ public readonly struct BrushConstructor
         {
             ConfigureTileBrush(paint, tileBrush);
         }
+        else if (Brush is IPerlinNoiseBrush perlinNoiseBrush)
+        {
+            ConfigurePerlinNoiseBrush(paint, perlinNoiseBrush);
+        }
         else
         {
             paint.Color = new SKColor(255, 255, 255, 0);
@@ -305,6 +309,44 @@ public readonly struct BrushConstructor
             surface?.Dispose();
             skbitmap?.Dispose();
             intermediate?.Dispose();
+        }
+    }
+
+    private void ConfigurePerlinNoiseBrush(SKPaint paint, IPerlinNoiseBrush perlinNoiseBrush)
+    {
+        SKShader? shader = null;
+        switch (perlinNoiseBrush.PerlinNoiseType)
+        {
+            case PerlinNoiseType.Turbulence:
+                shader = SKShader.CreatePerlinNoiseTurbulence(
+                    perlinNoiseBrush.BaseFrequencyX / 100f, perlinNoiseBrush.BaseFrequencyY / 100f,
+                    perlinNoiseBrush.Octaves, perlinNoiseBrush.Seed);
+                break;
+
+            case PerlinNoiseType.Fractal:
+                shader = SKShader.CreatePerlinNoiseFractalNoise(
+                    perlinNoiseBrush.BaseFrequencyX / 100f, perlinNoiseBrush.BaseFrequencyY / 100f,
+                    perlinNoiseBrush.Octaves, perlinNoiseBrush.Seed);
+                break;
+        }
+
+        if (shader != null)
+        {
+            if (perlinNoiseBrush.Transform != null)
+            {
+                Point transformOrigin = perlinNoiseBrush.TransformOrigin.ToPixels(TargetSize);
+                var offset = Matrix.CreateTranslation(transformOrigin);
+                Matrix transform = (-offset) * perlinNoiseBrush.Transform.Value * offset;
+
+                if (!transform.IsIdentity)
+                {
+                    SKShader tmp = shader;
+                    shader = shader.WithLocalMatrix(transform.ToSKMatrix());
+                    tmp.Dispose();
+                }
+            }
+
+            paint.Shader = shader;
         }
     }
 }

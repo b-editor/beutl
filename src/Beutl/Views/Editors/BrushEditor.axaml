@@ -47,6 +47,10 @@
                                                     Tag="RadialGradient"
                                                     Text="{x:Static lang:Strings.Brush_RadialGradient}" />
                             <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding IsPerlinNoise.Value, Mode=OneWay}"
+                                                    Tag="PerlinNoise"
+                                                    Text="{x:Static lang:Strings.Brush_PerlinNoise}" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                     IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                                     Tag="Null"
                                                     Text="Null" />

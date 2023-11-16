@@ -985,4 +985,7 @@ and b-editor maintains the download URL.</value>
   <data name="RunningStartupTasks" xml:space="preserve">
     <value>Running startup tasks</value>
   </data>
+  <data name="Brush_PerlinNoise" xml:space="preserve">
+    <value>Perlin noise</value>
+  </data>
 </root>

@@ -985,4 +985,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="RunningStartupTasks" xml:space="preserve">
     <value>スタートアップタスクを実行中</value>
   </data>
+  <data name="Brush_PerlinNoise" xml:space="preserve">
+    <value>パーリンノイズ</value>
+  </data>
 </root>

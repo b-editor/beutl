@@ -57,6 +57,7 @@ public sealed partial class BrushEditor : UserControl
                 "LinearGradient" => new LinearGradientBrush(),
                 "ConicGradient" => new ConicGradientBrush(),
                 "RadialGradient" => new RadialGradientBrush(),
+                "PerlinNoise" => new PerlinNoiseBrush(),
                 _ => null
             };
 
