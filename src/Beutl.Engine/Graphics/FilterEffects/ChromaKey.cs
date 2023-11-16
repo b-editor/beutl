@@ -114,8 +114,8 @@ public class ChromaKey : FilterEffect
         Bgra8888 pixel = src[index];
         var srcHsv = pixel.ToColor().ToHsv();
 
-        if (Math.Abs(hsv.H - srcHsv.H) < hueRange
-            && Math.Abs(hsv.S - srcHsv.S) < satRange)
+        if (IntrinsicMath.Abs(hsv.H - srcHsv.H) < hueRange
+            && IntrinsicMath.Abs(hsv.S - srcHsv.S) < satRange)
         {
             src[index] = default;
         }

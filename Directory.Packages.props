@@ -23,6 +23,7 @@
     <PackageVersion Include="FluentAvaloniaUI" Version="2.0.4" />
     <PackageVersion Include="FluentIcons.FluentAvalonia" Version="1.1.221" />
     <PackageVersion Include="FluentTextTable" Version="1.0.0" />
+    <PackageVersion Include="ILGPU.Algorithms" Version="1.5.1" />
     <PackageVersion Include="Nerdbank.GitVersioning" Version="3.6.133" />
     <PackageVersion Include="HarfBuzzSharp" Version="7.3.0" />
     <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="7.3.0" />

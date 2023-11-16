@@ -6,6 +6,7 @@ using Beutl.Media.Pixel;
 using Beutl.Rendering;
 
 using ILGPU;
+using ILGPU.Algorithms;
 using ILGPU.Runtime;
 
 using SkiaSharp;
@@ -113,9 +114,9 @@ public class ColorKey : FilterEffect
             (pixel.B * 0.29891f);
 
         ntsc = IntrinsicMath.Clamp(ntsc, 0, 255);
-        ntsc = MathF.Round(ntsc);
-
-        if (Math.Abs(colorNtsc - ntsc) < range)
+        ntsc = XMath.Round(ntsc);
+        
+        if (IntrinsicMath.Abs(colorNtsc - ntsc) < range)
         {
             src[index] = default;
         }

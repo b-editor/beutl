@@ -29,7 +29,7 @@ public class SharedGPUContext
     {
         RenderThread.Dispatcher.VerifyAccess();
 
-        s_context = Context.CreateDefault();
+        s_context = Context.Create(builder => builder.Default().EnableAlgorithms());
 
         s_device = s_context.GetPreferredDevice(false);
 
