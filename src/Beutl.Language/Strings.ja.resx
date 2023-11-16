@@ -988,4 +988,22 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Brush_PerlinNoise" xml:space="preserve">
     <value>パーリンノイズ</value>
   </data>
+  <data name="FlatShadow" xml:space="preserve">
+    <value>フラットシャドウ</value>
+  </data>
+  <data name="StrokeEffect" xml:space="preserve">
+    <value>ストローク</value>
+  </data>
+  <data name="BlendEffect" xml:space="preserve">
+    <value>ブレンド</value>
+  </data>
+  <data name="Negaposi" xml:space="preserve">
+    <value>ネガポジ</value>
+  </data>
+  <data name="ChromaKey" xml:space="preserve">
+    <value>クロマキー</value>
+  </data>
+  <data name="ColorKey" xml:space="preserve">
+    <value>カラーキー</value>
+  </data>
 </root>

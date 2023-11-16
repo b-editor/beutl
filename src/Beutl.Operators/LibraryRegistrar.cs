@@ -128,12 +128,17 @@ public static class LibraryRegistrar
                     .BindFilterEffect<InnerShadow>()
                 )
                 
+                .AddMultiple(Strings.FlatShadow, m => m
+                    .BindSourceOperator<Configure.Effects.FlatShadowOperator>()
+                    .BindFilterEffect<FlatShadow>()
+                )
+                
                 .AddMultiple($"{Strings.Border} (deprecated)", m => m
                     .BindSourceOperator<Configure.Effects.BorderOperator>()
                     .BindFilterEffect<Border>()
                 )
                 
-                .AddMultiple("Stroke Effect", m => m
+                .AddMultiple(Strings.StrokeEffect, m => m
                     .BindSourceOperator<Configure.Effects.StrokeEffectOperator>()
                     .BindFilterEffect<StrokeEffect>()
                 )
@@ -203,22 +208,22 @@ public static class LibraryRegistrar
                     .BindFilterEffect<LutEffect>()
                 )
                 
-                .AddMultiple("Blend Effect", m => m
+                .AddMultiple(Strings.BlendEffect, m => m
                     .BindSourceOperator<Configure.Effects.BlendEffectOperator>()
                     .BindFilterEffect<BlendEffect>()
                 )
                 
-                .AddMultiple("Negaposi", m => m
+                .AddMultiple(Strings.Negaposi, m => m
                     .BindSourceOperator<Configure.Effects.NegaposiOperator>()
                     .BindFilterEffect<Negaposi>()
                 )
                 
-                .AddMultiple("Chroma Key", m => m
+                .AddMultiple(Strings.ChromaKey, m => m
                     .BindSourceOperator<Configure.Effects.ChromaKeyOperator>()
                     .BindFilterEffect<ChromaKey>()
                 )
                 
-                .AddMultiple("Color Key", m => m
+                .AddMultiple(Strings.ColorKey, m => m
                     .BindSourceOperator<Configure.Effects.ColorKeyOperator>()
                     .BindFilterEffect<ColorKey>()
                 )

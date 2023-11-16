@@ -295,6 +295,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Blend に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string BlendEffect {
+            get {
+                return ResourceManager.GetString("BlendEffect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Blend Mode に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string BlendMode {
@@ -475,6 +484,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Chroma key に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ChromaKey {
+            get {
+                return ResourceManager.GetString("ChromaKey", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Clipping に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Clipping {
@@ -507,6 +525,15 @@ namespace Beutl.Language {
         public static string Color {
             get {
                 return ResourceManager.GetString("Color", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Color key に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ColorKey {
+            get {
+                return ResourceManager.GetString("ColorKey", resourceCulture);
             }
         }
         
@@ -1097,6 +1124,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Flat Shadow に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FlatShadow {
+            get {
+                return ResourceManager.GetString("FlatShadow", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Follow System に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string FollowSystem {
@@ -1579,6 +1615,15 @@ namespace Beutl.Language {
         public static string Name {
             get {
                 return ResourceManager.GetString("Name", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Negaposi に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Negaposi {
+            get {
+                return ResourceManager.GetString("Negaposi", resourceCulture);
             }
         }
         
@@ -2416,6 +2461,15 @@ namespace Beutl.Language {
         public static string Stretch {
             get {
                 return ResourceManager.GetString("Stretch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Stroke に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string StrokeEffect {
+            get {
+                return ResourceManager.GetString("StrokeEffect", resourceCulture);
             }
         }
         
