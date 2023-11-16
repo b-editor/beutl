@@ -516,6 +516,30 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
             (color, blendMode),
             (data, _) => SKColorFilter.CreateBlendMode(data.color.ToSKColor(), (SKBlendMode)data.blendMode));
     }
+    
+    public void BlendMode(IBrush? brush, BlendMode blendMode)
+    {
+        static void ApplyCore((IBrush? Brush, BlendMode BlendMode) data, FilterEffectCustomOperationContext context)
+        {
+            if (context.Target.Surface is { } srcSurface)
+            {
+                Size size = context.Target.Size;
+                using EffectTarget newTarget = context.CreateTarget((int)size.Width, (int)size.Height);
+                using ImmediateCanvas newCanvas = context.Open(newTarget);
+
+                var c = new BrushConstructor(newTarget.Size, data.Brush, data.BlendMode, newCanvas);
+                using var brushPaint = new SKPaint();
+                c.ConfigurePaint(brushPaint);
+
+                newCanvas.DrawSurface(srcSurface.Value, default);
+                newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Size.ToSKSize()), brushPaint);
+
+                context.ReplaceTarget(newTarget);
+            }
+        }
+
+        Custom((brush, blendMode), ApplyCore, (_, r) => r);
+    }
 
     public void Custom<T>(T data, Action<T, FilterEffectCustomOperationContext> action, Func<T, Rect, Rect> transformBounds)
         where T : IEquatable<T>

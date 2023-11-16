@@ -1,31 +1,38 @@
 ﻿using Beutl.Media;
+using Beutl.Serialization;
 
 namespace Beutl.Graphics.Effects;
 
 public sealed class BlendEffect : FilterEffect
 {
-    public static readonly CoreProperty<Color> ColorProperty;
+    public static readonly CoreProperty<IBrush?> BrushProperty;
     public static readonly CoreProperty<BlendMode> BlendModeProperty;
-    private Color _color;
-    private BlendMode _blendMode;
+    private IBrush? _brush;
+    private BlendMode _blendMode = BlendMode.SrcIn;
 
     static BlendEffect()
     {
-        ColorProperty = ConfigureProperty<Color, BlendEffect>(nameof(Color))
-            .Accessor(o => o.Color, (o, v) => o.Color = v)
+        BrushProperty = ConfigureProperty<IBrush?, BlendEffect>(nameof(Brush))
+            .Accessor(o => o.Brush, (o, v) => o.Brush = v)
             .Register();
 
         BlendModeProperty = ConfigureProperty<BlendMode, BlendEffect>(nameof(BlendMode))
             .Accessor(o => o.BlendMode, (o, v) => o.BlendMode = v)
+            .DefaultValue(BlendMode.SrcIn)
             .Register();
 
-        AffectsRender<BlendEffect>(ColorProperty, BlendModeProperty);
+        AffectsRender<BlendEffect>(BrushProperty, BlendModeProperty);
     }
 
-    public Color Color
+    public BlendEffect()
     {
-        get => _color;
-        set => SetAndRaise(ColorProperty, ref _color, value);
+        Brush = new SolidColorBrush(Colors.White);
+    }
+
+    public IBrush? Brush
+    {
+        get => _brush;
+        set => SetAndRaise(BrushProperty, ref _brush, value);
     }
 
     public BlendMode BlendMode
@@ -36,6 +43,16 @@ public sealed class BlendEffect : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.BlendMode(Color, BlendMode);
+        context.BlendMode(Brush, BlendMode);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        if (context.Contains("Color"))
+        {
+            Color color = context.GetValue<Color>("Color");
+            Brush = new SolidColorBrush(color);
+        }
     }
 }
