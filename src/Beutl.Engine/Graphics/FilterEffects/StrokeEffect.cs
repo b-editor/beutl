@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
+using Beutl.Animation;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
@@ -54,7 +55,6 @@ public class StrokeEffect : FilterEffect
         set => SetAndRaise(PenProperty, ref _pen, value);
     }
 
-
     [Display(Name = nameof(Strings.Offset), ResourceType = typeof(Strings))]
     public Point Offset
     {
@@ -67,6 +67,12 @@ public class StrokeEffect : FilterEffect
     {
         get => _style;
         set => SetAndRaise(StyleProperty, ref _style, value);
+    }
+
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        (Pen as IAnimatable)?.ApplyAnimations(clock);
     }
 
     public override Rect TransformBounds(Rect rect)

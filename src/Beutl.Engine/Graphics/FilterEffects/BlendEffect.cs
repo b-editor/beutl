@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Animation;
+using Beutl.Media;
 using Beutl.Serialization;
 
 namespace Beutl.Graphics.Effects;
@@ -44,6 +45,12 @@ public sealed class BlendEffect : FilterEffect
     public override void ApplyTo(FilterEffectContext context)
     {
         context.BlendMode(Brush, BlendMode);
+    }
+
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        (Brush as IAnimatable)?.ApplyAnimations(clock);
     }
 
     public override void Deserialize(ICoreSerializationContext context)

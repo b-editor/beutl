@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Animation;
+using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Utilities;
 
@@ -67,6 +68,12 @@ public class FlatShadow : FilterEffect
     {
         get => _shadowOnly;
         set => SetAndRaise(ShadowOnlyProperty, ref _shadowOnly, value);
+    }
+
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        (Brush as IAnimatable)?.ApplyAnimations(clock);
     }
 
     public override void ApplyTo(FilterEffectContext context)
