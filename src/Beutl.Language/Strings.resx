@@ -985,4 +985,25 @@ and b-editor maintains the download URL.</value>
   <data name="RunningStartupTasks" xml:space="preserve">
     <value>Running startup tasks</value>
   </data>
+  <data name="Brush_PerlinNoise" xml:space="preserve">
+    <value>Perlin noise</value>
+  </data>
+  <data name="FlatShadow" xml:space="preserve">
+    <value>Flat Shadow</value>
+  </data>
+  <data name="StrokeEffect" xml:space="preserve">
+    <value>Stroke</value>
+  </data>
+  <data name="BlendEffect" xml:space="preserve">
+    <value>Blend</value>
+  </data>
+  <data name="Negaposi" xml:space="preserve">
+    <value>Negaposi</value>
+  </data>
+  <data name="ChromaKey" xml:space="preserve">
+    <value>Chroma key</value>
+  </data>
+  <data name="ColorKey" xml:space="preserve">
+    <value>Color key</value>
+  </data>
 </root>

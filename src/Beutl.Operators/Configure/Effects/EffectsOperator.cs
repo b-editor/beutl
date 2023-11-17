@@ -94,3 +94,57 @@ public sealed class LutEffectOperator : FilterEffectOperator<LutEffect>
 
     public Setter<float> Strength { get; set; } = new(LutEffect.StrengthProperty, 100);
 }
+
+public sealed class BlendEffectOperator : FilterEffectOperator<BlendEffect>
+{
+    public Setter<IBrush?> Brush{ get; set; } = new(BlendEffect.BrushProperty, new SolidColorBrush(Colors.White));
+
+    public Setter<BlendMode> BlendMode { get; set; } = new(BlendEffect.BlendModeProperty);
+}
+
+public sealed class NegaposiOperator : FilterEffectOperator<Negaposi>
+{
+    public Setter<byte> Red { get; set; } = new(Negaposi.RedProperty, 0);
+
+    public Setter<byte> Green { get; set; } = new(Negaposi.GreenProperty, 0);
+
+    public Setter<byte> Blue { get; set; } = new(Negaposi.BlueProperty, 0);
+
+    public Setter<float> Strength { get; set; } = new(Negaposi.StrengthProperty, 100);
+}
+
+public sealed class ChromaKeyOperator : FilterEffectOperator<ChromaKey>
+{
+    public Setter<Color> Color { get; set; } = new(ChromaKey.ColorProperty);
+
+    public Setter<float> HueRange { get; set; } = new(ChromaKey.HueRangeProperty);
+
+    public Setter<float> SaturationRange { get; set; } = new(ChromaKey.SaturationRangeProperty);
+}
+
+public sealed class ColorKeyOperator : FilterEffectOperator<ColorKey>
+{
+    public Setter<Color> Color { get; set; } = new(ColorKey.ColorProperty);
+
+    public Setter<float> Range { get; set; } = new(ColorKey.RangeProperty);
+}
+
+public sealed class StrokeEffectOperator : FilterEffectOperator<StrokeEffect>
+{
+    public Setter<IPen?> Pen { get; set; } = new(StrokeEffect.PenProperty, new Pen());
+
+    public Setter<Point> Offset { get; set; } = new(StrokeEffect.OffsetProperty);
+
+    public new Setter<Border.BorderStyles> Style { get; set; } = new(StrokeEffect.StyleProperty);
+}
+
+public sealed class FlatShadowOperator : FilterEffectOperator<FlatShadow>
+{
+    public Setter<float> Angle { get; set; } = new(FlatShadow.AngleProperty, 45);
+
+    public Setter<float> Length { get; set; } = new(FlatShadow.LengthProperty, 50);
+
+    public Setter<IBrush?> Brush { get; set; } = new(FlatShadow.BrushProperty, new SolidColorBrush(Colors.Gray));
+
+    public Setter<bool> ShadowOnly { get; set; } = new(FlatShadow.ShadowOnlyProperty);
+}

@@ -110,7 +110,7 @@ public static class LibraryRegistrar
                     .BindNode<Rotation3DTransformNode>()
                 )
             );
-
+        
         LibraryService.Current
             .RegisterGroup(Strings.FilterEffect, g => g
                 .AddMultiple(Strings.Blur, m => m
@@ -127,10 +127,20 @@ public static class LibraryRegistrar
                     .BindSourceOperator<Configure.Effects.InnerShadowOperator>()
                     .BindFilterEffect<InnerShadow>()
                 )
-
-                .AddMultiple(Strings.Border, m => m
+                
+                .AddMultiple(Strings.FlatShadow, m => m
+                    .BindSourceOperator<Configure.Effects.FlatShadowOperator>()
+                    .BindFilterEffect<FlatShadow>()
+                )
+                
+                .AddMultiple($"{Strings.Border} (deprecated)", m => m
                     .BindSourceOperator<Configure.Effects.BorderOperator>()
                     .BindFilterEffect<Border>()
+                )
+                
+                .AddMultiple(Strings.StrokeEffect, m => m
+                    .BindSourceOperator<Configure.Effects.StrokeEffectOperator>()
+                    .BindFilterEffect<StrokeEffect>()
                 )
 
                 .AddMultiple(Strings.Clipping, m => m
@@ -196,6 +206,26 @@ public static class LibraryRegistrar
                 .AddMultiple(Strings.LUT_Cube_File, m => m
                     .BindSourceOperator<Configure.Effects.LutEffectOperator>()
                     .BindFilterEffect<LutEffect>()
+                )
+                
+                .AddMultiple(Strings.BlendEffect, m => m
+                    .BindSourceOperator<Configure.Effects.BlendEffectOperator>()
+                    .BindFilterEffect<BlendEffect>()
+                )
+                
+                .AddMultiple(Strings.Negaposi, m => m
+                    .BindSourceOperator<Configure.Effects.NegaposiOperator>()
+                    .BindFilterEffect<Negaposi>()
+                )
+                
+                .AddMultiple(Strings.ChromaKey, m => m
+                    .BindSourceOperator<Configure.Effects.ChromaKeyOperator>()
+                    .BindFilterEffect<ChromaKey>()
+                )
+                
+                .AddMultiple(Strings.ColorKey, m => m
+                    .BindSourceOperator<Configure.Effects.ColorKeyOperator>()
+                    .BindFilterEffect<ColorKey>()
                 )
 
                 .AddMultiple(Strings.Transform, m => m

@@ -18,6 +18,7 @@
     <PackageReference Include="HarfBuzzSharp" />
     <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" />
     <PackageReference Include="ILGPU" />
+    <PackageReference Include="ILGPU.Algorithms" />
     <PackageReference Include="Microsoft.Extensions.ObjectPool" />
     <PackageReference Include="NAudio.Core" />
     <PackageReference Include="OpenCvSharp4" />

@@ -71,6 +71,10 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         IsRadialGradient = Value.Select(v => v is IRadialGradientBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
+        
+        IsPerlinNoise = Value.Select(v => v is IPerlinNoiseBrush)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
 
         Value.CombineWithPrevious()
             .Select(v => v.OldValue as IAnimatable)
@@ -102,6 +106,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     public ReadOnlyReactivePropertySlim<bool> IsConicGradient { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsRadialGradient { get; }
+    
+    public ReadOnlyReactivePropertySlim<bool> IsPerlinNoise { get; }
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
 

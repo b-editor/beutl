@@ -75,6 +75,12 @@ public abstract class Brush : Animatable, IMutableBrush
         set => SetAndRaise(TransformOriginProperty, ref _transformOrigin, value);
     }
 
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        (Transform as IAnimatable)?.ApplyAnimations(clock);
+    }
+
     public abstract IBrush ToImmutable();
 
     protected static void AffectsRender<T>(
