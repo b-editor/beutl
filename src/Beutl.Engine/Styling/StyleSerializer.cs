@@ -115,8 +115,7 @@ public static class StyleSerializer
         else
         {
             var json = new JsonObject();
-            if (value != null)
-                json["Value"] = value;
+            json["Value"] = value;
             if (owner != null)
                 json["Owner"] = owner;
             if (animationNode != null)

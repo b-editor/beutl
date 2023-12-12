@@ -70,6 +70,7 @@ public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
     {
     }
 
+    // Todo: ObsoleteSerializationApi
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);

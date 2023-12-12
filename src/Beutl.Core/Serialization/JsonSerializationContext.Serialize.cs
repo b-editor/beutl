@@ -102,9 +102,14 @@ public partial class JsonSerializationContext
 
     public void SetValue<T>(string name, T? value)
     {
-        if (value is Unit || value == null)
+        if (value is Unit)
         {
             _json.Remove(name);
+            _knownTypes.Remove(name);
+        }
+        else if (value == null)
+        {
+            _json[name] = null;
             _knownTypes.Remove(name);
         }
         else
