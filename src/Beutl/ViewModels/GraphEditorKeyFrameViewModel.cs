@@ -201,38 +201,38 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         return (x, y);
     }
 
-    public bool UpdateControlPoint1(Point point)
+    public void UpdateControlPoint1(Point point)
     {
         if (Model.Easing is SplineEasing splineEasing)
         {
             (double x, double y) = CoerceControlPoint(point);
 
-            if (double.IsFinite(x) && double.IsFinite(y))
+            if (double.IsFinite(x))
             {
                 splineEasing.X1 = (float)x;
+            }
+            if (double.IsFinite(y))
+            {
                 splineEasing.Y1 = (float)y;
-                return true;
             }
         }
-
-        return false;
     }
 
-    public bool UpdateControlPoint2(Point point)
+    public void UpdateControlPoint2(Point point)
     {
         if (Model.Easing is SplineEasing splineEasing)
         {
             (double x, double y) = CoerceControlPoint(point);
 
-            if (double.IsFinite(x) && double.IsFinite(y))
+            if (double.IsFinite(x))
             {
                 splineEasing.X2 = (float)x;
+            }
+            if (double.IsFinite(y))
+            {
                 splineEasing.Y2 = (float)y;
-                return true;
             }
         }
-
-        return false;
     }
 
     public void SubmitControlPoint1(float oldX, float oldY)
