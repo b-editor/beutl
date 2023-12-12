@@ -308,17 +308,15 @@ public partial class GraphEditorView : UserControl
             position = position.WithX(Math.Clamp(position.X, viewModel.Left.Value, viewModel.Right.Value));
             Point delta = position - _cPointstart;
             _cPointstart = position;
-            _ = tag switch
+            switch (tag)
             {
-                "ControlPoint1" => viewModel.UpdateControlPoint1(viewModel.ControlPoint1.Value + delta),
-                "ControlPoint2" => viewModel.UpdateControlPoint2(viewModel.ControlPoint2.Value + delta),
-                _ => false,
-            };
-
-            //if (!result)
-            //{
-            //    _cPointPressed = false;
-            //}
+                case "ControlPoint1":
+                    viewModel.UpdateControlPoint1(viewModel.ControlPoint1.Value + delta);
+                    break;
+                case "ControlPoint2":
+                    viewModel.UpdateControlPoint2(viewModel.ControlPoint2.Value + delta);
+                    break;
+            }
 
             e.Handled = true;
         }
