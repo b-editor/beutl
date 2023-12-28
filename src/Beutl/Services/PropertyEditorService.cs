@@ -180,7 +180,7 @@ public static class PropertyEditorService
             new(typeof(Color), new(_ => new ColorEditor(), s => new ColorEditorViewModel(s.ToTyped<Color>()))),
 
             new(typeof(Point), new(_ => new Vector2Editor<float>(), s => new PointEditorViewModel(s.ToTyped<Point>()))),
-            new(typeof(Size), new(_ => new Vector4Editor<float>(), s => new SizeEditorViewModel(s.ToTyped<Size>()))),
+            new(typeof(Size), new(_ => new Vector2Editor<float>(), s => new SizeEditorViewModel(s.ToTyped<Size>()))),
             new(typeof(Vector2), new(_ => new Vector2Editor<float>(), s => new Vector2EditorViewModel(s.ToTyped<Vector2>()))),
             new(typeof(Graphics.Vector), new(_ => new Vector2Editor<float>(), s => new VectorEditorViewModel(s.ToTyped<Graphics.Vector>()))),
             new(typeof(PixelPoint), new(_ => new Vector2Editor<int>(), s => new PixelPointEditorViewModel(s.ToTyped<PixelPoint>()))),
