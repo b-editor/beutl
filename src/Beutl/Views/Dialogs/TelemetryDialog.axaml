@@ -18,7 +18,7 @@
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
                 Click="ShowDetail_Click"
-                ToolTip.Tip="https://beutl.beditor.net/AboutTelemetry">
+                ToolTip.Tip="https://beutl.beditor.net/about/telemetry">
             <Grid ColumnDefinitions="48,*">
                 <ui:SymbolIcon Height="48"
                                FontSize="16"

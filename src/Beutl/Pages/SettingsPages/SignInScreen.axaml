@@ -58,8 +58,8 @@
 
         <TextBlock MinHeight="16"
                    Margin="0,16,0,0"
-                   Theme="{StaticResource ErrorTextBlockStyle}"
-                   Text="{CompiledBinding Error.Value}" />
+                   Text="{CompiledBinding Error.Value}"
+                   Theme="{StaticResource ErrorTextBlockStyle}" />
 
         <Button Height="40"
                 Margin="0,8,0,0"
@@ -72,11 +72,11 @@
             <ui:HyperlinkButton Grid.Column="0"
                                 HorizontalAlignment="Center"
                                 Content="{x:Static lang:Strings.PrivacyPolicy}"
-                                NavigateUri="https://beutl.beditor.net/Privacy" />
+                                NavigateUri="https://beutl.beditor.net/about/privacy" />
             <ui:HyperlinkButton Grid.Column="1"
                                 HorizontalAlignment="Center"
                                 Content="{x:Static lang:Strings.TermsOfService}"
-                                NavigateUri="https://beutl.beditor.net/TermsOfService" />
+                                NavigateUri="https://beutl.beditor.net/about/toc" />
         </Grid>
 
         <Button Height="40"

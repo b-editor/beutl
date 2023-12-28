@@ -16,7 +16,7 @@ namespace Beutl.Api;
 
 public class BeutlApiApplication
 {
-    //private const string BaseUrl = "https://localhost:7278";
+    //private const string BaseUrl = "https://localhost:44459";
     private const string BaseUrl = "https://beutl.beditor.net";
     private readonly HttpClient _httpClient;
     private readonly ReactivePropertySlim<AuthorizedUser?> _authorizedUser = new();
@@ -133,7 +133,7 @@ public class BeutlApiApplication
             using HttpListener listener = StartListener($"{continueUri}/");
             activity?.AddEvent(new("Started_Listener"));
 
-            string uri = $"{BaseUrl}/Identity/Account/Login?provider={provider}&returnUrl={authUriRes.Auth_uri}";
+            string uri = $"{BaseUrl}/api/v2/identity/signInWith?provider={provider}&returnUrl={Uri.EscapeDataString(authUriRes.Auth_uri)}";
 
             Process.Start(new ProcessStartInfo(uri)
             {
@@ -174,7 +174,7 @@ public class BeutlApiApplication
                 using HttpListener listener = StartListener($"{continueUri}/");
                 activity?.AddEvent(new("Started_Listener"));
 
-                string uri = $"{BaseUrl}/Identity/Account/Login?returnUrl={authUriRes.Auth_uri}";
+                string uri = $"{BaseUrl}/account/signIn?returnUrl={Uri.EscapeDataString(authUriRes.Auth_uri)}";
 
                 Process.Start(new ProcessStartInfo(uri)
                 {
@@ -206,7 +206,7 @@ public class BeutlApiApplication
 
     public static void OpenAccountSettings()
     {
-        Process.Start(new ProcessStartInfo($"{BaseUrl}/Identity/Account/Manage")
+        Process.Start(new ProcessStartInfo($"{BaseUrl}/account/manage")
         {
             UseShellExecute = true,
             Verb = "open"

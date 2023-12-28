@@ -70,11 +70,11 @@
                 <ui:HyperlinkButton Grid.Column="0"
                                     HorizontalAlignment="Center"
                                     Content="{x:Static lang:Strings.PrivacyPolicy}"
-                                    NavigateUri="https://beutl.beditor.net/Privacy" />
+                                    NavigateUri="https://beutl.beditor.net/about/privacy" />
                 <ui:HyperlinkButton Grid.Column="1"
                                     HorizontalAlignment="Center"
                                     Content="{x:Static lang:Strings.TermsOfService}"
-                                    NavigateUri="https://beutl.beditor.net/TermsOfService" />
+                                    NavigateUri="https://beutl.beditor.net/about/toc" />
             </Grid>
         </StackPanel>
     </Panel>
