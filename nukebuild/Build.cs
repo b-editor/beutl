@@ -6,9 +6,11 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Xml.Linq;
 
+using static Nuke.Common.Tools.InnoSetup.InnoSetupTasks;
 using Nuke.Common.Tools.NerdbankGitVersioning;
 
 using Serilog;
+using Nuke.Common.Tools.InnoSetup;
 
 partial class Build : NukeBuild
 {
@@ -152,6 +154,19 @@ partial class Build : NukeBuild
             fileName.Append(".zip");
 
             mainOutput.CompressTo(ArtifactsDirectory / fileName.ToString());
+        });
+
+    Target BuildInstaller => _ => _
+        .DependsOn(Publish)
+        .Executes(() =>
+        {
+            InnoSetup(c => c
+                .SetKeyValueDefinition("MyAppVersion", NerdbankVersioning.AssemblyFileVersion)
+                .SetKeyValueDefinition("MyOutputDir", ArtifactsDirectory)
+                .SetKeyValueDefinition("MyLicenseFile", RootDirectory / "LICENSE")
+                .SetKeyValueDefinition("MySetupIconFile", RootDirectory / "assets/logos/logo.ico")
+                .SetKeyValueDefinition("MySource", OutputDirectory / "Beutl")
+                .SetScriptFile(RootDirectory / "nukebuild/beutl-setup.iss"));
         });
 
     bool IsSupportedRid(DotNetRuntimeIdentifier rid)

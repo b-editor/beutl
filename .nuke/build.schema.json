@@ -112,6 +112,7 @@
           "items": {
             "type": "string",
             "enum": [
+              "BuildInstaller",
               "Clean",
               "Compile",
               "Publish",
@@ -130,6 +131,7 @@
           "items": {
             "type": "string",
             "enum": [
+              "BuildInstaller",
               "Clean",
               "Compile",
               "Publish",
