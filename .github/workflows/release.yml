@@ -87,11 +87,10 @@ jobs:
         with:
           path: artifacts
 
-      - uses: actions/create-release@v1
+      - uses: ncipollo/release-action@v1
         id: create_release
         with:
           artifacts: "artifacts/**/*.zip,artifacts/**/*.nupkg"
           draft: true
-          prerelease: false
           makeLatest: true
           generateReleaseNotes: true
