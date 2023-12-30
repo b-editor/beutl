@@ -69,11 +69,8 @@ jobs:
       - name: Restore
         run: ./build.cmd Restore
   
-      - name: Build
-        run: dotnet build --no-restore -c Release
-
-      - name: Pack
-        run: dotnet pack --no-build -c Release --output ../../artifacts
+      - name: Build & Pack
+        run: dotnet pack --no-restore -c Release --output ../../artifacts
         working-directory: ./packages/Beutl.Sdk
 
       - name: Save
