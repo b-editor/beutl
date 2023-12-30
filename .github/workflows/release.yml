@@ -42,6 +42,7 @@ jobs:
 
       - name: Publish
         run: ./build.cmd Publish --runtime ${{matrix.rid}} --skip Restore
+
       - name: Zip
         run: ./build.cmd Zip --runtime ${{matrix.rid}} --skip Publish
 
@@ -49,7 +50,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: beutl-${{matrix.rid}}-${{needs.determine-version.outputs.semVer}}
-          path: ./artifacts/Beutl-${{matrix.rid}}-${{needs.determine-version.outputs.semVer}}.zip
+          path: ./artifacts/*.zip
 
   build-nuget:
     needs: [determine-version]
@@ -69,10 +70,11 @@ jobs:
         run: ./build.cmd Restore
   
       - name: Build
-        run: dotnet build --no-restore
+        run: dotnet build --no-restore -c Release
 
       - name: Pack
-        run: dotnet pack --no-build --output ./output
+        run: dotnet pack --no-build -c Release --output ../../artifacts
+        working-directory: ./packages/Beutl.Sdk
 
       - name: Save
         uses: actions/upload-artifact@v3
