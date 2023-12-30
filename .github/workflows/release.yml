@@ -52,6 +52,41 @@ jobs:
           name: beutl-${{matrix.rid}}-${{needs.determine-version.outputs.semVer}}
           path: ./artifacts/*.zip
 
+  build-windows-installer:
+    needs: [determine-version, build-executable]
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          global-json-file: global.json
+          
+      - uses: actions/download-artifact@v3
+        with:
+          name: beutl-win_x64-${{needs.determine-version.outputs.semVer}}
+          path: artifacts
+
+      - name: Extract zip
+        run: |
+          mkdir output/Beutl
+          cd output/Beutl
+          7z x ../../artifacts/beutl-win-x64-${{needs.determine-version.outputs.semVer}}.zip
+
+      - name: Build installer
+        run: ./build.cmd BuildInstaller --skip Publish
+
+      - name: Save installer
+        uses: actions/upload-artifact@v3
+        with:
+          name: beutl-setup
+          path: ./artifacts/beutl-setup.exe
+
   build-nuget:
     needs: [determine-version]
     runs-on: windows-latest
@@ -90,7 +125,7 @@ jobs:
       - uses: ncipollo/release-action@v1
         id: create_release
         with:
-          artifacts: "artifacts/**/*.zip,artifacts/**/*.nupkg"
+          artifacts: "artifacts/**/*.zip,artifacts/**/*.nupkg,artifacts/beutl-setup.exe"
           draft: true
           makeLatest: true
           generateReleaseNotes: true
