@@ -13,6 +13,7 @@ public static class Cursors
     public static readonly Cursor DragMove = new(StandardCursorType.DragMove);
     public static readonly Cursor DragCopy = new(StandardCursorType.DragCopy);
     public static readonly Cursor DragLink = new(StandardCursorType.DragLink);
+    public static readonly Cursor Cross = new(StandardCursorType.Cross);
     public static readonly Cursor Hand;
     public static readonly Cursor HandGrab;
 

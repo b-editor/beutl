@@ -11,6 +11,7 @@ using Beutl.ViewModels;
 
 using AvaImage = Avalonia.Controls.Image;
 using AvaPoint = Avalonia.Point;
+using AvaRect = Avalonia.Rect;
 
 namespace Beutl.Views;
 
@@ -373,6 +374,87 @@ public partial class EditView
         }
     }
 
+    private sealed class MouseControlCrop : IMouseControlHandler
+    {
+        private bool _pressed;
+        private AvaPoint _start;
+        private AvaPoint _position;
+        private AvaPoint _startInPanel;
+        private AvaPoint _positionInPanel;
+        private Border? _border;
+
+        public required Player Player { get; init; }
+
+        public required AvaImage Image { get; init; }
+
+        public required EditViewModel ViewModel { get; init; }
+
+        public void OnMoved(PointerEventArgs e)
+        {
+            if (_pressed)
+            {
+                _position = e.GetPosition(Image);
+                _positionInPanel = e.GetPosition(Player.GetFramePanel());
+                if (_border != null)
+                {
+                    AvaRect rect = new AvaRect(_startInPanel, _positionInPanel).Normalize();
+                    _border.Margin = new(rect.X, rect.Y, 0, 0);
+                    _border.Width = rect.Width;
+                    _border.Height = rect.Height;
+                }
+
+                e.Handled = true;
+            }
+        }
+
+        public void OnReleased(PointerReleasedEventArgs e)
+        {
+            if (_pressed)
+            {
+                Rect rect = new Rect(_start.ToBtlPoint(), _position.ToBtlPoint()).Normalize();
+                ViewModel.Player.TcsForCrop?.SetResult(rect);
+                ViewModel.Player.LastSelectedRect = rect;
+
+                if (_border != null)
+                {
+                    Player.GetFramePanel().Children.Remove(_border);
+                    _border = null;
+                }
+
+                _pressed = false;
+            }
+        }
+
+
+        public void OnPressed(PointerPressedEventArgs e)
+        {
+            PointerPoint pointerPoint = e.GetCurrentPoint(Image);
+            _pressed = pointerPoint.Properties.IsLeftButtonPressed;
+            _start = pointerPoint.Position;
+            Panel panel = Player.GetFramePanel();
+            _startInPanel = e.GetCurrentPoint(panel).Position;
+            if (_pressed)
+            {
+                _border = panel.Children.OfType<Border>().FirstOrDefault(x => x.Tag is nameof(MouseControlCrop));
+                if (_border == null)
+                {
+                    _border = new()
+                    {
+                        Tag = nameof(MouseControlCrop),
+                        BorderBrush = TimelineSharedObject.SelectionPen.Brush,
+                        BorderThickness = new(0.5),
+                        Background = TimelineSharedObject.SelectionFillBrush,
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top
+                    };
+                    panel.Children.Add(_border);
+                }
+
+                e.Handled = true;
+            }
+        }
+    }
+
     private readonly WeakReference<Drawable?> _lastSelected = new(null);
     private IMouseControlHandler? _mouseState;
 
@@ -405,13 +487,22 @@ public partial class EditView
                 viewModel = viewModel
             };
         }
-        else
+        else if (viewModel.Player.IsHandMode.Value)
         {
             return new MouseControlHand
             {
                 Player = Player,
                 Image = Image,
                 viewModel = viewModel
+            };
+        }
+        else
+        {
+            return new MouseControlCrop
+            {
+                Player = Player,
+                Image = Image,
+                ViewModel = viewModel
             };
         }
     }
