@@ -12,11 +12,11 @@ if (WaitForProcessExited.PackageToolsCount != 0)
 
 var apiApp = new BeutlApiApplication(new HttpClient());
 
-var verbose = new Option<bool>(new[] { "--verbose", "-v" }, () => false)
+var verbose = new Option<bool>(["--verbose", "-v"], () => false)
 {
     Description = Resources.VerboseDescription,
 };
-var clean = new Option<bool>(new[] { "--clean", "-c" }, () => true)
+var clean = new Option<bool>(["--clean", "-c"], () => true)
 {
     Description = Resources.CleanDescription,
 };

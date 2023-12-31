@@ -104,7 +104,7 @@ public class TextElements : IReadOnlyList<TextElement>, IAffectsRender
             _arrayCount = count;
         }
 
-        public Span<FormattedText> Current => _array.AsSpan().Slice(_index, _count);
+        public readonly Span<FormattedText> Current => _array.AsSpan().Slice(_index, _count);
 
         public bool MoveNext()
         {

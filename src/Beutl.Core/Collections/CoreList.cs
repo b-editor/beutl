@@ -677,7 +677,7 @@ public class CoreList<T> : ICoreList<T>
             return _innerEnumerator.MoveNext();
         }
 
-        void IEnumerator.Reset()
+        readonly void IEnumerator.Reset()
         {
             ((IEnumerator)_innerEnumerator).Reset();
         }

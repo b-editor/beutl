@@ -619,10 +619,14 @@ public sealed class OutputViewModel : IOutputContext
 
         if (json.TryGetPropertyValue(nameof(VideoSettings), out JsonNode? videoNode)
             && videoNode is JsonObject videoObj)
+        {
             VideoSettings.ReadFromJson(videoObj);
+        }
 
         if (json.TryGetPropertyValue(nameof(AudioSettings), out JsonNode? audioNode)
             && audioNode is JsonObject audioObj)
+        {
             AudioSettings.ReadFromJson(audioObj);
+        }
     }
 }

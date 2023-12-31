@@ -128,12 +128,13 @@ void AddChild(Dictionary<string, HierarchizedList> hierarchizedLists, string key
             match2.Key = $"Index{match2.Key}";
         }
 
-        if (!current.Children.ContainsKey(curKey))
+        if (!current.Children.TryGetValue(curKey, out HierarchizedList? v))
         {
-            current.Children[curKey] = new HierarchizedList();
+            v = new HierarchizedList();
+            current.Children[curKey] = v;
         }
 
-        current = current.Children[curKey];
+        current = v;
 
         if (i == splitted.Length - 1)
         {

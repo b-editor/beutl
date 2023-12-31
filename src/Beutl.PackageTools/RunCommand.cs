@@ -17,17 +17,17 @@ public sealed class RunCommand : RootCommand
     public RunCommand(BeutlApiApplication apiApp, Option<bool> verbose, Option<bool> clean)
         : base(Resources.RunCommandDescription)
     {
-        AddOption(_installs = new Option<string[]>(new[] { "--installs", "-i" }, () => Array.Empty<string>())
+        AddOption(_installs = new Option<string[]>(["--installs", "-i"], () => [])
         {
             Description = Resources.InstallsDescription,
             AllowMultipleArgumentsPerToken = true,
         });
-        AddOption(_uninstalls = new Option<string[]>(new[] { "--uninstalls", "-r" }, () => Array.Empty<string>())
+        AddOption(_uninstalls = new Option<string[]>(["--uninstalls", "-r"], () => [])
         {
             Description = Resources.UninstallsDescription,
             AllowMultipleArgumentsPerToken = true,
         });
-        AddOption(_updates = new Option<string[]>(new[] { "--updates", "-u" }, () => Array.Empty<string>())
+        AddOption(_updates = new Option<string[]>(["--updates", "-u"], () => [])
         {
             Description = Resources.UpdatesDescription,
             AllowMultipleArgumentsPerToken = true,

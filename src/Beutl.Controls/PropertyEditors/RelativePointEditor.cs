@@ -162,7 +162,7 @@ public class RelativePointEditor : Vector2Editor
         float scale = 1f;
         ReadOnlySpan<char> span = s;
 
-        if (s.EndsWith("%", StringComparison.Ordinal))
+        if (s.EndsWith('%'))
         {
             scale = 0.01f;
             span = s.AsSpan()[0..^1];

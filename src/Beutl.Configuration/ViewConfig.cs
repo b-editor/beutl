@@ -310,7 +310,7 @@ public sealed class ViewConfig : ConfigurationBase
 
     public void ResetPrimaryProperties()
     {
-        PrimaryProperties.Replace(new[] { "AlignmentX", "AlignmentY", "TransformOrigin", "BlendMode" });
+        PrimaryProperties.Replace(["AlignmentX", "AlignmentY", "TransformOrigin", "BlendMode"]);
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
