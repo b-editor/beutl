@@ -11,7 +11,7 @@ namespace Beutl.ViewModels.Tools;
 
 public sealed class SceneSettingsTabViewModel : IToolContext
 {
-    private readonly CompositeDisposable _disposable = new();
+    private readonly CompositeDisposable _disposable = [];
     private EditViewModel _editViewModel;
     private Scene _scene;
 
@@ -148,27 +148,15 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         return null;
     }
 
-    private sealed class UpdateSceneSettingsCommand : IRecordableCommand
+    private sealed class UpdateSceneSettingsCommand(PixelSize newSize, TimeSpan newDuration, Scene scene) : IRecordableCommand
     {
-        private readonly PixelSize _newSize;
-        private readonly PixelSize _oldSize;
-        private readonly TimeSpan _newDuration;
-        private readonly TimeSpan _oldDuration;
-        private readonly Scene _scene;
-
-        public UpdateSceneSettingsCommand(PixelSize newSize, TimeSpan newDuration, Scene scene)
-        {
-            _newSize = newSize;
-            _oldSize = new(scene.Width, scene.Height);
-            _newDuration = newDuration;
-            _oldDuration = scene.Duration;
-            _scene = scene;
-        }
+        private readonly PixelSize _oldSize = new(scene.Width, scene.Height);
+        private readonly TimeSpan _oldDuration = scene.Duration;
 
         public void Do()
         {
-            _scene.Initialize(_newSize.Width, _newSize.Height);
-            _scene.Duration = _newDuration;
+            scene.Initialize(newSize.Width, newSize.Height);
+            scene.Duration = newDuration;
         }
 
         public void Redo()
@@ -178,8 +166,8 @@ public sealed class SceneSettingsTabViewModel : IToolContext
 
         public void Undo()
         {
-            _scene.Initialize(_oldSize.Width, _oldSize.Height);
-            _scene.Duration = _oldDuration;
+            scene.Initialize(_oldSize.Width, _oldSize.Height);
+            scene.Duration = _oldDuration;
         }
     }
 }

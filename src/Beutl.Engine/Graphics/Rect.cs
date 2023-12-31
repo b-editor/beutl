@@ -400,13 +400,13 @@ public readonly struct Rect
     /// <returns>The bounding box</returns>
     public Rect TransformToAABB(Matrix matrix)
     {
-        ReadOnlySpan<Point> points = stackalloc Point[4]
-        {
+        ReadOnlySpan<Point> points =
+        [
             TopLeft.Transform(matrix),
             TopRight.Transform(matrix),
             BottomRight.Transform(matrix),
             BottomLeft.Transform(matrix)
-        };
+        ];
 
         float left = float.MaxValue;
         float right = float.MinValue;

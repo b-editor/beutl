@@ -19,7 +19,7 @@ namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
     private readonly ILogger _logger = Log.ForContext<PublicPackageDetailsPageViewModel>();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly PackageChangesQueue _queue;
     private readonly LibraryService _library;
@@ -290,7 +290,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
 
     public ReadOnlyReactivePropertySlim<string> DisplayName { get; }
 
-    public CoreList<Release> AllReleases { get; } = new();
+    public CoreList<Release> AllReleases { get; } = [];
 
     public ReactivePropertySlim<Release?> SelectedRelease { get; } = new();
 

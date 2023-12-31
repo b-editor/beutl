@@ -16,9 +16,14 @@ namespace Beutl.Media;
 /// <summary>
 /// Represents a point in device pixels.
 /// </summary>
+/// <remarks>
+/// Initializes a new instance of the <see cref="PixelPoint"/> structure.
+/// </remarks>
+/// <param name="x">The X co-ordinate.</param>
+/// <param name="y">The Y co-ordinate.</param>
 [JsonConverter(typeof(PixelPointJsonConverter))]
 [TypeConverter(typeof(PixelPointConverter))]
-public readonly struct PixelPoint
+public readonly struct PixelPoint(int x, int y)
     : IEquatable<PixelPoint>,
       IParsable<PixelPoint>,
       ISpanParsable<PixelPoint>,
@@ -33,25 +38,14 @@ public readonly struct PixelPoint
     public static readonly PixelPoint Origin = new(0, 0);
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="PixelPoint"/> structure.
-    /// </summary>
-    /// <param name="x">The X co-ordinate.</param>
-    /// <param name="y">The Y co-ordinate.</param>
-    public PixelPoint(int x, int y)
-    {
-        X = x;
-        Y = y;
-    }
-
-    /// <summary>
     /// Gets the X co-ordinate.
     /// </summary>
-    public int X { get; }
+    public int X { get; } = x;
 
     /// <summary>
     /// Gets the Y co-ordinate.
     /// </summary>
-    public int Y { get; }
+    public int Y { get; } = y;
 
     static int ITupleConvertible<PixelPoint, int>.TupleLength => 2;
 

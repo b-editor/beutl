@@ -1,14 +1,8 @@
 ﻿namespace Beutl;
 
-public class CommandExecutedEventArgs : EventArgs
+public class CommandExecutedEventArgs(IRecordableCommand command, CommandType type) : EventArgs
 {
-    public CommandExecutedEventArgs(IRecordableCommand command, CommandType type)
-    {
-        Command = command;
-        Type = type;
-    }
+    public IRecordableCommand Command { get; } = command;
 
-    public IRecordableCommand Command { get; }
-
-    public CommandType Type { get; }
+    public CommandType Type { get; } = type;
 }

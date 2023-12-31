@@ -12,7 +12,7 @@ namespace Beutl.ViewModels.NodeTree;
 
 public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly string _defaultName;
     private NodeTreeModel _nodeTree;
     private NodeTreeInputViewModel _parent;
@@ -57,7 +57,7 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
 
     public ReactiveProperty<bool> IsExpanded { get; } = new(true);
 
-    public CoreList<IPropertyEditorContext?> Properties { get; } = new();
+    public CoreList<IPropertyEditorContext?> Properties { get; } = [];
 
     public void Remove()
     {

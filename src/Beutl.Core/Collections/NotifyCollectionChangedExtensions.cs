@@ -36,16 +36,10 @@ public static class NotifyCollectionChangedExtensions
         return collection.GetWeakCollectionChangedObservable().Subscribe(handler);
     }
 
-    private class WeakCollectionChangedObservable : LightweightObservableBase<NotifyCollectionChangedEventArgs>,
-        IWeakEventSubscriber<NotifyCollectionChangedEventArgs>
+    private class WeakCollectionChangedObservable(WeakReference<INotifyCollectionChanged> source)
+        : LightweightObservableBase<NotifyCollectionChangedEventArgs>,
+          IWeakEventSubscriber<NotifyCollectionChangedEventArgs>
     {
-        private readonly WeakReference<INotifyCollectionChanged> _sourceReference;
-
-        public WeakCollectionChangedObservable(WeakReference<INotifyCollectionChanged> source)
-        {
-            _sourceReference = source;
-        }
-
         public void OnEvent(object? sender, WeakEvent ev, NotifyCollectionChangedEventArgs e)
         {
             PublishNext(e);
@@ -53,7 +47,7 @@ public static class NotifyCollectionChangedExtensions
 
         protected override void Initialize()
         {
-            if (_sourceReference.TryGetTarget(out INotifyCollectionChanged? instance))
+            if (source.TryGetTarget(out INotifyCollectionChanged? instance))
             {
                 WeakEvents.CollectionChanged.Subscribe(instance, this);
             }
@@ -61,7 +55,7 @@ public static class NotifyCollectionChangedExtensions
 
         protected override void Deinitialize()
         {
-            if (_sourceReference.TryGetTarget(out INotifyCollectionChanged? instance))
+            if (source.TryGetTarget(out INotifyCollectionChanged? instance))
             {
                 WeakEvents.CollectionChanged.Unsubscribe(instance, this);
             }

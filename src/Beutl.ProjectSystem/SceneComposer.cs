@@ -10,18 +10,12 @@ using Beutl.Rendering;
 
 namespace Beutl;
 
-public sealed class SceneComposer : Composer
+public sealed class SceneComposer(Scene scene) : Composer
 {
-    private readonly Scene _scene;
-    private readonly List<Element> _entered = new();
-    private readonly List<Element> _exited = new();
-    private readonly List<Element> _current = new();
+    private readonly List<Element> _entered = [];
+    private readonly List<Element> _exited = [];
+    private readonly List<Element> _current = [];
     private TimeRange _lastTime = new(TimeSpan.MinValue, default);
-
-    public SceneComposer(Scene scene)
-    {
-        _scene = scene;
-    }
 
     protected override void ComposeCore(Audio.Audio audio)
     {
@@ -47,7 +41,7 @@ public sealed class SceneComposer : Composer
 
         foreach (Element element in elements)
         {
-            using (PooledList<Renderable> list = element.Evaluate(EvaluationTarget.Audio, clock, _scene.Renderer))
+            using (PooledList<Renderable> list = element.Evaluate(EvaluationTarget.Audio, clock, scene.Renderer))
             {
                 foreach (Renderable item in list.Span)
                 {
@@ -87,7 +81,7 @@ public sealed class SceneComposer : Composer
         TimeSpan enterStart = TimeSpan.MaxValue;
         TimeSpan enterEnd = TimeSpan.Zero;
 
-        foreach (Element? item in _scene.Children)
+        foreach (Element? item in scene.Children)
         {
             bool recent = InRange(item, _lastTime);
             bool current = InRange(item, timeSpan);

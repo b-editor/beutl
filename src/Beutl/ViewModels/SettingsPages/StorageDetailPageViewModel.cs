@@ -86,7 +86,7 @@ public sealed class StorageDetailPageViewModel : BasePageViewModel
 
     public string TypeString { get; }
 
-    public AvaloniaList<AssetViewModel> Items { get; } = new();
+    public AvaloniaList<AssetViewModel> Items { get; } = [];
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 

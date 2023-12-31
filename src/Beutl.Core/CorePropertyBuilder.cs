@@ -24,7 +24,7 @@ public sealed class CorePropertyBuilder<[DynamicallyAccessedMembers(DynamicallyA
         }
         else
         {
-            _attributes = Array.Empty<Attribute>();
+            _attributes = [];
         }
     }
 
@@ -42,7 +42,7 @@ public sealed class CorePropertyBuilder<[DynamicallyAccessedMembers(DynamicallyA
             ParameterExpression valueParam = Expression.Parameter(typeof(T), "v");
             MemberExpression? memberAccess = Expression.MakeMemberAccess(ownerParam, propInfo);
             BinaryExpression? assign = Expression.Assign(memberAccess, valueParam);
-            Expression<Action<TOwner, T>> lambda1 = Expression.Lambda<Action<TOwner, T>>(assign, new[] { ownerParam, valueParam });
+            Expression<Action<TOwner, T>> lambda1 = Expression.Lambda<Action<TOwner, T>>(assign, [ownerParam, valueParam]);
             _setter = lambda1.Compile();
 
             _attributes = _propertyInfo.GetCustomAttributes().ToArray();

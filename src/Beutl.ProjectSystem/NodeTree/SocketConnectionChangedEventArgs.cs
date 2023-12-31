@@ -1,14 +1,8 @@
 ﻿namespace Beutl.NodeTree;
 
-public sealed class SocketConnectionChangedEventArgs
+public sealed class SocketConnectionChangedEventArgs(Connection connection, bool isConnected)
 {
-    public SocketConnectionChangedEventArgs(Connection connection, bool isConnected)
-    {
-        Connection = connection;
-        IsConnected = isConnected;
-    }
+    public Connection Connection { get; } = connection;
 
-    public Connection Connection { get; }
-
-    public bool IsConnected { get; }
+    public bool IsConnected { get; } = isConnected;
 }

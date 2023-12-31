@@ -57,7 +57,7 @@ internal class Glx
 
     static Glx()
     {
-        var ptr = glXGetProcAddressARB("glXCreateContextAttribsARB");
+        nint ptr = glXGetProcAddressARB("glXCreateContextAttribsARB");
         if (ptr != IntPtr.Zero)
         {
             glXCreateContextAttribsARB = (glXCreateContextAttribsARBDelegate)Marshal.GetDelegateForFunctionPointer(ptr, typeof(glXCreateContextAttribsARBDelegate));
@@ -136,7 +136,7 @@ internal class Glx
         string? str = QueryExtensionsString(dpy, screen);
         if (string.IsNullOrEmpty(str))
         {
-            return Array.Empty<string>();
+            return [];
         }
 
         return str.Split(' ');

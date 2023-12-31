@@ -5,14 +5,9 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class BlendModeNode : ContainerNode, ISupportRenderCache
+public sealed class BlendModeNode(BlendMode blendMode) : ContainerNode, ISupportRenderCache
 {
-    public BlendModeNode(BlendMode blendMode)
-    {
-        BlendMode = blendMode;
-    }
-
-    public BlendMode BlendMode { get; }
+    public BlendMode BlendMode { get; } = blendMode;
 
     public bool Equals(BlendMode blendMode)
     {

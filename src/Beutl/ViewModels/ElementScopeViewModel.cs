@@ -11,7 +11,7 @@ namespace Beutl.ViewModels;
 
 public sealed class ElementScopeViewModel : IDisposable
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private TakeAfterOperator? _model;
 
     public ElementScopeViewModel(Element element, ElementViewModel parent)

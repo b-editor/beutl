@@ -15,17 +15,11 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views.NodeTree;
 
-public class SocketConnectRequestedEventArgs : EventArgs
+public class SocketConnectRequestedEventArgs(SocketViewModel target, bool isConnected) : EventArgs
 {
-    public SocketConnectRequestedEventArgs(SocketViewModel target, bool isConnected)
-    {
-        Target = target;
-        IsConnected = isConnected;
-    }
+    public SocketViewModel Target { get; } = target;
 
-    public SocketViewModel Target { get; }
-
-    public bool IsConnected { get; set; }
+    public bool IsConnected { get; set; } = isConnected;
 }
 
 public sealed class ConnectionLine : Line

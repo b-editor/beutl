@@ -5,7 +5,7 @@ namespace Beutl.Reactive;
 public abstract class LightweightObservableBase<T> : IObservable<T>
 {
     private Exception? _error;
-    private List<IObserver<T>>? _observers = new();
+    private List<IObserver<T>>? _observers = [];
 
     public IDisposable Subscribe(IObserver<T> observer)
     {
@@ -115,7 +115,7 @@ public abstract class LightweightObservableBase<T> : IObservable<T>
                 }
                 else
                 {
-                    observers = _observers.ToArray();
+                    observers = [.. _observers];
                 }
             }
             if (singleObserver != null)
@@ -144,7 +144,7 @@ public abstract class LightweightObservableBase<T> : IObservable<T>
                 {
                     return;
                 }
-                observers = _observers.ToArray();
+                observers = [.. _observers];
                 Volatile.Write(ref _observers, null);
             }
 
@@ -172,7 +172,7 @@ public abstract class LightweightObservableBase<T> : IObservable<T>
                 }
 
                 _error = error;
-                observers = _observers.ToArray();
+                observers = [.. _observers];
                 Volatile.Write(ref _observers, null);
             }
 

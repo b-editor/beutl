@@ -143,8 +143,8 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         UpdateSwsContext(new PixelSize(image.Width, image.Height));
 
         int output_linesize = image.Width * 4;
-        byte*[] src_data = { (byte*)image.Data, null, null, null };
-        int[] src_linesize = { output_linesize, 0, 0, 0 };
+        byte*[] src_data = [(byte*)image.Data, null, null, null];
+        int[] src_linesize = [output_linesize, 0, 0, 0];
         ffmpeg.sws_scale(
             _swsContext,
             src_data,

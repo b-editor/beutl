@@ -4,13 +4,8 @@ using Beutl.Controls.PropertyEditors;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class BooleanEditorViewModel : ValueEditorViewModel<bool>
+public sealed class BooleanEditorViewModel(IAbstractProperty<bool> property) : ValueEditorViewModel<bool>(property)
 {
-    public BooleanEditorViewModel(IAbstractProperty<bool> property)
-        : base(property)
-    {
-    }
-
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);

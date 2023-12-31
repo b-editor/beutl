@@ -44,7 +44,7 @@ internal struct UnsafeBox<T> : IDisposable
 
 public class OutputSocket<T> : Socket<T>, IOutputSocket
 {
-    private readonly CoreList<Connection> _connections = new();
+    private readonly CoreList<Connection> _connections = [];
     private List<Guid>? _inputIds = null;
     // 型が一致していない、ソケットの数
     private int _unmatchSockets;

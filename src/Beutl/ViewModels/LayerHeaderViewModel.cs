@@ -14,7 +14,7 @@ namespace Beutl.ViewModels;
 
 public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
 
     public LayerHeaderViewModel(int num, TimelineViewModel timeline)
     {
@@ -182,20 +182,11 @@ public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
             .DoAndRecord(CommandRecorder.Default);
     }
 
-    private sealed class SetColorCommand : IRecordableCommand
+    private sealed class SetColorCommand(LayerHeaderViewModel viewModel, Color color) : IRecordableCommand
     {
-        private readonly LayerHeaderViewModel _viewModel;
-        private Color _color;
-
-        public SetColorCommand(LayerHeaderViewModel viewModel, Color color)
-        {
-            _viewModel = viewModel;
-            _color = color;
-        }
-
         public void Do()
         {
-            (_color, _viewModel.Color.Value) = (_viewModel.Color.Value, _color);
+            (color, viewModel.Color.Value) = (viewModel.Color.Value, color);
         }
 
         public void Redo()

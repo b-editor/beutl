@@ -11,22 +11,11 @@ using ReactiveUI;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class SetCommand : IRecordableCommand
+public sealed class SetCommand(IAbstractProperty setter, object? oldValue, object? newValue) : IRecordableCommand
 {
-    private readonly IAbstractProperty _setter;
-    private readonly object? _oldValue;
-    private readonly object? _newValue;
-
-    public SetCommand(IAbstractProperty setter, object? oldValue, object? newValue)
-    {
-        _setter = setter;
-        _oldValue = oldValue;
-        _newValue = newValue;
-    }
-
     public void Do()
     {
-        _setter.SetValue(_newValue);
+        setter.SetValue(newValue);
     }
 
     public void Redo()
@@ -36,7 +25,7 @@ public sealed class SetCommand : IRecordableCommand
 
     public void Undo()
     {
-        _setter.SetValue(_oldValue);
+        setter.SetValue(oldValue);
     }
 }
 

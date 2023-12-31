@@ -30,7 +30,7 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable
 
     public ICoreObject Target { get; }
 
-    public CoreList<IPropertyEditorContext> Properties { get; } = new();
+    public CoreList<IPropertyEditorContext> Properties { get; } = [];
 
     public void Dispose()
     {
@@ -83,7 +83,7 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable
         Type animatableWrapperType = typeof(AnimatableCorePropertyImpl<>);
         bool isAnimatable = obj is IAnimatable;
 
-        List<CoreProperty> cprops = PropertyRegistry.GetRegistered(objType).ToList();
+        List<CoreProperty> cprops = [.. PropertyRegistry.GetRegistered(objType)];
         cprops.RemoveAll(x => !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
         List<IAbstractProperty> props = cprops.ConvertAll(x =>
         {

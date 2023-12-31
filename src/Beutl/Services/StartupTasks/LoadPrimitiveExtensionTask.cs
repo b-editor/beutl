@@ -7,7 +7,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
 {
     private readonly PackageManager _manager;
     public static readonly Extension[] PrimitiveExtensions =
-    {
+    [
         EditPageExtension.Instance,
         ExtensionsPageExtension.Instance,
         OutputPageExtension.Instance,
@@ -24,7 +24,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         GraphEditorTabExtension.Instance,
         SceneSettingsTabExtension.Instance,
         WaveReaderExtension.Instance,
-    };
+    ];
 
     public LoadPrimitiveExtensionTask(PackageManager manager)
     {
@@ -68,11 +68,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     decoding.Load();
                     encoding.Load();
 
-                    provider.AddExtensions(pkg.LocalId, new Extension[]
-                    {
-                        decoding,
-                        encoding
-                    });
+                    provider.AddExtensions(pkg.LocalId, [decoding, encoding]);
                 }
                 catch (Exception ex)
                 {
@@ -88,5 +84,5 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
 
     public override Task Task { get; }
 
-    public List<(LocalPackage, Exception)> Failures { get; } = new();
+    public List<(LocalPackage, Exception)> Failures { get; } = [];
 }

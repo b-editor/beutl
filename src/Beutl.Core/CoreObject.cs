@@ -101,11 +101,11 @@ public abstract class CoreObject : ICoreObject
 
     public bool BatchUpdate => _batchUpdateCount > 0;
 
-    private Dictionary<int, IEntry> Values => _values ??= new();
+    private Dictionary<int, IEntry> Values => _values ??= [];
 
-    private Dictionary<int, IBatchEntry> BatchChanges => _batchChanges ??= new();
+    private Dictionary<int, IBatchEntry> BatchChanges => _batchChanges ??= [];
 
-    private Dictionary<int, string> Errors => _errors ??= new();
+    private Dictionary<int, string> Errors => _errors ??= [];
 
     public bool HasErrors => _errors?.Count > 0;
 

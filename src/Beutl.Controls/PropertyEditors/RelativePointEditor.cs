@@ -30,7 +30,7 @@ public class RelativePointEditor : Vector2Editor
             (o, v) => o.Unit = v,
             defaultBindingMode: BindingMode.TwoWay);
 
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private float _firstValue;
     private float _oldFirstValue;
     private float _secondValue;

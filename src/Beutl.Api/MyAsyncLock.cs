@@ -47,18 +47,11 @@ public sealed class MyAsyncLock
         }
     }
 
-    private sealed class Releaser : IDisposable
+    private sealed class Releaser(MyAsyncLock toRelease) : IDisposable
     {
-        private readonly MyAsyncLock _mutex;
-
-        public Releaser(MyAsyncLock toRelease)
-        {
-            _mutex = toRelease;
-        }
-
         public void Dispose()
         {
-            _mutex._semaphore.Release();
+            toRelease._semaphore.Release();
         }
     }
 }

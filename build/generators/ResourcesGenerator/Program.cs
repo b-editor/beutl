@@ -95,7 +95,7 @@ List<IResourceItem> GetOrCreate(string key, Dictionary<string, List<IResourceIte
     }
     else
     {
-        value = new List<IResourceItem>();
+        value = [];
         dict[key] = value;
         return value;
     }
@@ -186,9 +186,9 @@ namespace ResourcesGenerator
 {
     public class HierarchizedList
     {
-        public List<IResourceItem> Items { get; set; } = new();
+        public List<IResourceItem> Items { get; set; } = [];
 
-        public Dictionary<string, HierarchizedList> Children { get; } = new();
+        public Dictionary<string, HierarchizedList> Children { get; } = [];
     }
 
     public interface IResourceItem
@@ -204,20 +204,13 @@ namespace ResourcesGenerator
         void GenerateGetObservableCode(Span<char> indentStr, StringBuilder sb, string rootNamespace, Dictionary<string, string> redirects);
     }
 
-    public class StaticResource : IResourceItem
+    public class StaticResource(string rawKey, string key, string target) : IResourceItem
     {
-        public StaticResource(string rawKey, string key, string target)
-        {
-            RawKey = rawKey;
-            Key = key;
-            Target = target;
-        }
+        public string RawKey { get; set; } = rawKey;
 
-        public string RawKey { get; set; }
+        public string Key { get; set; } = key;
 
-        public string Key { get; set; }
-
-        public string Target { get; set; }
+        public string Target { get; set; } = target;
 
         public void GenerateGetObservableCode(Span<char> indentStr, StringBuilder sb, string rootNamespace, Dictionary<string, string> redirects)
         {
@@ -249,20 +242,13 @@ namespace ResourcesGenerator
         }
     }
 
-    public class StringResource : IResourceItem
+    public class StringResource(string rawKey, string key, string value) : IResourceItem
     {
-        public StringResource(string rawKey, string key, string value)
-        {
-            RawKey = rawKey;
-            Key = key;
-            Value = value;
-        }
+        public string RawKey { get; set; } = rawKey;
 
-        public string RawKey { get; set; }
+        public string Key { get; set; } = key;
 
-        public string Key { get; set; }
-
-        public string Value { get; set; }
+        public string Value { get; set; } = value;
 
         public void GenerateGetObservableCode(Span<char> indentStr, StringBuilder sb, string rootNamespace, Dictionary<string, string> redirects)
         {

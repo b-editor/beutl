@@ -27,9 +27,9 @@ public sealed partial class EditView : UserControl
     private static readonly Binding s_isSelectedBinding = new("Context.IsSelected.Value", BindingMode.TwoWay);
     private static readonly Binding s_headerBinding = new("Context.Header");
     private static readonly ILogger s_logger = Log.ForContext<EditView>();
-    private readonly AvaloniaList<BcTabItem> _bottomTabItems = new();
-    private readonly AvaloniaList<BcTabItem> _rightTabItems = new();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly AvaloniaList<BcTabItem> _bottomTabItems = [];
+    private readonly AvaloniaList<BcTabItem> _rightTabItems = [];
+    private readonly CompositeDisposable _disposables = [];
     private Image? _image;
 
     public EditView()

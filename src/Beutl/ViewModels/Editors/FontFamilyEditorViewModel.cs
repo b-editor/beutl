@@ -5,13 +5,8 @@ using Beutl.Media;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class FontFamilyEditorViewModel : ValueEditorViewModel<FontFamily?>
+public sealed class FontFamilyEditorViewModel(IAbstractProperty<FontFamily?> property) : ValueEditorViewModel<FontFamily?>(property)
 {
-    public FontFamilyEditorViewModel(IAbstractProperty<FontFamily?> property)
-        : base(property)
-    {
-    }
-
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);

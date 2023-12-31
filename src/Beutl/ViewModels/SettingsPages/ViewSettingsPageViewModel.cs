@@ -92,7 +92,7 @@ public sealed class ViewSettingsPageViewModel : PageContext
     public IEnumerable<CultureInfo> Cultures { get; } = LocalizeService.Instance.SupportedCultures();
 
     public ReactiveProperty<bool> UseCustomAccent { get; }
-    
+
     public ReactiveProperty<Color?> ListBoxColor { get; }
 
     public ReactiveProperty<Color> CustomAccentColor { get; }
@@ -104,8 +104,8 @@ public sealed class ViewSettingsPageViewModel : PageContext
     // https://github.com/amwx/FluentAvalonia/blob/master/samples/FAControlsGallery/ViewModels/SettingsPageViewModel.cs
     private static Color[] GetPredefColors()
     {
-        return new Color[]
-        {
+        return
+        [
             Color.FromRgb(255,185,0),
             Color.FromRgb(255,140,0),
             Color.FromRgb(247,99,12),
@@ -154,7 +154,7 @@ public sealed class ViewSettingsPageViewModel : PageContext
             Color.FromRgb(82,94,84),
             Color.FromRgb(132,117,69),
             Color.FromRgb(126,115,95)
-        };
+        ];
     }
 
     private static void UpdateAppAccentColor(Color? color)

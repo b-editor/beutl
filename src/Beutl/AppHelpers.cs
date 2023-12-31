@@ -6,8 +6,8 @@ internal static class AppHelpers
 {
     internal static Color[] GetPaletteColors()
     {
-        return new[]
-        {
+        return
+        [
             Colors.AliceBlue,
             Colors.AntiqueWhite,
             Colors.Aqua,
@@ -149,6 +149,6 @@ internal static class AppHelpers
             Colors.WhiteSmoke,
             Colors.Yellow,
             Colors.YellowGreen,
-        };
+        ];
     }
 }

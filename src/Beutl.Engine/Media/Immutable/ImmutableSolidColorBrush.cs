@@ -3,16 +3,10 @@ using Beutl.Graphics.Transformation;
 
 namespace Beutl.Media.Immutable;
 
-public class ImmutableSolidColorBrush : ISolidColorBrush, IEquatable<ISolidColorBrush?>
+public class ImmutableSolidColorBrush(
+    Color color, float opacity = 100, ImmutableTransform? transform = null, RelativePoint origin = default)
+    : ISolidColorBrush, IEquatable<ISolidColorBrush?>
 {
-    public ImmutableSolidColorBrush(Color color, float opacity = 100, ImmutableTransform? transform = null, RelativePoint origin = default)
-    {
-        Color = color;
-        Opacity = opacity;
-        Transform = transform;
-        TransformOrigin = origin;
-    }
-
     public ImmutableSolidColorBrush(uint color)
         : this(Color.FromUInt32(color))
     {
@@ -23,13 +17,13 @@ public class ImmutableSolidColorBrush : ISolidColorBrush, IEquatable<ISolidColor
     {
     }
 
-    public Color Color { get; }
+    public Color Color { get; } = color;
 
-    public float Opacity { get; }
+    public float Opacity { get; } = opacity;
 
-    public ITransform? Transform { get; }
+    public ITransform? Transform { get; } = transform;
 
-    public RelativePoint TransformOrigin { get; }
+    public RelativePoint TransformOrigin { get; } = origin;
 
     public override string ToString()
     {

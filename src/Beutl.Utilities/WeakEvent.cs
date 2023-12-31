@@ -7,7 +7,7 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
 {
     private readonly Func<TSender, EventHandler<TEventArgs>, Action> _subscribe;
 
-    readonly ConditionalWeakTable<object, Subscription> _subscriptions = new();
+    readonly ConditionalWeakTable<object, Subscription> _subscriptions = [];
 
     internal WeakEvent(
         Action<TSender, EventHandler<TEventArgs>> subscribe,

@@ -9,7 +9,7 @@ namespace Beutl.Graphics.Transformation;
 internal static class TransformParser
 {
     private static readonly (string, TransformFunction)[] s_functionMapping =
-    {
+    [
         ("translate", TransformFunction.Translate),
         ("translateX", TransformFunction.TranslateX),
         ("translateY", TransformFunction.TranslateY),
@@ -21,17 +21,17 @@ internal static class TransformParser
         ("skewY", TransformFunction.SkewY),
         ("rotate", TransformFunction.Rotate),
         ("matrix", TransformFunction.Matrix)
-    };
+    ];
 
     private static readonly (string, Unit)[] s_unitMapping =
-    {
+    [
         ("deg", Unit.Degree),
         ("grad", Unit.Gradian),
         ("rad", Unit.Radian),
         ("turn", Unit.Turn),
         ("px", Unit.Pixel),
         ("%", Unit.Relative)
-    };
+    ];
 
     public static ITransform Parse(ReadOnlySpan<char> s)
     {
@@ -487,16 +487,10 @@ internal static class TransformParser
         Relative
     }
 
-    private readonly struct UnitValue
+    private readonly struct UnitValue(Unit unit, float value)
     {
-        public readonly Unit Unit;
-        public readonly float Value;
-
-        public UnitValue(Unit unit, float value)
-        {
-            Unit = unit;
-            Value = value;
-        }
+        public readonly Unit Unit = unit;
+        public readonly float Value = value;
 
         public static UnitValue Zero => new(Unit.None, 0);
 
@@ -519,14 +513,9 @@ internal static class TransformParser
         Matrix
     }
 
-    public readonly struct Builder
+    public readonly struct Builder(int capacity)
     {
-        private readonly List<DataLayout> _data;
-
-        public Builder(int capacity)
-        {
-            _data = new List<DataLayout>(capacity);
-        }
+        private readonly List<DataLayout> _data = new(capacity);
 
         public void AppendTranslate(float x, float y)
         {

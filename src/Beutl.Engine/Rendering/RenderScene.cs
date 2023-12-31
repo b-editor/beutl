@@ -3,14 +3,9 @@ using Beutl.Media;
 
 namespace Beutl.Rendering;
 
-public sealed class RenderScene : IDisposable
+public sealed class RenderScene(PixelSize size) : IDisposable
 {
-    private readonly SortedDictionary<int, RenderLayer> _layer = new();
-
-    public RenderScene(PixelSize size)
-    {
-        Size = size;
-    }
+    private readonly SortedDictionary<int, RenderLayer> _layer = [];
 
     public RenderLayer this[int index]
     {
@@ -26,7 +21,7 @@ public sealed class RenderScene : IDisposable
         }
     }
 
-    public PixelSize Size { get; }
+    public PixelSize Size { get; } = size;
 
     public void Clear()
     {

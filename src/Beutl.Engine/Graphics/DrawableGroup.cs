@@ -8,7 +8,7 @@ namespace Beutl.Graphics;
 public sealed class DrawableGroup : Drawable
 {
     public static readonly CoreProperty<Drawables> ChildrenProperty;
-    private readonly Drawables _children = new();
+    private readonly Drawables _children = [];
 
     static DrawableGroup()
     {
@@ -19,7 +19,6 @@ public sealed class DrawableGroup : Drawable
 
     public DrawableGroup()
     {
-        _children = new Drawables();
         _children.Invalidated += (_, e) => RaiseInvalidated(e);
         _children.Attached += HierarchicalChildren.Add;
         _children.Detached += item => HierarchicalChildren.Remove(item);

@@ -67,8 +67,8 @@ public sealed partial class SettingsPage : UserControl
 
     private static List<NavigationViewItem> GetItems()
     {
-        return new List<NavigationViewItem>()
-        {
+        return
+        [
             new NavigationViewItem()
             {
                 Content = Strings.Account,
@@ -132,7 +132,7 @@ public sealed partial class SettingsPage : UserControl
                     Symbol = FluentIcons.Common.Symbol.Info
                 }
             }
-        };
+        ];
     }
 
     private void Nav_BackRequested(object? sender, NavigationViewBackRequestedEventArgs e)

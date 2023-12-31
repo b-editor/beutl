@@ -9,8 +9,8 @@ namespace Beutl.Api.Services;
 
 public class PackageChangesQueue : IBeutlApiResource
 {
-    private readonly HashSet<PackageIdentity> _installs = new();
-    private readonly HashSet<PackageIdentity> _uninstalls = new();
+    private readonly HashSet<PackageIdentity> _installs = [];
+    private readonly HashSet<PackageIdentity> _uninstalls = [];
 
     private readonly Subject<(PackageIdentity Package, EventType Type)> _subject = new();
 

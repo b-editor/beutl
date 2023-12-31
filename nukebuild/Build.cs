@@ -87,12 +87,12 @@ partial class Build : NukeBuild
                 .SetOutput(mainOutput)
                 .SetProperty("NukePublish", true));
 
-            string[] subProjects = new string[]
-            {
+            string[] subProjects =
+            [
                 "Beutl.ExceptionHandler",
                 "Beutl.PackageTools",
                 "Beutl.WaitingDialog",
-            };
+            ];
             foreach (string item in subProjects)
             {
                 AbsolutePath output = OutputDirectory / item;
@@ -108,14 +108,14 @@ partial class Build : NukeBuild
                     .ForEach(t => CopyFile(t.Source, t.Target));
             }
 
-            string[] asmsToCopy = new string[]
-            {
+            string[] asmsToCopy =
+            [
                 "FluentTextTable",
                 "Kokuban",
                 "Kurukuru",
                 "Sharprompt",
                 "DeviceId",
-            };
+            ];
             foreach (string asm in asmsToCopy)
             {
                 foreach (string item in subProjects)

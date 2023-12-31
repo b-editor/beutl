@@ -4,14 +4,9 @@ using System.Runtime.InteropServices;
 namespace Beutl.Media.Music.Samples;
 
 [StructLayout(LayoutKind.Sequential)]
-public struct Monaural16BitInteger : ISample<Monaural16BitInteger>
+public struct Monaural16BitInteger(short value) : ISample<Monaural16BitInteger>
 {
-    public short Value;
-
-    public Monaural16BitInteger(short value)
-    {
-        Value = value;
-    }
+    public short Value = value;
 
     public static Monaural16BitInteger ConvertFrom(Sample src)
     {

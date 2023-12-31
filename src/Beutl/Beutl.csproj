@@ -89,6 +89,11 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>VectorEditorViewModels.tt</DependentUpon>
     </Compile>
+    <Compile Update="ViewModels\GraphEditorViewViewModelFactory.Impl.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>GraphEditorViewViewModelFactory.Impl.tt</DependentUpon>
+    </Compile>
   </ItemGroup>
 
   <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.props" />

@@ -4,16 +4,10 @@ namespace Beutl.Styling;
 
 #pragma warning disable CA1816
 
-public class SetterInstance<T> : ISetterInstance
+public class SetterInstance<T>(Setter<T> setter, ICoreObject target) : ISetterInstance
 {
-    private ICoreObject? _target;
-    private Setter<T>? _setter;
-
-    public SetterInstance(Setter<T> setter, ICoreObject target)
-    {
-        _setter = setter;
-        _target = target;
-    }
+    private ICoreObject? _target = target;
+    private Setter<T>? _setter = setter;
 
     public CoreProperty<T> Property => Setter.Property;
 

@@ -8,24 +8,18 @@ using Beutl.Rendering.Cache;
 
 namespace Beutl.Rendering;
 
-public sealed class RenderLayer : IDisposable
+public sealed class RenderLayer(RenderScene renderScene) : IDisposable
 {
-    private class Entry : IDisposable
+    private class Entry(DrawableNode node) : IDisposable
     {
-        public Entry(DrawableNode node)
-        {
-            Node = node;
-            IsDirty = true;
-        }
-
         ~Entry()
         {
             Dispose();
         }
 
-        public DrawableNode Node { get; }
+        public DrawableNode Node { get; } = node;
 
-        public bool IsDirty { get; set; }
+        public bool IsDirty { get; set; } = true;
 
         public bool IsDisposed { get; private set; }
 
@@ -41,14 +35,8 @@ public sealed class RenderLayer : IDisposable
     }
 
     // このテーブルは本描画するときに、自分のレイヤー以外のものを削除する。
-    private readonly ConditionalWeakTable<Drawable, Entry> _cache = new();
-    private readonly RenderScene _renderScene;
+    private readonly ConditionalWeakTable<Drawable, Entry> _cache = [];
     private List<Entry>? _currentFrame;
-
-    public RenderLayer(RenderScene renderScene)
-    {
-        _renderScene = renderScene;
-    }
 
     private List<Entry> CurrentFrame => _currentFrame ??= new(1);
 
@@ -83,7 +71,7 @@ public sealed class RenderLayer : IDisposable
         if (entry.IsDirty)
         {
             // DeferredCanvasを作成し、記録
-            using var canvas = new DeferradCanvas(entry.Node, _renderScene.Size);
+            using var canvas = new DeferradCanvas(entry.Node, renderScene.Size);
             drawable.Render(canvas);
             entry.IsDirty = false;
         }
@@ -127,7 +115,7 @@ public sealed class RenderLayer : IDisposable
             Drawable drawable = node.Drawable;
             if (entry.IsDirty)
             {
-                var dcanvas = new DeferradCanvas(node, _renderScene.Size);
+                var dcanvas = new DeferradCanvas(node, renderScene.Size);
                 drawable.Render(dcanvas);
                 entry.IsDirty = false;
             }
@@ -169,7 +157,7 @@ public sealed class RenderLayer : IDisposable
     public Rect[] GetBoundaries()
     {
         if (_currentFrame == null || _currentFrame.Count == 0)
-            return Array.Empty<Rect>();
+            return [];
 
         var list = new Rect[_currentFrame.Count];
         int index = 0;

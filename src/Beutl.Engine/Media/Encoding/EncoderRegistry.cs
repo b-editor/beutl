@@ -2,7 +2,7 @@
 
 public static class EncoderRegistry
 {
-    private static readonly List<IEncoderInfo> s_registerd = new();
+    private static readonly List<IEncoderInfo> s_registerd = [];
 
     public static IEnumerable<IEncoderInfo> EnumerateEncoders()
     {

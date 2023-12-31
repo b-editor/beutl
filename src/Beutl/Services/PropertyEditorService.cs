@@ -146,10 +146,10 @@ public static class PropertyEditorService
             { typeof(ITransform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>())) }
         };
 
-        private static readonly Dictionary<int, Editor> s_editorsOverride = new()
-        {
+        private static readonly Dictionary<int, Editor> s_editorsOverride =
+        [
             // プロパティのIdから、プロパティエディタを作成
-        };
+        ];
 
         // IList<StreamOperator>
         private static readonly FrozenDictionary<Type, Editor> s_editors = new KeyValuePair<Type, Editor>[]

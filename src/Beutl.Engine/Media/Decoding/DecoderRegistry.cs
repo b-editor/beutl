@@ -4,8 +4,8 @@ namespace Beutl.Media.Decoding;
 
 public static class DecoderRegistry
 {
-    private static readonly List<IDecoderInfo> s_registered = new();
-    private static readonly List<IDecoderInfo> s_ordered = new();
+    private static readonly List<IDecoderInfo> s_registered = [];
+    private static readonly List<IDecoderInfo> s_ordered = [];
     private static readonly object s_lock = new();
 
     static DecoderRegistry()

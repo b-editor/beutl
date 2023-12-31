@@ -27,14 +27,14 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext
 
     public AsyncReactiveCommand NavigateParent { get; } = new();
 
-    public CoreList<IPropertyEditorContext?> Properties { get; } = new();
+    public CoreList<IPropertyEditorContext?> Properties { get; } = [];
 
     private void InitializeCoreObject(ExtensionSettings obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
     {
         Type objType = obj.GetType();
         Type wrapperType = typeof(CorePropertyImpl<>);
 
-        List<CoreProperty> cprops = PropertyRegistry.GetRegistered(objType).ToList();
+        List<CoreProperty> cprops = [.. PropertyRegistry.GetRegistered(objType)];
         cprops.RemoveAll(x => !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
         List<IAbstractProperty> props = cprops.ConvertAll(x =>
         {

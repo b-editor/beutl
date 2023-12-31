@@ -15,11 +15,11 @@ namespace Beutl.Views.NodeTree;
 
 public partial class NodeTreeView : UserControl
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private Point _rightClickedPosition;
     internal Point _leftClickedPosition;
     private bool _rangeSelectionPressed;
-    private List<(NodeView Node, bool IsSelectedOriginal)> _rangeSelection = new();
+    private List<(NodeView Node, bool IsSelectedOriginal)> _rangeSelection = [];
     private bool _matrixUpdating;
 
     public NodeTreeView()

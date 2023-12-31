@@ -414,10 +414,10 @@ public sealed class ListEditor<TItem> : ListEditor
                     Type[]? availableTypes = null;
 
                     if (itemType.IsSealed
-                        && (itemType.GetConstructor(Array.Empty<Type>()) != null
+                        && (itemType.GetConstructor([]) != null
                         || itemType.GetConstructors().Length == 0))
                     {
-                        availableTypes = new[] { itemType };
+                        availableTypes = [itemType];
                     }
                     else
                     {
@@ -426,7 +426,7 @@ public sealed class ListEditor<TItem> : ListEditor
                             .Where(x => !x.IsAbstract
                                 && x.IsPublic
                                 && x.IsAssignableTo(itemType)
-                                && (itemType.GetConstructor(Array.Empty<Type>()) != null
+                                && (itemType.GetConstructor([]) != null
                                 || itemType.GetConstructors().Length == 0))
                             .ToArray();
                     }

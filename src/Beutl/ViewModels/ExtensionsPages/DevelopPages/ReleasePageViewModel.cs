@@ -18,7 +18,7 @@ namespace Beutl.ViewModels.ExtensionsPages.DevelopPages;
 public sealed class ReleasePageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
     private readonly ILogger _logger = Log.ForContext<ReleasePageViewModel>();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly AuthorizedUser _user;
 
     public ReleasePageViewModel(AuthorizedUser user, Release release)

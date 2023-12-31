@@ -9,7 +9,7 @@ namespace Beutl.Api.Services;
 
 public class AcceptedLicenseManager : IBeutlApiResource
 {
-    private readonly Dictionary<PackageIdentity, LicenseMetadata> _accepted = new();
+    private readonly Dictionary<PackageIdentity, LicenseMetadata> _accepted = [];
     private const string FileName = "accepted-licenses.json";
 
     public AcceptedLicenseManager()

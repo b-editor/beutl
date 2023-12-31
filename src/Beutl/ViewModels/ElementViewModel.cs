@@ -23,7 +23,7 @@ namespace Beutl.ViewModels;
 
 public sealed class ElementViewModel : IDisposable
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
 
     public ElementViewModel(Element element, TimelineViewModel timeline)
     {

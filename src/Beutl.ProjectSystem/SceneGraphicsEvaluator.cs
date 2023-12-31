@@ -10,26 +10,18 @@ using Beutl.Rendering;
 
 namespace Beutl;
 
-internal sealed class SceneGraphicsEvaluator : IDisposable
+internal sealed class SceneGraphicsEvaluator(Scene scene, IRenderer renderer) : IDisposable
 {
-    private readonly Scene _scene;
-    private readonly IRenderer _renderer;
-    private readonly List<Element> _entered = new();
-    private readonly List<Element> _exited = new();
-    private readonly List<Element> _current = new();
+    private readonly List<Element> _entered = [];
+    private readonly List<Element> _exited = [];
+    private readonly List<Element> _current = [];
     private TimeSpan _lastTime = TimeSpan.MinValue;
-
-    public SceneGraphicsEvaluator(Scene scene, IRenderer renderer)
-    {
-        _scene = scene;
-        _renderer = renderer;
-    }
 
     public List<Element> CurrentElements => _current;
 
     public void Evaluate()
     {
-        IClock clock = _renderer.Clock;
+        IClock clock = renderer.Clock;
         TimeSpan timeSpan = clock.CurrentTime;
         SortLayers(timeSpan, out _);
         Span<Element> entered = CollectionsMarshal.AsSpan(_entered);
@@ -38,8 +30,8 @@ internal sealed class SceneGraphicsEvaluator : IDisposable
         foreach (Element item in exited)
         {
             ExitSourceOperators(item);
-            RenderLayer layer = _renderer.RenderScene[item.ZIndex];
-            layer.ClearAllNodeCache(_renderer.GetCacheContext());
+            RenderLayer layer = renderer.RenderScene[item.ZIndex];
+            layer.ClearAllNodeCache(renderer.GetCacheContext());
         }
 
         foreach (Element item in entered)
@@ -50,14 +42,14 @@ internal sealed class SceneGraphicsEvaluator : IDisposable
         for (int i = 0; i < _current.Count; i++)
         {
             Element element = _current[i];
-            using (PooledList<Renderable> list = element.Evaluate(EvaluationTarget.Graphics, clock, _renderer))
+            using (PooledList<Renderable> list = element.Evaluate(EvaluationTarget.Graphics, clock, renderer))
             {
                 foreach (Renderable item in list.Span)
                 {
                     if (item is Drawable drawable)
                     {
                         int actualIndex = (drawable as DrawableDecorator)?.OriginalZIndex ?? item.ZIndex;
-                        _renderer.RenderScene[actualIndex].Add(drawable);
+                        renderer.RenderScene[actualIndex].Add(drawable);
                     }
                 }
             }
@@ -91,7 +83,7 @@ internal sealed class SceneGraphicsEvaluator : IDisposable
         TimeSpan enterStart = TimeSpan.MaxValue;
         TimeSpan enterEnd = TimeSpan.Zero;
 
-        foreach (Element? item in _scene.Children)
+        foreach (Element? item in scene.Children)
         {
             bool recent = InRange(item, _lastTime);
             bool current = InRange(item, timeSpan);

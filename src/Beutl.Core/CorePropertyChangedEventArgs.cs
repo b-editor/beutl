@@ -2,20 +2,17 @@
 
 namespace Beutl;
 
-public abstract class CorePropertyChangedEventArgs : PropertyChangedEventArgs
+public abstract class CorePropertyChangedEventArgs(
+    CoreObject sender,
+    CoreProperty property, 
+    CorePropertyMetadata metadata) 
+    : PropertyChangedEventArgs(property.Name)
 {
-    protected CorePropertyChangedEventArgs(CoreObject sender, CoreProperty property, CorePropertyMetadata metadata)
-        : base(property.Name)
-    {
-        Sender = sender;
-        PropertyMetadata = metadata;
-    }
-
-    public CoreObject Sender { get; }
+    public CoreObject Sender { get; } = sender;
 
     public CoreProperty Property => GetProperty();
-    
-    public CorePropertyMetadata PropertyMetadata { get; }
+
+    public CorePropertyMetadata PropertyMetadata { get; } = metadata;
 
     public object? NewValue => GetNewValue();
 
@@ -28,22 +25,20 @@ public abstract class CorePropertyChangedEventArgs : PropertyChangedEventArgs
     protected abstract CoreProperty GetProperty();
 }
 
-public sealed class CorePropertyChangedEventArgs<TValue> : CorePropertyChangedEventArgs
+public sealed class CorePropertyChangedEventArgs<TValue>(
+    CoreObject sender,
+    CoreProperty<TValue> property,
+    CorePropertyMetadata metadata,
+    TValue? newValue,
+    TValue? oldValue)
+    : CorePropertyChangedEventArgs(sender, property,metadata)
 {
-    public CorePropertyChangedEventArgs(CoreObject sender, CoreProperty<TValue> property, CorePropertyMetadata metadata, TValue? newValue, TValue? oldValue)
-        : base(sender, property,metadata)
-    {
-        Property = property;
-        NewValue = newValue;
-        OldValue = oldValue;
-    }
+    public new CoreProperty<TValue> Property { get; } = property;
 
-    public new CoreProperty<TValue> Property { get; }
+    public new TValue? NewValue { get; } = newValue;
 
-    public new TValue? NewValue { get; }
+    public new TValue? OldValue { get; } = oldValue;
 
-    public new TValue? OldValue { get; }
-    
     protected override object? GetNewValue()
     {
         return NewValue;

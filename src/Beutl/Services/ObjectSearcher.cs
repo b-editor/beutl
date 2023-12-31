@@ -4,7 +4,7 @@ namespace Beutl.Services;
 
 public class ObjectSearcher
 {
-    private readonly HashSet<object> _hashSet = new();
+    private readonly HashSet<object> _hashSet = [];
     private readonly Stack<object>? _stack;
     private readonly Func<Stack<object>, object, bool> _predicate;
     private readonly object _obj;

@@ -8,7 +8,7 @@ public class GradientBrushNode<T> : BrushNode<T>
     public GradientBrushNode()
     {
         SpreadMethod = AsInput(GradientBrush.SpreadMethodProperty);
-        GradientStops = AsInput(GradientBrush.GradientStopsProperty, new GradientStops());
+        GradientStops = AsInput(GradientBrush.GradientStopsProperty, []);
     }
 
     protected InputSocket<GradientSpreadMethod> SpreadMethod { get; }

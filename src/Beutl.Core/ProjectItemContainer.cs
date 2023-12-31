@@ -4,7 +4,7 @@ namespace Beutl;
 
 public sealed class ProjectItemContainer
 {
-    private readonly List<WeakReference<ProjectItem>> _items = new();
+    private readonly List<WeakReference<ProjectItem>> _items = [];
     private readonly BeutlApplication _app = BeutlApplication.Current;
     private IProjectItemGenerator? _generator;
 

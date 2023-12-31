@@ -97,13 +97,13 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
         Refresh.Execute();
     }
 
-    public CoreList<object> Top10 { get; } = new();
+    public CoreList<object> Top10 { get; } = [];
 
-    public CoreList<object> DailyRanking { get; } = new();
+    public CoreList<object> DailyRanking { get; } = [];
 
-    public CoreList<object> WeeklyRanking { get; } = new();
+    public CoreList<object> WeeklyRanking { get; } = [];
 
-    public CoreList<object> RecentlyRanking { get; } = new();
+    public CoreList<object> RecentlyRanking { get; } = [];
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 

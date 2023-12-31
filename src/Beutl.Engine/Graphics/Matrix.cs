@@ -20,9 +20,24 @@ namespace Beutl.Graphics;
 /// 
 /// Note: Skia.SkMatrix uses a transposed layout (where for example skewX/skewY and perspp0/tranX are swapped).
 /// </remakrs>
+/// <remarks>
+/// Initializes a new instance of the <see cref="Matrix"/> struct.
+/// </remarks>
+/// <param name="scaleX">The first element of the first row.</param>
+/// <param name="skewY">The second element of the first row.</param>
+/// <param name="persX">The third element of the first row.</param>
+/// <param name="skewX">The first element of the second row.</param>
+/// <param name="scaleY">The second element of the second row.</param>
+/// <param name="persY">The third element of the second row.</param>
+/// <param name="offsetX">The first element of the third row.</param>
+/// <param name="offsetY">The second element of the third row.</param>
+/// <param name="persZ">The third element of the third row.</param>
 [JsonConverter(typeof(MatrixJsonConverter))]
 [TypeConverter(typeof(MatrixConverter))]
-public readonly struct Matrix
+public readonly struct Matrix(
+    float scaleX, float skewY, float persX,
+    float skewX, float scaleY, float persY,
+    float offsetX, float offsetY, float persZ)
     : IEquatable<Matrix>,
       IParsable<Matrix>,
       ISpanParsable<Matrix>,
@@ -40,47 +55,14 @@ public readonly struct Matrix
     /// <param name="offsetX">The first element of the third row.</param>
     /// <param name="offsetY">The second element of the third row.</param>
     public Matrix(
-        float scaleX,
-        float skewY,
-        float skewX,
-        float scaleY,
-        float offsetX,
-        float offsetY) : this(scaleX, skewY, 0, skewX, scaleY, 0, offsetX, offsetY, 1)
+        float scaleX, float skewY,
+        float skewX, float scaleY,
+        float offsetX, float offsetY)
+        : this(
+              scaleX, skewY, 0,
+              skewX, scaleY, 0,
+              offsetX, offsetY, 1)
     {
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="Matrix"/> struct.
-    /// </summary>
-    /// <param name="scaleX">The first element of the first row.</param>
-    /// <param name="skewY">The second element of the first row.</param>
-    /// <param name="persX">The third element of the first row.</param>
-    /// <param name="skewX">The first element of the second row.</param>
-    /// <param name="scaleY">The second element of the second row.</param>
-    /// <param name="persY">The third element of the second row.</param>
-    /// <param name="offsetX">The first element of the third row.</param>
-    /// <param name="offsetY">The second element of the third row.</param>
-    /// <param name="persZ">The third element of the third row.</param>
-    public Matrix(
-        float scaleX,
-        float skewY,
-        float persX,
-        float skewX,
-        float scaleY,
-        float persY,
-        float offsetX,
-        float offsetY,
-        float persZ)
-    {
-        M11 = scaleX;
-        M12 = skewY;
-        M13 = persX;
-        M21 = skewX;
-        M22 = scaleY;
-        M23 = persY;
-        M31 = offsetX;
-        M32 = offsetY;
-        M33 = persZ;
     }
 
     /// <summary>
@@ -104,47 +86,47 @@ public readonly struct Matrix
     /// <summary>
     /// The first element of the first row (scaleX).
     /// </summary>
-    public float M11 { get; }
+    public float M11 { get; } = scaleX;
 
     /// <summary>
     /// The second element of the first row (skewY).
     /// </summary>
-    public float M12 { get; }
+    public float M12 { get; } = skewY;
 
     /// <summary>
     /// The third element of the first row (persX: input x-axis perspective factor).
     /// </summary>
-    public float M13 { get; }
+    public float M13 { get; } = persX;
 
     /// <summary>
     /// The first element of the second row (skewX).
     /// </summary>
-    public float M21 { get; }
+    public float M21 { get; } = skewX;
 
     /// <summary>
     /// The second element of the second row (scaleY).
     /// </summary>
-    public float M22 { get; }
+    public float M22 { get; } = scaleY;
 
     /// <summary>
     /// The third element of the second row (persY: input y-axis perspective factor).
     /// </summary>
-    public float M23 { get; }
+    public float M23 { get; } = persY;
 
     /// <summary>
     /// The first element of the third row (offsetX/translateX).
     /// </summary>
-    public float M31 { get; }
+    public float M31 { get; } = offsetX;
 
     /// <summary>
     /// The second element of the third row (offsetY/translateY).
     /// </summary>
-    public float M32 { get; }
+    public float M32 { get; } = offsetY;
 
     /// <summary>
     /// The third element of the third row (persZ: perspective scale factor).
     /// </summary>
-    public float M33 { get; }
+    public float M33 { get; } = persZ;
 
     static int ITupleConvertible<Matrix, float>.TupleLength => 9;
 

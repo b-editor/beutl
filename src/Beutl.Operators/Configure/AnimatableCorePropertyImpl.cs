@@ -5,26 +5,19 @@ using Beutl.Reactive;
 
 namespace Beutl.Operators.Configure;
 
-public sealed class AnimatableCorePropertyImpl<T> : CorePropertyImpl<T>, IAbstractAnimatableProperty<T>
+public sealed class AnimatableCorePropertyImpl<T>(CoreProperty<T> property, Animatable obj)
+    : CorePropertyImpl<T>(property, obj), IAbstractAnimatableProperty<T>
 {
-    private sealed class AnimationObservable : LightweightObservableBase<IAnimation<T>?>
+    private sealed class AnimationObservable(CoreProperty<T> property, Animatable obj) : LightweightObservableBase<IAnimation<T>?>
     {
-        private readonly CoreProperty<T> _property;
-        private readonly Animatable _obj;
         private IDisposable? _disposable0;
-
-        public AnimationObservable(CoreProperty<T> property, Animatable obj)
-        {
-            _property = property;
-            _obj = obj;
-        }
 
         protected override void Subscribed(IObserver<IAnimation<T>?> observer, bool first)
         {
             base.Subscribed(observer, first);
-            foreach (IAnimation item in _obj.Animations.GetMarshal().Value)
+            foreach (IAnimation item in obj.Animations.GetMarshal().Value)
             {
-                if (item.Property.Id == _property.Id
+                if (item.Property.Id == property.Id
                     && item is IAnimation<T> animation)
                 {
                     observer.OnNext(animation);
@@ -44,10 +37,10 @@ public sealed class AnimatableCorePropertyImpl<T> : CorePropertyImpl<T>, IAbstra
         protected override void Initialize()
         {
             _disposable0?.Dispose();
-            _disposable0 = _obj.Animations.ForEachItem(
+            _disposable0 = obj.Animations.ForEachItem(
                 item =>
                 {
-                    if (item.Property.Id == _property.Id
+                    if (item.Property.Id == property.Id
                         && item is IAnimation<T> animation)
                     {
                         PublishNext(animation);
@@ -55,7 +48,7 @@ public sealed class AnimatableCorePropertyImpl<T> : CorePropertyImpl<T>, IAbstra
                 },
                 item =>
                 {
-                    if (item.Property.Id == _property.Id)
+                    if (item.Property.Id == property.Id)
                     {
                         PublishNext(null);
                     }
@@ -66,19 +59,13 @@ public sealed class AnimatableCorePropertyImpl<T> : CorePropertyImpl<T>, IAbstra
         }
     }
 
-    public AnimatableCorePropertyImpl(CoreProperty<T> property, Animatable obj)
-        : base(property, obj)
-    {
-        ObserveAnimation = new AnimationObservable(property, obj);
-    }
-
     public IAnimation<T>? Animation
     {
         get => GetAnimation();
         set => SetAnimation(value);
     }
 
-    public IObservable<IAnimation<T>?> ObserveAnimation { get; }
+    public IObservable<IAnimation<T>?> ObserveAnimation { get; } = new AnimationObservable(property, obj);
 
     private IAnimation<T>? GetAnimation()
     {

@@ -18,7 +18,7 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
         GradientStops? initValue = property.GetValue();
         if (initValue == null)
         {
-            property.SetValue(initValue = new GradientStops());
+            property.SetValue(initValue = []);
         }
 
         Value = property.GetObservable()
@@ -38,7 +38,7 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
 
     public ReadOnlyReactivePropertySlim<GradientStops> Value { get; }
 
-    public AM.GradientStops Stops { get; } = new();
+    public AM.GradientStops Stops { get; } = [];
 
     public ReactivePropertySlim<AM.GradientStop?> SelectedItem { get; } = new();
 

@@ -3,20 +3,13 @@ using System.Text;
 
 namespace Beutl.Media.TextFormatting;
 
-public struct FormattedTextTokenizer
+public struct FormattedTextTokenizer(string str)
 {
-    private readonly string _str;
-
-    public FormattedTextTokenizer(string str)
-    {
-        _str = str;
-    }
-
     public bool CompatMode { get; set; } = false;
 
     public int LineCount { get; private set; } = 0;
 
-    public List<Token> Result { get; } = new();
+    public List<Token> Result { get; } = [];
 
     public void Tokenize()
     {
@@ -24,17 +17,17 @@ public struct FormattedTextTokenizer
 
         if (!CompatMode)
         {
-            Tokenize(new StringSpan(_str, 0, _str.Length));
+            Tokenize(new StringSpan(str, 0, str.Length));
         }
         else
         {
-            ReadOnlySpan<char> span = _str.AsSpan();
+            ReadOnlySpan<char> span = str.AsSpan();
             foreach (ReadOnlySpan<char> linesp in span.EnumerateLines())
             {
                 int start = span.IndexOf(linesp, StringComparison.Ordinal);
                 int len = linesp.Length;
 
-                Tokenize(new StringSpan(_str, start, len));
+                Tokenize(new StringSpan(str, start, len));
 
                 Result.Add(new Token(StringSpan.Empty, TokenType.NewLine));
                 lineCount++;

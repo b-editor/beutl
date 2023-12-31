@@ -18,23 +18,16 @@ public enum PackageInstallPhase
     ResolvedDependencies = 5
 }
 
-public class PackageInstallContext
+public class PackageInstallContext(string packageName, string version, string downloadUrl)
 {
     private PackageInstallPhase _phase;
     private IReadOnlyList<string>? _installedPaths;
 
-    public PackageInstallContext(string packageName, string version, string downloadUrl)
-    {
-        PackageName = packageName;
-        Version = version;
-        DownloadUrl = downloadUrl;
-    }
+    public string PackageName { get; } = packageName;
 
-    public string PackageName { get; }
+    public string Version { get; } = version;
 
-    public string Version { get; }
-
-    public string DownloadUrl { get; }
+    public string DownloadUrl { get; } = downloadUrl;
 
     public string? NuGetPackageFile { get; internal set; }
 

@@ -4,8 +4,8 @@ namespace Beutl.Serialization;
 
 internal static class ArrayTypeHelpers
 {
-    private static readonly Dictionary<Type, Type> s_elementTypes = new();
-    private static readonly Dictionary<Type, (Type Key, Type Value)> s_genericArgsTypes = new();
+    private static readonly Dictionary<Type, Type> s_elementTypes = [];
+    private static readonly Dictionary<Type, (Type Key, Type Value)> s_genericArgsTypes = [];
 
     public static object ConvertArrayType(List<object?> output, Type type, Type elementType)
     {

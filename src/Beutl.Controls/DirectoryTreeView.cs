@@ -21,7 +21,7 @@ namespace Beutl.Controls;
 public sealed class DirectoryTreeView : TreeView
 {
     private readonly FileSystemWatcher _watcher;
-    private readonly AvaloniaList<TreeViewItem> _items = new();
+    private readonly AvaloniaList<TreeViewItem> _items = [];
     private readonly DirectoryInfo _directoryInfo;
     private readonly MenuItem _open;
     private readonly MenuItem _copy;
@@ -99,8 +99,8 @@ public sealed class DirectoryTreeView : TreeView
         _rename.Click += Rename;
         _addfolder.Click += AddDirectory;
 
-        _menuItem = new List<object>
-        {
+        _menuItem =
+        [
             _open,
             new MenuItem
             {
@@ -114,7 +114,7 @@ public sealed class DirectoryTreeView : TreeView
             _remove,
             _rename,
             new Separator()
-        };
+        ];
 
         //foreach (var (asm, menus) in PluginManager.Default.FileMenus)
         //{
@@ -453,8 +453,8 @@ public sealed class DirectoryTreeView : TreeView
             }
         }
 
-        FileTreeItem[] fileArray = _items.OfType<FileTreeItem>().OrderBy(Func).ToArray();
-        DirectoryTreeItem[] dirArray = _items.OfType<DirectoryTreeItem>().OrderBy(Func).ToArray();
+        FileTreeItem[] fileArray = [.. _items.OfType<FileTreeItem>().OrderBy(Func)];
+        DirectoryTreeItem[] dirArray = [.. _items.OfType<DirectoryTreeItem>().OrderBy(Func)];
         _items.Clear();
         _items.AddRange(dirArray);
         _items.AddRange(fileArray);
@@ -610,7 +610,7 @@ public sealed class FileTreeItem : TreeViewItem
 
 public sealed class DirectoryTreeItem : TreeViewItem
 {
-    private readonly AvaloniaList<TreeViewItem> _items = new();
+    private readonly AvaloniaList<TreeViewItem> _items = [];
     private readonly FileSystemWatcher _watcher;
     private readonly Func<string, object> _contextFactory;
     // //サブフォルダを作成済みかどうか
@@ -705,8 +705,8 @@ public sealed class DirectoryTreeItem : TreeViewItem
         if (!_isAdd)
             return;
 
-        FileTreeItem[] fileArray = _items.OfType<FileTreeItem>().OrderBy(Func).ToArray();
-        DirectoryTreeItem[] dirArray = _items.OfType<DirectoryTreeItem>().OrderBy(Func).ToArray();
+        FileTreeItem[] fileArray = [.. _items.OfType<FileTreeItem>().OrderBy(Func)];
+        DirectoryTreeItem[] dirArray = [.. _items.OfType<DirectoryTreeItem>().OrderBy(Func)];
         _items.Clear();
         _items.AddRange(dirArray);
         _items.AddRange(fileArray);

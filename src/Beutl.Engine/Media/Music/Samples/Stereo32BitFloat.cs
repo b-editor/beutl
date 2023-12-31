@@ -4,17 +4,11 @@ using System.Runtime.InteropServices;
 namespace Beutl.Media.Music.Samples;
 
 [StructLayout(LayoutKind.Sequential)]
-public struct Stereo32BitFloat : ISample<Stereo32BitFloat>
+public struct Stereo32BitFloat(float left, float right) : ISample<Stereo32BitFloat>
 {
-    public float Left;
+    public float Left = left;
 
-    public float Right;
-
-    public Stereo32BitFloat(float left, float right)
-    {
-        Left = left;
-        Right = right;
-    }
+    public float Right = right;
 
     public static Stereo32BitFloat ConvertFrom(Sample src)
     {

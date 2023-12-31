@@ -7,23 +7,15 @@ using SkiaSharp;
 
 namespace Beutl.Graphics;
 
-public readonly struct BrushConstructor
+public readonly struct BrushConstructor(Size targetSize, IBrush? brush, BlendMode blendMode, IImmediateCanvasFactory factory)
 {
-    public BrushConstructor(Size targetSize, IBrush? brush, BlendMode blendMode, IImmediateCanvasFactory factory)
-    {
-        TargetSize = targetSize;
-        Brush = brush;
-        BlendMode = blendMode;
-        Factory = factory;
-    }
+    public Size TargetSize { get; } = targetSize;
 
-    public Size TargetSize { get; }
+    public IBrush? Brush { get; } = brush;
 
-    public IBrush? Brush { get; }
+    public BlendMode BlendMode { get; } = blendMode;
 
-    public BlendMode BlendMode { get; }
-
-    public IImmediateCanvasFactory Factory { get; }
+    public IImmediateCanvasFactory Factory { get; } = factory;
 
     public void ConfigurePaint(SKPaint paint)
     {

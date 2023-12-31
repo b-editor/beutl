@@ -4,20 +4,14 @@ using Beutl.Rendering;
 
 namespace Beutl.Graphics.Rendering;
 
-internal sealed class RenderSceneBrush : IDrawableBrush, IEquatable<IDrawableBrush?>, IDisposable
+internal sealed class RenderSceneBrush(IDrawableBrush @base, RenderScene? scene, Rect bounds)
+    : IDrawableBrush, IEquatable<IDrawableBrush?>, IDisposable
 {
-    public RenderSceneBrush(IDrawableBrush @base, RenderScene? scene, Rect bounds)
-    {
-        Base = @base;
-        Scene = scene;
-        Bounds = bounds;
-    }
+    public RenderScene? Scene { get; private set; } = scene;
 
-    public RenderScene? Scene { get; private set; }
+    public Rect Bounds { get; } = bounds;
 
-    public Rect Bounds { get; }
-
-    public IDrawableBrush Base { get; }
+    public IDrawableBrush Base { get; } = @base;
 
     public AlignmentX AlignmentX => Base.AlignmentX;
 

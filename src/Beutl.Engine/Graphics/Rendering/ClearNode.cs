@@ -2,15 +2,9 @@
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class ClearNode : DrawNode
+public sealed class ClearNode(Color color) : DrawNode(Rect.Empty)
 {
-    public ClearNode(Color color)
-        : base(Rect.Empty)
-    {
-        Color = color;
-    }
-
-    public Color Color { get; }
+    public Color Color { get; } = color;
 
     public bool Equals(Color color)
     {

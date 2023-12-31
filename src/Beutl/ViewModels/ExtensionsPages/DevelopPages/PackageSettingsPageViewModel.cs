@@ -16,7 +16,7 @@ namespace Beutl.ViewModels.ExtensionsPages.DevelopPages;
 public sealed class PackageSettingsPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
     private readonly ILogger _logger = Log.ForContext<PackageSettingsPageViewModel>();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly AuthorizedUser _user;
     private readonly ReactivePropertySlim<bool> _screenshotsChange = new();
 
@@ -59,7 +59,7 @@ public sealed class PackageSettingsPageViewModel : BasePageViewModel, ISupportRe
             .CopyToReactiveProperty()
             .DisposeWith(_disposables);
 
-        Screenshots = new AvaloniaList<Asset>();
+        Screenshots = [];
         package.Screenshots.Subscribe(async x => await ResetScreenshots(x))
             .DisposeWith(_disposables);
 

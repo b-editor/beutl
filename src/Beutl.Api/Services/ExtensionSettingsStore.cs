@@ -8,7 +8,7 @@ namespace Beutl.Api.Services;
 public sealed class ExtensionSettingsStore
 {
     private const string FileName = "extensionsSettings.json";
-    private JsonObject _json = new();
+    private JsonObject _json = [];
 
     public ExtensionSettingsStore()
     {

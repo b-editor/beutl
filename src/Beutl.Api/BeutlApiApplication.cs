@@ -20,7 +20,7 @@ public class BeutlApiApplication
     private const string BaseUrl = "https://beutl.beditor.net";
     private readonly HttpClient _httpClient;
     private readonly ReactivePropertySlim<AuthorizedUser?> _authorizedUser = new();
-    private readonly Dictionary<Type, Lazy<object>> _services = new();
+    private readonly Dictionary<Type, Lazy<object>> _services = [];
 
     public BeutlApiApplication(HttpClient httpClient)
     {

@@ -65,7 +65,7 @@ public partial class OutputPage : UserControl
 
     private sealed class _DataTemplate : IDataTemplate
     {
-        private readonly Dictionary<OutputExtension, Control> _contextToViewType = new();
+        private readonly Dictionary<OutputExtension, Control> _contextToViewType = [];
 
         public Control? Build(object? param)
         {

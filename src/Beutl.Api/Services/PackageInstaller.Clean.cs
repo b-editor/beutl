@@ -11,7 +11,7 @@ public partial class PackageInstaller
     {
         if (!Directory.Exists(Helper.InstallPath))
         {
-            return Array.Empty<PackageIdentity>();
+            return [];
         }
 
         NuGetFramework framework = Helper.GetFrameworkName();

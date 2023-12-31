@@ -35,7 +35,7 @@ internal static class KnownColors
 
         s_knownColorNames = knownColorNames.ToFrozenDictionary();
         s_knownColors = knownColors.ToFrozenDictionary();
-        s_knownBrushes = new Dictionary<KnownColor, ISolidColorBrush>();
+        s_knownBrushes = [];
     }
 
     public static ISolidColorBrush? GetKnownBrush(string s)

@@ -19,7 +19,7 @@ public abstract class Animatable : CoreObject, IAnimatable
 
     protected Animatable()
     {
-        Animations = new();
+        Animations = [];
     }
 
     [NotAutoSerialized]

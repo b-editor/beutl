@@ -14,7 +14,7 @@ namespace Beutl.ViewModels.ExtensionsPages;
 public sealed class DevelopPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
     private readonly ILogger _logger = Log.ForContext<DevelopPageViewModel>();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly AuthorizedUser _user;
 
     public DevelopPageViewModel(AuthorizedUser user, BeutlApiApplication apiApplication)
@@ -73,7 +73,7 @@ public sealed class DevelopPageViewModel : BasePageViewModel, ISupportRefreshVie
         Refresh.Execute();
     }
 
-    public CoreList<object> Packages { get; } = new();
+    public CoreList<object> Packages { get; } = [];
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 

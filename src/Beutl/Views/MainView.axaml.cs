@@ -29,7 +29,7 @@ namespace Beutl.Views;
 public sealed partial class MainView : UserControl
 {
     private readonly ILogger _logger = Log.ForContext<MainView>();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
 
     public MainView()
     {

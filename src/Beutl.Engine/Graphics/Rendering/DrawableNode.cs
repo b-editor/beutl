@@ -3,14 +3,9 @@ using Beutl.Media.Immutable;
 
 namespace Beutl.Graphics.Rendering;
 
-public class DrawableNode : ContainerNode
+public class DrawableNode(Drawable drawable) : ContainerNode
 {
-    public DrawableNode(Drawable drawable)
-    {
-        Drawable = drawable;
-    }
-
-    public Drawable Drawable { get; private set; }
+    public Drawable Drawable { get; private set; } = drawable;
 
     public override void Render(ImmediateCanvas canvas)
     {

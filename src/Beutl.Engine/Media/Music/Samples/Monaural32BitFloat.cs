@@ -3,14 +3,9 @@
 namespace Beutl.Media.Music.Samples;
 
 [StructLayout(LayoutKind.Sequential)]
-public struct Monaural32BitFloat : ISample<Monaural32BitFloat>
+public struct Monaural32BitFloat(float value) : ISample<Monaural32BitFloat>
 {
-    public float Value;
-
-    public Monaural32BitFloat(float value)
-    {
-        Value = value;
-    }
+    public float Value = value;
 
     public static Monaural32BitFloat Amplifier(Monaural32BitFloat s, Sample level)
     {

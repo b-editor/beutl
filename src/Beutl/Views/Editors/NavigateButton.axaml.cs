@@ -81,7 +81,7 @@ public sealed class NavigateButton<T> : NavigateButton
                     .Where(x => !x.IsAbstract
                         && x.IsPublic
                         && x.IsAssignableTo(type)
-                        && x.GetConstructor(Array.Empty<Type>()) != null)
+                        && x.GetConstructor([]) != null)
                     .ToArray();
                 Type? type2 = null;
                 ConstructorInfo? constructorInfo = null;
@@ -123,7 +123,7 @@ public sealed class NavigateButton<T> : NavigateButton
                     type2 = type;
                 }
 
-                constructorInfo = type2?.GetConstructor(Array.Empty<Type>());
+                constructorInfo = type2?.GetConstructor([]);
 
                 if (constructorInfo?.Invoke(null) is T typed)
                 {

@@ -1,14 +1,8 @@
 ﻿namespace Beutl.Validation;
 
-public readonly struct ValidationContext
+public readonly struct ValidationContext(object? target, CoreProperty? property)
 {
-    public ValidationContext(object? target, CoreProperty? property)
-    {
-        Target = target;
-        Property = property;
-    }
+    public object? Target { get; } = target;
 
-    public object? Target { get; }
-
-    public CoreProperty? Property { get; }
+    public CoreProperty? Property { get; } = property;
 }

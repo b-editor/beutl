@@ -50,140 +50,121 @@ public static class CollectionBatchExtension
         IRecordableCommand ToCommand();
     }
 
-    private sealed class CollectionBatchChanges : ICollectionBatchChanges
+    private sealed class CollectionBatchChanges(IList list) : ICollectionBatchChanges
     {
-        private readonly List<IRecordableCommand> _commands = new();
-        private readonly IList _list;
-
-        public CollectionBatchChanges(IList list)
-        {
-            _list = list;
-        }
+        private readonly List<IRecordableCommand> _commands = [];
 
         public ICollectionBatchChanges Add(object? item)
         {
-            _commands.Add(new AddCommand(_list, item, _list.Count));
+            _commands.Add(new AddCommand(list, item, list.Count));
             return this;
         }
 
         public ICollectionBatchChanges Clear()
         {
-            _commands.Add(new ClearCommand(_list));
+            _commands.Add(new ClearCommand(list));
             return this;
         }
 
         public ICollectionBatchChanges Insert(int index, object? item)
         {
-            _commands.Add(new AddCommand(_list, item, index));
+            _commands.Add(new AddCommand(list, item, index));
             return this;
         }
 
         public ICollectionBatchChanges Move(int oldIndex, int newIndex)
         {
-            _commands.Add(new MoveCommand(_list, newIndex, oldIndex));
+            _commands.Add(new MoveCommand(list, newIndex, oldIndex));
             return this;
         }
 
         public ICollectionBatchChanges Remove(object? item)
         {
-            _commands.Add(new RemoveCommand(_list, item));
+            _commands.Add(new RemoveCommand(list, item));
             return this;
         }
 
         public ICollectionBatchChanges RemoveAt(int index)
         {
-            _commands.Add(new RemoveCommand(_list, index));
+            _commands.Add(new RemoveCommand(list, index));
             return this;
         }
 
         public IRecordableCommand ToCommand()
         {
-            return new Command(_commands.ToArray());
+            return new Command([.. _commands]);
         }
     }
 
-    private sealed class CollectionBatchChanges<T> : ICollectionBatchChanges<T>
+    private sealed class CollectionBatchChanges<T>(IList<T> list) : ICollectionBatchChanges<T>
     {
-        private readonly List<IRecordableCommand> _commands = new();
-        private readonly IList<T> _list;
-
-        public CollectionBatchChanges(IList<T> list)
-        {
-            _list = list;
-        }
+        private readonly List<IRecordableCommand> _commands = [];
 
         public ICollectionBatchChanges<T> Add(T item)
         {
-            _commands.Add(new AddCommand<T>(_list, item, _list.Count));
+            _commands.Add(new AddCommand<T>(list, item, list.Count));
             return this;
         }
 
         public ICollectionBatchChanges<T> Clear()
         {
-            _commands.Add(new ClearCommand<T>(_list));
+            _commands.Add(new ClearCommand<T>(list));
             return this;
         }
 
         public ICollectionBatchChanges<T> Insert(int index, T item)
         {
-            _commands.Add(new AddCommand<T>(_list, item, index));
+            _commands.Add(new AddCommand<T>(list, item, index));
             return this;
         }
 
         public ICollectionBatchChanges<T> Move(int oldIndex, int newIndex)
         {
-            _commands.Add(new MoveCommand<T>(_list, newIndex, oldIndex));
+            _commands.Add(new MoveCommand<T>(list, newIndex, oldIndex));
             return this;
         }
 
         public ICollectionBatchChanges<T> Remove(T item)
         {
-            _commands.Add(new RemoveCommand<T>(_list, item));
+            _commands.Add(new RemoveCommand<T>(list, item));
             return this;
         }
 
         public ICollectionBatchChanges<T> RemoveAt(int index)
         {
-            _commands.Add(new RemoveCommand<T>(_list, index));
+            _commands.Add(new RemoveCommand<T>(list, index));
             return this;
         }
 
         public IRecordableCommand ToCommand()
         {
-            return new Command(_commands.ToArray());
+            return new Command([.. _commands]);
         }
     }
 
-    private sealed class Command : IRecordableCommand
+    private sealed class Command(IRecordableCommand[] commands) : IRecordableCommand
     {
-        private readonly IRecordableCommand[] _commands;
-
-        public Command(IRecordableCommand[] commands)
-        {
-            _commands = commands;
-        }
-
         public void Do()
         {
-            for (int i = 0; i < _commands.Length; i++)
+            for (int i = 0; i < commands.Length; i++)
             {
-                _commands[i].Do();
+                commands[i].Do();
             }
         }
 
         public void Redo()
         {
-            for (int i = 0; i < _commands.Length; i++)
+            for (int i = 0; i < commands.Length; i++)
             {
-                _commands[i].Redo();
+                commands[i].Redo();
             }
         }
 
         public void Undo()
         {
-            for (int i = _commands.Length - 1; i >= 0; i--)
+            for (int i = commands.Length - 1; i >= 0; i--)
             {
-                _commands[i].Undo();
+                commands[i].Undo();
             }
         }
     }

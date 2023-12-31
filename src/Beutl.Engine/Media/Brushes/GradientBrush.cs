@@ -33,7 +33,7 @@ public abstract class GradientBrush : Brush, IGradientBrush
     /// </summary>
     public GradientBrush()
     {
-        _gradientStops = new GradientStops();
+        _gradientStops = [];
         _gradientStops.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 

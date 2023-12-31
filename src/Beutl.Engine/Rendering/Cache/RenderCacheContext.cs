@@ -13,7 +13,7 @@ namespace Beutl.Rendering.Cache;
 
 public sealed class RenderCacheContext : IDisposable
 {
-    private readonly ConditionalWeakTable<IGraphicNode, RenderCache> _table = new();
+    private readonly ConditionalWeakTable<IGraphicNode, RenderCache> _table = [];
     private RenderCacheOptions _cacheOptions = new();
 
     public RenderCacheOptions CacheOptions

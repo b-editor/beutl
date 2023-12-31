@@ -86,20 +86,11 @@ public interface IAbstractAnimatableProperty<T> : IAbstractProperty<T>, IAbstrac
     }
 }
 
-internal sealed class KeyFramePropertyWrapper<T> : IAbstractProperty<T>
+internal sealed class KeyFramePropertyWrapper<T>(KeyFrame<T> keyFrame, KeyFrameAnimation<T> animation) : IAbstractProperty<T>
 {
-    private readonly KeyFrame<T> _keyFrame;
-    private readonly KeyFrameAnimation<T> _animation;
+    public Type ImplementedType => animation.Property.OwnerType;
 
-    public KeyFramePropertyWrapper(KeyFrame<T> keyFrame, KeyFrameAnimation<T> animation)
-    {
-        _keyFrame = keyFrame;
-        _animation = animation;
-    }
-
-    public Type ImplementedType => _animation.Property.OwnerType;
-
-    public Type PropertyType => _animation.Property.PropertyType;
+    public Type PropertyType => animation.Property.PropertyType;
 
     public string DisplayName => "KeyFrame Value";
 
@@ -107,20 +98,20 @@ internal sealed class KeyFramePropertyWrapper<T> : IAbstractProperty<T>
 
     public IObservable<T?> GetObservable()
     {
-        return _keyFrame.GetObservable(GetProperty());
+        return keyFrame.GetObservable(GetProperty());
     }
 
     public T? GetValue()
     {
-        return _keyFrame.Value;
+        return keyFrame.Value;
     }
 
     public void SetValue(T? value)
     {
-        _keyFrame.SetValue(GetProperty(), value);
+        keyFrame.SetValue(GetProperty(), value);
     }
 
-    CoreProperty? IAbstractProperty.GetCoreProperty() => _animation.Property;
+    CoreProperty? IAbstractProperty.GetCoreProperty() => animation.Property;
 
     private static CoreProperty<T?> GetProperty()
     {
@@ -129,6 +120,6 @@ internal sealed class KeyFramePropertyWrapper<T> : IAbstractProperty<T>
 
     public object? GetDefaultValue()
     {
-        return _animation.Property.GetMetadata<ICorePropertyMetadata>(ImplementedType).GetDefaultValue();
+        return animation.Property.GetMetadata<ICorePropertyMetadata>(ImplementedType).GetDefaultValue();
     }
 }

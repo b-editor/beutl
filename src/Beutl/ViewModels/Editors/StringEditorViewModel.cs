@@ -6,13 +6,8 @@ using Beutl.Controls.PropertyEditors;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class StringEditorViewModel : ValueEditorViewModel<string?>
+public sealed class StringEditorViewModel(IAbstractProperty<string?> property) : ValueEditorViewModel<string?>(property)
 {
-    public StringEditorViewModel(IAbstractProperty<string?> property)
-        : base(property)
-    {
-    }
-
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);

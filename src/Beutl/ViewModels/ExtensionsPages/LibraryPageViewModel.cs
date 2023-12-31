@@ -21,7 +21,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
     private readonly ILogger _logger = Log.ForContext<LibraryPageViewModel>();
     private readonly AuthorizedUser _user;
     private readonly BeutlApiApplication _clients;
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly LibraryService _service;
 
     public LibraryPageViewModel(AuthorizedUser user, BeutlApiApplication clients)
@@ -159,9 +159,9 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
             .DisposeWith(_disposables);
     }
 
-    public AvaloniaList<object> Packages { get; } = new();
+    public AvaloniaList<object> Packages { get; } = [];
 
-    public AvaloniaList<LocalYourPackageViewModel> LocalPackages { get; } = new();
+    public AvaloniaList<LocalYourPackageViewModel> LocalPackages { get; } = [];
 
     public AsyncReactiveCommand Refresh { get; }
 

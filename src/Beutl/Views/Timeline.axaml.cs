@@ -35,9 +35,9 @@ public sealed partial class Timeline : UserControl
     internal MouseFlags _mouseFlag = MouseFlags.Free;
     internal TimeSpan _pointerFrame;
     private TimelineViewModel? _viewModel;
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private ElementView? _selectedElement;
-    private readonly List<(ElementViewModel Element, bool IsSelectedOriginal)> _rangeSelection = new();
+    private readonly List<(ElementViewModel Element, bool IsSelectedOriginal)> _rangeSelection = [];
 
     public Timeline()
     {

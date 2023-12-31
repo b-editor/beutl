@@ -25,15 +25,9 @@ public abstract class LibraryItem
     }
 }
 
-public sealed class MultipleTypeLibraryItem : LibraryItem
+public sealed class MultipleTypeLibraryItem(string displayName, string? description = null) : LibraryItem(displayName, description)
 {
-    private readonly Dictionary<string, Type> _types;
-
-    public MultipleTypeLibraryItem(string displayName, string? description = null)
-        : base(displayName, description)
-    {
-        _types = new Dictionary<string, Type>();
-    }
+    private readonly Dictionary<string, Type> _types = [];
 
     public IReadOnlyDictionary<string, Type> Types => _types;
 
@@ -45,33 +39,23 @@ public sealed class MultipleTypeLibraryItem : LibraryItem
     }
 }
 
-public sealed class SingleTypeLibraryItem : LibraryItem
+public sealed class SingleTypeLibraryItem(
+    string format,
+    Type implementationType,
+    string displayName,
+    string? description = null)
+    : LibraryItem(displayName, description)
 {
-    public SingleTypeLibraryItem(
-        string format,
-        Type implementationType,
-        string displayName,
-        string? description = null)
-        : base(displayName, description)
-    {
-        Format = format;
-        ImplementationType = implementationType;
-    }
+    public string Format { get; } = format;
 
-    public string Format { get; }
-
-    public Type ImplementationType { get; }
+    public Type ImplementationType { get; } = implementationType;
 }
 
-public sealed class GroupLibraryItem : LibraryItem
+public sealed class GroupLibraryItem(string displayName, string? description = null)
+    : LibraryItem(displayName, description)
 {
-    private readonly List<LibraryItem> _items = new();
+    private readonly List<LibraryItem> _items = [];
     private readonly object _lock = new();
-
-    public GroupLibraryItem(string displayName, string? description = null)
-        : base(displayName, description)
-    {
-    }
 
     public IReadOnlyList<LibraryItem> Items => _items;
 
@@ -201,8 +185,8 @@ public static class KnownLibraryItemFormats
 
 public sealed class LibraryService
 {
-    private readonly List<LibraryItem> _items = new();
-    private readonly Dictionary<string, HashSet<Type>> _formatToType = new();
+    private readonly List<LibraryItem> _items = [];
+    private readonly Dictionary<string, HashSet<Type>> _formatToType = [];
     private readonly object _lock = new();
     internal int _totalCount;
 
@@ -282,7 +266,7 @@ public sealed class LibraryService
         }
         else
         {
-            hashset = new HashSet<Type>();
+            hashset = [];
             _formatToType.Add(format, hashset);
             return hashset;
         }

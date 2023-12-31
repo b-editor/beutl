@@ -4,15 +4,10 @@ using Beutl.Media.TextFormatting;
 namespace Beutl.Graphics.Rendering;
 
 // Todo: bounds,HitTest
-public sealed class TextNode : BrushDrawNode
+public sealed class TextNode(FormattedText text, IBrush? fill, IPen? pen)
+    : BrushDrawNode(fill, pen, new(new Point(0, text.Metrics.Ascent), text.Bounds))
 {
-    public TextNode(FormattedText text, IBrush? fill, IPen? pen)
-        : base(fill, pen, new(new Point(0, text.Metrics.Ascent), text.Bounds))
-    {
-        Text = text;
-    }
-
-    public FormattedText Text { get; private set; }
+    public FormattedText Text { get; private set; } = text;
 
     public bool Equals(FormattedText text, IBrush? fill, IPen? pen)
     {

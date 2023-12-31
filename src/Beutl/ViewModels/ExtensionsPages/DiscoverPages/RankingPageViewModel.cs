@@ -24,18 +24,18 @@ public record RankingModel(string DisplayName, RankingType Type);
 public sealed class RankingPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
     private readonly ILogger _logger = Log.ForContext<RankingPageViewModel>();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly DiscoverService _discover;
 
     public RankingPageViewModel(DiscoverService discover, RankingType rankingType)
     {
-        Rankings = new RankingModel[]
-        {
+        Rankings =
+        [
             new RankingModel(ExtensionsPage.Overall, RankingType.Overall),
             new RankingModel(ExtensionsPage.Daily, RankingType.Daily),
             new RankingModel(ExtensionsPage.Weekly, RankingType.Weekly),
             new RankingModel(ExtensionsPage.Recently, RankingType.Recently),
-        };
+        ];
         SelectedRanking = new ReactivePropertySlim<RankingModel>(Rankings.First(x => x.Type == rankingType));
         _discover = discover;
 
@@ -112,7 +112,7 @@ public sealed class RankingPageViewModel : BasePageViewModel, ISupportRefreshVie
 
     public RankingModel[] Rankings { get; }
 
-    public AvaloniaList<object> Items { get; } = new();
+    public AvaloniaList<object> Items { get; } = [];
 
     public AsyncReactiveCommand Refresh { get; }
 

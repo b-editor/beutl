@@ -30,7 +30,7 @@ public partial class PackageInstaller : IBeutlApiResource
     private readonly SourceCacheContext _cacheContext;
     private readonly PackageResolver _resolver;
 
-    private readonly Dictionary<PackageIdentity, PackageInstallContext> _installingContexts = new();
+    private readonly Dictionary<PackageIdentity, PackageInstallContext> _installingContexts = [];
 
     private readonly Subject<(PackageIdentity Package, EventType Type)> _subject = new();
 
@@ -176,7 +176,6 @@ public partial class PackageInstaller : IBeutlApiResource
         }
     }
 
-#pragma warning disable CA1822 // メンバーを static に設定します
     public async Task VerifyPackageFile(
         PackageInstallContext context,
         IProgress<double>? progress = null,
@@ -238,11 +237,11 @@ public partial class PackageInstaller : IBeutlApiResource
                 using var sha384 = SHA384.Create();
                 using var sha512 = SHA512.Create();
                 (HashAlgorithm, string?)[] items =
-                {
+                [
                     (sha256, asset.Sha256),
                     (sha384, asset.Sha384),
                     (sha512, asset.Sha512),
-                };
+                ];
 
                 long totalLength = items.Count(x => !string.IsNullOrWhiteSpace(x.Item2)) * stream.Length;
                 if (totalLength == 0)
@@ -269,7 +268,6 @@ public partial class PackageInstaller : IBeutlApiResource
             }
         }
     }
-#pragma warning restore CA1822 // メンバーを static に設定します
 
     public async Task ResolveDependencies(
         PackageInstallContext context,

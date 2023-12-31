@@ -76,7 +76,7 @@ public sealed class PackageReleasesPageViewModel : BasePageViewModel, ISupportRe
 
     public Package Package { get; }
 
-    public CoreList<object> Items { get; } = new();
+    public CoreList<object> Items { get; } = [];
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 

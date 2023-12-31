@@ -12,8 +12,8 @@ public static class TypefaceProvider
         GlobalConfiguration.Instance.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "settings.json"));
         GlobalConfiguration.Instance.FontConfig.FontDirectories.Clear();
         Assembly asm = typeof(TypefaceProvider).Assembly;
-        string[] array = new string[]
-        {
+        string[] array =
+        [
             "NotoSansJP-Black.otf",
             "NotoSansJP-Bold.otf",
             "NotoSansJP-Light.otf",
@@ -22,7 +22,7 @@ public static class TypefaceProvider
             "NotoSansJP-Thin.otf",
             "Roboto-Medium.ttf",
             "Roboto-Regular.ttf",
-        };
+        ];
 
         foreach (string item in array)
         {

@@ -9,23 +9,15 @@ using SkiaSharp;
 
 namespace Beutl.Media;
 
-public readonly struct BitmapInfo
+public readonly struct BitmapInfo(int width, int height, int byteCount, int pixelSize)
 {
-    public BitmapInfo(int width, int height, int byteCount, int pixelSize)
-    {
-        Width = width;
-        Height = height;
-        ByteCount = byteCount;
-        PixelSize = pixelSize;
-    }
+    public int Width { get; } = width;
 
-    public int Width { get; }
+    public int Height { get; } = height;
 
-    public int Height { get; }
+    public int ByteCount { get; } = byteCount;
 
-    public int ByteCount { get; }
-
-    public int PixelSize { get; }
+    public int PixelSize { get; } = pixelSize;
 }
 
 public unsafe class Bitmap<T> : IBitmap

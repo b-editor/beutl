@@ -2,24 +2,15 @@
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class PropertyEditorGroupContext : IPropertyEditorContext
+public sealed class PropertyEditorGroupContext(IPropertyEditorContext?[] children, string groupName, bool isFirst) : IPropertyEditorContext
 {
-    private IPropertyEditorContext?[] _properties;
-
-    public PropertyEditorGroupContext(IPropertyEditorContext?[] children, string groupName, bool isFirst)
-    {
-        _properties = children;
-        GroupName = groupName;
-        IsFirst = isFirst;
-    }
-
-    public IReadOnlyList<IPropertyEditorContext?> Properties => _properties;
+    public IReadOnlyList<IPropertyEditorContext?> Properties => children;
 
     public PropertyEditorExtension Extension => PropertyEditorExtension.Instance;
 
-    public string GroupName { get; }
+    public string GroupName { get; } = groupName;
 
-    public bool IsFirst { get; }
+    public bool IsFirst { get; } = isFirst;
 
     public void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -28,12 +19,12 @@ public sealed class PropertyEditorGroupContext : IPropertyEditorContext
 
     public void Dispose()
     {
-        foreach (IPropertyEditorContext? item in _properties.AsSpan())
+        foreach (IPropertyEditorContext? item in children.AsSpan())
         {
             item?.Dispose();
         }
 
-        _properties = Array.Empty<IPropertyEditorContext?>();
+        children = [];
     }
 
     public void ReadFromJson(JsonObject json)
@@ -41,7 +32,7 @@ public sealed class PropertyEditorGroupContext : IPropertyEditorContext
         if (json.TryGetPropertyValue(nameof(Properties), out JsonNode? childrenNode)
             && childrenNode is JsonArray childrenArray)
         {
-            foreach ((JsonNode? node, IPropertyEditorContext? context) in childrenArray.Zip(_properties))
+            foreach ((JsonNode? node, IPropertyEditorContext? context) in childrenArray.Zip(children))
             {
                 if (context != null && node != null)
                 {
@@ -55,7 +46,7 @@ public sealed class PropertyEditorGroupContext : IPropertyEditorContext
     {
         var array = new JsonArray();
 
-        foreach (IPropertyEditorContext? item in _properties.AsSpan())
+        foreach (IPropertyEditorContext? item in children.AsSpan())
         {
             if (item == null)
             {

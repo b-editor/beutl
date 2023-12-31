@@ -1,14 +1,9 @@
 ﻿namespace Beutl.Views;
 
-internal readonly struct Cache<T>
+internal readonly struct Cache<T>(int size)
     where T : class
 {
-    public readonly T?[] Items;
-
-    public Cache(int size)
-    {
-        Items = new T?[size];
-    }
+    public readonly T?[] Items = new T?[size];
 
     public bool Set(T item)
     {

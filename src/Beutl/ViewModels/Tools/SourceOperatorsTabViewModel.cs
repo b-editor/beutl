@@ -118,7 +118,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
     [Obsolete("Use Element property instead.")]
     public ReactiveProperty<Element?> Layer => Element;
 
-    public CoreList<SourceOperatorViewModel> Items { get; } = new();
+    public CoreList<SourceOperatorViewModel> Items { get; } = [];
 
     public ToolTabExtension Extension => SourceOperatorsTabExtension.Instance;
 

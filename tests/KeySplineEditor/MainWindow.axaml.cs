@@ -122,11 +122,8 @@ public partial class MainWindow : Window
         _keySpline.ControlPointY2 = Math.Clamp(Math.Abs(ctrlPt2.Top / height - 1), 0, 1);
     }
 
-    private sealed class KeySplineDrawing : Control
+    private sealed class KeySplineDrawing(Panel panel, KeySpline keySpline) : Control
     {
-        private readonly Panel _panel;
-        private readonly KeySpline _keySpline;
-
         private readonly Pen _pen = new()
         {
             Brush = Brushes.DarkGray,
@@ -135,15 +132,9 @@ public partial class MainWindow : Window
             Thickness = 2.5,
         };
 
-        public KeySplineDrawing(Panel panel, KeySpline keySpline)
-        {
-            _panel = panel;
-            _keySpline = keySpline;
-        }
-
         public override void Render(DrawingContext context)
         {
-            Size size = _panel.Bounds.Size;
+            Size size = panel.Bounds.Size;
 
             var geometry = new StreamGeometry();
             using (StreamGeometryContext ctxt = geometry.Open())
@@ -153,8 +144,8 @@ public partial class MainWindow : Window
                 ctxt.BeginFigure(new Point(0, height), false);
 
                 ctxt.CubicBezierTo(
-                    new Point(_keySpline.ControlPointX1 * width, (1 - _keySpline.ControlPointY1) * height),
-                    new Point(_keySpline.ControlPointX2 * width, (1 - _keySpline.ControlPointY2) * height),
+                    new Point(keySpline.ControlPointX1 * width, (1 - keySpline.ControlPointY1) * height),
+                    new Point(keySpline.ControlPointX2 * width, (1 - keySpline.ControlPointY2) * height),
                     new Point(width, 0));
 
                 ctxt.EndFigure(false);

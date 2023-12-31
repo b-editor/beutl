@@ -77,8 +77,8 @@ public abstract partial class GraphEditorViewViewModelFactory
     {
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
-            return new GraphEditorViewViewModel[]
-            {
+            return
+            [
                 new GraphEditorViewViewModel(
                     parent,
                     "<#= t.FieldX #>",
@@ -90,7 +90,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                     "<#= t.FieldY #>",
                     obj => ConvertTo(1, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj))
-            };
+            ];
         }
 
         public override double MaxValue => double.CreateTruncating(<#= t.Element #>.MaxValue);
@@ -161,8 +161,8 @@ public abstract partial class GraphEditorViewViewModelFactory
     {
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
-            return new GraphEditorViewViewModel[]
-            {
+            return
+            [
                 new GraphEditorViewViewModel(
                     parent,
                     "<#= t.FieldX #>",
@@ -180,7 +180,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                     "<#= t.FieldZ #>",
                     obj => ConvertTo(2, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(2, old, value, out obj))
-            };
+            ];
         }
 
         public override double MaxValue => double.CreateTruncating(<#= t.Element #>.MaxValue);
@@ -256,8 +256,8 @@ public abstract partial class GraphEditorViewViewModelFactory
     {
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
-            return new GraphEditorViewViewModel[]
-            {
+            return
+            [
                 new GraphEditorViewViewModel(
                     parent,
                     "<#= t.FieldX #>",
@@ -281,7 +281,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                     "<#= t.FieldW #>",
                     obj => ConvertTo(3, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(3, old, value, out obj))
-            };
+            ];
         }
 
         public override double MaxValue => double.CreateTruncating(<#= t.Element #>.MaxValue);

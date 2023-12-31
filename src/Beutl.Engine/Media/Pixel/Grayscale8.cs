@@ -3,14 +3,9 @@
 namespace Beutl.Media.Pixel;
 
 [StructLayout(LayoutKind.Sequential)]
-public struct Grayscale8 : IPixel<Grayscale8>
+public struct Grayscale8(byte value) : IPixel<Grayscale8>
 {
-    public byte Value;
-
-    public Grayscale8(byte value)
-    {
-        Value = value;
-    }
+    public byte Value = value;
 
     public Grayscale8 FromColor(Color color)
     {

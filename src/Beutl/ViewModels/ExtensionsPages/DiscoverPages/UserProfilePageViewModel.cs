@@ -13,7 +13,7 @@ namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
     private readonly ILogger _logger = Log.ForContext<UserProfilePageViewModel>();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
 
     public UserProfilePageViewModel(Profile profile)
     {
@@ -108,7 +108,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
 
     public IReadOnlyReactiveProperty<string?> Email { get; }
 
-    public AvaloniaList<object> Packages { get; } = new();
+    public AvaloniaList<object> Packages { get; } = [];
 
     public AsyncReactiveCommand Refresh { get; }
 

@@ -5,31 +5,26 @@ using Beutl.Converters;
 namespace Beutl.Media;
 
 [JsonConverter(typeof(TypefaceJsonConverter))]
-public readonly struct Typeface : IEquatable<Typeface>
+public readonly struct Typeface(
+    FontFamily fontFamily,
+    FontStyle style = FontStyle.Normal,
+    FontWeight weight = FontWeight.Regular) : IEquatable<Typeface>
 {
-    public Typeface(FontFamily fontFamily,
-        FontStyle style = FontStyle.Normal,
-        FontWeight weight = FontWeight.Regular)
-    {
-        FontFamily = fontFamily;
-        Style = style;
-        Weight = weight;
-    }
 
     /// <summary>
     /// Gets the font family.
     /// </summary>
-    public FontFamily FontFamily { get; }
+    public FontFamily FontFamily { get; } = fontFamily;
 
     /// <summary>
     /// Gets the font style.
     /// </summary>
-    public FontStyle Style { get; }
+    public FontStyle Style { get; } = style;
 
     /// <summary>
     /// Gets the font weight.
     /// </summary>
-    public FontWeight Weight { get; }
+    public FontWeight Weight { get; } = weight;
 
     public override bool Equals(object? obj)
     {

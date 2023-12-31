@@ -5,7 +5,7 @@ namespace Beutl.ViewModels;
 
 public abstract partial class GraphEditorViewViewModelFactory
 {
-    private static readonly Dictionary<Type, GraphEditorViewViewModelFactory> s_registry = new();
+    private static readonly Dictionary<Type, GraphEditorViewViewModelFactory> s_registry = [];
 
     static GraphEditorViewViewModelFactory()
     {
@@ -56,7 +56,7 @@ public abstract partial class GraphEditorViewViewModelFactory
 
     public static GraphEditorViewViewModel[] CreateViews(GraphEditorViewModel parent, GraphEditorViewViewModelFactory? factory)
     {
-        return factory?.CreateViewsCore(parent) ?? Array.Empty<GraphEditorViewViewModel>();
+        return factory?.CreateViewsCore(parent) ?? [];
     }
 
     protected abstract GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent);
@@ -70,8 +70,8 @@ public abstract partial class GraphEditorViewViewModelFactory
 
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
-            return new GraphEditorViewViewModel[]
-            {
+            return
+            [
                 new GraphEditorViewViewModel(
                     parent,
                     "Self",
@@ -91,7 +91,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                         obj = T.CreateTruncating(value);
                         return true;
                     })
-            };
+            ];
         }
     }
 
@@ -99,7 +99,7 @@ public abstract partial class GraphEditorViewViewModelFactory
     {
         private static double OECF_sRGB(double linear)
         {
-            return linear <= 0.0031308 ? linear * 12.92 : (Math.Pow(linear, 1.0 / 2.4) * 1.055 - 0.055);
+            return linear <= 0.0031308 ? linear * 12.92 : ((Math.Pow(linear, 1.0 / 2.4) * 1.055) - 0.055);
         }
 
         private static double EOCF_sRGB(double srgb)
@@ -109,8 +109,8 @@ public abstract partial class GraphEditorViewViewModelFactory
 
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
-            return new GraphEditorViewViewModel[]
-            {
+            return
+            [
                 new GraphEditorViewViewModel(
                     parent,
                     "Alpha",
@@ -138,7 +138,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                     obj => ConvertTo(3, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(3, old, value, out obj),
                     Avalonia.Media.Colors.Blue)
-            };
+            ];
         }
 
         public override double MaxValue => double.CreateTruncating(byte.MaxValue);

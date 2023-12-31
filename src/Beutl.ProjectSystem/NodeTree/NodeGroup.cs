@@ -110,7 +110,7 @@ public class NodeGroup : NodeTreeModel
         {
             var stack = new Stack<NodeEvaluationContext>();
             BuildNode(lastNode, stack);
-            NodeEvaluationContext[] array = stack.ToArray();
+            NodeEvaluationContext[] array = [.. stack];
 
             evalContexts.Add(array);
             foreach (NodeEvaluationContext item in array)

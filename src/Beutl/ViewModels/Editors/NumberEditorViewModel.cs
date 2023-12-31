@@ -6,14 +6,9 @@ using Beutl.Controls.PropertyEditors;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class NumberEditorViewModel<T> : ValueEditorViewModel<T>
+public sealed class NumberEditorViewModel<T>(IAbstractProperty<T> property) : ValueEditorViewModel<T>(property)
     where T : struct, INumber<T>
 {
-    public NumberEditorViewModel(IAbstractProperty<T> property)
-        : base(property)
-    {
-    }
-
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);

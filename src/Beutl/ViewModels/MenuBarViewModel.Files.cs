@@ -86,9 +86,9 @@ public partial class MenuBarViewModel
 
     public ReactiveCommandSlim<string> OpenRecentProject { get; } = new();
 
-    public CoreList<string> RecentFileItems { get; } = new();
+    public CoreList<string> RecentFileItems { get; } = [];
 
-    public CoreList<string> RecentProjectItems { get; } = new();
+    public CoreList<string> RecentProjectItems { get; } = [];
 
     public ReactiveCommandSlim Exit { get; } = new();
 

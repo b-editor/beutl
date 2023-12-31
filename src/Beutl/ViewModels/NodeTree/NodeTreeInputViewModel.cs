@@ -9,7 +9,7 @@ namespace Beutl.ViewModels.NodeTree;
 
 public sealed class NodeTreeInputViewModel : IDisposable, IServiceProvider
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private NodeTreeInputTabViewModel _parent;
 
     public NodeTreeInputViewModel(Element element, NodeTreeInputTabViewModel parent)
@@ -70,7 +70,7 @@ public sealed class NodeTreeInputViewModel : IDisposable, IServiceProvider
 
     public ReactiveProperty<bool> UseNode { get; }
 
-    public CoreList<NodeInputViewModel> Items { get; } = new();
+    public CoreList<NodeInputViewModel> Items { get; } = [];
 
     // NodesのIndexから、ItemsのIndexに変換。
     public int ConvertFromOriginalIndex(int originalIndex)

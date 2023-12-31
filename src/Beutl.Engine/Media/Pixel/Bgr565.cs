@@ -3,14 +3,9 @@
 namespace Beutl.Media.Pixel;
 
 [StructLayout(LayoutKind.Sequential)]
-public struct Bgr565 : IPixel<Bgr565>
+public struct Bgr565(ushort value) : IPixel<Bgr565>
 {
-    public ushort Value;
-
-    public Bgr565(ushort value)
-    {
-        Value = value;
-    }
+    public ushort Value = value;
 
     public Bgr565 FromColor(Color color)
     {

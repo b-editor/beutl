@@ -23,8 +23,8 @@ namespace Beutl.Views;
 
 public partial class MainView
 {
-    private readonly AvaloniaList<MenuItem> _rawRecentFileItems = new();
-    private readonly AvaloniaList<MenuItem> _rawRecentProjItems = new();
+    private readonly AvaloniaList<MenuItem> _rawRecentFileItems = [];
+    private readonly AvaloniaList<MenuItem> _rawRecentProjItems = [];
     private readonly Cache<MenuItem> _menuItemCache = new(4);
 
     private void InitializeCommands(MainViewModel viewModel)

@@ -39,7 +39,7 @@ public partial class MainView
     }
 
     private static readonly Binding s_headerBinding = new("Context.Header");
-    private readonly AvaloniaList<NavigationViewItem> _navigationItems = new();
+    private readonly AvaloniaList<NavigationViewItem> _navigationItems = [];
     private NavigationTransitionInfo? _navigationTransition;
 
     private void NavigationView_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)

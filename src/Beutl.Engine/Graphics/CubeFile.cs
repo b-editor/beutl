@@ -52,12 +52,12 @@ public partial class CubeFile : IEquatable<CubeFile>
 
         int index = pos[0] + pos[1] * lut_size + pos[2] * lut_size_2;
 
-        Span<int> next_index = stackalloc int[3]
-        {
+        Span<int> next_index =
+        [
             1,
             lut_size,
             lut_size_2
-        };
+        ];
 
         if (index % lut_size == lut_size - 1)
         {

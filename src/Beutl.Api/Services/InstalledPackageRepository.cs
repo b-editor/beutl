@@ -11,7 +11,7 @@ namespace Beutl.Api.Services;
 
 public class InstalledPackageRepository : IBeutlApiResource
 {
-    private readonly HashSet<PackageIdentity> _packages = new();
+    private readonly HashSet<PackageIdentity> _packages = [];
     private readonly Subject<(PackageIdentity Package, bool Exists)> _subject = new();
     private const string FileName = "installedPackages.json";
 
@@ -32,7 +32,7 @@ public class InstalledPackageRepository : IBeutlApiResource
 
     public void UpgradePackages(PackageIdentity package)
     {
-        PackageIdentity[] removedItems = Array.Empty<PackageIdentity>();
+        PackageIdentity[] removedItems = [];
         if (_subject.HasObservers)
         {
             removedItems = GetLocalPackages(package.Id).ToArray();
@@ -99,7 +99,7 @@ public class InstalledPackageRepository : IBeutlApiResource
 
     public void RemovePackages(string name)
     {
-        PackageIdentity[] removed = Array.Empty<PackageIdentity>();
+        PackageIdentity[] removed = [];
         if (_subject.HasObservers)
         {
             removed = GetLocalPackages(name).ToArray();

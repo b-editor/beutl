@@ -29,7 +29,7 @@ public static class CoreObjectExtensions
 
     public static object? Find(this ICoreObject obj, Predicate<object?> predicate, bool includeSelf = true)
     {
-        return obj.Find(predicate, includeSelf, new HashSet<object>());
+        return obj.Find(predicate, includeSelf, []);
     }
 
     public static object? Find(this ICoreObject obj, Predicate<object?> predicate, bool includeSelf, HashSet<object> hashSet)
@@ -91,20 +91,12 @@ public static class CoreObjectExtensions
         return null;
     }
 
-    private sealed class CorePropertyChangedObservable<T> : LightweightObservableBase<CorePropertyChangedEventArgs<T>>
+    private sealed class CorePropertyChangedObservable<T>(ICoreObject o, CoreProperty<T> property)
+        : LightweightObservableBase<CorePropertyChangedEventArgs<T>>
     {
-        private readonly CoreProperty<T> _property;
-        private readonly ICoreObject _object;
-
-        public CorePropertyChangedObservable(ICoreObject o, CoreProperty<T> property)
-        {
-            _object = o;
-            _property = property;
-        }
-
         private void Object_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e is CorePropertyChangedEventArgs<T> a && a.Property == _property)
+            if (e is CorePropertyChangedEventArgs<T> a && a.Property == property)
             {
                 PublishNext(a);
             }
@@ -112,12 +104,12 @@ public static class CoreObjectExtensions
 
         protected override void Deinitialize()
         {
-            _object.PropertyChanged -= Object_PropertyChanged;
+            o.PropertyChanged -= Object_PropertyChanged;
         }
 
         protected override void Initialize()
         {
-            _object.PropertyChanged += Object_PropertyChanged;
+            o.PropertyChanged += Object_PropertyChanged;
         }
     }
 }

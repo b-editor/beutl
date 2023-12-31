@@ -23,7 +23,7 @@ public class LibraryItemViewModel
 
     public string? Type { get; init; }
 
-    public List<LibraryItemViewModel> Children { get; } = new();
+    public List<LibraryItemViewModel> Children { get; } = [];
 
     public static LibraryItemViewModel CreateFromNodeRegistryItem(NodeRegistry.BaseRegistryItem registryItem, string? parentFullName = null)
     {
@@ -232,8 +232,8 @@ public sealed class LibraryViewModel : IDisposable
         AddAllItems(Nodes);
     }
 
-    public ReactiveCollection<Easing> Easings { get; } = new()
-    {
+    public ReactiveCollection<Easing> Easings { get; } =
+    [
         new BackEaseIn(),
         new BackEaseInOut(),
         new BackEaseOut(),
@@ -265,7 +265,7 @@ public sealed class LibraryViewModel : IDisposable
         new SineEaseInOut(),
         new SineEaseOut(),
         new LinearEasing(),
-    };
+    ];
 
     public List<LibraryItemViewModel> LibraryItems { get; }
 
@@ -273,7 +273,7 @@ public sealed class LibraryViewModel : IDisposable
 
     public List<KeyValuePair<int, LibraryItemViewModel>> AllItems { get; }
 
-    public ReactiveCollection<KeyValuePair<int, LibraryItemViewModel>> SearchResult { get; } = new();
+    public ReactiveCollection<KeyValuePair<int, LibraryItemViewModel>> SearchResult { get; } = [];
 
     public int SelectedTab { get; set; } = 2;
 

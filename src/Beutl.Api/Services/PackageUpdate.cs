@@ -2,18 +2,11 @@
 
 namespace Beutl.Api.Services;
 
-public sealed class PackageUpdate
+public sealed class PackageUpdate(Package package, Release? oldVersion, Release newVersion)
 {
-    public PackageUpdate(Package package, Release? oldVersion, Release newVersion)
-    {
-        Package = package;
-        OldVersion = oldVersion;
-        NewVersion = newVersion;
-    }
+    public Package Package { get; } = package;
 
-    public Package Package { get; }
+    public Release? OldVersion { get; } = oldVersion;
 
-    public Release? OldVersion { get; }
-
-    public Release NewVersion { get; }
+    public Release NewVersion { get; } = newVersion;
 }

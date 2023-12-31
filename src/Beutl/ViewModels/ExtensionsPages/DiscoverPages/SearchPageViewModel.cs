@@ -14,7 +14,7 @@ namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
     private readonly ILogger _logger = Log.ForContext<SearchPageViewModel>();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly DiscoverService _discoverService;
 
     public SearchPageViewModel(DiscoverService discoverService, string keyword)
@@ -109,9 +109,9 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
 
     public string Keyword { get; }
 
-    public AvaloniaList<object> Packages { get; } = new();
+    public AvaloniaList<object> Packages { get; } = [];
 
-    public AvaloniaList<object> Users { get; } = new();
+    public AvaloniaList<object> Users { get; } = [];
 
     public AsyncReactiveCommand Refresh { get; }
 

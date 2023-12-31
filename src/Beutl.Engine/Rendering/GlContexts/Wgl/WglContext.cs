@@ -31,8 +31,8 @@ internal class WglContext : GlContext
             throw new Exception("DC does not have extensions.");
         }
 
-        int[] iAttrs = new int[]
-        {
+        int[] iAttrs =
+        [
             Wgl.WGL_ACCELERATION_ARB, Wgl.WGL_FULL_ACCELERATION_ARB,
             Wgl.WGL_DRAW_TO_WINDOW_ARB, Wgl.TRUE,
             //Wgl.WGL_DOUBLE_BUFFER_ARB, (doubleBuffered ? TRUE : FALSE),
@@ -43,7 +43,7 @@ internal class WglContext : GlContext
             Wgl.WGL_ALPHA_BITS_ARB, 8,
             Wgl.WGL_STENCIL_BITS_ARB, 8,
             Wgl.NONE, Wgl.NONE
-        };
+        ];
         int[] piFormats = new int[1];
         uint nFormats;
         lock (s_lock)
@@ -149,6 +149,6 @@ internal class WglContext : GlContext
 
     public override void DestroyTexture(uint texture)
     {
-        Wgl.glDeleteTextures(1, new[] { texture });
+        Wgl.glDeleteTextures(1, [texture]);
     }
 }

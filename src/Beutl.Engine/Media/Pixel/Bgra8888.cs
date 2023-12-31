@@ -3,23 +3,15 @@
 namespace Beutl.Media.Pixel;
 
 [StructLayout(LayoutKind.Sequential)]
-public struct Bgra8888 : IPixel<Bgra8888>
+public struct Bgra8888(byte r, byte g, byte b, byte a) : IPixel<Bgra8888>
 {
-    public byte B;
+    public byte B = b;
 
-    public byte G;
+    public byte G = g;
 
-    public byte R;
+    public byte R = r;
 
-    public byte A;
-
-    public Bgra8888(byte r, byte g, byte b, byte a)
-    {
-        R = r;
-        G = g;
-        B = b;
-        A = a;
-    }
+    public byte A = a;
 
     public Bgra8888 FromColor(Color color)
     {

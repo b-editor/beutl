@@ -114,7 +114,7 @@ public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
         set => SetAndRaise(UseGlobalClockProperty, ref _useGlobalClock, value);
     }
 
-    public KeyFrames KeyFrames { get; } = new();
+    public KeyFrames KeyFrames { get; } = [];
 
     public CoreProperty Property
     {

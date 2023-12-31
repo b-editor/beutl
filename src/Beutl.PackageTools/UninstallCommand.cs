@@ -89,11 +89,11 @@ public partial class InstallerCommands
                     string installed = Helper.PackagePathResolver.GetInstalledPath(package);
                     if (installed != null)
                     {
-                        installeds = new string[] { installed };
+                        installeds = [installed];
                     }
                     else
                     {
-                        installeds = Array.Empty<string>();
+                        installeds = [];
                     }
                 }
 

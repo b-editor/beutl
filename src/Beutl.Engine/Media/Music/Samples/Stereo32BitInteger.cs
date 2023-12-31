@@ -3,17 +3,11 @@
 namespace Beutl.Media.Music.Samples;
 
 [StructLayout(LayoutKind.Sequential)]
-public struct Stereo32BitInteger : ISample<Stereo32BitInteger>
+public struct Stereo32BitInteger(int left, int right) : ISample<Stereo32BitInteger>
 {
-    public int Left;
+    public int Left = left;
 
-    public int Right;
-
-    public Stereo32BitInteger(int left, int right)
-    {
-        Left = left;
-        Right = right;
-    }
+    public int Right = right;
 
     public static Stereo32BitInteger ConvertFrom(Sample src)
     {

@@ -57,7 +57,7 @@ internal static partial class Telemetry
         {
             return Sdk.CreateTracerProviderBuilder()
                 .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("Beutl"))
-                .AddSource(list.ToArray())
+                .AddSource([.. list])
                 //.AddZipkinExporter()
                 .AddAzureMonitorTraceExporter(b => b.ConnectionString = $"InstrumentationKey={Instrumentation}")
                 .Build();

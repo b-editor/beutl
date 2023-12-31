@@ -22,7 +22,7 @@ public class StringEditor : PropertyEditor
             (o, v) => o.Text = v,
             defaultBindingMode: BindingMode.TwoWay);
 
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private string _text;
     private string _oldValue;
 

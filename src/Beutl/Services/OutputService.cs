@@ -94,17 +94,10 @@ public sealed class OutputQueueItem : IDisposable
 
 public sealed class OutputService
 {
-    private readonly CoreList<OutputQueueItem> _items;
+    private readonly CoreList<OutputQueueItem> _items = [];
     private readonly ReactivePropertySlim<OutputQueueItem?> _selectedItem = new();
-    private readonly string _filePath;
+    private readonly string _filePath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "outputlist.json");
     private bool _isRestored;
-
-    public OutputService()
-    {
-        _items = new CoreList<OutputQueueItem>();
-
-        _filePath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "outputlist.json");
-    }
 
     public static OutputService Current { get; } = new();
 

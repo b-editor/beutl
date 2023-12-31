@@ -7,7 +7,7 @@ namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class TelemetrySettingsPageViewModel : BasePageViewModel
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly TelemetryConfig _config;
 
     public TelemetrySettingsPageViewModel()

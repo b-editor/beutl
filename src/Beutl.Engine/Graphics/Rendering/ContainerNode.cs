@@ -4,7 +4,7 @@ namespace Beutl.Graphics.Rendering;
 
 public class ContainerNode : IGraphicNode
 {
-    private readonly List<IGraphicNode> _children = new List<IGraphicNode>();
+    private readonly List<IGraphicNode> _children = [];
     private bool _isBoundsDirty = true;
     private Rect _originalBounds;
 

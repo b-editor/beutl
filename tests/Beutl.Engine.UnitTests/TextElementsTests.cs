@@ -82,8 +82,8 @@ public class TextElementsTests
     [Test]
     public void LinesEnumerator()
     {
-        var items = new TextElements(new TextElement[]
-        {
+        var items = new TextElements(
+        [
             new TextElement()
             {
                 Size = 72,
@@ -99,7 +99,7 @@ public class TextElementsTests
                 Size = 56,
                 Text = "\nMNO"
             }
-        });
+        ]);
 
         foreach (Span<FormattedText> _ in items.Lines)
         {

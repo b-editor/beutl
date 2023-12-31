@@ -2,30 +2,20 @@
 
 namespace Beutl;
 
-public abstract class StaticProperty<T> : CoreProperty<T>
+public abstract class StaticProperty<T>(string name, Type ownerType, CorePropertyMetadata<T> metadata)
+    : CoreProperty<T>(name, ownerType, metadata)
 {
-    public StaticProperty(string name, Type ownerType, CorePropertyMetadata<T> metadata)
-        : base(name, ownerType, metadata)
-    {
-    }
-
     internal abstract void RouteSetTypedValue(ICoreObject o, T? value);
 
     internal abstract T? RouteGetTypedValue(ICoreObject o);
 }
 
-public class StaticProperty<TOwner, T> : StaticProperty<T>, IStaticProperty
+public class StaticProperty<TOwner, T>(string name, Func<TOwner, T> getter, Action<TOwner, T>? setter, CorePropertyMetadata<T> metadata)
+    : StaticProperty<T>(name, typeof(TOwner), metadata), IStaticProperty
 {
-    public StaticProperty(string name, Func<TOwner, T> getter, Action<TOwner, T>? setter, CorePropertyMetadata<T> metadata)
-        : base(name, typeof(TOwner), metadata)
-    {
-        Getter = getter;
-        Setter = setter;
-    }
+    public Func<TOwner, T> Getter { get; } = getter;
 
-    public Func<TOwner, T> Getter { get; }
-
-    public Action<TOwner, T>? Setter { get; }
+    public Action<TOwner, T>? Setter { get; } = setter;
 
     public bool CanRead => true;
 

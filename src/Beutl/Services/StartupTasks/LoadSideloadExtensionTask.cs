@@ -58,7 +58,7 @@ public sealed class LoadSideloadExtensionTask : StartupTask
 
     public override Task Task { get; }
 
-    public ConcurrentBag<(LocalPackage, Exception)> Failures { get; } = new();
+    public ConcurrentBag<(LocalPackage, Exception)> Failures { get; } = [];
 
     private static async ValueTask<bool> ShowDialog(IReadOnlyList<LocalPackage> sideloads)
     {

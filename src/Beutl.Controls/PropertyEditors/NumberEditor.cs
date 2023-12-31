@@ -26,7 +26,7 @@ public class NumberEditor<TValue> : StringEditor
             defaultBindingMode: BindingMode.TwoWay);
     private TValue _value;
     private TValue _oldValue;
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private bool _headerPressed;
     private Point _headerDragStart;
     private TextBlock _headerText;

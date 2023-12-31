@@ -1,19 +1,12 @@
 ﻿namespace Beutl.Commands;
 
-internal sealed class AddCommand<T> : IRecordableCommand
+internal sealed class AddCommand<T>(IList<T> list, T item, int index) : IRecordableCommand
 {
-    public AddCommand(IList<T> list, T item, int index)
-    {
-        List = list;
-        Item = item;
-        Index = index;
-    }
+    public IList<T> List { get; } = list;
 
-    public IList<T> List { get; }
+    public T Item { get; } = item;
 
-    public T Item { get; }
-
-    public int Index { get; }
+    public int Index { get; } = index;
 
     public void Do()
     {

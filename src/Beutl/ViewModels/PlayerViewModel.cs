@@ -31,7 +31,7 @@ public sealed class PlayerViewModel : IDisposable
 {
     private static readonly TimeSpan s_second = TimeSpan.FromSeconds(1);
     private readonly ILogger _logger = Log.ForContext<PlayerViewModel>();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly ReactivePropertySlim<bool> _isEnabled;
     private readonly EditViewModel _editViewModel;
     private CancellationTokenSource? _cts;

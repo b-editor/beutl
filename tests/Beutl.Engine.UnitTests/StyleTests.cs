@@ -49,12 +49,7 @@ public class StyleTests
             }
         };
 
-        _styles1 = new Style[]
-        {
-            style1,
-            style2,
-            style3
-        };
+        _styles1 = [style1, style2, style3];
 
         _obj2 = new RectShape
         {
@@ -83,11 +78,7 @@ public class StyleTests
             }
         };
 
-        _styles2 = new Style[]
-        {
-            style1,
-            style2,
-        };
+        _styles2 = [style1, style2];
     }
 
     [Test]

@@ -15,7 +15,7 @@ public class CoreDictionary<TKey, TValue> : IDictionary<TKey, TValue>,
 
     public CoreDictionary()
     {
-        _inner = new Dictionary<TKey, TValue>();
+        _inner = [];
     }
 
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
@@ -84,7 +84,7 @@ public class CoreDictionary<TKey, TValue> : IDictionary<TKey, TValue>,
     {
         Dictionary<TKey, TValue> old = _inner;
 
-        _inner = new Dictionary<TKey, TValue>();
+        _inner = [];
 
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Count)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Item"));

@@ -1,12 +1,5 @@
-﻿
-using Beutl.Collections;
+﻿using Beutl.Collections;
 
 namespace Beutl.ProjectSystem;
 
-public sealed class Elements : HierarchicalList<Element>
-{
-    public Elements(IModifiableHierarchical parent)
-        : base(parent)
-    {
-    }
-}
+public sealed class Elements(IModifiableHierarchical parent) : HierarchicalList<Element>(parent);

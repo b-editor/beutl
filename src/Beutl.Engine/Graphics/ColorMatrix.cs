@@ -7,39 +7,13 @@ using Beutl.Media;
 namespace Beutl.Graphics;
 
 [StructLayout(LayoutKind.Sequential)]
-public readonly struct ColorMatrix : IEquatable<ColorMatrix>
+public readonly struct ColorMatrix(
+    float m11, float m12, float m13, float m14, float m15,
+    float m21, float m22, float m23, float m24, float m25,
+    float m31, float m32, float m33, float m34, float m35,
+    float m41, float m42, float m43, float m44, float m45)
+    : IEquatable<ColorMatrix>
 {
-    public ColorMatrix(
-        float m11, float m12, float m13, float m14, float m15,
-        float m21, float m22, float m23, float m24, float m25,
-        float m31, float m32, float m33, float m34, float m35,
-        float m41, float m42, float m43, float m44, float m45)
-    {
-        M11 = m11;
-        M12 = m12;
-        M13 = m13;
-        M14 = m14;
-        M15 = m15;
-
-        M21 = m21;
-        M22 = m22;
-        M23 = m23;
-        M24 = m24;
-        M25 = m25;
-
-        M31 = m31;
-        M32 = m32;
-        M33 = m33;
-        M34 = m34;
-        M35 = m35;
-
-        M41 = m41;
-        M42 = m42;
-        M43 = m43;
-        M44 = m44;
-        M45 = m45;
-    }
-
     public static ColorMatrix Identity { get; } =
         new ColorMatrix(
             1F, 0F, 0F, 0F, 0F,
@@ -49,45 +23,45 @@ public readonly struct ColorMatrix : IEquatable<ColorMatrix>
 
     public bool IsIdentity => Equals(Identity);
 
-    public float M11 { get; }
+    public float M11 { get; } = m11;
 
-    public float M12 { get; }
+    public float M12 { get; } = m12;
 
-    public float M13 { get; }
+    public float M13 { get; } = m13;
 
-    public float M14 { get; }
+    public float M14 { get; } = m14;
 
-    public float M15 { get; }
+    public float M15 { get; } = m15;
 
-    public float M21 { get; }
+    public float M21 { get; } = m21;
 
-    public float M22 { get; }
+    public float M22 { get; } = m22;
 
-    public float M23 { get; }
+    public float M23 { get; } = m23;
 
-    public float M24 { get; }
+    public float M24 { get; } = m24;
 
-    public float M25 { get; }
+    public float M25 { get; } = m25;
 
-    public float M31 { get; }
+    public float M31 { get; } = m31;
 
-    public float M32 { get; }
+    public float M32 { get; } = m32;
 
-    public float M33 { get; }
+    public float M33 { get; } = m33;
 
-    public float M34 { get; }
+    public float M34 { get; } = m34;
 
-    public float M35 { get; }
+    public float M35 { get; } = m35;
 
-    public float M41 { get; }
+    public float M41 { get; } = m41;
 
-    public float M42 { get; }
+    public float M42 { get; } = m42;
 
-    public float M43 { get; }
+    public float M43 { get; } = m43;
 
-    public float M44 { get; }
+    public float M44 { get; } = m44;
 
-    public float M45 { get; }
+    public float M45 { get; } = m45;
 
     public static ColorMatrix CreateFromSpan(ReadOnlySpan<float> span)
     {
@@ -143,13 +117,13 @@ public readonly struct ColorMatrix : IEquatable<ColorMatrix>
 
     public float[] ToArray()
     {
-        return new float[]
-        {
+        return
+        [
             M11, M12, M13, M14, M15,
             M21, M22, M23, M24, M25,
             M31, M32, M33, M34, M35,
             M41, M42, M43, M44, M45,
-        };
+        ];
     }
 
     internal void ToArrayForSkia(float[] array)
@@ -361,22 +335,13 @@ public readonly struct ColorMatrix : IEquatable<ColorMatrix>
         array[19] *= 255;
     }
 
-    internal struct Vector5
+    internal struct Vector5(float x, float y, float z, float w, float v)
     {
-        public float X;
-        public float Y;
-        public float Z;
-        public float W;
-        public float V;
-
-        public Vector5(float x, float y, float z, float w, float v)
-        {
-            X = x;
-            Y = y;
-            Z = z;
-            W = w;
-            V = v;
-        }
+        public float X = x;
+        public float Y = y;
+        public float Z = z;
+        public float W = w;
+        public float V = v;
 
         public static Vector5 operator *(in Vector5 left, in Vector5 right)
         {
@@ -415,20 +380,12 @@ public readonly struct ColorMatrix : IEquatable<ColorMatrix>
         }
     }
 
-    internal struct Matrix4x5
+    internal struct Matrix4x5(Vector5 x, Vector5 y, Vector5 z, Vector5 w)
     {
-        public Vector5 X;
-        public Vector5 Y;
-        public Vector5 Z;
-        public Vector5 W;
-
-        public Matrix4x5(Vector5 x, Vector5 y, Vector5 z, Vector5 w)
-        {
-            X = x;
-            Y = y;
-            Z = z;
-            W = w;
-        }
+        public Vector5 X = x;
+        public Vector5 Y = y;
+        public Vector5 Z = z;
+        public Vector5 W = w;
 
         public readonly ColorMatrix AsColorMatrix() => Unsafe.As<Matrix4x5, ColorMatrix>(ref Unsafe.AsRef(in this));
 

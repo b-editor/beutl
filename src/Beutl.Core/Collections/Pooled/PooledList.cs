@@ -16,7 +16,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     // internal constant copied from Array.MaxArrayLength
     private const int MaxArrayLength = 0x7FEFFFFF;
     private const int DefaultCapacity = 4;
-    private static readonly T[] s_emptyArray = Array.Empty<T>();
+    private static readonly T[] s_emptyArray = [];
 
     [NonSerialized]
     private ArrayPool<T> _pool;
@@ -1498,15 +1498,8 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
         }
     }
 
-    private readonly struct Comparer : IComparer<T>
+    private readonly struct Comparer(Func<T?, T?, int> comparison) : IComparer<T>
     {
-        private readonly Func<T?, T?, int> _comparison;
-
-        public Comparer(Func<T?, T?, int> comparison)
-        {
-            _comparison = comparison;
-        }
-
-        public int Compare(T? x, T? y) => _comparison(x, y);
+        public int Compare(T? x, T? y) => comparison(x, y);
     }
 }

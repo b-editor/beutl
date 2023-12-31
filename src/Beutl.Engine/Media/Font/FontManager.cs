@@ -12,7 +12,7 @@ namespace Beutl.Media;
 public sealed class FontManager
 {
     public static readonly FontManager Instance = new();
-    internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = new();
+    internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = [];
     private readonly string[] _fontDirs;
 
     private FontManager()
@@ -45,7 +45,7 @@ public sealed class FontManager
             }
         }
 
-        _fontDirs = GlobalConfiguration.Instance.FontConfig.FontDirectories.ToArray();
+        _fontDirs = [.. GlobalConfiguration.Instance.FontConfig.FontDirectories];
         var list = new List<SKTypeface>();
 
         foreach (string file in _fontDirs
@@ -71,7 +71,7 @@ public sealed class FontManager
         foreach (IGrouping<string, SKTypeface> item in list.GroupBy(i => i.FamilyName))
         {
             var family = new FontFamily(item.Key);
-            _fonts.Add(family, TypefaceCollection.Create(item.ToArray()));
+            _fonts.Add(family, TypefaceCollection.Create([.. item]));
         }
 
         DefaultTypeface = GetDefaultTypeface();

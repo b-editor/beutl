@@ -13,7 +13,7 @@ namespace Beutl.ViewModels;
 
 public sealed class GraphEditorKeyFrameViewModel : IDisposable
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly GraphEditorViewViewModel _parent;
     internal readonly ReactivePropertySlim<GraphEditorKeyFrameViewModel?> _previous = new();
     internal GraphEditorKeyFrameViewModel? _next;
@@ -299,32 +299,21 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         Right.Value = Model.KeyTime.ToPixel(_parent.Parent.Options.Value.Scale);
     }
 
-    private sealed class SubmitControlPointCommand : IRecordableCommand
+    private sealed class SubmitControlPointCommand(
+        (float, float) oldValue, (float, float) newValue, SplineEasing splineEasing, bool first)
+        : IRecordableCommand
     {
-        private readonly (float, float) _oldValue;
-        private readonly (float, float) _newValue;
-        private readonly SplineEasing _splineEasing;
-        private readonly bool _first;
-
-        public SubmitControlPointCommand((float, float) oldValue, (float, float) newValue, SplineEasing splineEasing, bool first)
-        {
-            _oldValue = oldValue;
-            _newValue = newValue;
-            _splineEasing = splineEasing;
-            _first = first;
-        }
-
         public void Do()
         {
-            if (_first)
+            if (first)
             {
-                _splineEasing.X1 = _newValue.Item1;
-                _splineEasing.Y1 = _newValue.Item2;
+                splineEasing.X1 = newValue.Item1;
+                splineEasing.Y1 = newValue.Item2;
             }
             else
             {
-                _splineEasing.X2 = _newValue.Item1;
-                _splineEasing.Y2 = _newValue.Item2;
+                splineEasing.X2 = newValue.Item1;
+                splineEasing.Y2 = newValue.Item2;
             }
         }
 
@@ -332,48 +321,34 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
         public void Undo()
         {
-            if (_first)
+            if (first)
             {
-                _splineEasing.X1 = _oldValue.Item1;
-                _splineEasing.Y1 = _oldValue.Item2;
+                splineEasing.X1 = oldValue.Item1;
+                splineEasing.Y1 = oldValue.Item2;
             }
             else
             {
-                _splineEasing.X2 = _oldValue.Item1;
-                _splineEasing.Y2 = _oldValue.Item2;
+                splineEasing.X2 = oldValue.Item1;
+                splineEasing.Y2 = oldValue.Item2;
             }
         }
     }
 
-    private sealed class SubmitKeyFrameCommand : IRecordableCommand
+    private sealed class SubmitKeyFrameCommand(IKeyFrame keyframe, TimeSpan oldTime, TimeSpan newTime, object? oldValue, object? newValue)
+        : IRecordableCommand
     {
-        private readonly IKeyFrame _keyframe;
-        private readonly TimeSpan _oldTime;
-        private readonly TimeSpan _newTime;
-        private readonly object? _oldValue;
-        private readonly object? _newValue;
-
-        public SubmitKeyFrameCommand(IKeyFrame keyframe, TimeSpan oldTime, TimeSpan newTime, object? oldValue, object? newValue)
-        {
-            _keyframe = keyframe;
-            _oldTime = oldTime;
-            _newTime = newTime;
-            _oldValue = oldValue;
-            _newValue = newValue;
-        }
-
         public void Do()
         {
-            _keyframe.Value = _newValue;
-            _keyframe.KeyTime = _newTime;
+            keyframe.Value = newValue;
+            keyframe.KeyTime = newTime;
         }
 
         public void Redo() => Do();
 
         public void Undo()
         {
-            _keyframe.Value = _oldValue;
-            _keyframe.KeyTime = _oldTime;
+            keyframe.Value = oldValue;
+            keyframe.KeyTime = oldTime;
         }
     }
 }

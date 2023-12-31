@@ -32,22 +32,12 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
         }
     }
 
-    private sealed class SetKeyFrameValueCommand : IRecordableCommand
+    private sealed class SetKeyFrameValueCommand(KeyFrame<IVideoSource?> setter, IVideoSource? oldValue, IVideoSource? newValue) : IRecordableCommand
     {
-        private readonly KeyFrame<IVideoSource?> _keyframe;
-        private readonly string? _oldName;
-        private readonly string? _newName;
-        private IVideoSource? _oldValue;
-        private IVideoSource? _newValue;
-
-        public SetKeyFrameValueCommand(KeyFrame<IVideoSource?> setter, IVideoSource? oldValue, IVideoSource? newValue)
-        {
-            _keyframe = setter;
-            _oldValue = oldValue;
-            _newValue = newValue;
-            _oldName = oldValue?.Name;
-            _newName = newValue?.Name;
-        }
+        private readonly string? _oldName = oldValue?.Name;
+        private readonly string? _newName = newValue?.Name;
+        private IVideoSource? _oldValue = oldValue;
+        private IVideoSource? _newValue = newValue;
 
         public void Do()
         {
@@ -57,7 +47,7 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
                 _newValue = newValue;
             }
 
-            _keyframe.SetValue(KeyFrame<IVideoSource?>.ValueProperty, _newValue);
+            setter.SetValue(KeyFrame<IVideoSource?>.ValueProperty, _newValue);
             _oldValue?.Dispose();
             _oldValue = null;
         }
@@ -75,28 +65,18 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
                 _oldValue = oldValue;
             }
 
-            _keyframe.SetValue(KeyFrame<IVideoSource?>.ValueProperty, _oldValue);
+            setter.SetValue(KeyFrame<IVideoSource?>.ValueProperty, _oldValue);
             _newValue?.Dispose();
             _newValue = null;
         }
     }
 
-    private sealed class SetCommand : IRecordableCommand
+    private sealed class SetCommand(IAbstractProperty<IVideoSource?> setter, IVideoSource? oldValue, IVideoSource? newValue) : IRecordableCommand
     {
-        private readonly IAbstractProperty<IVideoSource?> _setter;
-        private readonly string? _oldName;
-        private readonly string? _newName;
-        private IVideoSource? _oldValue;
-        private IVideoSource? _newValue;
-
-        public SetCommand(IAbstractProperty<IVideoSource?> setter, IVideoSource? oldValue, IVideoSource? newValue)
-        {
-            _setter = setter;
-            _oldValue = oldValue;
-            _newValue = newValue;
-            _oldName = oldValue?.Name;
-            _newName = newValue?.Name;
-        }
+        private readonly string? _oldName = oldValue?.Name;
+        private readonly string? _newName = newValue?.Name;
+        private IVideoSource? _oldValue = oldValue;
+        private IVideoSource? _newValue = newValue;
 
         public void Do()
         {
@@ -106,7 +86,7 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
                 _newValue = newValue;
             }
 
-            _setter.SetValue(_newValue);
+            setter.SetValue(_newValue);
             _oldValue?.Dispose();
             _oldValue = null;
         }
@@ -124,7 +104,7 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
                 _oldValue = oldValue;
             }
 
-            _setter.SetValue(_oldValue);
+            setter.SetValue(_oldValue);
             _newValue?.Dispose();
             _newValue = null;
         }

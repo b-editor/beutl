@@ -25,7 +25,7 @@ public class AlignmentYEditor : PropertyEditor
     private const string TopSelected = ":top-selected";
     private const string CenterSelected = ":center-selected";
     private const string BottomSelected = ":bottom-selected";
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private AlignmentY _value;
 
     public AlignmentYEditor()

@@ -26,7 +26,7 @@ public sealed partial class LayerHeader : UserControl
     private Timeline? _timeline;
     private Point _startRel;
     private Point _start;
-    private ElementViewModel[] _elements = Array.Empty<ElementViewModel>();
+    private ElementViewModel[] _elements = [];
     private int _newLayer;
     private double _positionY;
 
@@ -96,7 +96,7 @@ public sealed partial class LayerHeader : UserControl
         int newLayerNum = _newLayer;
         int oldLayerNum = ViewModel.Number.Value;
         new MoveLayerCommand(ViewModel, newLayerNum, oldLayerNum, _elements).DoAndRecord(CommandRecorder.Default);
-        _elements = Array.Empty<ElementViewModel>();
+        _elements = [];
     }
 
     private void Border_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -147,7 +147,7 @@ public sealed partial class LayerHeader : UserControl
             _newLayerNum = newLayerNum;
             _oldLayerNum = oldLayerNum;
             _items1 = items;
-            _items2 = new();
+            _items2 = [];
             CoreListMarshal<ElementViewModel> span1 = _viewModel.Timeline.Elements.GetMarshal();
             CoreListMarshal<LayerHeaderViewModel> span2 = _viewModel.Timeline.LayerHeaders.GetMarshal();
 
@@ -161,7 +161,7 @@ public sealed partial class LayerHeader : UserControl
                 }
             }
 
-            _viewModels = new List<LayerHeaderViewModel>();
+            _viewModels = [];
             foreach (LayerHeaderViewModel item in span2.Value)
             {
                 if (item.Number.Value != oldLayerNum

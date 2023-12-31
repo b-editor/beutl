@@ -9,13 +9,10 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public sealed class InlineAnimationLayerViewModel<T> : InlineAnimationLayerViewModel
+public sealed class InlineAnimationLayerViewModel<T>(
+    IAbstractAnimatableProperty<T> property, TimelineViewModel timeline, ElementViewModel element)
+    : InlineAnimationLayerViewModel(property, timeline, element)
 {
-    public InlineAnimationLayerViewModel(IAbstractAnimatableProperty<T> property, TimelineViewModel timeline, ElementViewModel element)
-        : base(property, timeline, element)
-    {
-    }
-
     public override void DropEasing(Easing easing, TimeSpan keyTime)
     {
         if (Property.Animation is KeyFrameAnimation<T> kfAnimation)
@@ -60,20 +57,11 @@ public sealed class InlineAnimationLayerViewModel<T> : InlineAnimationLayerViewM
         }
     }
 
-    private sealed class AddKeyFrameCommand : IRecordableCommand
+    private sealed class AddKeyFrameCommand(KeyFrames keyFrames, IKeyFrame keyFrame) : IRecordableCommand
     {
-        private readonly KeyFrames _keyFrames;
-        private readonly IKeyFrame _keyFrame;
-
-        public AddKeyFrameCommand(KeyFrames keyFrames, IKeyFrame keyFrame)
-        {
-            _keyFrames = keyFrames;
-            _keyFrame = keyFrame;
-        }
-
         public void Do()
         {
-            _keyFrames.Add(_keyFrame, out _);
+            keyFrames.Add(keyFrame, out _);
         }
 
         public void Redo()
@@ -83,15 +71,15 @@ public sealed class InlineAnimationLayerViewModel<T> : InlineAnimationLayerViewM
 
         public void Undo()
         {
-            _keyFrames.Remove(_keyFrame);
+            keyFrames.Remove(keyFrame);
         }
     }
 }
 
 public abstract class InlineAnimationLayerViewModel : IDisposable
 {
-    private readonly CompositeDisposable _disposables = new();
-    private readonly CompositeDisposable _innerDisposables = new();
+    private readonly CompositeDisposable _disposables = [];
+    private readonly CompositeDisposable _innerDisposables = [];
     private readonly ReactivePropertySlim<bool> _useGlobalClock = new(true);
     private LayerHeaderViewModel? _lastLayerHeader;
 
@@ -173,7 +161,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
     [Obsolete("Use Element property instead.")]
     public ElementViewModel Layer => Element;
 
-    public CoreList<InlineKeyFrameViewModel> Items { get; } = new();
+    public CoreList<InlineKeyFrameViewModel> Items { get; } = [];
 
     public ReactiveProperty<Thickness> Margin { get; }
 
@@ -282,19 +270,13 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public record struct PrepareAnimationContext(Thickness Margin, Thickness LeftMargin);
 
-    private sealed class TrackedInlineLayerTopObservable : LightweightObservableBase<double>
+    private sealed class TrackedInlineLayerTopObservable(InlineAnimationLayerViewModel inline) : LightweightObservableBase<double>
     {
-        private readonly InlineAnimationLayerViewModel _inline;
         private IDisposable? _disposable1;
         private IDisposable? _disposable2;
         private IDisposable? _disposable3;
         private int _prevIndex = -1;
         private LayerHeaderViewModel? _prevLayerHeader;
-
-        public TrackedInlineLayerTopObservable(InlineAnimationLayerViewModel inline)
-        {
-            _inline = inline;
-        }
 
         protected override void Deinitialize()
         {
@@ -308,10 +290,10 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
         protected override void Initialize()
         {
-            _disposable1 = _inline.LayerHeader
+            _disposable1 = inline.LayerHeader
                 .Subscribe(OnLayerHeaderChanged);
 
-            _disposable2 = _inline.Index.Subscribe(OnIndexChanged);
+            _disposable2 = inline.Index.Subscribe(OnIndexChanged);
         }
 
         private void OnLayerHeaderChanged(LayerHeaderViewModel? obj)
@@ -348,7 +330,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         {
             if (_prevLayerHeader != null)
             {
-                _prevIndex = _prevLayerHeader.Inlines.IndexOf(_inline);
+                _prevIndex = _prevLayerHeader.Inlines.IndexOf(inline);
 
                 double value = _prevLayerHeader.CalculateInlineTop(_prevIndex) + FrameNumberHelper.LayerHeight;
                 if (observer == null)

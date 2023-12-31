@@ -13,25 +13,20 @@ public sealed class ExtensionConfig : ConfigurationBase
         DecoderPriority.CollectionChanged += (_, _) => OnChanged();
     }
 
-    public struct TypeLazy
+    public struct TypeLazy(string formattedTypeName)
     {
         private Type? _type = null;
 
-        public TypeLazy(string formattedTypeName)
-        {
-            FormattedTypeName = formattedTypeName;
-        }
-
-        public string FormattedTypeName { get; init; }
+        public string FormattedTypeName { get; init; } = formattedTypeName;
 
         public Type? Type => _type ??= TypeFormat.ToType(FormattedTypeName);
     }
 
     // Keyには拡張子を含める
-    public CoreDictionary<string, ICoreList<TypeLazy>> EditorExtensions { get; } = new();
+    public CoreDictionary<string, ICoreList<TypeLazy>> EditorExtensions { get; } = [];
 
     // Keyには拡張子を含める
-    public CoreList<TypeLazy> DecoderPriority { get; } = new();
+    public CoreList<TypeLazy> DecoderPriority { get; } = [];
 
     [ObsoleteSerializationApi]
     public override void ReadFromJson(JsonObject json)

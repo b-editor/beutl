@@ -19,7 +19,7 @@ namespace Beutl.ViewModels.Editors;
 
 public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProvider
 {
-    protected CompositeDisposable Disposables = new();
+    protected CompositeDisposable Disposables = [];
     private bool _disposedValue;
     private IDisposable? _currentFrameRevoker;
     private bool _skipKeyFrameIndexSubscription;
@@ -403,22 +403,11 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         }
     }
 
-    private sealed class SetCommand : IRecordableCommand
+    private sealed class SetCommand(IAbstractProperty<T> setter, T? oldValue, T? newValue) : IRecordableCommand
     {
-        private readonly IAbstractProperty<T> _setter;
-        private readonly T? _oldValue;
-        private readonly T? _newValue;
-
-        public SetCommand(IAbstractProperty<T> setter, T? oldValue, T? newValue)
-        {
-            _setter = setter;
-            _oldValue = oldValue;
-            _newValue = newValue;
-        }
-
         public void Do()
         {
-            _setter.SetValue(_newValue);
+            setter.SetValue(newValue);
         }
 
         public void Redo()
@@ -428,26 +417,15 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
         public void Undo()
         {
-            _setter.SetValue(_oldValue);
+            setter.SetValue(oldValue);
         }
     }
 
-    private sealed class SetKeyFrameValueCommand : IRecordableCommand
+    private sealed class SetKeyFrameValueCommand(KeyFrame<T> setter, T? oldValue, T? newValue) : IRecordableCommand
     {
-        private readonly KeyFrame<T> _keyframe;
-        private readonly T? _oldValue;
-        private readonly T? _newValue;
-
-        public SetKeyFrameValueCommand(KeyFrame<T> setter, T? oldValue, T? newValue)
-        {
-            _keyframe = setter;
-            _oldValue = oldValue;
-            _newValue = newValue;
-        }
-
         public void Do()
         {
-            _keyframe.SetValue(KeyFrame<T>.ValueProperty, _newValue);
+            setter.SetValue(KeyFrame<T>.ValueProperty, newValue);
         }
 
         public void Redo()
@@ -457,24 +435,15 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
         public void Undo()
         {
-            _keyframe.SetValue(KeyFrame<T>.ValueProperty, _oldValue);
+            setter.SetValue(KeyFrame<T>.ValueProperty, oldValue);
         }
     }
 
-    private sealed class AddKeyFrameCommand : IRecordableCommand
+    private sealed class AddKeyFrameCommand(KeyFrames keyFrames, IKeyFrame keyFrame) : IRecordableCommand
     {
-        private readonly KeyFrames _keyFrames;
-        private readonly IKeyFrame _keyFrame;
-
-        public AddKeyFrameCommand(KeyFrames keyFrames, IKeyFrame keyFrame)
-        {
-            _keyFrames = keyFrames;
-            _keyFrame = keyFrame;
-        }
-
         public void Do()
         {
-            _keyFrames.Add(_keyFrame, out _);
+            keyFrames.Add(keyFrame, out _);
         }
 
         public void Redo()
@@ -484,7 +453,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
         public void Undo()
         {
-            _keyFrames.Remove(_keyFrame);
+            keyFrames.Remove(keyFrame);
         }
     }
 

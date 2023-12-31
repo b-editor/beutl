@@ -15,27 +15,18 @@ using Telemetry = Beutl.Api.Services.PackageManagemantActivitySource;
 
 namespace Beutl.Api.Services;
 
-public sealed class PackageManager : PackageLoader
+public sealed class PackageManager(
+    InstalledPackageRepository installedPackageRepository,
+    ExtensionProvider extensionProvider,
+    BeutlApiApplication apiApplication) : PackageLoader
 {
-    private readonly ConcurrentBag<LocalPackage> _loadedPackage = new();
-    private readonly InstalledPackageRepository _installedPackageRepository;
-    private readonly BeutlApiApplication _apiApplication;
+    private readonly ConcurrentBag<LocalPackage> _loadedPackage = [];
     private readonly ExtensionSettingsStore _settingsStore = new();
     private readonly Subject<(PackageIdentity Package, bool Loaded)> _subject = new();
 
-    public PackageManager(
-        InstalledPackageRepository installedPackageRepository,
-        ExtensionProvider extensionProvider,
-        BeutlApiApplication apiApplication)
-    {
-        ExtensionProvider = extensionProvider;
-        _installedPackageRepository = installedPackageRepository;
-        _apiApplication = apiApplication;
-    }
-
     public IEnumerable<LocalPackage> LoadedPackage => _loadedPackage;
 
-    public ExtensionProvider ExtensionProvider { get; }
+    public ExtensionProvider ExtensionProvider { get; } = extensionProvider;
 
     public IObservable<bool> GetObservable(string name, string? version = null)
     {
@@ -81,10 +72,10 @@ public sealed class PackageManager : PackageLoader
     {
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
         {
-            PackageIdentity[] packages = _installedPackageRepository.GetLocalPackages().ToArray();
+            PackageIdentity[] packages = installedPackageRepository.GetLocalPackages().ToArray();
 
             var updates = new List<PackageUpdate>(packages.Length);
-            DiscoverService discover = _apiApplication.GetResource<DiscoverService>();
+            DiscoverService discover = apiApplication.GetResource<DiscoverService>();
 
             for (int i = 0; i < packages.Length; i++)
             {
@@ -124,7 +115,7 @@ public sealed class PackageManager : PackageLoader
     {
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
         {
-            DiscoverService discover = _apiApplication.GetResource<DiscoverService>();
+            DiscoverService discover = apiApplication.GetResource<DiscoverService>();
 
             LocalPackage? pkg = _loadedPackage.FirstOrDefault(v => !v.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(v.Name, name));
             if (pkg != null)
@@ -157,7 +148,7 @@ public sealed class PackageManager : PackageLoader
     {
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("GetPackages"))
         {
-            PackageIdentity[] packages = _installedPackageRepository.GetLocalPackages().ToArray();
+            PackageIdentity[] packages = installedPackageRepository.GetLocalPackages().ToArray();
             activity?.SetTag("Packages_Count", packages.Length);
 
             var list = new List<LocalPackage>(packages.Length);
@@ -235,7 +226,7 @@ public sealed class PackageManager : PackageLoader
 
             activity?.AddEvent(new ActivityEvent("Loaded_Extensions"));
 
-            ExtensionProvider.AddExtensions(package.LocalId, extensions.ToArray());
+            ExtensionProvider.AddExtensions(package.LocalId, [.. extensions]);
 
             _loadedPackage.Add(package);
 

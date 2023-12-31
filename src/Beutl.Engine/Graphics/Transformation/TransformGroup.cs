@@ -19,7 +19,7 @@ public sealed class TransformGroup : Transform
 
     public TransformGroup()
     {
-        _children = new Transforms();
+        _children = [];
         _children.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 

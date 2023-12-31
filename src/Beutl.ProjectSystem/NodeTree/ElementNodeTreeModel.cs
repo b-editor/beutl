@@ -11,7 +11,7 @@ namespace Beutl.NodeTree;
 public class ElementNodeTreeModel : NodeTreeModel
 {
     // 評価する順番
-    private readonly List<NodeEvaluationContext[]> _evalContexts = new();
+    private readonly List<NodeEvaluationContext[]> _evalContexts = [];
     private bool _isDirty = true;
 
     public ElementNodeTreeModel()
@@ -106,7 +106,7 @@ public class ElementNodeTreeModel : NodeTreeModel
             foreach (Node? lastNode in Nodes.Where(x => !x.Items.Any(x => x is IOutputSocket)))
             {
                 BuildNode(lastNode, stack);
-                NodeEvaluationContext[] array = stack.ToArray();
+                NodeEvaluationContext[] array = [.. stack];
                 Array.Reverse(array);
 
                 _evalContexts.Add(array);

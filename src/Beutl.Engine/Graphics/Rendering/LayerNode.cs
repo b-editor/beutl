@@ -6,14 +6,9 @@ using System.Threading.Tasks;
 
 namespace Beutl.Graphics.Rendering;
 
-public class LayerNode : ContainerNode
+public class LayerNode(Rect limit) : ContainerNode
 {
-    public LayerNode(Rect limit)
-    {
-        Limit = limit;
-    }
-
-    public Rect Limit { get; }
+    public Rect Limit { get; } = limit;
 
     public override void Render(ImmediateCanvas canvas)
     {

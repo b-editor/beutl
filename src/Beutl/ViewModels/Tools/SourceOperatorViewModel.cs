@@ -53,7 +53,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
     public ReactiveProperty<bool> IsEnabled { get; }
 
-    public CoreList<IPropertyEditorContext?> Properties { get; } = new();
+    public CoreList<IPropertyEditorContext?> Properties { get; } = [];
 
     public IReadOnlyReactiveProperty<bool> IsDummy { get; }
 
@@ -125,7 +125,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
     private void Init()
     {
-        List<IAbstractProperty> props = Model.Properties.ToList();
+        List<IAbstractProperty> props = [.. Model.Properties];
         var tempItems = new List<IPropertyEditorContext?>(props.Count);
         IAbstractProperty[]? foundItems;
         PropertyEditorExtension? extension;
@@ -228,24 +228,11 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
         }
     }
 
-    private sealed class ReplaceItemCommand : IRecordableCommand
+    private sealed class ReplaceItemCommand(IList<SourceOperator> list, int index, SourceOperator item, SourceOperator oldItem) : IRecordableCommand
     {
-        private readonly IList<SourceOperator> _list;
-        private readonly int _index;
-        private readonly SourceOperator _newItem;
-        private readonly SourceOperator _oldItem;
-
-        public ReplaceItemCommand(IList<SourceOperator> list, int index, SourceOperator item, SourceOperator oldItem)
-        {
-            _list = list;
-            _index = index;
-            _newItem = item;
-            _oldItem = oldItem;
-        }
-
         public void Do()
         {
-            _list[_index] = _newItem;
+            list[index] = item;
         }
 
         public void Redo()
@@ -255,7 +242,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
         public void Undo()
         {
-            _list[_index] = _oldItem;
+            list[index] = oldItem;
         }
     }
 }

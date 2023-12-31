@@ -45,9 +45,6 @@ public abstract class PackageLoader : IBeutlApiResource
         string name = Path.GetFileName(mainDirectory);
         string asmFile = Path.Combine(mainDirectory, $"{name}.dll");
 
-        return new Assembly[]
-        {
-            loadContext.LoadFromAssemblyPath(asmFile)
-        };
+        return [loadContext.LoadFromAssemblyPath(asmFile)];
     }
 }

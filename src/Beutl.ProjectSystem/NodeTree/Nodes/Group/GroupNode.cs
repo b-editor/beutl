@@ -12,9 +12,9 @@ namespace Beutl.NodeTree.Nodes.Group;
 // Todo: ファイルからノードグループを読み込めるようにする。
 public class GroupNode : Node
 {
-    private readonly CompositeDisposable _disposables = new();
-    private readonly List<IDisposable> _outputSocketDisposable = new();
-    private readonly List<IDisposable> _inputSocketDisposable = new();
+    private readonly CompositeDisposable _disposables = [];
+    private readonly List<IDisposable> _outputSocketDisposable = [];
+    private readonly List<IDisposable> _inputSocketDisposable = [];
     private int _outputSocketCount = 0;
     private int _inputSocketCount = 0;
 

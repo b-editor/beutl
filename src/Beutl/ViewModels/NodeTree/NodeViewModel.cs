@@ -19,7 +19,7 @@ namespace Beutl.ViewModels.NodeTree;
 
 public sealed class NodeViewModel : IDisposable, IJsonSerializable
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly string _defaultName;
 
     public NodeViewModel(Node node)
@@ -92,7 +92,7 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
 
     public ReactiveCommand Delete { get; } = new();
 
-    public CoreList<NodeItemViewModel> Items { get; } = new();
+    public CoreList<NodeItemViewModel> Items { get; } = [];
 
     public void Dispose()
     {

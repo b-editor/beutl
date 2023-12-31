@@ -4,17 +4,11 @@ using NuGet.Packaging.Core;
 
 namespace Beutl.Api.Services;
 
-public class PackageCleanContext
+public class PackageCleanContext(PackageIdentity[] unnecessaryPackages, long sizeToBeReleased)
 {
-    public PackageCleanContext(PackageIdentity[] unnecessaryPackages, long sizeToBeReleased)
-    {
-        UnnecessaryPackages = unnecessaryPackages;
-        SizeToBeReleased = sizeToBeReleased;
-    }
+    public PackageIdentity[] UnnecessaryPackages { get; } = unnecessaryPackages;
 
-    public PackageIdentity[] UnnecessaryPackages { get; }
-
-    public long SizeToBeReleased { get; }
+    public long SizeToBeReleased { get; } = sizeToBeReleased;
 
     [AllowNull]
     public IReadOnlyList<string> FailedPackages { get; internal set; }

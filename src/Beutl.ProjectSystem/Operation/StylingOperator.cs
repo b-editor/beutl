@@ -27,7 +27,7 @@ public interface IStylingSetterPropertyImpl : IAbstractProperty
     IStyle Style { get; }
 }
 
-public sealed class StylingSetterPropertyImpl<T> : IAbstractAnimatableProperty<T>, IStylingSetterPropertyImpl
+public sealed class StylingSetterPropertyImpl<T>(Setter<T> setter, Style style) : IAbstractAnimatableProperty<T>, IStylingSetterPropertyImpl
 {
     private sealed class AnimationObservable : LightweightObservableBase<IAnimation<T>?>
     {
@@ -65,19 +65,11 @@ public sealed class StylingSetterPropertyImpl<T> : IAbstractAnimatableProperty<T
         }
     }
 
-    public StylingSetterPropertyImpl(Setter<T> setter, Style style)
-    {
-        Property = setter.Property;
-        Setter = setter;
-        Style = style;
-        ObserveAnimation = new AnimationObservable(setter);
-    }
+    public CoreProperty<T> Property { get; } = setter.Property;
 
-    public CoreProperty<T> Property { get; }
+    public Setter<T> Setter { get; } = setter;
 
-    public Setter<T> Setter { get; }
-
-    public Style Style { get; }
+    public Style Style { get; } = style;
 
     public IAnimation<T>? Animation
     {
@@ -85,7 +77,7 @@ public sealed class StylingSetterPropertyImpl<T> : IAbstractAnimatableProperty<T
         set => Setter.Animation = value;
     }
 
-    public IObservable<IAnimation<T>?> ObserveAnimation { get; }
+    public IObservable<IAnimation<T>?> ObserveAnimation { get; } = new AnimationObservable(setter);
 
     public Type PropertyType => Property.PropertyType;
 
@@ -133,7 +125,7 @@ internal static class StylingOperatorPropertyDefinition
 {
     internal record struct Definition(PropertyInfo Property, Func<object, ISetter> Getter, Action<object, ISetter> Setter);
 
-    private static readonly Dictionary<Type, Definition[]> s_defines = new();
+    private static readonly Dictionary<Type, Definition[]> s_defines = [];
 
     public static ISetter[] GetSetters(object obj)
     {

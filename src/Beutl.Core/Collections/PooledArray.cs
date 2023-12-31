@@ -133,16 +133,9 @@ public struct PooledArray<T> : IDisposable, IEnumerable<T>
         return _array.GetEnumerator();
     }
 
-    public struct ArrayEnumerator : IEnumerator<T>
+    public struct ArrayEnumerator(PooledArray<T> array) : IEnumerator<T>
     {
-        private PooledArray<T> _array;
-        private int _index;
-
-        public ArrayEnumerator(PooledArray<T> array)
-        {
-            _array = array;
-            _index = -1;
-        }
+        private int _index = -1;
 
         public ref T Current
         {
@@ -150,9 +143,9 @@ public struct PooledArray<T> : IDisposable, IEnumerable<T>
             {
                 if (_index == -1)
                     throw new InvalidOperationException();
-                if (_index >= _array!.Length)
+                if (_index >= array!.Length)
                     throw new InvalidOperationException();
-                return ref _array[_index];
+                return ref array[_index];
             }
         }
 
@@ -162,14 +155,14 @@ public struct PooledArray<T> : IDisposable, IEnumerable<T>
 
         public bool MoveNext()
         {
-            if (_index < (_array!.Length - 1))
+            if (_index < (array!.Length - 1))
             {
                 _index++;
                 return true;
             }
             else
             {
-                _index = _array.Length;
+                _index = array.Length;
             }
 
             return false;
@@ -177,8 +170,8 @@ public struct PooledArray<T> : IDisposable, IEnumerable<T>
 
         public void Dispose()
         {
-            _index = _array.Length;
-            _array = default;
+            _index = array.Length;
+            array = default;
         }
 
         public void Reset()

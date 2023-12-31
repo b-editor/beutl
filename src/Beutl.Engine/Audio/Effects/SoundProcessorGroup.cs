@@ -5,7 +5,7 @@ namespace Beutl.Audio.Effects;
 
 internal sealed class SoundProcessorGroup : ISoundProcessor
 {
-    public ISoundProcessor[] Processors { get; set; } = Array.Empty<ISoundProcessor>();
+    public ISoundProcessor[] Processors { get; set; } = [];
 
     public void Dispose()
     {
@@ -14,7 +14,7 @@ internal sealed class SoundProcessorGroup : ISoundProcessor
             item.Dispose();
         }
 
-        Processors = Array.Empty<ISoundProcessor>();
+        Processors = [];
     }
 
     public void Process(in Pcm<Stereo32BitFloat> src, out Pcm<Stereo32BitFloat> dst)

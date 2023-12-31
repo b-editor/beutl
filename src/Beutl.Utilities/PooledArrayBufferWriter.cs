@@ -64,7 +64,9 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
     private void Verify()
     {
         if (IsDisposed)
+        {
             throw new ObjectDisposedException(nameof(PooledArrayBufferWriter<T>));
+        }
     }
 
     public void Clear()
@@ -174,7 +176,7 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
         if (!IsDisposed)
         {
             _pool.Return(_buffer, RuntimeHelpers.IsReferenceOrContainsReferences<T>());
-            _buffer = Array.Empty<T>();
+            _buffer = [];
 
             IsDisposed = true;
             GC.SuppressFinalize(this);

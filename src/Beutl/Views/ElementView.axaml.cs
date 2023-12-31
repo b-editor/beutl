@@ -31,7 +31,7 @@ namespace Beutl.Views;
 
 public sealed partial class ElementView : UserControl
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private Timeline? _timeline;
     private TimeSpan _pointerPosition;
     private static ColorPickerFlyout? s_colorPickerFlyout;
@@ -577,7 +577,7 @@ public sealed partial class ElementView : UserControl
                         int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
                         int deltaIndex = newIndex - viewModel.Model.ZIndex;
 
-                        viewModel.Scene.MoveChildren(deltaIndex, deltaStart, elems.ToArray())
+                        viewModel.Scene.MoveChildren(deltaIndex, deltaStart, [.. elems])
                             .DoAndRecord(CommandRecorder.Default);
 
                         foreach (var (item, context) in animations)

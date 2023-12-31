@@ -2,18 +2,12 @@
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class GeometryNode : BrushDrawNode
+public sealed class GeometryNode(Geometry geometry, IBrush? fill, IPen? pen)
+    : BrushDrawNode(fill, pen, PenHelper.CalculateBoundsWithStrokeCap(geometry.GetRenderBounds(pen), pen))
 {
-    private readonly int _version;
+    private readonly int _version = geometry.Version;
 
-    public GeometryNode(Geometry geometry, IBrush? fill, IPen? pen)
-        : base(fill, pen, PenHelper.CalculateBoundsWithStrokeCap(geometry.GetRenderBounds(pen), pen))
-    {
-        Geometry = geometry;
-        _version = geometry.Version;
-    }
-
-    public Geometry Geometry { get; private set; }
+    public Geometry Geometry { get; private set; } = geometry;
 
     public bool Equals(Geometry geometry, IBrush? fill, IPen? pen)
     {

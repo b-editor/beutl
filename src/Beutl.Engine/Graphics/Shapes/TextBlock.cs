@@ -300,7 +300,7 @@ public class TextBlock : Drawable
         {
             if (string.IsNullOrEmpty(_text))
             {
-                Elements = new TextElements(Array.Empty<TextElement>());
+                Elements = new TextElements([]);
             }
             else
             {

@@ -93,9 +93,9 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     public ReadOnlyReactivePropertySlim<IPen?> Value { get; }
 
-    public CoreList<IPropertyEditorContext> MajorProperties { get; } = new();
+    public CoreList<IPropertyEditorContext> MajorProperties { get; } = [];
 
-    public CoreList<IPropertyEditorContext> MinorProperties { get; } = new();
+    public CoreList<IPropertyEditorContext> MinorProperties { get; } = [];
 
     public override void Reset()
     {
