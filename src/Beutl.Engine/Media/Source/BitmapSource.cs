@@ -43,8 +43,7 @@ public sealed class BitmapSource : ImageSource
 
     public override IImageSource Clone()
     {
-        if (IsDisposed)
-            throw new ObjectDisposedException(nameof(VideoSource));
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
 
         return new BitmapSource(_bitmap, Name);
     }

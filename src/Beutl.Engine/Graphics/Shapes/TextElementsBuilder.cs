@@ -169,7 +169,7 @@ public class TextElementsBuilder(FormattedTextInfo initialOptions)
                 }
                 else if (!noParse)
                 {
-                    Options options = ToOptions(closeTagType, token.Text.AsSpan());
+                    Options options = ToOptions(closeTagType);
                     Pop(options);
                 }
             }
@@ -181,7 +181,7 @@ public class TextElementsBuilder(FormattedTextInfo initialOptions)
         }
     }
 
-    private static Options ToOptions(TagType tagType, ReadOnlySpan<char> text)
+    private static Options ToOptions(TagType tagType)
     {
         return tagType switch
         {

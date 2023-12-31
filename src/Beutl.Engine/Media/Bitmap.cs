@@ -215,10 +215,7 @@ public unsafe class Bitmap<T> : IBitmap
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void ThrowIfDisposed()
     {
-        if (IsDisposed)
-        {
-            throw new ObjectDisposedException(nameof(Bitmap<T>));
-        }
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
     }
 
     public void Dispose()

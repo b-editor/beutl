@@ -54,8 +54,7 @@ public class SoundSource(Ref<MediaReader> mediaReader, string fileName) : ISound
 
     public SoundSource Clone()
     {
-        if (IsDisposed)
-            throw new ObjectDisposedException(nameof(VideoSource));
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
 
         return new SoundSource(mediaReader.Clone(), Name);
     }

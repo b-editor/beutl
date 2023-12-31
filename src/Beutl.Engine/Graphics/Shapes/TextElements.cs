@@ -108,10 +108,7 @@ public class TextElements : IReadOnlyList<TextElement>, IAffectsRender
 
         public bool MoveNext()
         {
-            if (_array == null)
-            {
-                throw new ObjectDisposedException("LineEnumerator");
-            }
+            ObjectDisposedException.ThrowIf(_array == null, this);
 
             int index = _prevIndex + 1;
             _index = _prevIndex;

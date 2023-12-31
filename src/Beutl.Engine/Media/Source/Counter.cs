@@ -29,10 +29,11 @@ internal sealed class Counter<T>
         var old = _refs;
         while (true)
         {
-            if (old == 0)
-            {
-                throw new ObjectDisposedException("Cannot add a reference to a nonreferenced item");
-            }
+            ObjectDisposedException.ThrowIf(old == 0, this);
+            //if (old == 0)
+            //{
+            //    throw new ObjectDisposedException("Cannot add a reference to a nonreferenced item");
+            //}
             var current = Interlocked.CompareExchange(ref _refs, old + 1, old);
             if (current == old)
             {

@@ -6,7 +6,6 @@ public readonly record struct TimelineOptions
 {
     private readonly float _scale;
     private readonly Vector2 _offset;
-    private readonly int _maxLayerCount;
 
     public TimelineOptions()
         : this(1, Vector2.Zero)
@@ -22,7 +21,7 @@ public readonly record struct TimelineOptions
     {
         _scale = scale;
         _offset = offset;
-        _maxLayerCount = maxLayerCount;
+        MaxLayerCount = maxLayerCount;
     }
 
     public float Scale
@@ -37,9 +36,5 @@ public readonly record struct TimelineOptions
         init => _offset = Vector2.Max(value, new Vector2(0, 0));
     }
 
-    public int MaxLayerCount
-    {
-        get => _maxLayerCount;
-        init => _maxLayerCount = value;
-    }
+    public int MaxLayerCount { get; init; }
 }

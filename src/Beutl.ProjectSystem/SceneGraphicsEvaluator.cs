@@ -14,10 +14,9 @@ internal sealed class SceneGraphicsEvaluator(Scene scene, IRenderer renderer) : 
 {
     private readonly List<Element> _entered = [];
     private readonly List<Element> _exited = [];
-    private readonly List<Element> _current = [];
     private TimeSpan _lastTime = TimeSpan.MinValue;
 
-    public List<Element> CurrentElements => _current;
+    public List<Element> CurrentElements { get; } = [];
 
     public void Evaluate()
     {
@@ -39,9 +38,9 @@ internal sealed class SceneGraphicsEvaluator(Scene scene, IRenderer renderer) : 
             EnterSourceOperators(item);
         }
 
-        for (int i = 0; i < _current.Count; i++)
+        for (int i = 0; i < CurrentElements.Count; i++)
         {
-            Element element = _current[i];
+            Element element = CurrentElements[i];
             using (PooledList<Renderable> list = element.Evaluate(EvaluationTarget.Graphics, clock, renderer))
             {
                 foreach (Renderable item in list.Span)
@@ -79,7 +78,7 @@ internal sealed class SceneGraphicsEvaluator(Scene scene, IRenderer renderer) : 
     {
         _entered.Clear();
         _exited.Clear();
-        _current.Clear();
+        CurrentElements.Clear();
         TimeSpan enterStart = TimeSpan.MaxValue;
         TimeSpan enterEnd = TimeSpan.Zero;
 
@@ -90,7 +89,7 @@ internal sealed class SceneGraphicsEvaluator(Scene scene, IRenderer renderer) : 
 
             if (current)
             {
-                _current.OrderedAdd(item, x => x.ZIndex);
+                CurrentElements.OrderedAdd(item, x => x.ZIndex);
             }
 
             if (!recent && current)
@@ -124,6 +123,6 @@ internal sealed class SceneGraphicsEvaluator(Scene scene, IRenderer renderer) : 
     {
         _entered.Clear();
         _exited.Clear();
-        _current.Clear();
+        CurrentElements.Clear();
     }
 }

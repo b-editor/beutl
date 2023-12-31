@@ -508,10 +508,7 @@ public class CoreList<T> : ICoreList<T>
 
     void ICollection.CopyTo(Array array, int index)
     {
-        if (array == null)
-        {
-            throw new ArgumentNullException(nameof(array));
-        }
+        ArgumentNullException.ThrowIfNull(array);
 
         if (array.Rank != 1)
         {

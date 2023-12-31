@@ -156,10 +156,7 @@ public abstract class CoreProperty : ICoreProperty
     private TMetadata? GetMetadataWithOverrides<TMetadata>(Type type)
         where TMetadata : ICorePropertyMetadata
     {
-        if (type is null)
-        {
-            throw new ArgumentNullException(nameof(type));
-        }
+        ArgumentNullException.ThrowIfNull(type);
 
         if (_metadataCache.TryGetValue(type, out ICorePropertyMetadata? result) && result is TMetadata resultT)
         {

@@ -44,8 +44,7 @@ public sealed class Audio : IAudio
 
     private void VerifyAccess()
     {
-        if (IsDisposed)
-            throw new ObjectDisposedException(nameof(Audio));
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
     }
 
     public void Dispose()

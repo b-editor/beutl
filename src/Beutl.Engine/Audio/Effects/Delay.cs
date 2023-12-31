@@ -72,8 +72,7 @@ internal sealed unsafe class SimpleCircularBuffer<T> : IDisposable
 
     private void ThrowIfDisposed()
     {
-        if (_disposedValue)
-            throw new ObjectDisposedException(GetType().Name);
+        ObjectDisposedException.ThrowIf(_disposedValue, this);
     }
 }
 
