@@ -31,7 +31,7 @@ public sealed class PlayerViewModel : IDisposable
 {
     private static readonly TimeSpan s_second = TimeSpan.FromSeconds(1);
     private readonly ILogger _logger = Log.ForContext<PlayerViewModel>();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly ReactivePropertySlim<bool> _isEnabled;
     private readonly EditViewModel _editViewModel;
     private CancellationTokenSource? _cts;
@@ -242,9 +242,7 @@ public sealed class PlayerViewModel : IDisposable
 
     private static void Swap<T>(ref T x, ref T y)
     {
-        T temp = x;
-        x = y;
-        y = temp;
+        (y, x) = (x, y);
     }
 
     private async Task PlayWithXA2(XAudioContext audioContext, Scene scene)
@@ -325,16 +323,16 @@ public sealed class PlayerViewModel : IDisposable
 
             IComposer composer = scene.Composer;
             TimeSpan cur = scene.CurrentFrame;
-            var buffers = AL.GenBuffers(2);
-            var source = AL.GenSource();
+            int[] buffers = AL.GenBuffers(2);
+            int source = AL.GenSource();
 
-            foreach (var buffer in buffers)
+            foreach (int buffer in buffers)
             {
-                using var pcmf = FillAudioData(cur, composer);
+                using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, composer);
                 cur += s_second;
                 if (pcmf != null)
                 {
-                    using var pcm = pcmf.Convert<Stereo16BitInteger>();
+                    using Pcm<Stereo16BitInteger> pcm = pcmf.Convert<Stereo16BitInteger>();
 
                     AL.BufferData<Stereo16BitInteger>(buffer, ALFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
                 }
@@ -346,7 +344,7 @@ public sealed class PlayerViewModel : IDisposable
 
             while (IsPlaying.Value)
             {
-                AL.GetSource(source, ALGetSourcei.BuffersProcessed, out var processed);
+                AL.GetSource(source, ALGetSourcei.BuffersProcessed, out int processed);
                 while (processed > 0)
                 {
                     using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, composer);
@@ -354,7 +352,7 @@ public sealed class PlayerViewModel : IDisposable
                     int buffer = AL.SourceUnqueueBuffer(source);
                     if (pcmf != null)
                     {
-                        using var pcm = pcmf.Convert<Stereo16BitInteger>();
+                        using Pcm<Stereo16BitInteger> pcm = pcmf.Convert<Stereo16BitInteger>();
 
                         AL.BufferData<Stereo16BitInteger>(buffer, ALFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
                     }
@@ -402,7 +400,7 @@ public sealed class PlayerViewModel : IDisposable
             {
                 if (IsPlaying.Value && renderer.Render(timeSpan))
                 {
-                    using var bitmap = renderer.Snapshot();
+                    using Bitmap<Bgra8888> bitmap = renderer.Snapshot();
                     UpdateImage(bitmap);
 
                     if (Scene != null)
@@ -470,7 +468,7 @@ public sealed class PlayerViewModel : IDisposable
 
                 foreach (Rect item in renderer.RenderScene[selected.Value].GetBoundaries())
                 {
-                    var rect = item;
+                    Rect rect = item;
                     if (!exactBounds)
                     {
                         rect = item.Inflate(4 / scale);

@@ -47,7 +47,7 @@ public class Vector4Editor<TElement> : Vector4Editor
             defaultBindingMode: BindingMode.TwoWay);
 #pragma warning restore AVP1002 // AvaloniaProperty objects should not be owned by a generic type
 
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private TElement _firstValue;
     private TElement _oldFirstValue;
     private TElement _secondValue;
@@ -450,7 +450,7 @@ public class Vector4Editor : PropertyEditor
     private const string FocusFourthTextBox = ":focus-4th-textbox";
     private const string BorderPointerOver = ":border-pointerover";
     private const string Uniform = ":uniform";
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private Border _backgroundBorder;
     private string _firstText;
     private string _secondText;

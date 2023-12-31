@@ -27,14 +27,9 @@ using LibraryService = Beutl.Services.LibraryService;
 
 namespace Beutl.ViewModels;
 
-public sealed class ToolTabViewModel : IDisposable
+public sealed class ToolTabViewModel(IToolContext context) : IDisposable
 {
-    public ToolTabViewModel(IToolContext context)
-    {
-        Context = context;
-    }
-
-    public IToolContext Context { get; private set; }
+    public IToolContext Context { get; private set; } = context;
 
     public int Order { get; set; } = -1;
 
@@ -48,7 +43,7 @@ public sealed class ToolTabViewModel : IDisposable
 public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, ISupportCloseAnimation
 {
     private static readonly ILogger s_logger = Log.ForContext<EditViewModel>();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     // Telemetryで使う
     private readonly string _sceneId;
 
@@ -159,7 +154,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
     {
         for (int i = 0; i < BottomTabItems.Count; i++)
         {
-            var item = BottomTabItems[i];
+            ToolTabViewModel item = BottomTabItems[i];
             if (item.Context is T typed && condition(typed))
             {
                 return typed;
@@ -168,7 +163,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
         for (int i = 0; i < RightTabItems.Count; i++)
         {
-            var item = RightTabItems[i];
+            ToolTabViewModel item = RightTabItems[i];
             if (item.Context is T typed && condition(typed))
             {
                 return typed;
@@ -625,8 +620,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     private static bool MatchFileImage(string filePath)
     {
-        string[] extensions = new string[]
-        {
+        string[] extensions =
+        [
             "*.bmp",
             "*.gif",
             "*.ico",
@@ -641,7 +636,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             "*.dng",
             "*.heif",
             "*.avif",
-        };
+        ];
         return MatchFileExtensions(filePath, extensions);
     }
 
@@ -685,8 +680,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             };
         }
 
-        return new List<KeyBinding>
-        {
+        return
+        [
             // PlayPause: Space
             KeyBinding(Key.Space, KeyModifiers.None, Player.PlayPause),
             // Next: Right
@@ -697,28 +692,19 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             KeyBinding(Key.Home, KeyModifiers.None, Player.Start),
             // End: End
             KeyBinding(Key.End, KeyModifiers.None, Player.End),
-        };
+        ];
     }
 
-    private sealed class KnownCommandsImpl : IKnownEditorCommands
+    private sealed class KnownCommandsImpl(Scene scene, EditViewModel viewModel) : IKnownEditorCommands
     {
-        private readonly Scene _scene;
-        private readonly EditViewModel _viewModel;
-
-        public KnownCommandsImpl(Scene scene, EditViewModel viewModel)
-        {
-            _scene = scene;
-            _viewModel = viewModel;
-        }
-
         public ValueTask<bool> OnSave()
         {
-            _scene.Save(_scene.FileName);
-            foreach (Element element in _scene.Children)
+            scene.Save(scene.FileName);
+            foreach (Element element in scene.Children)
             {
                 element.Save(element.FileName);
             }
-            _viewModel.SaveState();
+            viewModel.SaveState();
 
             return ValueTask.FromResult(true);
         }

@@ -8,38 +8,25 @@ using static Beutl.Media.TextFormatting.FormattedTextTokenizer;
 
 namespace Beutl.Graphics.Shapes;
 
-public class TextElementsBuilder
+public class TextElementsBuilder(FormattedTextInfo initialOptions)
 {
-    private readonly List<TextElement> _elements = new();
-    private readonly Stack<FontFamily> _fontFamily = new();
-    private readonly Stack<FontWeight> _fontWeight = new();
-    private readonly Stack<FontStyle> _fontStyle = new();
-    private readonly Stack<float> _size = new();
-    private readonly Stack<IBrush?> _brush = new();
-    private readonly Stack<IPen?> _pen = new();
-    private readonly Stack<float> _spacing = new();
-    private readonly Stack<Thickness> _margin = new();
-    private readonly FormattedTextInfo _initialOptions;
-    private FontFamily _curFontFamily;
-    private FontWeight _curFontWeight;
-    private FontStyle _curFontStyle;
-    private float _curSize;
-    private IBrush? _curBrush;
-    private IPen? _curPen;
-    private float _curSpacing;
+    private readonly List<TextElement> _elements = [];
+    private readonly Stack<FontFamily> _fontFamily = [];
+    private readonly Stack<FontWeight> _fontWeight = [];
+    private readonly Stack<FontStyle> _fontStyle = [];
+    private readonly Stack<float> _size = [];
+    private readonly Stack<IBrush?> _brush = [];
+    private readonly Stack<IPen?> _pen = [];
+    private readonly Stack<float> _spacing = [];
+    private readonly Stack<Thickness> _margin = [];
+    private FontFamily _curFontFamily = initialOptions.Typeface.FontFamily;
+    private FontWeight _curFontWeight = initialOptions.Typeface.Weight;
+    private FontStyle _curFontStyle = initialOptions.Typeface.Style;
+    private float _curSize = initialOptions.Size;
+    private IBrush? _curBrush = initialOptions.Brush;
+    private IPen? _curPen = initialOptions.Pen;
+    private float _curSpacing = initialOptions.Space;
     private bool _singleLine;
-
-    public TextElementsBuilder(FormattedTextInfo initialOptions)
-    {
-        _initialOptions = initialOptions;
-        _curFontFamily = initialOptions.Typeface.FontFamily;
-        _curFontWeight = initialOptions.Typeface.Weight;
-        _curFontStyle = initialOptions.Typeface.Style;
-        _curSize = initialOptions.Size;
-        _curBrush = initialOptions.Brush;
-        _curPen = initialOptions.Pen;
-        _curSpacing = initialOptions.Space;
-    }
 
     public ReadOnlySpan<TextElement> Items => CollectionsMarshal.AsSpan(_elements);
 
@@ -98,25 +85,25 @@ public class TextElementsBuilder
         switch (options)
         {
             case Options.FontFamily:
-                _curFontFamily = _fontFamily.PopOrDefault(_initialOptions.Typeface.FontFamily);
+                _curFontFamily = _fontFamily.PopOrDefault(initialOptions.Typeface.FontFamily);
                 break;
             case Options.FontWeight:
-                _curFontWeight = _fontWeight.PopOrDefault(_initialOptions.Typeface.Weight);
+                _curFontWeight = _fontWeight.PopOrDefault(initialOptions.Typeface.Weight);
                 break;
             case Options.FontStyle:
-                _curFontStyle = _fontStyle.PopOrDefault(_initialOptions.Typeface.Style);
+                _curFontStyle = _fontStyle.PopOrDefault(initialOptions.Typeface.Style);
                 break;
             case Options.Size:
-                _curSize = _size.PopOrDefault(_initialOptions.Size);
+                _curSize = _size.PopOrDefault(initialOptions.Size);
                 break;
             case Options.Brush:
-                _curBrush = _brush.PopOrDefault(_initialOptions.Brush);
+                _curBrush = _brush.PopOrDefault(initialOptions.Brush);
                 break;
             case Options.Pen:
-                _curPen = _pen.PopOrDefault(_initialOptions.Pen);
+                _curPen = _pen.PopOrDefault(initialOptions.Pen);
                 break;
             case Options.Spacing:
-                _curSpacing = _spacing.PopOrDefault(_initialOptions.Space);
+                _curSpacing = _spacing.PopOrDefault(initialOptions.Space);
                 break;
             case Options.SingleLine:
                 _singleLine = false;
@@ -182,7 +169,7 @@ public class TextElementsBuilder
                 }
                 else if (!noParse)
                 {
-                    Options options = ToOptions(closeTagType, token.Text.AsSpan());
+                    Options options = ToOptions(closeTagType);
                     Pop(options);
                 }
             }
@@ -194,7 +181,7 @@ public class TextElementsBuilder
         }
     }
 
-    private static Options ToOptions(TagType tagType, ReadOnlySpan<char> text)
+    private static Options ToOptions(TagType tagType)
     {
         return tagType switch
         {

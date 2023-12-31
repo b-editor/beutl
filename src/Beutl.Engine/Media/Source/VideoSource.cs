@@ -66,8 +66,7 @@ public sealed class VideoSource : IVideoSource
 
     public VideoSource Clone()
     {
-        if (IsDisposed)
-            throw new ObjectDisposedException(nameof(VideoSource));
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
 
         return new VideoSource(_mediaReader.Clone(), Name);
     }

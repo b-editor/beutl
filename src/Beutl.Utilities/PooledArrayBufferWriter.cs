@@ -22,8 +22,7 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
 
     public PooledArrayBufferWriter(int initialCapacity, ArrayPool<T>? pool = null)
     {
-        if (initialCapacity <= 0)
-            throw new ArgumentException(null, nameof(initialCapacity));
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(initialCapacity, 0, nameof(initialCapacity));
 
         _pool = pool ?? ArrayPool<T>.Shared;
         _buffer = _pool.Rent(initialCapacity);
@@ -63,8 +62,7 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
 
     private void Verify()
     {
-        if (IsDisposed)
-            throw new ObjectDisposedException(nameof(PooledArrayBufferWriter<T>));
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
     }
 
     public void Clear()
@@ -78,8 +76,7 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
     public void Advance(int count)
     {
         Verify();
-        if (count < 0)
-            throw new ArgumentException(null, nameof(count));
+        ArgumentOutOfRangeException.ThrowIfLessThan(count, 0, nameof(count));
 
         if (WrittenCount > _buffer.Length - count)
             ThrowInvalidOperationException_AdvancedTooFar(_buffer.Length);
@@ -107,8 +104,7 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
 
     private void CheckAndResizeBuffer(int sizeHint)
     {
-        if (sizeHint < 0)
-            throw new ArgumentException(null, nameof(sizeHint));
+        ArgumentOutOfRangeException.ThrowIfLessThan(sizeHint, 0, nameof(sizeHint));
 
         if (sizeHint == 0)
         {
@@ -174,7 +170,7 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
         if (!IsDisposed)
         {
             _pool.Return(_buffer, RuntimeHelpers.IsReferenceOrContainsReferences<T>());
-            _buffer = Array.Empty<T>();
+            _buffer = [];
 
             IsDisposed = true;
             GC.SuppressFinalize(this);

@@ -15,8 +15,8 @@ internal sealed class PluginDependencyResolver
     private const string ResourceAssemblyExtension = ".dll";
 
     private readonly Dictionary<string, string> _assemblyPaths = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<string> _nativeSearchPaths = new();
-    private readonly HashSet<string> _resourceSearchPaths = new();
+    private readonly HashSet<string> _nativeSearchPaths = [];
+    private readonly HashSet<string> _resourceSearchPaths = [];
     private readonly string[] _assemblyDirectorySearchPaths;
 
     public PluginDependencyResolver(string mainDirectory, PackageFolderReader? reader)
@@ -64,7 +64,7 @@ internal sealed class PluginDependencyResolver
             }
         }
 
-        _assemblyDirectorySearchPaths = new string[1] { mainDirectory };
+        _assemblyDirectorySearchPaths = [mainDirectory];
     }
 
     private void GetPackageDependencies(

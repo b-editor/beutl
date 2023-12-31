@@ -46,7 +46,7 @@ public class LocalPackage
         }
 
         //Logo = nuspecReader.GetIcon();
-        Tags = nuspecReader.GetTags().Split(' ', ';').ToList();
+        Tags = [.. nuspecReader.GetTags().Split(' ', ';')];
     }
 
     public string Name { get; set; } = string.Empty;
@@ -68,7 +68,7 @@ public class LocalPackage
     // VersionRange
     public string? TargetVersion { get; set; }
 
-    public List<string> Tags { get; set; } = new List<string>();
+    public List<string> Tags { get; set; } = [];
 
     [AllowNull]
     public string InstalledPath { get; internal set; }

@@ -2,35 +2,23 @@
 
 namespace Beutl;
 
-internal sealed class OnceEnumerable<T> : IEnumerable<T>
+internal sealed class OnceEnumerable<T>(T value) : IEnumerable<T>
 {
-    private readonly T _value;
-
-    public OnceEnumerable(T value)
-    {
-        _value = value;
-    }
-
     public IEnumerator<T> GetEnumerator()
     {
-        return new Enumerator(_value);
+        return new Enumerator(value);
     }
 
     IEnumerator IEnumerable.GetEnumerator()
     {
-        return new Enumerator(_value);
+        return new Enumerator(value);
     }
 
-    private sealed class Enumerator : IEnumerator<T>
+    private sealed class Enumerator(T value) : IEnumerator<T>
     {
         private bool _flag;
 
-        public Enumerator(T value)
-        {
-            Current = value;
-        }
-
-        public T Current { get; }
+        public T Current { get; } = value;
 
         object IEnumerator.Current => Current!;
 

@@ -43,23 +43,15 @@ public partial class EditView
         return Math.Sqrt((point.X * point.X) + (point.Y * point.Y));
     }
 
-    private sealed class KeyFrameState
+    private sealed class KeyFrameState(KeyFrame<float>? previous, KeyFrame<float>? next)
     {
-        public KeyFrameState(KeyFrame<float>? previous, KeyFrame<float>? next)
-        {
-            Previous = previous;
-            Next = next;
-            OldPreviousValue = previous?.Value ?? 0;
-            OldNextValue = next?.Value ?? 0;
-        }
+        public KeyFrame<float>? Previous { get; } = previous;
 
-        public KeyFrame<float>? Previous { get; }
+        public KeyFrame<float>? Next { get; } = next;
 
-        public KeyFrame<float>? Next { get; }
+        public float OldPreviousValue { get; } = previous?.Value ?? 0;
 
-        public float OldPreviousValue { get; }
-
-        public float OldNextValue { get; }
+        public float OldNextValue { get; } = next?.Value ?? 0;
 
         public IRecordableCommand? CreateCommand()
         {

@@ -4,30 +4,19 @@ using Beutl.Collections;
 
 namespace Beutl.Commands;
 
-internal sealed class MoveCommand : IRecordableCommand
+internal sealed class MoveCommand(IList list, int newIndex, int oldIndex) : IRecordableCommand
 {
-    private readonly IList _list;
-    private readonly int _newIndex;
-    private readonly int _oldIndex;
-
-    public MoveCommand(IList list, int newIndex, int oldIndex)
-    {
-        _list = list;
-        _newIndex = newIndex;
-        _oldIndex = oldIndex;
-    }
-
     public void Do()
     {
-        if (_list is ICoreList coreList)
+        if (list is ICoreList coreList)
         {
-            coreList.Move(_oldIndex, _newIndex);
+            coreList.Move(oldIndex, newIndex);
         }
         else
         {
-            object? item = _list[_oldIndex];
-            _list.RemoveAt(_oldIndex);
-            _list.Insert(_newIndex, item);
+            object? item = list[oldIndex];
+            list.RemoveAt(oldIndex);
+            list.Insert(newIndex, item);
         }
     }
 
@@ -38,15 +27,15 @@ internal sealed class MoveCommand : IRecordableCommand
 
     public void Undo()
     {
-        if (_list is ICoreList coreList)
+        if (list is ICoreList coreList)
         {
-            coreList.Move(_newIndex, _oldIndex);
+            coreList.Move(newIndex, oldIndex);
         }
         else
         {
-            object? item = _list[_newIndex];
-            _list.RemoveAt(_newIndex);
-            _list.Insert(_oldIndex, item);
+            object? item = list[newIndex];
+            list.RemoveAt(newIndex);
+            list.Insert(oldIndex, item);
         }
     }
 }

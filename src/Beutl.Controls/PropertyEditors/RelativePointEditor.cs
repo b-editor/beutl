@@ -30,7 +30,7 @@ public class RelativePointEditor : Vector2Editor
             (o, v) => o.Unit = v,
             defaultBindingMode: BindingMode.TwoWay);
 
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private float _firstValue;
     private float _oldFirstValue;
     private float _secondValue;
@@ -162,7 +162,7 @@ public class RelativePointEditor : Vector2Editor
         float scale = 1f;
         ReadOnlySpan<char> span = s;
 
-        if (s.EndsWith("%", StringComparison.Ordinal))
+        if (s.EndsWith('%'))
         {
             scale = 0.01f;
             span = s.AsSpan()[0..^1];

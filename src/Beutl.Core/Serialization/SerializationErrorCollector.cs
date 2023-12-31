@@ -2,7 +2,7 @@
 
 public class SerializationErrorCollector : ISerializationErrorNotifier
 {
-    public List<SerializationError> Errors { get; } = new();
+    public List<SerializationError> Errors { get; } = [];
 
     public void NotifyError(string path, string message, Exception? ex = null)
     {

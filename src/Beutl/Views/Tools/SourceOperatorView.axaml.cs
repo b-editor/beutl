@@ -18,14 +18,14 @@ public sealed partial class SourceOperatorView : UserControl
     public SourceOperatorView()
     {
         InitializeComponent();
-        Interaction.SetBehaviors(this, new BehaviorCollection
-        {
+        Interaction.SetBehaviors(this,
+        [
             new _DragBehavior()
             {
                 Orientation = Orientation.Vertical,
                 DragControl = dragBorder
             },
-        });
+        ]);
         AddHandler(DragDrop.DragOverEvent, DragOver);
         AddHandler(DragDrop.DropEvent, Drop);
     }

@@ -11,18 +11,11 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-internal sealed class ArrayPooledObjectPolicy<T> : IPooledObjectPolicy<T[]>
+internal sealed class ArrayPooledObjectPolicy<T>(int length) : IPooledObjectPolicy<T[]>
 {
-    private readonly int _length;
-
-    public ArrayPooledObjectPolicy(int length)
-    {
-        _length = length;
-    }
-
     public T[] Create()
     {
-        return new T[_length];
+        return new T[length];
     }
 
     public bool Return(T[] obj)
@@ -50,7 +43,7 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     {
         Bounds = OriginalBounds = bounds;
         _versions = new PooledList<(FilterEffect, int)>(ClearMode.Always);
-        _items = new PooledList<IFEItem>();
+        _items = [];
     }
 
     private FilterEffectContext(FilterEffectContext obj)

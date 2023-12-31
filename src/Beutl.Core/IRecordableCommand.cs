@@ -31,68 +31,52 @@ public static class RecordableCommandExtensions
         return new MultipleCommand(commands);
     }
 
-    private sealed class ConnectedCommand : IRecordableCommand
+    private sealed class ConnectedCommand(IRecordableCommand command1, IRecordableCommand command2) : IRecordableCommand
     {
-        private readonly IRecordableCommand _command1;
-        private readonly IRecordableCommand _command2;
-
-        public ConnectedCommand(IRecordableCommand command1, IRecordableCommand command2)
-        {
-            _command1 = command1;
-            _command2 = command2;
-        }
-
         public void Do()
         {
-            _command1.Do();
-            _command2.Do();
+            command1.Do();
+            command2.Do();
         }
 
         public void Redo()
         {
-            _command1.Redo();
-            _command2.Redo();
+            command1.Redo();
+            command2.Redo();
         }
 
         public void Undo()
         {
-            _command1.Undo();
-            _command2.Undo();
+            command1.Undo();
+            command2.Undo();
         }
     }
 
-    private sealed class MultipleCommand : IRecordableCommand
+    private sealed class MultipleCommand(IRecordableCommand[] commands) : IRecordableCommand
     {
-        private readonly IRecordableCommand[] _commands;
-
-        public MultipleCommand(IRecordableCommand[] commands)
-        {
-            _commands = commands;
-        }
-
         public void Do()
         {
-            for (int i = 0; i < _commands.Length; i++)
+            for (int i = 0; i < commands.Length; i++)
             {
-                IRecordableCommand? item = _commands[i];
+                IRecordableCommand? item = commands[i];
                 item.Do();
             }
         }
 
         public void Redo()
         {
-            for (int i = 0; i < _commands.Length; i++)
+            for (int i = 0; i < commands.Length; i++)
             {
-                IRecordableCommand? item = _commands[i];
+                IRecordableCommand? item = commands[i];
                 item.Redo();
             }
         }
 
         public void Undo()
         {
-            for (int i = _commands.Length - 1; i >= 0; i--)
+            for (int i = commands.Length - 1; i >= 0; i--)
             {
-                IRecordableCommand? item = _commands[i];
+                IRecordableCommand? item = commands[i];
                 item.Undo();
             }
         }

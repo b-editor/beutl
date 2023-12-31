@@ -3,14 +3,9 @@
 namespace Beutl.Serialization;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Interface, Inherited = true, AllowMultiple = false)]
-public sealed class DummyTypeAttribute : Attribute
+public sealed class DummyTypeAttribute(Type dummyType) : Attribute
 {
-    public DummyTypeAttribute(Type dummyType)
-    {
-        DummyType = dummyType;
-    }
-
-    public Type DummyType { get; }
+    public Type DummyType { get; } = dummyType;
 }
 
 public interface IDummy : ICoreSerializable

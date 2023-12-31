@@ -26,7 +26,7 @@ public class Vector2Editor<TElement> : Vector2Editor
             o => o.SecondValue,
             (o, v) => o.SecondValue = v);
 
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private TElement _firstValue;
     private TElement _oldFirstValue;
     private TElement _secondValue;
@@ -364,7 +364,7 @@ public class Vector2Editor : PropertyEditor
     private const string FocusSecondTextBox = ":focus-2nd-textbox";
     private const string BorderPointerOver = ":border-pointerover";
     private const string Uniform = ":uniform";
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private Border _backgroundBorder;
     private string _firstText;
     private string _secondText;

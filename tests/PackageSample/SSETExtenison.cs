@@ -40,17 +40,11 @@ public sealed class SSETExtenison : ToolTabExtension
         return true;
     }
 
-    private sealed class Context : IToolContext
+    private sealed class Context(ToolTabExtension extension) : IToolContext
     {
-        public Context(ToolTabExtension extension)
-        {
-            Extension = extension;
-            IsSelected = new ReactiveProperty<bool>();
-        }
+        public ToolTabExtension Extension { get; } = extension;
 
-        public ToolTabExtension Extension { get; }
-
-        public IReactiveProperty<bool> IsSelected { get; }
+        public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
         public string Header => "Sample tab";
 

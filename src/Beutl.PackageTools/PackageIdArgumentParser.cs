@@ -2,16 +2,10 @@
 
 namespace Beutl.PackageTools;
 
-public class PackageIdArgumentParser
+public class PackageIdArgumentParser(BeutlApiApplication apiApp)
 {
-    private readonly DiscoverService _discover;
-    private readonly InstalledPackageRepository _installedPackageRepository;
-
-    public PackageIdArgumentParser(BeutlApiApplication apiApp)
-    {
-        _discover = apiApp.GetResource<DiscoverService>();
-        _installedPackageRepository = apiApp.GetResource<InstalledPackageRepository>();
-    }
+    private readonly DiscoverService _discover = apiApp.GetResource<DiscoverService>();
+    private readonly InstalledPackageRepository _installedPackageRepository = apiApp.GetResource<InstalledPackageRepository>();
 
     public async ValueTask LoadArgs(
         HashSet<(PackageIdentity, Release?)> packages,

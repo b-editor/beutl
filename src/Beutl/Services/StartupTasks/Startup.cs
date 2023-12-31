@@ -6,7 +6,7 @@ namespace Beutl.Services.StartupTasks;
 
 public sealed class Startup
 {
-    private readonly Dictionary<Type, Lazy<StartupTask>> _tasks = new();
+    private readonly Dictionary<Type, Lazy<StartupTask>> _tasks = [];
     private readonly BeutlApiApplication _apiApp;
 
     public Startup(BeutlApiApplication apiApp)

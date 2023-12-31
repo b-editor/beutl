@@ -5,14 +5,9 @@ using Beutl.Media;
 namespace Beutl.Media.Pixel;
 
 [StructLayout(LayoutKind.Sequential)]
-public struct Bgra4444 : IPixel<Bgra4444>
+public struct Bgra4444(ushort value) : IPixel<Bgra4444>
 {
-    public ushort Value;
-
-    public Bgra4444(ushort value)
-    {
-        Value = value;
-    }
+    public ushort Value = value;
 
     public Bgra4444 FromColor(Color color)
     {

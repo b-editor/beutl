@@ -1,16 +1,10 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
-public sealed class RectClipNode : ContainerNode
+public sealed class RectClipNode(Rect clip, ClipOperation operation) : ContainerNode
 {
-    public RectClipNode(Rect clip, ClipOperation operation)
-    {
-        Clip = clip;
-        Operation = operation;
-    }
+    public Rect Clip { get; } = clip;
 
-    public Rect Clip { get; }
-
-    public ClipOperation Operation { get; }
+    public ClipOperation Operation { get; } = operation;
 
     public bool Equals(Rect clip, ClipOperation operation)
     {

@@ -21,7 +21,7 @@ namespace Beutl.Views;
 
 public partial class GraphEditorView : UserControl
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private bool _pressed;
     private TimeSpan _lastRightClickPoint;
     private TimeSpan _pointerFrame;

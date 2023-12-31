@@ -71,7 +71,7 @@ public class SelectAssetViewModel
         Refresh.Execute();
     }
 
-    public AvaloniaList<AssetViewModel> Items { get; } = new();
+    public AvaloniaList<AssetViewModel> Items { get; } = [];
 
     public ReactivePropertySlim<AssetViewModel?> SelectedItem { get; } = new();
 

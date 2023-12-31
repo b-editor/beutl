@@ -3,29 +3,20 @@ using Beutl.Api.Objects;
 using Beutl.Api.Services;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
-public class DataContextFactory
+public class DataContextFactory(DiscoverService discoverService, BeutlApiApplication application)
 {
-    private readonly DiscoverService _discoverService;
-    private readonly BeutlApiApplication _application;
-
-    public DataContextFactory(DiscoverService discoverService, BeutlApiApplication application)
-    {
-        _discoverService = discoverService;
-        _application = application;
-    }
-
     public RankingPageViewModel RankingPage(RankingType rankingType = RankingType.Overall)
     {
-        return new RankingPageViewModel(_discoverService, rankingType);
+        return new RankingPageViewModel(discoverService, rankingType);
     }
 
     public SearchPageViewModel SearchPage(string keyword)
     {
-        return new SearchPageViewModel(_discoverService, keyword);
+        return new SearchPageViewModel(discoverService, keyword);
     }
 
     public PublicPackageDetailsPageViewModel PublicPackageDetailPage(Package package)
     {
-        return new PublicPackageDetailsPageViewModel(package, _application);
+        return new PublicPackageDetailsPageViewModel(package, application);
     }
 }

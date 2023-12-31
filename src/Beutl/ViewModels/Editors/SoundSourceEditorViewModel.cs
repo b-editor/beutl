@@ -32,22 +32,12 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
         }
     }
 
-    private sealed class SetKeyFrameValueCommand : IRecordableCommand
+    private sealed class SetKeyFrameValueCommand(KeyFrame<ISoundSource?> setter, ISoundSource? oldValue, ISoundSource? newValue) : IRecordableCommand
     {
-        private readonly KeyFrame<ISoundSource?> _keyframe;
-        private readonly string? _oldName;
-        private readonly string? _newName;
-        private ISoundSource? _oldValue;
-        private ISoundSource? _newValue;
-
-        public SetKeyFrameValueCommand(KeyFrame<ISoundSource?> setter, ISoundSource? oldValue, ISoundSource? newValue)
-        {
-            _keyframe = setter;
-            _oldValue = oldValue;
-            _newValue = newValue;
-            _oldName = oldValue?.Name;
-            _newName = newValue?.Name;
-        }
+        private readonly string? _oldName = oldValue?.Name;
+        private readonly string? _newName = newValue?.Name;
+        private ISoundSource? _oldValue = oldValue;
+        private ISoundSource? _newValue = newValue;
 
         public void Do()
         {
@@ -57,7 +47,7 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
                 _newValue = newValue;
             }
 
-            _keyframe.SetValue(KeyFrame<ISoundSource?>.ValueProperty, _newValue);
+            setter.SetValue(KeyFrame<ISoundSource?>.ValueProperty, _newValue);
             _oldValue?.Dispose();
             _oldValue = null;
         }
@@ -75,28 +65,18 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
                 _oldValue = oldValue;
             }
 
-            _keyframe.SetValue(KeyFrame<ISoundSource?>.ValueProperty, _oldValue);
+            setter.SetValue(KeyFrame<ISoundSource?>.ValueProperty, _oldValue);
             _newValue?.Dispose();
             _newValue = null;
         }
     }
 
-    private sealed class SetCommand : IRecordableCommand
+    private sealed class SetCommand(IAbstractProperty<ISoundSource?> setter, ISoundSource? oldValue, ISoundSource? newValue) : IRecordableCommand
     {
-        private readonly IAbstractProperty<ISoundSource?> _setter;
-        private readonly string? _oldName;
-        private readonly string? _newName;
-        private ISoundSource? _oldValue;
-        private ISoundSource? _newValue;
-
-        public SetCommand(IAbstractProperty<ISoundSource?> setter, ISoundSource? oldValue, ISoundSource? newValue)
-        {
-            _setter = setter;
-            _oldValue = oldValue;
-            _newValue = newValue;
-            _oldName = oldValue?.Name;
-            _newName = newValue?.Name;
-        }
+        private readonly string? _oldName = oldValue?.Name;
+        private readonly string? _newName = newValue?.Name;
+        private ISoundSource? _oldValue = oldValue;
+        private ISoundSource? _newValue = newValue;
 
         public void Do()
         {
@@ -106,7 +86,7 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
                 _newValue = newValue;
             }
 
-            _setter.SetValue(_newValue);
+            setter.SetValue(_newValue);
             _oldValue?.Dispose();
             _oldValue = null;
         }
@@ -124,7 +104,7 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
                 _oldValue = oldValue;
             }
 
-            _setter.SetValue(_oldValue);
+            setter.SetValue(_oldValue);
             _newValue?.Dispose();
             _newValue = null;
         }

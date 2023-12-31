@@ -10,16 +10,13 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public sealed class GraphEditorViewModel<T> : GraphEditorViewModel
+public sealed class GraphEditorViewModel<T>(
+    EditViewModel editViewModel, KeyFrameAnimation<T> animation, Element? element)
+    : GraphEditorViewModel(editViewModel, animation, element)
 {
-    public GraphEditorViewModel(EditViewModel editViewModel, KeyFrameAnimation<T> animation, Element? element)
-        : base(editViewModel, animation, element)
-    {
-    }
-
     public override void DropEasing(Easing easing, TimeSpan keyTime)
     {
-        var originalKeyTime = keyTime;
+        TimeSpan originalKeyTime = keyTime;
         keyTime = ConvertKeyTime(keyTime);
         Project? proj = Scene.FindHierarchicalParent<Project>();
         int rate = proj?.GetFrameRate() ?? 30;
@@ -56,20 +53,11 @@ public sealed class GraphEditorViewModel<T> : GraphEditorViewModel
         }
     }
 
-    private sealed class AddKeyFrameCommand : IRecordableCommand
+    private sealed class AddKeyFrameCommand(KeyFrames keyFrames, IKeyFrame keyFrame) : IRecordableCommand
     {
-        private readonly KeyFrames _keyFrames;
-        private readonly IKeyFrame _keyFrame;
-
-        public AddKeyFrameCommand(KeyFrames keyFrames, IKeyFrame keyFrame)
-        {
-            _keyFrames = keyFrames;
-            _keyFrame = keyFrame;
-        }
-
         public void Do()
         {
-            _keyFrames.Add(_keyFrame, out _);
+            keyFrames.Add(keyFrame, out _);
         }
 
         public void Redo()
@@ -79,14 +67,14 @@ public sealed class GraphEditorViewModel<T> : GraphEditorViewModel
 
         public void Undo()
         {
-            _keyFrames.Remove(_keyFrame);
+            keyFrames.Remove(keyFrame);
         }
     }
 }
 
 public abstract class GraphEditorViewModel : IDisposable
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly EditViewModel _editViewModel;
     private readonly GraphEditorViewViewModelFactory[] _factories;
     protected Element? Element;

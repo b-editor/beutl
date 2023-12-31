@@ -11,7 +11,7 @@ namespace Beutl.ViewModels.NodeTree;
 
 public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
 
     public NodeTreeViewModel(NodeTreeModel nodeTree)
     {
@@ -40,7 +40,7 @@ public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
             .DisposeWith(_disposables);
     }
 
-    public CoreList<NodeViewModel> Nodes { get; } = new();
+    public CoreList<NodeViewModel> Nodes { get; } = [];
 
     public ReactiveProperty<Matrix> Matrix { get; } = new(Avalonia.Matrix.Identity);
 
@@ -124,7 +124,7 @@ public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
             }
         }
 
-        if (json.TryGetPropertyValue(nameof(Matrix), out var mJson))
+        if (json.TryGetPropertyValue(nameof(Matrix), out JsonNode? mJson))
         {
             string m = (string)mJson!;
             Matrix.Value = Avalonia.Matrix.Parse(m);

@@ -9,7 +9,7 @@ namespace Beutl.ViewModels.NodeTree;
 
 public sealed class NodeTreeInputTabViewModel : IToolContext
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private EditViewModel _editViewModel;
 
     public NodeTreeInputTabViewModel(EditViewModel editViewModel)

@@ -86,15 +86,15 @@ public partial class MenuBarViewModel
 
     public ReactiveCommandSlim<string> OpenRecentProject { get; } = new();
 
-    public CoreList<string> RecentFileItems { get; } = new();
+    public CoreList<string> RecentFileItems { get; } = [];
 
-    public CoreList<string> RecentProjectItems { get; } = new();
+    public CoreList<string> RecentProjectItems { get; } = [];
 
     public ReactiveCommandSlim Exit { get; } = new();
 
     private async Task OnSaveAll()
     {
-        using var activity = Telemetry.StartActivity("SaveAll");
+        using Activity? activity = Telemetry.StartActivity("SaveAll");
         Project? project = ProjectService.Current.CurrentProject.Value;
         int itemsCount = 0;
 

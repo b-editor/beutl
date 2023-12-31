@@ -3,49 +3,37 @@ using System.Net.Http.Headers;
 
 namespace Beutl.Api.Objects;
 
-public class AuthorizedUser
+public class AuthorizedUser(Profile profile, AuthResponse response, BeutlApiApplication clients, HttpClient httpClient)
 {
-    private readonly BeutlApiApplication _clients;
-    private readonly HttpClient _httpClient;
-    private AuthResponse _response;
+    public Profile Profile { get; } = profile;
 
-    public AuthorizedUser(Profile profile, AuthResponse response, BeutlApiApplication clients, HttpClient httpClient)
-    {
-        Profile = profile;
-        _response = response;
-        _clients = clients;
-        _httpClient = httpClient;
-    }
+    public string Token => response.Token;
 
-    public Profile Profile { get; }
+    public string RefreshToken => response.Refresh_token;
 
-    public string Token => _response.Token;
-
-    public string RefreshToken => _response.Refresh_token;
-
-    public DateTimeOffset Expiration => _response.Expiration;
+    public DateTimeOffset Expiration => response.Expiration;
 
     public bool IsExpired => Expiration < DateTimeOffset.UtcNow;
 
-    public MyAsyncLock Lock => _clients.Lock;
+    public MyAsyncLock Lock => clients.Lock;
 
     public async ValueTask RefreshAsync(bool force = false)
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("AuthorizedUser.Refresh", ActivityKind.Client);
+        using Activity? activity = clients.ActivitySource.StartActivity("AuthorizedUser.Refresh", ActivityKind.Client);
 
         activity?.SetTag("force", force);
         activity?.SetTag("is_expired", IsExpired);
 
         if (force || IsExpired)
         {
-            _response = await _clients.Account.RefreshAsync(new RefeshTokenRequest(RefreshToken, Token))
+            response = await clients.Account.RefreshAsync(new RefeshTokenRequest(RefreshToken, Token))
                 .ConfigureAwait(false);
             activity?.AddEvent(new("Refreshed"));
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
 
-            if (_clients.AuthorizedUser.Value == this)
+            if (clients.AuthorizedUser.Value == this)
             {
-                _clients.SaveUser();
+                clients.SaveUser();
                 activity?.AddEvent(new("Saved"));
             }
         }
@@ -53,6 +41,6 @@ public class AuthorizedUser
 
     public async Task<StorageUsageResponse> StorageUsageAsync()
     {
-        return await _clients.Account.StorageUsageAsync();
+        return await clients.Account.StorageUsageAsync();
     }
 }

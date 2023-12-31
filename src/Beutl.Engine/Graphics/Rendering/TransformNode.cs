@@ -1,16 +1,10 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
-public sealed class TransformNode : ContainerNode
+public sealed class TransformNode(Matrix transform, TransformOperator transformOperator) : ContainerNode
 {
-    public TransformNode(Matrix transform, TransformOperator transformOperator)
-    {
-        Transform = transform;
-        TransformOperator = transformOperator;
-    }
+    public Matrix Transform { get; } = transform;
 
-    public Matrix Transform { get; }
-
-    public TransformOperator TransformOperator { get; }
+    public TransformOperator TransformOperator { get; } = transformOperator;
 
     protected override Rect TransformBounds(Rect bounds)
     {

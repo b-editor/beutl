@@ -1,18 +1,10 @@
 ﻿namespace Beutl;
 
-public readonly struct Optional<T> : IEquatable<Optional<T>>, IOptional
+public readonly struct Optional<T>(T value) : IEquatable<Optional<T>>, IOptional
 {
-    private readonly T _value;
+    public bool HasValue { get; } = true;
 
-    public Optional(T value)
-    {
-        _value = value;
-        HasValue = true;
-    }
-
-    public bool HasValue { get; }
-
-    public T Value => HasValue ? _value : throw new InvalidOperationException("Optional has no value.");
+    public T Value => HasValue ? value : throw new InvalidOperationException("Optional has no value.");
 
     public override bool Equals(object? obj)
     {
@@ -26,40 +18,40 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>, IOptional
 
     public override int GetHashCode()
     {
-        return HasValue ? _value?.GetHashCode() ?? 0 : 0;
+        return HasValue ? value?.GetHashCode() ?? 0 : 0;
     }
 
     public Optional<object?> ToObject()
     {
-        return HasValue ? new Optional<object?>(_value) : default;
+        return HasValue ? new Optional<object?>(value) : default;
     }
 
     public override string ToString()
     {
-        return HasValue ? _value?.ToString() ?? "(null)" : "(empty)";
+        return HasValue ? value?.ToString() ?? "(null)" : "(empty)";
     }
 
     public T? GetValueOrDefault()
     {
-        return HasValue ? _value : default;
+        return HasValue ? value : default;
     }
 
     public T? GetValueOrDefault(T defaultValue)
     {
-        return HasValue ? _value : defaultValue;
+        return HasValue ? value : defaultValue;
     }
 
     public TResult? GetValueOrDefault<TResult>()
     {
         return HasValue ?
-            _value is TResult result ? result : default
+            value is TResult result ? result : default
             : default;
     }
 
     public TResult? GetValueOrDefault<TResult>(TResult defaultValue)
     {
         return HasValue ?
-            _value is TResult result ? result : default
+            value is TResult result ? result : default
             : defaultValue;
     }
 

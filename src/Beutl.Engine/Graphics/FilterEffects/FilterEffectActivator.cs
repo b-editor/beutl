@@ -6,47 +6,33 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class FilterEffectActivator : IDisposable
+public sealed class FilterEffectActivator(Rect bounds, EffectTarget target, SKImageFilterBuilder builder, ImmediateCanvas canvas) : IDisposable
 {
-    private readonly SKImageFilterBuilder _builder;
-    private readonly ImmediateCanvas _canvas;
-    private readonly EffectTarget _initialTarget;
+    private readonly ImmediateCanvas _canvas = canvas;
+    private readonly EffectTarget _initialTarget = target;
 
-    private EffectTarget _target;
-    private Rect _originalBounds;
-    private Rect _bounds;
+    public Rect OriginalBounds { get; private set; } = bounds;
 
-    public FilterEffectActivator(Rect bounds, EffectTarget target, SKImageFilterBuilder builder, ImmediateCanvas canvas)
-    {
-        _bounds = _originalBounds = bounds;
-        _initialTarget = target;
-        _target = target;
-        _builder = builder;
-        _canvas = canvas;
-    }
+    public Rect Bounds { get; private set; } = bounds;
 
-    public Rect OriginalBounds => _originalBounds;
+    public SKImageFilterBuilder Builder { get; } = builder;
 
-    public Rect Bounds => _bounds;
-
-    public SKImageFilterBuilder Builder => _builder;
-
-    public EffectTarget CurrentTarget => _target;
+    public EffectTarget CurrentTarget { get; private set; } = target;
 
     public void Dispose()
     {
-        if (_initialTarget != _target)
+        if (_initialTarget != CurrentTarget)
         {
-            _target.Dispose();
+            CurrentTarget.Dispose();
         }
     }
 
     public Bitmap<Bgra8888> Snapshot()
     {
         Flush(true);
-        if (_target.Surface != null)
+        if (CurrentTarget.Surface != null)
         {
-            return _target.Surface.Value.Snapshot().ToBitmap();
+            return CurrentTarget.Surface.Value.Snapshot().ToBitmap();
         }
         else
         {
@@ -56,37 +42,37 @@ public sealed class FilterEffectActivator : IDisposable
 
     public void Flush(bool force = true)
     {
-        if (force || _builder.HasFilter())
+        if (force || Builder.HasFilter())
         {
-            SKSurface? surface = _canvas.CreateRenderTarget((int)_originalBounds.Width, (int)_originalBounds.Height);
+            SKSurface? surface = _canvas.CreateRenderTarget((int)OriginalBounds.Width, (int)OriginalBounds.Height);
 
             if (surface != null)
             {
                 using ImmediateCanvas canvas = _canvas.CreateCanvas(surface, true);
                 using var paint = new SKPaint
                 {
-                    ImageFilter = _builder.GetFilter(),
+                    ImageFilter = Builder.GetFilter(),
                 };
 
-                using (canvas.PushTransform(Matrix.CreateTranslation(-_originalBounds.X, -_originalBounds.Y)))
+                using (canvas.PushTransform(Matrix.CreateTranslation(-OriginalBounds.X, -OriginalBounds.Y)))
                 using (canvas.PushPaint(paint))
                 {
-                    _target.Draw(canvas);
+                    CurrentTarget.Draw(canvas);
                 }
 
-                _target?.Dispose();
+                CurrentTarget?.Dispose();
 
                 using var surfaceRef = Ref<SKSurface>.Create(surface);
-                _target = new EffectTarget(surfaceRef, _originalBounds.Size);
+                CurrentTarget = new EffectTarget(surfaceRef, OriginalBounds.Size);
             }
             else
             {
-                _target?.Dispose();
+                CurrentTarget?.Dispose();
 
-                _target = EffectTarget.Empty;
+                CurrentTarget = EffectTarget.Empty;
             }
 
-            _builder.Clear();
+            Builder.Clear();
         }
     }
 
@@ -102,22 +88,22 @@ public sealed class FilterEffectActivator : IDisposable
             {
                 if (item is IFEItem_Skia skia)
                 {
-                    skia.Accepts(this, _builder);
-                    _bounds = item.TransformBounds(_bounds);
-                    _originalBounds = item.TransformBounds(_originalBounds);
+                    skia.Accepts(this, Builder);
+                    Bounds = item.TransformBounds(Bounds);
+                    OriginalBounds = item.TransformBounds(OriginalBounds);
                 }
                 else if (item is IFEItem_Custom custom)
                 {
                     Flush(true);
-                    var customContext = new FilterEffectCustomOperationContext(_canvas, _target);
+                    var customContext = new FilterEffectCustomOperationContext(_canvas, CurrentTarget);
                     custom.Accepts(customContext);
-                    if (_target != customContext.Target)
+                    if (CurrentTarget != customContext.Target)
                     {
-                        _target?.Dispose();
-                        _target = customContext.Target;
+                        CurrentTarget?.Dispose();
+                        CurrentTarget = customContext.Target;
                     }
-                    _bounds = item.TransformBounds(_bounds);
-                    _originalBounds = _bounds.WithX(0).WithY(0);
+                    Bounds = item.TransformBounds(Bounds);
+                    OriginalBounds = Bounds.WithX(0).WithY(0);
                 }
             }
 
@@ -137,20 +123,20 @@ public sealed class FilterEffectActivator : IDisposable
     {
         if (item is IFEItem_Skia skia)
         {
-            skia.Accepts(this, _builder);
-            _bounds = item.TransformBounds(_bounds);
+            skia.Accepts(this, Builder);
+            Bounds = item.TransformBounds(Bounds);
         }
         else if (item is IFEItem_Custom custom)
         {
             Flush(true);
-            var customContext = new FilterEffectCustomOperationContext(_canvas, _target);
+            var customContext = new FilterEffectCustomOperationContext(_canvas, CurrentTarget);
             custom.Accepts(customContext);
-            if (_target != customContext.Target)
+            if (CurrentTarget != customContext.Target)
             {
-                _target?.Dispose();
-                _target = customContext.Target;
+                CurrentTarget?.Dispose();
+                CurrentTarget = customContext.Target;
             }
-            _bounds = item.TransformBounds(_bounds);
+            Bounds = item.TransformBounds(Bounds);
         }
     }
 
@@ -158,18 +144,18 @@ public sealed class FilterEffectActivator : IDisposable
     {
         SKImageFilter? filter;
         Flush(false);
-        using (EffectTarget cloned = _target.Clone())
+        using (EffectTarget cloned = CurrentTarget.Clone())
         using (var builder = new SKImageFilterBuilder())
-        using (var activator = new FilterEffectActivator(_bounds, cloned, builder, _canvas))
+        using (var activator = new FilterEffectActivator(Bounds, cloned, builder, _canvas))
         {
             activator.Apply(context);
 
             activator.Flush(false);
 
             filter = builder.GetFilter();
-            if (filter == null && activator._target.Surface != null)
+            if (filter == null && activator.CurrentTarget.Surface != null)
             {
-                SKSurface innerSurface = activator._target.Surface.Value;
+                SKSurface innerSurface = activator.CurrentTarget.Surface.Value;
                 using (SKImage skImage = innerSurface.Snapshot())
                 {
                     filter = SKImageFilter.CreateImage(skImage);

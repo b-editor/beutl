@@ -2,14 +2,9 @@
 
 namespace Beutl.NodeTree.Nodes.Effects;
 
-public sealed class FilterEffectNodeEvaluationState
+public sealed class FilterEffectNodeEvaluationState(FilterEffect? created)
 {
-    public FilterEffectNodeEvaluationState(FilterEffect? created)
-    {
-        Created = created;
-    }
-
-    public FilterEffect? Created { get; set; }
+    public FilterEffect? Created { get; set; } = created;
 
     public CombinedFilterEffect? AddtionalState { get; set; }
 }

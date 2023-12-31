@@ -28,8 +28,8 @@ public abstract partial class GraphEditorViewViewModelFactory
     {
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
-            return new GraphEditorViewViewModel[]
-            {
+            return
+            [
                 new GraphEditorViewViewModel(
                     parent,
                     "X",
@@ -41,7 +41,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                     "Y",
                     obj => ConvertTo(1, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj))
-            };
+            ];
         }
 
         public override double MaxValue => double.CreateTruncating(int.MaxValue);
@@ -107,8 +107,8 @@ public abstract partial class GraphEditorViewViewModelFactory
     {
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
-            return new GraphEditorViewViewModel[]
-            {
+            return
+            [
                 new GraphEditorViewViewModel(
                     parent,
                     "Width",
@@ -120,7 +120,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                     "Height",
                     obj => ConvertTo(1, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj))
-            };
+            ];
         }
 
         public override double MaxValue => double.CreateTruncating(int.MaxValue);
@@ -186,8 +186,8 @@ public abstract partial class GraphEditorViewViewModelFactory
     {
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
-            return new GraphEditorViewViewModel[]
-            {
+            return
+            [
                 new GraphEditorViewViewModel(
                     parent,
                     "X",
@@ -199,7 +199,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                     "Y",
                     obj => ConvertTo(1, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj))
-            };
+            ];
         }
 
         public override double MaxValue => double.CreateTruncating(float.MaxValue);
@@ -265,8 +265,8 @@ public abstract partial class GraphEditorViewViewModelFactory
     {
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
-            return new GraphEditorViewViewModel[]
-            {
+            return
+            [
                 new GraphEditorViewViewModel(
                     parent,
                     "Width",
@@ -278,7 +278,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                     "Height",
                     obj => ConvertTo(1, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj))
-            };
+            ];
         }
 
         public override double MaxValue => double.CreateTruncating(float.MaxValue);
@@ -344,8 +344,8 @@ public abstract partial class GraphEditorViewViewModelFactory
     {
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
-            return new GraphEditorViewViewModel[]
-            {
+            return
+            [
                 new GraphEditorViewViewModel(
                     parent,
                     "X",
@@ -357,7 +357,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                     "Y",
                     obj => ConvertTo(1, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj))
-            };
+            ];
         }
 
         public override double MaxValue => double.CreateTruncating(float.MaxValue);
@@ -423,8 +423,8 @@ public abstract partial class GraphEditorViewViewModelFactory
     {
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
-            return new GraphEditorViewViewModel[]
-            {
+            return
+            [
                 new GraphEditorViewViewModel(
                     parent,
                     "X",
@@ -436,7 +436,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                     "Y",
                     obj => ConvertTo(1, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj))
-            };
+            ];
         }
 
         public override double MaxValue => double.CreateTruncating(float.MaxValue);
@@ -504,8 +504,8 @@ public abstract partial class GraphEditorViewViewModelFactory
     {
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
-            return new GraphEditorViewViewModel[]
-            {
+            return
+            [
                 new GraphEditorViewViewModel(
                     parent,
                     "X",
@@ -523,7 +523,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                     "Z",
                     obj => ConvertTo(2, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(2, old, value, out obj))
-            };
+            ];
         }
 
         public override double MaxValue => double.CreateTruncating(float.MaxValue);
@@ -596,8 +596,8 @@ public abstract partial class GraphEditorViewViewModelFactory
     {
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
-            return new GraphEditorViewViewModel[]
-            {
+            return
+            [
                 new GraphEditorViewViewModel(
                     parent,
                     "X",
@@ -621,7 +621,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                     "Height",
                     obj => ConvertTo(3, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(3, old, value, out obj))
-            };
+            ];
         }
 
         public override double MaxValue => double.CreateTruncating(int.MaxValue);
@@ -697,8 +697,8 @@ public abstract partial class GraphEditorViewViewModelFactory
     {
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
-            return new GraphEditorViewViewModel[]
-            {
+            return
+            [
                 new GraphEditorViewViewModel(
                     parent,
                     "X",
@@ -722,7 +722,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                     "Height",
                     obj => ConvertTo(3, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(3, old, value, out obj))
-            };
+            ];
         }
 
         public override double MaxValue => double.CreateTruncating(float.MaxValue);
@@ -798,8 +798,8 @@ public abstract partial class GraphEditorViewViewModelFactory
     {
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
-            return new GraphEditorViewViewModel[]
-            {
+            return
+            [
                 new GraphEditorViewViewModel(
                     parent,
                     "TopLeft",
@@ -823,7 +823,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                     "BottomLeft",
                     obj => ConvertTo(3, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(3, old, value, out obj))
-            };
+            ];
         }
 
         public override double MaxValue => double.CreateTruncating(float.MaxValue);
@@ -899,8 +899,8 @@ public abstract partial class GraphEditorViewViewModelFactory
     {
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
-            return new GraphEditorViewViewModel[]
-            {
+            return
+            [
                 new GraphEditorViewViewModel(
                     parent,
                     "Left",
@@ -924,7 +924,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                     "Bottom",
                     obj => ConvertTo(3, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(3, old, value, out obj))
-            };
+            ];
         }
 
         public override double MaxValue => double.CreateTruncating(float.MaxValue);
@@ -1000,8 +1000,8 @@ public abstract partial class GraphEditorViewViewModelFactory
     {
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
-            return new GraphEditorViewViewModel[]
-            {
+            return
+            [
                 new GraphEditorViewViewModel(
                     parent,
                     "X",
@@ -1025,7 +1025,7 @@ public abstract partial class GraphEditorViewViewModelFactory
                     "W",
                     obj => ConvertTo(3, obj),
                     (object? old, double value, Type _, out object? obj) => TryConvertFrom(3, old, value, out obj))
-            };
+            ];
         }
 
         public override double MaxValue => double.CreateTruncating(float.MaxValue);

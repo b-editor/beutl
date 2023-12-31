@@ -13,38 +13,31 @@ namespace Beutl.Media;
 /// </summary>
 [JsonConverter(typeof(ColorJsonConverter))]
 [TypeConverter(typeof(ColorConverter))]
-public readonly struct Color
+public readonly struct Color(byte a, byte r, byte g, byte b)
     : IEquatable<Color>,
       IParsable<Color>,
       ISpanParsable<Color>
 {
-    public Color(byte a, byte r, byte g, byte b)
-    {
-        A = a;
-        R = r;
-        G = g;
-        B = b;
-    }
 
     /// <summary>
     /// Gets the Alpha component of the color.
     /// </summary>
-    public byte A { get; }
+    public byte A { get; } = a;
 
     /// <summary>
     /// Gets the Red component of the color.
     /// </summary>
-    public byte R { get; }
+    public byte R { get; } = r;
 
     /// <summary>
     /// Gets the Green component of the color.
     /// </summary>
-    public byte G { get; }
+    public byte G { get; } = g;
 
     /// <summary>
     /// Gets the Blue component of the color.
     /// </summary>
-    public byte B { get; }
+    public byte B { get; } = b;
 
     /// <summary>
     /// Creates a <see cref="Color"/> from alpha, red, green and blue components.

@@ -2,20 +2,13 @@
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class GeometryClipNode : ContainerNode
+public sealed class GeometryClipNode(Geometry clip, ClipOperation operation) : ContainerNode
 {
-    private readonly int _version;
+    private readonly int _version = clip.Version;
 
-    public GeometryClipNode(Geometry clip, ClipOperation operation)
-    {
-        Clip = clip;
-        _version = clip.Version;
-        Operation = operation;
-    }
+    public Geometry Clip { get; private set; } = clip;
 
-    public Geometry Clip { get; private set; }
-
-    public ClipOperation Operation { get; }
+    public ClipOperation Operation { get; } = operation;
 
     public bool Equals(Geometry clip, ClipOperation operation)
     {

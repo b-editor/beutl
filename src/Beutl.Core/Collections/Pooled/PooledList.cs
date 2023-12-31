@@ -16,7 +16,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     // internal constant copied from Array.MaxArrayLength
     private const int MaxArrayLength = 0x7FEFFFFF;
     private const int DefaultCapacity = 4;
-    private static readonly T[] s_emptyArray = Array.Empty<T>();
+    private static readonly T[] s_emptyArray = [];
 
     [NonSerialized]
     private ArrayPool<T> _pool;
@@ -274,7 +274,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
             default:
                 _size = 0;
                 _items = s_emptyArray;
-                using (var en = collection.GetEnumerator())
+                using (IEnumerator<T> en = collection.GetEnumerator())
                 {
                     while (en.MoveNext())
                         Add(en.Current);
@@ -310,7 +310,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
             {
                 if (value > 0)
                 {
-                    var newItems = _pool.Rent(value);
+                    T[] newItems = _pool.Rent(value);
                     if (_size > 0)
                     {
                         Array.Copy(_items, newItems, _size);
@@ -478,16 +478,14 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     public void AddRange(T[] array)
         => AddRange(array.AsSpan());
 
-#pragma warning disable CS0419
     /// <summary>
     /// Adds the elements of the given <see cref="ReadOnlySpan{T}"/> to the end of this list. If
     /// required, the capacity of the list is increased to twice the previous
     /// capacity or the new size, whichever is larger.
     /// </summary>
-#pragma warning restore CS0419
     public void AddRange(ReadOnlySpan<T> span)
     {
-        var newSpan = InsertSpan(_size, span.Length, false);
+        Span<T> newSpan = InsertSpan(_size, span.Length, false);
         span.CopyTo(newSpan);
     }
 
@@ -502,7 +500,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
         => InsertSpan(_size, count);
 
     public ReadOnlyCollection<T> AsReadOnly()
-        => new ReadOnlyCollection<T>(this);
+        => new(this);
 
     /// <summary>
     /// Searches a section of the list for a given element using a binary search
@@ -829,7 +827,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// GetObject methods of the enumerator will throw an exception.
     /// </summary>
     public Enumerator GetEnumerator()
-        => new Enumerator(this);
+        => new(this);
 
     IEnumerator<T> IEnumerable<T>.GetEnumerator()
         => new Enumerator(this);
@@ -988,7 +986,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
                 break;
 
             default:
-                using (var en = collection.GetEnumerator())
+                using (IEnumerator<T> en = collection.GetEnumerator())
                 {
                     while (en.MoveNext())
                     {
@@ -1009,7 +1007,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// </summary>
     public void InsertRange(int index, ReadOnlySpan<T> span)
     {
-        var newSpan = InsertSpan(index, span.Length, false);
+        Span<T> newSpan = InsertSpan(index, span.Length, false);
         span.CopyTo(newSpan);
     }
 
@@ -1047,7 +1045,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
         _size += count;
         _version++;
 
-        var output = _items.AsSpan(index, count);
+        Span<T> output = _items.AsSpan(index, count);
 
         if (clearOutput && _clearOnFree)
         {
@@ -1443,13 +1441,13 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
             _current = default;
         }
 
-        public void Dispose()
+        public readonly void Dispose()
         {
         }
 
         public bool MoveNext()
         {
-            var localList = _list;
+            PooledList<T> localList = _list;
 
             if (_version == localList._version && (uint)_index < (uint)localList._size)
             {
@@ -1472,9 +1470,9 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
             return false;
         }
 
-        public T Current => _current!;
+        public readonly T Current => _current!;
 
-        object? IEnumerator.Current
+        readonly object? IEnumerator.Current
         {
             get
             {
@@ -1498,15 +1496,8 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
         }
     }
 
-    private readonly struct Comparer : IComparer<T>
+    private readonly struct Comparer(Func<T?, T?, int> comparison) : IComparer<T>
     {
-        private readonly Func<T?, T?, int> _comparison;
-
-        public Comparer(Func<T?, T?, int> comparison)
-        {
-            _comparison = comparison;
-        }
-
-        public int Compare(T? x, T? y) => _comparison(x, y);
+        public int Compare(T? x, T? y) => comparison(x, y);
     }
 }

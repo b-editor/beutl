@@ -4,34 +4,23 @@ using Beutl.Collections;
 
 namespace Beutl.Commands;
 
-internal sealed class MoveCommand<T> : IRecordableCommand
+internal sealed class MoveCommand<T>(IList<T> list, int newIndex, int oldIndex) : IRecordableCommand
 {
-    private readonly IList<T> _list;
-    private readonly int _newIndex;
-    private readonly int _oldIndex;
-
-    public MoveCommand(IList<T> list, int newIndex, int oldIndex)
-    {
-        _list = list;
-        _newIndex = newIndex;
-        _oldIndex = oldIndex;
-    }
-
     public void Do()
     {
-        if (_list is ICoreList<T> coreList)
+        if (list is ICoreList<T> coreList)
         {
-            coreList.Move(_oldIndex, _newIndex);
+            coreList.Move(oldIndex, newIndex);
         }
-        else if (_list is ObservableCollection<T> observableCollection)
+        else if (list is ObservableCollection<T> observableCollection)
         {
-            observableCollection.Move(_oldIndex, _newIndex);
+            observableCollection.Move(oldIndex, newIndex);
         }
         else
         {
-            T item = _list[_oldIndex];
-            _list.RemoveAt(_oldIndex);
-            _list.Insert(_newIndex, item);
+            T item = list[oldIndex];
+            list.RemoveAt(oldIndex);
+            list.Insert(newIndex, item);
         }
     }
 
@@ -42,19 +31,19 @@ internal sealed class MoveCommand<T> : IRecordableCommand
 
     public void Undo()
     {
-        if (_list is ICoreList<T> coreList)
+        if (list is ICoreList<T> coreList)
         {
-            coreList.Move(_newIndex, _oldIndex);
+            coreList.Move(newIndex, oldIndex);
         }
-        else if (_list is ObservableCollection<T> observableCollection)
+        else if (list is ObservableCollection<T> observableCollection)
         {
-            observableCollection.Move(_newIndex, _oldIndex);
+            observableCollection.Move(newIndex, oldIndex);
         }
         else
         {
-            T item = _list[_newIndex];
-            _list.RemoveAt(_newIndex);
-            _list.Insert(_oldIndex, item);
+            T item = list[newIndex];
+            list.RemoveAt(newIndex);
+            list.Insert(oldIndex, item);
         }
     }
 }

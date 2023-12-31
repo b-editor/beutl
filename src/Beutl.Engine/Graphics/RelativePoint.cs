@@ -13,9 +13,14 @@ namespace Beutl.Graphics;
 /// <summary>
 /// Defines a point that may be defined relative to a containing element.
 /// </summary>
+/// <remarks>
+/// Initializes a new instance of the <see cref="RelativePoint"/> struct.
+/// </remarks>
+/// <param name="point">The point.</param>
+/// <param name="unit">The unit.</param>
 [JsonConverter(typeof(RelativePointJsonConverter))]
 [TypeConverter(typeof(RelativePointConverter))]
-public readonly struct RelativePoint
+public readonly struct RelativePoint(Point point, RelativeUnit unit)
     : IEquatable<RelativePoint>,
       IParsable<RelativePoint>,
       ISpanParsable<RelativePoint>,
@@ -51,25 +56,14 @@ public readonly struct RelativePoint
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="RelativePoint"/> struct.
-    /// </summary>
-    /// <param name="point">The point.</param>
-    /// <param name="unit">The unit.</param>
-    public RelativePoint(Point point, RelativeUnit unit)
-    {
-        Point = point;
-        Unit = unit;
-    }
-
-    /// <summary>
     /// Gets the point.
     /// </summary>
-    public Point Point { get; }
+    public Point Point { get; } = point;
 
     /// <summary>
     /// Gets the unit.
     /// </summary>
-    public RelativeUnit Unit { get; }
+    public RelativeUnit Unit { get; } = unit;
 
     /// <summary>
     /// Checks for equality between two <see cref="RelativePoint"/>s.

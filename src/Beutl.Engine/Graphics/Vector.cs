@@ -14,9 +14,14 @@ namespace Beutl.Graphics;
 /// <summary>
 /// Defines a vector.
 /// </summary>
+/// <remarks>
+/// Initializes a new instance of the <see cref="Vector"/> structure.
+/// </remarks>
+/// <param name="x">The X component.</param>
+/// <param name="y">The Y component.</param>
 [JsonConverter(typeof(VectorJsonConverter))]
 [TypeConverter(typeof(VectorConverter))]
-public readonly struct Vector
+public readonly struct Vector(float x, float y)
     : IEquatable<Vector>,
       IParsable<Vector>,
       ISpanParsable<Vector>,
@@ -25,26 +30,16 @@ public readonly struct Vector
       IUtf8SpanParsable<Vector>,
       ITupleConvertible<Vector, float>
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="Vector"/> structure.
-    /// </summary>
-    /// <param name="x">The X component.</param>
-    /// <param name="y">The Y component.</param>
-    public Vector(float x, float y)
-    {
-        X = x;
-        Y = y;
-    }
 
     /// <summary>
     /// Gets the X component.
     /// </summary>
-    public float X { get; }
+    public float X { get; } = x;
 
     /// <summary>
     /// Gets the Y component.
     /// </summary>
-    public float Y { get; }
+    public float Y { get; } = y;
 
     /// <summary>
     /// Returns the vector (0.0, 0.0).

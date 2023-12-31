@@ -6,16 +6,9 @@ using Reactive.Bindings;
 
 namespace PackageSample;
 
-public sealed class EditWellKnownSizeTabViewModel : IToolContext
+public sealed class EditWellKnownSizeTabViewModel(ToolTabExtension extension) : IToolContext
 {
-    public EditWellKnownSizeTabViewModel(ToolTabExtension extension)
-    {
-        Extension = extension;
-        AddScreen = new AddWellKnownSizeScreenViewModel();
-        RemoveScreen = new RemoveWellKnownSizeScreenViewModel();
-    }
-
-    public ToolTabExtension Extension { get; }
+    public ToolTabExtension Extension { get; } = extension;
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
@@ -23,9 +16,9 @@ public sealed class EditWellKnownSizeTabViewModel : IToolContext
 
     public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Right;
 
-    public AddWellKnownSizeScreenViewModel AddScreen { get; }
-    
-    public RemoveWellKnownSizeScreenViewModel RemoveScreen { get; }
+    public AddWellKnownSizeScreenViewModel AddScreen { get; } = new AddWellKnownSizeScreenViewModel();
+
+    public RemoveWellKnownSizeScreenViewModel RemoveScreen { get; } = new RemoveWellKnownSizeScreenViewModel();
 
     public void Dispose()
     {

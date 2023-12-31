@@ -1,12 +1,7 @@
 ﻿namespace Beutl;
 
 [AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
-public sealed class NotifiableAttribute : Attribute
+public sealed class NotifiableAttribute(bool notifiable) : Attribute
 {
-    public NotifiableAttribute(bool notifiable)
-    {
-        Notifiable = notifiable;
-    }
-
-    public bool Notifiable { get; }
+    public bool Notifiable { get; } = notifiable;
 }

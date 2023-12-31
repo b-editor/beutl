@@ -4,8 +4,8 @@ namespace Beutl.Serialization;
 
 internal static class ArrayTypeHelpers
 {
-    private static readonly Dictionary<Type, Type> s_elementTypes = new();
-    private static readonly Dictionary<Type, (Type Key, Type Value)> s_genericArgsTypes = new();
+    private static readonly Dictionary<Type, Type> s_elementTypes = [];
+    private static readonly Dictionary<Type, (Type Key, Type Value)> s_genericArgsTypes = [];
 
     public static object ConvertArrayType(List<object?> output, Type type, Type elementType)
     {
@@ -88,7 +88,7 @@ internal static class ArrayTypeHelpers
     {
         if (GetElementType(dictType) is Type elementType)
         {
-            if (!s_genericArgsTypes.TryGetValue(elementType, out var result))
+            if (!s_genericArgsTypes.TryGetValue(elementType, out (Type Key, Type Value) result))
             {
                 if (elementType.IsGenericType
                     && elementType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))

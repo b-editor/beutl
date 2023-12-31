@@ -17,7 +17,7 @@ namespace Beutl.Views.NodeTree;
 
 public partial class SocketView : UserControl
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private SocketPoint? _socketPt;
     private NodeView? _nodeView;
     private Canvas? _canvas;

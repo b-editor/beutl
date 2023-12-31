@@ -21,7 +21,7 @@ public sealed class Project : Hierarchical, IStorable
     private EventHandler? _saved;
     private EventHandler? _restored;
     private readonly HierarchicalList<ProjectItem> _items;
-    private readonly Dictionary<string, string> _variables = new();
+    private readonly Dictionary<string, string> _variables = [];
 
     static Project()
     {

@@ -194,7 +194,7 @@ internal static class Wgl
         string? str = GetExtensionsStringARB(dc);
         if (string.IsNullOrEmpty(str))
         {
-            return Array.Empty<string>();
+            return [];
         }
         return str.Split(' ');
     }

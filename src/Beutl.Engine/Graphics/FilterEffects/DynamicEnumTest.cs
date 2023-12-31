@@ -30,15 +30,9 @@ public sealed class DynamicEnumTest : FilterEffect
     {
     }
 
-    public sealed class MyDynamicEnumValue : IDynamicEnumValue
+    public sealed class MyDynamicEnumValue(string display/*, object? metadata*/) : IDynamicEnumValue
     {
-        // metadataは例えばEnumに関連づけられている、Idなど
-        public MyDynamicEnumValue(string display/*, object? metadata*/)
-        {
-            DisplayName = display;
-        }
-
-        public string DisplayName { get; }
+        public string DisplayName { get; } = display;
 
         public bool Equals(IDynamicEnumValue? other)
         {
@@ -48,13 +42,13 @@ public sealed class DynamicEnumTest : FilterEffect
 
     public sealed class MyDynamicEnum : IDynamicEnum
     {
-        private static readonly CoreList<IDynamicEnumValue> s_enumValues = new()
-        {
+        private static readonly CoreList<IDynamicEnumValue> s_enumValues =
+        [
             new MyDynamicEnumValue("Enum 1"),
             new MyDynamicEnumValue("Enum 2"),
             new MyDynamicEnumValue("Enum 3"),
             new MyDynamicEnumValue("Enum 4"),
-        };
+        ];
 
         public MyDynamicEnum()
         {

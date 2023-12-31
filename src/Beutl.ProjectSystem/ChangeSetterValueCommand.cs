@@ -2,28 +2,17 @@
 
 namespace Beutl;
 
-public sealed class ChangeSetterValueCommand<T> : IRecordableCommand
+public sealed class ChangeSetterValueCommand<T>(Setter<T> setter, T oldValue, T newValue) : IRecordableCommand
 {
-    private readonly Setter<T> _setter;
-    private readonly T _oldValue;
-    private readonly T _newValue;
-
-    public ChangeSetterValueCommand(Setter<T> setter, T oldValue, T newValue)
-    {
-        _setter = setter;
-        _oldValue = oldValue;
-        _newValue = newValue;
-    }
-
     public void Do()
     {
-        _setter.Value = _newValue;
+        setter.Value = newValue;
     }
 
     public void Redo() => Do();
 
     public void Undo()
     {
-        _setter.Value = _oldValue;
+        setter.Value = oldValue;
     }
 }

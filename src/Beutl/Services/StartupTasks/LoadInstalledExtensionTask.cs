@@ -55,7 +55,7 @@ public sealed class LoadInstalledExtensionTask : StartupTask
 
     public override Task Task { get; }
 
-    public ConcurrentBag<(LocalPackage, Exception)> Failures { get; } = new();
+    public ConcurrentBag<(LocalPackage, Exception)> Failures { get; } = [];
 
     // 最後に実行したとき、例外が発生して終了した場合、
     // 制限モード (拡張機能を読み込まない) で起動するかを尋ねる。

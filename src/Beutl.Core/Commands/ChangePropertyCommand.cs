@@ -1,22 +1,14 @@
 ﻿namespace Beutl.Commands;
 
-public sealed class ChangePropertyCommand : IRecordableCommand
+public sealed class ChangePropertyCommand(ICoreObject obj, CoreProperty property, object? newValue, object? oldValue) : IRecordableCommand
 {
-    public ChangePropertyCommand(ICoreObject obj, CoreProperty property, object? newValue, object? oldValue)
-    {
-        Object = obj;
-        Property = property;
-        NewValue = newValue;
-        OldValue = oldValue;
-    }
+    public ICoreObject Object { get; } = obj;
 
-    public ICoreObject Object { get; }
+    public CoreProperty Property { get; } = property;
 
-    public CoreProperty Property { get; }
+    public object? NewValue { get; } = newValue;
 
-    public object? NewValue { get; }
-
-    public object? OldValue { get; }
+    public object? OldValue { get; } = oldValue;
 
     public void Do()
     {

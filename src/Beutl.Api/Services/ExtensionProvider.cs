@@ -8,10 +8,10 @@ namespace Beutl.Api.Services;
 
 public sealed class ExtensionProvider : IBeutlApiResource
 {
-    private readonly Dictionary<int, Extension[]> _allExtensions = new();
+    private readonly Dictionary<int, Extension[]> _allExtensions = [];
     private readonly ExtensionConfig _config = GlobalConfiguration.Instance.ExtensionConfig;
-    private readonly Dictionary<Type, Array> _cache = new();
-    private readonly CoreList<Extension> _extensions = new();
+    private readonly Dictionary<Type, Array> _cache = [];
+    private readonly CoreList<Extension> _extensions = [];
     private readonly object _lock = new();
     private bool _cacheInvalidated;
 

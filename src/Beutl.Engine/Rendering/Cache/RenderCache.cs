@@ -10,9 +10,9 @@ using SkiaSharp;
 
 namespace Beutl.Rendering.Cache;
 
-public sealed class RenderCache : IDisposable
+public sealed class RenderCache(IGraphicNode node) : IDisposable
 {
-    private readonly WeakReference<IGraphicNode> _node;
+    private readonly WeakReference<IGraphicNode> _node = new(node);
     private Ref<SKSurface>? _cache;
     private Rect _cacheBounds;
 
@@ -23,11 +23,6 @@ public sealed class RenderCache : IDisposable
     // 前回のフレームと比べたときに同じだった操作の数（進捗）
     private FixedArrayAccessor? _accessor;
     private int _denum;
-
-    public RenderCache(IGraphicNode node)
-    {
-        _node = new WeakReference<IGraphicNode>(node);
-    }
 
     ~RenderCache()
     {
@@ -116,7 +111,7 @@ public sealed class RenderCache : IDisposable
 #if DEBUG
         if (_cache != null)
         {
-            Debug.WriteLine($"[RenderCache:Invalildated] '{(_node.TryGetTarget(out var node) ? node : null)}'");
+            Debug.WriteLine($"[RenderCache:Invalildated] '{(_node.TryGetTarget(out IGraphicNode? node) ? node : null)}'");
         }
 #endif
 

@@ -19,7 +19,7 @@ public sealed class AfterLoadingExtensionsTask : StartupTask
             LoadSideloadExtensionTask t3 = _startup.GetTask<LoadSideloadExtensionTask>();
             await Task.WhenAll(t1.Task, t2.Task, t3.Task);
 
-            (LocalPackage, Exception)[] failures = t1.Failures.Concat(t2.Failures).Concat(t3.Failures).ToArray();
+            (LocalPackage, Exception)[] failures = [.. t1.Failures, .. t2.Failures, .. t3.Failures];
             if (failures.Length > 0)
             {
                 NotificationService.ShowError(

@@ -61,11 +61,11 @@ public sealed class OutputQueueItem : IDisposable
     {
         try
         {
-            var obj = json.AsObject();
-            var contextJson = json[nameof(Context)];
+            JsonObject obj = json.AsObject();
+            JsonNode? contextJson = json[nameof(Context)];
 
-            var extensionStr = obj["Extension"]!.AsValue().GetValue<string>();
-            var extensionType = TypeFormat.ToType(extensionStr);
+            string extensionStr = obj["Extension"]!.AsValue().GetValue<string>();
+            Type? extensionType = TypeFormat.ToType(extensionStr);
             ExtensionProvider provider = ExtensionProvider.Current;
             OutputExtension? extension = Array.Find(provider.GetExtensions<OutputExtension>(), x => x.GetType() == extensionType);
 
@@ -94,17 +94,10 @@ public sealed class OutputQueueItem : IDisposable
 
 public sealed class OutputService
 {
-    private readonly CoreList<OutputQueueItem> _items;
+    private readonly CoreList<OutputQueueItem> _items = [];
     private readonly ReactivePropertySlim<OutputQueueItem?> _selectedItem = new();
-    private readonly string _filePath;
+    private readonly string _filePath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "outputlist.json");
     private bool _isRestored;
-
-    public OutputService()
-    {
-        _items = new CoreList<OutputQueueItem>();
-
-        _filePath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "outputlist.json");
-    }
 
     public static OutputService Current { get; } = new();
 

@@ -4,14 +4,9 @@ using Beutl.Controls.PropertyEditors;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class EnumEditorViewModel<T> : ValueEditorViewModel<T>
+public sealed class EnumEditorViewModel<T>(IAbstractProperty<T> property) : ValueEditorViewModel<T>(property)
     where T : struct, Enum
 {
-    public EnumEditorViewModel(IAbstractProperty<T> property)
-        : base(property)
-    {
-    }
-
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);

@@ -100,7 +100,7 @@ public sealed unsafe class Pcm<T> : IPcm
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void ThrowIfDisposed()
     {
-        if (IsDisposed) throw new ObjectDisposedException(nameof(Pcm<T>));
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
     }
 
     public void Dispose()

@@ -3,28 +3,9 @@
 namespace Beutl.Serialization;
 
 [StructLayout(LayoutKind.Sequential)]
-internal class StringValuePair<T>
+internal class StringValuePair<T>(string key, T value)
 {
-    private string _key; // Do not rename (binary serialization)
-    private T _value; // Do not rename (binary serialization)
+    public string Key { get; set; } = key;
 
-    // Constructs a new DictionaryEnumerator by setting the Key
-    // and Value fields appropriately.
-    public StringValuePair(string key, T value)
-    {
-        _key = key;
-        _value = value;
-    }
-
-    public string Key
-    {
-        get => _key;
-        set => _key = value;
-    }
-
-    public T Value
-    {
-        get => _value;
-        set => _value = value;
-    }
+    public T Value { get; set; } = value;
 }

@@ -72,8 +72,7 @@ internal sealed unsafe class SimpleCircularBuffer<T> : IDisposable
 
     private void ThrowIfDisposed()
     {
-        if (_disposedValue)
-            throw new ObjectDisposedException(GetType().Name);
+        ObjectDisposedException.ThrowIf(_disposedValue, this);
     }
 }
 
@@ -149,15 +148,9 @@ public sealed class Delay : SoundEffect
         return new DelayProcessor(this);
     }
 
-    private sealed class DelayProcessor : ISoundProcessor
+    private sealed class DelayProcessor(Delay delay) : ISoundProcessor
     {
-        private readonly Delay _delay;
         private SimpleCircularBuffer<Vector2>? _delayBuffer;
-
-        public DelayProcessor(Delay delay)
-        {
-            _delay = delay;
-        }
 
         ~DelayProcessor()
         {
@@ -181,10 +174,10 @@ public sealed class Delay : SoundEffect
         public void Process(in Pcm<Stereo32BitFloat> src, out Pcm<Stereo32BitFloat> dst)
         {
             int sampleRate = src.SampleRate;
-            float delayTime = _delay._delayTime / 1000f;
-            float feedback = _delay._feedback / 100f;
-            float dryMix = _delay._dryMix / 100f;
-            float wetMix = _delay._wetMix / 100f;
+            float delayTime = delay._delayTime / 1000f;
+            float feedback = delay._feedback / 100f;
+            float dryMix = delay._dryMix / 100f;
+            float wetMix = delay._wetMix / 100f;
 
             Initialize(src);
             Span<Stereo32BitFloat> channel_data = src.DataSpan;

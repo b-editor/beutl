@@ -2,20 +2,14 @@
 
 namespace Beutl.Operators.Configure;
 
-public class CorePropertyImpl<T> : IAbstractProperty<T>
+public class CorePropertyImpl<T>(CoreProperty<T> property, ICoreObject obj) : IAbstractProperty<T>
 {
     private Type? _implementedType;
     private IObservable<T?>? _observable;
 
-    public CorePropertyImpl(CoreProperty<T> property, ICoreObject obj)
-    {
-        Property = property;
-        Object = obj;
-    }
+    public ICoreObject Object { get; } = obj;
 
-    public ICoreObject Object { get; }
-
-    public CoreProperty<T> Property { get; }
+    public CoreProperty<T> Property { get; } = property;
 
     public Type ImplementedType => _implementedType ??= Object.GetType();
 

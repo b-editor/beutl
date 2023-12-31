@@ -8,8 +8,8 @@ namespace Beutl.ViewModels;
 
 public sealed class ExtensionsPageViewModel : IPageContext
 {
-    private readonly CompositeDisposable _disposables = new();
-    private readonly CompositeDisposable _authDisposables = new();
+    private readonly CompositeDisposable _disposables = [];
+    private readonly CompositeDisposable _authDisposables = [];
     private readonly BeutlApiApplication _clients;
     private Lazy<DiscoverPageViewModel>? _discover;
     private Lazy<LibraryPageViewModel>? _library;

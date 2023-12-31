@@ -2,17 +2,11 @@
 
 namespace Beutl.NodeTree.Nodes;
 
-public class ConfigureNodeEvaluationState
+public class ConfigureNodeEvaluationState(Drawable? previous, object? addtionalState)
 {
-    public ConfigureNodeEvaluationState(Drawable? previous, object? addtionalState)
-    {
-        Previous = previous;
-        AddtionalState = addtionalState;
-    }
+    public Drawable? Previous { get; set; } = previous;
 
-    public Drawable? Previous { get; set; }
-
-    public object? AddtionalState { get; set; }
+    public object? AddtionalState { get; set; } = addtionalState;
 }
 
 public abstract class ConfigureNode : Node

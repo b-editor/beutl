@@ -7,7 +7,7 @@ namespace Beutl.Media;
 public sealed class PathGeometry : Geometry
 {
     public static readonly CoreProperty<PathOperations> OperationsProperty;
-    private readonly PathOperations _operations = new();
+    private readonly PathOperations _operations = [];
 
     static PathGeometry()
     {

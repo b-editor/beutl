@@ -15,7 +15,7 @@ namespace Beutl.ViewModels.SettingsPages;
 public sealed class AccountSettingsPageViewModel : BasePageViewModel
 {
     private readonly ILogger _logger = Log.ForContext<AccountSettingsPageViewModel>();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly BeutlApiApplication _clients;
     private readonly ReactivePropertySlim<CancellationTokenSource?> _cts = new();
 

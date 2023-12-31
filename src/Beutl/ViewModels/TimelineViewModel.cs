@@ -43,9 +43,9 @@ public interface ITimelineOptionsProvider
 public sealed class TimelineViewModel : IToolContext
 {
     private readonly ILogger _logger = Log.ForContext<TimelineViewModel>();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
-    private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = new();
+    private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
 
     public TimelineViewModel(EditViewModel editViewModel)
     {
@@ -95,7 +95,7 @@ public sealed class TimelineViewModel : IToolContext
             },
             () =>
             {
-                ElementViewModel[] tmp = Elements.ToArray();
+                ElementViewModel[] tmp = [.. Elements];
                 Elements.Clear();
                 foreach (ElementViewModel? item in Elements.GetMarshal().Value)
                 {
@@ -110,13 +110,13 @@ public sealed class TimelineViewModel : IToolContext
 
         AdjustDurationToPointer.Subscribe(OnAdjustDurationToPointer);
         AdjustDurationToCurrent.Subscribe(OnAdjustDurationToCurrent);
-        var editorConfig = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
 
         AutoAdjustSceneDuration = editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty).ToReactiveProperty();
         AutoAdjustSceneDuration.Subscribe(b => editorConfig.AutoAdjustSceneDuration = b);
 
         // Todo: 設定からショートカットを変更できるようにする。
-        KeyBindings = new List<KeyBinding>();
+        KeyBindings = [];
         PlatformHotkeyConfiguration? keyConf = Application.Current?.PlatformSettings?.HotkeyConfiguration;
         if (keyConf != null)
         {
@@ -173,14 +173,14 @@ public sealed class TimelineViewModel : IToolContext
     [Obsolete("Use AddElement property instead.")]
     public ReactiveCommand<ElementDescription> AddLayer => AddElement;
 
-    public CoreList<ElementViewModel> Elements { get; } = new();
+    public CoreList<ElementViewModel> Elements { get; } = [];
 
     [Obsolete("Use Elements property instead.")]
     public CoreList<ElementViewModel> Layers => Elements;
 
-    public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = new();
+    public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = [];
 
-    public CoreList<LayerHeaderViewModel> LayerHeaders { get; } = new();
+    public CoreList<LayerHeaderViewModel> LayerHeaders { get; } = [];
 
     public ReactiveCommand Paste { get; } = new();
 
@@ -228,7 +228,7 @@ public sealed class TimelineViewModel : IToolContext
         {
             // ToArrayの理由は
             // TrackedLayerTopObservable.DisposeでDeinitializeが呼び出され、_trackerCacheが変更されるので
-            foreach (var item in _trackerCache.Values.ToArray())
+            foreach (TrackedLayerTopObservable? item in _trackerCache.Values.ToArray())
             {
                 item.Dispose();
             }
@@ -305,7 +305,7 @@ public sealed class TimelineViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue(nameof(LayerHeaders), out var layersNode)
+        if (json.TryGetPropertyValue(nameof(LayerHeaders), out JsonNode? layersNode)
             && layersNode is JsonArray layersArray)
         {
             foreach ((LayerHeaderViewModel layer, JsonObject item) in layersArray.OfType<JsonObject>()
@@ -583,56 +583,48 @@ public sealed class TimelineViewModel : IToolContext
         return Elements.FirstOrDefault(x => x.Model == element);
     }
 
-    private sealed class TrackedLayerTopObservable : LightweightObservableBase<double>, IDisposable
+    private sealed class TrackedLayerTopObservable(int layerNum, TimelineViewModel timeline) : LightweightObservableBase<double>, IDisposable
     {
-        private readonly TimelineViewModel _timeline;
-        private readonly int _layerNum;
         private IDisposable? _disposable1;
         private IDisposable? _disposable2;
-
-        public TrackedLayerTopObservable(int layerNum, TimelineViewModel timeline)
-        {
-            _layerNum = layerNum;
-            _timeline = timeline;
-        }
 
         protected override void Deinitialize()
         {
             _disposable1?.Dispose();
             _disposable2?.Dispose();
-            _timeline._trackerCache.Remove(_layerNum);
+            timeline._trackerCache.Remove(layerNum);
         }
 
         protected override void Initialize()
         {
-            _disposable1 = _timeline.LayerHeaders.CollectionChangedAsObservable()
+            _disposable1 = timeline.LayerHeaders.CollectionChangedAsObservable()
                 .Subscribe(OnCollectionChanged);
 
-            _disposable2 = _timeline.LayerHeightChanged.Subscribe(OnLayerHeightChanged);
+            _disposable2 = timeline.LayerHeightChanged.Subscribe(OnLayerHeightChanged);
         }
 
         private void OnLayerHeightChanged(LayerHeaderViewModel obj)
         {
-            if (obj.Number.Value < _layerNum)
+            if (obj.Number.Value < layerNum)
             {
-                PublishNext(_timeline.CalculateLayerTop(_layerNum));
+                PublishNext(timeline.CalculateLayerTop(layerNum));
             }
         }
 
         protected override void Subscribed(IObserver<double> observer, bool first)
         {
-            observer.OnNext(_timeline.CalculateLayerTop(_layerNum));
+            observer.OnNext(timeline.CalculateLayerTop(layerNum));
         }
 
         private void OnCollectionChanged(NotifyCollectionChangedEventArgs obj)
         {
             if (obj.Action == NotifyCollectionChangedAction.Move)
             {
-                if (_layerNum != obj.OldStartingIndex
-                    && ((_layerNum > obj.OldStartingIndex && _layerNum <= obj.NewStartingIndex)
-                    || (_layerNum < obj.OldStartingIndex && _layerNum >= obj.NewStartingIndex)))
+                if (layerNum != obj.OldStartingIndex
+                    && ((layerNum > obj.OldStartingIndex && layerNum <= obj.NewStartingIndex)
+                    || (layerNum < obj.OldStartingIndex && layerNum >= obj.NewStartingIndex)))
                 {
-                    PublishNext(_timeline.CalculateLayerTop(_layerNum));
+                    PublishNext(timeline.CalculateLayerTop(layerNum));
                 }
             }
         }

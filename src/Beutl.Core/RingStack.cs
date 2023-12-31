@@ -1,24 +1,15 @@
 ﻿namespace Beutl;
 
-internal sealed class RingStack<T>
+internal sealed class RingStack<T>(int size)
 {
-    private readonly int _capacity;
-    private T[] _buffer;
-    private int _top;
-
-    public RingStack(int size)
-    {
-        _capacity = size;
-        _buffer = new T[4];
-        _top = -1;
-        Count = 0;
-    }
+    private T[] _buffer = new T[4];
+    private int _top = -1;
 
     public bool IsEmpty => Count == 0;
 
-    public bool IsFull => Count == _capacity;
+    public bool IsFull => Count == size;
 
-    public int Count { get; private set; }
+    public int Count { get; private set; } = 0;
 
     private void Resize(int newCapacity)
     {
@@ -31,10 +22,10 @@ internal sealed class RingStack<T>
     public void Push(T item)
     {
         if (Count == _buffer.Length
-            && _buffer.Length < _capacity) // 配列が満杯の場合
+            && _buffer.Length < size) // 配列が満杯の場合
         {
             int newCapacity = _buffer.Length * 2; // 新しい容量は現在の2倍にする
-            Resize(Math.Min(newCapacity, _capacity));
+            Resize(Math.Min(newCapacity, size));
         }
         else // 配列に空きがある場合
         {

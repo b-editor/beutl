@@ -2,13 +2,8 @@
 
 namespace Beutl.Audio;
 
-public class SoundNode : INode
+public class SoundNode(Sound sound) : INode
 {
-    public SoundNode(Sound sound)
-    {
-        Sound = sound;
-    }
-
     ~SoundNode()
     {
         if (IsDisposed)
@@ -18,7 +13,7 @@ public class SoundNode : INode
         }
     }
 
-    public Sound Sound { get; }
+    public Sound Sound { get; } = sound;
 
     public bool IsDisposed { get; private set; }
 

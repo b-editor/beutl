@@ -8,8 +8,8 @@ namespace Beutl.Animation;
 
 public static class AnimatorRegistry
 {
-    private static readonly List<(Func<Type, bool> Condition, Type Animator)> s_animators = new()
-    {
+    private static readonly List<(Func<Type, bool> Condition, Type Animator)> s_animators =
+    [
         (type => typeof(bool).IsAssignableFrom(type), typeof(BoolAnimator)),
         (type => typeof(byte).IsAssignableFrom(type), typeof(ByteAnimator)),
         (type => typeof(Color).IsAssignableFrom(type), typeof(ColorAnimator)),
@@ -38,7 +38,7 @@ public static class AnimatorRegistry
         (type => typeof(Vector3).IsAssignableFrom(type), typeof(Vector3Animator)),
         (type => typeof(Vector4).IsAssignableFrom(type), typeof(Vector4Animator)),
         (type => typeof(Graphics.Vector).IsAssignableFrom(type), typeof(VectorAnimator)),
-    };
+    ];
 
     public static Animator<T> CreateAnimator<T>()
     {

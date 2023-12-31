@@ -6,28 +6,19 @@ namespace Beutl.Styling;
 
 #pragma warning disable CA1816
 
-public class StyleInstance : IStyleInstance
+public class StyleInstance(ICoreObject target, IStyle source, ISetterInstance[] setters, IStyleInstance? baseStyle) : IStyleInstance
 {
-    private ICoreObject? _target;
-    private IStyle? _source;
-    private ISetterInstance[] _setters;
+    private ICoreObject? _target = target;
+    private IStyle? _source = source;
     private ISetterInstance[][]? _cache;
 
-    public StyleInstance(ICoreObject target, IStyle source, ISetterInstance[] setters, IStyleInstance? baseStyle)
-    {
-        _target = target;
-        _source = source;
-        _setters = setters;
-        BaseStyle = baseStyle;
-    }
-
-    public IStyleInstance? BaseStyle { get; private set; }
+    public IStyleInstance? BaseStyle { get; private set; } = baseStyle;
 
     public ICoreObject Target => _target ?? throw new InvalidOperationException();
 
     public IStyle Source => _source ?? throw new InvalidOperationException();
 
-    public ReadOnlySpan<ISetterInstance> Setters => _setters;
+    public ReadOnlySpan<ISetterInstance> Setters => setters;
 
     public void Apply(IClock clock)
     {
@@ -90,7 +81,7 @@ public class StyleInstance : IStyleInstance
 
         _target = null;
         _source = null;
-        _setters = Array.Empty<ISetterInstance>();
+        setters = [];
         _cache = null;
         BaseStyle = null;
     }

@@ -61,12 +61,12 @@ public sealed class MainViewModel : BasePageViewModel
         WindowTitle = NameOfOpenProject.Select(v => string.IsNullOrWhiteSpace(v) ? "Beutl" : $"Beutl - {v}")
             .ToReadOnlyReactivePropertySlim("Beutl");
 
-        Pages = new()
-        {
+        Pages =
+        [
             new(EditPageExtension.Instance),
             new(ExtensionsPageExtension.Instance, new ExtensionsPageViewModel(_beutlClients)),
             new(OutputPageExtension.Instance),
-        };
+        ];
         SettingsPage = new(SettingsPageExtension.Instance, new SettingsPageViewModel(_beutlClients));
         SelectedPage.Value = Pages[0];
 

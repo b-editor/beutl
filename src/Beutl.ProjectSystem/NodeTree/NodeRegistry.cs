@@ -7,7 +7,7 @@ namespace Beutl.NodeTree;
 
 public class NodeRegistry
 {
-    private static readonly List<BaseRegistryItem> s_nodes = new();
+    private static readonly List<BaseRegistryItem> s_nodes = [];
     internal static int s_totalCount;
 
     public static void RegisterNode<
@@ -124,7 +124,7 @@ public class NodeRegistry
     public record GroupableRegistryItem(string DisplayName, Color AccentColor)
         : BaseRegistryItem(DisplayName, AccentColor)
     {
-        public List<BaseRegistryItem> Items { get; } = new();
+        public List<BaseRegistryItem> Items { get; } = [];
 
         internal void Merge(List<BaseRegistryItem> items)
         {

@@ -3,15 +3,10 @@ using Beutl.Media.Source;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class ImageSourceNode : BrushDrawNode
+public sealed class ImageSourceNode(IImageSource source, IBrush? fill, IPen? pen)
+    : BrushDrawNode(fill, pen, PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen))
 {
-    public ImageSourceNode(IImageSource source, IBrush? fill, IPen? pen)
-        : base(fill, pen, PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen))
-    {
-        Source = source.Clone();
-    }
-
-    public IImageSource Source { get; }
+    public IImageSource Source { get; } = source.Clone();
 
     public bool Equals(IImageSource source, IBrush? fill, IPen? pen)
     {

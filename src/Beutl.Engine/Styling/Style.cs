@@ -9,7 +9,7 @@ public class Style : IStyle
 
     public Style()
     {
-        _setters = new Setters();
+        _setters = [];
         _setters.Invalidated += (_, _) => Invalidated?.Invoke(this, EventArgs.Empty);
     }
 

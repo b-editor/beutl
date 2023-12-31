@@ -27,9 +27,9 @@ public sealed partial class EditView : UserControl
     private static readonly Binding s_isSelectedBinding = new("Context.IsSelected.Value", BindingMode.TwoWay);
     private static readonly Binding s_headerBinding = new("Context.Header");
     private static readonly ILogger s_logger = Log.ForContext<EditView>();
-    private readonly AvaloniaList<BcTabItem> _bottomTabItems = new();
-    private readonly AvaloniaList<BcTabItem> _rightTabItems = new();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly AvaloniaList<BcTabItem> _bottomTabItems = [];
+    private readonly AvaloniaList<BcTabItem> _rightTabItems = [];
+    private readonly CompositeDisposable _disposables = [];
     private Image? _image;
 
     public EditView()
@@ -297,10 +297,10 @@ Error:
                     t.Item3.RenderTransform = t.Item2.RenderTransform = new ImmutableTransform(t.matrix.ToAvaMatrix());
                     if (DataContext is EditViewModel vm)
                     {
-                        var width = vm.Scene.Width;
+                        int width = vm.Scene.Width;
                         if (width == 0) return;
-                        var actualWidth = t.Item2.Bounds.Width * t.matrix.M11;
-                        var pixelSize = actualWidth / width;
+                        double actualWidth = t.Item2.Bounds.Width * t.matrix.M11;
+                        double pixelSize = actualWidth / width;
                         if (pixelSize >= 1)
                         {
                             RenderOptions.SetBitmapInterpolationMode(t.Item2, BitmapInterpolationMode.None);

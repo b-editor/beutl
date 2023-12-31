@@ -24,7 +24,7 @@ public sealed class DynamicEnumEditorViewModel<T> : ValueEditorViewModel<T?>
                 _valuesSubscription?.Dispose();
                 _valuesSubscription = null;
 
-                Items.Replace(value?.Values?.Select(v => v.DisplayName)?.ToArray() ?? Array.Empty<string>());
+                Items.Replace([.. value?.Values?.Select(v => v.DisplayName) ?? []]);
                 if (value?.Values != null)
                 {
                     value.Values.CollectionChanged += OnValuesCollectionChanged;
@@ -84,7 +84,7 @@ public sealed class DynamicEnumEditorViewModel<T> : ValueEditorViewModel<T?>
         SelectedIndex.Value = Value.Value?.Values.IndexOf(Value.Value.SelectedValue) ?? -1;
     }
 
-    public CoreList<string> Items { get; } = new();
+    public CoreList<string> Items { get; } = [];
 
     public ReadOnlyReactivePropertySlim<IDynamicEnumValue?> SelectedValue { get; }
 

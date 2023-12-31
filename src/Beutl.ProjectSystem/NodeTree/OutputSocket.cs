@@ -44,7 +44,7 @@ internal struct UnsafeBox<T> : IDisposable
 
 public class OutputSocket<T> : Socket<T>, IOutputSocket
 {
-    private readonly CoreList<Connection> _connections = new();
+    private readonly CoreList<Connection> _connections = [];
     private List<Guid>? _inputIds = null;
     // 型が一致していない、ソケットの数
     private int _unmatchSockets;
@@ -138,7 +138,7 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json.TryGetPropertyValue("connection-inputs", out var srcNode)
+        if (json.TryGetPropertyValue("connection-inputs", out JsonNode? srcNode)
             && srcNode is JsonArray srcArray)
         {
             if (_inputIds != null)

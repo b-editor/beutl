@@ -22,12 +22,12 @@ public sealed class ViewConfig : ConfigurationBase
     public static readonly CoreProperty<CoreList<string>> PrimaryPropertiesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentFilesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentProjectsProperty;
-    private readonly CoreList<string> _primaryProperties = new()
-    {
+    private readonly CoreList<string> _primaryProperties =
+    [
         "AlignmentX", "AlignmentY", "TransformOrigin", "BlendMode"
-    };
-    private readonly CoreList<string> _recentFiles = new();
-    private readonly CoreList<string> _recentProjects = new();
+    ];
+    private readonly CoreList<string> _recentFiles = [];
+    private readonly CoreList<string> _recentProjects = [];
     private bool _showExactBoundaries = false;
 
     static ViewConfig()
@@ -310,7 +310,7 @@ public sealed class ViewConfig : ConfigurationBase
 
     public void ResetPrimaryProperties()
     {
-        PrimaryProperties.Replace(new[] { "AlignmentX", "AlignmentY", "TransformOrigin", "BlendMode" });
+        PrimaryProperties.Replace(["AlignmentX", "AlignmentY", "TransformOrigin", "BlendMode"]);
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)

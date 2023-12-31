@@ -265,7 +265,7 @@ namespace Beutl
             private static Type[] ParseGenericTypes(Span<Token> tokens)
             {
                 if (tokens.Length == 0)
-                    return Array.Empty<Type>();
+                    return [];
 
                 var list = new List<Type?>();
 
@@ -346,19 +346,12 @@ namespace Beutl
             }
         }
 
-        internal class TypeNameFormatter
+        internal class TypeNameFormatter(Type type)
         {
-            private readonly Type _type;
-
-            public TypeNameFormatter(Type type)
-            {
-                _type = type;
-            }
-
             private void WriteNamespace(StringBuilder sb)
             {
-                string? asmName = _type.Assembly.GetName().Name;
-                string? ns = _type.Namespace;
+                string? asmName = type.Assembly.GetName().Name;
+                string? ns = type.Namespace;
                 if (ns != null)
                 {
                     if (asmName != null)
@@ -380,7 +373,7 @@ namespace Beutl
             public string Format()
             {
                 var sb = new StringBuilder();
-                string? asmName = _type.Assembly.GetName().Name;
+                string? asmName = type.Assembly.GetName().Name;
                 if (asmName != null)
                 {
                     sb.Append('[');
@@ -390,7 +383,7 @@ namespace Beutl
 
                 WriteNamespace(sb);
 
-                WriteTypeName(sb, _type);
+                WriteTypeName(sb, type);
 
                 return sb.ToString();
             }
@@ -442,21 +435,14 @@ namespace Beutl
             }
         }
 
-        internal class TypeNameTokenizer
+        internal class TypeNameTokenizer(string s)
         {
-            private readonly string _s;
-
-            public TypeNameTokenizer(string s)
-            {
-                _s = s;
-            }
-
             public List<Token> Tokenize()
             {
                 var list = new List<Token>();
-                for (int i = 0; i < _s.Length; i++)
+                for (int i = 0; i < s.Length; i++)
                 {
-                    char c = _s[i];
+                    char c = s[i];
                     if (IsKigou(c))
                     {
                         switch (c)
@@ -489,19 +475,19 @@ namespace Beutl
                         int start = i;
                         while (true)
                         {
-                            c = _s[i];
+                            c = s[i];
 
                             if (IsKigou(c))
                             {
-                                list.Add(new(TokenType.Part, _s.Substring(start, i - start)));
+                                list.Add(new(TokenType.Part, s.Substring(start, i - start)));
                                 i--;
                                 break;
                             }
 
                             i++;
-                            if (i >= _s.Length)
+                            if (i >= s.Length)
                             {
-                                list.Add(new(TokenType.Part, _s.Substring(start, i - start)));
+                                list.Add(new(TokenType.Part, s.Substring(start, i - start)));
                                 break;
                             }
                         }

@@ -3,15 +3,9 @@
 
 namespace System.Runtime.Loader
 {
-    internal partial struct LibraryNameVariation
+    internal partial struct LibraryNameVariation(string prefix, string suffix)
     {
-        public string Prefix;
-        public string Suffix;
-
-        public LibraryNameVariation(string prefix, string suffix)
-        {
-            Prefix = prefix;
-            Suffix = suffix;
-        }
+        public string Prefix = prefix;
+        public string Suffix = suffix;
     }
 }

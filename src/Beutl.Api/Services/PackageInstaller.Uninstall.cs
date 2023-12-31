@@ -13,7 +13,7 @@ public partial class PackageInstaller
         cancellationToken.ThrowIfCancellationRequested();
 
         PackageIdentity uninstallPackage = new PackageFolderReader(installedPath).GetIdentity();
-        PackageIdentity[] unnecessaryPackages = { uninstallPackage };
+        PackageIdentity[] unnecessaryPackages = [uninstallPackage];
 
         if (clean)
         {

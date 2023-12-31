@@ -1,18 +1,12 @@
 ﻿namespace Beutl.Media.Music;
 
-public readonly struct Sample : IEquatable<Sample>
+public readonly struct Sample(float left, float right) : IEquatable<Sample>
 {
     public static readonly Sample One = new(1, 1);
 
-    public Sample(float left, float right)
-    {
-        Left = left;
-        Right = right;
-    }
+    public float Left { get; } = left;
 
-    public float Left { get; }
-
-    public float Right { get; }
+    public float Right { get; } = right;
 
     public override bool Equals(object? obj) => obj is Sample sample && Equals(sample);
 

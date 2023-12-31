@@ -16,9 +16,14 @@ namespace Beutl.Media;
 /// <summary>
 /// Represents a size in device pixels.
 /// </summary>
+/// <remarks>
+/// Initializes a new instance of the <see cref="PixelSize"/> structure.
+/// </remarks>
+/// <param name="width">The width.</param>
+/// <param name="height">The height.</param>
 [JsonConverter(typeof(PixelSizeJsonConverter))]
 [TypeConverter(typeof(PixelSizeConverter))]
-public readonly struct PixelSize
+public readonly struct PixelSize(int width, int height)
     : IEquatable<PixelSize>,
       IParsable<PixelSize>,
       ISpanParsable<PixelSize>,
@@ -31,17 +36,6 @@ public readonly struct PixelSize
     public static readonly PixelSize Empty = new(0, 0);
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="PixelSize"/> structure.
-    /// </summary>
-    /// <param name="width">The width.</param>
-    /// <param name="height">The height.</param>
-    public PixelSize(int width, int height)
-    {
-        Width = width;
-        Height = height;
-    }
-
-    /// <summary>
     /// Gets the aspect ratio of the size.
     /// </summary>
     public float AspectRatio => (float)Width / Height;
@@ -49,12 +43,12 @@ public readonly struct PixelSize
     /// <summary>
     /// Gets the width.
     /// </summary>
-    public int Width { get; }
+    public int Width { get; } = width;
 
     /// <summary>
     /// Gets the height.
     /// </summary>
-    public int Height { get; }
+    public int Height { get; } = height;
 
     static int ITupleConvertible<PixelSize, int>.TupleLength => 2;
 

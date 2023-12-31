@@ -61,17 +61,13 @@ public sealed class TextEditorContext : IEditorContext
         return false;
     }
 
-    private sealed class CommandsImpl : IKnownEditorCommands
+    private sealed class CommandsImpl(TextEditorContext context) : IKnownEditorCommands
     {
-        private readonly TextEditorContext _context;
-
-        public CommandsImpl(TextEditorContext context) => _context = context;
-
         public async ValueTask<bool> OnSave()
         {
             try
             {
-                await File.WriteAllTextAsync(_context.EdittingFile, _context.Text.Value);
+                await File.WriteAllTextAsync(context.EdittingFile, context.Text.Value);
                 return true;
             }
             catch

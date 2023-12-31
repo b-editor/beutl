@@ -14,9 +14,14 @@ namespace Beutl.Graphics;
 /// <summary>
 /// Defines a size.
 /// </summary>
+/// <remarks>
+/// Initializes a new instance of the <see cref="Size"/> structure.
+/// </remarks>
+/// <param name="width">The width.</param>
+/// <param name="height">The height.</param>
 [JsonConverter(typeof(SizeJsonConverter))]
 [TypeConverter(typeof(SizeConverter))]
-public readonly struct Size
+public readonly struct Size(float width, float height)
     : IEquatable<Size>,
       IParsable<Size>,
       ISpanParsable<Size>,
@@ -46,17 +51,6 @@ public readonly struct Size
     public static readonly Size Empty = new(0, 0);
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Size"/> structure.
-    /// </summary>
-    /// <param name="width">The width.</param>
-    /// <param name="height">The height.</param>
-    public Size(float width, float height)
-    {
-        Width = width;
-        Height = height;
-    }
-
-    /// <summary>
     /// Gets the aspect ratio of the size.
     /// </summary>
     public float AspectRatio => Width / Height;
@@ -64,12 +58,12 @@ public readonly struct Size
     /// <summary>
     /// Gets the width.
     /// </summary>
-    public float Width { get; }
+    public float Width { get; } = width;
 
     /// <summary>
     /// Gets the height.
     /// </summary>
-    public float Height { get; }
+    public float Height { get; } = height;
 
     /// <summary>
     /// Gets a value indicating whether the Width and Height values are zero.

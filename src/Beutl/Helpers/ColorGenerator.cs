@@ -10,7 +10,7 @@ namespace Beutl.Helpers;
 
 public static class ColorGenerator
 {
-    private static readonly Dictionary<string, Media.Color> s_cache = new();
+    private static readonly Dictionary<string, Media.Color> s_cache = [];
 
     // https://qiita.com/pira/items/dd4057ef499154968f69
     public static Media.Color GenerateColor(string str)

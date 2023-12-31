@@ -39,9 +39,9 @@ public class SelectLibraryItemDialogViewModel
 
     public string Title { get; }
 
-    public ReactiveCollection<LibraryItem> Items { get; } = new();
+    public ReactiveCollection<LibraryItem> Items { get; } = [];
 
-    public ReactiveCollection<LibraryItem> AllItems { get; } = new();
+    public ReactiveCollection<LibraryItem> AllItems { get; } = [];
 
     public ReactiveProperty<bool> IsBusy { get; } = new();
 
@@ -64,7 +64,7 @@ public class SelectLibraryItemDialogViewModel
                     .Where(x => !x.IsAbstract
                         && x.IsPublic
                         && x.IsAssignableTo(itemType)
-                        && (itemType.GetConstructor(Array.Empty<Type>()) != null
+                        && (itemType.GetConstructor([]) != null
                         || itemType.GetConstructors().Length == 0))
                     .ToArray();
 

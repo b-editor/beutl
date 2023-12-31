@@ -19,7 +19,7 @@ public readonly struct RelativeRect
       IUtf8SpanFormattable,
       IEqualityOperators<RelativeRect, RelativeRect, bool>
 {
-    private static readonly char[] s_percentChar = { '%' };
+    private static readonly char[] s_percentChar = ['%'];
 
     /// <summary>
     /// A rectangle that represents 100% of an area.

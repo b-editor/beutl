@@ -2,15 +2,9 @@
 
 namespace Beutl.Audio.Platforms.XAudio2;
 
-public sealed class XAudioSource : IDisposable
+public sealed class XAudioSource(XAudioContext context) : IDisposable
 {
-    private readonly XAudioContext _context;
     private IXAudio2SourceVoice? _sourceVoice;
-
-    public XAudioSource(XAudioContext context)
-    {
-        _context = context;
-    }
 
     public int BuffersQueued => _sourceVoice?.State.BuffersQueued ?? -1;
 
@@ -39,7 +33,7 @@ public sealed class XAudioSource : IDisposable
     {
         if (_sourceVoice == null)
         {
-            _sourceVoice = _context.Device.CreateSourceVoice(buffer.Format!);
+            _sourceVoice = context.Device.CreateSourceVoice(buffer.Format!);
         }
 
         _sourceVoice.SubmitSourceBuffer(buffer.Buffer);

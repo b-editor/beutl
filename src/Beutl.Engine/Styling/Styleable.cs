@@ -27,7 +27,7 @@ public abstract class Styleable : Animatable, IStyleable, IModifiableHierarchica
 
     protected Styleable()
     {
-        _styles = new();
+        _styles = [];
         _styles.Attached += item =>
         {
             item.Invalidated += Style_Invalidated;

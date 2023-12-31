@@ -343,8 +343,8 @@ public sealed unsafe class FFmpegReader : MediaReader
 
         var bmp = new Bitmap<Bgra8888>(width, height);
         Bgra8888* buf = (Bgra8888*)bmp.Data;
-        byte*[] dst_data = { (byte*)buf, null, null, null };
-        int[] dst_linesize = { output_linesize, 0, 0, 0 };
+        byte*[] dst_data = [(byte*)buf, null, null, null];
+        int[] dst_linesize = [output_linesize, 0, 0, 0];
         byte*[] src_data = _videoFrame->data;
         int[] src_linesize = _videoFrame->linesize;
 

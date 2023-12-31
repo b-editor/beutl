@@ -51,11 +51,8 @@ public class Scene : ProjectItem
     public static readonly CoreProperty<IRenderer> RendererProperty;
     public static readonly CoreProperty<IComposer> ComposerProperty;
     public static readonly CoreProperty<RenderCacheOptions> CacheOptionsProperty;
-    private readonly List<string> _includeElements = new()
-    {
-        "**/*.belm"
-    };
-    private readonly List<string> _excludeElements = new();
+    private readonly List<string> _includeElements = ["**/*.belm"];
+    private readonly List<string> _excludeElements = [];
     private readonly Elements _children;
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private TimeSpan _currentFrame;
@@ -747,36 +744,24 @@ public class Scene : ProjectItem
         return (element.Range, NearestLayerNumber(element));
     }
 
-    private sealed class AddCommand : IRecordableCommand
+    private sealed class AddCommand(Scene scene, Element element, ElementOverlapHandling overlapHandling) : IRecordableCommand
     {
-        private readonly Scene _scene;
-        private readonly Element _element;
-        private readonly ElementOverlapHandling _overlapHandling;
-        private readonly TimeSpan _oldSceneDuration;
-        private readonly bool _adjustSceneDuration;
+        private readonly TimeSpan _oldSceneDuration = scene.Duration;
+        private readonly bool _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         private int _zIndex;
         private TimeRange _range;
 
-        public AddCommand(Scene scene, Element element, ElementOverlapHandling overlapHandling)
-        {
-            _scene = scene;
-            _element = element;
-            _overlapHandling = overlapHandling;
-            _oldSceneDuration = scene.Duration;
-            _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
-        }
-
         public void Do()
         {
-            (_range, _zIndex) = _scene.GetCorrectPosition(_element, _overlapHandling);
-            _element.Start = _range.Start;
-            _element.Length = _range.Duration;
-            _element.ZIndex = _zIndex;
-            _scene.Children.Add(_element);
+            (_range, _zIndex) = scene.GetCorrectPosition(element, overlapHandling);
+            element.Start = _range.Start;
+            element.Length = _range.Duration;
+            element.ZIndex = _zIndex;
+            scene.Children.Add(element);
 
-            if (_adjustSceneDuration && _scene.Duration < _range.End)
+            if (_adjustSceneDuration && scene.Duration < _range.End)
             {
-                _scene.Duration = _range.End;
+                scene.Duration = _range.End;
             }
         }
 
@@ -787,32 +772,24 @@ public class Scene : ProjectItem
 
         public void Undo()
         {
-            _scene.Children.Remove(_element);
-            _element.ZIndex = -1;
+            scene.Children.Remove(element);
+            element.ZIndex = -1;
             if (_adjustSceneDuration)
             {
-                _scene.Duration = _oldSceneDuration;
+                scene.Duration = _oldSceneDuration;
             }
         }
     }
 
-    private sealed class RemoveCommand : IRecordableCommand
+    private sealed class RemoveCommand(Scene scene, Element element) : IRecordableCommand
     {
-        private readonly Scene _scene;
-        private readonly Element _element;
         private int _zIndex;
-
-        public RemoveCommand(Scene scene, Element element)
-        {
-            _scene = scene;
-            _element = element;
-        }
 
         public void Do()
         {
-            _zIndex = _element.ZIndex;
-            _scene.Children.Remove(_element);
-            _element.ZIndex = -1;
+            _zIndex = element.ZIndex;
+            scene.Children.Remove(element);
+            element.ZIndex = -1;
         }
 
         public void Redo()
@@ -822,55 +799,34 @@ public class Scene : ProjectItem
 
         public void Undo()
         {
-            _element.ZIndex = _zIndex;
-            _scene.Children.Add(_element);
+            element.ZIndex = _zIndex;
+            scene.Children.Add(element);
         }
     }
 
-    private sealed class MoveCommand : IRecordableCommand
+    private sealed class MoveCommand(
+        int zIndex,
+        Element element,
+        TimeSpan newStart, TimeSpan oldStart,
+        TimeSpan newLength, TimeSpan oldLength,
+        Scene scene) : IRecordableCommand
     {
-        private readonly Scene _scene;
-        private readonly Element _element;
-        private readonly int _zIndex;
-        private readonly int _oldZIndex;
-        private readonly TimeSpan _newStart;
-        private readonly TimeSpan _oldStart;
-        private readonly TimeSpan _newLength;
-        private readonly TimeSpan _oldLength;
-        private readonly TimeSpan _oldSceneDuration;
-        private readonly bool _adjustSceneDuration;
-
-        public MoveCommand(
-            int zIndex,
-            Element element,
-            TimeSpan newStart, TimeSpan oldStart,
-            TimeSpan newLength, TimeSpan oldLength,
-            Scene scene)
-        {
-            _element = element;
-            _zIndex = zIndex;
-            _oldZIndex = element.ZIndex;
-            _newStart = newStart;
-            _oldStart = oldStart;
-            _newLength = newLength;
-            _oldLength = oldLength;
-            _scene = scene;
-            _oldSceneDuration = scene.Duration;
-            _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
-        }
+        private readonly int _oldZIndex = element.ZIndex;
+        private readonly TimeSpan _oldSceneDuration = scene.Duration;
+        private readonly bool _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
 
         public void Do()
         {
-            TimeSpan newEnd = _newStart + _newLength;
-            (Element? before, Element? after, Element? cover) = _element.GetBeforeAndAfterAndCover(_zIndex, _newStart, newEnd);
+            TimeSpan newEnd = newStart + newLength;
+            (Element? before, Element? after, Element? cover) = element.GetBeforeAndAfterAndCover(zIndex, newStart, newEnd);
 
-            if (before != null && before.Range.End >= _newStart)
+            if (before != null && before.Range.End >= newStart)
             {
-                if ((after != null && (after.Start - before.Range.End) >= _newLength) || after == null)
+                if ((after != null && (after.Start - before.Range.End) >= newLength) || after == null)
                 {
-                    _element.Start = before.Range.End;
-                    _element.Length = _newLength;
-                    _element.ZIndex = _zIndex;
+                    element.Start = before.Range.End;
+                    element.Length = newLength;
+                    element.ZIndex = zIndex;
                 }
                 else
                 {
@@ -879,12 +835,12 @@ public class Scene : ProjectItem
             }
             else if (after != null && after.Start < newEnd)
             {
-                TimeSpan ns = after.Start - _newLength;
-                if (((before != null && (after.Start - before.Range.End) >= _newLength) || before == null) && ns >= TimeSpan.Zero)
+                TimeSpan ns = after.Start - newLength;
+                if (((before != null && (after.Start - before.Range.End) >= newLength) || before == null) && ns >= TimeSpan.Zero)
                 {
-                    _element.Start = ns;
-                    _element.Length = _newLength;
-                    _element.ZIndex = _zIndex;
+                    element.Start = ns;
+                    element.Length = newLength;
+                    element.ZIndex = zIndex;
                 }
                 else
                 {
@@ -897,15 +853,15 @@ public class Scene : ProjectItem
             }
             else
             {
-                _element.Start = _newStart;
-                _element.Length = _newLength;
-                _element.ZIndex = _zIndex;
+                element.Start = newStart;
+                element.Length = newLength;
+                element.ZIndex = zIndex;
             }
 
-            TimeRange range = _element.Range;
-            if (_adjustSceneDuration && _scene.Duration < range.End)
+            TimeRange range = element.Range;
+            if (_adjustSceneDuration && scene.Duration < range.End)
             {
-                _scene.Duration = range.End;
+                scene.Duration = range.End;
             }
         }
 
@@ -916,12 +872,12 @@ public class Scene : ProjectItem
 
         public void Undo()
         {
-            _element.ZIndex = _oldZIndex;
-            _element.Start = _oldStart;
-            _element.Length = _oldLength;
+            element.ZIndex = _oldZIndex;
+            element.Start = oldStart;
+            element.Length = oldLength;
             if (_adjustSceneDuration)
             {
-                _scene.Duration = _oldSceneDuration;
+                scene.Duration = _oldSceneDuration;
             }
         }
     }

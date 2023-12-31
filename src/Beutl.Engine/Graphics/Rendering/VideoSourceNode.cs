@@ -3,18 +3,13 @@ using Beutl.Media.Source;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class VideoSourceNode : BrushDrawNode
+public sealed class VideoSourceNode(
+    IVideoSource source, int frame, IBrush? fill, IPen? pen)
+    : BrushDrawNode(fill, pen, PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen))
 {
-    public VideoSourceNode(IVideoSource source, int frame, IBrush? fill, IPen? pen)
-        : base(fill, pen, PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen))
-    {
-        Source = source.Clone();
-        Frame = frame;
-    }
+    public IVideoSource Source { get; } = source.Clone();
 
-    public IVideoSource Source { get; }
-
-    public int Frame { get; }
+    public int Frame { get; } = frame;
 
     public bool Equals(IVideoSource source, int frame, IBrush? fill, IPen? pen)
     {

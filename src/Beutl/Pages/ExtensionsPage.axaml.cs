@@ -66,8 +66,8 @@ public sealed partial class ExtensionsPage : UserControl
 
     private static List<NavigationViewItem> GetItems()
     {
-        return new List<NavigationViewItem>()
-        {
+        return
+        [
             new NavigationViewItem()
             {
                 Content = "Home",
@@ -95,7 +95,7 @@ public sealed partial class ExtensionsPage : UserControl
                     Symbol = Symbol.Code
                 }
             }
-        };
+        ];
     }
 
     private void Nav_BackRequested(object? sender, NavigationViewBackRequestedEventArgs e)

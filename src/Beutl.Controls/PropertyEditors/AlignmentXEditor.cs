@@ -25,7 +25,7 @@ public class AlignmentXEditor : PropertyEditor
     private const string LeftSelected = ":left-selected";
     private const string CenterSelected = ":center-selected";
     private const string RightSelected = ":right-selected";
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private AlignmentX _value;
 
     public AlignmentXEditor()

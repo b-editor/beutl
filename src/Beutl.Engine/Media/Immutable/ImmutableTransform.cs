@@ -3,17 +3,11 @@ using Beutl.Graphics.Transformation;
 
 namespace Beutl.Media.Immutable;
 
-public sealed class ImmutableTransform : ITransform, IEquatable<ITransform?>
+public sealed class ImmutableTransform(Matrix matrix, bool isEnabled = true) : ITransform, IEquatable<ITransform?>
 {
-    public Matrix Value { get; }
+    public Matrix Value { get; } = matrix;
 
-    public bool IsEnabled { get; }
-
-    public ImmutableTransform(Matrix matrix, bool isEnabled = true)
-    {
-        Value = matrix;
-        IsEnabled = isEnabled;
-    }
+    public bool IsEnabled { get; } = isEnabled;
 
     public override bool Equals(object? obj)
     {

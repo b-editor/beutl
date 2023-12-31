@@ -59,10 +59,7 @@ public class ShapeTests
                 Brush = Brushes.White,
                 Thickness = 10,
                 StrokeCap = StrokeCap.Round,
-                DashArray = new CoreList<float>()
-                {
-                    2
-                },
+                DashArray = [2],
             }
         };
 

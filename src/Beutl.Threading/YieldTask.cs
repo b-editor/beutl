@@ -2,30 +2,16 @@
 
 namespace Beutl.Threading;
 
-public readonly struct YieldTask
+public readonly struct YieldTask(DispatchPriority priority)
 {
-    private readonly DispatchPriority _priority;
-
-    public YieldTask(DispatchPriority priority)
-    {
-        _priority = priority;
-    }
-
     public YieldTaskAwaiter GetAwaiter()
     {
-        return new YieldTaskAwaiter(_priority);
+        return new YieldTaskAwaiter(priority);
     }
 }
 
-public readonly struct YieldTaskAwaiter : INotifyCompletion
+public readonly struct YieldTaskAwaiter(DispatchPriority priority) : INotifyCompletion
 {
-    private readonly DispatchPriority _priority;
-
-    public YieldTaskAwaiter(DispatchPriority priority)
-    {
-        _priority = priority;
-    }
-
     public bool IsCompleted
     {
         get
@@ -35,7 +21,7 @@ public readonly struct YieldTaskAwaiter : INotifyCompletion
                 throw new DispatcherException("Awaiting Dispatcher.Yield outside of QueueSynchronizationContext");
             }
 
-            return !context.HasQueuedTasks(_priority);
+            return !context.HasQueuedTasks(priority);
         }
     }
 
@@ -46,7 +32,7 @@ public readonly struct YieldTaskAwaiter : INotifyCompletion
             throw new DispatcherException("Awaiting Dispatcher.Yield outside of QueueSynchronizationContext");
         }
 
-        context.Post(_priority, continuation);
+        context.Post(priority, continuation);
     }
 
     public void GetResult()

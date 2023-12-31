@@ -6,7 +6,7 @@ using static Beutl.Utilities.MathUtilities;
 
 namespace Beutl;
 
-public readonly partial struct Rational
+public readonly partial struct Rational(long numerator, long denominator)
     : IEquatable<Rational>,
       IEqualityOperators<Rational, Rational, bool>,
       IMultiplyOperators<Rational, Rational, Rational>,
@@ -20,15 +20,9 @@ public readonly partial struct Rational
     {
     }
 
-    public Rational(long numerator, long denominator)
-    {
-        Numerator = numerator;
-        Denominator = denominator;
-    }
+    public long Numerator { get; } = numerator;
 
-    public long Numerator { get; }
-
-    public long Denominator { get; }
+    public long Denominator { get; } = denominator;
 
     [Obsolete("Use Rational.IsNaN")]
     public bool IsIndeterminate => Denominator == 0 && Numerator == 0;

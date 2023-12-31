@@ -11,7 +11,7 @@ namespace Beutl.ViewModels.ExtensionsPages.DevelopPages;
 public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
     private readonly ILogger _logger = Log.ForContext<PackageDetailsPageViewModel>();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly AuthorizedUser _user;
 
     public PackageDetailsPageViewModel(AuthorizedUser user, Package package)

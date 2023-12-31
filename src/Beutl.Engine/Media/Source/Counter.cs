@@ -11,7 +11,9 @@ internal sealed class Counter<T>
     // なのでどこで作成されたかの情報が欲しい。
     // 可能性として考えられるのは、ImmediateCanvasにそのままのSKSurfaceを渡している点
 #if DEBUG
+#pragma warning disable IDE0052 // 読み取られていないプライベート メンバーを削除
     private readonly string _stackTrace;
+#pragma warning restore IDE0052 // 読み取られていないプライベート メンバーを削除
 #endif
 
     public Counter(T value, Action? onRelease)
@@ -26,14 +28,15 @@ internal sealed class Counter<T>
 
     public void AddRef()
     {
-        var old = _refs;
+        int old = _refs;
         while (true)
         {
-            if (old == 0)
-            {
-                throw new ObjectDisposedException("Cannot add a reference to a nonreferenced item");
-            }
-            var current = Interlocked.CompareExchange(ref _refs, old + 1, old);
+            ObjectDisposedException.ThrowIf(old == 0, this);
+            //if (old == 0)
+            //{
+            //    throw new ObjectDisposedException("Cannot add a reference to a nonreferenced item");
+            //}
+            int current = Interlocked.CompareExchange(ref _refs, old + 1, old);
             if (current == old)
             {
                 break;
@@ -44,10 +47,10 @@ internal sealed class Counter<T>
 
     public void Release()
     {
-        var old = _refs;
+        int old = _refs;
         while (true)
         {
-            var current = Interlocked.CompareExchange(ref _refs, old - 1, old);
+            int current = Interlocked.CompareExchange(ref _refs, old - 1, old);
 
             if (current == old)
             {

@@ -12,7 +12,7 @@ namespace Beutl;
 
 public static class JsonHelper
 {
-    private static readonly Dictionary<Type, JsonConverter> s_converters = new();
+    private static readonly Dictionary<Type, JsonConverter> s_converters = [];
 
     public static JsonWriterOptions WriterOptions { get; } = new()
     {

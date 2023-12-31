@@ -2,14 +2,9 @@
 
 namespace Beutl.Validation;
 
-public sealed class MultipleValidator<T> : IValidator<T>
+public sealed class MultipleValidator<T>(IValidator<T>[] items) : IValidator<T>
 {
-    public MultipleValidator(IValidator<T>[] items)
-    {
-        Items = items;
-    }
-
-    public IValidator<T>[] Items { get; }
+    public IValidator<T>[] Items { get; } = items;
 
     public bool TryCoerce(ValidationContext context, ref T? value)
     {

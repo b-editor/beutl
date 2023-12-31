@@ -41,7 +41,7 @@ public class CoreList<T> : ICoreList<T>
 
     public CoreList()
     {
-        Inner = new List<T>();
+        Inner = [];
     }
 
     public CoreList(int capacity)
@@ -141,7 +141,7 @@ public class CoreList<T> : ICoreList<T>
     {
         InsertRange(Inner.Count, items);
     }
-    
+
     public virtual void AddRange(T[] items)
     {
         InsertRange(Inner.Count, items);
@@ -157,7 +157,7 @@ public class CoreList<T> : ICoreList<T>
             if ((CollectionChanged != null && ResetBehavior == ResetBehavior.Remove)
                 || Detached != null)
             {
-                items = Inner.ToList();
+                items = [.. Inner];
             }
 
             if (CollectionChanged != null)
@@ -186,7 +186,7 @@ public class CoreList<T> : ICoreList<T>
     public virtual void Replace(IList<T> source)
     {
         Span<T> span = CollectionsMarshal.AsSpan(Inner);
-        T[] oldItems = Count > 0 ? span.ToArray() : Array.Empty<T>();
+        T[] oldItems = Count > 0 ? span.ToArray() : [];
         if (!oldItems.SequenceEqual(source))
         {
             Inner.Clear();
@@ -300,9 +300,7 @@ public class CoreList<T> : ICoreList<T>
                 if (en.MoveNext())
                 {
                     // Avoid allocating list for collection notification if there is no event subscriptions.
-                    List<T>? notificationItems = willRaiseCollectionChanged ?
-                        new List<T>() :
-                        null;
+                    List<T>? notificationItems = willRaiseCollectionChanged ? [] : null;
 
                     int insertIndex = index;
 
@@ -339,7 +337,7 @@ public class CoreList<T> : ICoreList<T>
             NotifyAdd(items, index);
         }
     }
-    
+
     public virtual void InsertRange(int index, T[] items)
     {
         if (items.Length > 0)
@@ -510,10 +508,7 @@ public class CoreList<T> : ICoreList<T>
 
     void ICollection.CopyTo(Array array, int index)
     {
-        if (array == null)
-        {
-            throw new ArgumentNullException(nameof(array));
-        }
+        ArgumentNullException.ThrowIfNull(array);
 
         if (array.Rank != 1)
         {
@@ -673,21 +668,16 @@ public class CoreList<T> : ICoreList<T>
         NotifyCountChanged();
     }
 
-    public struct Enumerator : IEnumerator<T>
+    public struct Enumerator(List<T> inner) : IEnumerator<T>
     {
-        private List<T>.Enumerator _innerEnumerator;
-
-        public Enumerator(List<T> inner)
-        {
-            _innerEnumerator = inner.GetEnumerator();
-        }
+        private List<T>.Enumerator _innerEnumerator = inner.GetEnumerator();
 
         public bool MoveNext()
         {
             return _innerEnumerator.MoveNext();
         }
 
-        void IEnumerator.Reset()
+        readonly void IEnumerator.Reset()
         {
             ((IEnumerator)_innerEnumerator).Reset();
         }

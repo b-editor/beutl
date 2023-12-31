@@ -11,7 +11,7 @@ using Transform = Graphics.Transformation.Transform;
 public abstract class TransformOperator<T> : ConfigureOperator<Drawable, T>
     where T : Transform, new()
 {
-    private readonly ConditionalWeakTable<Drawable, CombinedFilterEffect> _table = new();
+    private readonly ConditionalWeakTable<Drawable, CombinedFilterEffect> _table = [];
 
     protected override void PreProcess(Drawable target, T value)
     {

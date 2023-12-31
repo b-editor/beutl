@@ -5,13 +5,8 @@ using Beutl.Media;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class AlignmentXEditorViewModel : ValueEditorViewModel<AlignmentX>
+public sealed class AlignmentXEditorViewModel(IAbstractProperty<AlignmentX> property) : ValueEditorViewModel<AlignmentX>(property)
 {
-    public AlignmentXEditorViewModel(IAbstractProperty<AlignmentX> property)
-        : base(property)
-    {
-    }
-
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);

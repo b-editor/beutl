@@ -170,7 +170,7 @@ public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
         });
     }
 
-    public CoreList<string> FileExtensions { get; } = new();
+    public CoreList<string> FileExtensions { get; } = [];
 
     public ReactivePropertySlim<string?> SelectedFileExtension { get; } = new();
 
@@ -180,9 +180,9 @@ public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
     // EditorExtensions2:
     //     ExtensionProvider.AllExtensionsで取得されるItems
     //     上のアイテムでMatchされなかったときこれが使われる。
-    public CoreList<EditorExtensionWrapper> EditorExtensions1 { get; } = new();
+    public CoreList<EditorExtensionWrapper> EditorExtensions1 { get; } = [];
 
-    public CoreList<EditorExtensionWrapper> EditorExtensions2 { get; } = new();
+    public CoreList<EditorExtensionWrapper> EditorExtensions2 { get; } = [];
 
     public ReactiveCommand<EditorExtensionWrapper> HighPriority { get; } = new();
 

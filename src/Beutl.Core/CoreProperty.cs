@@ -14,8 +14,8 @@ public abstract class CoreProperty : ICoreProperty
 {
     private static int s_nextId = 0;
     private readonly ICorePropertyMetadata _defaultMetadata;
-    private readonly Dictionary<Type, ICorePropertyMetadata> _metadata = new();
-    private readonly Dictionary<Type, ICorePropertyMetadata> _metadataCache = new();
+    private readonly Dictionary<Type, ICorePropertyMetadata> _metadata = [];
+    private readonly Dictionary<Type, ICorePropertyMetadata> _metadataCache = [];
     private bool _hasMetadataOverrides;
     private bool _isTryedToGetPropertyInfo;
 
@@ -156,10 +156,7 @@ public abstract class CoreProperty : ICoreProperty
     private TMetadata? GetMetadataWithOverrides<TMetadata>(Type type)
         where TMetadata : ICorePropertyMetadata
     {
-        if (type is null)
-        {
-            throw new ArgumentNullException(nameof(type));
-        }
+        ArgumentNullException.ThrowIfNull(type);
 
         if (_metadataCache.TryGetValue(type, out ICorePropertyMetadata? result) && result is TMetadata resultT)
         {
@@ -196,18 +193,13 @@ public abstract class CoreProperty : ICoreProperty
     }
 }
 
-public class CoreProperty<T> : CoreProperty
+public class CoreProperty<T>(
+    string name,
+    Type ownerType,
+    CorePropertyMetadata<T> metadata)
+    : CoreProperty(name, typeof(T), ownerType, metadata)
 {
-    private readonly Subject<CorePropertyChangedEventArgs<T>> _changed;
-
-    public CoreProperty(
-        string name,
-        Type ownerType,
-        CorePropertyMetadata<T> metadata)
-        : base(name, typeof(T), ownerType, metadata)
-    {
-        _changed = new();
-    }
+    private readonly Subject<CorePropertyChangedEventArgs<T>> _changed = new();
 
     public new IObservable<CorePropertyChangedEventArgs<T>> Changed => _changed;
 
@@ -326,7 +318,7 @@ public class CoreProperty<T> : CoreProperty
 
     internal override void RouteSerialize(ICoreSerializationContext context, object? value)
     {
-        var metadata = GetMetadata<CorePropertyMetadata<T>>(context.OwnerType);
+        CorePropertyMetadata<T> metadata = GetMetadata<CorePropertyMetadata<T>>(context.OwnerType);
         if (metadata.ShouldSerialize && (this is not IStaticProperty sprop || sprop.CanWrite))
         {
             if (context is IJsonSerializationContext jsonCtxt

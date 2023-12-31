@@ -31,7 +31,7 @@ public class Vector3Editor<TElement> : Vector3Editor
             o => o.ThirdValue,
             (o, v) => o.ThirdValue = v);
 
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private TElement _firstValue;
     private TElement _oldFirstValue;
     private TElement _secondValue;
@@ -421,7 +421,7 @@ public class Vector3Editor : PropertyEditor
     private const string FocusThirdTextBox = ":focus-3rd-textbox";
     private const string BorderPointerOver = ":border-pointerover";
     private const string Uniform = ":uniform";
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private Border _backgroundBorder;
     private string _firstText;
     private string _secondText;

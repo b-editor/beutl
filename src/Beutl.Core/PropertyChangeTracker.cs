@@ -4,8 +4,8 @@ namespace Beutl;
 
 public sealed class PropertyChangeTracker : IDisposable
 {
-    private readonly List<CorePropertyChangedEventArgs> _changes = new();
-    private readonly List<ICoreObject> _trackingElement = new();
+    private readonly List<CorePropertyChangedEventArgs> _changes = [];
+    private readonly List<ICoreObject> _trackingElement = [];
 
     public PropertyChangeTracker(IEnumerable<ICoreObject> elements, int maxDepth = -1)
     {
@@ -30,7 +30,7 @@ public sealed class PropertyChangeTracker : IDisposable
 
     public IRecordableCommand ToCommand()
     {
-        return new CommandImpl(_changes.ToArray());
+        return new CommandImpl([.. _changes]);
     }
 
     private void AddHandlers(ICoreObject obj, int currentDepth)
@@ -96,20 +96,13 @@ public sealed class PropertyChangeTracker : IDisposable
         }
     }
 
-    private sealed class CommandImpl : IRecordableCommand
+    private sealed class CommandImpl(CorePropertyChangedEventArgs[] changes) : IRecordableCommand
     {
-        private readonly CorePropertyChangedEventArgs[] _changes;
-
-        public CommandImpl(CorePropertyChangedEventArgs[] changes)
-        {
-            _changes = changes;
-        }
-
         public void Do()
         {
-            for (int i = 0; i < _changes.Length; i++)
+            for (int i = 0; i < changes.Length; i++)
             {
-                CorePropertyChangedEventArgs item = _changes[i];
+                CorePropertyChangedEventArgs item = changes[i];
 
                 item.Sender.SetValue(item.Property, item.NewValue);
             }
@@ -126,9 +119,9 @@ public sealed class PropertyChangeTracker : IDisposable
 
         public void Undo()
         {
-            for (int i = _changes.Length - 1; i >= 0; i--)
+            for (int i = changes.Length - 1; i >= 0; i--)
             {
-                CorePropertyChangedEventArgs item = _changes[i];
+                CorePropertyChangedEventArgs item = changes[i];
 
                 item.Sender.SetValue(item.Property, item.OldValue);
             }

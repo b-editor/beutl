@@ -153,7 +153,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     public ReadOnlyReactivePropertySlim<IList<TItem?>?> List { get; }
 
-    public CoreList<ListItemEditorViewModel<TItem>> Items { get; } = new();
+    public CoreList<ListItemEditorViewModel<TItem>> Items { get; } = [];
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new(false);
 

@@ -6,15 +6,8 @@ namespace Beutl.Embedding.FFmpeg.Decoding;
 namespace Beutl.Extensions.FFmpeg.Decoding;
 #endif
 
-public sealed class FFmpegDecoderInfo : IDecoderInfo
+public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecoderInfo
 {
-    private readonly FFmpegDecodingSettings _settings;
-
-    public FFmpegDecoderInfo(FFmpegDecodingSettings settings)
-    {
-        _settings = settings;
-    }
-
     public string Name => "FFmpeg Decoder";
 
     public IEnumerable<string> AudioExtensions()
@@ -33,7 +26,7 @@ public sealed class FFmpegDecoderInfo : IDecoderInfo
     {
         try
         {
-            return new FFmpegReader(file, options, _settings);
+            return new FFmpegReader(file, options, settings);
         }
         catch
         {

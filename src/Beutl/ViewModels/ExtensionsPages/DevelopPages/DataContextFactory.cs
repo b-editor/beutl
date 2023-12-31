@@ -6,49 +6,42 @@ using Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 namespace Beutl.ViewModels.ExtensionsPages.DevelopPages;
 
-public class DataContextFactory
+public class DataContextFactory(AuthorizedUser user, BeutlApiApplication apiApplication)
 {
-    private readonly AuthorizedUser _user;
-    private readonly DiscoverService _discoverService;
-
-    public DataContextFactory(AuthorizedUser user, BeutlApiApplication apiApplication)
-    {
-        _user = user;
-        _discoverService = apiApplication.GetResource<DiscoverService>();
-    }
+    private readonly DiscoverService _discoverService = apiApplication.GetResource<DiscoverService>();
 
     public AddReleaseDialogViewModel AddReleaseDialog(Package package)
     {
-        return new AddReleaseDialogViewModel(_user, package);
+        return new AddReleaseDialogViewModel(user, package);
     }
 
     public CreatePackageDialogViewModel CreatePackageDialog()
     {
-        return new CreatePackageDialogViewModel(_user, _discoverService);
+        return new CreatePackageDialogViewModel(user, _discoverService);
     }
 
     public UpdatePackageDialogViewModel UpdatePackageDialog()
     {
-        return new UpdatePackageDialogViewModel(_user, _discoverService);
+        return new UpdatePackageDialogViewModel(user, _discoverService);
     }
 
     public PackageDetailsPageViewModel PackageDetailsPage(Package package)
     {
-        return new PackageDetailsPageViewModel(_user, package);
+        return new PackageDetailsPageViewModel(user, package);
     }
 
     public PackageReleasesPageViewModel PackageReleasesPage(Package package)
     {
-        return new PackageReleasesPageViewModel(_user, package);
+        return new PackageReleasesPageViewModel(user, package);
     }
 
     public PackageSettingsPageViewModel PackageSettingsPage(Package package)
     {
-        return new PackageSettingsPageViewModel(_user, package);
+        return new PackageSettingsPageViewModel(user, package);
     }
 
     public ReleasePageViewModel ReleasePage(Release release)
     {
-        return new ReleasePageViewModel(_user, release);
+        return new ReleasePageViewModel(user, release);
     }
 }

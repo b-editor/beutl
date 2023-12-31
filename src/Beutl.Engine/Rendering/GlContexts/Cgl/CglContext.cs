@@ -10,12 +10,12 @@ internal class CglContext : GlContext
 
     public CglContext()
     {
-        CGLPixelFormatAttribute[] attributes = new[]
-        {
+        CGLPixelFormatAttribute[] attributes =
+        [
             CGLPixelFormatAttribute.kCGLPFAOpenGLProfile, (CGLPixelFormatAttribute)CGLOpenGLProfile.kCGLOGLPVersion_3_2_Core,
             CGLPixelFormatAttribute.kCGLPFADoubleBuffer,
             CGLPixelFormatAttribute.kCGLPFANone
-        };
+        ];
 
 
         Cgl.CGLChoosePixelFormat(attributes, out nint pixFormat, out _);
@@ -73,6 +73,6 @@ internal class CglContext : GlContext
 
     public override void DestroyTexture(uint texture)
     {
-        Cgl.glDeleteTextures(1, new[] { texture });
+        Cgl.glDeleteTextures(1, [texture]);
     }
 }

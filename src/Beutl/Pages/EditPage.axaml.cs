@@ -35,7 +35,7 @@ public sealed partial class EditPage : UserControl
     private static readonly Binding s_isSelectedBinding = new("IsSelected.Value", BindingMode.TwoWay);
     private static readonly Binding s_contentBinding = new("Value", BindingMode.OneWay);
     private static readonly ILogger s_logger = Log.ForContext<EditPage>();
-    private readonly AvaloniaList<BcTabItem> _tabItems = new();
+    private readonly AvaloniaList<BcTabItem> _tabItems = [];
     private IDisposable? _disposable0;
 
     public EditPage()

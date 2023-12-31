@@ -7,20 +7,12 @@ using Beutl.Rendering;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class DeferradCanvas : ICanvas
+public sealed class DeferradCanvas(ContainerNode container, PixelSize canvasSize = default) : ICanvas
 {
-    private readonly Stack<(ContainerNode, int)> _nodes;
-    private ContainerNode _container;
+    private readonly Stack<(ContainerNode, int)> _nodes = [];
     private int _drawOperationindex;
 
-    public DeferradCanvas(ContainerNode container, PixelSize canvasSize = default)
-    {
-        _container = container;
-        _nodes = new Stack<(ContainerNode, int)>();
-        Size = canvasSize;
-    }
-
-    public PixelSize Size { get; }
+    public PixelSize Size { get; } = canvasSize;
 
     public bool IsDisposed { get; }
 
@@ -30,13 +22,13 @@ public sealed class DeferradCanvas : ICanvas
 
     private void Add(IGraphicNode node)
     {
-        if (_drawOperationindex < _container.Children.Count)
+        if (_drawOperationindex < container.Children.Count)
         {
-            _container.SetChild(_drawOperationindex, node);
+            container.SetChild(_drawOperationindex, node);
         }
         else
         {
-            _container.AddChild(node);
+            container.AddChild(node);
         }
     }
 
@@ -53,25 +45,25 @@ public sealed class DeferradCanvas : ICanvas
 
     private void Push(ContainerNode node)
     {
-        _nodes.Push((_container, _drawOperationindex + 1));
+        _nodes.Push((container, _drawOperationindex + 1));
 
         _drawOperationindex = 0;
-        _container = node;
+        container = node;
     }
 
     private T? Next<T>() where T : class, IGraphicNode
     {
-        return _drawOperationindex < _container.Children.Count ? _container.Children[_drawOperationindex] as T : null;
+        return _drawOperationindex < container.Children.Count ? container.Children[_drawOperationindex] as T : null;
     }
 
     private IGraphicNode? Next()
     {
-        return _drawOperationindex < _container.Children.Count ? _container.Children[_drawOperationindex] : null;
+        return _drawOperationindex < container.Children.Count ? container.Children[_drawOperationindex] : null;
     }
 
     public void Dispose()
     {
-        _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
+        container.RemoveRange(_drawOperationindex, container.Children.Count - _drawOperationindex);
     }
 
     public void Reset()
@@ -231,9 +223,9 @@ public sealed class DeferradCanvas : ICanvas
             while (count < 0
                 && _nodes.TryPop(out (ContainerNode, int) state))
             {
-                _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
+                container.RemoveRange(_drawOperationindex, container.Children.Count - _drawOperationindex);
 
-                _container = state.Item1;
+                container = state.Item1;
                 _drawOperationindex = state.Item2;
 
                 count++;
@@ -244,9 +236,9 @@ public sealed class DeferradCanvas : ICanvas
             while (_nodes.Count >= count
                 && _nodes.TryPop(out (ContainerNode, int) state))
             {
-                _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
+                container.RemoveRange(_drawOperationindex, container.Children.Count - _drawOperationindex);
 
-                _container = state.Item1;
+                container = state.Item1;
                 _drawOperationindex = state.Item2;
             }
         }

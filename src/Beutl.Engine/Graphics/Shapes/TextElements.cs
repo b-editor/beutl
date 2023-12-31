@@ -104,14 +104,11 @@ public class TextElements : IReadOnlyList<TextElement>, IAffectsRender
             _arrayCount = count;
         }
 
-        public Span<FormattedText> Current => _array.AsSpan().Slice(_index, _count);
+        public readonly Span<FormattedText> Current => _array.AsSpan().Slice(_index, _count);
 
         public bool MoveNext()
         {
-            if (_array == null)
-            {
-                throw new ObjectDisposedException("LineEnumerator");
-            }
+            ObjectDisposedException.ThrowIf(_array == null, this);
 
             int index = _prevIndex + 1;
             _index = _prevIndex;

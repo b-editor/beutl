@@ -5,12 +5,12 @@ namespace Beutl.Threading;
 internal sealed class OperationQueue
 {
     private readonly object _lock = new();
-    private readonly Queue<DispatcherOperation>[] _queuedOperations = new Queue<DispatcherOperation>[]
-    {
+    private readonly Queue<DispatcherOperation>[] _queuedOperations =
+    [
         new Queue<DispatcherOperation>(),
         new Queue<DispatcherOperation>(),
         new Queue<DispatcherOperation>()
-    };
+    ];
 
     public void Enqueue(DispatcherOperation operation)
     {

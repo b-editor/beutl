@@ -8,11 +8,9 @@ using FluentAvalonia.UI.Controls;
 
 namespace PackageSample;
 
-public sealed class SamplePageViewModel : IPageContext
+public sealed class SamplePageViewModel(SamplePageExtension extension) : IPageContext
 {
-    public SamplePageViewModel(SamplePageExtension extension) => Extension = extension;
-
-    public PageExtension Extension { get; }
+    public PageExtension Extension { get; } = extension;
 
     public string Header => "Mail";
 

@@ -2,15 +2,10 @@
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class EllipseNode : BrushDrawNode
+public sealed class EllipseNode(Rect rect, IBrush? fill, IPen? pen)
+    : BrushDrawNode(fill, pen, PenHelper.GetBounds(rect, pen))
 {
-    public EllipseNode(Rect rect, IBrush? fill, IPen? pen)
-        : base(fill, pen, PenHelper.GetBounds(rect, pen))
-    {
-        Rect = rect;
-    }
-
-    public Rect Rect { get; }
+    public Rect Rect { get; } = rect;
 
     public bool Equals(Rect rect, IBrush? fill, IPen? pen)
     {

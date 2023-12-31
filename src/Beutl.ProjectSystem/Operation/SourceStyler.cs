@@ -9,9 +9,7 @@ namespace Beutl.Operation;
 
 public abstract class SourceStyler : StylingOperator, ISourceTransformer
 {
-    private readonly ConditionalWeakTable<Renderable, IStyleInstance> _table = new();
-
-    internal ConditionalWeakTable<Renderable, IStyleInstance> Table => _table;
+    internal ConditionalWeakTable<Renderable, IStyleInstance> Table { get; } = [];
 
     public virtual void Transform(IList<Renderable> value, IClock clock)
     {
@@ -44,7 +42,7 @@ public abstract class SourceStyler : StylingOperator, ISourceTransformer
     protected virtual IStyleInstance? GetInstance(Renderable value)
     {
         Type type = value.GetType();
-        if (_table.TryGetValue(value, out IStyleInstance? styleInstance))
+        if (Table.TryGetValue(value, out IStyleInstance? styleInstance))
         {
             return styleInstance;
         }
@@ -53,7 +51,7 @@ public abstract class SourceStyler : StylingOperator, ISourceTransformer
             if (type.IsAssignableTo(Style.TargetType) && value is ICoreObject coreObj)
             {
                 IStyleInstance instance = Style.Instance(coreObj);
-                _table.AddOrUpdate(value, instance);
+                Table.AddOrUpdate(value, instance);
                 return instance;
             }
             else
@@ -78,8 +76,8 @@ public abstract class SourceStyler : StylingOperator, ISourceTransformer
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnDetachedFromHierarchy(args);
-        using var instances = _table.Select(x => x.Value).ToPooledArray();
-        _table.Clear();
+        using var instances = Table.Select(x => x.Value).ToPooledArray();
+        Table.Clear();
 
         foreach (IStyleInstance item in instances)
         {

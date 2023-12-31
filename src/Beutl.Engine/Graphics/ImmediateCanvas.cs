@@ -14,7 +14,6 @@ namespace Beutl.Graphics;
 
 public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 {
-    private readonly SKCanvas _canvas;
     private readonly SKSurface _surface;
     private readonly Dispatcher? _dispatcher;
     private readonly SKPaint _sharedFillPaint = new();
@@ -28,8 +27,8 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         _dispatcher = Dispatcher.Current;
         Size = surface.Canvas.DeviceClipBounds.Size.ToGraphicsSize();
         _surface = surface;
-        _canvas = _surface.Canvas;
-        _currentTransform = _canvas.TotalMatrix.ToMatrix();
+        Canvas = _surface.Canvas;
+        _currentTransform = Canvas.TotalMatrix.ToMatrix();
         _leaveOpen = leaveOpen;
     }
 
@@ -58,13 +57,13 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
                 return;
 
             _currentTransform = value;
-            _canvas.SetMatrix(_currentTransform.ToSKMatrix());
+            Canvas.SetMatrix(_currentTransform.ToSKMatrix());
         }
     }
 
     internal IImmediateCanvasFactory? Factory { get; set; }
 
-    internal SKCanvas Canvas => _canvas;
+    internal SKCanvas Canvas { get; }
 
     public RenderCacheContext? GetCacheContext()
     {
@@ -104,25 +103,25 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     public void Clear()
     {
         VerifyAccess();
-        _canvas.Clear();
+        Canvas.Clear();
     }
 
     public void Clear(Color color)
     {
         VerifyAccess();
-        _canvas.Clear(color.ToSKColor());
+        Canvas.Clear(color.ToSKColor());
     }
 
     public void ClipRect(Rect clip, ClipOperation operation = ClipOperation.Intersect)
     {
         VerifyAccess();
-        _canvas.ClipRect(clip.ToSKRect(), operation.ToSKClipOperation());
+        Canvas.ClipRect(clip.ToSKRect(), operation.ToSKClipOperation());
     }
 
     public void ClipPath(Geometry geometry, ClipOperation operation = ClipOperation.Intersect)
     {
         VerifyAccess();
-        _canvas.ClipPath(geometry.GetNativeObject(), operation.ToSKClipOperation(), true);
+        Canvas.ClipPath(geometry.GetNativeObject(), operation.ToSKClipOperation(), true);
     }
 
     public void Dispose()
@@ -160,7 +159,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         _sharedFillPaint.IsAntialias = true;
         _sharedFillPaint.BlendMode = (SKBlendMode)BlendMode;
 
-        _canvas.DrawSurface(surface, point.X, point.Y, _sharedFillPaint);
+        Canvas.DrawSurface(surface, point.X, point.Y, _sharedFillPaint);
     }
 
     public void DrawDrawable(Drawable drawable)
@@ -227,8 +226,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
     public void DrawBitmap(IBitmap bmp, IBrush? fill, IPen? pen)
     {
-        if (bmp.IsDisposed)
-            throw new ObjectDisposedException(nameof(IBitmap));
+        ObjectDisposedException.ThrowIf(bmp.IsDisposed, bmp);
 
         if (bmp.ByteCount <= 0)
             return;
@@ -242,12 +240,12 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         {
             using var img = SKImage.FromPixels(new SKImageInfo(bmp.Width, bmp.Height, SKColorType.Bgra8888), bmp.Data);
 
-            _canvas.DrawImage(img, SKPoint.Empty, _sharedFillPaint);
+            Canvas.DrawImage(img, SKPoint.Empty, _sharedFillPaint);
         }
         else
         {
             using var skbmp = bmp.ToSKBitmap();
-            _canvas.DrawBitmap(skbmp, SKPoint.Empty, _sharedFillPaint);
+            Canvas.DrawBitmap(skbmp, SKPoint.Empty, _sharedFillPaint);
         }
     }
 
@@ -284,14 +282,14 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     {
         VerifyAccess();
         ConfigureFillPaint(rect.Size, fill);
-        _canvas.DrawOval(rect.ToSKRect(), _sharedFillPaint);
+        Canvas.DrawOval(rect.ToSKRect(), _sharedFillPaint);
 
         if (pen != null && pen.Thickness != 0)
         {
             if (pen.StrokeAlignment == StrokeAlignment.Center)
             {
                 ConfigureStrokePaint(rect, pen);
-                _canvas.DrawOval(rect.ToSKRect(), _sharedStrokePaint);
+                Canvas.DrawOval(rect.ToSKRect(), _sharedStrokePaint);
             }
             else
             {
@@ -308,14 +306,14 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     {
         VerifyAccess();
         ConfigureFillPaint(rect.Size, fill);
-        _canvas.DrawRect(rect.ToSKRect(), _sharedFillPaint);
+        Canvas.DrawRect(rect.ToSKRect(), _sharedFillPaint);
 
         if (pen != null && pen.Thickness != 0)
         {
             if (pen.StrokeAlignment == StrokeAlignment.Center)
             {
                 ConfigureStrokePaint(rect, pen);
-                _canvas.DrawRect(rect.ToSKRect(), _sharedStrokePaint);
+                Canvas.DrawRect(rect.ToSKRect(), _sharedStrokePaint);
             }
             else
             {
@@ -350,7 +348,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         ConfigureStrokePaint(new(text.Bounds), pen!);
         if (pen.StrokeAlignment == StrokeAlignment.Center)
         {
-            _canvas.DrawText(textBlob, 0, 0, _sharedStrokePaint);
+            Canvas.DrawText(textBlob, 0, 0, _sharedStrokePaint);
         }
         else
         {
@@ -359,17 +357,17 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
             switch (pen!.StrokeAlignment)
             {
                 case StrokeAlignment.Inside:
-                    _canvas.Save();
-                    _canvas.ClipPath(path, SKClipOperation.Intersect, true);
-                    _canvas.DrawText(textBlob, 0, 0, _sharedStrokePaint);
-                    _canvas.Restore();
+                    Canvas.Save();
+                    Canvas.ClipPath(path, SKClipOperation.Intersect, true);
+                    Canvas.DrawText(textBlob, 0, 0, _sharedStrokePaint);
+                    Canvas.Restore();
                     break;
 
                 case StrokeAlignment.Outside:
-                    _canvas.Save();
-                    _canvas.ClipPath(path, SKClipOperation.Difference, true);
-                    _canvas.DrawText(textBlob, 0, 0, _sharedStrokePaint);
-                    _canvas.Restore();
+                    Canvas.Save();
+                    Canvas.ClipPath(path, SKClipOperation.Difference, true);
+                    Canvas.DrawText(textBlob, 0, 0, _sharedStrokePaint);
+                    Canvas.Restore();
                     break;
             }
         }
@@ -413,7 +411,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
         // draw filled
         ConfigureFillPaint(text.Bounds, fill);
-        _canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
+        Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
 
         // draw stroke
         if (pen != null && pen.Thickness != 0)
@@ -429,7 +427,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         if (!strokeOnly)
         {
             ConfigureFillPaint(rect.Size, fill);
-            _canvas.DrawPath(skPath, _sharedFillPaint);
+            Canvas.DrawPath(skPath, _sharedFillPaint);
         }
 
         if (pen != null && pen.Thickness != 0)
@@ -438,21 +436,21 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
             switch (pen.StrokeAlignment)
             {
                 case StrokeAlignment.Center:
-                    _canvas.DrawPath(skPath, _sharedStrokePaint);
+                    Canvas.DrawPath(skPath, _sharedStrokePaint);
                     break;
 
                 case StrokeAlignment.Inside:
-                    _canvas.Save();
-                    _canvas.ClipPath(skPath, SKClipOperation.Intersect, true);
-                    _canvas.DrawPath(skPath, _sharedStrokePaint);
-                    _canvas.Restore();
+                    Canvas.Save();
+                    Canvas.ClipPath(skPath, SKClipOperation.Intersect, true);
+                    Canvas.DrawPath(skPath, _sharedStrokePaint);
+                    Canvas.Restore();
                     break;
 
                 case StrokeAlignment.Outside:
-                    _canvas.Save();
-                    _canvas.ClipPath(skPath, SKClipOperation.Difference, true);
-                    _canvas.DrawPath(skPath, _sharedStrokePaint);
-                    _canvas.Restore();
+                    Canvas.Save();
+                    Canvas.ClipPath(skPath, SKClipOperation.Difference, true);
+                    Canvas.DrawPath(skPath, _sharedStrokePaint);
+                    Canvas.Restore();
                     break;
             }
         }
@@ -501,7 +499,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     public PushedState Push()
     {
         VerifyAccess();
-        int count = _canvas.Save();
+        int count = Canvas.Save();
 
         _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
         return new PushedState(this, _states.Count);
@@ -513,13 +511,13 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         int count;
         if (limit == default)
         {
-            count = _canvas.SaveLayer();
+            count = Canvas.SaveLayer();
         }
         else
         {
             using (var paint = new SKPaint())
             {
-                count = _canvas.SaveLayer(limit.ToSKRect(), paint);
+                count = Canvas.SaveLayer(limit.ToSKRect(), paint);
             }
         }
 
@@ -532,9 +530,9 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         VerifyAccess();
         int count;
         if (rect.HasValue)
-            count = _canvas.SaveLayer(rect.Value.ToSKRect(), paint);
+            count = Canvas.SaveLayer(rect.Value.ToSKRect(), paint);
         else
-            count = _canvas.SaveLayer(paint);
+            count = Canvas.SaveLayer(paint);
 
         _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
         return new PushedState(this, _states.Count);
@@ -543,7 +541,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     public PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect)
     {
         VerifyAccess();
-        int count = _canvas.Save();
+        int count = Canvas.Save();
         ClipRect(clip, operation);
 
         _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
@@ -553,7 +551,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     public PushedState PushClip(Geometry geometry, ClipOperation operation = ClipOperation.Intersect)
     {
         VerifyAccess();
-        int count = _canvas.Save();
+        int count = Canvas.Save();
         ClipPath(geometry, operation);
 
         _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
@@ -565,7 +563,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         VerifyAccess();
         var paint = new SKPaint();
 
-        int count = _canvas.SaveLayer(paint);
+        int count = Canvas.SaveLayer(paint);
         new BrushConstructor(bounds.Size, mask, (BlendMode)paint.BlendMode, this).ConfigurePaint(paint);
         _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
         return new PushedState(this, _states.Count);
@@ -574,7 +572,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     public PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend)
     {
         VerifyAccess();
-        int count = _canvas.Save();
+        int count = Canvas.Save();
 
         if (transformOperator == TransformOperator.Prepend)
         {
@@ -609,8 +607,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
     private void VerifyAccess()
     {
-        if (IsDisposed)
-            throw new ObjectDisposedException(nameof(ImmediateCanvas));
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
 
         _dispatcher?.VerifyAccess();
     }

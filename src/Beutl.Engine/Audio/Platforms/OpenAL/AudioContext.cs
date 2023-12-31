@@ -67,10 +67,7 @@ public sealed unsafe class AudioContext : IDisposable
 
     private void ThrowIfDisposed()
     {
-        if (IsDisposed)
-        {
-            throw new ObjectDisposedException(GetType().Name);
-        }
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
     }
 
     public void MakeCurrent()

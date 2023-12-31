@@ -3,28 +3,17 @@ using Beutl.Graphics.Transformation;
 
 namespace Beutl.Media.Immutable;
 
-public sealed class ImmutablePerlinNoiseBrush : IPerlinNoiseBrush, IEquatable<IPerlinNoiseBrush?>
+public sealed class ImmutablePerlinNoiseBrush(
+    float baseFrequencyX,
+    float baseFrequencyY,
+    int octaves,
+    float seed,
+    PerlinNoiseType perlinNoiseType,
+    float opacity,
+    ITransform? transform,
+    RelativePoint transformOrigin)
+    : IPerlinNoiseBrush, IEquatable<IPerlinNoiseBrush?>
 {
-    public ImmutablePerlinNoiseBrush(
-        float baseFrequencyX,
-        float baseFrequencyY,
-        int octaves,
-        float seed,
-        PerlinNoiseType perlinNoiseType,
-        float opacity,
-        ITransform? transform,
-        RelativePoint transformOrigin)
-    {
-        BaseFrequencyX = baseFrequencyX;
-        BaseFrequencyY = baseFrequencyY;
-        Octaves = octaves;
-        Seed = seed;
-        PerlinNoiseType = perlinNoiseType;
-        Opacity = opacity;
-        Transform = transform;
-        TransformOrigin = transformOrigin;
-    }
-
     public ImmutablePerlinNoiseBrush(IPerlinNoiseBrush source)
         : this(source.BaseFrequencyX,
               source.BaseFrequencyY,
@@ -37,21 +26,21 @@ public sealed class ImmutablePerlinNoiseBrush : IPerlinNoiseBrush, IEquatable<IP
     {
     }
 
-    public float BaseFrequencyX { get; }
+    public float BaseFrequencyX { get; } = baseFrequencyX;
 
-    public float BaseFrequencyY { get; }
+    public float BaseFrequencyY { get; } = baseFrequencyY;
 
-    public int Octaves { get; }
+    public int Octaves { get; } = octaves;
 
-    public float Seed { get; }
+    public float Seed { get; } = seed;
 
-    public PerlinNoiseType PerlinNoiseType { get; }
+    public PerlinNoiseType PerlinNoiseType { get; } = perlinNoiseType;
 
-    public float Opacity { get; }
+    public float Opacity { get; } = opacity;
 
-    public ITransform? Transform { get; }
+    public ITransform? Transform { get; } = transform;
 
-    public RelativePoint TransformOrigin { get; }
+    public RelativePoint TransformOrigin { get; } = transformOrigin;
 
     public override bool Equals(object? obj)
     {

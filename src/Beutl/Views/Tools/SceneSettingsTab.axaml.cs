@@ -8,7 +8,7 @@ using Beutl.ViewModels.Tools;
 namespace Beutl.Views.Tools;
 public partial class SceneSettingsTab : UserControl
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
 
     public SceneSettingsTab()
     {

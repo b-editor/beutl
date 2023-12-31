@@ -11,7 +11,7 @@ public enum ConnectionStatus
     Error = Connected | 0b10000,
 }
 
-public sealed class Connection : CoreObject
+public sealed class Connection(IInputSocket input, IOutputSocket output) : CoreObject
 {
     public static readonly CoreProperty<ConnectionStatus> StatusProperty;
     private ConnectionStatus _status;
@@ -23,19 +23,13 @@ public sealed class Connection : CoreObject
             .Register();
     }
 
-    public Connection(IInputSocket input, IOutputSocket output)
-    {
-        Input = input;
-        Output = output;
-    }
-
     public ConnectionStatus Status
     {
         get => _status;
         private set => SetAndRaise(StatusProperty, ref _status, value);
     }
 
-    public IInputSocket Input { get; }
+    public IInputSocket Input { get; } = input;
 
-    public IOutputSocket Output { get; }
+    public IOutputSocket Output { get; } = output;
 }

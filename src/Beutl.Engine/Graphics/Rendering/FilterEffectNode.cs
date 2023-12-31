@@ -6,16 +6,11 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
+public sealed class FilterEffectNode(FilterEffect filterEffect) : ContainerNode, ISupportRenderCache
 {
     private FilterEffectContext? _prevContext;
 
-    public FilterEffectNode(FilterEffect filterEffect)
-    {
-        FilterEffect = filterEffect;
-    }
-
-    public FilterEffect FilterEffect { get; }
+    public FilterEffect FilterEffect { get; } = filterEffect;
 
     protected override void OnDispose(bool disposing)
     {

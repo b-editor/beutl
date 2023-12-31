@@ -1,42 +1,31 @@
 ﻿namespace Beutl.Media.Immutable;
 
-public sealed class ImmutablePen : IPen
+public sealed class ImmutablePen(
+    IBrush? brush,
+    IReadOnlyList<float>? dashArray,
+    float dashOffset,
+    float thickness,
+    float miterLimit = 10,
+    StrokeCap strokeCap = StrokeCap.Flat,
+    StrokeJoin strokeJoin = StrokeJoin.Miter,
+    StrokeAlignment strokeAlignment = StrokeAlignment.Center)
+    : IPen
 {
-    public ImmutablePen(
-        IBrush? brush,
-        IReadOnlyList<float>? dashArray,
-        float dashOffset,
-        float thickness,
-        float miterLimit = 10,
-        StrokeCap strokeCap = StrokeCap.Flat,
-        StrokeJoin strokeJoin = StrokeJoin.Miter,
-        StrokeAlignment strokeAlignment = StrokeAlignment.Center)
-    {
-        Brush = brush;
-        DashArray = dashArray;
-        DashOffset = dashOffset;
-        Thickness = thickness;
-        MiterLimit = miterLimit;
-        StrokeCap = strokeCap;
-        StrokeJoin = strokeJoin;
-        StrokeAlignment = strokeAlignment;
-    }
+    public IBrush? Brush { get; } = brush;
 
-    public IBrush? Brush { get; }
+    public IReadOnlyList<float>? DashArray { get; } = dashArray;
 
-    public IReadOnlyList<float>? DashArray { get; }
+    public float DashOffset { get; } = dashOffset;
 
-    public float DashOffset { get; }
+    public float Thickness { get; } = thickness;
 
-    public float Thickness { get; }
+    public float MiterLimit { get; } = miterLimit;
 
-    public float MiterLimit { get; }
+    public StrokeCap StrokeCap { get; } = strokeCap;
 
-    public StrokeCap StrokeCap { get; }
+    public StrokeJoin StrokeJoin { get; } = strokeJoin;
 
-    public StrokeJoin StrokeJoin { get; }
-
-    public StrokeAlignment StrokeAlignment { get; }
+    public StrokeAlignment StrokeAlignment { get; } = strokeAlignment;
 
     public override bool Equals(object? obj)
     {

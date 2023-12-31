@@ -1,16 +1,10 @@
 ﻿namespace Beutl.Serialization;
 
-public sealed class RelaySerializationErrorNotifier : ISerializationErrorNotifier
+public sealed class RelaySerializationErrorNotifier(ISerializationErrorNotifier parent, string? prependPath) : ISerializationErrorNotifier
 {
-    public RelaySerializationErrorNotifier(ISerializationErrorNotifier parent, string? prependPath)
-    {
-        Parent = parent;
-        Prepend = prependPath;
-    }
+    public ISerializationErrorNotifier Parent { get; } = parent;
 
-    public ISerializationErrorNotifier Parent { get; }
-
-    public string? Prepend { get; }
+    public string? Prepend { get; } = prependPath;
 
     public void NotifyError(string path, string message, Exception? ex = null)
     {

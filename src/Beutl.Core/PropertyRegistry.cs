@@ -4,11 +4,11 @@ namespace Beutl;
 
 public static class PropertyRegistry
 {
-    private static readonly Dictionary<int, CoreProperty> s_properties = new();
-    private static readonly Dictionary<Type, Dictionary<int, CoreProperty>> s_registered = new();
-    private static readonly Dictionary<Type, Dictionary<int, CoreProperty>> s_attached = new();
-    private static readonly Dictionary<Type, List<CoreProperty>> s_registeredCache = new();
-    private static readonly Dictionary<Type, List<CoreProperty>> s_attachedCache = new();
+    private static readonly Dictionary<int, CoreProperty> s_properties = [];
+    private static readonly Dictionary<Type, Dictionary<int, CoreProperty>> s_registered = [];
+    private static readonly Dictionary<Type, Dictionary<int, CoreProperty>> s_attached = [];
+    private static readonly Dictionary<Type, List<CoreProperty>> s_registeredCache = [];
+    private static readonly Dictionary<Type, List<CoreProperty>> s_attachedCache = [];
 
     public static IReadOnlyList<CoreProperty> GetRegistered(Type type)
     {
@@ -19,7 +19,7 @@ public static class PropertyRegistry
         }
 
         Type? t = type;
-        result = new List<CoreProperty>();
+        result = [];
 
         while (t != null)
         {
@@ -46,7 +46,7 @@ public static class PropertyRegistry
         }
 
         Type? t = type;
-        result = new List<CoreProperty>();
+        result = [];
 
         while (t != null)
         {

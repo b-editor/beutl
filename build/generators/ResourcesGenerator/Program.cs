@@ -95,7 +95,7 @@ List<IResourceItem> GetOrCreate(string key, Dictionary<string, List<IResourceIte
     }
     else
     {
-        value = new List<IResourceItem>();
+        value = [];
         dict[key] = value;
         return value;
     }
@@ -128,12 +128,13 @@ void AddChild(Dictionary<string, HierarchizedList> hierarchizedLists, string key
             match2.Key = $"Index{match2.Key}";
         }
 
-        if (!current.Children.ContainsKey(curKey))
+        if (!current.Children.TryGetValue(curKey, out HierarchizedList? v))
         {
-            current.Children[curKey] = new HierarchizedList();
+            v = new HierarchizedList();
+            current.Children[curKey] = v;
         }
 
-        current = current.Children[curKey];
+        current = v;
 
         if (i == splitted.Length - 1)
         {
@@ -186,9 +187,9 @@ namespace ResourcesGenerator
 {
     public class HierarchizedList
     {
-        public List<IResourceItem> Items { get; set; } = new();
+        public List<IResourceItem> Items { get; set; } = [];
 
-        public Dictionary<string, HierarchizedList> Children { get; } = new();
+        public Dictionary<string, HierarchizedList> Children { get; } = [];
     }
 
     public interface IResourceItem
@@ -204,20 +205,13 @@ namespace ResourcesGenerator
         void GenerateGetObservableCode(Span<char> indentStr, StringBuilder sb, string rootNamespace, Dictionary<string, string> redirects);
     }
 
-    public class StaticResource : IResourceItem
+    public class StaticResource(string rawKey, string key, string target) : IResourceItem
     {
-        public StaticResource(string rawKey, string key, string target)
-        {
-            RawKey = rawKey;
-            Key = key;
-            Target = target;
-        }
+        public string RawKey { get; set; } = rawKey;
 
-        public string RawKey { get; set; }
+        public string Key { get; set; } = key;
 
-        public string Key { get; set; }
-
-        public string Target { get; set; }
+        public string Target { get; set; } = target;
 
         public void GenerateGetObservableCode(Span<char> indentStr, StringBuilder sb, string rootNamespace, Dictionary<string, string> redirects)
         {
@@ -249,26 +243,19 @@ namespace ResourcesGenerator
         }
     }
 
-    public class StringResource : IResourceItem
+    public class StringResource(string rawKey, string key, string value) : IResourceItem
     {
-        public StringResource(string rawKey, string key, string value)
-        {
-            RawKey = rawKey;
-            Key = key;
-            Value = value;
-        }
+        public string RawKey { get; set; } = rawKey;
 
-        public string RawKey { get; set; }
+        public string Key { get; set; } = key;
 
-        public string Key { get; set; }
-
-        public string Value { get; set; }
+        public string Value { get; set; } = value;
 
         public void GenerateGetObservableCode(Span<char> indentStr, StringBuilder sb, string rootNamespace, Dictionary<string, string> redirects)
         {
             sb.AppendLine($"{indentStr}private static IObservable<string>? _{Key}Observable;");
 
-            if (redirects.TryGetValue(RawKey, out var rawKey1))
+            if (redirects.TryGetValue(RawKey, out string? rawKey1))
             {
                 sb.AppendLine($"{indentStr}public static IObservable<string> {Key}Observable => _{Key}Observable ??= \"{RawKey}\".GetStringObservable(global::{rootNamespace}.Resources.{rawKey1});");
             }

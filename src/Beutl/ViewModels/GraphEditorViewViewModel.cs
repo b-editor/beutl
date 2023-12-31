@@ -14,7 +14,7 @@ namespace Beutl.ViewModels;
 
 public sealed class GraphEditorViewViewModel : IDisposable
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly ConvertToDelegate? _convertTo;
     private readonly TryConvertFromDelegate? _convertFrom;
     private readonly ImmutableSolidColorBrush? _specifiedColor;
@@ -58,7 +58,7 @@ public sealed class GraphEditorViewViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<bool> IsSelected { get; }
 
-    public CoreList<GraphEditorKeyFrameViewModel> KeyFrames { get; } = new();
+    public CoreList<GraphEditorKeyFrameViewModel> KeyFrames { get; } = [];
 
     public ReadOnlyReactivePropertySlim<IBrush?> Stroke { get; }
 

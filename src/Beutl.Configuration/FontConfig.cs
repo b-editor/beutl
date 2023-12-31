@@ -31,7 +31,7 @@ public sealed class FontConfig : ConfigurationBase
         if (GetNode("directories", nameof(FontDirectories)) is JsonArray dirsArray)
         {
             string[] array = dirsArray.Select(i => (string?)i).Where(i => i != null).ToArray()!;
-            string[] fontDirs = FontDirectories.ToArray();
+            string[] fontDirs = [.. FontDirectories];
 
             foreach (string item in array.Except(fontDirs))
             {
@@ -56,8 +56,8 @@ public sealed class FontConfig : ConfigurationBase
     {
         base.Deserialize(context);
 
-        string[] array = context.GetValue<string[]>(nameof(FontDirectories)) ?? Array.Empty<string>();
-        string[] fontDirs = FontDirectories.ToArray();
+        string[] array = context.GetValue<string[]>(nameof(FontDirectories)) ?? [];
+        string[] fontDirs = [.. FontDirectories];
 
         foreach (string item in array.Except(fontDirs))
         {
@@ -115,8 +115,6 @@ public sealed class FontConfig : ConfigurationBase
             e = MacOS();
         }
 
-        return e != null ?
-            new ObservableCollection<string>(e) :
-            new ObservableCollection<string>();
+        return e != null ? [.. e] : [];
     }
 }

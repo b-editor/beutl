@@ -93,9 +93,9 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     public ReadOnlyReactivePropertySlim<IPen?> Value { get; }
 
-    public CoreList<IPropertyEditorContext> MajorProperties { get; } = new();
+    public CoreList<IPropertyEditorContext> MajorProperties { get; } = [];
 
-    public CoreList<IPropertyEditorContext> MinorProperties { get; } = new();
+    public CoreList<IPropertyEditorContext> MinorProperties { get; } = [];
 
     public override void Reset()
     {
@@ -126,7 +126,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json.TryGetPropertyValue(nameof(IsExpanded), out var isExpandedNode)
+        if (json.TryGetPropertyValue(nameof(IsExpanded), out JsonNode? isExpandedNode)
             && isExpandedNode is JsonValue isExpanded)
         {
             IsExpanded.Value = (bool)isExpanded;

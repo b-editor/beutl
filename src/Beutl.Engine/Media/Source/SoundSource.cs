@@ -5,33 +5,22 @@ using Beutl.Media.Music;
 
 namespace Beutl.Media.Source;
 
-public class SoundSource : ISoundSource
+public class SoundSource(Ref<MediaReader> mediaReader, string fileName) : ISoundSource
 {
-    private readonly Ref<MediaReader> _mediaReader;
-
-    public SoundSource(Ref<MediaReader> mediaReader, string fileName)
-    {
-        _mediaReader = mediaReader;
-        Name = fileName;
-        Duration = TimeSpan.FromSeconds(mediaReader.Value.AudioInfo.Duration.ToDouble());
-        SampleRate = mediaReader.Value.AudioInfo.SampleRate;
-        NumChannels = mediaReader.Value.AudioInfo.NumChannels;
-    }
-
     ~SoundSource()
     {
         Dispose();
     }
 
-    public TimeSpan Duration { get; }
+    public TimeSpan Duration { get; } = TimeSpan.FromSeconds(mediaReader.Value.AudioInfo.Duration.ToDouble());
 
-    public int SampleRate { get; }
+    public int SampleRate { get; } = mediaReader.Value.AudioInfo.SampleRate;
 
-    public int NumChannels { get; }
+    public int NumChannels { get; } = mediaReader.Value.AudioInfo.NumChannels;
 
     public bool IsDisposed { get; private set; }
 
-    public string Name { get; }
+    public string Name { get; } = fileName;
 
     public static SoundSource Open(string fileName)
     {
@@ -57,7 +46,7 @@ public class SoundSource : ISoundSource
     {
         if (!IsDisposed)
         {
-            _mediaReader.Dispose();
+            mediaReader.Dispose();
             GC.SuppressFinalize(this);
             IsDisposed = true;
         }
@@ -65,10 +54,9 @@ public class SoundSource : ISoundSource
 
     public SoundSource Clone()
     {
-        if (IsDisposed)
-            throw new ObjectDisposedException(nameof(VideoSource));
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
 
-        return new SoundSource(_mediaReader.Clone(), Name);
+        return new SoundSource(mediaReader.Clone(), Name);
     }
 
     public bool Read(int start, int length, [NotNullWhen(true)] out IPcm? sound)
@@ -79,7 +67,7 @@ public class SoundSource : ISoundSource
             return false;
         }
 
-        return _mediaReader.Value.ReadAudio(start, length, out sound);
+        return mediaReader.Value.ReadAudio(start, length, out sound);
     }
 
     public bool Read(TimeSpan start, TimeSpan length, [NotNullWhen(true)] out IPcm? sound)
@@ -90,7 +78,7 @@ public class SoundSource : ISoundSource
             return false;
         }
 
-        return _mediaReader.Value.ReadAudio(ToSamples(start), ToSamples(length), out sound);
+        return mediaReader.Value.ReadAudio(ToSamples(start), ToSamples(length), out sound);
     }
 
     public bool Read(TimeSpan start, int length, [NotNullWhen(true)] out IPcm? sound)
@@ -101,7 +89,7 @@ public class SoundSource : ISoundSource
             return false;
         }
 
-        return _mediaReader.Value.ReadAudio(ToSamples(start), length, out sound);
+        return mediaReader.Value.ReadAudio(ToSamples(start), length, out sound);
     }
 
     public bool Read(int start, TimeSpan length, [NotNullWhen(true)] out IPcm? sound)
@@ -112,7 +100,7 @@ public class SoundSource : ISoundSource
             return false;
         }
 
-        return _mediaReader.Value.ReadAudio(start, ToSamples(length), out sound);
+        return mediaReader.Value.ReadAudio(start, ToSamples(length), out sound);
     }
 
     ISoundSource ISoundSource.Clone() => Clone();

@@ -2,28 +2,21 @@
 
 namespace Beutl.Serialization;
 
-public partial class JsonSerializationContext : IJsonSerializationContext
+public partial class JsonSerializationContext(
+    Type ownerType, ISerializationErrorNotifier errorNotifier,
+    ICoreSerializationContext? parent = null, JsonObject? json = null)
+    : IJsonSerializationContext
 {
-    public readonly Dictionary<string, (Type DefinedType, Type ActualType)> _knownTypes = new();
-    private readonly JsonObject _json;
+    public readonly Dictionary<string, (Type DefinedType, Type ActualType)> _knownTypes = [];
+    private readonly JsonObject _json = json ?? [];
 
-    public JsonSerializationContext(
-        Type ownerType, ISerializationErrorNotifier errorNotifier,
-        ICoreSerializationContext? parent = null, JsonObject? json = null)
-    {
-        OwnerType = ownerType;
-        Parent = parent;
-        ErrorNotifier = errorNotifier;
-        _json = json ?? new JsonObject();
-    }
-
-    public ICoreSerializationContext? Parent { get; }
+    public ICoreSerializationContext? Parent { get; } = parent;
 
     public CoreSerializationMode Mode => CoreSerializationMode.ReadWrite;
 
-    public Type OwnerType { get; }
+    public Type OwnerType { get; } = ownerType;
 
-    public ISerializationErrorNotifier ErrorNotifier { get; }
+    public ISerializationErrorNotifier ErrorNotifier { get; } = errorNotifier;
 
     public JsonObject GetJsonObject()
     {

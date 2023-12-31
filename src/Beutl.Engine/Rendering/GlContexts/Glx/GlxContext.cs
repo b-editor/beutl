@@ -24,8 +24,8 @@ internal sealed class GlxContext : GlContext
             throw new Exception("Failed to open X display.");
         }
 
-        int[] visualAttribs = new[]
-        {
+        int[] visualAttribs =
+        [
             Glx.GLX_X_RENDERABLE, Xlib.True,
             Glx.GLX_DRAWABLE_TYPE, Glx.GLX_PIXMAP_BIT,
             Glx.GLX_RENDER_TYPE, Glx.GLX_RGBA_BIT,
@@ -39,7 +39,7 @@ internal sealed class GlxContext : GlContext
             // Glx.GLX_SAMPLE_BUFFERS, 1,
             // Glx.GLX_SAMPLES, 4,
             Xlib.None
-        };
+        ];
 
         if (!Glx.glXQueryVersion(fDisplay, out int glxMajor, out int glxMinor) ||
             (glxMajor < 1) ||
@@ -105,7 +105,7 @@ internal sealed class GlxContext : GlContext
             }
             flags.Add(Xlib.None);
 
-            fContext = Glx.glXCreateContextAttribsARB(fDisplay, bestFBC, IntPtr.Zero, Xlib.True, flags.ToArray());
+            fContext = Glx.glXCreateContextAttribsARB(fDisplay, bestFBC, IntPtr.Zero, Xlib.True, [.. flags]);
         }
 
         if (fContext == IntPtr.Zero)
@@ -182,6 +182,6 @@ internal sealed class GlxContext : GlContext
 
     public override void DestroyTexture(uint texture)
     {
-        Glx.glDeleteTextures(1, new[] { texture });
+        Glx.glDeleteTextures(1, [texture]);
     }
 }

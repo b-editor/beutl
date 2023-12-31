@@ -14,9 +14,14 @@ namespace Beutl.Graphics;
 /// <summary>
 /// Defines a point.
 /// </summary>
+/// <remarks>
+/// Initializes a new instance of the <see cref="Point"/> structure.
+/// </remarks>
+/// <param name="x">The X position.</param>
+/// <param name="y">The Y position.</param>
 [JsonConverter(typeof(PointJsonConverter))]
 [TypeConverter(typeof(PointConverter))]
-public readonly struct Point
+public readonly struct Point(float x, float y)
     : IEquatable<Point>,
       IParsable<Point>,
       IFormattable,
@@ -35,26 +40,16 @@ public readonly struct Point
       IMultiplyOperators<Point, Matrix, Point>,
       ITupleConvertible<Point, float>
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="Point"/> structure.
-    /// </summary>
-    /// <param name="x">The X position.</param>
-    /// <param name="y">The Y position.</param>
-    public Point(float x, float y)
-    {
-        X = x;
-        Y = y;
-    }
 
     /// <summary>
     /// Gets the X position.
     /// </summary>
-    public float X { get; }
+    public float X { get; } = x;
 
     /// <summary>
     /// Gets the Y position.
     /// </summary>
-    public float Y { get; }
+    public float Y { get; } = y;
 
     /// <summary>
     /// Gets a value indicating whether the X and Y coordinates are zero.

@@ -3,14 +3,9 @@
 namespace Beutl.Media.Music.Samples;
 
 [StructLayout(LayoutKind.Sequential)]
-public struct Monaural32BitInteger : ISample<Monaural32BitInteger>
+public struct Monaural32BitInteger(int value) : ISample<Monaural32BitInteger>
 {
-    public int Value;
-
-    public Monaural32BitInteger(int value)
-    {
-        Value = value;
-    }
+    public int Value = value;
 
     public static Monaural32BitInteger ConvertFrom(Sample src)
     {

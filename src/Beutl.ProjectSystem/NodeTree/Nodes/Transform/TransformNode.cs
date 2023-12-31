@@ -2,14 +2,9 @@
 
 namespace Beutl.NodeTree.Nodes.Transform;
 
-public sealed class TransformNodeEvaluationState
+public sealed class TransformNodeEvaluationState(ITransform? created)
 {
-    public TransformNodeEvaluationState(ITransform? created)
-    {
-        Created = created;
-    }
-
-    public ITransform? Created { get; set; }
+    public ITransform? Created { get; set; } = created;
 
     public MultiTransform? AddtionalState { get; set; }
 }

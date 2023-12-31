@@ -5,7 +5,7 @@ namespace Beutl.Threading;
 internal sealed class TimerQueue
 {
     private readonly object _lock = new();
-    private readonly SortedDictionary<DateTime, List<DispatcherOperation>> _operations = new();
+    private readonly SortedDictionary<DateTime, List<DispatcherOperation>> _operations = [];
 
     public DateTime? Next
     {
@@ -30,7 +30,7 @@ internal sealed class TimerQueue
             }
             else
             {
-                _operations.Add(timestamp, new List<DispatcherOperation> { new(operation, priority) });
+                _operations.Add(timestamp, [new(operation, priority)]);
             }
         }
     }

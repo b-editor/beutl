@@ -10,8 +10,8 @@ public partial class ImmediateCanvas
         {
             public override void Pop(ImmediateCanvas canvas)
             {
-                canvas._canvas.RestoreToCount(Count);
-                canvas._currentTransform = canvas._canvas.TotalMatrix.ToMatrix();
+                canvas.Canvas.RestoreToCount(Count);
+                canvas._currentTransform = canvas.Canvas.TotalMatrix.ToMatrix();
             }
         }
 
@@ -22,15 +22,15 @@ public partial class ImmediateCanvas
                 canvas._sharedFillPaint.Reset();
                 canvas._sharedFillPaint.BlendMode = Invert ? SKBlendMode.DstOut : SKBlendMode.DstIn;
 
-                canvas._canvas.SaveLayer(canvas._sharedFillPaint);
+                canvas.Canvas.SaveLayer(canvas._sharedFillPaint);
                 using (SKPaint maskPaint = Paint)
                 {
-                    canvas._canvas.DrawPaint(maskPaint);
+                    canvas.Canvas.DrawPaint(maskPaint);
                 }
 
-                canvas._canvas.Restore();
+                canvas.Canvas.Restore();
 
-                canvas._canvas.RestoreToCount(Count);
+                canvas.Canvas.RestoreToCount(Count);
             }
         }
 

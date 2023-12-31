@@ -19,7 +19,7 @@ public sealed class SoundEffectGroup : SoundEffect
 
     public SoundEffectGroup()
     {
-        _children = new SoundEffects();
+        _children = [];
         _children.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 
