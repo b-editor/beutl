@@ -138,7 +138,7 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json.TryGetPropertyValue("connection-inputs", out var srcNode)
+        if (json.TryGetPropertyValue("connection-inputs", out JsonNode? srcNode)
             && srcNode is JsonArray srcArray)
         {
             if (_inputIds != null)

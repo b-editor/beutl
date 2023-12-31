@@ -12,7 +12,7 @@ namespace Beutl.Rendering.Cache;
 
 public sealed class RenderCache(IGraphicNode node) : IDisposable
 {
-    private readonly WeakReference<IGraphicNode> _node = new WeakReference<IGraphicNode>(node);
+    private readonly WeakReference<IGraphicNode> _node = new(node);
     private Ref<SKSurface>? _cache;
     private Rect _cacheBounds;
 
@@ -111,7 +111,7 @@ public sealed class RenderCache(IGraphicNode node) : IDisposable
 #if DEBUG
         if (_cache != null)
         {
-            Debug.WriteLine($"[RenderCache:Invalildated] '{(_node.TryGetTarget(out var node) ? node : null)}'");
+            Debug.WriteLine($"[RenderCache:Invalildated] '{(_node.TryGetTarget(out IGraphicNode? node) ? node : null)}'");
         }
 #endif
 

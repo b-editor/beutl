@@ -217,7 +217,7 @@ public static class PropertyEditorService
                 IAbstractProperty item = properties[i];
                 if (item.GetCoreProperty() is { Id: int id } coreProp)
                 {
-                    if (coreProp.TryGetMetadata<CorePropertyMetadata>(item.ImplementedType, out var metadata))
+                    if (coreProp.TryGetMetadata(item.ImplementedType, out CorePropertyMetadata? metadata))
                     {
                         // 特殊処理
                         if (metadata.Attributes.OfType<ChoicesProviderAttribute>().Any())
@@ -319,9 +319,9 @@ public static class PropertyEditorService
                 if (property.GetCoreProperty() is { Id: int propId } coreProp)
                 {
                     // 特殊処理
-                    if (coreProp.TryGetMetadata<CorePropertyMetadata>(property.ImplementedType, out var metadata))
+                    if (coreProp.TryGetMetadata(property.ImplementedType, out CorePropertyMetadata? metadata))
                     {
-                        var choiceAtt = metadata.Attributes.OfType<ChoicesProviderAttribute>().FirstOrDefault();
+                        ChoicesProviderAttribute? choiceAtt = metadata.Attributes.OfType<ChoicesProviderAttribute>().FirstOrDefault();
                         if (choiceAtt != null)
                         {
                             viewModel = CreateChoiceViewModel(property, choiceAtt.ProviderType);
@@ -379,7 +379,7 @@ public static class PropertyEditorService
 
         public bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
         {
-            if (TryCreateControlCore(context, out var control1))
+            if (TryCreateControlCore(context, out Control? control1))
             {
                 if (control1 is PropertyEditor editor)
                 {
@@ -497,7 +497,7 @@ public static class PropertyEditorService
                 {
                     if (property.GetCoreProperty() is { Id: int propId } coreProp)
                     {
-                        if (coreProp.TryGetMetadata<CorePropertyMetadata>(property.ImplementedType, out var metadata))
+                        if (coreProp.TryGetMetadata(property.ImplementedType, out CorePropertyMetadata? metadata))
                         {
                             // 特殊処理
                             if (metadata.Attributes.OfType<ChoicesProviderAttribute>().Any())

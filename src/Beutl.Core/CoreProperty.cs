@@ -318,7 +318,7 @@ public class CoreProperty<T>(
 
     internal override void RouteSerialize(ICoreSerializationContext context, object? value)
     {
-        var metadata = GetMetadata<CorePropertyMetadata<T>>(context.OwnerType);
+        CorePropertyMetadata<T> metadata = GetMetadata<CorePropertyMetadata<T>>(context.OwnerType);
         if (metadata.ShouldSerialize && (this is not IStaticProperty sprop || sprop.CanWrite))
         {
             if (context is IJsonSerializationContext jsonCtxt

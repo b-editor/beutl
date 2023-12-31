@@ -124,7 +124,7 @@ public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
             }
         }
 
-        if (json.TryGetPropertyValue(nameof(Matrix), out var mJson))
+        if (json.TryGetPropertyValue(nameof(Matrix), out JsonNode? mJson))
         {
             string m = (string)mJson!;
             Matrix.Value = Avalonia.Matrix.Parse(m);

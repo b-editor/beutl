@@ -8,8 +8,8 @@ public readonly unsafe struct ReplaceOperation<TPixel>(Bitmap<TPixel> src, Bitma
 {
     public readonly void Invoke(int y)
     {
-        var sourceRow = src[y];
-        var targetRow = dst[y + roi.Y].Slice(roi.X, roi.Width);
+        Span<TPixel> sourceRow = src[y];
+        Span<TPixel> targetRow = dst[y + roi.Y].Slice(roi.X, roi.Width);
 
         sourceRow.CopyTo(targetRow);
     }

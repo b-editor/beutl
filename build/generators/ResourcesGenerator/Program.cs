@@ -254,7 +254,7 @@ namespace ResourcesGenerator
         {
             sb.AppendLine($"{indentStr}private static IObservable<string>? _{Key}Observable;");
 
-            if (redirects.TryGetValue(RawKey, out var rawKey1))
+            if (redirects.TryGetValue(RawKey, out string? rawKey1))
             {
                 sb.AppendLine($"{indentStr}public static IObservable<string> {Key}Observable => _{Key}Observable ??= \"{RawKey}\".GetStringObservable(global::{rootNamespace}.Resources.{rawKey1});");
             }

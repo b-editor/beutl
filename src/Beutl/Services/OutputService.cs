@@ -61,11 +61,11 @@ public sealed class OutputQueueItem : IDisposable
     {
         try
         {
-            var obj = json.AsObject();
-            var contextJson = json[nameof(Context)];
+            JsonObject obj = json.AsObject();
+            JsonNode? contextJson = json[nameof(Context)];
 
-            var extensionStr = obj["Extension"]!.AsValue().GetValue<string>();
-            var extensionType = TypeFormat.ToType(extensionStr);
+            string extensionStr = obj["Extension"]!.AsValue().GetValue<string>();
+            Type? extensionType = TypeFormat.ToType(extensionStr);
             ExtensionProvider provider = ExtensionProvider.Current;
             OutputExtension? extension = Array.Find(provider.GetExtensions<OutputExtension>(), x => x.GetType() == extensionType);
 

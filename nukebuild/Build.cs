@@ -77,7 +77,7 @@ partial class Build : NukeBuild
             }
 
             AbsolutePath mainProj = SourceDirectory / "Beutl" / "Beutl.csproj";
-            var mainOutput = OutputDirectory / "Beutl";
+            AbsolutePath mainOutput = OutputDirectory / "Beutl";
 
             DotNetPublish(s => s
                 .EnableNoRestore()

@@ -297,10 +297,10 @@ Error:
                     t.Item3.RenderTransform = t.Item2.RenderTransform = new ImmutableTransform(t.matrix.ToAvaMatrix());
                     if (DataContext is EditViewModel vm)
                     {
-                        var width = vm.Scene.Width;
+                        int width = vm.Scene.Width;
                         if (width == 0) return;
-                        var actualWidth = t.Item2.Bounds.Width * t.matrix.M11;
-                        var pixelSize = actualWidth / width;
+                        double actualWidth = t.Item2.Bounds.Width * t.matrix.M11;
+                        double pixelSize = actualWidth / width;
                         if (pixelSize >= 1)
                         {
                             RenderOptions.SetBitmapInterpolationMode(t.Item2, BitmapInterpolationMode.None);

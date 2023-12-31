@@ -149,7 +149,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
             {
                 if (x is BaseEditorViewModel { WrappedProperty: { } abProperty }
                     && abProperty.GetCoreProperty() is { } coreProperty
-                    && coreProperty.TryGetMetadata<CorePropertyMetadata>(abProperty.ImplementedType, out var metadata))
+                    && coreProperty.TryGetMetadata(abProperty.ImplementedType, out CorePropertyMetadata? metadata))
                 {
                     return metadata.DisplayAttribute?.GetGroupName();
                 }

@@ -154,7 +154,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
     {
         for (int i = 0; i < BottomTabItems.Count; i++)
         {
-            var item = BottomTabItems[i];
+            ToolTabViewModel item = BottomTabItems[i];
             if (item.Context is T typed && condition(typed))
             {
                 return typed;
@@ -163,7 +163,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
         for (int i = 0; i < RightTabItems.Count; i++)
         {
-            var item = RightTabItems[i];
+            ToolTabViewModel item = RightTabItems[i];
             if (item.Context is T typed && condition(typed))
             {
                 return typed;

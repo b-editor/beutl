@@ -19,7 +19,7 @@ public partial class NodeTreeView : UserControl
     private Point _rightClickedPosition;
     internal Point _leftClickedPosition;
     private bool _rangeSelectionPressed;
-    private List<(NodeView Node, bool IsSelectedOriginal)> _rangeSelection = [];
+    private readonly List<(NodeView Node, bool IsSelectedOriginal)> _rangeSelection = [];
     private bool _matrixUpdating;
 
     public NodeTreeView()
@@ -77,7 +77,7 @@ public partial class NodeTreeView : UserControl
 
     private void UpdateRangeSelection()
     {
-        foreach ((var node, bool isSelectedOriginal) in _rangeSelection)
+        foreach ((NodeView? node, bool isSelectedOriginal) in _rangeSelection)
         {
             if (node.DataContext is NodeViewModel nodeViewModel)
             {

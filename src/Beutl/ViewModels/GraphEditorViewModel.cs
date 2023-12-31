@@ -16,7 +16,7 @@ public sealed class GraphEditorViewModel<T>(
 {
     public override void DropEasing(Easing easing, TimeSpan keyTime)
     {
-        var originalKeyTime = keyTime;
+        TimeSpan originalKeyTime = keyTime;
         keyTime = ConvertKeyTime(keyTime);
         Project? proj = Scene.FindHierarchicalParent<Project>();
         int rate = proj?.GetFrameRate() ?? 30;

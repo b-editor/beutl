@@ -94,7 +94,7 @@ public partial class MenuBarViewModel
 
     private async Task OnSaveAll()
     {
-        using var activity = Telemetry.StartActivity("SaveAll");
+        using Activity? activity = Telemetry.StartActivity("SaveAll");
         Project? project = ProjectService.Current.CurrentProject.Value;
         int itemsCount = 0;
 

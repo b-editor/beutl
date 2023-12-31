@@ -130,7 +130,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         base.ReadFromJson(json);
         try
         {
-            if (json.TryGetPropertyValue(nameof(IsExpanded), out var isExpandedNode)
+            if (json.TryGetPropertyValue(nameof(IsExpanded), out JsonNode? isExpandedNode)
                 && isExpandedNode is JsonValue isExpanded)
             {
                 IsExpanded.Value = (bool)isExpanded;

@@ -17,14 +17,14 @@ public sealed class InlineAnimationLayerViewModel<T>(
     {
         if (Property.Animation is KeyFrameAnimation<T> kfAnimation)
         {
-            var originalKeyTime = keyTime;
+            TimeSpan originalKeyTime = keyTime;
             keyTime = ConvertKeyTime(originalKeyTime, kfAnimation);
             Project? proj = Timeline.Scene.FindHierarchicalParent<Project>();
             int rate = proj?.GetFrameRate() ?? 30;
 
-            var threshold = TimeSpan.FromSeconds(1d / rate) * 3;
+            TimeSpan threshold = TimeSpan.FromSeconds(1d / rate) * 3;
 
-            var keyFrame = kfAnimation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
+            IKeyFrame? keyFrame = kfAnimation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
             if (keyFrame != null)
             {
                 new ChangePropertyCommand<Easing>(keyFrame, KeyFrame.EasingProperty, easing, keyFrame.Easing)

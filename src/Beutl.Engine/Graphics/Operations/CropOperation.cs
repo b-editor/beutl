@@ -8,8 +8,8 @@ public readonly unsafe struct CropOperation<TPixel>(Bitmap<TPixel> src, Bitmap<T
 {
     public readonly void Invoke(int y)
     {
-        var sourceRow = src[y + roi.Y].Slice(roi.X, roi.Width);
-        var targetRow = dst[y];
+        Span<TPixel> sourceRow = src[y + roi.Y].Slice(roi.X, roi.Width);
+        Span<TPixel> targetRow = dst[y];
 
         sourceRow.Slice(0, roi.Width).CopyTo(targetRow);
     }

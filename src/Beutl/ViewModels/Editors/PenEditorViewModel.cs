@@ -126,7 +126,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json.TryGetPropertyValue(nameof(IsExpanded), out var isExpandedNode)
+        if (json.TryGetPropertyValue(nameof(IsExpanded), out JsonNode? isExpandedNode)
             && isExpandedNode is JsonValue isExpanded)
         {
             IsExpanded.Value = (bool)isExpanded;

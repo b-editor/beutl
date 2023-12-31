@@ -210,7 +210,7 @@ public sealed class ElementViewModel : IDisposable
             .ToArray();
         var scope = Scope.PrepareAnimation();
 
-        var newMargin = new Thickness(0, Timeline.CalculateLayerTop(layerNum), 0, 0);
+        Thickness newMargin = new(0, Timeline.CalculateLayerTop(layerNum), 0, 0);
         Thickness oldMargin = Margin.Value;
         if (affectModel)
             Model.ZIndex = layerNum;
@@ -406,12 +406,12 @@ public sealed class ElementViewModel : IDisposable
     {
         PlatformHotkeyConfiguration? config = Application.Current?.PlatformSettings?.HotkeyConfiguration;
         KeyModifiers modifier = config?.CommandModifiers ?? KeyModifiers.Control;
-        var list = new List<KeyBinding>
-        {
+        List<KeyBinding> list =
+        [
             new KeyBinding { Gesture = new(Key.Delete), Command = Exclude },
             new KeyBinding { Gesture = new(Key.Delete, modifier), Command = Delete },
             new KeyBinding { Gesture = new(Key.K, modifier), Command = SplitByCurrentFrame }
-        };
+        ];
 
         if (config != null)
         {

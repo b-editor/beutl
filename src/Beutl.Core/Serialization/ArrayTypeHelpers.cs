@@ -88,7 +88,7 @@ internal static class ArrayTypeHelpers
     {
         if (GetElementType(dictType) is Type elementType)
         {
-            if (!s_genericArgsTypes.TryGetValue(elementType, out var result))
+            if (!s_genericArgsTypes.TryGetValue(elementType, out (Type Key, Type Value) result))
             {
                 if (elementType.IsGenericType
                     && elementType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))

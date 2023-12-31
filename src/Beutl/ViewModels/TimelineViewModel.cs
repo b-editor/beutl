@@ -110,7 +110,7 @@ public sealed class TimelineViewModel : IToolContext
 
         AdjustDurationToPointer.Subscribe(OnAdjustDurationToPointer);
         AdjustDurationToCurrent.Subscribe(OnAdjustDurationToCurrent);
-        var editorConfig = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
 
         AutoAdjustSceneDuration = editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty).ToReactiveProperty();
         AutoAdjustSceneDuration.Subscribe(b => editorConfig.AutoAdjustSceneDuration = b);
@@ -228,7 +228,7 @@ public sealed class TimelineViewModel : IToolContext
         {
             // ToArrayの理由は
             // TrackedLayerTopObservable.DisposeでDeinitializeが呼び出され、_trackerCacheが変更されるので
-            foreach (var item in _trackerCache.Values.ToArray())
+            foreach (TrackedLayerTopObservable? item in _trackerCache.Values.ToArray())
             {
                 item.Dispose();
             }
@@ -305,7 +305,7 @@ public sealed class TimelineViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue(nameof(LayerHeaders), out var layersNode)
+        if (json.TryGetPropertyValue(nameof(LayerHeaders), out JsonNode? layersNode)
             && layersNode is JsonArray layersArray)
         {
             foreach ((LayerHeaderViewModel layer, JsonObject item) in layersArray.OfType<JsonObject>()

@@ -84,7 +84,7 @@ public class ElementNodeTreeModel : NodeTreeModel
 
     private void Uninitialize()
     {
-        foreach (var item in CollectionsMarshal.AsSpan(_evalContexts))
+        foreach (NodeEvaluationContext[]? item in CollectionsMarshal.AsSpan(_evalContexts))
         {
             foreach (NodeEvaluationContext? context in item.AsSpan())
             {
