@@ -32,10 +32,10 @@
     <PackageVersion Include="Kurukuru" Version="1.4.2" />
     <PackageVersion Include="Microsoft.ApplicationInsights" Version="2.21.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyModel" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Extensions.FileSystemGlobbing" Version="7.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="7.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="7.0.13" />
     <PackageVersion Include="NAudio.Core" Version="2.2.1" />
@@ -50,8 +50,8 @@
     <PackageVersion Include="OpenCvSharp4" Version="4.8.0.20230708" />
     <PackageVersion Include="OpenCvSharp4.runtime.osx.10.15-x64" Version="4.6.0.20230105" />
     <PackageVersion Include="OpenCvSharp4.runtime.win" Version="4.8.0.20230708" />
-    <PackageVersion Include="OpenTelemetry" Version="1.6.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.6.0" />
+    <PackageVersion Include="OpenTelemetry" Version="1.7.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.7.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.Zipkin" Version="1.6.0" />
     <PackageVersion Include="OpenTK.OpenAL" Version="5.0.0-pre.8" />
     <PackageVersion Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="5.0.0-pre.9" />
