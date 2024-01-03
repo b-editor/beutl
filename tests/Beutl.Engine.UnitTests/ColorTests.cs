@@ -11,10 +11,10 @@ public class ColorTests
     {
         var result = Color.Parse("#ff8844");
 
-        Assert.AreEqual(0xff, result.R);
-        Assert.AreEqual(0x88, result.G);
-        Assert.AreEqual(0x44, result.B);
-        Assert.AreEqual(0xff, result.A);
+        Assert.That(result.R, Is.EqualTo(0xff));
+        Assert.That(result.G, Is.EqualTo(0x88));
+        Assert.That(result.B, Is.EqualTo(0x44));
+        Assert.That(result.A, Is.EqualTo(0xff));
     }
 
     [Test]
@@ -22,11 +22,11 @@ public class ColorTests
     {
         var success = Color.TryParse("#ff8844", out Color result);
 
-        Assert.True(success);
-        Assert.AreEqual(0xff, result.R);
-        Assert.AreEqual(0x88, result.G);
-        Assert.AreEqual(0x44, result.B);
-        Assert.AreEqual(0xff, result.A);
+        Assert.That(success);
+        Assert.That(result.R, Is.EqualTo(0xff));
+        Assert.That(result.G, Is.EqualTo(0x88));
+        Assert.That(result.B, Is.EqualTo(0x44));
+        Assert.That(result.A, Is.EqualTo(0xff));
     }
 
     [Test]
@@ -34,10 +34,10 @@ public class ColorTests
     {
         var result = Color.Parse("#f84");
 
-        Assert.AreEqual(0xff, result.R);
-        Assert.AreEqual(0x88, result.G);
-        Assert.AreEqual(0x44, result.B);
-        Assert.AreEqual(0xff, result.A);
+        Assert.That(result.R, Is.EqualTo(0xff));
+        Assert.That(result.G, Is.EqualTo(0x88));
+        Assert.That(result.B, Is.EqualTo(0x44));
+        Assert.That(result.A, Is.EqualTo(0xff));
     }
 
     [Test]
@@ -45,11 +45,11 @@ public class ColorTests
     {
         var success = Color.TryParse("#f84", out Color result);
 
-        Assert.True(success);
-        Assert.AreEqual(0xff, result.R);
-        Assert.AreEqual(0x88, result.G);
-        Assert.AreEqual(0x44, result.B);
-        Assert.AreEqual(0xff, result.A);
+        Assert.That(success);
+        Assert.That(result.R, Is.EqualTo(0xff));
+        Assert.That(result.G, Is.EqualTo(0x88));
+        Assert.That(result.B, Is.EqualTo(0x44));
+        Assert.That(result.A, Is.EqualTo(0xff));
     }
 
     [Test]
@@ -57,10 +57,10 @@ public class ColorTests
     {
         var result = Color.Parse("#40ff8844");
 
-        Assert.AreEqual(0xff, result.R);
-        Assert.AreEqual(0x88, result.G);
-        Assert.AreEqual(0x44, result.B);
-        Assert.AreEqual(0x40, result.A);
+        Assert.That(result.R, Is.EqualTo(0xff));
+        Assert.That(result.G, Is.EqualTo(0x88));
+        Assert.That(result.B, Is.EqualTo(0x44));
+        Assert.That(result.A, Is.EqualTo(0x40));
     }
 
     [Test]
@@ -68,11 +68,11 @@ public class ColorTests
     {
         var success = Color.TryParse("#40ff8844", out Color result);
 
-        Assert.True(success);
-        Assert.AreEqual(0xff, result.R);
-        Assert.AreEqual(0x88, result.G);
-        Assert.AreEqual(0x44, result.B);
-        Assert.AreEqual(0x40, result.A);
+        Assert.That(success);
+        Assert.That(result.R, Is.EqualTo(0xff));
+        Assert.That(result.G, Is.EqualTo(0x88));
+        Assert.That(result.B, Is.EqualTo(0x44));
+        Assert.That(result.A, Is.EqualTo(0x40));
     }
 
     [Test]
@@ -80,10 +80,10 @@ public class ColorTests
     {
         var result = Color.Parse("#4f84");
 
-        Assert.AreEqual(0xff, result.R);
-        Assert.AreEqual(0x88, result.G);
-        Assert.AreEqual(0x44, result.B);
-        Assert.AreEqual(0x44, result.A);
+        Assert.That(result.R, Is.EqualTo(0xff));
+        Assert.That(result.G, Is.EqualTo(0x88));
+        Assert.That(result.B, Is.EqualTo(0x44));
+        Assert.That(result.A, Is.EqualTo(0x44));
     }
 
     [Test]
@@ -91,11 +91,11 @@ public class ColorTests
     {
         var success = Color.TryParse("#4f84", out Color result);
 
-        Assert.True(success);
-        Assert.AreEqual(0xff, result.R);
-        Assert.AreEqual(0x88, result.G);
-        Assert.AreEqual(0x44, result.B);
-        Assert.AreEqual(0x44, result.A);
+        Assert.That(success);
+        Assert.That(result.R, Is.EqualTo(0xff));
+        Assert.That(result.G, Is.EqualTo(0x88));
+        Assert.That(result.B, Is.EqualTo(0x44));
+        Assert.That(result.A, Is.EqualTo(0x44));
     }
 
     [Test]
@@ -107,7 +107,7 @@ public class ColorTests
     [Test]
     public void TryParseTooFew()
     {
-        Assert.False(Color.TryParse("#ff", out _), "");
+        Assert.That(!Color.TryParse("#ff", out _));
     }
 
     [Test]
@@ -119,7 +119,7 @@ public class ColorTests
     [Test]
     public void TryParseTooMany()
     {
-        Assert.False(Color.TryParse("#ff5555555", out _));
+        Assert.That(!Color.TryParse("#ff5555555", out _));
     }
 
     [Test]
@@ -131,7 +131,7 @@ public class ColorTests
     [Test]
     public void TryParseInvalidNumber()
     {
-        Assert.False(Color.TryParse("#ff808g80", out _));
+        Assert.That(!Color.TryParse("#ff808g80", out _));
     }
 
     // テストケースは適当です。
@@ -147,7 +147,7 @@ public class ColorTests
         var hsv = expected.ToHsv();
         var actual = hsv.ToColor();
 
-        Assert.AreEqual(expected, actual);
+        Assert.That(actual, Is.EqualTo(expected));
     }
 
     [Test]
@@ -161,6 +161,6 @@ public class ColorTests
         var cmyk = expected.ToCmyk();
         var actual = cmyk.ToColor();
 
-        Assert.AreEqual(expected, actual);
+        Assert.That(actual, Is.EqualTo(expected));
     }
 }

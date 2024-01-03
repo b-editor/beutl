@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using NUnit.Framework;
+﻿using NUnit.Framework;
 
 using static Beutl.Graphics.ColorMatrix;
 
@@ -28,6 +22,6 @@ public class ColorMatrixTests
 
         Matrix4x5 result = left * right;
 
-        Assert.AreEqual(left, result);
+        Assert.That(result, Is.EqualTo(left));
     }
 }

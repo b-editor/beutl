@@ -3,6 +3,7 @@
 using Beutl.Utilities;
 
 using NUnit.Framework;
+using NUnit.Framework.Legacy;
 
 namespace Beutl.Engine.UnitTests;
 
@@ -21,8 +22,8 @@ public class RefUtf8StringTokenizerTests
 
         using (var tokenizer = new RefUtf8StringTokenizer(s))
         {
-            Assert.AreEqual(x, tokenizer.ReadInt32());
-            Assert.AreEqual(y, tokenizer.ReadInt32());
+            ClassicAssert.AreEqual(x, tokenizer.ReadInt32());
+            ClassicAssert.AreEqual(y, tokenizer.ReadInt32());
         }
     }
 
@@ -33,8 +34,8 @@ public class RefUtf8StringTokenizerTests
     {
         using (var tokenizer = new RefUtf8StringTokenizer(Encoding.UTF8.GetBytes(s)))
         {
-            Assert.AreEqual(1, tokenizer.ReadInt32());
-            Assert.AreEqual(2, tokenizer.ReadInt32());
+            ClassicAssert.AreEqual(1, tokenizer.ReadInt32());
+            ClassicAssert.AreEqual(2, tokenizer.ReadInt32());
         }
     }
 }

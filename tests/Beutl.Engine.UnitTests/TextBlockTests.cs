@@ -6,6 +6,7 @@ using Beutl.Media.Pixel;
 using Microsoft.Extensions.Logging;
 
 using NUnit.Framework;
+using NUnit.Framework.Legacy;
 
 namespace Beutl.Graphics.UnitTests;
 
@@ -59,7 +60,7 @@ public class TextBlockTests
 
         using Bitmap<Bgra8888> bmp = graphics.GetBitmap();
 
-        Assert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{id}.png"), EncodedImageFormat.Png));
+        ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{id}.png"), EncodedImageFormat.Png));
     }
 
     [Test]
@@ -95,6 +96,6 @@ public class TextBlockTests
 
         using Bitmap<Bgra8888> bmp = graphics.GetBitmap();
 
-        Assert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
+        ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
     }
 }

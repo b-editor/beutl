@@ -50,7 +50,7 @@ public class JsonSerializationTest
         elm2.NodeTree.Nodes.Add(shapeNode);
         elm2.NodeTree.Nodes.Add(outNode);
 
-        Assert.IsTrue(((OutputSocket<RectGeometry>)rectNode.Items[0]).TryConnect((InputSocket<Geometry?>)shapeNode.Items[1]));
-        Assert.IsTrue(((OutputSocket<GeometryShape>)shapeNode.Items[0]).TryConnect((InputSocket<Drawable?>)outNode.Items[0]));
+        Assert.That(((OutputSocket<RectGeometry>)rectNode.Items[0]).TryConnect((InputSocket<Geometry?>)shapeNode.Items[1]));
+        Assert.That(((OutputSocket<GeometryShape>)shapeNode.Items[0]).TryConnect((InputSocket<Drawable?>)outNode.Items[0]));
     }
 }

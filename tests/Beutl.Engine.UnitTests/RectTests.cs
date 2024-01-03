@@ -13,7 +13,7 @@ public class RectTests
         const string str = "20,80,1900,1000";
         var rect = Rect.Parse(str);
 
-        Assert.AreEqual(new Rect(20, 80, 1900, 1000), rect);
+        Assert.That(rect, Is.EqualTo(new Rect(20, 80, 1900, 1000)));
     }
     
     [Test]
@@ -22,7 +22,7 @@ public class RectTests
         const string str = "20;80;1900;1000";
         var rect = Rect.Parse(str, CultureInfo.GetCultureInfo("fr"));
 
-        Assert.AreEqual(new Rect(20, 80, 1900, 1000), rect);
+        Assert.That(rect, Is.EqualTo(new Rect(20, 80, 1900, 1000)));
     }
     
     [Test]
@@ -31,7 +31,7 @@ public class RectTests
         ReadOnlySpan<byte> str = "20,80,1900,1000"u8;
         var rect = Rect.Parse(str);
 
-        Assert.AreEqual(new Rect(20, 80, 1900, 1000), rect);
+        Assert.That(rect, Is.EqualTo(new Rect(20, 80, 1900, 1000)));
     }
     
     [Test]
@@ -40,7 +40,7 @@ public class RectTests
         ReadOnlySpan<byte> str = "20;80;1900;1000"u8;
         var rect = Rect.Parse(str, CultureInfo.GetCultureInfo("fr"));
 
-        Assert.AreEqual(new Rect(20, 80, 1900, 1000), rect);
+        Assert.That(rect, Is.EqualTo(new Rect(20, 80, 1900, 1000)));
     }
 
     [Test]
@@ -51,7 +51,7 @@ public class RectTests
         Span<char> s = stackalloc char[64];
 
         rect.TryFormat(s, out int written);
-        Assert.AreEqual(str, s.Slice(0, written).ToString());
+        Assert.That(s.Slice(0, written).ToString(), Is.EqualTo(str));
     }
 
     [Test]
@@ -63,7 +63,7 @@ public class RectTests
 
         rect.TryFormat(s, out int written);
 
-        Assert.AreEqual(str, Encoding.UTF8.GetString(s.Slice(0, written)));
+        Assert.That(Encoding.UTF8.GetString(s.Slice(0, written)), Is.EqualTo(str));
     }
 
     [Test]
@@ -71,9 +71,9 @@ public class RectTests
     {
         var rect = new Rect(20, 80, 1900, 1000);
 
-        Assert.IsTrue(rect.Contains(new Point(1899, 999)));
+        Assert.That(rect.Contains(new Point(1899, 999)));
 
-        Assert.IsTrue(rect.Contains(new Rect(30, 90, 1870, 990)));
+        Assert.That(rect.Contains(new Rect(30, 90, 1870, 990)));
     }
 
     [Test]
@@ -84,7 +84,7 @@ public class RectTests
 
         center = rect.CenterRect(center);
 
-        Assert.IsTrue(rect.Contains(center));
+        Assert.That(rect.Contains(center));
     }
 
     [Test]
@@ -95,7 +95,7 @@ public class RectTests
 
         rect = rect.Inflate(thickness);
 
-        Assert.AreEqual(new Rect(0, 0, 1920, 1080), rect);
+        Assert.That(rect, Is.EqualTo(new Rect(0, 0, 1920, 1080)));
     }
 
     [Test]
@@ -106,7 +106,7 @@ public class RectTests
 
         rect = rect.Deflate(thickness);
 
-        Assert.AreEqual(new Rect(0, 0, 1920, 1080), rect);
+        Assert.That(rect, Is.EqualTo(new Rect(0, 0, 1920, 1080)));
     }
 
     [Test]
@@ -115,7 +115,7 @@ public class RectTests
         Rect rect = new Rect(0, 0, 100, 100)
             .Intersect(new Rect(50, 50, 100, 100));
 
-        Assert.AreEqual(new Rect(50, 50, 50, 50), rect);
+        Assert.That(rect, Is.EqualTo(new Rect(50, 50, 50, 50)));
     }
 
     [Test]
@@ -123,9 +123,9 @@ public class RectTests
     {
         var rect = new Rect(0, 0, 100, 100);
 
-        Assert.IsTrue(rect.Intersects(new Rect(50, 50, 100, 100)));
+        Assert.That(rect.Intersects(new Rect(50, 50, 100, 100)));
 
-        Assert.IsFalse(rect.Intersects(new Rect(100, 100, 100, 100)));
+        Assert.That(!rect.Intersects(new Rect(100, 100, 100, 100)));
     }
 
     [Test]
@@ -134,7 +134,7 @@ public class RectTests
         var rect = new Rect(0, 0, 100, 100);
         rect = rect.TransformToAABB(Matrix.CreateScale(2, 2) * Matrix.CreateTranslation(10, 10));
 
-        Assert.AreEqual(new Rect(10, 10, 200, 200), rect);
+        Assert.That(rect, Is.EqualTo(new Rect(10, 10, 200, 200)));
     }
 
     [Test]
@@ -143,7 +143,7 @@ public class RectTests
         var rect = new Rect(0, 0, 100, 100);
         rect = rect.Translate(new Vector(25, 25));
 
-        Assert.AreEqual(new Rect(25, 25, 100, 100), rect);
+        Assert.That(rect, Is.EqualTo(new Rect(25, 25, 100, 100)));
     }
 
     [Test]
@@ -152,14 +152,14 @@ public class RectTests
         Rect rect = new Rect(new Point(100, 100), new Point(0, 0))
             .Normalize();
 
-        Assert.AreEqual(new Rect(0, 0, 100, 100), rect);
+        Assert.That(rect, Is.EqualTo(new Rect(0, 0, 100, 100)));
 
         rect = new Rect(
             float.NegativeInfinity, float.PositiveInfinity,
             float.PositiveInfinity, float.PositiveInfinity)
             .Normalize();
 
-        Assert.AreEqual(Rect.Empty, rect);
+        Assert.That(rect, Is.EqualTo(Rect.Empty));
     }
 
     [Test]
@@ -168,6 +168,6 @@ public class RectTests
         Rect rect = new Rect(0, 0, 100, 100)
             .Union(new Rect(50, 50, 100, 100));
 
-        Assert.AreEqual(new Rect(0, 0, 150, 150), rect);
+        Assert.That(rect, Is.EqualTo(new Rect(0, 0, 150, 150)));
     }
 }

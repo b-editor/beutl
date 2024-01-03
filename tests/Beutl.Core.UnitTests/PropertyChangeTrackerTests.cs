@@ -40,12 +40,12 @@ public class PropertyChangeTrackerTests
 
             command.Undo();
 
-            Assert.AreEqual(Foo, elm.String);
-            Assert.AreEqual("Depth_1", elm_1.String);
+            Assert.That(elm.String, Is.EqualTo(Foo));
+            Assert.That(elm_1.String, Is.EqualTo("Depth_1"));
 
             command.Redo();
-            Assert.AreEqual(Bar, elm.String);
-            Assert.AreEqual("Depth_1", elm_1.String);
+            Assert.That(elm.String, Is.EqualTo(Bar));
+            Assert.That(elm_1.String, Is.EqualTo("Depth_1"));
         }
     }
 }

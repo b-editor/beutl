@@ -2,6 +2,7 @@
 using Beutl.Utilities;
 
 using NUnit.Framework;
+using NUnit.Framework.Legacy;
 
 namespace Beutl.Graphics.UnitTests;
 
@@ -18,9 +19,9 @@ public class TransformParser
     {
         var transform = Transform.Parse(data) as TranslateTransform;
 
-        Assert.NotNull(transform);
-        Assert.AreEqual(x, transform!.X);
-        Assert.AreEqual(y, transform.Y);
+        ClassicAssert.NotNull(transform);
+        ClassicAssert.AreEqual(x, transform!.X);
+        ClassicAssert.AreEqual(y, transform.Y);
     }
 
     [Test]
@@ -32,8 +33,8 @@ public class TransformParser
     {
         var transform = Transform.Parse(data) as RotationTransform;
 
-        Assert.NotNull(transform);
-        Assert.AreEqual(angleDeg, transform!.Rotation);
+        ClassicAssert.NotNull(transform);
+        ClassicAssert.AreEqual(angleDeg, transform!.Rotation);
     }
 
     [Test]
@@ -53,9 +54,9 @@ public class TransformParser
     {
         var transform = Transform.Parse(data) as ScaleTransform;
 
-        Assert.NotNull(transform);
-        Assert.AreEqual(x, transform!.ScaleX / 100);
-        Assert.AreEqual(y, transform.ScaleY / 100);
+        ClassicAssert.NotNull(transform);
+        ClassicAssert.AreEqual(x, transform!.ScaleX / 100);
+        ClassicAssert.AreEqual(y, transform.ScaleY / 100);
     }
 
     [Test]
@@ -83,9 +84,9 @@ public class TransformParser
     {
         var transform = Transform.Parse(data) as SkewTransform;
 
-        Assert.NotNull(transform);
-        Assert.AreEqual(x, transform!.SkewX);
-        Assert.AreEqual(y, transform!.SkewY);
+        ClassicAssert.NotNull(transform);
+        ClassicAssert.AreEqual(x, transform!.SkewX);
+        ClassicAssert.AreEqual(y, transform!.SkewY);
     }
 
     [Test]
@@ -99,7 +100,7 @@ public class TransformParser
             .Prepend(Matrix.CreateSkew(MathUtilities.Deg2Rad(6), MathUtilities.Deg2Rad(7))));
         Matrix actual = Matrix.Parse(data);
 
-        Assert.AreEqual(expected, actual);
+        ClassicAssert.AreEqual(expected, actual);
     }
 
     [Test]
@@ -113,6 +114,6 @@ public class TransformParser
         var expected = new Matrix(m11, m12, m13, m21, m22, m23, m31, m32, m33);
         Matrix actual = Matrix.Parse(data);
 
-        Assert.AreEqual(expected, actual);
+        ClassicAssert.AreEqual(expected, actual);
     }
 }

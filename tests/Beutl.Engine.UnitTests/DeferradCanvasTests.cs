@@ -44,7 +44,7 @@ public class DeferradCanvasTests
         {
             container.Render(canvas);
             using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
-            Assert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "canvas1.png"), EncodedImageFormat.Png));
+            Assert.That(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "canvas1.png"), EncodedImageFormat.Png));
         }
 
         using (canvas.Push())
@@ -52,7 +52,7 @@ public class DeferradCanvasTests
             canvas.Clear();
             Draw(canvas);
             using Bitmap<Bgra8888> bmp1 = canvas.GetBitmap();
-            Assert.IsTrue(bmp1.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "canvas2.png"), EncodedImageFormat.Png));
+            Assert.That(bmp1.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "canvas2.png"), EncodedImageFormat.Png));
         }
     }
 
@@ -77,7 +77,7 @@ public class DeferradCanvasTests
         {
             container.Render(canvas);
             using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
-            Assert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "direct.png"), EncodedImageFormat.Png));
+            Assert.That(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "direct.png"), EncodedImageFormat.Png));
         }
 
     }

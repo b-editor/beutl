@@ -11,7 +11,7 @@ public class DispatcherTests
         var dispatcher = Dispatcher.Spawn();
 
         int dispatcherId = dispatcher.Invoke(() => Environment.CurrentManagedThreadId);
-        Assert.False(id == dispatcherId);
+        Assert.That(id, Is.Not.EqualTo(dispatcherId));
 
         dispatcher.Stop();
     }

@@ -20,8 +20,8 @@ public class RationalTests
 
         Rational.Reduce(ref left, ref right);
 
-        Assert.AreEqual(new Rational(expLeftNum, expLeftDen), left);
-        Assert.AreEqual(new Rational(exptRightNum, expRightDen), right);
+        Assert.That(left, Is.EqualTo(new Rational(expLeftNum, expLeftDen)));
+        Assert.That(right, Is.EqualTo(new Rational(exptRightNum, expRightDen)));
     }
 
     [Test]
@@ -35,7 +35,7 @@ public class RationalTests
     {
         var r = Rational.FromDouble(original);
 
-        Assert.AreEqual(new Rational(num, den), r);
+        Assert.That(r, Is.EqualTo(new Rational(num, den)));
     }
 
     [Test]
@@ -49,7 +49,7 @@ public class RationalTests
     {
         var r = Rational.FromSingle(original);
 
-        Assert.AreEqual(new Rational(num, den), r);
+        Assert.That(r, Is.EqualTo(new Rational(num, den)));
     }
 
     [Test]
@@ -60,6 +60,6 @@ public class RationalTests
     [TestCase(54, 9, 6, 1)]
     public void Simply(long num, long den, long expNum, long expDen)
     {
-        Assert.AreEqual(new Rational(expNum, expDen), new Rational(num, den).Simplify());
+        Assert.That(new Rational(num, den).Simplify(), Is.EqualTo(new Rational(expNum, expDen)));
     }
 }

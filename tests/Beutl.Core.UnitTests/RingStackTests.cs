@@ -16,11 +16,11 @@ public class RingStackTests
         stack.Push(3);
 
         // Assert
-        Assert.AreEqual(3, stack.Count);
-        Assert.AreEqual(3, stack.Pop());
-        Assert.AreEqual(2, stack.Pop());
-        Assert.AreEqual(1, stack.Pop());
-        Assert.True(stack.IsEmpty);
+        Assert.That(stack.Count, Is.EqualTo(3));
+        Assert.That(stack.Pop(), Is.EqualTo(3));
+        Assert.That(stack.Pop(), Is.EqualTo(2));
+        Assert.That(stack.Pop(), Is.EqualTo(1));
+        Assert.That(stack.IsEmpty);
     }
 
     [Test]
@@ -35,9 +35,9 @@ public class RingStackTests
         string item = stack.Pop();
 
         // Assert
-        Assert.AreEqual("bar", item);
-        Assert.AreEqual(1, stack.Count);
-        Assert.False(stack.IsEmpty);
+        Assert.That(item, Is.EqualTo("bar"));
+        Assert.That(stack.Count, Is.EqualTo(1));
+        Assert.That(!stack.IsEmpty);
     }
 
     [Test]
@@ -48,7 +48,7 @@ public class RingStackTests
 
         // Act & Assert
         InvalidOperationException? ex = Assert.Throws<InvalidOperationException>(() => stack.Pop());
-        Assert.AreEqual("Stack underflow", ex?.Message);
+        Assert.That(ex?.Message, Is.EqualTo("Stack underflow"));
     }
 
     [Test]
@@ -63,9 +63,9 @@ public class RingStackTests
         int item = stack.Peek();
 
         // Assert
-        Assert.AreEqual(2, item);
-        Assert.AreEqual(2, stack.Count);
-        Assert.False(stack.IsEmpty);
+        Assert.That(item, Is.EqualTo(2));
+        Assert.That(stack.Count, Is.EqualTo(2));
+        Assert.That(!stack.IsEmpty);
     }
 
     [Test]
@@ -76,7 +76,7 @@ public class RingStackTests
 
         // Act & Assert
         InvalidOperationException? ex = Assert.Throws<InvalidOperationException>(() => stack.Peek());
-        Assert.AreEqual("Stack is empty", ex?.Message);
+        Assert.That(ex?.Message, Is.EqualTo("Stack is empty"));
     }
 
     [Test]
@@ -86,11 +86,11 @@ public class RingStackTests
         var stack = new RingStack<double>(2);
 
         // Act & Assert
-        Assert.True(stack.IsEmpty);
+        Assert.That(stack.IsEmpty);
         stack.Push(1.23);
-        Assert.False(stack.IsEmpty);
+        Assert.That(!stack.IsEmpty);
         stack.Pop();
-        Assert.True(stack.IsEmpty);
+        Assert.That(stack.IsEmpty);
     }
 
     [Test]
@@ -101,9 +101,9 @@ public class RingStackTests
         stack.Push("foo");
 
         // Act & Assert
-        Assert.False(stack.IsFull);
+        Assert.That(!stack.IsFull);
         stack.Push("bar");
-        Assert.True(stack.IsFull);
+        Assert.That(stack.IsFull);
     }
 
     [Test]
@@ -113,14 +113,14 @@ public class RingStackTests
         var stack = new RingStack<char>(3);
 
         // Act & Assert
-        Assert.AreEqual(0, stack.Count);
+        Assert.That(stack.Count, Is.EqualTo(0));
         stack.Push('a');
-        Assert.AreEqual(1, stack.Count);
+        Assert.That(stack.Count, Is.EqualTo(1));
         stack.Push('b');
-        Assert.AreEqual(2, stack.Count);
+        Assert.That(stack.Count, Is.EqualTo(2));
         stack.Push('c');
-        Assert.AreEqual(3, stack.Count);
+        Assert.That(stack.Count, Is.EqualTo(3));
         stack.Pop();
-        Assert.AreEqual(2, stack.Count);
+        Assert.That(stack.Count, Is.EqualTo(2));
     }
 }

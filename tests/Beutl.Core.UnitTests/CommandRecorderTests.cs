@@ -22,7 +22,7 @@ public class CommandRecorderTests
         bool canUndo = recorder.CanUndo;
 
         // Assert
-        Assert.False(canUndo);
+        Assert.That(!canUndo);
     }
 
     [Test]
@@ -35,7 +35,7 @@ public class CommandRecorderTests
         bool canRedo = recorder.CanRedo;
 
         // Assert
-        Assert.False(canRedo);
+        Assert.That(!canRedo);
     }
 
     [Test]
@@ -49,8 +49,8 @@ public class CommandRecorderTests
         recorder.PushOnly(command);
 
         // Assert
-        Assert.True(recorder.CanUndo);
-        Assert.False(recorder.CanRedo);
+        Assert.That(recorder.CanUndo);
+        Assert.That(!recorder.CanRedo);
     }
 
     [Test]
@@ -64,9 +64,9 @@ public class CommandRecorderTests
         recorder.DoAndPush(command);
 
         // Assert
-        Assert.True(recorder.CanUndo);
-        Assert.False(recorder.CanRedo);
-        Assert.True(command.IsExecuted);
+        Assert.That(recorder.CanUndo);
+        Assert.That(!recorder.CanRedo);
+        Assert.That(command.IsExecuted);
     }
 
     [Test]
@@ -81,9 +81,9 @@ public class CommandRecorderTests
         recorder.Undo();
 
         // Assert
-        Assert.False(recorder.CanUndo);
-        Assert.True(recorder.CanRedo);
-        Assert.False(command.IsExecuted);
+        Assert.That(!recorder.CanUndo);
+        Assert.That(recorder.CanRedo);
+        Assert.That(!command.IsExecuted);
     }
 
     [Test]
@@ -99,9 +99,9 @@ public class CommandRecorderTests
         recorder.Redo();
 
         // Assert
-        Assert.True(recorder.CanUndo);
-        Assert.False(recorder.CanRedo);
-        Assert.True(command.IsExecuted);
+        Assert.That(recorder.CanUndo);
+        Assert.That(!recorder.CanRedo);
+        Assert.That(command.IsExecuted);
     }
 
     [Test]
@@ -116,8 +116,8 @@ public class CommandRecorderTests
         recorder.Clear();
 
         // Assert
-        Assert.False(recorder.CanUndo);
-        Assert.False(recorder.CanRedo);
+        Assert.That(!recorder.CanUndo);
+        Assert.That(!recorder.CanRedo);
     }
 
     private class TestCommand : IRecordableCommand
