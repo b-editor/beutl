@@ -30,7 +30,7 @@
     <PackageVersion Include="ILGPU" Version="1.5.1" />
     <PackageVersion Include="Kokuban" Version="0.2.0" />
     <PackageVersion Include="Kurukuru" Version="1.4.2" />
-    <PackageVersion Include="Microsoft.ApplicationInsights" Version="2.21.0" />
+    <PackageVersion Include="Microsoft.ApplicationInsights" Version="2.22.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyModel" Version="8.0.0" />
