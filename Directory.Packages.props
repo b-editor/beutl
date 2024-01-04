@@ -14,7 +14,7 @@
     <PackageVersion Include="Avalonia.Xaml.Behaviors" Version="11.0.2" />
     <PackageVersion Include="Avalonia.Xaml.Interactivity" Version="11.0.6" />
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.1.0" />
-    <PackageVersion Include="BenchmarkDotNet" Version="0.13.10" />
+    <PackageVersion Include="BenchmarkDotNet" Version="0.13.11" />
     <PackageVersion Include="coverlet.collector" Version="6.0.0" />
     <PackageVersion Include="DeviceId" Version="6.6.0" />
     <PackageVersion Include="DynamicData" Version="8.3.27" />
