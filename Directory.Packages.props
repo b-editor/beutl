@@ -52,7 +52,7 @@
     <PackageVersion Include="OpenCvSharp4.runtime.win" Version="4.8.0.20230708" />
     <PackageVersion Include="OpenTelemetry" Version="1.7.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.7.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.Zipkin" Version="1.6.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Zipkin" Version="1.7.0" />
     <PackageVersion Include="OpenTK.OpenAL" Version="5.0.0-pre.8" />
     <PackageVersion Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="5.0.0-pre.9" />
     <PackageVersion Include="PanelExtension" Version="1.0.0" />
