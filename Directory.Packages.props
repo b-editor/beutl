@@ -49,7 +49,7 @@
     <PackageVersion Include="NUnit3TestAdapter" Version="4.5.0" />
     <PackageVersion Include="OpenCvSharp4" Version="4.8.0.20230708" />
     <PackageVersion Include="OpenCvSharp4.runtime.osx.10.15-x64" Version="4.6.0.20230105" />
-    <PackageVersion Include="OpenCvSharp4.runtime.win" Version="4.8.0.20230708" />
+    <PackageVersion Include="OpenCvSharp4.runtime.win" Version="4.9.0.20240103" />
     <PackageVersion Include="OpenTelemetry" Version="1.7.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.7.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.Zipkin" Version="1.6.0" />
