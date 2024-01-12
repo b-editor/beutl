@@ -11,12 +11,8 @@
     <PackageReference Include="Avalonia.Desktop" />
     <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
     <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" />
-    <PackageReference Include="DeviceId" />
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="ReactiveProperty" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Beutl.Api.Generated\Beutl.Api.Generated.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Beutl.Core\BeutlEnvironment.cs" />
