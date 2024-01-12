@@ -121,7 +121,7 @@ public class Vector2Editor<TElement> : Vector2Editor
 
     private void OnTextBlockPointerMoved(object sender, PointerEventArgs e)
     {
-        if (!(InnerFirstTextBox.IsKeyboardFocusWithin || InnerSecondTextBox.IsKeyboardFocusWithin)
+        if (!(InnerFirstTextBox.IsKeyboardFocusWithin || InnerSecondTextBox?.IsKeyboardFocusWithin == true)
             && _headerPressed
             && sender is TextBlock headerText)
         {

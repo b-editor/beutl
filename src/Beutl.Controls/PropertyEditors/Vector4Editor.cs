@@ -172,9 +172,9 @@ public class Vector4Editor<TElement> : Vector4Editor
     private void OnTextBlockPointerMoved(object sender, PointerEventArgs e)
     {
         if (!(InnerFirstTextBox.IsKeyboardFocusWithin
-            || InnerSecondTextBox.IsKeyboardFocusWithin
-            || InnerThirdTextBox.IsKeyboardFocusWithin
-            || InnerFourthTextBox.IsKeyboardFocusWithin)
+            || InnerSecondTextBox?.IsKeyboardFocusWithin == true
+            || InnerThirdTextBox?.IsKeyboardFocusWithin == true
+            || InnerFourthTextBox?.IsKeyboardFocusWithin == true)
             && _headerPressed)
         {
             Point point = e.GetPosition(_headerText);

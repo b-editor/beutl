@@ -147,8 +147,8 @@ public class Vector3Editor<TElement> : Vector3Editor
     private void OnTextBlockPointerMoved(object sender, PointerEventArgs e)
     {
         if (!(InnerFirstTextBox.IsKeyboardFocusWithin
-            || InnerSecondTextBox.IsKeyboardFocusWithin
-            || InnerThirdTextBox.IsKeyboardFocusWithin)
+            || InnerSecondTextBox?.IsKeyboardFocusWithin == true
+            || InnerThirdTextBox?.IsKeyboardFocusWithin == true)
             && _headerPressed
             && sender is TextBlock headerText)
         {
