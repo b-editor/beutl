@@ -300,4 +300,10 @@
   <data name="EnablePointerLockInProperty_Description" xml:space="preserve">
     <value>プロパティエディタのドラッグ操作中にカーソルを非表示にします。（Windowsのみ）</value>
   </data>
+  <data name="Telemetry_Beutl_Logging" xml:space="preserve">
+    <value>ログ</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_Logging" xml:space="preserve">
+    <value>より詳細な使用状況を収集します。送信されるログは ".beutl/log" ディレクトリ下にも保存されます。</value>
+  </data>
 </root>

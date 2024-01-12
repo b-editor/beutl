@@ -117,9 +117,6 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="Cancel" xml:space="preserve">
-    <value>キャンセル</value>
-  </data>
   <data name="Close" xml:space="preserve">
     <value>閉じる</value>
   </data>
@@ -127,11 +124,7 @@
     <value>申し訳ありません。
 Beutlで正常に処理されないエラーが発生しました。
 
-今後の改善のためログを送信していただけると助かります。
-送信する内容にはデバイスIDが含まれます。</value>
-  </data>
-  <data name="CouldNotSendLog" xml:space="preserve">
-    <value>ログを送信できませんでした。</value>
+テレメトリーの収集が有効になっている場合、ログは自動で収集されます。</value>
   </data>
   <data name="ErrorOccurred" xml:space="preserve">
     <value>エラーが発生しました。</value>
@@ -141,12 +134,6 @@ Beutlで正常に処理されないエラーが発生しました。
   </data>
   <data name="MoreDetails" xml:space="preserve">
     <value>詳細を表示</value>
-  </data>
-  <data name="SendLog" xml:space="preserve">
-    <value>ログを送信</value>
-  </data>
-  <data name="SentTheLogThankYou" xml:space="preserve">
-    <value>ログを送信しました、ご協力ありがとうございます。</value>
   </data>
   <data name="ShowLog" xml:space="preserve">
     <value>ログを表示</value>

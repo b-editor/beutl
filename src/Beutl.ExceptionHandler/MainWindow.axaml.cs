@@ -12,18 +12,6 @@ public partial class MainWindow : Window
         InitializeComponent();
         _viewModel = new MainWindowViewModel();
         DataContext = _viewModel;
-
-        _viewModel.IsBusy.Subscribe(v =>
-        {
-            if (v)
-            {
-                CloseButton.Content = Properties.Resources.Cancel;
-            }
-            else
-            {
-                CloseButton.Content = Properties.Resources.Close;
-            }
-        });
     }
 
     private void OnMoreDetailsButtonClick(object? sender, RoutedEventArgs e)
@@ -33,13 +21,6 @@ public partial class MainWindow : Window
 
     private void OnCloseClick(object? sender, RoutedEventArgs e)
     {
-        if (_viewModel.IsBusy.Value)
-        {
-            _viewModel.Cancel.Execute();
-        }
-        else
-        {
-            Close();
-        }
+        Close();
     }
 }

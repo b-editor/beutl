@@ -117,9 +117,6 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="Cancel" xml:space="preserve">
-    <value>Cancel</value>
-  </data>
   <data name="Close" xml:space="preserve">
     <value>Close</value>
   </data>
@@ -127,11 +124,7 @@
     <value>Sorry.
 An error occurred that was not handled correctly by Beutl.
 
-It would be helpful if you could send us the log for future improvement.
-The content to be sent will include the device ID.</value>
-  </data>
-  <data name="CouldNotSendLog" xml:space="preserve">
-    <value>Could not send log.</value>
+If telemetry collection is enabled, logs are collected automatically.</value>
   </data>
   <data name="ErrorOccurred" xml:space="preserve">
     <value>Error occurred.</value>
@@ -141,12 +134,6 @@ The content to be sent will include the device ID.</value>
   </data>
   <data name="MoreDetails" xml:space="preserve">
     <value>More Details</value>
-  </data>
-  <data name="SendLog" xml:space="preserve">
-    <value>Send Log</value>
-  </data>
-  <data name="SentTheLogThankYou" xml:space="preserve">
-    <value>I have sent the log, thank you for your cooperation.</value>
   </data>
   <data name="ShowLog" xml:space="preserve">
     <value>Show Log</value>

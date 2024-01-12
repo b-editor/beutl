@@ -467,6 +467,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Logging に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Beutl_Logging {
+            get {
+                return ResourceManager.GetString("Telemetry_Beutl_Logging", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Package Management に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Telemetry_Beutl_PackageManagement {
@@ -519,6 +528,15 @@ namespace Beutl.Language {
         public static string Telemetry_Description_Beutl_Application {
             get {
                 return ResourceManager.GetString("Telemetry_Description_Beutl_Application", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   More detailed usage information is collected. The logs sent are also stored under the &quot;.beutl/log&quot; directory. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Telemetry_Description_Beutl_Logging {
+            get {
+                return ResourceManager.GetString("Telemetry_Description_Beutl_Logging", resourceCulture);
             }
         }
         

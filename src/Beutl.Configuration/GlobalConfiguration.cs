@@ -65,7 +65,7 @@ public sealed class GlobalConfiguration
 
             var json = new JsonObject()
             {
-                ["Version"] = GitVersionInformation.SemVer
+                ["Version"] = GitVersionInformation.NuGetVersionV2
             };
 
             var fontNode = new JsonObject();

@@ -300,4 +300,10 @@ Enabling this setting may make the border invisible.</value>
   <data name="EnablePointerLockInProperty_Description" xml:space="preserve">
     <value>Hides the cursor during drag operations in the Property Editor. (Windows only)</value>
   </data>
+  <data name="Telemetry_Beutl_Logging" xml:space="preserve">
+    <value>Logging</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_Logging" xml:space="preserve">
+    <value>More detailed usage information is collected. The logs sent are also stored under the ".beutl/log" directory.</value>
+  </data>
 </root>

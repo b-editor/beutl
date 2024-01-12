@@ -61,15 +61,6 @@ namespace Beutl.ExceptionHandler.Properties {
         }
         
         /// <summary>
-        ///   Cancel に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Cancel {
-            get {
-                return ResourceManager.GetString("Cancel", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Close に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Close {
@@ -82,21 +73,11 @@ namespace Beutl.ExceptionHandler.Properties {
         ///   Sorry.
         ///An error occurred that was not handled correctly by Beutl.
         ///
-        ///It would be helpful if you could send us the log for future improvement.
-        ///The content to be sent will include the device ID. に類似しているローカライズされた文字列を検索します。
+        ///If telemetry collection is enabled, logs are collected automatically. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Content {
             get {
                 return ResourceManager.GetString("Content", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Could not send log. に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string CouldNotSendLog {
-            get {
-                return ResourceManager.GetString("CouldNotSendLog", resourceCulture);
             }
         }
         
@@ -124,24 +105,6 @@ namespace Beutl.ExceptionHandler.Properties {
         public static string MoreDetails {
             get {
                 return ResourceManager.GetString("MoreDetails", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Send Log に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string SendLog {
-            get {
-                return ResourceManager.GetString("SendLog", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   I have sent the log, thank you for your cooperation. に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string SentTheLogThankYou {
-            get {
-                return ResourceManager.GetString("SentTheLogThankYou", resourceCulture);
             }
         }
         

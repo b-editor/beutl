@@ -66,6 +66,14 @@
                                       Theme="{StaticResource CompactToggleSwitchStyle}" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.Telemetry_Description_Beutl_Logging}" Header="{x:Static lang:SettingsPage.Telemetry_Beutl_Logging}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{Binding Beutl_Logging.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
             </StackPanel>
         </ScrollViewer>
     </Grid>

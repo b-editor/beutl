@@ -43,6 +43,7 @@
     <PackageReference Include="PanelExtension" />
     <PackageReference Include="ReactiveProperty" />
     <PackageReference Include="Serilog.Extensions.Logging" />
+    <PackageReference Include="Serilog.Sinks.ApplicationInsights" />
     <PackageReference Include="Serilog.Sinks.Async" />
     <PackageReference Include="Serilog.Sinks.File" />
     <PackageReference Include="Serilog.Sinks.Debug" />

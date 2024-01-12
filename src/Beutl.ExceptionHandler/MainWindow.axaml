@@ -52,12 +52,6 @@
                            Text="{Binding Content.Value}"
                            TextWrapping="Wrap" />
 
-                <ProgressBar Name="ProgressBar"
-                             Grid.Row="3"
-                             IsVisible="{Binding IsBusy.Value}"
-                             Maximum="100"
-                             Value="{Binding Progress.Value}" />
-
                 <ItemsControl Name="CommandsHost" Grid.Row="4">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -93,12 +87,9 @@
                 Padding="{StaticResource TaskDialogButtonHostMargin}"
                 Background="{DynamicResource TaskDialogButtonAreaBackground}">
             <uip:TaskDialogButtonsPanel KeyboardNavigation.TabNavigation="Continue" Spacing="8">
-                <uip:TaskDialogButtonHost Classes="accent"
-                                          Command="{Binding SendLog}"
-                                          Content="{x:Static lang:Resources.SendLog}"
-                                          IsVisible="{Binding !Sent.Value}" />
-
-                <uip:TaskDialogButtonHost x:Name="CloseButton" Click="OnCloseClick" />
+                <uip:TaskDialogButtonHost x:Name="CloseButton"
+                                          Click="OnCloseClick"
+                                          Content="{x:Static lang:Resources.Close}" />
             </uip:TaskDialogButtonsPanel>
         </Border>
     </Grid>
