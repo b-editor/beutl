@@ -42,7 +42,7 @@ public sealed class InfomationPageViewModel : PageContext
             });
     }
 
-    public string CurrentVersion { get; } = GitVersionInformation.SemVer;
+    public string CurrentVersion { get; } = GitVersionInformation.NuGetVersion;
 
     public string BuildMetadata { get; } = GitVersionInformation.FullBuildMetaData;
 

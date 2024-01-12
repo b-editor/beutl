@@ -8,10 +8,6 @@ using Beutl.Configuration;
 using Beutl.Rendering;
 using Beutl.Services;
 
-using Microsoft.Extensions.Logging;
-
-using Serilog;
-
 namespace Beutl;
 
 internal static class Program
@@ -35,9 +31,6 @@ internal static class Program
         ProfileOptimization.StartProfile("beutl.jitprofile");
 
         WaitForExitOtherProcesses();
-
-        SetupLogger();
-        Log.Information("After setup logger");
 
         UnhandledExceptionHandler.Initialize();
 
@@ -94,28 +87,11 @@ internal static class Program
             {
                 DefaultFamilyName = Media.FontManager.Instance.DefaultTypeface.FontFamily.Name
             })
+            .AfterSetup(_ => Telemetry.CompressLogFiles())
 #if DEBUG
             .LogToTrace();
 #else
             ;
 #endif
-    }
-
-    private static void SetupLogger()
-    {
-        string logFile = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "log", "log.txt");
-        const string OutputTemplate = "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SourceContext:l}] {Message:lj}{NewLine}{Exception}";
-        Log.Logger = new LoggerConfiguration()
-            .Enrich.FromLogContext()
-#if DEBUG
-            .MinimumLevel.Verbose()
-            .WriteTo.Debug(outputTemplate: OutputTemplate)
-#else
-            .MinimumLevel.Debug()
-#endif
-            .WriteTo.Async(b => b.File(logFile, outputTemplate: OutputTemplate, shared: true, rollingInterval: RollingInterval.Day))
-            .CreateLogger();
-
-        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(builder => builder.AddSerilog(Log.Logger, true));
     }
 }
