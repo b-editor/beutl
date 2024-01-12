@@ -155,7 +155,8 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             _videoFrame->linesize);
 
         _videoFrame->pts = _videoNowFrame++;
-        _videoFrame->key_frame = 0;
+        //_videoFrame->key_frame = 0;
+        _videoFrame->flags &= ~ffmpeg.AV_FRAME_FLAG_KEY;
         _videoFrame->pict_type = AVPictureType.AV_PICTURE_TYPE_NONE;
 
         PushFrame(_videoCodecContext, _videoStream, _videoFrame, _videoPacket);
