@@ -18,6 +18,7 @@ public sealed class SetterPropertyImpl<T>(Setter<T> setter, Type implementedType
         public AnimationObservable(Setter<T> setter)
         {
             _setter = setter;
+            _prevAnimation = setter.Animation;
         }
 
         protected override void Subscribed(IObserver<IAnimation<T>?> observer, bool first)
