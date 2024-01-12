@@ -50,6 +50,11 @@ public sealed class PackageManager(
 
     public IReadOnlyList<LocalPackage> GetLocalSourcePackages()
     {
+        if (!Directory.Exists(Helper.LocalSourcePath))
+        {
+            return [];
+        }
+
         string[] files = Directory.GetFiles(Helper.LocalSourcePath, "*.nupkg");
         var list = new List<LocalPackage>(files.Length);
 
