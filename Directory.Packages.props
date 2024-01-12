@@ -18,7 +18,7 @@
     <PackageVersion Include="coverlet.collector" Version="6.0.0" />
     <PackageVersion Include="DeviceId" Version="6.6.0" />
     <PackageVersion Include="DynamicData" Version="8.3.27" />
-    <PackageVersion Include="FFmpeg.AutoGen" Version="6.0.0.2" />
+    <PackageVersion Include="FFmpeg.AutoGen" Version="6.1.0" />
     <PackageVersion Include="FluentAvalonia.BreadcrumbBar" Version="2.0.2" />
     <PackageVersion Include="FluentAvaloniaUI" Version="2.0.4" />
     <PackageVersion Include="FluentIcons.FluentAvalonia" Version="1.1.224" />
