@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Runtime.CompilerServices;
 
 using Avalonia;
 using Avalonia.Animation;
@@ -15,6 +16,12 @@ using Avalonia.VisualTree;
 using Beutl.Controls.Extensions;
 
 namespace Beutl.Controls;
+
+internal partial class TabItemAccessor
+{
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "set_TabStripPlacement")]
+    public static extern void SetTabStripPlacement(TabItem obj, Dock? value);
+}
 
 // AuraTabViewをカスタマイズしました。
 [PseudoClasses(":selected")]
@@ -79,10 +86,26 @@ public partial class BcTabView : TabControl
 
     protected override Control CreateContainerForItemOverride(object item, int index, object recycleKey)
     {
-        return new BcTabItem();
+        var obj = new BcTabItem();
+        TabItemAccessor.SetTabStripPlacement(obj, TabStripPlacement);
+        return obj;
     }
 
-    protected override void PrepareContainerForItemOverride(Control element, object item, int index) => base.PrepareContainerForItemOverride(element, item, index);
+    protected override bool NeedsContainerOverride(object item, int index, out object recycleKey)
+    {
+        return NeedsContainer<BcTabItem>(item, out recycleKey);
+    }
+
+    protected override void PrepareContainerForItemOverride(Control element, object item, int index)
+    {
+        base.PrepareContainerForItemOverride(element, item, index);
+
+        // Todo: Avalonia 11.0.6
+        if (element is TabItem tabItem)
+        {
+            TabItemAccessor.SetTabStripPlacement(tabItem, TabStripPlacement);
+        }
+    }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
