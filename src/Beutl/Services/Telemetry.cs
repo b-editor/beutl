@@ -105,7 +105,7 @@ internal static partial class Telemetry
         int pid = Environment.ProcessId;
 
         string logDir = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "log");
-        string logFile = Path.Combine(logDir, $"log-{timestamp}-{pid}.txt");
+        string logFile = Path.Combine(logDir, $"log{timestamp}-{pid}.txt");
         const string OutputTemplate = "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SourceContext:l}] {Message:lj}{NewLine}{Exception}";
         LoggerConfiguration config = new LoggerConfiguration()
             .Enrich.FromLogContext();
@@ -142,7 +142,6 @@ internal static partial class Telemetry
                         string logDir = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "log");
                         if (Directory.Exists(logDir))
                         {
-                            DateTime now = DateTime.UtcNow;
                             var files = Directory.GetFiles(logDir).ToList();
                             files.Sort((x, y) => string.Compare(x, y, StringComparison.OrdinalIgnoreCase));
 
@@ -157,7 +156,6 @@ internal static partial class Telemetry
                                     }
                                     catch (Exception e)
                                     {
-                                        log.Error(e, "Failed to delete a log file.");
                                     }
                                 }
 
@@ -204,7 +202,6 @@ internal static partial class Telemetry
         }
         catch (Exception e)
         {
-            logger.Error(e, "Failed to compress a log file.");
         }
     }
 }
