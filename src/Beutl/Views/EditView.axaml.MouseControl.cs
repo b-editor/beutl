@@ -1,13 +1,26 @@
-﻿using Avalonia.Controls;
+﻿using System.Runtime.InteropServices;
+
+using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 
 using Beutl.Animation;
 using Beutl.Commands;
 using Beutl.Controls;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
+using Beutl.Helpers;
+using Beutl.Media;
+using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
+using Beutl.Rendering;
+using Beutl.Services;
 using Beutl.ViewModels;
+
+using FluentAvalonia.UI.Controls;
+
+using SkiaSharp;
 
 using AvaImage = Avalonia.Controls.Image;
 using AvaPoint = Avalonia.Point;
@@ -15,7 +28,7 @@ using AvaRect = Avalonia.Rect;
 
 namespace Beutl.Views;
 
-static file class CommandHelper
+file static class CommandHelper
 {
     public static IRecordableCommand? Compose(IRecordableCommand? first, IRecordableCommand? second)
     {
@@ -407,12 +420,142 @@ public partial class EditView
             }
         }
 
+        private static Bitmap<Bgra8888> CropFrame(Bitmap<Bgra8888> frame, Rect rect)
+        {
+            var pxRect = PixelRect.FromRect(rect);
+            var bounds = new PixelRect(0, 0, frame.Width, frame.Height);
+            if (bounds.Contains(pxRect))
+            {
+                return frame[pxRect];
+            }
+            else
+            {
+                PixelRect intersect = bounds.Intersect(pxRect);
+                using Bitmap<Bgra8888> intersectBitmap = frame[intersect];
+                var result = new Bitmap<Bgra8888>(pxRect.Width, pxRect.Height);
+
+                PixelPoint leftTop = intersect.Position - pxRect.Position;
+                result[new PixelRect(leftTop.X, leftTop.Y, intersect.Width, intersect.Height)] = intersectBitmap;
+
+                return result;
+            }
+        }
+
+        private async void OnCopyAsImageClicked(Rect rect)
+        {
+            try
+            {
+                EditViewModel viewModel = ViewModel;
+                Scene scene = ViewModel.Scene;
+                Task<Bitmap<Bgra8888>> renderTask = viewModel.Player.DrawFrame();
+
+                FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
+
+                using Bitmap<Bgra8888> frame = await renderTask;
+                using Bitmap<Bgra8888> croped = CropFrame(frame, rect);
+
+                await WindowsClipboard.CopyImage(croped);
+            }
+            catch (Exception ex)
+            {
+                Telemetry.Exception(ex);
+                s_logger.Error(ex, "Failed to save image.");
+                NotificationService.ShowError(Message.Failed_to_save_image, ex.Message);
+            }
+        }
+
         public void OnReleased(PointerReleasedEventArgs e)
         {
             if (_pressed)
             {
-                Rect rect = new Rect(_start.ToBtlPoint(), _position.ToBtlPoint()).Normalize();
-                ViewModel.Player.TcsForCrop?.SetResult(rect);
+                float scale = ViewModel.Scene.Width / (float)Image.Bounds.Width;
+                Rect rect = new Rect(_start.ToBtlPoint() * scale, _position.ToBtlPoint() * scale).Normalize();
+
+                if (ViewModel.Player.TcsForCrop == null)
+                {
+                    var copyAsString = new MenuFlyoutItem()
+                    {
+                        Text = "選択範囲をコピー",
+                        IconSource = new SymbolIconSource()
+                        {
+                            Symbol = Symbol.Copy
+                        }
+                    };
+                    var saveAsImage = new MenuFlyoutItem()
+                    {
+                        Text = "選択範囲を画像として保存",
+                        IconSource = new SymbolIconSource()
+                        {
+                            Symbol = Symbol.SaveAs
+                        }
+                    };
+                    copyAsString.Click += (s, e) =>
+                    {
+                        if (TopLevel.GetTopLevel(Player) is { Clipboard: { } clipboard })
+                        {
+                            clipboard.SetTextAsync(rect.ToString());
+                        }
+                    };
+                    saveAsImage.Click += async (s, e) =>
+                    {
+                        if (TopLevel.GetTopLevel(Player)?.StorageProvider is { } storage)
+                        {
+                            try
+                            {
+                                EditViewModel viewModel = ViewModel;
+                                Scene scene = ViewModel.Scene;
+                                Task<Bitmap<Bgra8888>> renderTask = viewModel.Player.DrawFrame();
+
+                                FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
+                                string addtional = Path.GetFileNameWithoutExtension(scene.FileName);
+                                IStorageFile? file = await SaveImageFilePicker(addtional, storage);
+
+                                if (file != null)
+                                {
+                                    using Bitmap<Bgra8888> frame = await renderTask;
+                                    using Bitmap<Bgra8888> croped = CropFrame(frame, rect);
+
+                                    await SaveImage(file, croped);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Telemetry.Exception(ex);
+                                s_logger.Error(ex, "Failed to save image.");
+                                NotificationService.ShowError(Message.Failed_to_save_image, ex.Message);
+                            }
+                        }
+                    };
+
+                    var list = new List<MenuFlyoutItem>();
+                    if (OperatingSystem.IsWindows())
+                    {
+                        var copyAsImage = new MenuFlyoutItem()
+                        {
+                            Text = "選択範囲を画像としてコピー",
+                            IconSource = new SymbolIconSource()
+                            {
+                                Symbol = Symbol.ImageCopy
+                            }
+                        };
+                        copyAsImage.Click += (s, e) => OnCopyAsImageClicked(rect);
+
+                        list.Add(copyAsImage);
+                    }
+                    list.AddRange([copyAsString, saveAsImage]);
+
+                    var f = new FAMenuFlyout
+                    {
+                        ItemsSource = list
+                    };
+
+                    f.ShowAt(Player, true);
+                }
+                else
+                {
+                    ViewModel.Player.TcsForCrop?.SetResult(rect);
+                }
+
                 ViewModel.Player.LastSelectedRect = rect;
 
                 if (_border != null)

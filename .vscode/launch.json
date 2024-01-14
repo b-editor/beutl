@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/src/Beutl/bin/Debug/net7.0/Beutl.dll",
+            "program": "${workspaceFolder}/src/Beutl/bin/Debug/net8.0/Beutl.dll",
             "args": [],
             "cwd": "${workspaceFolder}/src/Beutl",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
