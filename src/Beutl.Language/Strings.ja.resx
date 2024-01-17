@@ -1006,4 +1006,10 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="ColorKey" xml:space="preserve">
     <value>カラーキー</value>
   </data>
+  <data name="SaveAsImage" xml:space="preserve">
+    <value>画像として保存</value>
+  </data>
+  <data name="CopyAsImage" xml:space="preserve">
+    <value>画像としてコピー</value>
+  </data>
 </root>

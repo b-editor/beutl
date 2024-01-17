@@ -1,8 +1,5 @@
-﻿using System.Runtime.InteropServices;
-
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 
 using Beutl.Animation;
@@ -14,13 +11,10 @@ using Beutl.Helpers;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
-using Beutl.Rendering;
 using Beutl.Services;
 using Beutl.ViewModels;
 
 using FluentAvalonia.UI.Controls;
-
-using SkiaSharp;
 
 using AvaImage = Avalonia.Controls.Image;
 using AvaPoint = Avalonia.Point;
@@ -475,7 +469,7 @@ public partial class EditView
                 {
                     var copyAsString = new MenuFlyoutItem()
                     {
-                        Text = "選択範囲をコピー",
+                        Text = Strings.Copy,
                         IconSource = new SymbolIconSource()
                         {
                             Symbol = Symbol.Copy
@@ -483,7 +477,7 @@ public partial class EditView
                     };
                     var saveAsImage = new MenuFlyoutItem()
                     {
-                        Text = "選択範囲を画像として保存",
+                        Text = Strings.SaveAsImage,
                         IconSource = new SymbolIconSource()
                         {
                             Symbol = Symbol.SaveAs
@@ -532,7 +526,7 @@ public partial class EditView
                     {
                         var copyAsImage = new MenuFlyoutItem()
                         {
-                            Text = "選択範囲を画像としてコピー",
+                            Text = Strings.CopyAsImage,
                             IconSource = new SymbolIconSource()
                             {
                                 Symbol = Symbol.ImageCopy
