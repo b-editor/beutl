@@ -570,10 +570,7 @@ public class Scene : ProjectItem
 
     private int NearestLayerNumber(Element element)
     {
-        if (Children.Any(i => !(i.ZIndex != element.ZIndex
-            || i.Range.Intersects(element.Range)
-            || i.Range.Contains(element.Range)
-            || element.Range.Contains(i.Range))))
+        if (IsOverlapping(element.Range, element.ZIndex))
         {
             int layerMax = Children.Max(i => i.ZIndex);
 
@@ -665,19 +662,31 @@ public class Scene : ProjectItem
         return (beforeTmp, afterTmp, coverTmp);
     }
 
+    private bool IsOverlapping(TimeRange timeRange, int zindex)
+    {
+        return Children.Any(i =>
+        {
+            if (i.ZIndex == zindex)
+            {
+                if (i.Range == timeRange
+                    || i.Range.Intersects(timeRange)
+                    || i.Range.Contains(timeRange)
+                    || timeRange.Contains(i.Range))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        });
+    }
+
     private (TimeRange Range, int ZIndex) GetCorrectPosition(Element element, ElementOverlapHandling handling)
     {
-        bool IsOverlapping(TimeRange timeRange, int zindex)
-        {
-            return !Children.Any(i => !(i.ZIndex != zindex
-                || i.Range.Intersects(timeRange)
-                || i.Range.Contains(timeRange)
-                || timeRange.Contains(i.Range)));
-        }
-
         bool overlapping = IsOverlapping(element.Range, element.ZIndex);
 
-        if (!overlapping || handling.HasFlag(ElementOverlapHandling.Allow)) return (element.Range, element.ZIndex);
+        if (!overlapping || handling.HasFlag(ElementOverlapHandling.Allow))
+            return (element.Range, element.ZIndex);
 
         if (handling == ElementOverlapHandling.ThrowException)
             throw new InvalidOperationException("要素の位置が無効です");
@@ -701,7 +710,7 @@ public class Scene : ProjectItem
             foreach (TimeSpan cEnd in candidateEnd)
             {
                 TimeRange range = TimeRange.FromRange(start, cEnd);
-                if (range.Duration > TimeSpan.Zero && IsOverlapping(range, element.ZIndex))
+                if (range.Duration > TimeSpan.Zero && !IsOverlapping(range, element.ZIndex))
                 {
                     return (range, element.ZIndex);
                 }
@@ -709,7 +718,7 @@ public class Scene : ProjectItem
                 foreach (TimeSpan cStart in candidateStart)
                 {
                     range = TimeRange.FromRange(cStart, cEnd);
-                    if (range.Duration > TimeSpan.Zero && IsOverlapping(range, element.ZIndex))
+                    if (range.Duration > TimeSpan.Zero && !IsOverlapping(range, element.ZIndex))
                     {
                         return (range, element.ZIndex);
                     }
@@ -722,7 +731,7 @@ public class Scene : ProjectItem
             foreach (TimeSpan item in candidateEnd)
             {
                 TimeRange range = TimeRange.FromRange(start, item);
-                if (range.Duration > TimeSpan.Zero && IsOverlapping(range, element.ZIndex))
+                if (range.Duration > TimeSpan.Zero && !IsOverlapping(range, element.ZIndex))
                 {
                     return (range, element.ZIndex);
                 }
@@ -734,7 +743,7 @@ public class Scene : ProjectItem
             foreach (TimeSpan item in candidateStart)
             {
                 TimeRange range = TimeRange.FromRange(item, end);
-                if (range.Duration > TimeSpan.Zero && IsOverlapping(range, element.ZIndex))
+                if (range.Duration > TimeSpan.Zero && !IsOverlapping(range, element.ZIndex))
                 {
                     return (range, element.ZIndex);
                 }
