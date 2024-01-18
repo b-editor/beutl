@@ -93,13 +93,33 @@ public sealed partial class Timeline : UserControl
     {
         _viewModel = vm;
 
-        vm.Elements.ForEachItem(
+        TimelinePanel.Children.AddRange(vm.Elements.SelectMany(e =>
+        {
+            return new Control[]
+            {
+                new ElementView
+                {
+                    DataContext = e
+                },
+                new ElementScopeView
+                {
+                    DataContext = e.Scope
+                }
+            };
+        }));
+
+        TimelinePanel.Children.AddRange(vm.Inlines.Select(e => new InlineAnimationLayer
+        {
+            DataContext = e
+        }));
+
+        vm.Elements.TrackCollectionChanged(
             AddElement,
             RemoveElement,
             () => { })
             .DisposeWith(_disposables);
 
-        vm.Inlines.ForEachItem(
+        vm.Inlines.TrackCollectionChanged(
             OnAddedInline,
             OnRemovedInline,
             () => { })
@@ -136,42 +156,42 @@ public sealed partial class Timeline : UserControl
     {
         try
         {
-                if (TopLevel.GetTopLevel(this) is { Clipboard: IClipboard clipboard })
-                {
-                    string[] formats = await clipboard.GetFormatsAsync();
+            if (TopLevel.GetTopLevel(this) is { Clipboard: IClipboard clipboard })
+            {
+                string[] formats = await clipboard.GetFormatsAsync();
 
                 if (formats.Contains(Constants.Element))
+                {
+                    string? json = await clipboard.GetTextAsync();
+                    if (json != null)
                     {
-                        string? json = await clipboard.GetTextAsync();
-                        if (json != null)
+                        var oldElement = new Element();
+
+                        var context = new JsonSerializationContext(
+                            oldElement.GetType(), NullSerializationErrorNotifier.Instance, json: JsonNode.Parse(json)!.AsObject());
+                        using (ThreadLocalSerializationContext.Enter(context))
                         {
-                            var oldElement = new Element();
+                            oldElement.Deserialize(context);
+                        }
 
-                            var context = new JsonSerializationContext(
-                                oldElement.GetType(), NullSerializationErrorNotifier.Instance, json: JsonNode.Parse(json)!.AsObject());
-                            using (ThreadLocalSerializationContext.Enter(context))
-                            {
-                                oldElement.Deserialize(context);
-                            }
+                        CoreObjectReborn.Reborn(oldElement, out Element newElement);
 
-                            CoreObjectReborn.Reborn(oldElement, out Element newElement);
+                        newElement.Start = ViewModel.ClickedFrame;
+                        newElement.ZIndex = ViewModel.CalculateClickedLayer();
 
-                            newElement.Start = ViewModel.ClickedFrame;
-                            newElement.ZIndex = ViewModel.CalculateClickedLayer();
+                        newElement.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.ElementFileExtension));
 
-                            newElement.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.ElementFileExtension));
-
-                            ViewModel.Scene.AddChild(newElement).DoAndRecord(CommandRecorder.Default);
+                        ViewModel.Scene.AddChild(newElement).DoAndRecord(CommandRecorder.Default);
 
                         ScrollTimelinePosition(newElement.Range, newElement.ZIndex);
-                        }
                     }
+                }
                 else
                 {
                     string[] imageFormats = ["image/png", "PNG", "image/jpeg", "image/jpg"];
 
                     if (Array.Find(imageFormats, i => formats.Contains(i)) is { } matchFormat)
-            {
+                    {
                         object? imageData = await clipboard.GetDataAsync(matchFormat);
                         Stream? stream = null;
                         if (imageData is byte[] byteArray)
@@ -180,7 +200,7 @@ public sealed partial class Timeline : UserControl
                             stream = st;
 
                         if (stream?.CanRead != true)
-                {
+                        {
                             NotificationService.ShowWarning(
                                 "タイムライン",
                                 $"この画像データはペーストできません\nFormats: [{string.Join(", ", formats)}]");
@@ -196,9 +216,9 @@ public sealed partial class Timeline : UserControl
                             }
                             string imageFile = RandomFileNameGenerator.Generate(resDir, "png");
                             using (var bmp = Bitmap<Bgra8888>.FromStream(stream))
-                    {
+                            {
                                 bmp.Save(imageFile, Graphics.EncodedImageFormat.Png);
-                    }
+                            }
 
                             var sp = new SourceImageOperator
                             {
@@ -225,10 +245,10 @@ public sealed partial class Timeline : UserControl
             }
         }
         catch (Exception ex)
-                {
+        {
             Telemetry.Exception(ex);
             NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, ex.Message);
-                }
+        }
     }
 
     protected override void OnLoaded(RoutedEventArgs e)
@@ -677,7 +697,7 @@ public sealed partial class Timeline : UserControl
                 {
                     Offset = new Vector2((float)newOffsetX, (float)newOffsetY)
                 };
+            }
         }
     }
-}
 }
