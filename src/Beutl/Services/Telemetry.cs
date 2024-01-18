@@ -154,7 +154,7 @@ internal static partial class Telemetry
                                     {
                                         File.Delete(item);
                                     }
-                                    catch (Exception e)
+                                    catch
                                     {
                                     }
                                 }
@@ -167,7 +167,7 @@ internal static partial class Telemetry
                                 int compressCount = files.Count - 5;
                                 foreach (string? item in files.Take(compressCount))
                                 {
-                                    ReplaceCompressedFile(item, log);
+                                    ReplaceCompressedFile(item);
                                 }
 
                                 files.RemoveRange(0, compressCount);
@@ -187,7 +187,7 @@ internal static partial class Telemetry
         });
     }
 
-    private static void ReplaceCompressedFile(string file, Serilog.ILogger logger)
+    private static void ReplaceCompressedFile(string file)
     {
         try
         {
@@ -200,7 +200,7 @@ internal static partial class Telemetry
 
             File.Delete(file);
         }
-        catch (Exception e)
+        catch
         {
         }
     }

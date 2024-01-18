@@ -1,4 +1,5 @@
 ﻿using System.Collections.Specialized;
+using System.Diagnostics;
 using System.Text.Json.Nodes;
 
 using Beutl.Collections;
@@ -70,6 +71,9 @@ public sealed class Project : Hierarchical, IStorable
 
     public void Restore(string filename)
     {
+        using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Restore");
+        activity?.SetTag("filenameHash", filename.GetMD5Hash());
+
         _fileName = filename;
         _rootDirectory = Path.GetDirectoryName(filename);
 
@@ -81,6 +85,9 @@ public sealed class Project : Hierarchical, IStorable
 
     public void Save(string filename)
     {
+        using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Save");
+        activity?.SetTag("filenameHash", filename.GetMD5Hash());
+
         _fileName = filename;
         _rootDirectory = Path.GetDirectoryName(filename);
         LastSavedTime = DateTime.UtcNow;
@@ -155,6 +162,7 @@ public sealed class Project : Hierarchical, IStorable
 
     public override void Deserialize(ICoreSerializationContext context)
     {
+        using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Serialize");
         base.Deserialize(context);
 
         AppVersion = context.GetValue<string>("appVersion") ?? AppVersion;
@@ -170,10 +178,19 @@ public sealed class Project : Hierarchical, IStorable
                 Variables.Add(item);
             }
         }
+
+        activity?.SetTag("appVersion", AppVersion);
+        activity?.SetTag("minAppVersion", MinAppVersion);
+        activity?.SetTag("itemsCount", Items.Count);
     }
 
     public override void Serialize(ICoreSerializationContext context)
     {
+        using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Serialize");
+        activity?.SetTag("appVersion", AppVersion);
+        activity?.SetTag("minAppVersion", MinAppVersion);
+        activity?.SetTag("itemsCount", Items.Count);
+
         base.Serialize(context);
 
         context.SetValue("appVersion", AppVersion);
