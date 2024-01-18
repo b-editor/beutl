@@ -11,6 +11,7 @@ using Avalonia.Input.Platform;
 using Beutl.Animation;
 using Beutl.Commands;
 using Beutl.Configuration;
+using Beutl.Media;
 using Beutl.Models;
 using Beutl.Operators.Configure;
 using Beutl.ProjectSystem;
@@ -183,6 +184,8 @@ public sealed class TimelineViewModel : IToolContext
     public CoreList<LayerHeaderViewModel> LayerHeaders { get; } = [];
 
     public ReactiveCommand Paste { get; } = new();
+
+    public ReactiveCommand<(TimeRange Range, int ZIndex)> ScrollTo { get; } = new();
 
     public ReactiveCommandSlim AdjustDurationToPointer { get; } = new();
 

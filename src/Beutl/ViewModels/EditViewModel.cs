@@ -8,6 +8,7 @@ using Beutl.Animation;
 using Beutl.Api.Services;
 using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
+using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.Models;
@@ -502,9 +503,12 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 }
             }
         }
+        TimelineViewModel? timeline = FindToolTab<TimelineViewModel>();
 
         if (desc.FileName != null)
         {
+            (TimeRange Range, int ZIndex)? scrollPos = null;
+
             Element CreateElementFor<T>(out T t)
                 where T : SourceOperator, new()
             {
@@ -527,6 +531,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
                 element.Save(element.FileName);
                 list.Add(Scene.AddChild(element));
+                scrollPos = (element.Range, element.ZIndex);
             }
             else if (MatchFileVideoOnly(desc.FileName))
             {
@@ -547,6 +552,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 element2.Save(element2.FileName);
                 list.Add(Scene.AddChild(element1));
                 list.Add(Scene.AddChild(element2));
+                scrollPos = (element1.Range, element1.ZIndex);
             }
             else if (MatchFileAudioOnly(desc.FileName))
             {
@@ -560,11 +566,17 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
                 element.Save(element.FileName);
                 list.Add(Scene.AddChild(element));
+                scrollPos = (element.Range, element.ZIndex);
             }
 
             list.ToArray()
                 .ToCommand()
                 .DoAndRecord(CommandRecorder.Default);
+
+            if (scrollPos.HasValue && timeline != null)
+            {
+                timeline?.ScrollTo.Execute(scrollPos.Value);
+            }
         }
         else
         {
@@ -587,6 +599,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
             element.Save(element.FileName);
             Scene.AddChild(element).DoAndRecord(CommandRecorder.Default);
+
+            timeline?.ScrollTo.Execute((element.Range, element.ZIndex));
         }
     }
 
