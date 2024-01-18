@@ -1,0 +1,25 @@
+<wnd:AppWindow x:Class="Beutl.KeyModifierMonitor"
+               xmlns="https://github.com/avaloniaui"
+               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+               xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+               xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+               xmlns:ui="using:FluentAvalonia.UI.Controls"
+               xmlns:wnd="using:FluentAvalonia.UI.Windowing"
+               Title="KeyModifierMonitor"
+               CanResize="False"
+               ShowAsDialog="True"
+               SizeToContent="WidthAndHeight"
+               Topmost="True"
+               mc:Ignorable="d">
+    <StackPanel x:Name="Host"
+                Margin="16"
+                Orientation="Horizontal"
+                Spacing="8">
+        <StackPanel.Styles>
+            <Style Selector="Button">
+                <Setter Property="FontSize" Value="20" />
+                <Setter Property="IsHitTestVisible" Value="False" />
+            </Style>
+        </StackPanel.Styles>
+    </StackPanel>
+</wnd:AppWindow>

@@ -264,6 +264,15 @@ public sealed partial class MainView : UserControl
                     """);
     }
 
+    [Conditional("DEBUG")]
+    private void MonitorKeyModifier_Click(object? sender, RoutedEventArgs e)
+    {
+        if(TopLevel.GetTopLevel(this) is Window owner)
+        {
+            new KeyModifierMonitor().Show(owner);
+        }
+    }
+
     private void GoToInfomationPage(object? sender, RoutedEventArgs e)
     {
         if (DataContext is MainViewModel viewModel)
