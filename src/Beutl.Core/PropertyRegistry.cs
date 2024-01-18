@@ -166,20 +166,17 @@ public static class PropertyRegistry
             if (!s_registered.TryGetValue(type, out Dictionary<int, CoreProperty>? inner))
             {
                 inner = new Dictionary<int, CoreProperty>
-            {
-                { property.Id, property },
-            };
+                {
+                    { property.Id, property },
+                };
                 s_registered.Add(type, inner);
             }
-            else if (!inner.ContainsKey(property.Id))
+            else
             {
-                inner.Add(property.Id, property);
+                inner.TryAdd(property.Id, property);
             }
 
-            if (!s_properties.ContainsKey(property.Id))
-            {
-                s_properties.Add(property.Id, property);
-            }
+            s_properties.TryAdd(property.Id, property);
 
             s_registeredCache.Clear();
         }
