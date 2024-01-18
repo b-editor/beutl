@@ -2,11 +2,14 @@
 using System.Text.Json.Nodes;
 
 using Avalonia;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
 using Avalonia.Threading;
 
 using Beutl.Helpers;
@@ -42,6 +45,7 @@ public sealed partial class Timeline : UserControl
     private readonly CompositeDisposable _disposables = [];
     private ElementView? _selectedElement;
     private readonly List<(ElementViewModel Element, bool IsSelectedOriginal)> _rangeSelection = [];
+    private CancellationTokenSource? _scrollCts;
 
     public Timeline()
     {
@@ -104,6 +108,8 @@ public sealed partial class Timeline : UserControl
         ViewModel.Paste.Subscribe(PasteCore)
             .DisposeWith(_disposables);
 
+        ViewModel.ScrollTo.Subscribe(v => ScrollTimelinePosition(v.Range, v.ZIndex))
+            .DisposeWith(_disposables);
 
         ViewModel.EditorContext.SelectedObject.Subscribe(e =>
             {
@@ -156,6 +162,8 @@ public sealed partial class Timeline : UserControl
                             newElement.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.ElementFileExtension));
 
                             ViewModel.Scene.AddChild(newElement).DoAndRecord(CommandRecorder.Default);
+
+                        ScrollTimelinePosition(newElement.Range, newElement.ZIndex);
                         }
                     }
                 else
@@ -209,6 +217,8 @@ public sealed partial class Timeline : UserControl
                             newElement.Save(RandomFileNameGenerator.Generate(dir, Constants.ElementFileExtension));
 
                             ViewModel.Scene.AddChild(newElement).DoAndRecord(CommandRecorder.Default);
+
+                            ScrollTimelinePosition(newElement.Range, newElement.ZIndex);
                         }
                     }
                 }
@@ -602,4 +612,72 @@ public sealed partial class Timeline : UserControl
             };
         }
     }
+
+    private async void ScrollTimelinePosition(TimeRange range, int zindex)
+    {
+        if (DataContext is TimelineViewModel viewModel)
+        {
+            const double Spacing = 40;
+
+            float scale = viewModel.Options.Value.Scale;
+            Size viewport = ContentScroll.Viewport - new Size(Spacing * 2, 0);
+            Avalonia.Vector offset = ContentScroll.Offset + new Avalonia.Vector(Spacing, 0);
+
+            var start = offset.X.ToTimeSpan(scale);
+            var length = viewport.Width.ToTimeSpan(scale);
+            int startZIndex = viewModel.ToLayerNumber(offset.Y);
+            int endZIndex = viewModel.ToLayerNumber(offset.Y + viewport.Height);
+
+            double newOffsetX = ContentScroll.Offset.X;
+            double newOffsetY = ContentScroll.Offset.Y;
+
+            if (!range.Intersects(new TimeRange(start, length)))
+            {
+                newOffsetX = range.Start.ToPixel(scale) - Spacing;
+            }
+
+            if (!(startZIndex <= zindex && zindex <= endZIndex))
+            {
+                newOffsetY = viewModel.CalculateLayerTop(zindex);
+            }
+
+            _scrollCts?.Cancel();
+            _scrollCts = new CancellationTokenSource();
+            var anm = new Avalonia.Animation.Animation
+            {
+                Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
+                Duration = TimeSpan.FromSeconds(0.5),
+                FillMode = FillMode.None,
+                Children =
+                {
+                    new KeyFrame()
+                    {
+                        Cue = new Cue(0),
+                        Setters =
+                        {
+                            new Setter(ScrollViewer.OffsetProperty, ContentScroll.Offset),
+                        }
+                    },
+                    new KeyFrame()
+                    {
+                        Cue = new Cue(1),
+                        Setters =
+                        {
+                            new Setter(ScrollViewer.OffsetProperty, new Avalonia.Vector(newOffsetX, newOffsetY)),
+                        }
+                    }
+                }
+            };
+            await anm.RunAsync(ContentScroll, _scrollCts.Token);
+            ContentScroll.ClearValue(ScrollViewer.OffsetProperty);
+            ContentScroll.Offset = new Avalonia.Vector(newOffsetX, newOffsetY);
+            if (!_scrollCts.IsCancellationRequested)
+            {
+                viewModel.Options.Value = viewModel.Options.Value with
+                {
+                    Offset = new Vector2((float)newOffsetX, (float)newOffsetY)
+                };
+        }
+    }
+}
 }
