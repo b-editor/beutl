@@ -313,10 +313,18 @@ Error:
                 })
                 .DisposeWith(_disposables);
 
-            vm.Player.IsHandMode
+            vm.Player.IsHandMode.CombineLatest(vm.Player.IsCropMode)
                 .ObserveOnUIDispatcher()
                 .Where(_ => Player.GetFramePanel() != null)
-                .Subscribe(v => Player.GetFramePanel().Cursor = v ? Cursors.Hand : null)
+                .Subscribe(t =>
+                {
+                    if (t.First)
+                        Player.GetFramePanel().Cursor = Cursors.Hand;
+                    else if (t.Second)
+                        Player.GetFramePanel().Cursor = Cursors.Cross;
+                    else
+                        Player.GetFramePanel().Cursor = null;
+                })
                 .DisposeWith(_disposables);
         }
     }

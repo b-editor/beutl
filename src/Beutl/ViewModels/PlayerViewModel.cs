@@ -142,12 +142,16 @@ public sealed class PlayerViewModel : IDisposable
 
     public ReactivePropertySlim<bool> IsHandMode { get; } = new(false);
 
+    public ReactivePropertySlim<bool> IsCropMode { get; } = new(false);
+
     public ReactivePropertySlim<Matrix> FrameMatrix { get; } = new(Matrix.Identity);
 
     public event EventHandler? PreviewInvalidated;
 
     // View側から設定
     public Size MaxFrameSize { get; set; }
+
+    public Rect LastSelectedRect { get; set; }
 
     public async void Play()
     {
@@ -540,6 +544,17 @@ public sealed class PlayerViewModel : IDisposable
         PreviewInvalidated = null;
         Scene = null!;
     }
+
+    public async Task<Rect> StartSelectRect()
+    {
+        TcsForCrop = new TaskCompletionSource<Rect>();
+        IsCropMode.Value = true;
+        Rect r = await TcsForCrop.Task;
+        TcsForCrop = null;
+        return r;
+    }
+
+    public TaskCompletionSource<Rect>? TcsForCrop { get; private set; }
 
     public Task<Bitmap<Bgra8888>> DrawSelectedDrawable(Drawable drawable)
     {

@@ -1,20 +1,28 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Platform.Storage;
 
 using Beutl.Animation;
 using Beutl.Commands;
 using Beutl.Controls;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
+using Beutl.Helpers;
+using Beutl.Media;
+using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Beutl.ViewModels;
+
+using FluentAvalonia.UI.Controls;
 
 using AvaImage = Avalonia.Controls.Image;
 using AvaPoint = Avalonia.Point;
+using AvaRect = Avalonia.Rect;
 
 namespace Beutl.Views;
 
-static file class CommandHelper
+file static class CommandHelper
 {
     public static IRecordableCommand? Compose(IRecordableCommand? first, IRecordableCommand? second)
     {
@@ -373,6 +381,217 @@ public partial class EditView
         }
     }
 
+    private sealed class MouseControlCrop : IMouseControlHandler
+    {
+        private bool _pressed;
+        private AvaPoint _start;
+        private AvaPoint _position;
+        private AvaPoint _startInPanel;
+        private AvaPoint _positionInPanel;
+        private Border? _border;
+
+        public required Player Player { get; init; }
+
+        public required AvaImage Image { get; init; }
+
+        public required EditViewModel ViewModel { get; init; }
+
+        public void OnMoved(PointerEventArgs e)
+        {
+            if (_pressed)
+            {
+                _position = e.GetPosition(Image);
+                _positionInPanel = e.GetPosition(Player.GetFramePanel());
+                if (_border != null)
+                {
+                    AvaRect rect = new AvaRect(_startInPanel, _positionInPanel).Normalize();
+                    _border.Margin = new(rect.X, rect.Y, 0, 0);
+                    _border.Width = rect.Width;
+                    _border.Height = rect.Height;
+                }
+
+                e.Handled = true;
+            }
+        }
+
+        private static Bitmap<Bgra8888> CropFrame(Bitmap<Bgra8888> frame, Rect rect)
+        {
+            var pxRect = PixelRect.FromRect(rect);
+            var bounds = new PixelRect(0, 0, frame.Width, frame.Height);
+            if (bounds.Contains(pxRect))
+            {
+                return frame[pxRect];
+            }
+            else
+            {
+                PixelRect intersect = bounds.Intersect(pxRect);
+                using Bitmap<Bgra8888> intersectBitmap = frame[intersect];
+                var result = new Bitmap<Bgra8888>(pxRect.Width, pxRect.Height);
+
+                PixelPoint leftTop = intersect.Position - pxRect.Position;
+                result[new PixelRect(leftTop.X, leftTop.Y, intersect.Width, intersect.Height)] = intersectBitmap;
+
+                return result;
+            }
+        }
+
+        private async void OnCopyAsImageClicked(Rect rect)
+        {
+            try
+            {
+                EditViewModel viewModel = ViewModel;
+                Scene scene = ViewModel.Scene;
+                Task<Bitmap<Bgra8888>> renderTask = viewModel.Player.DrawFrame();
+
+                FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
+
+                using Bitmap<Bgra8888> frame = await renderTask;
+                using Bitmap<Bgra8888> croped = CropFrame(frame, rect);
+
+                await WindowsClipboard.CopyImage(croped);
+            }
+            catch (Exception ex)
+            {
+                Telemetry.Exception(ex);
+                s_logger.Error(ex, "Failed to save image.");
+                NotificationService.ShowError(Message.Failed_to_save_image, ex.Message);
+            }
+        }
+
+        public void OnReleased(PointerReleasedEventArgs e)
+        {
+            if (_pressed)
+            {
+                float scale = ViewModel.Scene.Width / (float)Image.Bounds.Width;
+                Rect rect = new Rect(_start.ToBtlPoint() * scale, _position.ToBtlPoint() * scale).Normalize();
+
+                if (ViewModel.Player.TcsForCrop == null)
+                {
+                    var copyAsString = new MenuFlyoutItem()
+                    {
+                        Text = Strings.Copy,
+                        IconSource = new SymbolIconSource()
+                        {
+                            Symbol = Symbol.Copy
+                        }
+                    };
+                    var saveAsImage = new MenuFlyoutItem()
+                    {
+                        Text = Strings.SaveAsImage,
+                        IconSource = new SymbolIconSource()
+                        {
+                            Symbol = Symbol.SaveAs
+                        }
+                    };
+                    copyAsString.Click += (s, e) =>
+                    {
+                        if (TopLevel.GetTopLevel(Player) is { Clipboard: { } clipboard })
+                        {
+                            clipboard.SetTextAsync(rect.ToString());
+                        }
+                    };
+                    saveAsImage.Click += async (s, e) =>
+                    {
+                        if (TopLevel.GetTopLevel(Player)?.StorageProvider is { } storage)
+                        {
+                            try
+                            {
+                                EditViewModel viewModel = ViewModel;
+                                Scene scene = ViewModel.Scene;
+                                Task<Bitmap<Bgra8888>> renderTask = viewModel.Player.DrawFrame();
+
+                                FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
+                                string addtional = Path.GetFileNameWithoutExtension(scene.FileName);
+                                IStorageFile? file = await SaveImageFilePicker(addtional, storage);
+
+                                if (file != null)
+                                {
+                                    using Bitmap<Bgra8888> frame = await renderTask;
+                                    using Bitmap<Bgra8888> croped = CropFrame(frame, rect);
+
+                                    await SaveImage(file, croped);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Telemetry.Exception(ex);
+                                s_logger.Error(ex, "Failed to save image.");
+                                NotificationService.ShowError(Message.Failed_to_save_image, ex.Message);
+                            }
+                        }
+                    };
+
+                    var list = new List<MenuFlyoutItem>();
+                    if (OperatingSystem.IsWindows())
+                    {
+                        var copyAsImage = new MenuFlyoutItem()
+                        {
+                            Text = Strings.CopyAsImage,
+                            IconSource = new SymbolIconSource()
+                            {
+                                Symbol = Symbol.ImageCopy
+                            }
+                        };
+                        copyAsImage.Click += (s, e) => OnCopyAsImageClicked(rect);
+
+                        list.Add(copyAsImage);
+                    }
+                    list.AddRange([copyAsString, saveAsImage]);
+
+                    var f = new FAMenuFlyout
+                    {
+                        ItemsSource = list
+                    };
+
+                    f.ShowAt(Player, true);
+                }
+                else
+                {
+                    ViewModel.Player.TcsForCrop?.SetResult(rect);
+                }
+
+                ViewModel.Player.LastSelectedRect = rect;
+
+                if (_border != null)
+                {
+                    Player.GetFramePanel().Children.Remove(_border);
+                    _border = null;
+                }
+
+                _pressed = false;
+            }
+        }
+
+
+        public void OnPressed(PointerPressedEventArgs e)
+        {
+            PointerPoint pointerPoint = e.GetCurrentPoint(Image);
+            _pressed = pointerPoint.Properties.IsLeftButtonPressed;
+            _start = pointerPoint.Position;
+            Panel panel = Player.GetFramePanel();
+            _startInPanel = e.GetCurrentPoint(panel).Position;
+            if (_pressed)
+            {
+                _border = panel.Children.OfType<Border>().FirstOrDefault(x => x.Tag is nameof(MouseControlCrop));
+                if (_border == null)
+                {
+                    _border = new()
+                    {
+                        Tag = nameof(MouseControlCrop),
+                        BorderBrush = TimelineSharedObject.SelectionPen.Brush,
+                        BorderThickness = new(0.5),
+                        Background = TimelineSharedObject.SelectionFillBrush,
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top
+                    };
+                    panel.Children.Add(_border);
+                }
+
+                e.Handled = true;
+            }
+        }
+    }
+
     private readonly WeakReference<Drawable?> _lastSelected = new(null);
     private IMouseControlHandler? _mouseState;
 
@@ -405,13 +624,22 @@ public partial class EditView
                 viewModel = viewModel
             };
         }
-        else
+        else if (viewModel.Player.IsHandMode.Value)
         {
             return new MouseControlHand
             {
                 Player = Player,
                 Image = Image,
                 viewModel = viewModel
+            };
+        }
+        else
+        {
+            return new MouseControlCrop
+            {
+                Player = Player,
+                Image = Image,
+                ViewModel = viewModel
             };
         }
     }

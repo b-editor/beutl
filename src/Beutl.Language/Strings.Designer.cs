@@ -592,6 +592,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Copy as image に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CopyAsImage {
+            get {
+                return ResourceManager.GetString("CopyAsImage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Corner Radius に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string CornerRadius {
@@ -2155,6 +2164,15 @@ namespace Beutl.Language {
         public static string SaveAs {
             get {
                 return ResourceManager.GetString("SaveAs", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Save as image に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SaveAsImage {
+            get {
+                return ResourceManager.GetString("SaveAsImage", resourceCulture);
             }
         }
         

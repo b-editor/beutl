@@ -1006,4 +1006,10 @@ and b-editor maintains the download URL.</value>
   <data name="ColorKey" xml:space="preserve">
     <value>Color key</value>
   </data>
+  <data name="SaveAsImage" xml:space="preserve">
+    <value>Save as image</value>
+  </data>
+  <data name="CopyAsImage" xml:space="preserve">
+    <value>Copy as image</value>
+  </data>
 </root>
