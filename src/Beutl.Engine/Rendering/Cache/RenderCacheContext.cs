@@ -7,12 +7,15 @@ using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
 
+using Microsoft.Extensions.Logging;
+
 using SkiaSharp;
 
 namespace Beutl.Rendering.Cache;
 
 public sealed class RenderCacheContext : IDisposable
 {
+    private readonly ILogger<RenderCacheContext> _logger = BeutlApplication.Current.LoggerFactory.CreateLogger<RenderCacheContext>();
     private readonly ConditionalWeakTable<IGraphicNode, RenderCache> _table = [];
     private RenderCacheOptions _cacheOptions = new();
 
@@ -140,8 +143,12 @@ public sealed class RenderCacheContext : IDisposable
         if (size.Width <= 0 || size.Height <= 0)
             return;
 
-        // 上のreturnでガードされているのでnullableを消す
-        SKSurface surface = factory.CreateRenderTarget(size.Width, size.Height)!;
+        SKSurface? surface = factory.CreateRenderTarget(size.Width, size.Height);
+        if (surface == null)
+        {
+            _logger.LogWarning("CreateRenderTarget returns null. ({Width}x{Height})", size.Width, size.Height);
+            return;
+        }
 
         using (ImmediateCanvas canvas = factory.CreateCanvas(surface, true))
         {
