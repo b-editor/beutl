@@ -1,0 +1,50 @@
+<UserControl x:Class="Beutl.Views.LibraryViews.SearchView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.ViewModels"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="viewModel:LibraryViewModel"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,8,*">
+        <TextBox x:Name="SearchBox"
+                 Classes="clearButton"
+                 InputMethod.IsInputMethodEnabled="True"
+                 Watermark="{x:Static lang:Strings.Search}" />
+
+        <ListBox x:Name="searchResult"
+                 Grid.Row="2"
+                 ItemsSource="{Binding AllItems}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel DataContext="{Binding Value}" Spacing="2">
+                        <TextBlock Text="{Binding FullDisplayName}" TextTrimming="{x:Static TextTrimming.LeadingCharacterEllipsis}" />
+                        <WrapPanel Orientation="Horizontal">
+                            <WrapPanel.Styles>
+                                <Style Selector="TextBlock">
+                                    <Setter Property="Theme" Value="{StaticResource LabelTextBlockStyle}" />
+                                    <Setter Property="FontSize" Value="12" />
+                                </Style>
+                            </WrapPanel.Styles>
+                            <TextBlock IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding Description}" />
+                            <TextBlock Text=" | ">
+                                <TextBlock.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                        <Binding Converter="{x:Static StringConverters.IsNotNullOrEmpty}" Path="Description" />
+                                        <Binding Converter="{x:Static StringConverters.IsNotNullOrEmpty}" Path="Type" />
+                                    </MultiBinding>
+                                </TextBlock.IsVisible>
+                            </TextBlock>
+                            <TextBlock IsVisible="{Binding Type, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding Type}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</UserControl>

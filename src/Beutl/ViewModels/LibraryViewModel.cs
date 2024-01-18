@@ -1,13 +1,17 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 
 using Beutl.Animation.Easings;
+using Beutl.Configuration;
 using Beutl.NodeTree;
 using Beutl.Services;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels;
 
@@ -213,6 +217,7 @@ public class LibraryItemViewModel
 
 public sealed class LibraryViewModel : IDisposable
 {
+    private readonly CompositeDisposable _disposables = [];
     private readonly Nito.AsyncEx.AsyncLock _asyncLock = new();
 
     public LibraryViewModel(EditViewModel editViewModel)
@@ -277,6 +282,10 @@ public sealed class LibraryViewModel : IDisposable
 
     public int SelectedTab { get; set; } = 2;
 
+    [SuppressMessage("Performance", "CA1822:メンバーを static に設定します")]
+    public CoreDictionary<string, LibraryNavigationDisplayMode> LibraryNavigationDisplayModes
+        => GlobalConfiguration.Instance.EditorConfig.LibraryNavigationDisplayModes;
+
     private void AddAllItems(List<LibraryItemViewModel> items)
     {
         foreach (LibraryItemViewModel innerItem in items)
@@ -318,6 +327,7 @@ public sealed class LibraryViewModel : IDisposable
 
     public void Dispose()
     {
+        _disposables.Dispose();
         Easings.Clear();
         LibraryItems.Clear();
         Nodes.Clear();
