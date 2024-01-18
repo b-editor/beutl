@@ -503,13 +503,12 @@ public class Scene : ProjectItem
             Children.Remove(item);
         }
 
-        foreach (string item in toBeAdded)
+        Children.AddRange(toBeAdded.AsParallel().Select(item =>
         {
             var element = new Element();
             element.Restore(item);
-
-            Children.Add(element);
-        }
+            return element;
+        }));
     }
 
     private void UpdateInclude()
