@@ -70,14 +70,20 @@ internal static class ArrayTypeHelpers
         {
             elementType = arrayType.GetElementType();
         }
-        else if (!s_elementTypes.TryGetValue(arrayType, out elementType))
+        else
         {
-            Type[] interfaces = arrayType.GetInterfaces();
-            if (interfaces.FirstOrDefault(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-                 is { } interfaceType)
+            lock (s_elementTypes)
             {
-                elementType = interfaceType.GetGenericArguments()[0];
-                s_elementTypes.Add(arrayType, elementType);
+                if (!s_elementTypes.TryGetValue(arrayType, out elementType))
+                {
+                    Type[] interfaces = arrayType.GetInterfaces();
+                    if (interfaces.FirstOrDefault(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+                         is { } interfaceType)
+                    {
+                        elementType = interfaceType.GetGenericArguments()[0];
+                        s_elementTypes.Add(arrayType, elementType);
+                    }
+                }
             }
         }
 
@@ -88,18 +94,21 @@ internal static class ArrayTypeHelpers
     {
         if (GetElementType(dictType) is Type elementType)
         {
-            if (!s_genericArgsTypes.TryGetValue(elementType, out (Type Key, Type Value) result))
+            lock (s_genericArgsTypes)
             {
-                if (elementType.IsGenericType
-                    && elementType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+                if (!s_genericArgsTypes.TryGetValue(elementType, out (Type Key, Type Value) result))
                 {
-                    Type[] args = elementType.GetGenericArguments();
-                    result = (args[0], args[1]);
-                    s_genericArgsTypes.Add(elementType, result);
+                    if (elementType.IsGenericType
+                        && elementType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+                    {
+                        Type[] args = elementType.GetGenericArguments();
+                        result = (args[0], args[1]);
+                        s_genericArgsTypes.Add(elementType, result);
+                    }
                 }
-            }
 
-            return result;
+                return result;
+            }
         }
 
         return default;
