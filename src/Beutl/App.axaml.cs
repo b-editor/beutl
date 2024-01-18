@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using System.Reactive.Concurrency;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
@@ -96,7 +98,7 @@ public sealed class App : Application
             LibraryRegistrar.RegisterAll,
             NodesRegistrar.RegisterAll);
 
-        ReactivePropertyScheduler.SetDefault(AvaloniaScheduler.Instance);
+        ReactivePropertyScheduler.SetDefault(ImmediateScheduler.Instance);
     }
 
     public override void OnFrameworkInitializationCompleted()
