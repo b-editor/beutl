@@ -9,8 +9,12 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 
+using Beutl.Helpers;
 using Beutl.Media;
+using Beutl.Media.Pixel;
+using Beutl.Media.Source;
 using Beutl.Models;
+using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
@@ -97,13 +101,40 @@ public sealed partial class Timeline : UserControl
             () => { })
             .DisposeWith(_disposables);
 
-        ViewModel.Paste.Subscribe(async () =>
+        ViewModel.Paste.Subscribe(PasteCore)
+            .DisposeWith(_disposables);
+
+
+        ViewModel.EditorContext.SelectedObject.Subscribe(e =>
             {
+                if (_selectedElement != null)
+                {
+                    foreach (ElementViewModel item in ViewModel.Elements.GetMarshal().Value)
+                    {
+                        item.IsSelected.Value = false;
+                    }
+
+                    _selectedElement = null;
+                }
+
+                if (e is Element element && FindElementView(element) is ElementView { DataContext: ElementViewModel viewModel } newView)
+                {
+                    viewModel.IsSelected.Value = true;
+                    _selectedElement = newView;
+                }
+            })
+            .DisposeWith(_disposables);
+    }
+
+    private async void PasteCore()
+    {
+        try
+        {
                 if (TopLevel.GetTopLevel(this) is { Clipboard: IClipboard clipboard })
                 {
                     string[] formats = await clipboard.GetFormatsAsync();
 
-                    if (formats.AsSpan().Contains(Constants.Element))
+                if (formats.Contains(Constants.Element))
                     {
                         string? json = await clipboard.GetTextAsync();
                         if (json != null)
@@ -127,29 +158,67 @@ public sealed partial class Timeline : UserControl
                             ViewModel.Scene.AddChild(newElement).DoAndRecord(CommandRecorder.Default);
                         }
                     }
-                }
-            })
-            .DisposeWith(_disposables);
-
-        ViewModel.EditorContext.SelectedObject.Subscribe(e =>
-            {
-                if (_selectedElement != null)
+                else
                 {
-                    foreach (ElementViewModel item in ViewModel.Elements.GetMarshal().Value)
+                    string[] imageFormats = ["image/png", "PNG", "image/jpeg", "image/jpg"];
+
+                    if (Array.Find(imageFormats, i => formats.Contains(i)) is { } matchFormat)
+            {
+                        object? imageData = await clipboard.GetDataAsync(matchFormat);
+                        Stream? stream = null;
+                        if (imageData is byte[] byteArray)
+                            stream = new MemoryStream(byteArray);
+                        else if (imageData is Stream st)
+                            stream = st;
+
+                        if (stream?.CanRead != true)
+                {
+                            NotificationService.ShowWarning(
+                                "タイムライン",
+                                $"この画像データはペーストできません\nFormats: [{string.Join(", ", formats)}]");
+                        }
+                        else
+                        {
+                            string dir = Path.GetDirectoryName(ViewModel.Scene.FileName)!;
+                            // 画像を保存
+                            string resDir = Path.Combine(dir, "resources");
+                            if (!Directory.Exists(resDir))
+                            {
+                                Directory.CreateDirectory(resDir);
+                            }
+                            string imageFile = RandomFileNameGenerator.Generate(resDir, "png");
+                            using (var bmp = Bitmap<Bgra8888>.FromStream(stream))
                     {
-                        item.IsSelected.Value = false;
+                                bmp.Save(imageFile, Graphics.EncodedImageFormat.Png);
                     }
 
-                    _selectedElement = null;
-                }
+                            var sp = new SourceImageOperator
+                            {
+                                Source = { Value = BitmapSource.Open(imageFile) }
+                            };
+                            var newElement = new Element
+                            {
+                                Start = ViewModel.ClickedFrame,
+                                Length = TimeSpan.FromSeconds(5),
+                                ZIndex = ViewModel.CalculateClickedLayer(),
+                                Operation = { Children = { sp } },
+                                AccentColor = ColorGenerator.GenerateColor(typeof(SourceImageOperator).FullName!),
+                                Name = Path.GetFileName(imageFile)
+                            };
 
-                if (e is Element element && FindElementView(element) is ElementView { DataContext: ElementViewModel viewModel } newView)
-                {
-                    viewModel.IsSelected.Value = true;
-                    _selectedElement = newView;
+                            newElement.Save(RandomFileNameGenerator.Generate(dir, Constants.ElementFileExtension));
+
+                            ViewModel.Scene.AddChild(newElement).DoAndRecord(CommandRecorder.Default);
+                        }
+                    }
                 }
-            })
-            .DisposeWith(_disposables);
+            }
+        }
+        catch (Exception ex)
+                {
+            Telemetry.Exception(ex);
+            NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, ex.Message);
+                }
     }
 
     protected override void OnLoaded(RoutedEventArgs e)
