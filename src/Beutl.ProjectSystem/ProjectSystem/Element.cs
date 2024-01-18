@@ -327,7 +327,7 @@ public class Element : ProjectItem
             Element? beforeTmp = null;
             Element? afterTmp = null;
             Element? coverTmp = null;
-            var range = new TimeRange(start, end - start);
+            var range = TimeRange.FromRange(start, end);
 
             foreach (Element? item in scene.Children.GetMarshal().Value)
             {
@@ -345,7 +345,7 @@ public class Element : ProjectItem
                         afterTmp = item;
                     }
 
-                    if (range.Contains(item.Range))
+                    if (range.Contains(item.Range) || range == item.Range)
                     {
                         coverTmp = item;
                     }
@@ -382,7 +382,7 @@ public class Element : ProjectItem
                         afterTmp = item;
                     }
 
-                    if (range.Contains(item.Range))
+                    if (range.Contains(item.Range) || range == item.Range)
                     {
                         coverTmp = item;
                     }
