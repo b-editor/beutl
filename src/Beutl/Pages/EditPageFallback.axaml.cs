@@ -6,10 +6,13 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 using Beutl.Configuration;
+using Beutl.Helpers;
 using Beutl.Models;
+using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.Views;
 
@@ -19,6 +22,8 @@ using DynamicData.Binding;
 
 using FluentAvalonia.Styling;
 using FluentAvalonia.UI.Controls;
+
+using Serilog;
 
 namespace Beutl.Pages;
 
@@ -136,17 +141,50 @@ public partial class EditPageFallback : UserControl
         }
     }
 
+    private static IDisposable ShowWaitDialog(string projectFile)
+    {
+        return OutProcessDialog.Show(
+            title: "プロジェクトを開いています",
+            subtitle: "しばらくお待ちください。",
+            content: $"'{Path.GetFileName(projectFile)}'を開いています。\nしばらくお待ちください。",
+            icon: "Info",
+            progress: true);
+    }
+
     private void OpenRecentFile(string fileName)
     {
         ExecuteMainViewModelCommand(viewModel =>
         {
-            if (fileName.EndsWith($".{Constants.ProjectFileExtension}"))
+            using Activity? activity = Telemetry.StartActivity("EditPageFallback.OpenRecentFile");
+
+            ITimer? timer = null;
+            IDisposable? closeDialog = null;
+            timer = TimeProvider.System.CreateTimer(_ =>
             {
-                viewModel.MenuBar.OpenRecentProject.Execute(fileName);
+                closeDialog = ShowWaitDialog(fileName);
+                activity?.AddEvent(new("WaitDialogShown"));
+                timer?.Dispose();
+            }, null, TimeSpan.Zero, TimeSpan.FromSeconds(3));
+
+            try
+            {
+                if (fileName.EndsWith($".{Constants.ProjectFileExtension}"))
+                {
+                    viewModel.MenuBar.OpenRecentProject.Execute(fileName);
+                }
+                else
+                {
+                    viewModel.MenuBar.OpenRecentFile.Execute(fileName);
+                }
             }
-            else
+            finally
             {
-                viewModel.MenuBar.OpenRecentFile.Execute(fileName);
+                Dispatcher.UIThread.Invoke(() =>
+                {
+                    activity?.AddEvent(new("InputResumed"));
+                    timer?.Dispose();
+                    closeDialog?.Dispose();
+                }, DispatcherPriority.Input);
             }
         });
     }
