@@ -2,6 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Numerics;
 using System.Reflection;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Beutl.Validation;
@@ -11,6 +12,7 @@ namespace Beutl;
 public class CorePropertyMetadata<T> : CorePropertyMetadata
 {
     private Optional<T> _defaultValue;
+    private JsonSerializerOptions? _serializerOptions;
 
     public CorePropertyMetadata(
         Optional<T> defaultValue = default,
@@ -31,6 +33,24 @@ public class CorePropertyMetadata<T> : CorePropertyMetadata
     public JsonConverter<T>? JsonConverter { get; private set; }
 
     public override Type PropertyType => typeof(T);
+
+    public JsonSerializerOptions GetSerializerOptions()
+    {
+        if (JsonConverter == null)
+        {
+            return JsonHelper.SerializerOptions;
+        }
+
+        if (_serializerOptions == null)
+        {
+            var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
+
+            options.Converters.Add(JsonConverter);
+            _serializerOptions = options;
+        }
+
+        return _serializerOptions;
+    }
 
     private static IValidator<T> ConvertValidator(ValidationAttribute att)
     {
@@ -93,6 +113,7 @@ public class CorePropertyMetadata<T> : CorePropertyMetadata
     public override void Merge(ICorePropertyMetadata baseMetadata, CoreProperty? property)
     {
         base.Merge(baseMetadata, property);
+        _serializerOptions = null;
 
         if (baseMetadata is CorePropertyMetadata<T> baseT)
         {

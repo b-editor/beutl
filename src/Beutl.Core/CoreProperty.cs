@@ -252,6 +252,7 @@ public class CoreProperty<T>(
     }
 
     [ObsoleteSerializationApi]
+    [SuppressMessage("Performance", "CA1869:'JsonSerializerOptions' インスタンスをキャッシュして再利用する", Justification = "<保留中>")]
     internal override JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value)
     {
         var typedMetadata = (CorePropertyMetadata<T>)metadata;
@@ -284,6 +285,7 @@ public class CoreProperty<T>(
     }
 
     [ObsoleteSerializationApi]
+    [SuppressMessage("Performance", "CA1869:'JsonSerializerOptions' インスタンスをキャッシュして再利用する", Justification = "<保留中>")]
     internal override object? RouteReadFromJson(CorePropertyMetadata metadata, JsonNode? node)
     {
         var typedMetadata = (CorePropertyMetadata<T>)metadata;
@@ -335,16 +337,12 @@ public class CoreProperty<T>(
         if (metadata.ShouldSerialize && (this is not IStaticProperty sprop || sprop.CanWrite))
         {
             if (context is IJsonSerializationContext jsonCtxt
-                && metadata.JsonConverter is { } jsonConverter)
+                && metadata.JsonConverter is { }
+                && value != null)
             {
-                var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
-
-                options.Converters.Add(jsonConverter);
-                if (value != null)
-                {
-                    JsonNode? node = JsonSerializer.SerializeToNode(value, PropertyType, options);
-                    jsonCtxt.SetNode(Name, PropertyType, value.GetType(), node);
-                }
+                JsonSerializerOptions options = metadata.GetSerializerOptions();
+                JsonNode? node = JsonSerializer.SerializeToNode(value, PropertyType, options);
+                jsonCtxt.SetNode(Name, PropertyType, value.GetType(), node);
             }
             else
             {
@@ -359,14 +357,12 @@ public class CoreProperty<T>(
         if (metadata.ShouldSerialize && (this is not IStaticProperty sprop || sprop.CanWrite))
         {
             if (context is IJsonSerializationContext jsonCtxt
-                && metadata.JsonConverter is { } jsonConverter)
+                && metadata.JsonConverter is { })
             {
                 Type type = PropertyType;
                 JsonNode? node = jsonCtxt.GetNode(Name);
 
-                var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
-
-                options.Converters.Add(jsonConverter);
+                JsonSerializerOptions options = metadata.GetSerializerOptions();
                 return JsonSerializer.Deserialize(node, type, options);
             }
 
