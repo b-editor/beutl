@@ -24,6 +24,7 @@ namespace Beutl.ViewModels;
 public sealed class ElementViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
+    private List<KeyBinding>? _keyBindings;
 
     public ElementViewModel(Element element, TimelineViewModel timeline)
     {
@@ -124,7 +125,6 @@ public sealed class ElementViewModel : IDisposable
             })
             .AddTo(_disposables);
 
-        KeyBindings = CreateKeyBinding();
         Scope = new ElementScopeViewModel(Model, this);
     }
 
@@ -185,7 +185,7 @@ public sealed class ElementViewModel : IDisposable
 
     public ReactiveCommand ChangeToOriginalLength { get; } = new();
 
-    public List<KeyBinding> KeyBindings { get; }
+    public List<KeyBinding> KeyBindings => _keyBindings ??= CreateKeyBinding();
 
     public void Dispose()
     {
