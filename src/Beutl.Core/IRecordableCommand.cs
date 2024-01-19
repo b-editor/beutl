@@ -62,7 +62,6 @@ public static class RecordableCommandExtensions
             {
                 return command.GetStorables()
                     .Concat(storables)
-                    .Distinct()
                     .ToImmutableArray();
             }
         }
@@ -112,7 +111,6 @@ public static class RecordableCommandExtensions
         {
             return command1.GetStorables()
                 .Concat(command2.GetStorables())
-                .Distinct()
                 .ToImmutableArray();
         }
 
@@ -167,7 +165,6 @@ public static class RecordableCommandExtensions
         {
             return commands.SelectMany(v => v.GetStorables())
                 .Concat(storables)
-                .Distinct()
                 .ToImmutableArray();
         }
 
