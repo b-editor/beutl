@@ -5,7 +5,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Configuration;
 
-public enum LibraryNavigationDisplayMode
+public enum LibraryTabDisplayMode
 {
     Show,
     Hide
@@ -29,7 +29,7 @@ public sealed class EditorConfig : ConfigurationBase
 
     public EditorConfig()
     {
-        LibraryNavigationDisplayModes.CollectionChanged += (_, _) => OnChanged();
+        LibraryTabDisplayModes.CollectionChanged += (_, _) => OnChanged();
     }
 
     public bool AutoAdjustSceneDuration
@@ -44,12 +44,12 @@ public sealed class EditorConfig : ConfigurationBase
         set => SetValue(EnablePointerLockInPropertyProperty, value);
     }
 
-    public CoreDictionary<string, LibraryNavigationDisplayMode> LibraryNavigationDisplayModes { get; } = new()
+    public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes { get; } = new()
     {
-        ["Search"] = LibraryNavigationDisplayMode.Show,
-        ["Easings"] = LibraryNavigationDisplayMode.Show,
-        ["Library"] = LibraryNavigationDisplayMode.Show,
-        ["Nodes"] = LibraryNavigationDisplayMode.Hide,
+        ["Search"] = LibraryTabDisplayMode.Show,
+        ["Easings"] = LibraryTabDisplayMode.Show,
+        ["Library"] = LibraryTabDisplayMode.Show,
+        ["Nodes"] = LibraryTabDisplayMode.Hide,
     };
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
@@ -65,21 +65,21 @@ public sealed class EditorConfig : ConfigurationBase
     {
         base.Serialize(context);
 
-        context.SetValue(nameof(LibraryNavigationDisplayModes), LibraryNavigationDisplayModes);
+        context.SetValue(nameof(LibraryTabDisplayModes), LibraryTabDisplayModes);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        Dictionary<string, LibraryNavigationDisplayMode>? items
-            = context.GetValue<Dictionary<string, LibraryNavigationDisplayMode>>(nameof(LibraryNavigationDisplayModes));
+        Dictionary<string, LibraryTabDisplayMode>? items
+            = context.GetValue<Dictionary<string, LibraryTabDisplayMode>>(nameof(LibraryTabDisplayModes));
 
         if (items != null)
         {
-            LibraryNavigationDisplayModes.Clear();
-            foreach (KeyValuePair<string, LibraryNavigationDisplayMode> item in items)
+            LibraryTabDisplayModes.Clear();
+            foreach (KeyValuePair<string, LibraryTabDisplayMode> item in items)
             {
-                LibraryNavigationDisplayModes.TryAdd(item.Key, item.Value);
+                LibraryTabDisplayModes.TryAdd(item.Key, item.Value);
             }
         }
     }

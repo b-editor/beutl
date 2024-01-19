@@ -283,8 +283,8 @@ public sealed class LibraryViewModel : IDisposable
     public int SelectedTab { get; set; } = 2;
 
     [SuppressMessage("Performance", "CA1822:メンバーを static に設定します")]
-    public CoreDictionary<string, LibraryNavigationDisplayMode> LibraryNavigationDisplayModes
-        => GlobalConfiguration.Instance.EditorConfig.LibraryNavigationDisplayModes;
+    public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes
+        => GlobalConfiguration.Instance.EditorConfig.LibraryTabDisplayModes;
 
     private void AddAllItems(List<LibraryItemViewModel> items)
     {

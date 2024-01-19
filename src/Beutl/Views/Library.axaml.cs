@@ -39,7 +39,7 @@ public sealed partial class Library : UserControl
                 var tabItem = new TabStripItem();
                 var binding = new Binding($"LibraryNavigationDisplayModes[{item.Id}]", BindingMode.OneWay)
                 {
-                    Converter = new FuncValueConverter<LibraryNavigationDisplayMode, bool>(v => v == LibraryNavigationDisplayMode.Show)
+                    Converter = new FuncValueConverter<LibraryTabDisplayMode, bool>(v => v == LibraryTabDisplayMode.Show)
                 };
                 tabItem.Bind(IsVisibleProperty, binding);
                 tabItem.Content = new StackPanel
@@ -59,8 +59,8 @@ public sealed partial class Library : UserControl
                 {
                     if (DataContext is LibraryViewModel viewModel)
                     {
-                        viewModel.LibraryNavigationDisplayModes[item.Id] = !switchMenu.IsChecked
-                            ? LibraryNavigationDisplayMode.Show : LibraryNavigationDisplayMode.Hide;
+                        viewModel.LibraryTabDisplayModes[item.Id] = !switchMenu.IsChecked
+                            ? LibraryTabDisplayMode.Show : LibraryTabDisplayMode.Hide;
                     }
                 };
                 tabItem.ContextFlyout = new FAMenuFlyout
@@ -78,7 +78,7 @@ public sealed partial class Library : UserControl
             {
                 var binding = new Binding($"LibraryNavigationDisplayModes[{item.Id}]", BindingMode.OneWay)
                 {
-                    Converter = new FuncValueConverter<LibraryNavigationDisplayMode, bool>(v => v == LibraryNavigationDisplayMode.Show)
+                    Converter = new FuncValueConverter<LibraryTabDisplayMode, bool>(v => v == LibraryTabDisplayMode.Show)
                 };
                 var switchMenu = new ToggleMenuFlyoutItem
                 {
@@ -89,8 +89,8 @@ public sealed partial class Library : UserControl
                 {
                     if (DataContext is LibraryViewModel viewModel)
                     {
-                        viewModel.LibraryNavigationDisplayModes[item.Id] = !switchMenu.IsChecked
-                            ? LibraryNavigationDisplayMode.Show : LibraryNavigationDisplayMode.Hide;
+                        viewModel.LibraryTabDisplayModes[item.Id] = !switchMenu.IsChecked
+                            ? LibraryTabDisplayMode.Show : LibraryTabDisplayMode.Hide;
                     }
                 };
                 return switchMenu;
