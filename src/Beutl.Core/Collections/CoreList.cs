@@ -344,7 +344,14 @@ public class CoreList<T> : ICoreList<T>
         {
             EnsureCapacity(Inner.Count + items.Length);
 
-            Inner.InsertRange(index, items.AsSpan());
+            int insertIndex = index;
+
+            // Inner.InsertRangeを使わない理由:
+            // CoreList<object[]> のとき、items に string[] が指定されるとArrayTypeMismatchExceptionが発生するから
+            for (int i = 0; i < items.Length; i++)
+            {
+                Inner.Insert(insertIndex++, items[i]);
+            }
 
             NotifyAdd((IList)items, index);
         }

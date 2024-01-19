@@ -1,4 +1,6 @@
-﻿using Beutl.Api;
+﻿using Avalonia.Threading;
+
+using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 
@@ -30,18 +32,18 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
                 Package[] items = await func(count, 30).ConfigureAwait(false);
                 if (count == 0)
                 {
-                    packages.Clear();
+                    await Dispatcher.UIThread.InvokeAsync(packages.Clear);
                 }
 
                 count += items.Length;
 
                 if (maxCount < count)
                 {
-                    packages.AddRange(items.Take(count - maxCount));
+                    await Dispatcher.UIThread.InvokeAsync(() => packages.AddRange(items.Take(count - maxCount)));
                 }
                 else
                 {
-                    packages.AddRange((IEnumerable<object>)items);
+                    await Dispatcher.UIThread.InvokeAsync(() => packages.AddRange(items));
                     prevCount = items.Length;
                 }
             } while (prevCount == 30 && maxCount > count);
