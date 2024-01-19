@@ -37,7 +37,7 @@ public sealed partial class Library : UserControl
             .Select(item =>
             {
                 var tabItem = new TabStripItem();
-                var binding = new Binding($"LibraryNavigationDisplayModes[{item.Id}]", BindingMode.OneWay)
+                var binding = new Binding($"{nameof(LibraryViewModel.LibraryTabDisplayModes)}[{item.Id}]", BindingMode.OneWay)
                 {
                     Converter = new FuncValueConverter<LibraryTabDisplayMode, bool>(v => v == LibraryTabDisplayMode.Show)
                 };
@@ -76,7 +76,7 @@ public sealed partial class Library : UserControl
         {
             ItemsSource = s_tabItems.Select(item =>
             {
-                var binding = new Binding($"LibraryNavigationDisplayModes[{item.Id}]", BindingMode.OneWay)
+                var binding = new Binding($"{nameof(LibraryViewModel.LibraryTabDisplayModes)}[{item.Id}]", BindingMode.OneWay)
                 {
                     Converter = new FuncValueConverter<LibraryTabDisplayMode, bool>(v => v == LibraryTabDisplayMode.Show)
                 };
