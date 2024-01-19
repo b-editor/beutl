@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
 using Avalonia;
@@ -23,7 +24,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     private bool _disposedValue;
     private IDisposable? _currentFrameRevoker;
     private bool _skipKeyFrameIndexSubscription;
-    private Element? _element;
+    internal Element? _element;
     private EditViewModel? _editViewModel;
     private IServiceProvider? _parentServices;
 
@@ -144,6 +145,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     [AllowNull]
     public PropertyEditorExtension Extension { get; set; }
+
+    protected ImmutableArray<IStorable?> GetStorables() => [_element];
 
     public void Dispose()
     {
@@ -303,11 +306,13 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         {
             if (EditingKeyFrame.Value != null)
             {
-                CommandRecorder.Default.DoAndPush(new SetKeyFrameValueCommand(EditingKeyFrame.Value, oldValue, newValue));
+                CommandRecorder.Default.DoAndPush(
+                    new SetKeyFrameValueCommand(EditingKeyFrame.Value, oldValue, newValue, GetStorables()));
             }
             else
             {
-                CommandRecorder.Default.DoAndPush(new SetCommand(WrappedProperty, oldValue, newValue));
+                CommandRecorder.Default.DoAndPush(
+                    new SetCommand(WrappedProperty, oldValue, newValue, GetStorables()));
             }
         }
     }
@@ -351,7 +356,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                     KeyTime = keyTime
                 };
 
-                var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe);
+                var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe, GetStorables());
                 command.DoAndRecord(CommandRecorder.Default);
 
                 int index = kfAnimation.KeyFrames.IndexOf(keyframe);
@@ -377,7 +382,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             {
                 kfAnimation.KeyFrames.BeginRecord<IKeyFrame>()
                     .Remove(keyframe)
-                    .ToCommand()
+                    .ToCommand(GetStorables())
                     .DoAndRecord(CommandRecorder.Default);
             }
         }
@@ -389,7 +394,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             && animatableProperty.Animation is not KeyFrameAnimation<T>
             && animatableProperty.GetCoreProperty() is CoreProperty<T> coreProperty)
         {
-            var command = new PrepareAnimationCommand(animatableProperty, coreProperty);
+            var command = new PrepareAnimationCommand(animatableProperty, coreProperty, GetStorables());
             command.DoAndRecord(CommandRecorder.Default);
         }
     }
@@ -398,13 +403,17 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (WrappedProperty is IAbstractAnimatableProperty<T> animatableProperty)
         {
-            var command = new RemoveAnimationCommand(animatableProperty);
+            var command = new RemoveAnimationCommand(animatableProperty, GetStorables());
             command.DoAndRecord(CommandRecorder.Default);
         }
     }
 
-    private sealed class SetCommand(IAbstractProperty<T> setter, T? oldValue, T? newValue) : IRecordableCommand
+    private sealed class SetCommand(
+        IAbstractProperty<T> setter, T? oldValue, T? newValue,
+        ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
+        public ImmutableArray<IStorable?> GetStorables() => storables;
+
         public void Do()
         {
             setter.SetValue(newValue);
@@ -421,8 +430,12 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         }
     }
 
-    private sealed class SetKeyFrameValueCommand(KeyFrame<T> setter, T? oldValue, T? newValue) : IRecordableCommand
+    private sealed class SetKeyFrameValueCommand(
+        KeyFrame<T> setter, T? oldValue, T? newValue,
+        ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
+        public ImmutableArray<IStorable?> GetStorables() => storables;
+
         public void Do()
         {
             setter.SetValue(KeyFrame<T>.ValueProperty, newValue);
@@ -439,8 +452,11 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         }
     }
 
-    private sealed class AddKeyFrameCommand(KeyFrames keyFrames, IKeyFrame keyFrame) : IRecordableCommand
+    private sealed class AddKeyFrameCommand(
+        KeyFrames keyFrames, IKeyFrame keyFrame, ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
+        public ImmutableArray<IStorable?> GetStorables() => storables;
+
         public void Do()
         {
             keyFrames.Add(keyFrame, out _);
@@ -460,12 +476,16 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     private sealed class PrepareAnimationCommand : IRecordableCommand
     {
         private readonly IAbstractAnimatableProperty<T> _property;
+        private readonly ImmutableArray<IStorable?> _storables;
         private readonly IAnimation<T>? _oldAnimation;
         private readonly KeyFrameAnimation<T>? _newAnimation;
 
-        public PrepareAnimationCommand(IAbstractAnimatableProperty<T> property, CoreProperty<T> coreProperty)
+        public PrepareAnimationCommand(
+            IAbstractAnimatableProperty<T> property, CoreProperty<T> coreProperty,
+            ImmutableArray<IStorable?> storables)
         {
             _property = property;
+            _storables = storables;
             _oldAnimation = _property.Animation;
             _newAnimation = new KeyFrameAnimation<T>(coreProperty);
             T initialValue = property.GetValue()!;
@@ -476,6 +496,8 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 KeyTime = TimeSpan.Zero
             });
         }
+
+        public ImmutableArray<IStorable?> GetStorables() => _storables;
 
         public void Do()
         {
@@ -496,13 +518,17 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     private sealed class RemoveAnimationCommand : IRecordableCommand
     {
         private readonly IAbstractAnimatableProperty<T> _property;
+        private readonly ImmutableArray<IStorable?> _storables;
         private readonly IAnimation<T>? _oldAnimation;
 
-        public RemoveAnimationCommand(IAbstractAnimatableProperty<T> property)
+        public RemoveAnimationCommand(IAbstractAnimatableProperty<T> property, ImmutableArray<IStorable?> storables)
         {
             _property = property;
+            _storables = storables;
             _oldAnimation = _property.Animation;
         }
+
+        public ImmutableArray<IStorable?> GetStorables() => _storables;
 
         public void Do()
         {

@@ -1,4 +1,5 @@
-﻿using System.ComponentModel;
+﻿using System.Collections.Immutable;
+using System.ComponentModel;
 
 namespace Beutl;
 
@@ -28,9 +29,9 @@ public sealed class PropertyChangeTracker : IDisposable
 
     public bool IsDisposed { get; private set; }
 
-    public IRecordableCommand ToCommand()
+    public IRecordableCommand ToCommand(ImmutableArray<IStorable?> storables)
     {
-        return new CommandImpl([.. _changes]);
+        return new CommandImpl([.. _changes], storables);
     }
 
     private void AddHandlers(ICoreObject obj, int currentDepth)
@@ -96,8 +97,10 @@ public sealed class PropertyChangeTracker : IDisposable
         }
     }
 
-    private sealed class CommandImpl(CorePropertyChangedEventArgs[] changes) : IRecordableCommand
+    private sealed class CommandImpl(CorePropertyChangedEventArgs[] changes, ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
+        public ImmutableArray<IStorable?> GetStorables() => storables;
+
         public void Do()
         {
             for (int i = 0; i < changes.Length; i++)

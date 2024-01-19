@@ -1,4 +1,6 @@
-﻿using Beutl.Animation;
+﻿using System.Collections.Immutable;
+
+using Beutl.Animation;
 using Beutl.Media.Source;
 
 using Reactive.Bindings;
@@ -23,21 +25,27 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
         {
             if (EditingKeyFrame.Value != null)
             {
-                CommandRecorder.Default.DoAndPush(new SetKeyFrameValueCommand(EditingKeyFrame.Value, oldValue, newValue));
+                CommandRecorder.Default.DoAndPush(
+                    new SetKeyFrameValueCommand(EditingKeyFrame.Value, oldValue, newValue, GetStorables()));
             }
             else
             {
-                CommandRecorder.Default.DoAndPush(new SetCommand(WrappedProperty, oldValue, newValue));
+                CommandRecorder.Default.DoAndPush(
+                    new SetCommand(WrappedProperty, oldValue, newValue, GetStorables()));
             }
         }
     }
 
-    private sealed class SetKeyFrameValueCommand(KeyFrame<IVideoSource?> setter, IVideoSource? oldValue, IVideoSource? newValue) : IRecordableCommand
+    private sealed class SetKeyFrameValueCommand(
+        KeyFrame<IVideoSource?> setter, IVideoSource? oldValue, IVideoSource? newValue,
+        ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
         private readonly string? _oldName = oldValue?.Name;
         private readonly string? _newName = newValue?.Name;
         private IVideoSource? _oldValue = oldValue;
         private IVideoSource? _newValue = newValue;
+
+        public ImmutableArray<IStorable?> GetStorables() => storables;
 
         public void Do()
         {
@@ -71,12 +79,16 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
         }
     }
 
-    private sealed class SetCommand(IAbstractProperty<IVideoSource?> setter, IVideoSource? oldValue, IVideoSource? newValue) : IRecordableCommand
+    private sealed class SetCommand(
+        IAbstractProperty<IVideoSource?> setter, IVideoSource? oldValue, IVideoSource? newValue,
+        ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
         private readonly string? _oldName = oldValue?.Name;
         private readonly string? _newName = newValue?.Name;
         private IVideoSource? _oldValue = oldValue;
         private IVideoSource? _newValue = newValue;
+
+        public ImmutableArray<IStorable?> GetStorables() => storables;
 
         public void Do()
         {

@@ -98,7 +98,7 @@ public sealed class ElementViewModel : IDisposable
             .AddTo(_disposables);
 
         Color.Skip(1)
-            .Subscribe(c => new ChangePropertyCommand<Media.Color>(Model, Element.AccentColorProperty, c.ToMedia(), Model.AccentColor)
+            .Subscribe(c => new ChangePropertyCommand<Media.Color>(Model, Element.AccentColorProperty, c.ToMedia(), Model.AccentColor, [Model])
                 .DoAndRecord(CommandRecorder.Default))
             .AddTo(_disposables);
 
@@ -368,9 +368,8 @@ public sealed class ElementViewModel : IDisposable
         IRecordableCommand command3 = backward.Operation.OnSplit(true, forwardLength, -forwardLength);
         IRecordableCommand command4 = Model.Operation.OnSplit(false, TimeSpan.Zero, -backwardLength);
 
-        command1.Append(command2)
-            .Append(command3)
-            .Append(command4)
+        IRecordableCommand[] commands = [command1, command2, command3, command4];
+        commands.ToCommand()
             .DoAndRecord(CommandRecorder.Default);
     }
 

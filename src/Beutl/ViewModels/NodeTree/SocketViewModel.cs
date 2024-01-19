@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 
 using Avalonia;
 using Avalonia.Media;
@@ -137,14 +138,19 @@ public class SocketViewModel : NodeItemViewModel
         {
             Node.Items.BeginRecord<INodeItem>()
                 .Remove(generatedSocket)
-                .ToCommand()
+                .ToCommand(GetStorables(Model!))
                 .DoAndRecord(CommandRecorder.Default);
         }
     }
 
     public void UpdateName(string? e)
     {
-        new ChangePropertyCommand<string>(Model!, CoreObject.NameProperty, e, Model!.Name)
+        new ChangePropertyCommand<string>(
+            Model!,
+            CoreObject.NameProperty,
+            e,
+            Model!.Name,
+            GetStorables(Model!))
             .DoAndRecord(CommandRecorder.Default);
     }
 
@@ -178,6 +184,11 @@ public class SocketViewModel : NodeItemViewModel
     {
     }
 
+    private static ImmutableArray<IStorable?> GetStorables(ISocket socket)
+    {
+        return [(socket as IHierarchical)?.FindHierarchicalParent<IStorable>()];
+    }
+
     private sealed class ConnectGeneratedSocketCommand : IRecordableCommand
     {
         private readonly ISocketsCanBeAdded _node;
@@ -204,6 +215,11 @@ public class SocketViewModel : NodeItemViewModel
             }
         }
 
+        public ImmutableArray<IStorable?> GetStorables()
+        {
+            return SocketViewModel.GetStorables(_socket);
+        }
+
         public void Do()
         {
             // 実行されない。
@@ -228,6 +244,11 @@ public class SocketViewModel : NodeItemViewModel
 
     private sealed class DisconnectCommand(IInputSocket inputSocket, IOutputSocket outputSocket) : IRecordableCommand
     {
+        public ImmutableArray<IStorable?> GetStorables()
+        {
+            return SocketViewModel.GetStorables(inputSocket);
+        }
+
         public void Do()
         {
             outputSocket.Disconnect(inputSocket);
@@ -247,6 +268,11 @@ public class SocketViewModel : NodeItemViewModel
     private sealed class ConnectCommand(IInputSocket inputSocket, IOutputSocket outputSocket) : IRecordableCommand
     {
         public bool IsConnected { get; set; }
+
+        public ImmutableArray<IStorable?> GetStorables()
+        {
+            return SocketViewModel.GetStorables(inputSocket);
+        }
 
         public void Do()
         {

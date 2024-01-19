@@ -28,24 +28,16 @@ public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
 
         IsEnabled.Subscribe(b =>
         {
-            IRecordableCommand? command = null;
-            foreach (Element? item in Timeline.Scene.Children.Where(i => i.ZIndex == Number.Value))
-            {
-                if (item.IsEnabled != b)
-                {
-                    var command2 = new ChangePropertyCommand<bool>(item, Element.IsEnabledProperty, b, item.IsEnabled);
-                    if (command == null)
-                    {
-                        command = command2;
-                    }
-                    else
-                    {
-                        command = command.Append(command2);
-                    }
-                }
-            }
-
-            command?.DoAndRecord(CommandRecorder.Default);
+            Timeline.Scene.Children.Where(i => i.ZIndex == Number.Value && i.IsEnabled != b)
+                .Select(item => new ChangePropertyCommand<bool>(
+                    obj: item,
+                    property: Element.IsEnabledProperty,
+                    newValue: b,
+                    oldValue: item.IsEnabled,
+                    storables: [item]))
+                .ToArray()
+                .ToCommand()
+                .DoAndRecord(CommandRecorder.Default);
         }).DisposeWith(_disposables);
 
         Height.Subscribe(_ => Timeline.RaiseLayerHeightChanged(this)).DisposeWith(_disposables);

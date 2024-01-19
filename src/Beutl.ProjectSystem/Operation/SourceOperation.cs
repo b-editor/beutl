@@ -41,7 +41,7 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
     [NotAutoSerialized]
     public ICoreList<SourceOperator> Children => _children;
 
-    public IRecordableCommand OnSplit(bool backward, TimeSpan startDelta,TimeSpan lengthDelta)
+    public IRecordableCommand OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
     {
         return _children.Select(v => v.OnSplit(backward, startDelta, lengthDelta))
             .Where(v => v != null)
@@ -225,27 +225,33 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
     {
         ArgumentNullException.ThrowIfNull(@operator);
 
+        IStorable? storable = this.FindHierarchicalParent<IStorable>();
+
         return Children.BeginRecord<SourceOperator>()
             .Add(@operator)
-            .ToCommand();
+            .ToCommand([storable]);
     }
 
     public IRecordableCommand RemoveChild(SourceOperator @operator)
     {
         ArgumentNullException.ThrowIfNull(@operator);
 
+        IStorable? storable = this.FindHierarchicalParent<IStorable>();
+
         return Children.BeginRecord<SourceOperator>()
             .Remove(@operator)
-            .ToCommand();
+            .ToCommand([storable]);
     }
 
     public IRecordableCommand InsertChild(int index, SourceOperator @operator)
     {
         ArgumentNullException.ThrowIfNull(@operator);
 
+        IStorable? storable = this.FindHierarchicalParent<IStorable>();
+
         return Children.BeginRecord<SourceOperator>()
             .Insert(index, @operator)
-            .ToCommand();
+            .ToCommand([storable]);
     }
 
     private void OnOperatorsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Collections.Immutable;
+using System.Text.Json.Nodes;
 
 using Avalonia;
 
@@ -152,6 +153,8 @@ public sealed class SceneSettingsTabViewModel : IToolContext
     {
         private readonly PixelSize _oldSize = new(scene.Width, scene.Height);
         private readonly TimeSpan _oldDuration = scene.Duration;
+
+        public ImmutableArray<IStorable?> GetStorables() => [scene];
 
         public void Do()
         {

@@ -1,4 +1,6 @@
-﻿using Beutl.Commands;
+﻿using System.Collections.Immutable;
+
+using Beutl.Commands;
 using Beutl.Media;
 using Beutl.Utilities;
 
@@ -67,12 +69,12 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
 
             if (model.Color != newColor)
             {
-                command = new ChangePropertyCommand<Color>(model, GradientStop.ColorProperty, newColor, oldColor2);
+                command = new ChangePropertyCommand<Color>(model, GradientStop.ColorProperty, newColor, oldColor2, []);
             }
 
             if (!MathUtilities.AreClose(model.Offset, oldOffset2))
             {
-                var tmp = new ChangePropertyCommand<float>(model, GradientStop.OffsetProperty, newOffset, oldOffset2);
+                var tmp = new ChangePropertyCommand<float>(model, GradientStop.OffsetProperty, newOffset, oldOffset2, []);
                 command = command == null ? tmp : command.Append(tmp);
             }
 
@@ -83,18 +85,20 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
             {
                 IRecordableCommand tmp = Value.Value.BeginRecord<GradientStop>()
                     .Move(index, index - 1)
-                    .ToCommand();
+                    .ToCommand([]);
                 command = command == null ? tmp : command.Append(tmp);
             }
             else if (next != null && next.Offset < model.Offset)
             {
                 IRecordableCommand tmp = Value.Value.BeginRecord<GradientStop>()
                     .Move(index, index + 1)
-                    .ToCommand();
+                    .ToCommand([]);
                 command = command == null ? tmp : command.Append(tmp);
             }
 
-            command?.DoAndRecord(CommandRecorder.Default);
+            command
+                ?.WithStoables(GetStorables())
+                ?.DoAndRecord(CommandRecorder.Default);
         }
     }
 
@@ -102,7 +106,7 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
     {
         Value.Value.BeginRecord<GradientStop>()
             .Insert(index < 0 ? Value.Value.Count : index, stop)
-            .ToCommand()
+            .ToCommand(GetStorables())
             .DoAndRecord(CommandRecorder.Default);
     }
 
@@ -114,7 +118,7 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
             GradientStop model = Value.Value[index];
             Value.Value.BeginRecord<GradientStop>()
                 .Remove(model)
-                .ToCommand()
+                .ToCommand(GetStorables())
                 .DoAndRecord(CommandRecorder.Default);
 
             if (stop == SelectedItem.Value)

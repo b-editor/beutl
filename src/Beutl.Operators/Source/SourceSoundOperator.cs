@@ -59,7 +59,13 @@ public sealed class SourceSoundOperator : StyledSourcePublisher
     {
         if (backward)
         {
-            return new ChangeSetterValueCommand<TimeSpan>(OffsetPosition, OffsetPosition.Value, OffsetPosition.Value + startDelta);
+            IStorable? storable = this.FindHierarchicalParent<IStorable>();
+
+            return new ChangeSetterValueCommand<TimeSpan>(
+                OffsetPosition,
+                OffsetPosition.Value,
+                OffsetPosition.Value + startDelta,
+                [storable]);
         }
         else
         {

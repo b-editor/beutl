@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using System.Collections.Immutable;
+
+using Avalonia;
 using Avalonia.Media;
 
 using Beutl.Animation;
@@ -243,7 +245,8 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             var newValues = (splineEasing.X1, splineEasing.Y1);
             if (oldValues == newValues)
                 return;
-            var command = new SubmitControlPointCommand(oldValues, newValues, splineEasing, true);
+            var command = new SubmitControlPointCommand(
+                oldValues, newValues, splineEasing, true, GetStorables());
             command.DoAndRecord(CommandRecorder.Default);
         }
     }
@@ -256,7 +259,8 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             var newValues = (splineEasing.X2, splineEasing.Y2);
             if (oldValues == newValues)
                 return;
-            var command = new SubmitControlPointCommand(oldValues, newValues, splineEasing, false);
+            var command = new SubmitControlPointCommand(
+                oldValues, newValues, splineEasing, false, GetStorables());
             command.DoAndRecord(CommandRecorder.Default);
         }
     }
@@ -282,7 +286,8 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 oldTime: oldKeyTime,
                 newTime: Right.Value.ToTimeSpan(scale).RoundToRate(rate),
                 oldValue: Model.Value,
-                newValue: obj);
+                newValue: obj,
+                storables: GetStorables());
             command.DoAndRecord(CommandRecorder.Default);
             EndY.Value = _parent.ConvertToDouble(Model.Value) * parent2.ScaleY.Value;
         }
@@ -292,17 +297,25 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 obj: Model,
                 property: KeyFrame.KeyTimeProperty,
                 newValue: Right.Value.ToTimeSpan(scale).RoundToRate(rate),
-                oldValue: oldKeyTime);
+                oldValue: oldKeyTime,
+                storables: GetStorables());
             command.DoAndRecord(CommandRecorder.Default);
         }
 
         Right.Value = Model.KeyTime.ToPixel(_parent.Parent.Options.Value.Scale);
     }
 
-    private sealed class SubmitControlPointCommand(
-        (float, float) oldValue, (float, float) newValue, SplineEasing splineEasing, bool first)
-        : IRecordableCommand
+    private ImmutableArray<IStorable?> GetStorables()
     {
+        return [_parent.Parent.Element];
+    }
+
+    private sealed class SubmitControlPointCommand(
+        (float, float) oldValue, (float, float) newValue, SplineEasing splineEasing, bool first,
+        ImmutableArray<IStorable?> storables) : IRecordableCommand
+    {
+        public ImmutableArray<IStorable?> GetStorables() => storables;
+
         public void Do()
         {
             if (first)
@@ -334,9 +347,12 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         }
     }
 
-    private sealed class SubmitKeyFrameCommand(IKeyFrame keyframe, TimeSpan oldTime, TimeSpan newTime, object? oldValue, object? newValue)
-        : IRecordableCommand
+    private sealed class SubmitKeyFrameCommand(
+        IKeyFrame keyframe, TimeSpan oldTime, TimeSpan newTime, object? oldValue, object? newValue,
+        ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
+        public ImmutableArray<IStorable?> GetStorables() => storables;
+
         public void Do()
         {
             keyframe.Value = newValue;

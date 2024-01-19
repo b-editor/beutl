@@ -68,7 +68,9 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
             NodeTreeModel? tree = Node.FindHierarchicalParent<NodeTreeModel>();
             if (tree != null)
             {
-                new RemoveCommand<Node>(tree.Nodes, Node)
+                tree.Nodes.BeginRecord<Node>()
+                    .Remove(Node)
+                    .ToCommand([node.FindHierarchicalParent<IStorable>()])
                     .DoAndRecord(CommandRecorder.Default);
             }
         });
@@ -192,11 +194,13 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
     {
         static IRecordableCommand CreateCommand(NodeViewModel viewModel)
         {
+            IStorable? storable = viewModel.Node.FindHierarchicalParent<IStorable>();
             return new ChangePropertyCommand<(double, double)>(
                 viewModel.Node,
                 Node.PositionProperty,
                 (viewModel.Position.Value.X, viewModel.Position.Value.Y),
-                viewModel.Node.Position);
+                viewModel.Node.Position,
+                [storable]);
         }
 
         selection.Select(CreateCommand)
@@ -208,7 +212,11 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
 
     public void UpdateName(string? name)
     {
-        new ChangePropertyCommand<string>(Node, CoreObject.NameProperty, name, Node.Name)
+        IStorable? storable = Node.FindHierarchicalParent<IStorable>();
+        new ChangePropertyCommand<string>(
+            Node, CoreObject.NameProperty,
+            name, Node.Name,
+            [storable])
             .DoAndRecord(CommandRecorder.Default);
     }
 

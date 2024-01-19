@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Immutable;
 
 using Beutl.Commands;
 
@@ -25,12 +26,12 @@ public static class CollectionBatchExtension
         ICollectionBatchChanges Move(int oldIndex, int newIndex);
 
         ICollectionBatchChanges Remove(object? item);
-        
+
         ICollectionBatchChanges RemoveAt(int index);
 
         ICollectionBatchChanges Clear();
 
-        IRecordableCommand ToCommand();
+        IRecordableCommand ToCommand(ImmutableArray<IStorable?> storables);
     }
 
     public interface ICollectionBatchChanges<T>
@@ -47,7 +48,7 @@ public static class CollectionBatchExtension
 
         ICollectionBatchChanges<T> Clear();
 
-        IRecordableCommand ToCommand();
+        IRecordableCommand ToCommand(ImmutableArray<IStorable?> storables);
     }
 
     private sealed class CollectionBatchChanges(IList list) : ICollectionBatchChanges
@@ -90,9 +91,9 @@ public static class CollectionBatchExtension
             return this;
         }
 
-        public IRecordableCommand ToCommand()
+        public IRecordableCommand ToCommand(ImmutableArray<IStorable?> storables)
         {
-            return new Command([.. _commands]);
+            return _commands.ToArray().ToCommand(storables);
         }
     }
 
@@ -136,36 +137,9 @@ public static class CollectionBatchExtension
             return this;
         }
 
-        public IRecordableCommand ToCommand()
+        public IRecordableCommand ToCommand(ImmutableArray<IStorable?> storables)
         {
-            return new Command([.. _commands]);
-        }
-    }
-
-    private sealed class Command(IRecordableCommand[] commands) : IRecordableCommand
-    {
-        public void Do()
-        {
-            for (int i = 0; i < commands.Length; i++)
-            {
-                commands[i].Do();
-            }
-        }
-
-        public void Redo()
-        {
-            for (int i = 0; i < commands.Length; i++)
-            {
-                commands[i].Redo();
-            }
-        }
-
-        public void Undo()
-        {
-            for (int i = commands.Length - 1; i >= 0; i--)
-            {
-                commands[i].Undo();
-            }
+            return _commands.ToArray().ToCommand(storables);
         }
     }
 }

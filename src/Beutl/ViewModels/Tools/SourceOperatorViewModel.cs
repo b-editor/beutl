@@ -1,4 +1,5 @@
-﻿using System.Collections.Specialized;
+﻿using System.Collections.Immutable;
+using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 
 using Beutl.Helpers;
@@ -223,13 +224,22 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
                 @operator.Deserialize(context);
             }
 
-            var command = new ReplaceItemCommand(sourceOperation.Children, index, @operator, Model);
+            IStorable? storable = sourceOperation.FindHierarchicalParent<IStorable>();
+            var command = new ReplaceItemCommand(
+                sourceOperation.Children, index, @operator, Model, [storable]);
             command.DoAndRecord(CommandRecorder.Default);
         }
     }
 
-    private sealed class ReplaceItemCommand(IList<SourceOperator> list, int index, SourceOperator item, SourceOperator oldItem) : IRecordableCommand
+    private sealed class ReplaceItemCommand(
+        IList<SourceOperator> list,
+        int index,
+        SourceOperator item,
+        SourceOperator oldItem,
+        ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
+        public ImmutableArray<IStorable?> GetStorables() => storables;
+
         public void Do()
         {
             list[index] = item;

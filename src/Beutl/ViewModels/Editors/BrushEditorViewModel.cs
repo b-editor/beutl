@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Collections.Immutable;
+using System.Text.Json.Nodes;
 
 using Beutl.Animation;
 using Beutl.Media;
@@ -11,8 +12,12 @@ using ReactiveUI;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class SetCommand(IAbstractProperty setter, object? oldValue, object? newValue) : IRecordableCommand
+public sealed class SetCommand(
+    IAbstractProperty setter, object? oldValue, object? newValue,
+    ImmutableArray<IStorable?> storables) : IRecordableCommand
 {
+    public ImmutableArray<IStorable?> GetStorables() => storables;
+
     public void Do()
     {
         setter.SetValue(newValue);
@@ -112,7 +117,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     {
         if (!EqualityComparer<IBrush>.Default.Equals(oldValue, newValue))
         {
-            CommandRecorder.Default.DoAndPush(new SetCommand(WrappedProperty, oldValue, newValue));
+            CommandRecorder.Default.DoAndPush(
+                new SetCommand(WrappedProperty, oldValue, newValue, GetStorables()));
         }
     }
 

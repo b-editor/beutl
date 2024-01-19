@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using System.Collections.Immutable;
+
+using Avalonia;
 using Avalonia.Threading;
 
 using Beutl.Animation;
@@ -26,7 +28,12 @@ public sealed class GraphEditorViewModel<T>(
         IKeyFrame? keyFrame = Animation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
         if (keyFrame != null)
         {
-            new ChangePropertyCommand<Easing>(keyFrame, KeyFrame.EasingProperty, easing, keyFrame.Easing)
+            new ChangePropertyCommand<Easing>(
+                keyFrame,
+                KeyFrame.EasingProperty,
+                easing,
+                keyFrame.Easing,
+                GetStorables())
                 .DoAndRecord(CommandRecorder.Default);
         }
         else
@@ -48,13 +55,16 @@ public sealed class GraphEditorViewModel<T>(
                 KeyTime = keyTime
             };
 
-            var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe);
+            var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe, GetStorables());
             command.DoAndRecord(CommandRecorder.Default);
         }
     }
 
-    private sealed class AddKeyFrameCommand(KeyFrames keyFrames, IKeyFrame keyFrame) : IRecordableCommand
+    private sealed class AddKeyFrameCommand(
+        KeyFrames keyFrames, IKeyFrame keyFrame, ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
+        public ImmutableArray<IStorable?> GetStorables() => storables;
+
         public void Do()
         {
             keyFrames.Add(keyFrame, out _);
@@ -77,7 +87,6 @@ public abstract class GraphEditorViewModel : IDisposable
     private readonly CompositeDisposable _disposables = [];
     private readonly EditViewModel _editViewModel;
     private readonly GraphEditorViewViewModelFactory[] _factories;
-    protected Element? Element;
     private bool _editting;
 
     protected GraphEditorViewModel(EditViewModel editViewModel, IKeyFrameAnimation animation, Element? element)
@@ -136,6 +145,8 @@ public abstract class GraphEditorViewModel : IDisposable
 
     public Scene Scene => _editViewModel.Scene;
 
+    public Element? Element { get; private set; }
+
     public ReactivePropertySlim<double> ScaleY { get; } = new(0.5);
 
     public ReactivePropertySlim<Vector> ScrollOffset { get; } = new();
@@ -179,7 +190,11 @@ public abstract class GraphEditorViewModel : IDisposable
     public void UpdateUseGlobalClock(bool value)
     {
         var command = new ChangePropertyCommand<bool>(
-            (ICoreObject)Animation, KeyFrameAnimation.UseGlobalClockProperty, value, UseGlobalClock.Value);
+            obj: (ICoreObject)Animation,
+            property: KeyFrameAnimation.UseGlobalClockProperty,
+            newValue: value,
+            oldValue: UseGlobalClock.Value,
+            storables: GetStorables());
 
         command.DoAndRecord(CommandRecorder.Default);
     }
@@ -237,7 +252,7 @@ public abstract class GraphEditorViewModel : IDisposable
         {
             Animation.KeyFrames.BeginRecord<IKeyFrame>()
                 .Remove(keyframe)
-                .ToCommand()
+                .ToCommand(GetStorables())
                 .DoAndRecord(CommandRecorder.Default);
         }
     }
@@ -253,5 +268,10 @@ public abstract class GraphEditorViewModel : IDisposable
 
         Element = null;
         GC.SuppressFinalize(this);
+    }
+
+    protected ImmutableArray<IStorable?> GetStorables()
+    {
+        return [Element];
     }
 }

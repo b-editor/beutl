@@ -1,4 +1,6 @@
-﻿using Avalonia.Controls;
+﻿using System.Collections.Immutable;
+
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
 
@@ -64,14 +66,14 @@ public partial class EditView
 
         public float OldNextValue { get; } = next?.Value ?? 0;
 
-        public IRecordableCommand? CreateCommand()
+        public IRecordableCommand? CreateCommand(ImmutableArray<IStorable?> storables)
         {
             return CommandHelper.Compose(
                 Previous != null && Previous.Value != OldPreviousValue
-                    ? new ChangePropertyCommand<float>(Previous, KeyFrame<float>.ValueProperty, Previous.Value, OldPreviousValue)
+                    ? new ChangePropertyCommand<float>(Previous, KeyFrame<float>.ValueProperty, Previous.Value, OldPreviousValue, storables)
                     : null,
                 Next != null && Next.Value != OldNextValue
-                    ? new ChangePropertyCommand<float>(Next, KeyFrame<float>.ValueProperty, Next.Value, OldNextValue)
+                    ? new ChangePropertyCommand<float>(Next, KeyFrame<float>.ValueProperty, Next.Value, OldNextValue, storables)
                     : null);
         }
     }
@@ -173,7 +175,7 @@ public partial class EditView
 
         public Element? Element { get; private set; }
 
-        private static (TranslateTransform?, Matrix) FindOrCreateTranslation(Drawable drawable)
+        private (TranslateTransform?, Matrix) FindOrCreateTranslation(Drawable drawable)
         {
             switch (drawable.Transform)
             {
@@ -199,7 +201,7 @@ public partial class EditView
                         obj = new TranslateTransform();
                         transformGroup.Children.BeginRecord<ITransform>()
                             .Insert(0, obj)
-                            .ToCommand()
+                            .ToCommand([Element])
                             .DoAndRecord(CommandRecorder.Default);
 
                         return (obj, Matrix.Identity);
@@ -318,16 +320,16 @@ public partial class EditView
             return true;
         }
 
-        private IRecordableCommand? CreateTranslationCommand()
+        private IRecordableCommand? CreateTranslationCommand(ImmutableArray<IStorable?> storables)
         {
             if (_translateTransform != null)
             {
                 return CommandHelper.Compose(
                     _translateTransform.X != _oldTranslation.X
-                        ? new ChangePropertyCommand<float>(_translateTransform, TranslateTransform.XProperty, _translateTransform.X, _oldTranslation.X)
+                        ? new ChangePropertyCommand<float>(_translateTransform, TranslateTransform.XProperty, _translateTransform.X, _oldTranslation.X, storables)
                         : null,
                     _translateTransform.Y != _oldTranslation.Y
-                        ? new ChangePropertyCommand<float>(_translateTransform, TranslateTransform.YProperty, _translateTransform.Y, _oldTranslation.Y)
+                        ? new ChangePropertyCommand<float>(_translateTransform, TranslateTransform.YProperty, _translateTransform.Y, _oldTranslation.Y, storables)
                         : null);
             }
 
@@ -340,9 +342,10 @@ public partial class EditView
             {
                 _imagePressed = false;
 
+                ImmutableArray<IStorable?> storables = [Element];
                 IRecordableCommand? command = CommandHelper.Compose(
-                    CreateTranslationCommand(),
-                    CommandHelper.Compose(_xKeyFrame?.CreateCommand(), _yKeyFrame?.CreateCommand()));
+                    CreateTranslationCommand(storables),
+                    CommandHelper.Compose(_xKeyFrame?.CreateCommand(storables), _yKeyFrame?.CreateCommand(storables)));
                 command?.DoAndRecord(CommandRecorder.Default);
 
                 Element = null;

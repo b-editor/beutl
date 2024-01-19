@@ -1,4 +1,5 @@
-﻿using System.Collections.Specialized;
+﻿using System.Collections.Immutable;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
@@ -766,6 +767,8 @@ public class Scene : ProjectItem
         private int _zIndex;
         private TimeRange _range;
 
+        public ImmutableArray<IStorable?> GetStorables() => [scene, element];
+
         public void Do()
         {
             (_range, _zIndex) = scene.GetCorrectPosition(element, overlapHandling);
@@ -800,6 +803,8 @@ public class Scene : ProjectItem
     {
         private int _zIndex;
 
+        public ImmutableArray<IStorable?> GetStorables() => [scene, element];
+
         public void Do()
         {
             _zIndex = element.ZIndex;
@@ -829,6 +834,8 @@ public class Scene : ProjectItem
         private readonly int _oldZIndex = element.ZIndex;
         private readonly TimeSpan _oldSceneDuration = scene.Duration;
         private readonly bool _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
+
+        public ImmutableArray<IStorable?> GetStorables() => [scene, element];
 
         public void Do()
         {
@@ -1002,6 +1009,14 @@ public class Scene : ProjectItem
             }
 
             return null;
+        }
+
+        public ImmutableArray<IStorable?> GetStorables()
+        {
+            if (_conflict)
+                return [];
+
+            return [_scene, .. _elements];
         }
 
         public void Do()

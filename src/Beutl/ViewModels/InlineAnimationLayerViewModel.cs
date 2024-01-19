@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using System.Collections.Immutable;
+
+using Avalonia;
 
 using Beutl.Animation;
 using Beutl.Animation.Easings;
@@ -27,7 +29,8 @@ public sealed class InlineAnimationLayerViewModel<T>(
             IKeyFrame? keyFrame = kfAnimation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
             if (keyFrame != null)
             {
-                new ChangePropertyCommand<Easing>(keyFrame, KeyFrame.EasingProperty, easing, keyFrame.Easing)
+                new ChangePropertyCommand<Easing>(
+                    keyFrame, KeyFrame.EasingProperty, easing, keyFrame.Easing, [Element.Model])
                     .DoAndRecord(CommandRecorder.Default);
             }
             else
@@ -51,14 +54,17 @@ public sealed class InlineAnimationLayerViewModel<T>(
                     KeyTime = keyTime
                 };
 
-                var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe);
+                var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe, [Element.Model]);
                 command.DoAndRecord(CommandRecorder.Default);
             }
         }
     }
 
-    private sealed class AddKeyFrameCommand(KeyFrames keyFrames, IKeyFrame keyFrame) : IRecordableCommand
+    private sealed class AddKeyFrameCommand(
+        KeyFrames keyFrames, IKeyFrame keyFrame, ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
+        public ImmutableArray<IStorable?> GetStorables() => storables;
+
         public void Do()
         {
             keyFrames.Add(keyFrame, out _);
@@ -197,7 +203,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         {
             kfAnimation.KeyFrames.BeginRecord<IKeyFrame>()
                 .Remove(keyFrame)
-                .ToCommand()
+                .ToCommand([Element.Model])
                 .DoAndRecord(CommandRecorder.Default);
         }
     }
