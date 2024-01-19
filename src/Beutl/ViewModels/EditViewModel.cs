@@ -714,10 +714,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         public ValueTask<bool> OnSave()
         {
             scene.Save(scene.FileName);
-            foreach (Element element in scene.Children)
-            {
-                element.Save(element.FileName);
-            }
+            Parallel.ForEach(scene.Children, item => item.Save(item.FileName));
             viewModel.SaveState();
 
             return ValueTask.FromResult(true);

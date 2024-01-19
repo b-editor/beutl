@@ -81,7 +81,17 @@ public sealed class TimelineViewModel : IToolContext
 
         TimelineOptions options = editViewModel.Options.Value;
         LayerHeaders.AddRange(Enumerable.Range(0, options.MaxLayerCount).Select(num => new LayerHeaderViewModel(num, this)));
-        Scene.Children.ForEachItem(
+        if (Scene.Children.Count > 0)
+        {
+            AddLayerHeaders(Scene.Children.Max(i => i.ZIndex) + 1);
+            var items = new ElementViewModel[Scene.Children.Count];
+            Parallel.ForEach(
+                Scene.Children,
+                (item, _, idx) => items[idx] = new ElementViewModel(item, this));
+            Elements.AddRange(items);
+        }
+
+        Scene.Children.TrackCollectionChanged(
             (idx, item) =>
             {
                 AddLayerHeaders(item.ZIndex + 1);

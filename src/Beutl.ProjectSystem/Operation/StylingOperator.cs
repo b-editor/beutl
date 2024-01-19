@@ -130,85 +130,94 @@ internal static class StylingOperatorPropertyDefinition
 
     public static ISetter[] GetSetters(object obj)
     {
-        Type type = obj.GetType();
-        if (!s_defines.TryGetValue(type, out Definition[]? def))
+        lock (s_defines)
         {
-            def = CreateDefinitions(type);
-        }
+            Type type = obj.GetType();
+            if (!s_defines.TryGetValue(type, out Definition[]? def))
+            {
+                def = CreateDefinitions(type);
+            }
 
-        var array = new ISetter[def.Length];
-        for (int i = 0; i < def.Length; i++)
-        {
-            array[i] = def[i].Getter(obj);
-        }
+            var array = new ISetter[def.Length];
+            for (int i = 0; i < def.Length; i++)
+            {
+                array[i] = def[i].Getter(obj);
+            }
 
-        return array;
+            return array;
+        }
     }
 
     public static Definition[] GetDefintions(Type type)
     {
-        if (!s_defines.TryGetValue(type, out Definition[]? def))
+        lock (s_defines)
         {
-            def = CreateDefinitions(type);
-        }
+            if (!s_defines.TryGetValue(type, out Definition[]? def))
+            {
+                def = CreateDefinitions(type);
+            }
 
-        return def;
+            return def;
+        }
     }
 
     private static Definition[] CreateDefinitions(Type type)
     {
-        PropertyInfo[] props = type.GetProperties(BindingFlags.Public | BindingFlags.GetProperty | BindingFlags.Instance);
-        var list = new List<(Definition, DisplayAttribute?)>();
-
-        foreach (PropertyInfo item in props)
+        lock (s_defines)
         {
-            if (item.PropertyType.IsAssignableTo(typeof(ISetter))
-                && item.CanWrite
-                && item.CanRead)
+            PropertyInfo[] props = type.GetProperties(BindingFlags.Public | BindingFlags.GetProperty | BindingFlags.Instance);
+            var list = new List<(Definition, DisplayAttribute?)>();
+
+            foreach (PropertyInfo item in props)
             {
-                DisplayAttribute? att = item.GetCustomAttribute<DisplayAttribute>();
-                ParameterExpression target = Expression.Parameter(typeof(object), "target");
-                ParameterExpression value = Expression.Parameter(typeof(ISetter), "value");
+                if (item.PropertyType.IsAssignableTo(typeof(ISetter))
+                    && item.CanWrite
+                    && item.CanRead)
+                {
+                    DisplayAttribute? att = item.GetCustomAttribute<DisplayAttribute>();
+                    ParameterExpression target = Expression.Parameter(typeof(object), "target");
+                    ParameterExpression value = Expression.Parameter(typeof(ISetter), "value");
 
-                // (object target) => (target as Type).Property;
-                var getExpr = Expression.Lambda<Func<object, ISetter>>(
-                    Expression.Property(Expression.TypeAs(target, type), item),
-                    target);
-                // (object target, ISetter value) => (target as Type).Property = value;
-                var setExpr = Expression.Lambda<Action<object, ISetter>>(
-                    Expression.Assign(Expression.Property(Expression.TypeAs(target, type), item), Expression.TypeAs(value, item.PropertyType)),
-                    target, value);
+                    // (object target) => (target as Type).Property;
+                    var getExpr = Expression.Lambda<Func<object, ISetter>>(
+                        Expression.Property(Expression.TypeAs(target, type), item),
+                        target);
+                    // (object target, ISetter value) => (target as Type).Property = value;
+                    var setExpr = Expression.Lambda<Action<object, ISetter>>(
+                        Expression.Assign(Expression.Property(Expression.TypeAs(target, type), item), Expression.TypeAs(value, item.PropertyType)),
+                        target, value);
 
-                list.Add((new Definition(item, getExpr.Compile(), setExpr.Compile()), att));
+                    list.Add((new Definition(item, getExpr.Compile(), setExpr.Compile()), att));
+                }
             }
+
+            list.Sort((x, y) =>
+            {
+                int? xOrder = x.Item2?.GetOrder();
+                int? yOrder = y.Item2?.GetOrder();
+                if (xOrder == yOrder)
+                {
+                    return 0;
+                }
+
+                if (!xOrder.HasValue)
+                {
+                    return 1;
+                }
+                else if (!yOrder.HasValue)
+                {
+                    return -1;
+                }
+                else
+                {
+                    return xOrder.Value - yOrder.Value;
+                }
+            });
+
+            Definition[] array = list.Select(x => x.Item1).ToArray();
+            s_defines[type] = array;
+            return array;
         }
-
-        list.Sort((x, y) =>
-        {
-            int? xOrder = x.Item2?.GetOrder();
-            int? yOrder = y.Item2?.GetOrder();
-            if (xOrder == yOrder)
-            {
-                return 0;
-            }
-
-            if (!xOrder.HasValue)
-            {
-                return 1;
-            }
-            else if (!yOrder.HasValue)
-            {
-                return -1;
-            }
-            else
-            {
-                return xOrder.Value - yOrder.Value;
-            }
-        });
-
-        Definition[] array = list.Select(x => x.Item1).ToArray();
-        s_defines[type] = array;
-        return array;
     }
 }
 

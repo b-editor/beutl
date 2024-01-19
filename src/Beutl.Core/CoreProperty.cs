@@ -16,6 +16,7 @@ public abstract class CoreProperty : ICoreProperty
     private readonly ICorePropertyMetadata _defaultMetadata;
     private readonly Dictionary<Type, ICorePropertyMetadata> _metadata = [];
     private readonly Dictionary<Type, ICorePropertyMetadata> _metadataCache = [];
+    private readonly object _metadataLock = new();
     private bool _hasMetadataOverrides;
     private bool _isTryedToGetPropertyInfo;
 
@@ -95,12 +96,15 @@ public abstract class CoreProperty : ICoreProperty
     public TMetadata GetMetadata<TMetadata>(Type type)
         where TMetadata : ICorePropertyMetadata
     {
-        if (!_hasMetadataOverrides)
+        lock (_metadataLock)
         {
-            return (TMetadata)_defaultMetadata;
-        }
+            if (!_hasMetadataOverrides)
+            {
+                return (TMetadata)_defaultMetadata;
+            }
 
-        return GetMetadataWithOverrides<TMetadata>(type) ?? throw new InvalidOperationException();
+            return GetMetadataWithOverrides<TMetadata>(type) ?? throw new InvalidOperationException();
+        }
     }
 
     public bool TryGetMetadata<T, TMetadata>([NotNullWhen(true)] out TMetadata? result)
@@ -113,15 +117,18 @@ public abstract class CoreProperty : ICoreProperty
     public bool TryGetMetadata<TMetadata>(Type type, [NotNullWhen(true)] out TMetadata? result)
         where TMetadata : ICorePropertyMetadata
     {
-        if (!_hasMetadataOverrides && _defaultMetadata is TMetadata metadata)
+        lock (_metadataLock)
         {
-            result = metadata;
-            return true;
-        }
-        else
-        {
-            result = GetMetadataWithOverrides<TMetadata>(type);
-            return result != null;
+            if (!_hasMetadataOverrides && _defaultMetadata is TMetadata metadata)
+            {
+                result = metadata;
+                return true;
+            }
+            else
+            {
+                result = GetMetadataWithOverrides<TMetadata>(type);
+                return result != null;
+            }
         }
     }
 
@@ -133,53 +140,59 @@ public abstract class CoreProperty : ICoreProperty
 
     public void OverrideMetadata(Type type, CorePropertyMetadata metadata)
     {
-        _ = type ?? throw new ArgumentNullException(nameof(type));
-        _ = metadata ?? throw new ArgumentNullException(nameof(metadata));
-
-        if (metadata.PropertyType != PropertyType)
-            throw new InvalidOperationException("Property type mismatch.");
-
-        if (_metadata.ContainsKey(type))
+        lock (_metadataLock)
         {
-            throw new InvalidOperationException(
-                $"Metadata is already set for {Name} on {type}.");
+            _ = type ?? throw new ArgumentNullException(nameof(type));
+            _ = metadata ?? throw new ArgumentNullException(nameof(metadata));
+
+            if (metadata.PropertyType != PropertyType)
+                throw new InvalidOperationException("Property type mismatch.");
+
+            if (_metadata.ContainsKey(type))
+            {
+                throw new InvalidOperationException(
+                    $"Metadata is already set for {Name} on {type}.");
+            }
+
+            CorePropertyMetadata? baseMetadata = GetMetadata<CorePropertyMetadata>(type);
+            metadata.Merge(baseMetadata, this);
+            _metadata.Add(type, metadata);
+            _metadataCache.Clear();
+
+            _hasMetadataOverrides = true;
         }
-
-        CorePropertyMetadata? baseMetadata = GetMetadata<CorePropertyMetadata>(type);
-        metadata.Merge(baseMetadata, this);
-        _metadata.Add(type, metadata);
-        _metadataCache.Clear();
-
-        _hasMetadataOverrides = true;
     }
 
     private TMetadata? GetMetadataWithOverrides<TMetadata>(Type type)
         where TMetadata : ICorePropertyMetadata
     {
-        ArgumentNullException.ThrowIfNull(type);
-
-        if (_metadataCache.TryGetValue(type, out ICorePropertyMetadata? result) && result is TMetadata resultT)
+        lock (_metadataLock)
         {
-            return resultT;
-        }
+            ArgumentNullException.ThrowIfNull(type);
 
-        Type? currentType = type;
-
-        while (currentType != null)
-        {
-            if (_metadata.TryGetValue(currentType, out result) && result is TMetadata resultT1)
+            if (_metadataCache.TryGetValue(type, out ICorePropertyMetadata? result) && result is TMetadata resultT)
             {
-                _metadataCache[type] = result;
-
-                return resultT1;
+                return resultT;
             }
 
-            currentType = currentType.BaseType;
+            Type? currentType = type;
+
+            while (currentType != null)
+            {
+                if (_metadata.TryGetValue(currentType, out result) && result is TMetadata resultT1)
+                {
+                    _metadataCache[type] = result;
+
+                    return resultT1;
+                }
+
+                currentType = currentType.BaseType;
+            }
+
+            _metadataCache[type] = _defaultMetadata;
+
+            return _defaultMetadata is TMetadata metadata ? metadata : default;
         }
-
-        _metadataCache[type] = _defaultMetadata;
-
-        return _defaultMetadata is TMetadata metadata ? metadata : default;
     }
 
     public override bool Equals(object? obj)
@@ -239,6 +252,7 @@ public class CoreProperty<T>(
     }
 
     [ObsoleteSerializationApi]
+    [SuppressMessage("Performance", "CA1869:'JsonSerializerOptions' インスタンスをキャッシュして再利用する", Justification = "<保留中>")]
     internal override JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value)
     {
         var typedMetadata = (CorePropertyMetadata<T>)metadata;
@@ -271,6 +285,7 @@ public class CoreProperty<T>(
     }
 
     [ObsoleteSerializationApi]
+    [SuppressMessage("Performance", "CA1869:'JsonSerializerOptions' インスタンスをキャッシュして再利用する", Justification = "<保留中>")]
     internal override object? RouteReadFromJson(CorePropertyMetadata metadata, JsonNode? node)
     {
         var typedMetadata = (CorePropertyMetadata<T>)metadata;
@@ -322,16 +337,12 @@ public class CoreProperty<T>(
         if (metadata.ShouldSerialize && (this is not IStaticProperty sprop || sprop.CanWrite))
         {
             if (context is IJsonSerializationContext jsonCtxt
-                && metadata.JsonConverter is { } jsonConverter)
+                && metadata.JsonConverter is { }
+                && value != null)
             {
-                var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
-
-                options.Converters.Add(jsonConverter);
-                if (value != null)
-                {
-                    JsonNode? node = JsonSerializer.SerializeToNode(value, PropertyType, options);
-                    jsonCtxt.SetNode(Name, PropertyType, value.GetType(), node);
-                }
+                JsonSerializerOptions options = metadata.GetSerializerOptions();
+                JsonNode? node = JsonSerializer.SerializeToNode(value, PropertyType, options);
+                jsonCtxt.SetNode(Name, PropertyType, value.GetType(), node);
             }
             else
             {
@@ -346,14 +357,12 @@ public class CoreProperty<T>(
         if (metadata.ShouldSerialize && (this is not IStaticProperty sprop || sprop.CanWrite))
         {
             if (context is IJsonSerializationContext jsonCtxt
-                && metadata.JsonConverter is { } jsonConverter)
+                && metadata.JsonConverter is { })
             {
                 Type type = PropertyType;
                 JsonNode? node = jsonCtxt.GetNode(Name);
 
-                var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
-
-                options.Converters.Add(jsonConverter);
+                JsonSerializerOptions options = metadata.GetSerializerOptions();
                 return JsonSerializer.Deserialize(node, type, options);
             }
 

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Specialized;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
@@ -490,26 +491,31 @@ public class Scene : ProjectItem
 
     private void SyncronizeFiles(IEnumerable<string> pathToElement)
     {
+        using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Scene.SyncronizeFiles");
+
         string baseDir = Path.GetDirectoryName(FileName)!;
         pathToElement = pathToElement.Select(x => Path.GetFullPath(x, baseDir)).ToArray();
 
         // 削除するElements
-        IEnumerable<Element> toBeRemoved = Children.ExceptBy(pathToElement, x => x.FileName);
+        Element[] toBeRemoved = Children.ExceptBy(pathToElement, x => x.FileName).ToArray();
         // 追加するElements
-        IEnumerable<string> toBeAdded = pathToElement.Except(Children.Select(x => x.FileName));
+        string[] toBeAdded = pathToElement.Except(Children.Select(x => x.FileName)).ToArray();
 
         foreach (Element item in toBeRemoved)
         {
             Children.Remove(item);
         }
 
-        foreach (string item in toBeAdded)
+        Children.AddRange(toBeAdded.AsParallel().Select(item =>
         {
             var element = new Element();
             element.Restore(item);
+            return element;
+        }));
 
-            Children.Add(element);
-        }
+        activity?.SetTag("addCount", toBeAdded.Length);
+        activity?.SetTag("removeCount", toBeRemoved.Length);
+        activity?.SetTag("childrenCount", Children.Count);
     }
 
     private void UpdateInclude()

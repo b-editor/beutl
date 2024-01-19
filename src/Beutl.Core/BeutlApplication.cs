@@ -28,6 +28,8 @@ public class BeutlApplication : Hierarchical, IHierarchicalRoot
 
     public static BeutlApplication Current { get; } = new();
 
+    internal static ActivitySource ActivitySource { get; } = new("Beutl.Application", GitVersionInformation.SemVer);
+
     public ILoggerFactory LoggerFactory
     {
         get => _loggerFactory!;
