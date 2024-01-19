@@ -205,6 +205,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Always display に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AlwaysDisplay {
+            get {
+                return ResourceManager.GetString("AlwaysDisplay", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Amount に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Amount {

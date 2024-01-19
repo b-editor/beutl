@@ -1,0 +1,100 @@
+<UserControl x:Class="Beutl.Views.LibraryViews.EasingsView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:anmeditors="using:Beutl.Views.AnimationEditors"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.ViewModels"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="viewModel:LibraryViewModel"
+             mc:Ignorable="d">
+    <ScrollViewer>
+        <StackPanel>
+            <Border x:Name="splineEasing"
+                    Margin="8,25"
+                    HorizontalAlignment="Left"
+                    Background="Transparent"
+                    BorderBrush="{DynamicResource TextFillColorPrimaryBrush}"
+                    BorderThickness="1">
+                <Panel Width="100" Height="100">
+                    <Path Stroke="{DynamicResource TextFillColorPrimaryBrush}"
+                          StrokeJoin="Round"
+                          StrokeLineCap="Round"
+                          StrokeThickness="2.5">
+                        <Path.Data>
+                            <PathGeometry>
+                                <PathFigure IsClosed="False"
+                                            IsFilled="False"
+                                            StartPoint="0,100">
+                                    <BezierSegment Point1="75,90"
+                                                   Point2="25,10"
+                                                   Point3="100,0" />
+                                </PathFigure>
+                            </PathGeometry>
+                        </Path.Data>
+                    </Path>
+                    <Path Stroke="{DynamicResource TextFillColorSecondaryBrush}"
+                          StrokeJoin="Round"
+                          StrokeLineCap="Round"
+                          StrokeThickness="2.5">
+                        <Path.Data>
+                            <PathGeometry>
+                                <PathFigure IsFilled="False" StartPoint="0,100">
+                                    <LineSegment Point="75,90" />
+                                </PathFigure>
+                                <PathFigure IsFilled="False" StartPoint="100,0">
+                                    <LineSegment Point="25,10" />
+                                </PathFigure>
+                            </PathGeometry>
+                        </Path.Data>
+                    </Path>
+                    <Path Fill="{DynamicResource TextFillColorPrimaryBrush}">
+                        <Path.Data>
+                            <PathGeometry>
+                                <PathFigure IsClosed="True" StartPoint="75,87.5">
+                                    <ArcSegment Point="77.5,90" Size="2.5,2.5" />
+                                    <ArcSegment Point="75,92.5" Size="2.5,2.5" />
+                                    <ArcSegment Point="72.5,90" Size="2.5,2.5" />
+                                    <ArcSegment Point="75,87.5" Size="2.5,2.5" />
+                                </PathFigure>
+                                <PathFigure IsClosed="True" StartPoint="25,7.5">
+                                    <ArcSegment Point="27.5,10" Size="2.5,2.5" />
+                                    <ArcSegment Point="25,12.5" Size="2.5,2.5" />
+                                    <ArcSegment Point="22.5,10" Size="2.5,2.5" />
+                                    <ArcSegment Point="25,7.5" Size="2.5,2.5" />
+                                </PathFigure>
+                            </PathGeometry>
+                        </Path.Data>
+                    </Path>
+                </Panel>
+            </Border>
+
+            <ItemsControl x:Name="itemsControl" ItemsSource="{Binding Easings}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="8,25"
+                                Background="Transparent"
+                                BorderBrush="{DynamicResource TextControlForeground}"
+                                BorderThickness="1">
+                            <anmeditors:EasingGraph Width="100"
+                                                    Height="100"
+                                                    BorderBrush="{DynamicResource TextControlForeground}"
+                                                    ClipToBounds="False"
+                                                    Easing="{Binding}" />
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

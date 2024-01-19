@@ -1012,4 +1012,7 @@ and b-editor maintains the download URL.</value>
   <data name="CopyAsImage" xml:space="preserve">
     <value>Copy as image</value>
   </data>
+  <data name="AlwaysDisplay" xml:space="preserve">
+    <value>Always display</value>
+  </data>
 </root>
