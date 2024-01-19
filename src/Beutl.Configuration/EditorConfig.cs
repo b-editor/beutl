@@ -49,7 +49,7 @@ public sealed class EditorConfig : ConfigurationBase
         ["Search"] = LibraryNavigationDisplayMode.Show,
         ["Easings"] = LibraryNavigationDisplayMode.Show,
         ["Library"] = LibraryNavigationDisplayMode.Show,
-        ["Nodes"] = LibraryNavigationDisplayMode.Show,
+        ["Nodes"] = LibraryNavigationDisplayMode.Hide,
     };
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
