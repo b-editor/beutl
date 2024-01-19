@@ -104,13 +104,16 @@ public class BeutlApiApplication
         _services.Add(typeof(T), new Lazy<object>(() => factory()));
     }
 
-    public void SignOut()
+    public void SignOut(bool deleteFile = true)
     {
         _authorizedUser.Value = null;
-        string fileName = Path.Combine(Helper.AppRoot, "user.json");
-        if (File.Exists(fileName))
+        if (deleteFile)
         {
-            File.Delete(fileName);
+            string fileName = Path.Combine(Helper.AppRoot, "user.json");
+            if (File.Exists(fileName))
+            {
+                File.Delete(fileName);
+            }
         }
     }
 
@@ -155,7 +158,7 @@ public class BeutlApiApplication
             ProfileResponse profileResponse = await Users.Get2Async(cancellationToken);
             var profile = new Profile(profileResponse, this);
 
-            _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient);
+            _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
             SaveUser();
             activity?.AddEvent(new("Saved_User"));
             return _authorizedUser.Value;
@@ -196,7 +199,7 @@ public class BeutlApiApplication
                 ProfileResponse profileResponse = await Users.Get2Async(cancellationToken);
                 var profile = new Profile(profileResponse, this);
 
-                _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient);
+                _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
                 SaveUser();
                 activity?.AddEvent(new("Saved_User"));
                 return _authorizedUser.Value;
@@ -231,6 +234,8 @@ public class BeutlApiApplication
                 using var writer = new Utf8JsonWriter(stream);
                 obj.WriteTo(writer);
             }
+
+            user._writeTime = File.GetLastWriteTimeUtc(fileName);
         }
     }
 
@@ -240,39 +245,50 @@ public class BeutlApiApplication
         {
             activity?.AddEvent(new("Entered_AsyncLock"));
 
-            string fileName = Path.Combine(Helper.AppRoot, "user.json");
-            if (File.Exists(fileName))
+            AuthorizedUser? user = await ReadUserAsync();
+            if (user != null)
             {
-                JsonNode? node;
-                using (StreamReader reader = File.OpenText(fileName))
+                await user.RefreshAsync();
+
+                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
+                await user.Profile.RefreshAsync();
+                _authorizedUser.Value = user;
+                SaveUser();
+            }
+        }
+    }
+
+    public async ValueTask<AuthorizedUser?> ReadUserAsync()
+    {
+        string fileName = Path.Combine(Helper.AppRoot, "user.json");
+        if (File.Exists(fileName))
+        {
+            JsonNode? node = JsonNode.Parse(await File.ReadAllTextAsync(fileName));
+            DateTime lastWriteTime = File.GetLastWriteTimeUtc(fileName);
+
+            if (node != null)
+            {
+                ProfileResponse? profile = JsonSerializer.Deserialize<ProfileResponse>(node["profile"]);
+                string? token = (string?)node["token"];
+                string? refreshToken = (string?)node["refresh_token"];
+                var expiration = (DateTimeOffset?)node["expiration"];
+
+                if (profile != null
+                    && token != null
+                    && refreshToken != null
+                    && expiration.HasValue)
                 {
-                    string json = await reader.ReadToEndAsync();
-                    node = JsonNode.Parse(json);
-                }
-
-                if (node != null)
-                {
-                    ProfileResponse? profile = JsonSerializer.Deserialize<ProfileResponse>(node["profile"]);
-                    string? token = (string?)node["token"];
-                    string? refreshToken = (string?)node["refresh_token"];
-                    var expiration = (DateTimeOffset?)node["expiration"];
-
-                    if (profile != null
-                        && token != null
-                        && refreshToken != null
-                        && expiration.HasValue)
-                    {
-                        var user = new AuthorizedUser(new Profile(profile, this), new AuthResponse(expiration.Value, refreshToken, token), this, _httpClient);
-                        await user.RefreshAsync();
-
-                        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
-                        await user.Profile.RefreshAsync();
-                        _authorizedUser.Value = user;
-                        SaveUser();
-                    }
+                    return new AuthorizedUser(
+                        new Profile(profile, this),
+                        new AuthResponse(expiration.Value, refreshToken, token),
+                        this,
+                        _httpClient,
+                        lastWriteTime);
                 }
             }
         }
+
+        return null;
     }
 
     private static int GetRandomUnusedPort()

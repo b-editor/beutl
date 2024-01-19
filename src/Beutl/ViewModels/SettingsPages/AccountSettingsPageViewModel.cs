@@ -62,7 +62,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
             .DisposeWith(_disposables);
 
         SignOut = new ReactiveCommand(SignedIn);
-        SignOut.Subscribe(_clients.SignOut).DisposeWith(_disposables);
+        SignOut.Subscribe(() => _clients.SignOut()).DisposeWith(_disposables);
 
         OpenAccountSettings = new();
         OpenAccountSettings.Subscribe(BeutlApiApplication.OpenAccountSettings);
