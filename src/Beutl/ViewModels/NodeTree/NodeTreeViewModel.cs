@@ -82,7 +82,7 @@ public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
 
         NodeTree.Nodes.BeginRecord<Node>()
             .Add(node)
-            .ToCommand()
+            .ToCommand([NodeTree.FindHierarchicalParent<IStorable>()])
             .DoAndRecord(CommandRecorder.Default);
     }
 

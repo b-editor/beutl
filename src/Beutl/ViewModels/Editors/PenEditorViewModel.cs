@@ -109,7 +109,8 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     {
         if (!EqualityComparer<IPen>.Default.Equals(oldValue, newValue))
         {
-            CommandRecorder.Default.DoAndPush(new SetCommand(WrappedProperty, oldValue, newValue));
+            CommandRecorder.Default.DoAndPush(
+                new SetCommand(WrappedProperty, oldValue, newValue, GetStorables()));
         }
     }
 

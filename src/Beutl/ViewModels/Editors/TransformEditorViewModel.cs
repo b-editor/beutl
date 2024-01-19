@@ -125,7 +125,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
             {
                 if (Value.Value is Transform transform)
                 {
-                    var command = new ChangePropertyCommand<bool>(transform, Transform.IsEnabledProperty, v, !v);
+                    var command = new ChangePropertyCommand<bool>(transform, Transform.IsEnabledProperty, v, !v, GetStorables());
                     command.DoAndRecord(CommandRecorder.Default);
                 }
             })
@@ -190,7 +190,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
         {
             group.Children.BeginRecord<ITransform>()
                 .Add(obj)
-                .ToCommand()
+                .ToCommand(GetStorables())
                 .DoAndRecord(CommandRecorder.Default);
         }
     }

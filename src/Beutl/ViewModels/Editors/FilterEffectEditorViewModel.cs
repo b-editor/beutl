@@ -89,7 +89,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             {
                 if (Value.Value is FilterEffect filter)
                 {
-                    var command = new ChangePropertyCommand<bool>(filter, FilterEffect.IsEnabledProperty, v, !v);
+                    var command = new ChangePropertyCommand<bool>(filter, FilterEffect.IsEnabledProperty, v, !v, GetStorables());
                     command.DoAndRecord(CommandRecorder.Default);
                 }
             })
@@ -155,7 +155,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         {
             group.Children.BeginRecord<FilterEffect>()
                 .Add(instance)
-                .ToCommand()
+                .ToCommand(GetStorables())
                 .DoAndRecord(CommandRecorder.Default);
         }
     }

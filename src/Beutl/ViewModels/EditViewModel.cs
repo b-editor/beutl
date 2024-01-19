@@ -488,14 +488,14 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 if (op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is IAbstractProperty<ITransform?> transformp)
                 {
                     ITransform? transform = transformp.GetValue();
-                    AddOrSetHelper.AddOrSet(ref transform, new TranslateTransform(desc.Position));
+                    AddOrSetHelper.AddOrSet(ref transform, new TranslateTransform(desc.Position), [operation.FindHierarchicalParent<IStorable>()]);
                     transformp.SetValue(transform);
                 }
                 else
                 {
                     var configure = new ConfigureTransformOperator();
                     ITransform? transform = configure.Transform.Value;
-                    AddOrSetHelper.AddOrSet(ref transform, new TranslateTransform(desc.Position));
+                    AddOrSetHelper.AddOrSet(ref transform, new TranslateTransform(desc.Position), [operation.FindHierarchicalParent<IStorable>()]);
                     configure.Transform.Value = transform;
                     operation.Children.Add(configure);
                 }

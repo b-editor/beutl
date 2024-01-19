@@ -27,7 +27,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
             {
                 Animation.KeyFrames.BeginRecord<IKeyFrame>()
                     .Remove(Model)
-                    .ToCommand()
+                    .ToCommand([parent.Element.Model])
                     .DoAndRecord(CommandRecorder.Default);
             })
             .DisposeWith(_disposables);
@@ -50,7 +50,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         int rate = proj?.GetFrameRate() ?? 30;
 
         TimeSpan time = Left.Value.ToTimeSpan(scale).RoundToRate(rate);
-        new ChangePropertyCommand<TimeSpan>(Model, KeyFrame.KeyTimeProperty, time, Model.KeyTime)
+        new ChangePropertyCommand<TimeSpan>(Model, KeyFrame.KeyTimeProperty, time, Model.KeyTime, [_parent.Element.Model])
             .DoAndRecord(CommandRecorder.Default);
 
         Left.Value = time.ToPixel(scale);

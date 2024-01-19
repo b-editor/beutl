@@ -200,7 +200,7 @@ public sealed partial class ElementView : UserControl
     private void UseNodeClick(object? sender, RoutedEventArgs e)
     {
         var model = ViewModel.Model;
-        var command = new ChangePropertyCommand<bool>(model, Element.UseNodeProperty, !model.UseNode, model.UseNode);
+        var command = new ChangePropertyCommand<bool>(model, Element.UseNodeProperty, !model.UseNode, model.UseNode, [model]);
         command.DoAndRecord(CommandRecorder.Default);
     }
 

@@ -63,13 +63,13 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
     {
         _nodeTree.Nodes.BeginRecord<Node>()
             .Remove(Node)
-            .ToCommand()
+            .ToCommand([_parent.Model])
             .DoAndRecord(CommandRecorder.Default);
     }
 
     public void UpdateName(string? name)
     {
-        new ChangePropertyCommand<string>(Node, CoreObject.NameProperty, name, Node.Name)
+        new ChangePropertyCommand<string>(Node, CoreObject.NameProperty, name, Node.Name, [_parent.Model])
             .DoAndRecord(CommandRecorder.Default);
     }
 

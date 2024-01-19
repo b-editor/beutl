@@ -261,7 +261,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
                 throw new InvalidOperationException("抽象型を初期化できません。");
 
             var list = Activator.CreateInstance(listType) as IList<TItem>;
-            var command = new SetCommand(WrappedProperty, null, list);
+            var command = new SetCommand(WrappedProperty, null, list, GetStorables());
             command.DoAndRecord(CommandRecorder.Default);
         }
         else
@@ -277,7 +277,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
             if (WrappedProperty.IsReadOnly)
                 throw new InvalidOperationException("読み取り専用です。");
 
-            var command = new SetCommand(WrappedProperty, List.Value, null);
+            var command = new SetCommand(WrappedProperty, List.Value, null, GetStorables());
             command.DoAndRecord(CommandRecorder.Default);
         }
     }
@@ -297,7 +297,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
     {
         List.Value!.BeginRecord()
             .Add(item)
-            .ToCommand()
+            .ToCommand(GetStorables())
             .DoAndRecord(CommandRecorder.Default);
     }
 
@@ -305,7 +305,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
     {
         List.Value!.BeginRecord()
             .RemoveAt(index)
-            .ToCommand()
+            .ToCommand(GetStorables())
             .DoAndRecord(CommandRecorder.Default);
     }
 
@@ -313,7 +313,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
     {
         List.Value!.BeginRecord()
             .Move(oldIndex, newIndex)
-            .ToCommand()
+            .ToCommand(GetStorables())
             .DoAndRecord(CommandRecorder.Default);
     }
 

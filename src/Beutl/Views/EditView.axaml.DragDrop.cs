@@ -62,14 +62,14 @@ public partial class EditView
                     && Activator.CreateInstance(feType) is FilterEffect newFe)
                 {
                     FilterEffect? fe = drawable.FilterEffect;
-                    AddOrSetHelper.AddOrSet(ref fe, newFe);
+                    AddOrSetHelper.AddOrSet(ref fe, newFe, [element]);
                     drawable.FilterEffect = fe;
                 }
                 else if (e.Data.Get(KnownLibraryItemFormats.Transform) is Type traType
                     && Activator.CreateInstance(traType) is ITransform newTra)
                 {
                     ITransform? tra = drawable.Transform;
-                    AddOrSetHelper.AddOrSet(ref tra, newTra);
+                    AddOrSetHelper.AddOrSet(ref tra, newTra, [element]);
                     drawable.Transform = tra;
                 }
 

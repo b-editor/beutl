@@ -22,7 +22,7 @@ public sealed class NodeTreeInputViewModel : IDisposable, IServiceProvider
             .DisposeWith(_disposables);
 
         UseNode.Skip(1)
-            .Subscribe(v => new ChangePropertyCommand<bool>(Model, Element.UseNodeProperty, v, !v)
+            .Subscribe(v => new ChangePropertyCommand<bool>(Model, Element.UseNodeProperty, v, !v, [element])
                                 .DoAndRecord(CommandRecorder.Default))
             .DisposeWith(_disposables);
 

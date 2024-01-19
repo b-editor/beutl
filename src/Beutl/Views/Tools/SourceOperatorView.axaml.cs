@@ -117,11 +117,17 @@ public sealed partial class SourceOperatorView : UserControl
     {
         protected override void OnMoveDraggedItem(ItemsControl? itemsControl, int oldIndex, int newIndex)
         {
-            if (itemsControl?.DataContext is SourceOperatorsTabViewModel { Element.Value.Operation.Children: { } list })
+            if (itemsControl?.DataContext is SourceOperatorsTabViewModel
+                {
+                    Element.Value:
+                    {
+                        Operation.Children: { } list
+                    } element
+                })
             {
                 list.BeginRecord<SourceOperator>()
                     .Move(oldIndex, newIndex)
-                    .ToCommand()
+                    .ToCommand([element])
                     .DoAndRecord(CommandRecorder.Default);
             }
         }

@@ -152,7 +152,7 @@ public sealed class TimelineViewModel : IToolContext
         int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
         TimeSpan time = ClickedFrame + TimeSpan.FromSeconds(1d / rate);
 
-        var command = new ChangePropertyCommand<TimeSpan>(Scene, Scene.DurationProperty, time, Scene.Duration);
+        var command = new ChangePropertyCommand<TimeSpan>(Scene, Scene.DurationProperty, time, Scene.Duration, [Scene]);
         command.DoAndRecord(CommandRecorder.Default);
     }
 
@@ -161,7 +161,7 @@ public sealed class TimelineViewModel : IToolContext
         int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
         TimeSpan time = Scene.CurrentFrame + TimeSpan.FromSeconds(1d / rate);
 
-        var command = new ChangePropertyCommand<TimeSpan>(Scene, Scene.DurationProperty, time, Scene.Duration);
+        var command = new ChangePropertyCommand<TimeSpan>(Scene, Scene.DurationProperty, time, Scene.Duration, [Scene]);
         command.DoAndRecord(CommandRecorder.Default);
     }
 
