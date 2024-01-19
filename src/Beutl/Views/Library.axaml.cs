@@ -53,7 +53,7 @@ public sealed partial class Library : UserControl
                 var switchMenu = new ToggleMenuFlyoutItem
                 {
                     [!ToggleMenuFlyoutItem.IsCheckedProperty] = binding,
-                    Text = "常に表示する"
+                    Text = Strings.AlwaysDisplay
                 };
                 switchMenu.Click += (s, e) =>
                 {
