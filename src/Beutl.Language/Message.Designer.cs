@@ -462,6 +462,25 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Opening a project に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string OpeningProject {
+            get {
+                return ResourceManager.GetString("OpeningProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Opening &apos;{0}&apos;.
+        ///Please wait a moment. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string OpeningProjectMessage {
+            get {
+                return ResourceManager.GetString("OpeningProjectMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   The operation could not be executed. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string OperationCouldNotBeExecuted {
@@ -476,6 +495,15 @@ namespace Beutl.Language {
         public static string PleaseEnterString {
             get {
                 return ResourceManager.GetString("PleaseEnterString", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Please wait a moment. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string PleaseWaitAMoment {
+            get {
+                return ResourceManager.GetString("PleaseWaitAMoment", resourceCulture);
             }
         }
         

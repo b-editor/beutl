@@ -144,9 +144,9 @@ public partial class EditPageFallback : UserControl
     private static IDisposable ShowWaitDialog(string projectFile)
     {
         return OutProcessDialog.Show(
-            title: "プロジェクトを開いています",
-            subtitle: "しばらくお待ちください。",
-            content: $"'{Path.GetFileName(projectFile)}'を開いています。\nしばらくお待ちください。",
+            title: Message.OpeningProject,
+            subtitle: Message.PleaseWaitAMoment,
+            content: string.Format(Message.OpeningProjectMessage, Path.GetFileName(projectFile)),
             icon: "Info",
             progress: true);
     }

@@ -284,4 +284,14 @@
   <data name="Failed_to_save_image" xml:space="preserve">
     <value>画像の保存に失敗しました。</value>
   </data>
+  <data name="OpeningProject" xml:space="preserve">
+    <value>プロジェクトを開いています</value>
+  </data>
+  <data name="PleaseWaitAMoment" xml:space="preserve">
+    <value>しばらくお待ちください。</value>
+  </data>
+  <data name="OpeningProjectMessage" xml:space="preserve">
+    <value>'{0}'を開いています。
+しばらくお待ちください。</value>
+  </data>
 </root>

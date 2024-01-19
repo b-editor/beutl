@@ -284,4 +284,14 @@ Restricted mode does not load extensions.</value>
   <data name="Failed_to_save_image" xml:space="preserve">
     <value>Failed to save image.</value>
   </data>
+  <data name="OpeningProject" xml:space="preserve">
+    <value>Opening a project</value>
+  </data>
+  <data name="PleaseWaitAMoment" xml:space="preserve">
+    <value>Please wait a moment.</value>
+  </data>
+  <data name="OpeningProjectMessage" xml:space="preserve">
+    <value>Opening '{0}'.
+Please wait a moment.</value>
+  </data>
 </root>
