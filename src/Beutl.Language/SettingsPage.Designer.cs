@@ -440,15 +440,6 @@ namespace Beutl.Language {
         }
         
         /// <summary>
-        ///   All Errors に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Telemetry_All_Errors {
-            get {
-                return ResourceManager.GetString("Telemetry_All_Errors", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   APIクライアント に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Telemetry_Beutl_Api_Client {
@@ -485,30 +476,13 @@ namespace Beutl.Language {
         }
         
         /// <summary>
-        ///   Display and operation に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Telemetry_Beutl_ViewTracking {
-            get {
-                return ResourceManager.GetString("Telemetry_Beutl_ViewTracking", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   To improve Beutl, we collect anonymous usage data.
+        ///These settings will be applied after the application is restarted.
         ///For more information, please refer to the following pages. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Telemetry_Description {
             get {
                 return ResourceManager.GetString("Telemetry_Description", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Collect all errors that occur. に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Telemetry_Description_All_Errors {
-            get {
-                return ResourceManager.GetString("Telemetry_Description_All_Errors", resourceCulture);
             }
         }
         
@@ -550,15 +524,6 @@ namespace Beutl.Language {
         }
         
         /// <summary>
-        ///   Collect what features users view or use. に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Telemetry_Description_Beutl_ViewTracking {
-            get {
-                return ResourceManager.GetString("Telemetry_Description_Beutl_ViewTracking", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Settings about the data to be collected に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Telemetry_ShortDescription {
@@ -591,6 +556,15 @@ namespace Beutl.Language {
         public static string Theme_Tip {
             get {
                 return ResourceManager.GetString("Theme_Tip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   These settings will be applied after the application is restarted. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string TheseSettingsWillBeAppliedAfterTheApplicationIsRestarted {
+            get {
+                return ResourceManager.GetString("TheseSettingsWillBeAppliedAfterTheApplicationIsRestarted", resourceCulture);
             }
         }
         

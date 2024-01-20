@@ -9,8 +9,6 @@ using Azure.Monitor.OpenTelemetry.Exporter;
 
 using Beutl.Configuration;
 
-using Microsoft.ApplicationInsights;
-using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.Extensions.Logging;
 
 using OpenTelemetry;
@@ -112,10 +110,6 @@ internal static class Telemetry
         config = config.MinimumLevel.Debug();
 #endif
         config = config.WriteTo.Async(b => b.File(logFile, outputTemplate: OutputTemplate));
-        //if (GlobalConfiguration.Instance.TelemetryConfig.Beutl_Logging == true)
-        //{
-        //    config = config.WriteTo.ApplicationInsights(s_client, TelemetryConverter.Traces);
-        //}
 
         Log.Logger = config.CreateLogger();
 

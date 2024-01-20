@@ -115,9 +115,7 @@ public sealed partial class MainView : UserControl
         TelemetryConfig tconfig = GlobalConfiguration.Instance.TelemetryConfig;
         if (!(tconfig.Beutl_Api_Client.HasValue
             && tconfig.Beutl_Application.HasValue
-            && tconfig.Beutl_ViewTracking.HasValue
             && tconfig.Beutl_PackageManagement.HasValue
-            && tconfig.Beutl_All_Errors.HasValue
             && tconfig.Beutl_Logging.HasValue))
         {
             var dialog = new TelemetryDialog();
@@ -126,8 +124,6 @@ public sealed partial class MainView : UserControl
             tconfig.Beutl_Api_Client = result;
             tconfig.Beutl_Application = result;
             tconfig.Beutl_PackageManagement = result;
-            tconfig.Beutl_ViewTracking = result;
-            tconfig.Beutl_All_Errors = result;
             tconfig.Beutl_Logging = result;
         }
     }
