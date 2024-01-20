@@ -12,37 +12,28 @@
 
 Beutlはクロスプラットフォームで動作する動画編集 (コンポジット) ソフトウェアです。  
 
-[古いバージョン(BEditor)のソースコード](https://github.com/b-editor/beutl/tree/old/main)
+
+[古いバージョン(BEditor)のソースコード](https://github.com/b-editor/beutl/tree/old/develop)
 
 ![](https://raw.github.com/b-editor/beutl/main/assets/screenshots/screenshot-light-dark.png)
 _画像は開発中のバージョンです。_
 
 ## 📖 機能
 
-✅ ダークモード  
-✅ クロスプラットフォーム (0.1.0から)  
-✅ アニメーション機能  
-✅ アカウント機能  
-✅ プラグイン機能  
-✅ 描画キャッシュ
-🚧 シーン機能  
+### 💻 クロスプラットフォーム
+Beutl は常に最新の .NET を使用しているため、いろいろな OS で動作します。 Windows, Linuxをサポートしており、macOSも対応する予定です！
 
-## BEditorとの違い
-Beutl は BEditorを再構築したものです。
-Skiaをベースにした[描画エンジン](https://github.com/b-editor/beutl-docs/blob/main/ja/プロセス.md)を搭載しており、
-BEditorに比べて高速に動作します。
-また、Beutlではルールに従って[描画をキャッシュ](https://github.com/b-editor/beutl-docs/blob/main/ja/キャッシュ.md)します。
+### ⏳ キーフレーム
+キーフレームを使用して、フェードインアウト、スライドインなど基本的なアニメーションや、 さまざまなオブジェクトをアニメーションすることができます。
 
-Beutlには拡張機能ストア(仮名)があり、
-皆様が開発した拡張機能を簡単に公開することができます。
+### 🔌 拡張機能
+Beutl アカウントを作成して、拡張機能を取得したり、自身で開発した拡張機能を公開できます。 拡張機能では、エフェクト、オブジェクト、コーデック、UIなどを追加できます。
 
-アニメーション機能では新しくグラフエディタが追加され、
-曲線をコントロールポイントで編集できるようになりました。
+### 🧰 豊富なエフェクト
+色フィルター、ぼかし、シャドウ、LUT などの基本的なエフェクトから 縁取り、内側シャドウ、ロングシャドウなどのマイナーなエフェクトがあります。 もちろんこれらは拡張機能で増やすことができます。
 
-## ブランチ
-| 名前 | 目標 |
-| --- | --- |
-| main |  |
+## 📥 インストール
+[こちら](https://beutl.beditor.net/docs/get-started/install)のドキュメントを参照してください。
 
 ## License
 
