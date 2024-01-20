@@ -199,7 +199,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public bool OpenToolTab(IToolContext item)
     {
-        _logger.LogInformation("'{ToolTabName}' has been opened. (SceneId)", item.Extension.Name, _sceneId);
+        _logger.LogInformation("'{ToolTabName}' has been opened. ({SceneId})", item.Extension.Name, _sceneId);
         try
         {
             if (BottomTabItems.Any(x => x.Context == item) || RightTabItems.Any(x => x.Context == item))
