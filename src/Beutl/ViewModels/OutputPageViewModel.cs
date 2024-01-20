@@ -1,6 +1,9 @@
-﻿using Beutl.Services;
+﻿using Beutl.Logging;
+using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.ExtensionsPages;
+
+using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
 
@@ -9,6 +12,7 @@ namespace Beutl.ViewModels;
 public sealed class OutputPageViewModel : BasePageViewModel, IPageContext
 {
     private readonly OutputService _outputService;
+    private readonly ILogger _logger=Log.CreateLogger<OutputPageViewModel>();
 
     public OutputPageViewModel()
     {
@@ -36,7 +40,8 @@ public sealed class OutputPageViewModel : BasePageViewModel, IPageContext
         }
         catch (Exception e)
         {
-            Telemetry.Exception(e);
+            _logger.LogError(e, "An exception has occurred.");
+
             ErrorHandle(e);
         }
     }

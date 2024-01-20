@@ -13,6 +13,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 
 using Beutl.Helpers;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
@@ -28,6 +29,8 @@ using Beutl.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
+using Microsoft.Extensions.Logging;
+
 namespace Beutl.Views;
 
 public sealed partial class Timeline : UserControl
@@ -41,6 +44,7 @@ public sealed partial class Timeline : UserControl
 
     internal MouseFlags _mouseFlag = MouseFlags.Free;
     internal TimeSpan _pointerFrame;
+    private readonly ILogger _logger = Log.CreateLogger<Timeline>();
     private TimelineViewModel? _viewModel;
     private readonly CompositeDisposable _disposables = [];
     private ElementView? _selectedElement;
@@ -246,7 +250,7 @@ public sealed partial class Timeline : UserControl
         }
         catch (Exception ex)
         {
-            Telemetry.Exception(ex);
+            _logger.LogError(ex, "An exception has occurred.");
             NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, ex.Message);
         }
     }

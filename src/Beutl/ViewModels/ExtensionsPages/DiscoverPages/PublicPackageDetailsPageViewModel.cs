@@ -1,7 +1,10 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Logging;
 using Beutl.Services;
+
+using Microsoft.Extensions.Logging;
 
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
@@ -10,15 +13,13 @@ using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
 
-using Serilog;
-
 using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
-    private readonly ILogger _logger = Log.ForContext<PublicPackageDetailsPageViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<PublicPackageDetailsPageViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly PackageChangesQueue _queue;
@@ -86,7 +87,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
                     activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(e);
                     ErrorHandle(e);
-                    _logger.Error(e, "An unexpected error has occurred.");
+                    _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -190,7 +191,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
                     activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(e);
                     ErrorHandle(e);
-                    _logger.Error(e, "An unexpected error has occurred.");
+                    _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -230,7 +231,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
                     activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(e);
                     ErrorHandle(e);
-                    _logger.Error(e, "An unexpected error has occurred.");
+                    _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -256,7 +257,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
                 catch (Exception e)
                 {
                     ErrorHandle(e);
-                    _logger.Error(e, "An unexpected error has occurred.");
+                    _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -276,7 +277,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
                 catch (Exception e)
                 {
                     ErrorHandle(e);
-                    _logger.Error(e, "An unexpected error has occurred.");
+                    _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
                 {

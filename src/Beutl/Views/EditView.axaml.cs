@@ -13,12 +13,13 @@ using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 
 using Beutl.Controls;
+using Beutl.Logging;
 using Beutl.Services;
 using Beutl.ViewModels;
 
-using Reactive.Bindings.Extensions;
+using Microsoft.Extensions.Logging;
 
-using Serilog;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views;
 
@@ -26,7 +27,7 @@ public sealed partial class EditView : UserControl
 {
     private static readonly Binding s_isSelectedBinding = new("Context.IsSelected.Value", BindingMode.TwoWay);
     private static readonly Binding s_headerBinding = new("Context.Header");
-    private static readonly ILogger s_logger = Log.ForContext<EditView>();
+    private readonly ILogger _logger = Log.CreateLogger<EditView>();
     private readonly AvaloniaList<BcTabItem> _bottomTabItems = [];
     private readonly AvaloniaList<BcTabItem> _rightTabItems = [];
     private readonly CompositeDisposable _disposables = [];
@@ -83,7 +84,7 @@ public sealed partial class EditView : UserControl
     {
         if (obj is BcTabItem { DataContext: ToolTabViewModel { Context.Extension.Name: string name } })
         {
-            Telemetry.ToolTabSelected(name);
+            _logger.LogInformation("'{ToolTabName}' has been selected.", name);
         }
     }
 

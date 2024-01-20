@@ -21,23 +21,20 @@ using Serilog;
 
 namespace Beutl.Services;
 
-internal static partial class Telemetry
+internal static class Telemetry
 {
-    private static readonly TelemetryClient s_client;
-    private static readonly TelemetryConfiguration s_config;
     private static TracerProvider? s_tracerProvider;
+    private static readonly Lazy<ResourceBuilder> s_resourceBuilder = new(() =>
+    {
+        return ResourceBuilder.CreateDefault()
+            .AddService("Beutl", serviceVersion: GitVersionInformation.NuGetVersion, serviceInstanceId: s_sessionId);
+    });
     private const string Instrumentation = "b8cc7df1-1367-41f5-a819-5c95a10075cb";
+    private static readonly string s_sessionId;
 
     static Telemetry()
     {
-        s_config = TelemetryConfiguration.CreateDefault();
-        s_config.ConnectionString = $"InstrumentationKey={Instrumentation}";
-        s_client = new TelemetryClient(s_config);
-        s_client.Context.Session.Id = Guid.NewGuid().ToString();
-        s_client.Context.Location.Ip = "N/A";
-        s_client.Context.Cloud.RoleInstance = "N/A";
-        s_client.Context.GlobalProperties.Add("Beutl Version", GitVersionInformation.NuGetVersion);
-
+        s_sessionId = Guid.NewGuid().ToString();
         s_tracerProvider = CreateTracer();
 
         SetupLogger();
@@ -65,10 +62,8 @@ internal static partial class Telemetry
         else
         {
             return Sdk.CreateTracerProviderBuilder()
-                .SetResourceBuilder(ResourceBuilder.CreateDefault()
-                    .AddService("Beutl", serviceVersion: GitVersionInformation.NuGetVersionV2))
+                .SetResourceBuilder(s_resourceBuilder.Value)
                 .AddSource([.. list])
-                //.AddZipkinExporter()
                 .AddAzureMonitorTraceExporter(b => b.ConnectionString = $"InstrumentationKey={Instrumentation}")
                 .Build();
         }
@@ -95,7 +90,7 @@ internal static partial class Telemetry
         public void Dispose()
         {
             s_tracerProvider?.Dispose();
-            s_client.Flush();
+            Logging.Log.LoggerFactory.Dispose();
         }
     }
 
@@ -117,21 +112,32 @@ internal static partial class Telemetry
         config = config.MinimumLevel.Debug();
 #endif
         config = config.WriteTo.Async(b => b.File(logFile, outputTemplate: OutputTemplate));
-        if (GlobalConfiguration.Instance.TelemetryConfig.Beutl_Logging == true)
-        {
-            config = config.WriteTo.ApplicationInsights(s_client, TelemetryConverter.Traces);
-        }
+        //if (GlobalConfiguration.Instance.TelemetryConfig.Beutl_Logging == true)
+        //{
+        //    config = config.WriteTo.ApplicationInsights(s_client, TelemetryConverter.Traces);
+        //}
 
         Log.Logger = config.CreateLogger();
 
-        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(builder => builder.AddSerilog(Log.Logger, true));
+        Logging.Log.LoggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.AddSerilog(Log.Logger, true);
+
+            if (GlobalConfiguration.Instance.TelemetryConfig.Beutl_Logging == true)
+            {
+                builder.AddOpenTelemetry(o => o
+                    .SetResourceBuilder(s_resourceBuilder.Value)
+                    .AddAzureMonitorLogExporter(az => az.ConnectionString = $"InstrumentationKey={Instrumentation}"));
+            }
+        });
     }
 
     public static void CompressLogFiles()
     {
         Dispatcher.UIThread.Invoke(async () =>
         {
-            Serilog.ILogger log = Log.ForContext(typeof(Telemetry));
+            Microsoft.Extensions.Logging.ILogger log
+                = Logging.Log.LoggerFactory.CreateLogger(typeof(Telemetry));
             var mutex = new Mutex(false, "Beutl.Logging.Compression", out bool createdNew);
             try
             {
@@ -178,7 +184,7 @@ internal static partial class Telemetry
             }
             catch (Exception ex)
             {
-                log.Error(ex, "Exception occurred while compressing logs");
+                log.LogError(ex, "Exception occurred while compressing logs");
             }
             finally
             {

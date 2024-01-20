@@ -11,6 +11,8 @@ using Beutl.ViewModels;
 
 using FluentAvalonia.UI.Controls;
 
+using Microsoft.Extensions.Logging;
+
 namespace Beutl.Views;
 
 public partial class EditView
@@ -112,8 +114,7 @@ public partial class EditView
             }
             catch (Exception ex)
             {
-                Telemetry.Exception(ex);
-                s_logger.Error(ex, "Failed to save image.");
+                _logger.LogError(ex, "Failed to save image.");
                 NotificationService.ShowError(Message.Failed_to_save_image, ex.Message);
             }
         }
@@ -140,8 +141,7 @@ public partial class EditView
             }
             catch (Exception ex)
             {
-                Telemetry.Exception(ex);
-                s_logger.Error(ex, "Failed to save image.");
+                _logger.LogError(ex, "Failed to save image.");
                 NotificationService.ShowError(Message.Failed_to_save_image, ex.Message);
             }
         }

@@ -7,6 +7,7 @@ using Avalonia.Interactivity;
 using Avalonia.Styling;
 
 using Beutl.Configuration;
+using Beutl.Logging;
 using Beutl.Services;
 using Beutl.Utilities;
 using Beutl.ViewModels;
@@ -18,17 +19,17 @@ using DynamicData.Binding;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
 
+using Microsoft.Extensions.Logging;
+
 using Reactive.Bindings.Extensions;
 
 using ReactiveUI;
-
-using Serilog;
 
 namespace Beutl.Views;
 
 public sealed partial class MainView : UserControl
 {
-    private readonly ILogger _logger = Log.ForContext<MainView>();
+    private readonly ILogger<MainView> _logger = Log.CreateLogger<MainView>();
     private readonly CompositeDisposable _disposables = [];
 
     public MainView()
@@ -104,11 +105,9 @@ public sealed partial class MainView : UserControl
             InitExtMenuItems(viewModel);
         }
 
-        _logger.Information("WindowOpened");
-
         ShowTelemetryDialog();
 
-        Telemetry.WindowOpened();
+        _logger.LogInformation("Window opened.");
     }
 
     private static async void ShowTelemetryDialog()

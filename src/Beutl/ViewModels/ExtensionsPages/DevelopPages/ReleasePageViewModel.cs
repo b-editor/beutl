@@ -2,14 +2,14 @@
 
 using Beutl.Api;
 using Beutl.Api.Objects;
-
+using Beutl.Logging;
 using Beutl.ViewModels.Dialogs;
+
+using Microsoft.Extensions.Logging;
 
 using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
-
-using Serilog;
 
 using static Beutl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
 
@@ -17,7 +17,7 @@ namespace Beutl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class ReleasePageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
-    private readonly ILogger _logger = Log.ForContext<ReleasePageViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<ReleasePageViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly AuthorizedUser _user;
 
@@ -99,7 +99,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel, ISupportRefreshVie
                     activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(ex);
                     ErrorHandle(ex);
-                    _logger.Error(ex, "An unexpected error has occurred.");
+                    _logger.LogError(ex, "An unexpected error has occurred.");
                 }
             })
             .DisposeWith(_disposables);
@@ -131,7 +131,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel, ISupportRefreshVie
                     activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(ex);
                     ErrorHandle(ex);
-                    _logger.Error(ex, "An unexpected error has occurred.");
+                    _logger.LogError(ex, "An unexpected error has occurred.");
                 }
             })
             .DisposeWith(_disposables);
@@ -157,7 +157,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel, ISupportRefreshVie
                     activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(ex);
                     ErrorHandle(ex);
-                    _logger.Error(ex, "An unexpected error has occurred.");
+                    _logger.LogError(ex, "An unexpected error has occurred.");
                 }
             })
             .DisposeWith(_disposables);
@@ -192,7 +192,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel, ISupportRefreshVie
                     activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(ex);
                     ErrorHandle(ex);
-                    _logger.Error(ex, "An unexpected error has occurred.");
+                    _logger.LogError(ex, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -267,7 +267,7 @@ public sealed class ReleasePageViewModel : BasePageViewModel, ISupportRefreshVie
             activity?.SetStatus(ActivityStatusCode.Error);
             activity?.RecordException(ex);
             ErrorHandle(ex);
-            _logger.Error(ex, "An unexpected error has occurred.");
+            _logger.LogError(ex, "An unexpected error has occurred.");
         }
     }
 }

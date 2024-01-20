@@ -2,18 +2,19 @@
 
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Logging;
+
+using Microsoft.Extensions.Logging;
 
 using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
 
-using Serilog;
-
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
-    private readonly ILogger _logger = Log.ForContext<SearchPageViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<SearchPageViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly DiscoverService _discoverService;
 
@@ -40,7 +41,7 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
                     activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(e);
                     ErrorHandle(e);
-                    _logger.Error(e, "An unexpected error has occurred.");
+                    _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -67,7 +68,7 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
                     activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(e);
                     ErrorHandle(e);
-                    _logger.Error(e, "An unexpected error has occurred.");
+                    _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -97,7 +98,7 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
                     activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(e);
                     ErrorHandle(e);
-                    _logger.Error(e, "An unexpected error has occurred.");
+                    _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
                 {

@@ -8,6 +8,7 @@ using Beutl.Controls;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
@@ -15,6 +16,8 @@ using Beutl.Services;
 using Beutl.ViewModels;
 
 using FluentAvalonia.UI.Controls;
+
+using Microsoft.Extensions.Logging;
 
 using AvaImage = Avalonia.Controls.Image;
 using AvaPoint = Avalonia.Point;
@@ -383,6 +386,7 @@ public partial class EditView
 
     private sealed class MouseControlCrop : IMouseControlHandler
     {
+        private readonly ILogger _logger = Log.CreateLogger<MouseControlCrop>();
         private bool _pressed;
         private AvaPoint _start;
         private AvaPoint _position;
@@ -452,8 +456,7 @@ public partial class EditView
             }
             catch (Exception ex)
             {
-                Telemetry.Exception(ex);
-                s_logger.Error(ex, "Failed to save image.");
+                _logger.LogError(ex, "Failed to save image.");
                 NotificationService.ShowError(Message.Failed_to_save_image, ex.Message);
             }
         }
@@ -514,8 +517,7 @@ public partial class EditView
                             }
                             catch (Exception ex)
                             {
-                                Telemetry.Exception(ex);
-                                s_logger.Error(ex, "Failed to save image.");
+                                _logger.LogError(ex, "Failed to save image.");
                                 NotificationService.ShowError(Message.Failed_to_save_image, ex.Message);
                             }
                         }

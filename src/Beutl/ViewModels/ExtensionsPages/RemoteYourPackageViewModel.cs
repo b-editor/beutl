@@ -1,7 +1,10 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Logging;
 using Beutl.Services;
+
+using Microsoft.Extensions.Logging;
 
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
@@ -10,15 +13,13 @@ using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
 
-using Serilog;
-
 using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages;
 
 public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageViewModel
 {
-    private readonly ILogger _logger = Log.ForContext<RemoteYourPackageViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<RemoteYourPackageViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly PackageChangesQueue _queue;
@@ -82,7 +83,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                     activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(e);
                     ErrorHandle(e);
-                    _logger.Error(e, "An unexpected error has occurred.");
+                    _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -118,7 +119,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                     activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(e);
                     ErrorHandle(e);
-                    _logger.Error(e, "An unexpected error has occurred.");
+                    _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -148,7 +149,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                     activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(e);
                     ErrorHandle(e);
-                    _logger.Error(e, "An unexpected error has occurred.");
+                    _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -168,7 +169,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 catch (Exception e)
                 {
                     ErrorHandle(e);
-                    _logger.Error(e, "An unexpected error has occurred.");
+                    _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -200,7 +201,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                     activity?.SetStatus(ActivityStatusCode.Error);
                     activity?.RecordException(e);
                     ErrorHandle(e);
-                    _logger.Error(e, "An unexpected error has occurred.");
+                    _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
                 {

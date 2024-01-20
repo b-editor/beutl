@@ -6,6 +6,7 @@ using Beutl.Audio.Platforms.XAudio2;
 using Beutl.Configuration;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
@@ -15,11 +16,11 @@ using Beutl.Rendering;
 using Beutl.Rendering.Cache;
 using Beutl.Services;
 
+using Microsoft.Extensions.Logging;
+
 using OpenTK.Audio.OpenAL;
 
 using Reactive.Bindings;
-
-using Serilog;
 
 using SkiaSharp;
 
@@ -30,7 +31,7 @@ namespace Beutl.ViewModels;
 public sealed class PlayerViewModel : IDisposable
 {
     private static readonly TimeSpan s_second = TimeSpan.FromSeconds(1);
-    private readonly ILogger _logger = Log.ForContext<PlayerViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<PlayerViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly ReactivePropertySlim<bool> _isEnabled;
     private readonly EditViewModel _editViewModel;
@@ -198,8 +199,7 @@ public sealed class PlayerViewModel : IDisposable
         catch (Exception ex)
         {
             // 本来ここには例外が来ないはず
-            Telemetry.Exception(ex);
-            _logger.Error(ex, "An exception occurred during the playback process.");
+            _logger.LogError(ex, "An exception occurred during the playback process.");
         }
         finally
         {
@@ -305,9 +305,8 @@ public sealed class PlayerViewModel : IDisposable
         }
         catch (Exception ex)
         {
-            Telemetry.Exception(ex);
             NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_during_audio_playback);
-            _logger.Error(ex, "An exception occurred during audio playback.");
+            _logger.LogError(ex, "An exception occurred during audio playback.");
             IsPlaying.Value = false;
         }
         finally
@@ -380,9 +379,8 @@ public sealed class PlayerViewModel : IDisposable
         }
         catch (Exception ex)
         {
-            Telemetry.Exception(ex);
             NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_during_audio_playback);
-            _logger.Error(ex, "An exception occurred during audio playback.");
+            _logger.LogError(ex, "An exception occurred during audio playback.");
             IsPlaying.Value = false;
         }
     }
@@ -413,9 +411,8 @@ public sealed class PlayerViewModel : IDisposable
             }
             catch (Exception ex)
             {
-                Telemetry.Exception(ex);
                 NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_while_drawing_frame);
-                _logger.Error(ex, "An exception occurred while drawing the frame.");
+                _logger.LogError(ex, "An exception occurred while drawing the frame.");
                 IsPlaying.Value = false;
             }
             finally
@@ -503,9 +500,8 @@ public sealed class PlayerViewModel : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    Telemetry.Exception(ex);
                     NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_while_drawing_frame);
-                    _logger.Error(ex, "An exception occurred while drawing the frame.");
+                    _logger.LogError(ex, "An exception occurred while drawing the frame.");
                 }
             });
         }

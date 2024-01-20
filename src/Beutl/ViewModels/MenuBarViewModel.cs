@@ -1,14 +1,15 @@
-﻿using Beutl.Services;
+﻿using Beutl.Logging;
+using Beutl.Services;
+
+using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
-
-using Serilog;
 
 namespace Beutl.ViewModels;
 
 public sealed partial class MenuBarViewModel
 {
-    private readonly ILogger _logger = Log.ForContext<MenuBarViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<MenuBarViewModel>();
 
 #pragma warning disable CS8618
     public MenuBarViewModel()

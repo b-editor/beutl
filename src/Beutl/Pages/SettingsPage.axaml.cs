@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 
 using Beutl.Controls.Navigation;
+using Beutl.Logging;
 using Beutl.Pages.SettingsPages;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -10,11 +11,14 @@ using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Navigation;
 
+using Microsoft.Extensions.Logging;
+
 namespace Beutl.Pages;
 
 public sealed partial class SettingsPage : UserControl
 {
     private readonly PageResolver _pageResolver;
+    private readonly ILogger _logger = Log.CreateLogger<SettingsPage>();
 
     public SettingsPage()
     {
@@ -172,7 +176,7 @@ public sealed partial class SettingsPage : UserControl
 
     private void Frame_Navigated(object sender, NavigationEventArgs e)
     {
-        Telemetry.NavigateSettingsPage(e.SourcePageType.Name);
+        _logger.LogInformation("Navigate to '{PageName}'.", e.SourcePageType.Name);
 
         foreach (NavigationViewItem nvi in nav.MenuItemsSource)
         {

@@ -2,12 +2,13 @@
 
 using Avalonia.Platform.Storage;
 
+using Beutl.Logging;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 
 using FluentAvalonia.UI.Controls;
 
-using Serilog;
+using Microsoft.Extensions.Logging;
 
 using Symbol = FluentIcons.Common.Symbol;
 using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
@@ -17,7 +18,7 @@ namespace Beutl.Services.PrimitiveImpls;
 [PrimitiveImpl]
 public sealed class SceneProjectItemExtension : ProjectItemExtension
 {
-    private readonly ILogger _logger = Log.ForContext<SceneProjectItemExtension>();
+    private readonly ILogger<SceneProjectItemExtension> _logger = Log.CreateLogger<SceneProjectItemExtension>();
     public static readonly SceneProjectItemExtension Instance = new();
 
     public override string Name => "Make the scene a project item.";
@@ -61,8 +62,7 @@ public sealed class SceneProjectItemExtension : ProjectItemExtension
             }
             catch (Exception ex)
             {
-                Telemetry.Exception(ex);
-                _logger.Error(ex, "Unable to restore the scene.");
+                _logger.LogError(ex, "Unable to restore the scene.");
                 return false;
             }
             result = scene;
