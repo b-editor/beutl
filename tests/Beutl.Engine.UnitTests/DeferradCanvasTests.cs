@@ -2,6 +2,7 @@
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Pixel;
+using Beutl.Logging;
 
 using Microsoft.Extensions.Logging;
 
@@ -14,7 +15,7 @@ public class DeferradCanvasTests
     [SetUp]
     public void Setup()
     {
-        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
+        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
     }
 
     private static void Draw(ICanvas canvas)

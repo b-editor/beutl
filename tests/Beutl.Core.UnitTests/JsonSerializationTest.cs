@@ -7,6 +7,7 @@ using Beutl.NodeTree.Nodes.Geometry;
 using Beutl.Operators.Configure.Transform;
 using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
+using Beutl.Logging;
 
 using Microsoft.Extensions.Logging;
 
@@ -19,7 +20,7 @@ public class JsonSerializationTest
     [SetUp]
     public void Setup()
     {
-        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
+        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
     }
 
     [Test]

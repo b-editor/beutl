@@ -2,6 +2,7 @@
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Styling;
+using Beutl.Logging;
 
 using Microsoft.Extensions.Logging;
 
@@ -22,7 +23,7 @@ public class StyleTests
     [SetUp]
     public void Setup()
     {
-        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
+        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
 
         _obj = new StyleableObject();
         Style style1 = new Style<StyleableObject>
