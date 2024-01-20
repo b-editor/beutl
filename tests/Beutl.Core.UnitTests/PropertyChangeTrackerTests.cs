@@ -1,5 +1,6 @@
 ﻿
 using Beutl.Collections;
+using Beutl.Logging;
 
 using Microsoft.Extensions.Logging;
 
@@ -12,7 +13,7 @@ public class PropertyChangeTrackerTests
     [SetUp]
     public void Setup()
     {
-        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
+        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
     }
 
     [Test]

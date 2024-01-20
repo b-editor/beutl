@@ -2,18 +2,19 @@
 using Avalonia.Threading;
 
 using Beutl.Api;
+using Beutl.Logging;
 
 using FluentAvalonia.UI.Controls;
 
-using OpenTelemetry.Trace;
+using Microsoft.Extensions.Logging;
 
-using Serilog;
+using OpenTelemetry.Trace;
 
 namespace Beutl.Services.StartupTasks;
 
 public sealed class CheckForUpdatesTask : StartupTask
 {
-    private readonly ILogger _logger = Log.ForContext<CheckForUpdatesTask>();
+    private readonly ILogger<CheckForUpdatesTask> _logger = Log.CreateLogger<CheckForUpdatesTask>();
     private readonly BeutlApiApplication _beutlApiApplication;
 
     public CheckForUpdatesTask(BeutlApiApplication beutlApiApplication)
@@ -64,8 +65,7 @@ public sealed class CheckForUpdatesTask : StartupTask
         catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            activity?.RecordException(ex);
-            _logger.Error(ex, "An error occurred while checking for updates");
+            _logger.LogError(ex, "An error occurred while checking for updates");
             ex.Handle();
             return null;
         }

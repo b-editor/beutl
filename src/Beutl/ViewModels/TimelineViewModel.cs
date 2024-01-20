@@ -11,6 +11,7 @@ using Avalonia.Input.Platform;
 using Beutl.Animation;
 using Beutl.Commands;
 using Beutl.Configuration;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Models;
 using Beutl.Operators.Configure;
@@ -22,11 +23,10 @@ using Beutl.Services.PrimitiveImpls;
 using DynamicData;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-
-using Serilog;
 
 namespace Beutl.ViewModels;
 
@@ -43,7 +43,7 @@ public interface ITimelineOptionsProvider
 
 public sealed class TimelineViewModel : IToolContext
 {
-    private readonly ILogger _logger = Log.ForContext<TimelineViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<TimelineViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
@@ -282,7 +282,7 @@ public sealed class TimelineViewModel : IToolContext
                     MaxLayerCount = LayerHeaders.Count
                 };
 
-                _logger.Debug("The number of layers has been changed. ({Count})", count);
+                _logger.LogDebug("The number of layers has been changed. ({Count})", count);
             }
         }
     }
@@ -307,7 +307,7 @@ public sealed class TimelineViewModel : IToolContext
                     MaxLayerCount = LayerHeaders.Count
                 };
 
-                _logger.Debug("The number of layers has been changed. ({Count})", LayerHeaders.Count);
+                _logger.LogDebug("The number of layers has been changed. ({Count})", LayerHeaders.Count);
             }
         }
         else
@@ -415,7 +415,7 @@ public sealed class TimelineViewModel : IToolContext
                     }
                     catch (Exception ex)
                     {
-                        _logger.Error(ex, "An exception occurred while restoring the UI.");
+                        _logger.LogError(ex, "An exception occurred while restoring the UI.");
                     }
                 }
             }

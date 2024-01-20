@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 
 using Avalonia.Platform.Storage;
 
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.Media.Music;
@@ -18,10 +19,9 @@ using Beutl.Utilities;
 using DynamicData;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
-
-using Serilog;
 
 namespace Beutl.ViewModels;
 
@@ -303,7 +303,7 @@ public sealed class AudioOutputViewModel
 
 public sealed class OutputViewModel : IOutputContext
 {
-    private readonly ILogger _logger = Log.ForContext<OutputViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<OutputViewModel>();
     private readonly ReactiveProperty<bool> _isIndeterminate = new();
     private readonly ReactiveProperty<bool> _isEncoding = new();
     private readonly ReactivePropertySlim<double> _progress = new();
@@ -477,9 +477,8 @@ public sealed class OutputViewModel : IOutputContext
         }
         catch (Exception ex)
         {
-            Telemetry.Exception(ex);
             NotificationService.ShowError(Message.An_exception_occurred_during_output, ex.Message);
-            _logger.Error(ex, "An exception occurred during output.");
+            _logger.LogError(ex, "An exception occurred during output.");
         }
         finally
         {

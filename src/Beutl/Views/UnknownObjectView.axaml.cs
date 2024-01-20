@@ -4,14 +4,19 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 
+using Beutl.Logging;
 using Beutl.Services;
 using Beutl.ViewModels;
+
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Views;
 
 public partial class UnknownObjectView : UserControl
 {
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
+
+    private readonly ILogger _logger = Log.CreateLogger<UnknownObjectView>();
 
     private CancellationTokenSource? _lastTransitionCts;
 
@@ -50,7 +55,7 @@ public partial class UnknownObjectView : UserControl
             }
             catch (Exception ex)
             {
-                Telemetry.Exception(ex);
+                _logger.LogError(ex, "An exception has occurred.");
                 NotificationService.ShowError(Message.OperationCouldNotBeExecuted, ex.Message);
             }
         }

@@ -6,10 +6,8 @@ public sealed class TelemetryConfig : ConfigurationBase
 {
     public static readonly CoreProperty<bool?> Beutl_LoggingProperty;
     public static readonly CoreProperty<bool?> Beutl_ApplicationProperty;
-    public static readonly CoreProperty<bool?> Beutl_ViewTrackingProperty;
     public static readonly CoreProperty<bool?> Beutl_PackageManagementProperty;
     public static readonly CoreProperty<bool?> Beutl_Api_ClientProperty;
-    public static readonly CoreProperty<bool?> Beutl_All_ErrorsProperty;
 
     static TelemetryConfig()
     {
@@ -21,19 +19,11 @@ public sealed class TelemetryConfig : ConfigurationBase
             .DefaultValue(null)
             .Register();
 
-        Beutl_ViewTrackingProperty = ConfigureProperty<bool?, TelemetryConfig>(nameof(Beutl_ViewTracking))
-            .DefaultValue(null)
-            .Register();
-
         Beutl_PackageManagementProperty = ConfigureProperty<bool?, TelemetryConfig>(nameof(Beutl_PackageManagement))
             .DefaultValue(null)
             .Register();
 
         Beutl_Api_ClientProperty = ConfigureProperty<bool?, TelemetryConfig>(nameof(Beutl_Api_Client))
-            .DefaultValue(null)
-            .Register();
-
-        Beutl_All_ErrorsProperty = ConfigureProperty<bool?, TelemetryConfig>(nameof(Beutl_All_Errors))
             .DefaultValue(null)
             .Register();
     }
@@ -50,12 +40,6 @@ public sealed class TelemetryConfig : ConfigurationBase
         set => SetValue(Beutl_ApplicationProperty, value);
     }
 
-    public bool? Beutl_ViewTracking
-    {
-        get => GetValue(Beutl_ViewTrackingProperty);
-        set => SetValue(Beutl_ViewTrackingProperty, value);
-    }
-
     public bool? Beutl_PackageManagement
     {
         get => GetValue(Beutl_PackageManagementProperty);
@@ -68,12 +52,6 @@ public sealed class TelemetryConfig : ConfigurationBase
         set => SetValue(Beutl_Api_ClientProperty, value);
     }
     
-    public bool? Beutl_All_Errors
-    {
-        get => GetValue(Beutl_All_ErrorsProperty);
-        set => SetValue(Beutl_All_ErrorsProperty, value);
-    }
-
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);

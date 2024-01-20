@@ -2,13 +2,14 @@
 using Avalonia.Platform.Storage;
 
 using Beutl.Api.Objects;
+using Beutl.Logging;
 using Beutl.Services;
+
+using Microsoft.Extensions.Logging;
 
 using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
-
-using Serilog;
 
 using static Beutl.ViewModels.SettingsPages.StorageSettingsPageViewModel;
 
@@ -17,7 +18,7 @@ namespace Beutl.ViewModels.Dialogs;
 public class SelectImageAssetViewModel
 {
     private readonly AuthorizedUser _user;
-    private readonly ILogger _logger = Log.ForContext<SelectImageAssetViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<SelectImageAssetViewModel>();
 
     public SelectImageAssetViewModel(AuthorizedUser user)
     {
@@ -53,8 +54,7 @@ public class SelectImageAssetViewModel
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
-                activity?.RecordException(ex);
-                _logger.Error(ex, "An exception occurred while loading the asset.");
+                _logger.LogError(ex, "An exception occurred while loading the asset.");
                 NotificationService.ShowError(Message.An_exception_occurred_while_loading_the_asset, ex.Message);
             }
             finally

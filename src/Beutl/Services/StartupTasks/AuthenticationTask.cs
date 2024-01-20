@@ -1,14 +1,15 @@
 ﻿using Beutl.Api;
+using Beutl.Logging;
+
+using Microsoft.Extensions.Logging;
 
 using OpenTelemetry.Trace;
-
-using Serilog;
 
 namespace Beutl.Services.StartupTasks;
 
 public sealed class AuthenticationTask : StartupTask
 {
-    private readonly ILogger _logger = Log.ForContext<AuthenticationTask>();
+    private readonly ILogger<AuthenticationTask> _logger = Log.CreateLogger<AuthenticationTask>();
     private readonly BeutlApiApplication _beutlApiApplication;
 
     public AuthenticationTask(BeutlApiApplication beutlApiApplication)
@@ -25,8 +26,7 @@ public sealed class AuthenticationTask : StartupTask
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    activity?.RecordException(e);
-                    _logger.Error(e, "An error occurred during authentication");
+                    _logger.LogError(e, "An error occurred during authentication");
                     e.Handle();
                 }
             }

@@ -23,8 +23,6 @@ using DynamicData.Binding;
 using FluentAvalonia.Styling;
 using FluentAvalonia.UI.Controls;
 
-using Serilog;
-
 namespace Beutl.Pages;
 
 public partial class EditPageFallback : UserControl

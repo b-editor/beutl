@@ -1,20 +1,21 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
+using Beutl.Logging;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.ExtensionsPages;
+
+using Microsoft.Extensions.Logging;
 
 using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
 
-using Serilog;
-
 namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class AccountSettingsPageViewModel : BasePageViewModel
 {
-    private readonly ILogger _logger = Log.ForContext<AccountSettingsPageViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<AccountSettingsPageViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly BeutlApiApplication _clients;
     private readonly ReactivePropertySlim<CancellationTokenSource?> _cts = new();
@@ -89,9 +90,8 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
                 catch (Exception ex)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    activity?.RecordException(ex);
                     ErrorHandle(ex);
-                    _logger.Error(ex, "An unexpected error has occurred.");
+                    _logger.LogError(ex, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -160,9 +160,8 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
                 catch (Exception ex)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    activity?.RecordException(ex);
                     ErrorHandle(ex);
-                    _logger.Error(ex, "An unexpected error has occurred.");
+                    _logger.LogError(ex, "An unexpected error has occurred.");
                 }
             }
         }
@@ -185,7 +184,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
             catch (BeutlApiException<ApiErrorResponse> apiex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
-                activity?.RecordException(apiex);
+                _logger.LogError(apiex, "An unexpected error has occurred.");
                 // Todo: エラー説明
                 Error.Value = Message.ApiErrorOccurred;
             }
@@ -195,7 +194,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
-                activity?.RecordException(ex);
+                _logger.LogError(ex, "An unexpected error has occurred.");
                 Error.Value = Message.AnUnexpectedErrorHasOccurred;
             }
             finally

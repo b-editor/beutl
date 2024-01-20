@@ -2,19 +2,20 @@
 
 using Beutl.Api;
 using Beutl.Api.Objects;
+using Beutl.Logging;
 using Beutl.Services;
+
+using Microsoft.Extensions.Logging;
 
 using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
 
-using Serilog;
-
 namespace Beutl.ViewModels.Dialogs;
 
 public class CreateAssetViewModel
 {
-    private readonly ILogger _logger = Log.ForContext<CreateAssetViewModel>();
+    private readonly ILogger<CreateAssetViewModel> _logger = Log.CreateLogger<CreateAssetViewModel>();
     private readonly AuthorizedUser _user;
     private CancellationTokenSource? _cts;
 
@@ -186,15 +187,14 @@ public class CreateAssetViewModel
         catch (BeutlApiException<ApiErrorResponse> ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            activity?.RecordException(ex);
+            _logger.LogError(ex, "Failed to upload a file.");
             ProgressStatus.Value = Message.AnUnexpectedErrorHasOccurred;
             Error.Value = ex.Result.Message;
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            activity?.RecordException(e);
-            _logger.Error(e, "Failed to upload a file.");
+            _logger.LogError(e, "Failed to upload a file.");
             ProgressStatus.Value = Message.AnUnexpectedErrorHasOccurred;
             Error.Value = e.Message;
         }

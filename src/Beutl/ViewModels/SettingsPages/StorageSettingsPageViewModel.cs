@@ -5,23 +5,24 @@ using Beutl.Api.Objects;
 
 using Beutl.Configuration;
 using Beutl.Controls.Navigation;
+using Beutl.Logging;
 using Beutl.Services;
 using Beutl.Utilities;
 using Beutl.ViewModels.ExtensionsPages;
 
 using FluentIcons.Common;
 
+using Microsoft.Extensions.Logging;
+
 using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
-
-using Serilog;
 
 namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class StorageSettingsPageViewModel : BasePageViewModel
 {
-    private readonly ILogger _logger = Log.ForContext<StorageSettingsPageViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<StorageSettingsPageViewModel>();
     private readonly BackupConfig _config;
     private readonly IReadOnlyReactiveProperty<AuthorizedUser?> _user;
     private readonly ReactivePropertySlim<StorageUsageResponse?> _storageUsageResponse = new();
@@ -146,9 +147,8 @@ public sealed class StorageSettingsPageViewModel : BasePageViewModel
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
-                activity?.RecordException(ex);
                 ErrorHandle(ex);
-                _logger.Error(ex, "An unexpected error has occurred.");
+                _logger.LogError(ex, "An unexpected error has occurred.");
             }
             finally
             {

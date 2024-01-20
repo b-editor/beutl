@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
+using Beutl.Logging;
 using Beutl.Pages.ExtensionsPages;
 using Beutl.Pages.ExtensionsPages.DevelopPages;
 using Beutl.Pages.ExtensionsPages.DiscoverPages;
@@ -16,10 +17,14 @@ using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Navigation;
 
+using Microsoft.Extensions.Logging;
+
 namespace Beutl.Pages;
 
 public sealed partial class ExtensionsPage : UserControl
 {
+    private readonly ILogger _logger = Log.CreateLogger<ExtensionsPage>();
+
     public ExtensionsPage()
     {
         InitializeComponent();
@@ -134,7 +139,7 @@ public sealed partial class ExtensionsPage : UserControl
 
     private void Frame_Navigating(object sender, NavigatingCancelEventArgs e)
     {
-        Telemetry.NavigateExtensionsPage(e.SourcePageType.Name);
+        _logger.LogInformation("Navigate to '{PageName}'.", e.SourcePageType.Name);
         Type type1 = frame.CurrentSourcePageType;
         Type type2 = e.SourcePageType;
 

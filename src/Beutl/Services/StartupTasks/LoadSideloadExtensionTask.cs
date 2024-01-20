@@ -4,18 +4,19 @@ using Avalonia.Controls;
 using Avalonia.Threading;
 
 using Beutl.Api.Services;
+using Beutl.Logging;
 
 using FluentAvalonia.UI.Controls;
 
-using OpenTelemetry.Trace;
+using Microsoft.Extensions.Logging;
 
-using Serilog;
+using OpenTelemetry.Trace;
 
 namespace Beutl.Services.StartupTasks;
 
 public sealed class LoadSideloadExtensionTask : StartupTask
 {
-    private readonly ILogger _logger = Log.ForContext<LoadSideloadExtensionTask>();
+    private readonly ILogger<LoadSideloadExtensionTask> _logger = Log.CreateLogger<LoadSideloadExtensionTask>();
     private readonly PackageManager _manager;
 
     public LoadSideloadExtensionTask(PackageManager manager)
@@ -43,8 +44,7 @@ public sealed class LoadSideloadExtensionTask : StartupTask
                             catch (Exception e)
                             {
                                 activity?.SetStatus(ActivityStatusCode.Error);
-                                activity?.RecordException(e);
-                                _logger.Error(e, "Failed to load package");
+                                _logger.LogError(e, "Failed to load package");
                                 Failures.Add((item, e));
                             }
                         });

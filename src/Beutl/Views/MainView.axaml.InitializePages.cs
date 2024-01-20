@@ -8,11 +8,14 @@ using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.Controls;
+using Beutl.Logging;
 using Beutl.Services;
 using Beutl.ViewModels;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
+
+using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings.Extensions;
 
@@ -22,6 +25,8 @@ public partial class MainView
 {
     private sealed class NavigationPageFactory : INavigationPageFactory
     {
+        private readonly ILogger _logger = Log.CreateLogger<NavigationPageFactory>();
+
         public Control GetPage(Type srcType)
         {
             return null!;
@@ -31,7 +36,7 @@ public partial class MainView
         {
             if (target is MainViewModel.NavItemViewModel item)
             {
-                return CreateView(item);
+                return CreateView(item, _logger);
             }
 
             return null!;
@@ -47,14 +52,14 @@ public partial class MainView
         if (e.InvokedItemContainer.DataContext is MainViewModel.NavItemViewModel itemViewModel
             && DataContext is MainViewModel viewModel)
         {
-            Telemetry.NavigateMainPage(itemViewModel.Extension.Name);
+            _logger.LogInformation("Navigate to '{PageName}'.", itemViewModel.Extension.Name);
 
             _navigationTransition = e.RecommendedNavigationTransitionInfo;
             viewModel.SelectedPage.Value = itemViewModel;
         }
     }
 
-    private static Control CreateView(MainViewModel.NavItemViewModel item)
+    private static Control CreateView(MainViewModel.NavItemViewModel item, ILogger logger)
     {
         Control? view = null;
         Exception? exception = null;
@@ -64,7 +69,7 @@ public partial class MainView
         }
         catch (Exception e)
         {
-            Telemetry.Exception(e);
+            logger.LogError(e, "An exception has occurred.");
             exception = e;
         }
 

@@ -7,6 +7,7 @@ using Avalonia.Interactivity;
 using Avalonia.Styling;
 
 using Beutl.Configuration;
+using Beutl.Logging;
 using Beutl.Services;
 using Beutl.Utilities;
 using Beutl.ViewModels;
@@ -18,17 +19,17 @@ using DynamicData.Binding;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
 
+using Microsoft.Extensions.Logging;
+
 using Reactive.Bindings.Extensions;
 
 using ReactiveUI;
-
-using Serilog;
 
 namespace Beutl.Views;
 
 public sealed partial class MainView : UserControl
 {
-    private readonly ILogger _logger = Log.ForContext<MainView>();
+    private readonly ILogger<MainView> _logger = Log.CreateLogger<MainView>();
     private readonly CompositeDisposable _disposables = [];
 
     public MainView()
@@ -104,11 +105,9 @@ public sealed partial class MainView : UserControl
             InitExtMenuItems(viewModel);
         }
 
-        _logger.Information("WindowOpened");
-
         ShowTelemetryDialog();
 
-        Telemetry.WindowOpened();
+        _logger.LogInformation("Window opened.");
     }
 
     private static async void ShowTelemetryDialog()
@@ -116,9 +115,7 @@ public sealed partial class MainView : UserControl
         TelemetryConfig tconfig = GlobalConfiguration.Instance.TelemetryConfig;
         if (!(tconfig.Beutl_Api_Client.HasValue
             && tconfig.Beutl_Application.HasValue
-            && tconfig.Beutl_ViewTracking.HasValue
             && tconfig.Beutl_PackageManagement.HasValue
-            && tconfig.Beutl_All_Errors.HasValue
             && tconfig.Beutl_Logging.HasValue))
         {
             var dialog = new TelemetryDialog();
@@ -127,8 +124,6 @@ public sealed partial class MainView : UserControl
             tconfig.Beutl_Api_Client = result;
             tconfig.Beutl_Application = result;
             tconfig.Beutl_PackageManagement = result;
-            tconfig.Beutl_ViewTracking = result;
-            tconfig.Beutl_All_Errors = result;
             tconfig.Beutl_Logging = result;
         }
     }

@@ -2,6 +2,8 @@
 
 using NUnit.Framework;
 
+using Beutl.Logging;
+
 namespace Beutl.Core.UnitTests;
 
 public class CommandRecorderTests
@@ -9,7 +11,7 @@ public class CommandRecorderTests
     [SetUp]
     public void Setup()
     {
-        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
+        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
     }
 
     [Test]

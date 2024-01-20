@@ -3,22 +3,23 @@
 using Beutl.Api.Objects;
 
 using Beutl.Controls.Navigation;
+using Beutl.Logging;
 using Beutl.Services;
 using Beutl.Utilities;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.ExtensionsPages;
 
+using Microsoft.Extensions.Logging;
+
 using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
-
-using Serilog;
 
 namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class StorageDetailPageViewModel : BasePageViewModel
 {
-    private readonly ILogger _logger = Log.ForContext<StorageDetailPageViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<StorageDetailPageViewModel>();
     private readonly AuthorizedUser _user;
 
     public StorageDetailPageViewModel(AuthorizedUser user, StorageSettingsPageViewModel.KnownType type)
@@ -63,9 +64,8 @@ public sealed class StorageDetailPageViewModel : BasePageViewModel
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
-                activity?.RecordException(ex);
                 ErrorHandle(ex);
-                _logger.Error(ex, "An unexpected error has occurred.");
+                _logger.LogError(ex, "An unexpected error has occurred.");
             }
             finally
             {

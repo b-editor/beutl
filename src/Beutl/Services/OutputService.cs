@@ -2,6 +2,9 @@
 using System.Text.Json.Nodes;
 
 using Beutl.Api.Services;
+using Beutl.Logging;
+
+using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
 
@@ -57,7 +60,7 @@ public sealed class OutputQueueItem : IDisposable
         };
     }
 
-    public static OutputQueueItem? FromJson(JsonNode json)
+    public static OutputQueueItem? FromJson(JsonNode json, ILogger logger)
     {
         try
         {
@@ -86,7 +89,7 @@ public sealed class OutputQueueItem : IDisposable
         }
         catch (Exception ex)
         {
-            Telemetry.Exception(ex);
+            logger.LogError(ex, "An exception has occurred.");
             return null;
         }
     }
@@ -97,6 +100,7 @@ public sealed class OutputService
     private readonly CoreList<OutputQueueItem> _items = [];
     private readonly ReactivePropertySlim<OutputQueueItem?> _selectedItem = new();
     private readonly string _filePath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "outputlist.json");
+    private readonly ILogger _logger = Log.CreateLogger<OutputService>();
     private bool _isRestored;
 
     public static OutputService Current { get; } = new();
@@ -161,7 +165,7 @@ public sealed class OutputService
                 {
                     if (jsonItem != null)
                     {
-                        var item = OutputQueueItem.FromJson(jsonItem);
+                        var item = OutputQueueItem.FromJson(jsonItem, _logger);
                         if (item != null)
                         {
                             _items.Add(item);

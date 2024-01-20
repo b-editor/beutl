@@ -232,12 +232,6 @@
     <value>アプリケーションのパフォーマンス改善のために以下のような情報を収集します。
 アプリケーションが開始した時間、操作の経過時間、APIで取得した項目の件数</value>
   </data>
-  <data name="Telemetry_Beutl_ViewTracking" xml:space="preserve">
-    <value>表示、操作</value>
-  </data>
-  <data name="Telemetry_Description_Beutl_ViewTracking" xml:space="preserve">
-    <value>ユーザーがどのような機能を表示または使用したかを収集します。</value>
-  </data>
   <data name="Telemetry_Beutl_PackageManagement" xml:space="preserve">
     <value>パッケージ管理</value>
   </data>
@@ -258,13 +252,8 @@
   </data>
   <data name="Telemetry_Description" xml:space="preserve">
     <value>Beutlを改善するために、匿名の使用状況データを収集します。
+これらの設定はアプリケーションの再起動後に変更が適用されます。
 詳しくは以下のページをご覧ください。</value>
-  </data>
-  <data name="Telemetry_All_Errors" xml:space="preserve">
-    <value>すべてのエラー</value>
-  </data>
-  <data name="Telemetry_Description_All_Errors" xml:space="preserve">
-    <value>発生したすべてのエラーを収集します。</value>
   </data>
   <data name="ShowExactBoundaries_Description" xml:space="preserve">
     <value>プレビュー時に表示される要素の境界を正確に表示します。
@@ -305,5 +294,8 @@
   </data>
   <data name="Telemetry_Description_Beutl_Logging" xml:space="preserve">
     <value>より詳細な使用状況を収集します。送信されるログは ".beutl/log" ディレクトリ下にも保存されます。</value>
+  </data>
+  <data name="TheseSettingsWillBeAppliedAfterTheApplicationIsRestarted" xml:space="preserve">
+    <value>これらの設定はアプリケーションの再起動後に変更が適用されます。</value>
   </data>
 </root>

@@ -162,7 +162,7 @@ public sealed class Project : Hierarchical, IStorable
 
     public override void Deserialize(ICoreSerializationContext context)
     {
-        using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Serialize");
+        using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Deserialize");
         base.Deserialize(context);
 
         AppVersion = context.GetValue<string>("appVersion") ?? AppVersion;

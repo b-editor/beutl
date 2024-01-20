@@ -8,6 +8,7 @@ using Beutl.Animation;
 using Beutl.Api.Services;
 using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
@@ -20,9 +21,9 @@ using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Tools;
 
-using Reactive.Bindings;
+using Microsoft.Extensions.Logging;
 
-using Serilog;
+using Reactive.Bindings;
 
 using LibraryService = Beutl.Services.LibraryService;
 
@@ -43,7 +44,7 @@ public sealed class ToolTabViewModel(IToolContext context) : IDisposable
 
 public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, ISupportCloseAnimation
 {
-    private static readonly ILogger s_logger = Log.ForContext<EditViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly CompositeDisposable _disposables = [];
     // Telemetryで使う
     private readonly string _sceneId;
@@ -198,8 +199,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public bool OpenToolTab(IToolContext item)
     {
-        Telemetry.ToolTabOpened(item.Extension.Name, _sceneId);
-        s_logger.Information("OpenToolTab {ToolName}", item.Extension.Name);
+        _logger.LogInformation("'{ToolTabName}' has been opened. ({SceneId})", item.Extension.Name, _sceneId);
         try
         {
             if (BottomTabItems.Any(x => x.Context == item) || RightTabItems.Any(x => x.Context == item))
@@ -223,15 +223,14 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         }
         catch (Exception ex)
         {
-            Telemetry.Exception(ex);
-            s_logger.Error(ex, "Failed to OpenToolTab.");
+            _logger.LogError(ex, "Failed to OpenToolTab.");
             return false;
         }
     }
 
     public void CloseToolTab(IToolContext item)
     {
-        s_logger.Information("CloseToolTab {ToolName}", item.Extension.Name);
+        _logger.LogInformation("CloseToolTab {ToolName}", item.Extension.Name);
         try
         {
             if (BottomTabItems.FirstOrDefault(x => x.Context == item) is { } found0)
@@ -247,8 +246,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         }
         catch (Exception ex)
         {
-            Telemetry.Exception(ex);
-            s_logger.Error(ex, "Failed to CloseToolTab.");
+            _logger.LogError(ex, "Failed to CloseToolTab.");
         }
     }
 

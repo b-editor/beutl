@@ -2,6 +2,7 @@
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Pixel;
+using Beutl.Logging;
 
 using Microsoft.Extensions.Logging;
 
@@ -15,7 +16,7 @@ public class ShapeTests
     [SetUp]
     public void Setup()
     {
-        BeutlApplication.Current.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
+        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
     }
 
     [Test]

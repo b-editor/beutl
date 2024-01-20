@@ -2,21 +2,21 @@
 using Avalonia.Platform.Storage;
 
 using Beutl.Api.Objects;
-
+using Beutl.Logging;
 using Beutl.Services;
 using Beutl.Utilities;
+
+using Microsoft.Extensions.Logging;
 
 using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
 
-using Serilog;
-
 namespace Beutl.ViewModels.Dialogs;
 
 public class SelectAssetViewModel
 {
-    private readonly ILogger _logger = Log.ForContext<SelectAssetViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<SelectAssetViewModel>();
     private readonly AuthorizedUser _user;
     private readonly Func<string, bool> _contentTypeFilter;
     private readonly FilePickerFileType? _defaultFileType;
@@ -58,8 +58,7 @@ public class SelectAssetViewModel
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
-                activity?.RecordException(ex);
-                _logger.Error(ex, "An exception occurred while loading the list of assets.");
+                _logger.LogError(ex, "An exception occurred while loading the list of assets.");
                 NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             }
             finally

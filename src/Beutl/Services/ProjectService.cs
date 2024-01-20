@@ -1,14 +1,15 @@
 ﻿using System.Reactive.Subjects;
 
 using Beutl.Configuration;
+using Beutl.Logging;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+
+using Microsoft.Extensions.Logging;
 
 using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
-
-using Serilog;
 
 namespace Beutl.Services;
 
@@ -17,7 +18,7 @@ public sealed class ProjectService
     private readonly Subject<(Project? New, Project? Old)> _projectObservable = new();
     private readonly ReadOnlyReactivePropertySlim<bool> _isOpened;
     private readonly BeutlApplication _app = BeutlApplication.Current;
-    private readonly ILogger _logger = Log.ForContext<ProjectService>();
+    private readonly ILogger _logger = Log.CreateLogger<ProjectService>();
 
     public ProjectService()
     {
@@ -55,8 +56,7 @@ public sealed class ProjectService
         catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            activity?.RecordException(ex);
-            _logger.Error(ex, "Unable to open the project.");
+            _logger.LogError(ex, "Unable to open the project.");
             return null;
         }
     }
@@ -114,8 +114,7 @@ public sealed class ProjectService
         catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            activity?.RecordException(ex);
-            _logger.Error(ex, "Unable to open the project.");
+            _logger.LogError(ex, "Unable to open the project.");
             return null;
         }
     }

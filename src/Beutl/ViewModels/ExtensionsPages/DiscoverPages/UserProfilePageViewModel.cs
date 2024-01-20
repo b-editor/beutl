@@ -1,18 +1,19 @@
 ﻿using Avalonia.Collections;
 
 using Beutl.Api.Objects;
+using Beutl.Logging;
+
+using Microsoft.Extensions.Logging;
 
 using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
 
-using Serilog;
-
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
-    private readonly ILogger _logger = Log.ForContext<UserProfilePageViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<UserProfilePageViewModel>();
     private readonly CompositeDisposable _disposables = [];
 
     public UserProfilePageViewModel(Profile profile)
@@ -39,9 +40,8 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    activity?.RecordException(e);
                     ErrorHandle(e);
-                    _logger.Error(e, "An unexpected error has occurred.");
+                    _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
@@ -66,7 +66,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
                 catch (Exception e)
                 {
                     ErrorHandle(e);
-                    _logger.Error(e, "An unexpected error has occurred.");
+                    _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
                 {

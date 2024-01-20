@@ -20,7 +20,6 @@ internal static class Program
         config.Restore(GlobalConfiguration.DefaultFilePath);
 
         using IDisposable _ = Telemetry.GetDisposable();
-        Telemetry.Started();
 
         // ProfileOptimizationを有効化
         string jitProfiles = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "jitProfiles");

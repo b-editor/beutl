@@ -3,20 +3,20 @@
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
-
+using Beutl.Logging;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
+
+using Microsoft.Extensions.Logging;
 
 using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
 
-using Serilog;
-
 namespace Beutl.ViewModels.ExtensionsPages;
 
 public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
-    private readonly ILogger _logger = Log.ForContext<DiscoverPageViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<DiscoverPageViewModel>();
     private readonly BeutlApiApplication _clients;
     private readonly DiscoverService _discoverService;
 
@@ -86,9 +86,8 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
-                activity?.RecordException(ex);
                 ErrorHandle(ex);
-                _logger.Error(ex, "An unexpected error has occurred.");
+                _logger.LogError(ex, "An unexpected error has occurred.");
             }
             finally
             {

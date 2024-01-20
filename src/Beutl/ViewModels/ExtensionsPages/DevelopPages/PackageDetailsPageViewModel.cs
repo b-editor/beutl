@@ -1,16 +1,17 @@
 ﻿using Beutl.Api.Objects;
+using Beutl.Logging;
+
+using Microsoft.Extensions.Logging;
 
 using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
 
-using Serilog;
-
 namespace Beutl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
-    private readonly ILogger _logger = Log.ForContext<PackageDetailsPageViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<PackageDetailsPageViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly AuthorizedUser _user;
 
@@ -42,9 +43,8 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
-                activity?.RecordException(ex);
                 ErrorHandle(ex);
-                _logger.Error(ex, "An unexpected error has occurred.");
+                _logger.LogError(ex, "An unexpected error has occurred.");
             }
             finally
             {

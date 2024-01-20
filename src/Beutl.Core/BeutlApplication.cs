@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 using Beutl.Collections;
 
@@ -11,7 +12,6 @@ public class BeutlApplication : Hierarchical, IHierarchicalRoot
 {
     public static readonly CoreProperty<Project?> ProjectProperty;
     private Project? _project;
-    private ILoggerFactory? _loggerFactory;
 
     static BeutlApplication()
     {
@@ -23,18 +23,14 @@ public class BeutlApplication : Hierarchical, IHierarchicalRoot
     public BeutlApplication()
     {
         Items = new HierarchicalList<ProjectItem>(this);
-
     }
 
     public static BeutlApplication Current { get; } = new();
 
     internal static ActivitySource ActivitySource { get; } = new("Beutl.Application", GitVersionInformation.SemVer);
 
-    public ILoggerFactory LoggerFactory
-    {
-        get => _loggerFactory!;
-        internal set => _loggerFactory ??= value;
-    }
+    [SuppressMessage("Performance", "CA1822:メンバーを static に設定します", Justification = "<保留中>")]
+    public ILoggerFactory LoggerFactory => Logging.Log.LoggerFactory;
 
     public Project? Project
     {
