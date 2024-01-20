@@ -37,7 +37,7 @@ public class PropertyChangeTrackerTests
             elm.String = Bar;
             elm_1.String = "Depth_1";
 
-            IRecordableCommand command = tracker.ToCommand();
+            IRecordableCommand command = tracker.ToCommand([]);
 
             command.Undo();
 
