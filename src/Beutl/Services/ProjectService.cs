@@ -56,7 +56,6 @@ public sealed class ProjectService
         catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            activity?.RecordException(ex);
             _logger.LogError(ex, "Unable to open the project.");
             return null;
         }
@@ -115,7 +114,6 @@ public sealed class ProjectService
         catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            activity?.RecordException(ex);
             _logger.LogError(ex, "Unable to open the project.");
             return null;
         }

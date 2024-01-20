@@ -73,7 +73,6 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
@@ -104,7 +103,6 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
@@ -133,7 +131,6 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }

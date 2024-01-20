@@ -147,7 +147,6 @@ public sealed class StorageSettingsPageViewModel : BasePageViewModel
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
-                activity?.RecordException(ex);
                 ErrorHandle(ex);
                 _logger.LogError(ex, "An unexpected error has occurred.");
             }

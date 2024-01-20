@@ -58,7 +58,6 @@ public sealed class CreatePackageDialogViewModel
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
-                activity?.RecordException(ex);
                 Error.Value = Message.AnUnexpectedErrorHasOccurred;
                 _logger.LogError(ex, "An unexpected error has occurred.");
             }
@@ -144,7 +143,6 @@ public sealed class CreatePackageDialogViewModel
                     catch (Exception ex)
                     {
                         activity?.SetStatus(ActivityStatusCode.Error);
-                        activity?.RecordException(ex);
                         _logger.LogError(ex, "An unexpected error has occurred.");
                         ex.Handle();
                     }
@@ -156,7 +154,6 @@ public sealed class CreatePackageDialogViewModel
         catch (BeutlApiException<ApiErrorResponse> e)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            activity?.RecordException(e);
             Error.Value = e.Result.Message;
             _logger.LogError(e, "API error occurred.");
             return null;
@@ -164,7 +161,6 @@ public sealed class CreatePackageDialogViewModel
         catch (Exception e)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            activity?.RecordException(e);
             Error.Value = Message.AnUnexpectedErrorHasOccurred;
             _logger.LogError(e, "An unexpected error has occurred.");
             return null;

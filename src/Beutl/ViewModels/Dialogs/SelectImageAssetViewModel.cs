@@ -54,7 +54,6 @@ public class SelectImageAssetViewModel
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
-                activity?.RecordException(ex);
                 _logger.LogError(ex, "An exception occurred while loading the asset.");
                 NotificationService.ShowError(Message.An_exception_occurred_while_loading_the_asset, ex.Message);
             }

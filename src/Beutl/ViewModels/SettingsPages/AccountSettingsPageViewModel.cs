@@ -90,7 +90,6 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
                 catch (Exception ex)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    activity?.RecordException(ex);
                     ErrorHandle(ex);
                     _logger.LogError(ex, "An unexpected error has occurred.");
                 }
@@ -161,7 +160,6 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
                 catch (Exception ex)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    activity?.RecordException(ex);
                     ErrorHandle(ex);
                     _logger.LogError(ex, "An unexpected error has occurred.");
                 }
@@ -186,7 +184,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
             catch (BeutlApiException<ApiErrorResponse> apiex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
-                activity?.RecordException(apiex);
+                _logger.LogError(apiex, "An unexpected error has occurred.");
                 // Todo: エラー説明
                 Error.Value = Message.ApiErrorOccurred;
             }
@@ -196,7 +194,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
-                activity?.RecordException(ex);
+                _logger.LogError(ex, "An unexpected error has occurred.");
                 Error.Value = Message.AnUnexpectedErrorHasOccurred;
             }
             finally

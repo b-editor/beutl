@@ -43,7 +43,6 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
-                activity?.RecordException(ex);
                 ErrorHandle(ex);
                 _logger.LogError(ex, "An unexpected error has occurred.");
             }

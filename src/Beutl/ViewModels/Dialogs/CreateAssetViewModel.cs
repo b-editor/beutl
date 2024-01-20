@@ -187,14 +187,13 @@ public class CreateAssetViewModel
         catch (BeutlApiException<ApiErrorResponse> ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            activity?.RecordException(ex);
+            _logger.LogError(ex, "Failed to upload a file.");
             ProgressStatus.Value = Message.AnUnexpectedErrorHasOccurred;
             Error.Value = ex.Result.Message;
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            activity?.RecordException(e);
             _logger.LogError(e, "Failed to upload a file.");
             ProgressStatus.Value = Message.AnUnexpectedErrorHasOccurred;
             Error.Value = e.Message;

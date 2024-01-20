@@ -58,7 +58,6 @@ public class SelectAssetViewModel
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
-                activity?.RecordException(ex);
                 _logger.LogError(ex, "An exception occurred while loading the list of assets.");
                 NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             }

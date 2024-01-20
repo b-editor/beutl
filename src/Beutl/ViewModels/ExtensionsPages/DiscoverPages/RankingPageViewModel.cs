@@ -63,7 +63,6 @@ public sealed class RankingPageViewModel : BasePageViewModel, ISupportRefreshVie
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
@@ -97,7 +96,6 @@ public sealed class RankingPageViewModel : BasePageViewModel, ISupportRefreshVie
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }

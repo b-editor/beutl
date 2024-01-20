@@ -40,7 +40,6 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    activity?.RecordException(e);
                     ErrorHandle(e);
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }

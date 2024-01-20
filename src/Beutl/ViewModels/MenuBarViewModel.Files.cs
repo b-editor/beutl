@@ -127,7 +127,6 @@ public partial class MenuBarViewModel
         catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            activity?.RecordException(ex);
             _logger.LogError(ex, "Failed to save files");
             NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
         }
@@ -161,7 +160,6 @@ public partial class MenuBarViewModel
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
-                activity?.RecordException(ex);
                 _logger.LogError(ex, "Failed to save file");
                 NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             }
