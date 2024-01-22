@@ -65,19 +65,16 @@ public class EnumEditor<TEnum> : EnumEditor
 
     protected override void OnComboBoxSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        // EnumEditor.SelectedIndexが先に設定された場合、受け付けない
-        if (InnerComboBox.SelectedIndex != PrevSelectedIndex)
+        // 必ず選択されている
+        if (e.AddedItems.Count > 0)
         {
-            // 必ず選択されている
-            if (e.AddedItems.Count > 0)
-            {
-                int newIndex = Math.Clamp(InnerComboBox.SelectedIndex, 0, s_enumValues.Length - 1);
-                int oldIndex = Math.Clamp(PrevSelectedIndex, 0, s_enumValues.Length - 1);
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<TEnum>(
-                    s_enumValues[newIndex],
-                    s_enumValues[oldIndex],
-                    ValueConfirmedEvent));
-            }
+            int newIndex = Math.Clamp(InnerComboBox.SelectedIndex, 0, s_enumValues.Length - 1);
+            int oldIndex = Math.Clamp(PrevSelectedIndex, 0, s_enumValues.Length - 1);
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<TEnum>(
+                s_enumValues[newIndex],
+                s_enumValues[oldIndex],
+                ValueConfirmedEvent));
+            PrevSelectedIndex = SelectedIndex;
         }
     }
 }
@@ -103,16 +100,12 @@ public class EnumEditor : PropertyEditor
     public virtual int SelectedIndex
     {
         get => _selectedIndex;
-        set
-        {
-            PrevSelectedIndex = value;
-            SetAndRaise(SelectedIndexProperty, ref _selectedIndex, value);
-        }
+        set => SetAndRaise(SelectedIndexProperty, ref _selectedIndex, value);
     }
 
     protected ComboBox InnerComboBox { get; private set; }
 
-    protected int PrevSelectedIndex { get; private set; }
+    protected int PrevSelectedIndex { get; set; }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -148,14 +141,11 @@ public class EnumEditor : PropertyEditor
 
     protected virtual void OnComboBoxSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        // EnumEditor.SelectedIndexが先に設定された場合、受け付けない
-        if (InnerComboBox.SelectedIndex != PrevSelectedIndex)
+        // 必ず選択されている
+        if (e.AddedItems.Count > 0)
         {
-            // 必ず選択されている
-            if (e.AddedItems.Count > 0)
-            {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<int>(InnerComboBox.SelectedIndex, PrevSelectedIndex, ValueConfirmedEvent));
-            }
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<int>(InnerComboBox.SelectedIndex, PrevSelectedIndex, ValueConfirmedEvent));
+            PrevSelectedIndex = SelectedIndex;
         }
     }
 }
