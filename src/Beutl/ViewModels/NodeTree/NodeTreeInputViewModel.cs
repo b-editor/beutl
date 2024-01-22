@@ -3,6 +3,8 @@ using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes;
 using Beutl.ProjectSystem;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.NodeTree;
@@ -22,8 +24,12 @@ public sealed class NodeTreeInputViewModel : IDisposable, IServiceProvider
             .DisposeWith(_disposables);
 
         UseNode.Skip(1)
-            .Subscribe(v => new ChangePropertyCommand<bool>(Model, Element.UseNodeProperty, v, !v, [element])
-                                .DoAndRecord(CommandRecorder.Default))
+            .Subscribe(v =>
+            {
+                CommandRecorder recorder = _parent.GetRequiredService<CommandRecorder>();
+                new ChangePropertyCommand<bool>(Model, Element.UseNodeProperty, v, !v, [element])
+                    .DoAndRecord(recorder);
+            })
             .DisposeWith(_disposables);
 
         element.NodeTree.Nodes.ForEachItem(

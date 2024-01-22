@@ -79,8 +79,9 @@ public sealed class SoundEffectEditorViewModel : ValueEditorViewModel<ISoundEffe
             {
                 if (Value.Value is SoundEffect effect)
                 {
+                    CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
                     var command = new ChangePropertyCommand<bool>(effect, SoundEffect.IsEnabledProperty, v, !v, GetStorables());
-                    command.DoAndRecord(CommandRecorder.Default);
+                    command.DoAndRecord(recorder);
                 }
             })
             .DisposeWith(Disposables);
@@ -139,10 +140,11 @@ public sealed class SoundEffectEditorViewModel : ValueEditorViewModel<ISoundEffe
         if (Value.Value is SoundEffectGroup group
             && Activator.CreateInstance(type) is ISoundEffect instance)
         {
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             group.Children.BeginRecord<ISoundEffect>()
                 .Add(instance)
                 .ToCommand(GetStorables())
-                .DoAndRecord(CommandRecorder.Default);
+                .DoAndRecord(recorder);
         }
     }
 

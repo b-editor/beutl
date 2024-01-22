@@ -2,6 +2,7 @@
 using System.ComponentModel;
 
 using Beutl.Language;
+using Beutl.Logging;
 using Beutl.Services;
 
 using Microsoft.Extensions.Logging;
@@ -21,11 +22,10 @@ internal record Entry(IRecordableCommand Command, ImmutableHashSet<IStorable> St
 
 public class CommandRecorder : INotifyPropertyChanged
 {
-    public static readonly CommandRecorder Default = new();
     private static readonly PropertyChangedEventArgs s_canUndoArgs = new(nameof(CanUndo));
     private static readonly PropertyChangedEventArgs s_canRedoArgs = new(nameof(CanRedo));
     private static readonly PropertyChangedEventArgs s_lastExecutedTimeArgs = new(nameof(LastExecutedTime));
-    private readonly ILogger<CommandRecorder> _logger = BeutlApplication.Current.LoggerFactory.CreateLogger<CommandRecorder>();
+    private readonly ILogger<CommandRecorder> _logger = Log.CreateLogger<CommandRecorder>();
     private readonly RingStack<Entry> _undoStack = new(20000);
     private readonly RingStack<Entry> _redoStack = new(20000);
     private readonly SemaphoreSlim _semaphoreSlim = new(1);

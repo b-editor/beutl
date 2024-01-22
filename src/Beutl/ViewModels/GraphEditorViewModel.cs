@@ -18,6 +18,7 @@ public sealed class GraphEditorViewModel<T>(
 {
     public override void DropEasing(Easing easing, TimeSpan keyTime)
     {
+        CommandRecorder recorder = EditorContext.CommandRecorder;
         TimeSpan originalKeyTime = keyTime;
         keyTime = ConvertKeyTime(keyTime);
         Project? proj = Scene.FindHierarchicalParent<Project>();
@@ -34,7 +35,7 @@ public sealed class GraphEditorViewModel<T>(
                 easing,
                 keyFrame.Easing,
                 GetStorables())
-                .DoAndRecord(CommandRecorder.Default);
+                .DoAndRecord(recorder);
         }
         else
         {
@@ -48,6 +49,7 @@ public sealed class GraphEditorViewModel<T>(
         var kfAnimation = (KeyFrameAnimation<T>)Animation;
         if (!kfAnimation.KeyFrames.Any(x => x.KeyTime == keyTime))
         {
+            CommandRecorder recorder = EditorContext.CommandRecorder;
             var keyframe = new KeyFrame<T>
             {
                 Value = kfAnimation.Interpolate(keyTime),
@@ -56,7 +58,7 @@ public sealed class GraphEditorViewModel<T>(
             };
 
             var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe, GetStorables());
-            command.DoAndRecord(CommandRecorder.Default);
+            command.DoAndRecord(recorder);
         }
     }
 
@@ -85,13 +87,12 @@ public sealed class GraphEditorViewModel<T>(
 public abstract class GraphEditorViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
-    private readonly EditViewModel _editViewModel;
     private readonly GraphEditorViewViewModelFactory[] _factories;
     private bool _editting;
 
     protected GraphEditorViewModel(EditViewModel editViewModel, IKeyFrameAnimation animation, Element? element)
     {
-        _editViewModel = editViewModel;
+        EditorContext = editViewModel;
         Element = element;
         Animation = animation;
 
@@ -141,9 +142,9 @@ public abstract class GraphEditorViewModel : IDisposable
             .DisposeWith(_disposables);
     }
 
-    public IReactiveProperty<TimelineOptions> Options => _editViewModel.Options;
+    public IReactiveProperty<TimelineOptions> Options => EditorContext.Options;
 
-    public Scene Scene => _editViewModel.Scene;
+    public Scene Scene => EditorContext.Scene;
 
     public Element? Element { get; private set; }
 
@@ -176,6 +177,8 @@ public abstract class GraphEditorViewModel : IDisposable
 
     public GraphEditorViewViewModelFactory? Factory { get; }
 
+    public EditViewModel EditorContext { get; }
+
     public void BeginEditing()
     {
         _editting = true;
@@ -189,6 +192,7 @@ public abstract class GraphEditorViewModel : IDisposable
 
     public void UpdateUseGlobalClock(bool value)
     {
+        CommandRecorder recorder = EditorContext.CommandRecorder;
         var command = new ChangePropertyCommand<bool>(
             obj: (ICoreObject)Animation,
             property: KeyFrameAnimation.UseGlobalClockProperty,
@@ -196,7 +200,7 @@ public abstract class GraphEditorViewModel : IDisposable
             oldValue: UseGlobalClock.Value,
             storables: GetStorables());
 
-        command.DoAndRecord(CommandRecorder.Default);
+        command.DoAndRecord(recorder);
     }
 
     private void OnItemVerticalRangeChanged(object? sender, EventArgs e)
@@ -250,10 +254,11 @@ public abstract class GraphEditorViewModel : IDisposable
         IKeyFrame? keyframe = Animation.KeyFrames.FirstOrDefault(x => x.KeyTime == keyTime);
         if (keyframe != null)
         {
+            CommandRecorder recorder = EditorContext.CommandRecorder;
             Animation.KeyFrames.BeginRecord<IKeyFrame>()
                 .Remove(keyframe)
                 .ToCommand(GetStorables())
-                .DoAndRecord(CommandRecorder.Default);
+                .DoAndRecord(recorder);
         }
     }
 

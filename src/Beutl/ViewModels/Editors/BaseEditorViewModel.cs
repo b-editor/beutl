@@ -304,14 +304,15 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
         {
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             if (EditingKeyFrame.Value != null)
             {
-                CommandRecorder.Default.DoAndPush(
+                recorder.DoAndPush(
                     new SetKeyFrameValueCommand(EditingKeyFrame.Value, oldValue, newValue, GetStorables()));
             }
             else
             {
-                CommandRecorder.Default.DoAndPush(
+                recorder.DoAndPush(
                     new SetCommand(WrappedProperty, oldValue, newValue, GetStorables()));
             }
         }
@@ -349,6 +350,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             keyTime = ConvertKeyTime(keyTime, kfAnimation);
             if (!kfAnimation.KeyFrames.Any(x => x.KeyTime == keyTime))
             {
+                CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
                 var keyframe = new KeyFrame<T>
                 {
                     Value = kfAnimation.Interpolate(keyTime),
@@ -357,7 +359,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 };
 
                 var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe, GetStorables());
-                command.DoAndRecord(CommandRecorder.Default);
+                command.DoAndRecord(recorder);
 
                 int index = kfAnimation.KeyFrames.IndexOf(keyframe);
                 if (index >= 0)
@@ -376,6 +378,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 PropertyType: { } ptype
             })
         {
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             keyTime = ConvertKeyTime(keyTime, kfAnimation);
             IKeyFrame? keyframe = kfAnimation.KeyFrames.FirstOrDefault(x => x.KeyTime == keyTime);
             if (keyframe != null)
@@ -383,7 +386,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 kfAnimation.KeyFrames.BeginRecord<IKeyFrame>()
                     .Remove(keyframe)
                     .ToCommand(GetStorables())
-                    .DoAndRecord(CommandRecorder.Default);
+                    .DoAndRecord(recorder);
             }
         }
     }
@@ -394,8 +397,9 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             && animatableProperty.Animation is not KeyFrameAnimation<T>
             && animatableProperty.GetCoreProperty() is CoreProperty<T> coreProperty)
         {
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             var command = new PrepareAnimationCommand(animatableProperty, coreProperty, GetStorables());
-            command.DoAndRecord(CommandRecorder.Default);
+            command.DoAndRecord(recorder);
         }
     }
 
@@ -403,8 +407,9 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (WrappedProperty is IAbstractAnimatableProperty<T> animatableProperty)
         {
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             var command = new RemoveAnimationCommand(animatableProperty, GetStorables());
-            command.DoAndRecord(CommandRecorder.Default);
+            command.DoAndRecord(recorder);
         }
     }
 

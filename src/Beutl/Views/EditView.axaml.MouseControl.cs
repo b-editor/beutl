@@ -202,7 +202,7 @@ public partial class EditView
                         transformGroup.Children.BeginRecord<ITransform>()
                             .Insert(0, obj)
                             .ToCommand([Element])
-                            .DoAndRecord(CommandRecorder.Default);
+                            .DoAndRecord(viewModel.CommandRecorder);
 
                         return (obj, Matrix.Identity);
                     }
@@ -346,7 +346,7 @@ public partial class EditView
                 IRecordableCommand? command = CommandHelper.Compose(
                     CreateTranslationCommand(storables),
                     CommandHelper.Compose(_xKeyFrame?.CreateCommand(storables), _yKeyFrame?.CreateCommand(storables)));
-                command?.DoAndRecord(CommandRecorder.Default);
+                command?.DoAndRecord(viewModel.CommandRecorder);
 
                 Element = null;
                 _translateTransform = null;

@@ -30,6 +30,7 @@ public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
         // Skip(1)
         IsEnabled.Subscribe(b =>
         {
+            CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
             Timeline.Scene.Children.Where(i => i.ZIndex == Number.Value && i.IsEnabled != b)
                 .Select(item => new ChangePropertyCommand<bool>(
                     obj: item,
@@ -39,7 +40,7 @@ public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
                     storables: [item]))
                 .ToArray()
                 .ToCommand()
-                .DoAndRecord(CommandRecorder.Default);
+                .DoAndRecord(recorder);
         }).DisposeWith(_disposables);
 
         Height.Subscribe(_ => Timeline.RaiseLayerHeightChanged(this)).DisposeWith(_disposables);
@@ -172,8 +173,9 @@ public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
 
     public void SetColor(Color color)
     {
+        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
         new SetColorCommand(this, color)
-            .DoAndRecord(CommandRecorder.Default);
+            .DoAndRecord(recorder);
     }
 
     private sealed class SetColorCommand(LayerHeaderViewModel viewModel, Color color) : IRecordableCommand

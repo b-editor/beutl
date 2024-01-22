@@ -96,7 +96,9 @@ public sealed partial class LayerHeader : UserControl
 
         int newLayerNum = _newLayer;
         int oldLayerNum = ViewModel.Number.Value;
-        new MoveLayerCommand(ViewModel, newLayerNum, oldLayerNum, _elements).DoAndRecord(CommandRecorder.Default);
+        CommandRecorder recorder = ViewModel.Timeline.EditorContext.CommandRecorder;
+        new MoveLayerCommand(ViewModel, newLayerNum, oldLayerNum, _elements)
+            .DoAndRecord(recorder);
         _elements = [];
     }
 

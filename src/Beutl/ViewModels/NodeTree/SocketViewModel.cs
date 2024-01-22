@@ -14,7 +14,9 @@ namespace Beutl.ViewModels.NodeTree;
 
 public class SocketViewModel : NodeItemViewModel
 {
-    public SocketViewModel(ISocket? socket, IPropertyEditorContext? propertyEditorContext, Node node)
+    private readonly EditViewModel _editViewModel;
+
+    public SocketViewModel(ISocket? socket, IPropertyEditorContext? propertyEditorContext, Node node, EditViewModel editViewModel)
         : base(socket, propertyEditorContext, node)
     {
         if (socket != null)
@@ -29,6 +31,7 @@ public class SocketViewModel : NodeItemViewModel
         }
 
         OnIsConnectedChanged();
+        _editViewModel = editViewModel;
     }
 
     public new ISocket? Model => base.Model as ISocket;
@@ -82,7 +85,7 @@ public class SocketViewModel : NodeItemViewModel
                 && groupNode.AddSocket(socket, out Connection? connection))
             {
                 var command = new ConnectGeneratedSocketCommand(connection, groupNode);
-                CommandRecorder.Default.PushOnly(command);
+                _editViewModel.CommandRecorder.PushOnly(command);
             }
 
             return false;
@@ -91,7 +94,7 @@ public class SocketViewModel : NodeItemViewModel
             && SortSocket(Model, target.Model, out IInputSocket? inputSocket, out IOutputSocket? outputSocket))
         {
             var command = new ConnectCommand(inputSocket, outputSocket);
-            command.DoAndRecord(CommandRecorder.Default);
+            command.DoAndRecord(_editViewModel.CommandRecorder);
             return command.IsConnected;
         }
         else
@@ -106,7 +109,7 @@ public class SocketViewModel : NodeItemViewModel
             && SortSocket(Model, target.Model, out IInputSocket? inputSocket, out IOutputSocket? outputSocket))
         {
             var command = new DisconnectCommand(inputSocket, outputSocket);
-            command.DoAndRecord(CommandRecorder.Default);
+            command.DoAndRecord(_editViewModel.CommandRecorder);
             return true;
         }
         else
@@ -121,13 +124,13 @@ public class SocketViewModel : NodeItemViewModel
         {
             case IInputSocket inputSocket when inputSocket.Connection is { } connection:
                 new DisconnectCommand(connection.Input, connection.Output)
-                    .DoAndRecord(CommandRecorder.Default);
+                    .DoAndRecord(_editViewModel.CommandRecorder);
                 break;
             case IOutputSocket outputSocket when outputSocket.Connections.Count > 0:
                 outputSocket.Connections.Select(x => new DisconnectCommand(x.Input, x.Output))
                     .ToArray()
                     .ToCommand()
-                    .DoAndRecord(CommandRecorder.Default);
+                    .DoAndRecord(_editViewModel.CommandRecorder);
                 break;
         }
     }
@@ -139,7 +142,7 @@ public class SocketViewModel : NodeItemViewModel
             Node.Items.BeginRecord<INodeItem>()
                 .Remove(generatedSocket)
                 .ToCommand(GetStorables(Model!))
-                .DoAndRecord(CommandRecorder.Default);
+                .DoAndRecord(_editViewModel.CommandRecorder);
         }
     }
 
@@ -151,7 +154,7 @@ public class SocketViewModel : NodeItemViewModel
             e,
             Model!.Name,
             GetStorables(Model!))
-            .DoAndRecord(CommandRecorder.Default);
+            .DoAndRecord(_editViewModel.CommandRecorder);
     }
 
     protected override void OnDispose()

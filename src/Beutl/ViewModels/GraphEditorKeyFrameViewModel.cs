@@ -241,13 +241,14 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     {
         if (Model.Easing is SplineEasing splineEasing)
         {
+            CommandRecorder recorder = _parent.Parent.EditorContext.CommandRecorder;
             var oldValues = (oldX, oldY);
             var newValues = (splineEasing.X1, splineEasing.Y1);
             if (oldValues == newValues)
                 return;
             var command = new SubmitControlPointCommand(
                 oldValues, newValues, splineEasing, true, GetStorables());
-            command.DoAndRecord(CommandRecorder.Default);
+            command.DoAndRecord(recorder);
         }
     }
 
@@ -255,13 +256,14 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     {
         if (Model.Easing is SplineEasing splineEasing)
         {
+            CommandRecorder recorder = _parent.Parent.EditorContext.CommandRecorder;
             var oldValues = (oldX, oldY);
             var newValues = (splineEasing.X2, splineEasing.Y2);
             if (oldValues == newValues)
                 return;
             var command = new SubmitControlPointCommand(
                 oldValues, newValues, splineEasing, false, GetStorables());
-            command.DoAndRecord(CommandRecorder.Default);
+            command.DoAndRecord(recorder);
         }
     }
 
@@ -274,6 +276,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     public void SubmitKeyTimeAndValue(TimeSpan oldKeyTime)
     {
         GraphEditorViewModel parent2 = _parent.Parent;
+        CommandRecorder recorder = parent2.EditorContext.CommandRecorder;
         IKeyFrameAnimation animation = parent2.Animation;
 
         float scale = parent2.Options.Value.Scale;
@@ -288,7 +291,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 oldValue: Model.Value,
                 newValue: obj,
                 storables: GetStorables());
-            command.DoAndRecord(CommandRecorder.Default);
+            command.DoAndRecord(recorder);
             EndY.Value = _parent.ConvertToDouble(Model.Value) * parent2.ScaleY.Value;
         }
         else
@@ -299,7 +302,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 newValue: Right.Value.ToTimeSpan(scale).RoundToRate(rate),
                 oldValue: oldKeyTime,
                 storables: GetStorables());
-            command.DoAndRecord(CommandRecorder.Default);
+            command.DoAndRecord(recorder);
         }
 
         Right.Value = Model.KeyTime.ToPixel(_parent.Parent.Options.Value.Scale);

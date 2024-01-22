@@ -40,7 +40,6 @@ public sealed class ProjectService
         using Activity? activity = Telemetry.StartActivity("OpenProject");
         try
         {
-            CommandRecorder.Default.Clear();
             var project = new Project();
             project.Restore(file);
 
@@ -65,7 +64,6 @@ public sealed class ProjectService
     {
         if (_app.Project is { } project)
         {
-            CommandRecorder.Default.Clear();
             // 値を発行
             _projectObservable.OnNext((New: null, project));
             project.Dispose();
@@ -82,7 +80,6 @@ public sealed class ProjectService
         activity?.SetTag(nameof(samplerate), samplerate);
         try
         {
-            CommandRecorder.Default.Clear();
             location = Path.Combine(location, name);
             var scene = new Scene(width, height, name);
             ProjectItemContainer.Current.Add(scene);

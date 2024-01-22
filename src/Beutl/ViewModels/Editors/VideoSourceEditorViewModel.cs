@@ -3,6 +3,8 @@
 using Beutl.Animation;
 using Beutl.Media.Source;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
@@ -23,14 +25,15 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
     {
         if (!EqualityComparer<IVideoSource?>.Default.Equals(oldValue, newValue))
         {
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             if (EditingKeyFrame.Value != null)
             {
-                CommandRecorder.Default.DoAndPush(
+                recorder.DoAndPush(
                     new SetKeyFrameValueCommand(EditingKeyFrame.Value, oldValue, newValue, GetStorables()));
             }
             else
             {
-                CommandRecorder.Default.DoAndPush(
+                recorder.DoAndPush(
                     new SetCommand(WrappedProperty, oldValue, newValue, GetStorables()));
             }
         }

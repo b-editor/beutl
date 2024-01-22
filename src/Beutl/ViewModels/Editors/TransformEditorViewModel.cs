@@ -125,8 +125,9 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
             {
                 if (Value.Value is Transform transform)
                 {
+                    CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
                     var command = new ChangePropertyCommand<bool>(transform, Transform.IsEnabledProperty, v, !v, GetStorables());
-                    command.DoAndRecord(CommandRecorder.Default);
+                    command.DoAndRecord(recorder);
                 }
             })
             .DisposeWith(Disposables);
@@ -188,10 +189,11 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
         if (Value.Value is TransformGroup group
             && CreateTransform(type) is { } obj)
         {
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             group.Children.BeginRecord<ITransform>()
                 .Add(obj)
                 .ToCommand(GetStorables())
-                .DoAndRecord(CommandRecorder.Default);
+                .DoAndRecord(recorder);
         }
     }
 

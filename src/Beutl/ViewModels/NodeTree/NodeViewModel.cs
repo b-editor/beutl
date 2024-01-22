@@ -22,9 +22,10 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
     private readonly CompositeDisposable _disposables = [];
     private readonly string _defaultName;
 
-    public NodeViewModel(Node node)
+    public NodeViewModel(Node node, EditViewModel editViewModel)
     {
         Node = node;
+        EditorContext = editViewModel;
         Type nodeType = node.GetType();
         if (NodeRegistry.FindItem(nodeType) is { } regItem)
         {
@@ -71,7 +72,7 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
                 tree.Nodes.BeginRecord<Node>()
                     .Remove(Node)
                     .ToCommand([node.FindHierarchicalParent<IStorable>()])
-                    .DoAndRecord(CommandRecorder.Default);
+                    .DoAndRecord(EditorContext.CommandRecorder);
             }
         });
 
@@ -79,6 +80,8 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
     }
 
     public Node Node { get; }
+
+    public EditViewModel EditorContext { get; }
 
     public ReadOnlyReactiveProperty<string> NodeName { get; }
 
@@ -183,9 +186,9 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
     {
         return nodeItem switch
         {
-            IOutputSocket osocket => new OutputSocketViewModel(osocket, propertyEditorContext, Node),
-            IInputSocket isocket => new InputSocketViewModel(isocket, propertyEditorContext, Node),
-            ISocket socket => new SocketViewModel(socket, propertyEditorContext, Node),
+            IOutputSocket osocket => new OutputSocketViewModel(osocket, propertyEditorContext, Node, EditorContext),
+            IInputSocket isocket => new InputSocketViewModel(isocket, propertyEditorContext, Node, EditorContext),
+            ISocket socket => new SocketViewModel(socket, propertyEditorContext, Node, EditorContext),
             _ => new NodeItemViewModel(nodeItem, propertyEditorContext, Node),
         };
     }
@@ -207,7 +210,7 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
             .Append(CreateCommand(this))
             .ToArray()
             .ToCommand()
-            .DoAndRecord(CommandRecorder.Default);
+            .DoAndRecord(EditorContext.CommandRecorder);
     }
 
     public void UpdateName(string? name)
@@ -217,7 +220,7 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
             Node, CoreObject.NameProperty,
             name, Node.Name,
             [storable])
-            .DoAndRecord(CommandRecorder.Default);
+            .DoAndRecord(EditorContext.CommandRecorder);
     }
 
     public void WriteToJson(JsonObject json)

@@ -29,9 +29,10 @@ public sealed class InlineAnimationLayerViewModel<T>(
             IKeyFrame? keyFrame = kfAnimation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
             if (keyFrame != null)
             {
+                CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
                 new ChangePropertyCommand<Easing>(
                     keyFrame, KeyFrame.EasingProperty, easing, keyFrame.Easing, [Element.Model])
-                    .DoAndRecord(CommandRecorder.Default);
+                    .DoAndRecord(recorder);
             }
             else
             {
@@ -47,6 +48,7 @@ public sealed class InlineAnimationLayerViewModel<T>(
             keyTime = ConvertKeyTime(keyTime, kfAnimation);
             if (!kfAnimation.KeyFrames.Any(x => x.KeyTime == keyTime))
             {
+                CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
                 var keyframe = new KeyFrame<T>()
                 {
                     Value = kfAnimation.Interpolate(keyTime),
@@ -55,7 +57,7 @@ public sealed class InlineAnimationLayerViewModel<T>(
                 };
 
                 var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe, [Element.Model]);
-                command.DoAndRecord(CommandRecorder.Default);
+                command.DoAndRecord(recorder);
             }
         }
     }
@@ -201,10 +203,11 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
     {
         if (Property.Animation is IKeyFrameAnimation kfAnimation)
         {
+            CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
             kfAnimation.KeyFrames.BeginRecord<IKeyFrame>()
                 .Remove(keyFrame)
                 .ToCommand([Element.Model])
-                .DoAndRecord(CommandRecorder.Default);
+                .DoAndRecord(recorder);
         }
     }
 

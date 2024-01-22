@@ -7,6 +7,8 @@ using Beutl.Services;
 
 using DynamicData;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
@@ -109,7 +111,8 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     {
         if (!EqualityComparer<IPen>.Default.Equals(oldValue, newValue))
         {
-            CommandRecorder.Default.DoAndPush(
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
+            recorder.DoAndPush(
                 new SetCommand(WrappedProperty, oldValue, newValue, GetStorables()));
         }
     }

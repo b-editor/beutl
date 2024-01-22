@@ -10,6 +10,8 @@ using Beutl.ViewModels.Editors;
 
 using DynamicData;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Tools;
@@ -225,9 +227,10 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
             }
 
             IStorable? storable = sourceOperation.FindHierarchicalParent<IStorable>();
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             var command = new ReplaceItemCommand(
                 sourceOperation.Children, index, @operator, Model, [storable]);
-            command.DoAndRecord(CommandRecorder.Default);
+            command.DoAndRecord(recorder);
         }
     }
 

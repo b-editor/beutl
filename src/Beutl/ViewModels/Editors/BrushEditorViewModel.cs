@@ -117,7 +117,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     {
         if (!EqualityComparer<IBrush>.Default.Equals(oldValue, newValue))
         {
-            CommandRecorder.Default.DoAndPush(
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
+            recorder.DoAndPush(
                 new SetCommand(WrappedProperty, oldValue, newValue, GetStorables()));
         }
     }

@@ -79,8 +79,9 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                         || Height.Value != _scene.Height
                         || ts != _scene.Duration)
                     {
+                        CommandRecorder recorder = _editViewModel.CommandRecorder;
                         new UpdateSceneSettingsCommand(new(Width.Value, Height.Value), ts, _scene)
-                                        .DoAndRecord(CommandRecorder.Default);
+                            .DoAndRecord(recorder);
                     }
 
                     _editViewModel.Options.Value = _editViewModel.Options.Value with

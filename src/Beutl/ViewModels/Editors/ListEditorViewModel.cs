@@ -253,6 +253,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
     {
         if (List.Value == null)
         {
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             Type listType = WrappedProperty.PropertyType;
             if (WrappedProperty.IsReadOnly)
                 throw new InvalidOperationException("読み取り専用です。");
@@ -262,7 +263,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
             var list = Activator.CreateInstance(listType) as IList<TItem>;
             var command = new SetCommand(WrappedProperty, null, list, GetStorables());
-            command.DoAndRecord(CommandRecorder.Default);
+            command.DoAndRecord(recorder);
         }
         else
         {
@@ -274,11 +275,12 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
     {
         if (List.Value != null)
         {
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             if (WrappedProperty.IsReadOnly)
                 throw new InvalidOperationException("読み取り専用です。");
 
             var command = new SetCommand(WrappedProperty, List.Value, null, GetStorables());
-            command.DoAndRecord(CommandRecorder.Default);
+            command.DoAndRecord(recorder);
         }
     }
 
@@ -295,26 +297,29 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     public void AddItem(TItem? item)
     {
+        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
         List.Value!.BeginRecord()
             .Add(item)
             .ToCommand(GetStorables())
-            .DoAndRecord(CommandRecorder.Default);
+            .DoAndRecord(recorder);
     }
 
     public void RemoveItem(int index)
     {
+        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
         List.Value!.BeginRecord()
             .RemoveAt(index)
             .ToCommand(GetStorables())
-            .DoAndRecord(CommandRecorder.Default);
+            .DoAndRecord(recorder);
     }
 
     public void MoveItem(int oldIndex, int newIndex)
     {
+        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
         List.Value!.BeginRecord()
             .Move(oldIndex, newIndex)
             .ToCommand(GetStorables())
-            .DoAndRecord(CommandRecorder.Default);
+            .DoAndRecord(recorder);
     }
 
     public override void ReadFromJson(JsonObject json)

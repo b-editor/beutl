@@ -58,6 +58,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         Player = new PlayerViewModel(this)
             .DisposeWith(_disposables);
         Commands = new KnownCommandsImpl(scene, this);
+        CommandRecorder = new CommandRecorder();
         SelectedObject = new ReactiveProperty<CoreObject?>()
             .DisposeWith(_disposables);
 
@@ -109,6 +110,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public PlayerViewModel Player { get; private set; }
 
+    public CommandRecorder CommandRecorder { get; private set; }
+
     public EditorExtension Extension => SceneEditorExtension.Instance;
 
     public string EdittingFile => Scene.FileName;
@@ -149,6 +152,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
         Scene = null!;
         Commands = null!;
+        CommandRecorder.Clear();
+        CommandRecorder = null!;
     }
 
     public T? FindToolTab<T>(Func<T, bool> condition)
@@ -460,6 +465,9 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         if (serviceType.IsAssignableTo(typeof(ISupportCloseAnimation)))
             return this;
 
+        if (serviceType == typeof(CommandRecorder))
+            return CommandRecorder;
+
         return null;
     }
 
@@ -488,14 +496,22 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 if (op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is IAbstractProperty<ITransform?> transformp)
                 {
                     ITransform? transform = transformp.GetValue();
-                    AddOrSetHelper.AddOrSet(ref transform, new TranslateTransform(desc.Position), [operation.FindHierarchicalParent<IStorable>()]);
+                    AddOrSetHelper.AddOrSet(
+                        ref transform,
+                        new TranslateTransform(desc.Position),
+                        [operation.FindHierarchicalParent<IStorable>()],
+                        CommandRecorder);
                     transformp.SetValue(transform);
                 }
                 else
                 {
                     var configure = new ConfigureTransformOperator();
                     ITransform? transform = configure.Transform.Value;
-                    AddOrSetHelper.AddOrSet(ref transform, new TranslateTransform(desc.Position), [operation.FindHierarchicalParent<IStorable>()]);
+                    AddOrSetHelper.AddOrSet(
+                        ref transform,
+                        new TranslateTransform(desc.Position),
+                        [operation.FindHierarchicalParent<IStorable>()],
+                        CommandRecorder);
                     configure.Transform.Value = transform;
                     operation.Children.Add(configure);
                 }
@@ -569,7 +585,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
             list.ToArray()
                 .ToCommand()
-                .DoAndRecord(CommandRecorder.Default);
+                .DoAndRecord(CommandRecorder);
 
             if (scrollPos.HasValue && timeline != null)
             {
@@ -596,7 +612,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             }
 
             element.Save(element.FileName);
-            Scene.AddChild(element).DoAndRecord(CommandRecorder.Default);
+            Scene.AddChild(element).DoAndRecord(CommandRecorder);
 
             timeline?.ScrollTo.Execute((element.Range, element.ZIndex));
         }
@@ -720,14 +736,14 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
         public ValueTask<bool> OnUndo()
         {
-            CommandRecorder.Default.Undo();
+            viewModel.CommandRecorder.Undo();
 
             return ValueTask.FromResult(true);
         }
 
         public ValueTask<bool> OnRedo()
         {
-            CommandRecorder.Default.Redo();
+            viewModel.CommandRecorder.Redo();
 
             return ValueTask.FromResult(true);
         }

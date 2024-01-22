@@ -21,10 +21,10 @@ public sealed class NodeTreeNavigationItem : IDisposable, IJsonSerializable
         NodeTree = nodeTree;
     }
 
-    public NodeTreeNavigationItem(ReadOnlyReactivePropertySlim<string> name, NodeTreeModel nodeTree)
+    public NodeTreeNavigationItem(ReadOnlyReactivePropertySlim<string> name, NodeTreeModel nodeTree, EditViewModel editViewModel)
     {
         NodeTree = nodeTree;
-        _lazyViewModel = new Lazy<NodeTreeViewModel>(() => new NodeTreeViewModel(NodeTree));
+        _lazyViewModel = new Lazy<NodeTreeViewModel>(() => new NodeTreeViewModel(NodeTree, editViewModel));
         Name = name;
     }
 
@@ -87,7 +87,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
             if (v != null)
             {
-                NodeTree.Value = new NodeTreeViewModel(v.NodeTree);
+                NodeTree.Value = new NodeTreeViewModel(v.NodeTree, editViewModel);
                 IObservable<string> name = v.GetObservable(CoreObject.NameProperty);
                 IObservable<string> fileName = v.GetObservable(ProjectItem.FileNameProperty)
                     .Select(x => Path.GetFileNameWithoutExtension(x));
@@ -200,7 +200,8 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
             foundItem ??= new NodeTreeNavigationItem(
                 item.GetObservable(CoreObject.NameProperty).ToReadOnlyReactivePropertySlim()!,
-                nodeTree);
+                nodeTree,
+                _editViewModel);
 
             list.Add(foundItem);
         }

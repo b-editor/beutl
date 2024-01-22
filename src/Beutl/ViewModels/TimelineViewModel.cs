@@ -153,7 +153,7 @@ public sealed class TimelineViewModel : IToolContext
         TimeSpan time = ClickedFrame + TimeSpan.FromSeconds(1d / rate);
 
         var command = new ChangePropertyCommand<TimeSpan>(Scene, Scene.DurationProperty, time, Scene.Duration, [Scene]);
-        command.DoAndRecord(CommandRecorder.Default);
+        command.DoAndRecord(EditorContext.CommandRecorder);
     }
 
     private void OnAdjustDurationToCurrent()
@@ -162,7 +162,7 @@ public sealed class TimelineViewModel : IToolContext
         TimeSpan time = Scene.CurrentFrame + TimeSpan.FromSeconds(1d / rate);
 
         var command = new ChangePropertyCommand<TimeSpan>(Scene, Scene.DurationProperty, time, Scene.Duration, [Scene]);
-        command.DoAndRecord(CommandRecorder.Default);
+        command.DoAndRecord(EditorContext.CommandRecorder);
     }
 
     public Scene Scene { get; private set; }

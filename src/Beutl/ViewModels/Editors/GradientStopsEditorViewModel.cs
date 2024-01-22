@@ -4,6 +4,8 @@ using Beutl.Commands;
 using Beutl.Media;
 using Beutl.Utilities;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
 
 using AM = Avalonia.Media;
@@ -96,18 +98,20 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
                 command = command == null ? tmp : command.Append(tmp);
             }
 
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             command
                 ?.WithStoables(GetStorables())
-                ?.DoAndRecord(CommandRecorder.Default);
+                ?.DoAndRecord(recorder);
         }
     }
 
     public void AddItem(GradientStop stop, int index = -1)
     {
+        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
         Value.Value.BeginRecord<GradientStop>()
             .Insert(index < 0 ? Value.Value.Count : index, stop)
             .ToCommand(GetStorables())
-            .DoAndRecord(CommandRecorder.Default);
+            .DoAndRecord(recorder);
     }
 
     public void RemoveItem(AM.GradientStop stop)
@@ -115,11 +119,12 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
         int index = Stops.IndexOf(stop);
         if (index >= 0)
         {
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             GradientStop model = Value.Value[index];
             Value.Value.BeginRecord<GradientStop>()
                 .Remove(model)
                 .ToCommand(GetStorables())
-                .DoAndRecord(CommandRecorder.Default);
+                .DoAndRecord(recorder);
 
             if (stop == SelectedItem.Value)
             {

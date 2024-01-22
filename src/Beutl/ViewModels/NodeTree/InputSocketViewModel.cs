@@ -8,8 +8,8 @@ public class InputSocketViewModel : SocketViewModel
 {
     private readonly ReactivePropertySlim<IObservable<ConnectionStatus>?> _statusSource = new();
 
-    public InputSocketViewModel(IInputSocket? socket, IPropertyEditorContext? propertyEditorContext, Node node)
-        : base(socket, propertyEditorContext, node)
+    public InputSocketViewModel(IInputSocket? socket, IPropertyEditorContext? propertyEditorContext, Node node, EditViewModel editViewModel)
+        : base(socket, propertyEditorContext, node, editViewModel)
     {
         Status = _statusSource
             .Select(o => o ?? Observable.Return(ConnectionStatus.Disconnected))
