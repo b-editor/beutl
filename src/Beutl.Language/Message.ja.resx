@@ -294,4 +294,10 @@
     <value>'{0}'を開いています。
 しばらくお待ちください。</value>
   </data>
+  <data name="An_exception_occurred_while_saving_the_file" xml:space="preserve">
+    <value>ファイルの保存中に例外が発生しました。</value>
+  </data>
+  <data name="Files_are_saved_automatically" xml:space="preserve">
+    <value>ファイルは自動的に保存されます。</value>
+  </data>
 </root>

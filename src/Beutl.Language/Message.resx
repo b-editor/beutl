@@ -294,4 +294,10 @@ Restricted mode does not load extensions.</value>
     <value>Opening '{0}'.
 Please wait a moment.</value>
   </data>
+  <data name="An_exception_occurred_while_saving_the_file" xml:space="preserve">
+    <value>An exception occurred while saving the file.</value>
+  </data>
+  <data name="Files_are_saved_automatically" xml:space="preserve">
+    <value>Files are saved automatically.</value>
+  </data>
 </root>

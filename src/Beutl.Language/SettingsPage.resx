@@ -298,4 +298,10 @@ Enabling this setting may make the border invisible.</value>
   <data name="TheseSettingsWillBeAppliedAfterTheApplicationIsRestarted" xml:space="preserve">
     <value>These settings will be applied after the application is restarted.</value>
   </data>
+  <data name="EnableAutoSave" xml:space="preserve">
+    <value>Enable auto save</value>
+  </data>
+  <data name="EnableAutoSave_Description" xml:space="preserve">
+    <value>The file is automatically saved after the operation is performed.</value>
+  </data>
 </root>

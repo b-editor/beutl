@@ -3,9 +3,11 @@ using System.Text.Json.Nodes;
 using System.Windows.Input;
 
 using Avalonia.Input;
+using Avalonia.Threading;
 
 using Beutl.Animation;
 using Beutl.Api.Services;
+using Beutl.Configuration;
 using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
 using Beutl.Logging;
@@ -42,7 +44,7 @@ public sealed class ToolTabViewModel(IToolContext context) : IDisposable
     }
 }
 
-public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, ISupportCloseAnimation
+public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, ISupportCloseAnimation, ISupportAutoSaveEditorContext
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly CompositeDisposable _disposables = [];
@@ -87,6 +89,39 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             .ToReadOnlyReactivePropertySlim();
 
         KeyBindings = CreateKeyBindings();
+
+        CommandRecorder.Executed += OnCommandRecorderExecuted;
+    }
+
+    private void OnCommandRecorderExecuted(object? sender, CommandExecutedEventArgs e)
+    {
+        if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled)
+        {
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                foreach (IStorable item in e.Storables)
+                {
+                    try
+                    {
+                        item.Save(item.FileName);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "An exception occurred while saving the file.");
+                        NotificationService.ShowError(string.Empty, Message.An_exception_occurred_while_saving_the_file);
+                    }
+                }
+
+                try
+                {
+                    SaveState();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "An exception occurred while saving the view state.");
+                }
+            });
+        }
     }
 
     private void OnSelectedObjectDetachedFromHierarchy(object? sender, HierarchyAttachmentEventArgs e)
@@ -152,6 +187,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
         Scene = null!;
         Commands = null!;
+        CommandRecorder.Executed -= OnCommandRecorderExecuted;
         CommandRecorder.Clear();
         CommandRecorder = null!;
     }

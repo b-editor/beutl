@@ -26,8 +26,8 @@ public class CommandRecorder : INotifyPropertyChanged
     private static readonly PropertyChangedEventArgs s_canRedoArgs = new(nameof(CanRedo));
     private static readonly PropertyChangedEventArgs s_lastExecutedTimeArgs = new(nameof(LastExecutedTime));
     private readonly ILogger<CommandRecorder> _logger = Log.CreateLogger<CommandRecorder>();
-    private readonly RingStack<Entry> _undoStack = new(20000);
-    private readonly RingStack<Entry> _redoStack = new(20000);
+    private readonly CommandStack<Entry> _undoStack = new(20000);
+    private readonly CommandStack<Entry> _redoStack = new(20000);
     private readonly SemaphoreSlim _semaphoreSlim = new(1);
     private bool _canUndo;
     private bool _canRedo;
@@ -137,7 +137,7 @@ public class CommandRecorder : INotifyPropertyChanged
             CanRedo = _redoStack.Count > 0;
 
             LastExecutedTime = DateTime.UtcNow;
-            Executed?.Invoke(command, new(command, CommandType.Do));
+            Executed?.Invoke(command, new(command, CommandType.Do, entry.Storables));
         }
         finally
         {
@@ -152,10 +152,12 @@ public class CommandRecorder : INotifyPropertyChanged
             return;
         }
 
+        Entry? entry = null;
         try
         {
-            if (CreateEntryAndCheck(command) is not { } entry)
+            if (CreateEntryAndCheck(command) is not { } entry1)
                 return;
+            entry = entry1;
 
             _executingCommand = command;
             command.Do();
@@ -179,7 +181,7 @@ public class CommandRecorder : INotifyPropertyChanged
         }
 
         LastExecutedTime = DateTime.UtcNow;
-        Executed?.Invoke(command, new(command, CommandType.Do));
+        Executed?.Invoke(command, new(command, CommandType.Do, entry!.Storables));
     }
 
     public void Undo()
@@ -191,7 +193,13 @@ public class CommandRecorder : INotifyPropertyChanged
                 return;
             }
 
-            Entry entry = _undoStack.Pop();
+            Entry? entry = _undoStack.Pop();
+            if (entry == null)
+            {
+                _logger.LogWarning("Undo stack is empty.");
+                return;
+            }
+
             CanUndo = _undoStack.Count > 0;
 
             try
@@ -214,7 +222,7 @@ public class CommandRecorder : INotifyPropertyChanged
             }
 
             LastExecutedTime = DateTime.UtcNow;
-            Executed?.Invoke(entry.Command, new(entry.Command, CommandType.Undo));
+            Executed?.Invoke(entry.Command, new(entry.Command, CommandType.Undo, entry.Storables));
         }
     }
 
@@ -227,7 +235,13 @@ public class CommandRecorder : INotifyPropertyChanged
                 return;
             }
 
-            Entry entry = _redoStack.Pop();
+            Entry? entry = _redoStack.Pop();
+            if (entry == null)
+            {
+                _logger.LogWarning("Redo stack is empty.");
+                return;
+            }
+
             CanRedo = _redoStack.Count > 0;
 
             try
@@ -250,7 +264,7 @@ public class CommandRecorder : INotifyPropertyChanged
             }
 
             LastExecutedTime = DateTime.UtcNow;
-            Executed?.Invoke(entry.Command, new(entry.Command, CommandType.Redo));
+            Executed?.Invoke(entry.Command, new(entry.Command, CommandType.Redo, entry.Storables));
         }
     }
 

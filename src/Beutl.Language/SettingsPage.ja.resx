@@ -298,4 +298,10 @@
   <data name="TheseSettingsWillBeAppliedAfterTheApplicationIsRestarted" xml:space="preserve">
     <value>これらの設定はアプリケーションの再起動後に変更が適用されます。</value>
   </data>
+  <data name="EnableAutoSave" xml:space="preserve">
+    <value>自動保存を有効化</value>
+  </data>
+  <data name="EnableAutoSave_Description" xml:space="preserve">
+    <value>操作を実行後、自動でファイルを保存します。</value>
+  </data>
 </root>

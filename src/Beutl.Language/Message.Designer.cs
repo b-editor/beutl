@@ -106,6 +106,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   An exception occurred while saving the file. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string An_exception_occurred_while_saving_the_file {
+            get {
+                return ResourceManager.GetString("An_exception_occurred_while_saving_the_file", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Animation is enabled に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string AnimationIsEnabled {
@@ -341,6 +350,15 @@ namespace Beutl.Language {
         public static string FileDoesNotExist {
             get {
                 return ResourceManager.GetString("FileDoesNotExist", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Files are saved automatically. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Files_are_saved_automatically {
+            get {
+                return ResourceManager.GetString("Files_are_saved_automatically", resourceCulture);
             }
         }
         

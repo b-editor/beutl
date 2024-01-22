@@ -214,6 +214,24 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Enable auto save に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string EnableAutoSave {
+            get {
+                return ResourceManager.GetString("EnableAutoSave", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   The file is automatically saved after the operation is performed. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string EnableAutoSave_Description {
+            get {
+                return ResourceManager.GetString("EnableAutoSave_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Enable pointer lock に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string EnablePointerLockInProperty {
