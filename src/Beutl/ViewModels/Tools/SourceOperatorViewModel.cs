@@ -1,4 +1,5 @@
-﻿using System.Collections.Specialized;
+﻿using System.Collections.Immutable;
+using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 
 using Beutl.Helpers;
@@ -8,6 +9,8 @@ using Beutl.Services;
 using Beutl.ViewModels.Editors;
 
 using DynamicData;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -223,26 +226,15 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
                 @operator.Deserialize(context);
             }
 
-            var command = new ReplaceItemCommand(sourceOperation.Children, index, @operator, Model);
-            command.DoAndRecord(CommandRecorder.Default);
-        }
-    }
+            IStorable? storable = sourceOperation.FindHierarchicalParent<IStorable>();
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
 
-    private sealed class ReplaceItemCommand(IList<SourceOperator> list, int index, SourceOperator item, SourceOperator oldItem) : IRecordableCommand
-    {
-        public void Do()
-        {
-            list[index] = item;
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            list[index] = oldItem;
+            var (newValue, oldValue) = (@operator, Model);
+            RecordableCommands.Create([storable])
+                .OnDo(() => sourceOperation.Children[index] = newValue)
+                .OnUndo(() => sourceOperation.Children[index] = oldValue)
+                .ToCommand()
+                .DoAndRecord(recorder);
         }
     }
 }

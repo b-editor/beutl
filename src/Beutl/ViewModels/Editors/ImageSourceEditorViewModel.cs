@@ -1,5 +1,9 @@
-﻿using Beutl.Animation;
+﻿using System.Collections.Immutable;
+
+using Beutl.Animation;
 using Beutl.Media.Source;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -21,23 +25,30 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
     {
         if (!EqualityComparer<IImageSource?>.Default.Equals(oldValue, newValue))
         {
-            if (EditingKeyFrame.Value != null)
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
+            if (EditingKeyFrame.Value is { } kf)
             {
-                CommandRecorder.Default.DoAndPush(new SetKeyFrameValueCommand(EditingKeyFrame.Value, oldValue, newValue));
+                recorder.DoAndPush(
+                    new SetKeyFrameValueCommand(kf, oldValue, newValue, GetStorables()));
             }
             else
             {
-                CommandRecorder.Default.DoAndPush(new SetCommand(WrappedProperty, oldValue, newValue));
+                recorder.DoAndPush(
+                    new SetCommand(WrappedProperty, oldValue, newValue, GetStorables()));
             }
         }
     }
 
-    private sealed class SetKeyFrameValueCommand(KeyFrame<IImageSource?> setter, IImageSource? oldValue, IImageSource? newValue) : IRecordableCommand
+    private sealed class SetKeyFrameValueCommand(
+        KeyFrame<IImageSource?> setter, IImageSource? oldValue, IImageSource? newValue,
+        ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
         private readonly string? _oldName = oldValue?.Name;
         private readonly string? _newName = newValue?.Name;
         private IImageSource? _oldValue = oldValue;
         private IImageSource? _newValue = newValue;
+
+        public ImmutableArray<IStorable?> GetStorables() => storables;
 
         public void Do()
         {
@@ -71,12 +82,16 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
         }
     }
 
-    private sealed class SetCommand(IAbstractProperty<IImageSource?> setter, IImageSource? oldValue, IImageSource? newValue) : IRecordableCommand
+    private sealed class SetCommand(
+        IAbstractProperty<IImageSource?> setter, IImageSource? oldValue, IImageSource? newValue,
+        ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
         private readonly string? _oldName = oldValue?.Name;
         private readonly string? _newName = newValue?.Name;
         private IImageSource? _oldValue = oldValue;
         private IImageSource? _newValue = newValue;
+
+        public ImmutableArray<IStorable?> GetStorables() => storables;
 
         public void Do()
         {

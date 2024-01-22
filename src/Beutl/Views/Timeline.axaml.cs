@@ -185,7 +185,8 @@ public sealed partial class Timeline : UserControl
 
                         newElement.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.ElementFileExtension));
 
-                        ViewModel.Scene.AddChild(newElement).DoAndRecord(CommandRecorder.Default);
+                        CommandRecorder recorder = ViewModel.EditorContext.CommandRecorder;
+                        ViewModel.Scene.AddChild(newElement).DoAndRecord(recorder);
 
                         ScrollTimelinePosition(newElement.Range, newElement.ZIndex);
                     }
@@ -240,7 +241,8 @@ public sealed partial class Timeline : UserControl
 
                             newElement.Save(RandomFileNameGenerator.Generate(dir, Constants.ElementFileExtension));
 
-                            ViewModel.Scene.AddChild(newElement).DoAndRecord(CommandRecorder.Default);
+                            CommandRecorder recorder = ViewModel.EditorContext.CommandRecorder;
+                            ViewModel.Scene.AddChild(newElement).DoAndRecord(recorder);
 
                             ScrollTimelinePosition(newElement.Range, newElement.ZIndex);
                         }
@@ -480,6 +482,7 @@ public sealed partial class Timeline : UserControl
         {
             if (e.KeyModifiers == KeyModifiers.Control)
             {
+                CommandRecorder recorder = ViewModel.EditorContext.CommandRecorder;
                 var dialog = new AddElementDialog
                 {
                     DataContext = new AddElementDialogViewModel(
@@ -488,7 +491,8 @@ public sealed partial class Timeline : UserControl
                             viewModel.ClickedFrame,
                             TimeSpan.FromSeconds(5),
                             viewModel.CalculateClickedLayer(),
-                            InitialOperator: type))
+                            InitialOperator: type),
+                        recorder)
                 };
                 await dialog.ShowAsync();
             }
@@ -524,10 +528,12 @@ public sealed partial class Timeline : UserControl
     // 要素を追加
     private async void AddElementClick(object? sender, RoutedEventArgs e)
     {
+        CommandRecorder recorder = ViewModel.EditorContext.CommandRecorder;
         var dialog = new AddElementDialog
         {
             DataContext = new AddElementDialogViewModel(ViewModel.Scene,
-                new ElementDescription(ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.CalculateClickedLayer()))
+                new ElementDescription(ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.CalculateClickedLayer()),
+                recorder)
         };
         await dialog.ShowAsync();
     }

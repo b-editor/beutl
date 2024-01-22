@@ -89,8 +89,10 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             {
                 if (Value.Value is FilterEffect filter)
                 {
-                    var command = new ChangePropertyCommand<bool>(filter, FilterEffect.IsEnabledProperty, v, !v);
-                    command.DoAndRecord(CommandRecorder.Default);
+                    CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
+                    RecordableCommands.Edit(filter, FilterEffect.IsEnabledProperty, v)
+                        .WithStoables(GetStorables())
+                        .DoAndRecord(recorder);
                 }
             })
             .DisposeWith(Disposables);
@@ -153,10 +155,11 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         if (Value.Value is FilterEffectGroup group
             && Activator.CreateInstance(type) is FilterEffect instance)
         {
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             group.Children.BeginRecord<FilterEffect>()
                 .Add(instance)
-                .ToCommand()
-                .DoAndRecord(CommandRecorder.Default);
+                .ToCommand(GetStorables())
+                .DoAndRecord(recorder);
         }
     }
 

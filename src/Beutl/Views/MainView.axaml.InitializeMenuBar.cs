@@ -144,7 +144,8 @@ public partial class MainView
             var dialog = new AddElementDialog
             {
                 DataContext = new AddElementDialogViewModel(viewModel.Scene,
-                    new ElementDescription(timeline.ClickedFrame, TimeSpan.FromSeconds(5), timeline.CalculateClickedLayer()))
+                    new ElementDescription(timeline.ClickedFrame, TimeSpan.FromSeconds(5), timeline.CalculateClickedLayer()),
+                    viewModel.CommandRecorder)
             };
             await dialog.ShowAsync();
         }

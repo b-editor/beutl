@@ -26,26 +26,14 @@ public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsEnabled.Subscribe(b =>
+        IsEnabled.Skip(1).Subscribe(b =>
         {
-            IRecordableCommand? command = null;
-            foreach (Element? item in Timeline.Scene.Children.Where(i => i.ZIndex == Number.Value))
-            {
-                if (item.IsEnabled != b)
-                {
-                    var command2 = new ChangePropertyCommand<bool>(item, Element.IsEnabledProperty, b, item.IsEnabled);
-                    if (command == null)
-                    {
-                        command = command2;
-                    }
-                    else
-                    {
-                        command = command.Append(command2);
-                    }
-                }
-            }
-
-            command?.DoAndRecord(CommandRecorder.Default);
+            CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+            Timeline.Scene.Children.Where(i => i.ZIndex == Number.Value && i.IsEnabled != b)
+                .Select(item => RecordableCommands.Edit(item, Element.IsEnabledProperty, b).WithStoables([item]))
+                .ToArray()
+                .ToCommand()
+                .DoAndRecord(recorder);
         }).DisposeWith(_disposables);
 
         Height.Subscribe(_ => Timeline.RaiseLayerHeightChanged(this)).DisposeWith(_disposables);
@@ -178,25 +166,12 @@ public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
 
     public void SetColor(Color color)
     {
-        new SetColorCommand(this, color)
-            .DoAndRecord(CommandRecorder.Default);
-    }
-
-    private sealed class SetColorCommand(LayerHeaderViewModel viewModel, Color color) : IRecordableCommand
-    {
-        public void Do()
-        {
-            (color, viewModel.Color.Value) = (viewModel.Color.Value, color);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            Do();
-        }
+        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+        var (newValue, oldValue) = (Color.Value, color);
+        RecordableCommands.Create()
+            .OnDo(() => Color.Value = newValue)
+            .OnUndo(() => Color.Value = oldValue)
+            .ToCommand()
+            .DoAndRecord(recorder);
     }
 }

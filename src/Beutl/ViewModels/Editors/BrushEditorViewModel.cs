@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Collections.Immutable;
+using System.Text.Json.Nodes;
 
 using Beutl.Animation;
 using Beutl.Media;
@@ -10,24 +11,6 @@ using Reactive.Bindings;
 using ReactiveUI;
 
 namespace Beutl.ViewModels.Editors;
-
-public sealed class SetCommand(IAbstractProperty setter, object? oldValue, object? newValue) : IRecordableCommand
-{
-    public void Do()
-    {
-        setter.SetValue(newValue);
-    }
-
-    public void Redo()
-    {
-        Do();
-    }
-
-    public void Undo()
-    {
-        setter.SetValue(oldValue);
-    }
-}
 
 public sealed class BrushEditorViewModel : BaseEditorViewModel
 {
@@ -112,7 +95,14 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     {
         if (!EqualityComparer<IBrush>.Default.Equals(oldValue, newValue))
         {
-            CommandRecorder.Default.DoAndPush(new SetCommand(WrappedProperty, oldValue, newValue));
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
+            IAbstractProperty prop = WrappedProperty;
+
+            RecordableCommands.Create(GetStorables())
+                .OnDo(() => prop.SetValue(newValue))
+                .OnUndo(() => prop.SetValue(oldValue))
+                .ToCommand()
+                .DoAndRecord(recorder);
         }
     }
 

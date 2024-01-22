@@ -11,6 +11,8 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels.Tools;
 
+using Microsoft.Extensions.DependencyInjection;
+
 namespace Beutl.Views.Tools;
 
 public sealed partial class SourceOperatorView : UserControl
@@ -34,10 +36,11 @@ public sealed partial class SourceOperatorView : UserControl
     {
         if (DataContext is SourceOperatorViewModel viewModel2)
         {
+            CommandRecorder recorder = viewModel2.GetRequiredService<CommandRecorder>();
             SourceOperator operation = viewModel2.Model;
             Element element = operation.FindRequiredHierarchicalParent<Element>();
             element.Operation.RemoveChild(operation)
-                .DoAndRecord(CommandRecorder.Default);
+                .DoAndRecord(recorder);
         }
     }
 
@@ -46,6 +49,7 @@ public sealed partial class SourceOperatorView : UserControl
         if (e.Data.Get(KnownLibraryItemFormats.SourceOperator) is Type item2
             && DataContext is SourceOperatorViewModel viewModel2)
         {
+            CommandRecorder recorder = viewModel2.GetRequiredService<CommandRecorder>();
             SourceOperator operation = viewModel2.Model;
             Element element = operation.FindRequiredHierarchicalParent<Element>();
             Rect bounds = Bounds;
@@ -56,12 +60,12 @@ public sealed partial class SourceOperatorView : UserControl
             if (half < position.Y)
             {
                 element.Operation.InsertChild(index + 1, (SourceOperator)Activator.CreateInstance(item2)!)
-                    .DoAndRecord(CommandRecorder.Default);
+                    .DoAndRecord(recorder);
             }
             else
             {
                 element.Operation.InsertChild(index, (SourceOperator)Activator.CreateInstance(item2)!)
-                    .DoAndRecord(CommandRecorder.Default);
+                    .DoAndRecord(recorder);
             }
 
             e.Handled = true;
@@ -117,12 +121,19 @@ public sealed partial class SourceOperatorView : UserControl
     {
         protected override void OnMoveDraggedItem(ItemsControl? itemsControl, int oldIndex, int newIndex)
         {
-            if (itemsControl?.DataContext is SourceOperatorsTabViewModel { Element.Value.Operation.Children: { } list })
+            if (itemsControl?.DataContext is SourceOperatorsTabViewModel
+                {
+                    Element.Value:
+                    {
+                        Operation.Children: { } list
+                    } element
+                } viewModel)
             {
+                CommandRecorder recorder = viewModel.GetRequiredService<CommandRecorder>();
                 list.BeginRecord<SourceOperator>()
                     .Move(oldIndex, newIndex)
-                    .ToCommand()
-                    .DoAndRecord(CommandRecorder.Default);
+                    .ToCommand([element])
+                    .DoAndRecord(recorder);
             }
         }
     }

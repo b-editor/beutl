@@ -14,12 +14,13 @@ public sealed class AddElementDialogViewModel
 {
     private readonly Scene _scene;
     private readonly ElementDescription _description;
+    private readonly CommandRecorder _recorder;
 
-    public AddElementDialogViewModel(Scene scene, ElementDescription desc)
+    public AddElementDialogViewModel(Scene scene, ElementDescription desc, CommandRecorder recorder)
     {
         _scene = scene;
         _description = desc;
-
+        _recorder = recorder;
         Color.Value = Colors.Teal.ToAvalonia();
         Layer.Value = desc.Layer;
         Start.Value = desc.Start;
@@ -111,7 +112,7 @@ public sealed class AddElementDialogViewModel
             }
 
             element.Save(element.FileName);
-            _scene.AddChild(element).DoAndRecord(CommandRecorder.Default);
+            _scene.AddChild(element).DoAndRecord(_recorder);
         });
     }
 

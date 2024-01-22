@@ -12,15 +12,16 @@ namespace Beutl.ViewModels.NodeTree;
 public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
 {
     private readonly CompositeDisposable _disposables = [];
+    private readonly EditViewModel _editViewModel;
 
-    public NodeTreeViewModel(NodeTreeModel nodeTree)
+    public NodeTreeViewModel(NodeTreeModel nodeTree, EditViewModel editViewModel)
     {
         NodeTree = nodeTree;
-
+        _editViewModel = editViewModel;
         nodeTree.Nodes.ForEachItem(
             (idx, item) =>
             {
-                var viewModel = new NodeViewModel(item);
+                var viewModel = new NodeViewModel(item, _editViewModel);
                 Nodes.Insert(idx, viewModel);
             },
             (idx, _) =>
@@ -80,10 +81,11 @@ public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
             }
         }
 
+        CommandRecorder recorder = _editViewModel.CommandRecorder;
         NodeTree.Nodes.BeginRecord<Node>()
             .Add(node)
-            .ToCommand()
-            .DoAndRecord(CommandRecorder.Default);
+            .ToCommand([NodeTree.FindHierarchicalParent<IStorable>()])
+            .DoAndRecord(recorder);
     }
 
     public void Dispose()

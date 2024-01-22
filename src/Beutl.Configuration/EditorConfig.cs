@@ -15,6 +15,7 @@ public sealed class EditorConfig : ConfigurationBase
 {
     public static readonly CoreProperty<bool> AutoAdjustSceneDurationProperty;
     public static readonly CoreProperty<bool> EnablePointerLockInPropertyProperty;
+    public static readonly CoreProperty<bool> IsAutoSaveEnabledProperty;
 
     static EditorConfig()
     {
@@ -23,6 +24,10 @@ public sealed class EditorConfig : ConfigurationBase
             .Register();
 
         EnablePointerLockInPropertyProperty = ConfigureProperty<bool, EditorConfig>(nameof(EnablePointerLockInProperty))
+            .DefaultValue(true)
+            .Register();
+
+        IsAutoSaveEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsAutoSaveEnabled))
             .DefaultValue(true)
             .Register();
     }
@@ -42,6 +47,12 @@ public sealed class EditorConfig : ConfigurationBase
     {
         get => GetValue(EnablePointerLockInPropertyProperty);
         set => SetValue(EnablePointerLockInPropertyProperty, value);
+    }
+    
+    public bool IsAutoSaveEnabled
+    {
+        get => GetValue(IsAutoSaveEnabledProperty);
+        set => SetValue(IsAutoSaveEnabledProperty, value);
     }
 
     public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes { get; } = new()

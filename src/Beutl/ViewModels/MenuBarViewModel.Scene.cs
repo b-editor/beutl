@@ -99,7 +99,7 @@ public partial class MenuBarViewModel
             && viewModel.Scene is Scene scene
             && viewModel.SelectedObject.Value is Element element)
         {
-            scene.RemoveChild(element).DoAndRecord(CommandRecorder.Default);
+            scene.RemoveChild(element).DoAndRecord(viewModel.CommandRecorder);
         }
     }
 
@@ -113,7 +113,7 @@ public partial class MenuBarViewModel
             DataObject data = CreateElementDataObject(element);
 
             await clipboard.SetDataObjectAsync(data);
-            scene.RemoveChild(element).DoAndRecord(CommandRecorder.Default);
+            scene.RemoveChild(element).DoAndRecord(viewModel.CommandRecorder);
         }
     }
 

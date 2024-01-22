@@ -24,12 +24,13 @@ public sealed class InlineKeyFrameViewModel : IDisposable
             .DisposeWith(_disposables);
 
         RemoveCommand.Subscribe(() =>
-            {
-                Animation.KeyFrames.BeginRecord<IKeyFrame>()
+        {
+            CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+            Animation.KeyFrames.BeginRecord<IKeyFrame>()
                     .Remove(Model)
-                    .ToCommand()
-                    .DoAndRecord(CommandRecorder.Default);
-            })
+                    .ToCommand([parent.Element.Model])
+                    .DoAndRecord(recorder);
+        })
             .DisposeWith(_disposables);
     }
 
@@ -48,10 +49,12 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         float scale = Timeline.Options.Value.Scale;
         Project? proj = Timeline.Scene.FindHierarchicalParent<Project>();
         int rate = proj?.GetFrameRate() ?? 30;
+        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
 
         TimeSpan time = Left.Value.ToTimeSpan(scale).RoundToRate(rate);
-        new ChangePropertyCommand<TimeSpan>(Model, KeyFrame.KeyTimeProperty, time, Model.KeyTime)
-            .DoAndRecord(CommandRecorder.Default);
+        RecordableCommands.Edit(Model, KeyFrame.KeyTimeProperty, time)
+            .WithStoables([_parent.Element.Model])
+            .DoAndRecord(recorder);
 
         Left.Value = time.ToPixel(scale);
     }

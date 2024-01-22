@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using System.Collections.Immutable;
+
+using Avalonia;
 
 using Beutl.Animation;
 using Beutl.Animation.Easings;
@@ -27,8 +29,10 @@ public sealed class InlineAnimationLayerViewModel<T>(
             IKeyFrame? keyFrame = kfAnimation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
             if (keyFrame != null)
             {
-                new ChangePropertyCommand<Easing>(keyFrame, KeyFrame.EasingProperty, easing, keyFrame.Easing)
-                    .DoAndRecord(CommandRecorder.Default);
+                CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+                RecordableCommands.Edit(keyFrame, KeyFrame.EasingProperty, easing)
+                    .WithStoables([Element.Model])
+                    .DoAndRecord(recorder);
             }
             else
             {
@@ -44,6 +48,7 @@ public sealed class InlineAnimationLayerViewModel<T>(
             keyTime = ConvertKeyTime(keyTime, kfAnimation);
             if (!kfAnimation.KeyFrames.Any(x => x.KeyTime == keyTime))
             {
+                CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
                 var keyframe = new KeyFrame<T>()
                 {
                     Value = kfAnimation.Interpolate(keyTime),
@@ -51,27 +56,12 @@ public sealed class InlineAnimationLayerViewModel<T>(
                     KeyTime = keyTime
                 };
 
-                var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe);
-                command.DoAndRecord(CommandRecorder.Default);
+                RecordableCommands.Create([Element.Model])
+                    .OnDo(() => kfAnimation.KeyFrames.Add(keyframe, out _))
+                    .OnUndo(() => kfAnimation.KeyFrames.Remove(keyframe))
+                    .ToCommand()
+                    .DoAndRecord(recorder);
             }
-        }
-    }
-
-    private sealed class AddKeyFrameCommand(KeyFrames keyFrames, IKeyFrame keyFrame) : IRecordableCommand
-    {
-        public void Do()
-        {
-            keyFrames.Add(keyFrame, out _);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            keyFrames.Remove(keyFrame);
         }
     }
 }
@@ -195,10 +185,11 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
     {
         if (Property.Animation is IKeyFrameAnimation kfAnimation)
         {
+            CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
             kfAnimation.KeyFrames.BeginRecord<IKeyFrame>()
                 .Remove(keyFrame)
-                .ToCommand()
-                .DoAndRecord(CommandRecorder.Default);
+                .ToCommand([Element.Model])
+                .DoAndRecord(recorder);
         }
     }
 

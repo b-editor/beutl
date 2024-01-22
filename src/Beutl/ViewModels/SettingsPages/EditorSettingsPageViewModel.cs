@@ -20,6 +20,9 @@ public sealed class EditorSettingsPageViewModel
         EnablePointerLockInProperty = _editorConfig.GetObservable(EditorConfig.EnablePointerLockInPropertyProperty).ToReactiveProperty();
         EnablePointerLockInProperty.Subscribe(b => _editorConfig.EnablePointerLockInProperty = b);
 
+        EnableAutoSave = _editorConfig.GetObservable(EditorConfig.IsAutoSaveEnabledProperty).ToReactiveProperty();
+        EnableAutoSave.Subscribe(b => _editorConfig.IsAutoSaveEnabled = b);
+
         ShowExactBoundaries = _viewConfig.GetObservable(ViewConfig.ShowExactBoundariesProperty).ToReactiveProperty();
         ShowExactBoundaries.Subscribe(b => _viewConfig.ShowExactBoundaries = b);
 
@@ -33,8 +36,10 @@ public sealed class EditorSettingsPageViewModel
     }
 
     public ReactiveProperty<bool> AutoAdjustSceneDuration { get; }
-    
+
     public ReactiveProperty<bool> EnablePointerLockInProperty { get; }
+
+    public ReactiveProperty<bool> EnableAutoSave { get; }
 
     public ReactiveProperty<bool> ShowExactBoundaries { get; }
 

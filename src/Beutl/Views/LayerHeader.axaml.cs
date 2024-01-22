@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -95,7 +96,9 @@ public sealed partial class LayerHeader : UserControl
 
         int newLayerNum = _newLayer;
         int oldLayerNum = ViewModel.Number.Value;
-        new MoveLayerCommand(ViewModel, newLayerNum, oldLayerNum, _elements).DoAndRecord(CommandRecorder.Default);
+        CommandRecorder recorder = ViewModel.Timeline.EditorContext.CommandRecorder;
+        new MoveLayerCommand(ViewModel, newLayerNum, oldLayerNum, _elements)
+            .DoAndRecord(recorder);
         _elements = [];
     }
 
@@ -171,6 +174,11 @@ public sealed partial class LayerHeader : UserControl
                     _viewModels.Add(item);
                 }
             }
+        }
+
+        public ImmutableArray<IStorable?> GetStorables()
+        {
+            return [.. _items1.Select(v => v.Model), .. _items2.Select(v => v.Model)];
         }
 
         public void Do()

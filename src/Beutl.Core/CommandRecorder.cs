@@ -1,8 +1,9 @@
-﻿using System.ComponentModel;
-using System.Diagnostics;
+﻿using System.Collections.Immutable;
+using System.ComponentModel;
 
-using Beutl.Services;
 using Beutl.Language;
+using Beutl.Logging;
+using Beutl.Services;
 
 using Microsoft.Extensions.Logging;
 
@@ -17,19 +18,21 @@ public enum CommandType
     Redo,
 }
 
+internal record Entry(IRecordableCommand Command, ImmutableHashSet<IStorable> Storables);
+
 public class CommandRecorder : INotifyPropertyChanged
 {
-    public static readonly CommandRecorder Default = new();
     private static readonly PropertyChangedEventArgs s_canUndoArgs = new(nameof(CanUndo));
     private static readonly PropertyChangedEventArgs s_canRedoArgs = new(nameof(CanRedo));
     private static readonly PropertyChangedEventArgs s_lastExecutedTimeArgs = new(nameof(LastExecutedTime));
-    private static readonly ILogger<CommandRecorder> s_logger = BeutlApplication.Current.LoggerFactory.CreateLogger<CommandRecorder>();
-    private readonly RingStack<IRecordableCommand> _undoStack = new(20000);
-    private readonly RingStack<IRecordableCommand> _redoStack = new(20000);
-    private bool _isExecuting;
+    private readonly ILogger<CommandRecorder> _logger = Log.CreateLogger<CommandRecorder>();
+    private readonly CommandStack<Entry> _undoStack = new(20000);
+    private readonly CommandStack<Entry> _redoStack = new(20000);
+    private readonly SemaphoreSlim _semaphoreSlim = new(1);
     private bool _canUndo;
     private bool _canRedo;
     private DateTime _lastExecutedTime;
+    private IRecordableCommand? _executingCommand;
 
     public DateTime LastExecutedTime
     {
@@ -78,32 +81,88 @@ public class CommandRecorder : INotifyPropertyChanged
 
     public event EventHandler? Cleared;
 
-    public void PushOnly(IRecordableCommand command)
+    private static Entry CreateEntry(IRecordableCommand command)
     {
-        _undoStack.Push(command);
-        CanUndo = _undoStack.Count > 0;
-
-        _redoStack.Clear();
-        CanRedo = _redoStack.Count > 0;
-
-        LastExecutedTime = DateTime.UtcNow;
-        Executed?.Invoke(command, new(command, CommandType.Do));
+        return new Entry(command, command.GetStorables().Where(v => v != null).ToImmutableHashSet()!);
     }
 
-    public void DoAndPush(IRecordableCommand command)
+    private Entry? CreateEntryAndCheck(IRecordableCommand command)
     {
-        if (_isExecuting)
+        if (command.Nothing)
         {
-            Debug.WriteLine("if (!process) {...");
+            _logger.LogInformation("IRecordableCommand.Nothing is True. (Type: {Type})", command.GetType());
+            return null;
+        }
+
+        Entry entry = CreateEntry(command);
+        if (entry.Storables.Count == 0)
+        {
+            _logger.LogWarning("Storables.Count is 0. (Type: {Type})", command.GetType());
+        }
+
+        return entry;
+    }
+
+    private bool SemaphoreWait()
+    {
+        if (!_semaphoreSlim.Wait(1000))
+        {
+            _logger.LogWarning("SemaphoreSlim timeout. (ExecutingCommand: {Command})", _executingCommand);
+            NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
+            Canceled?.Invoke(null, EventArgs.Empty);
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
+
+    public void PushOnly(IRecordableCommand command)
+    {
+        if (!SemaphoreWait())
+        {
             return;
         }
 
         try
         {
-            _isExecuting = true;
+            if (CreateEntryAndCheck(command) is not { } entry)
+                return;
+
+            _undoStack.Push(entry);
+            CanUndo = _undoStack.Count > 0;
+
+            _redoStack.Clear();
+            CanRedo = _redoStack.Count > 0;
+
+            LastExecutedTime = DateTime.UtcNow;
+            Executed?.Invoke(command, new(command, CommandType.Do, entry.Storables));
+        }
+        finally
+        {
+            _semaphoreSlim.Release();
+        }
+    }
+
+    public void DoAndPush(IRecordableCommand command)
+    {
+        if (!SemaphoreWait())
+        {
+            return;
+        }
+
+        Entry? entry = null;
+        try
+        {
+            if (CreateEntryAndCheck(command) is not { } entry1)
+                return;
+            entry = entry1;
+
+            _executingCommand = command;
             command.Do();
 
-            _undoStack.Push(command);
+            _undoStack.Push(entry);
             CanUndo = _undoStack.Count > 0;
 
             _redoStack.Clear();
@@ -111,71 +170,103 @@ public class CommandRecorder : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            s_logger.LogError(ex, "An exception occurred while executing the command. {Command}", command);
+            _logger.LogError(ex, "An exception occurred while executing the command. {Command}", command);
             NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             Canceled?.Invoke(null, EventArgs.Empty);
         }
+        finally
+        {
+            _semaphoreSlim.Release();
+            _executingCommand = null;
+        }
 
-        _isExecuting = false;
         LastExecutedTime = DateTime.UtcNow;
-        Executed?.Invoke(command, new(command, CommandType.Do));
+        Executed?.Invoke(command, new(command, CommandType.Do, entry!.Storables));
     }
 
     public void Undo()
     {
-        if (_isExecuting) return;
-
         if (_undoStack.Count >= 1)
         {
-            IRecordableCommand command = _undoStack.Pop();
+            if (!SemaphoreWait())
+            {
+                return;
+            }
+
+            Entry? entry = _undoStack.Pop();
+            if (entry == null)
+            {
+                _logger.LogWarning("Undo stack is empty.");
+                _semaphoreSlim.Release();
+                return;
+            }
+
             CanUndo = _undoStack.Count > 0;
 
             try
             {
-                _isExecuting = true;
-                command.Undo();
+                _executingCommand = entry.Command;
+                entry.Command.Undo();
 
-                _redoStack.Push(command);
+                _redoStack.Push(entry);
                 CanRedo = _redoStack.Count > 0;
             }
             catch (Exception ex)
             {
-                s_logger.LogError(ex, "An exception occurred while executing the undo command. {Command}", command);
+                _logger.LogError(ex, "An exception occurred while executing the undo command. {Command}", entry.Command);
                 NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             }
+            finally
+            {
+                _semaphoreSlim.Release();
+                _executingCommand = null;
+            }
 
-            _isExecuting = false;
             LastExecutedTime = DateTime.UtcNow;
-            Executed?.Invoke(command, new(command, CommandType.Undo));
+            Executed?.Invoke(entry.Command, new(entry.Command, CommandType.Undo, entry.Storables));
         }
     }
 
     public void Redo()
     {
-        if (_isExecuting) return;
-
         if (_redoStack.Count >= 1)
         {
-            IRecordableCommand command = _redoStack.Pop();
+            if (!SemaphoreWait())
+            {
+                return;
+            }
+
+            Entry? entry = _redoStack.Pop();
+            if (entry == null)
+            {
+                _logger.LogWarning("Redo stack is empty.");
+                _semaphoreSlim.Release();
+                return;
+            }
+
             CanRedo = _redoStack.Count > 0;
 
             try
             {
-                _isExecuting = true;
-                command.Redo();
+                _executingCommand = entry.Command;
+                entry.Command.Redo();
 
-                _undoStack.Push(command);
+                _undoStack.Push(entry);
                 CanUndo = _undoStack.Count > 0;
             }
             catch (Exception ex)
             {
-                s_logger.LogError(ex, "An exception occurred while executing the redo command. {Command}", command);
+                _logger.LogError(ex, "An exception occurred while executing the redo command. {Command}", entry.Command);
                 NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             }
+            finally
+            {
+                _semaphoreSlim.Release();
+                _executingCommand = null;
+            }
 
-            _isExecuting = false;
             LastExecutedTime = DateTime.UtcNow;
-            Executed?.Invoke(command, new(command, CommandType.Redo));
+            Executed?.Invoke(entry.Command, new(entry.Command, CommandType.Redo, entry.Storables));
         }
     }
 

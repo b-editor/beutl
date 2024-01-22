@@ -1,5 +1,9 @@
-﻿using Beutl.Animation;
+﻿using System.Collections.Immutable;
+
+using Beutl.Animation;
 using Beutl.Media.Source;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -21,23 +25,30 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
     {
         if (!EqualityComparer<ISoundSource?>.Default.Equals(oldValue, newValue))
         {
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             if (EditingKeyFrame.Value != null)
             {
-                CommandRecorder.Default.DoAndPush(new SetKeyFrameValueCommand(EditingKeyFrame.Value, oldValue, newValue));
+                recorder.DoAndPush(
+                    new SetKeyFrameValueCommand(EditingKeyFrame.Value, oldValue, newValue, GetStorables()));
             }
             else
             {
-                CommandRecorder.Default.DoAndPush(new SetCommand(WrappedProperty, oldValue, newValue));
+                recorder.DoAndPush(
+                    new SetCommand(WrappedProperty, oldValue, newValue, GetStorables()));
             }
         }
     }
 
-    private sealed class SetKeyFrameValueCommand(KeyFrame<ISoundSource?> setter, ISoundSource? oldValue, ISoundSource? newValue) : IRecordableCommand
+    private sealed class SetKeyFrameValueCommand(
+        KeyFrame<ISoundSource?> setter, ISoundSource? oldValue, ISoundSource? newValue,
+        ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
         private readonly string? _oldName = oldValue?.Name;
         private readonly string? _newName = newValue?.Name;
         private ISoundSource? _oldValue = oldValue;
         private ISoundSource? _newValue = newValue;
+
+        public ImmutableArray<IStorable?> GetStorables() => storables;
 
         public void Do()
         {
@@ -71,12 +82,16 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
         }
     }
 
-    private sealed class SetCommand(IAbstractProperty<ISoundSource?> setter, ISoundSource? oldValue, ISoundSource? newValue) : IRecordableCommand
+    private sealed class SetCommand(
+        IAbstractProperty<ISoundSource?> setter, ISoundSource? oldValue, ISoundSource? newValue,
+        ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
         private readonly string? _oldName = oldValue?.Name;
         private readonly string? _newName = newValue?.Name;
         private ISoundSource? _oldValue = oldValue;
         private ISoundSource? _newValue = newValue;
+
+        public ImmutableArray<IStorable?> GetStorables() => storables;
 
         public void Do()
         {

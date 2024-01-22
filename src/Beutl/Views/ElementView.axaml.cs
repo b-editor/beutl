@@ -199,9 +199,11 @@ public sealed partial class ElementView : UserControl
 
     private void UseNodeClick(object? sender, RoutedEventArgs e)
     {
-        var model = ViewModel.Model;
-        var command = new ChangePropertyCommand<bool>(model, Element.UseNodeProperty, !model.UseNode, model.UseNode);
-        command.DoAndRecord(CommandRecorder.Default);
+        Element model = ViewModel.Model;
+        CommandRecorder recorder = ViewModel.Timeline.EditorContext.CommandRecorder;
+        RecordableCommands.Edit(model, Element.UseNodeProperty, !model.UseNode)
+            .WithStoables([model])
+            .DoAndRecord(recorder);
     }
 
     private void OnTextBoxLostFocus(object? sender, RoutedEventArgs e)
@@ -556,6 +558,7 @@ public sealed partial class ElementView : UserControl
 
                 if (AssociatedObject is { ViewModel: { } viewModel })
                 {
+                    CommandRecorder recorder = viewModel.Timeline.EditorContext.CommandRecorder;
                     e.Handled = true;
                     var elems = new List<Element>() { viewModel.Model };
                     elems.AddRange(viewModel.Timeline.GetSelected(viewModel).Select(x => x.Model));
@@ -578,7 +581,7 @@ public sealed partial class ElementView : UserControl
                         int deltaIndex = newIndex - viewModel.Model.ZIndex;
 
                         viewModel.Scene.MoveChildren(deltaIndex, deltaStart, [.. elems])
-                            .DoAndRecord(CommandRecorder.Default);
+                            .DoAndRecord(recorder);
 
                         foreach (var (item, context) in animations)
                         {

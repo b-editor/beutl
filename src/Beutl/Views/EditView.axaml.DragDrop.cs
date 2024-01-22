@@ -62,14 +62,14 @@ public partial class EditView
                     && Activator.CreateInstance(feType) is FilterEffect newFe)
                 {
                     FilterEffect? fe = drawable.FilterEffect;
-                    AddOrSetHelper.AddOrSet(ref fe, newFe);
+                    AddOrSetHelper.AddOrSet(ref fe, newFe, [element], viewModel.CommandRecorder);
                     drawable.FilterEffect = fe;
                 }
                 else if (e.Data.Get(KnownLibraryItemFormats.Transform) is Type traType
                     && Activator.CreateInstance(traType) is ITransform newTra)
                 {
                     ITransform? tra = drawable.Transform;
-                    AddOrSetHelper.AddOrSet(ref tra, newTra);
+                    AddOrSetHelper.AddOrSet(ref tra, newTra, [element], viewModel.CommandRecorder);
                     drawable.Transform = tra;
                 }
 
@@ -85,7 +85,7 @@ public partial class EditView
             if (e.KeyModifiers == KeyModifiers.Control)
             {
                 var desc = new ElementDescription(frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centerePosition);
-                var dialogViewModel = new AddElementDialogViewModel(scene, desc);
+                var dialogViewModel = new AddElementDialogViewModel(scene, desc, viewModel.CommandRecorder);
                 var dialog = new AddElementDialog
                 {
                     DataContext = dialogViewModel

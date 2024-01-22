@@ -3,9 +3,11 @@ using System.Text.Json.Nodes;
 using System.Windows.Input;
 
 using Avalonia.Input;
+using Avalonia.Threading;
 
 using Beutl.Animation;
 using Beutl.Api.Services;
+using Beutl.Configuration;
 using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
 using Beutl.Logging;
@@ -42,7 +44,7 @@ public sealed class ToolTabViewModel(IToolContext context) : IDisposable
     }
 }
 
-public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, ISupportCloseAnimation
+public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, ISupportCloseAnimation, ISupportAutoSaveEditorContext
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly CompositeDisposable _disposables = [];
@@ -58,6 +60,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         Player = new PlayerViewModel(this)
             .DisposeWith(_disposables);
         Commands = new KnownCommandsImpl(scene, this);
+        CommandRecorder = new CommandRecorder();
         SelectedObject = new ReactiveProperty<CoreObject?>()
             .DisposeWith(_disposables);
 
@@ -86,6 +89,39 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             .ToReadOnlyReactivePropertySlim();
 
         KeyBindings = CreateKeyBindings();
+
+        CommandRecorder.Executed += OnCommandRecorderExecuted;
+    }
+
+    private void OnCommandRecorderExecuted(object? sender, CommandExecutedEventArgs e)
+    {
+        if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled)
+        {
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                foreach (IStorable item in e.Storables)
+                {
+                    try
+                    {
+                        item.Save(item.FileName);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "An exception occurred while saving the file.");
+                        NotificationService.ShowError(string.Empty, Message.An_exception_occurred_while_saving_the_file);
+                    }
+                }
+
+                try
+                {
+                    SaveState();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "An exception occurred while saving the view state.");
+                }
+            });
+        }
     }
 
     private void OnSelectedObjectDetachedFromHierarchy(object? sender, HierarchyAttachmentEventArgs e)
@@ -108,6 +144,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
     public ReadOnlyReactivePropertySlim<int?> SelectedLayerNumber { get; }
 
     public PlayerViewModel Player { get; private set; }
+
+    public CommandRecorder CommandRecorder { get; private set; }
 
     public EditorExtension Extension => SceneEditorExtension.Instance;
 
@@ -149,6 +187,9 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
         Scene = null!;
         Commands = null!;
+        CommandRecorder.Executed -= OnCommandRecorderExecuted;
+        CommandRecorder.Clear();
+        CommandRecorder = null!;
     }
 
     public T? FindToolTab<T>(Func<T, bool> condition)
@@ -460,6 +501,9 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         if (serviceType.IsAssignableTo(typeof(ISupportCloseAnimation)))
             return this;
 
+        if (serviceType == typeof(CommandRecorder))
+            return CommandRecorder;
+
         return null;
     }
 
@@ -488,14 +532,22 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 if (op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is IAbstractProperty<ITransform?> transformp)
                 {
                     ITransform? transform = transformp.GetValue();
-                    AddOrSetHelper.AddOrSet(ref transform, new TranslateTransform(desc.Position));
+                    AddOrSetHelper.AddOrSet(
+                        ref transform,
+                        new TranslateTransform(desc.Position),
+                        [operation.FindHierarchicalParent<IStorable>()],
+                        CommandRecorder);
                     transformp.SetValue(transform);
                 }
                 else
                 {
                     var configure = new ConfigureTransformOperator();
                     ITransform? transform = configure.Transform.Value;
-                    AddOrSetHelper.AddOrSet(ref transform, new TranslateTransform(desc.Position));
+                    AddOrSetHelper.AddOrSet(
+                        ref transform,
+                        new TranslateTransform(desc.Position),
+                        [operation.FindHierarchicalParent<IStorable>()],
+                        CommandRecorder);
                     configure.Transform.Value = transform;
                     operation.Children.Add(configure);
                 }
@@ -569,7 +621,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
             list.ToArray()
                 .ToCommand()
-                .DoAndRecord(CommandRecorder.Default);
+                .DoAndRecord(CommandRecorder);
 
             if (scrollPos.HasValue && timeline != null)
             {
@@ -596,7 +648,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             }
 
             element.Save(element.FileName);
-            Scene.AddChild(element).DoAndRecord(CommandRecorder.Default);
+            Scene.AddChild(element).DoAndRecord(CommandRecorder);
 
             timeline?.ScrollTo.Execute((element.Range, element.ZIndex));
         }
@@ -720,14 +772,14 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
         public ValueTask<bool> OnUndo()
         {
-            CommandRecorder.Default.Undo();
+            viewModel.CommandRecorder.Undo();
 
             return ValueTask.FromResult(true);
         }
 
         public ValueTask<bool> OnRedo()
         {
-            CommandRecorder.Default.Redo();
+            viewModel.CommandRecorder.Redo();
 
             return ValueTask.FromResult(true);
         }

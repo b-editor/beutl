@@ -22,9 +22,10 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
     private readonly CompositeDisposable _disposables = [];
     private readonly string _defaultName;
 
-    public NodeViewModel(Node node)
+    public NodeViewModel(Node node, EditViewModel editViewModel)
     {
         Node = node;
+        EditorContext = editViewModel;
         Type nodeType = node.GetType();
         if (NodeRegistry.FindItem(nodeType) is { } regItem)
         {
@@ -68,8 +69,10 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
             NodeTreeModel? tree = Node.FindHierarchicalParent<NodeTreeModel>();
             if (tree != null)
             {
-                new RemoveCommand<Node>(tree.Nodes, Node)
-                    .DoAndRecord(CommandRecorder.Default);
+                tree.Nodes.BeginRecord<Node>()
+                    .Remove(Node)
+                    .ToCommand([node.FindHierarchicalParent<IStorable>()])
+                    .DoAndRecord(EditorContext.CommandRecorder);
             }
         });
 
@@ -77,6 +80,8 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
     }
 
     public Node Node { get; }
+
+    public EditViewModel EditorContext { get; }
 
     public ReadOnlyReactiveProperty<string> NodeName { get; }
 
@@ -181,9 +186,9 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
     {
         return nodeItem switch
         {
-            IOutputSocket osocket => new OutputSocketViewModel(osocket, propertyEditorContext, Node),
-            IInputSocket isocket => new InputSocketViewModel(isocket, propertyEditorContext, Node),
-            ISocket socket => new SocketViewModel(socket, propertyEditorContext, Node),
+            IOutputSocket osocket => new OutputSocketViewModel(osocket, propertyEditorContext, Node, EditorContext),
+            IInputSocket isocket => new InputSocketViewModel(isocket, propertyEditorContext, Node, EditorContext),
+            ISocket socket => new SocketViewModel(socket, propertyEditorContext, Node, EditorContext),
             _ => new NodeItemViewModel(nodeItem, propertyEditorContext, Node),
         };
     }
@@ -192,24 +197,24 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
     {
         static IRecordableCommand CreateCommand(NodeViewModel viewModel)
         {
-            return new ChangePropertyCommand<(double, double)>(
-                viewModel.Node,
-                Node.PositionProperty,
-                (viewModel.Position.Value.X, viewModel.Position.Value.Y),
-                viewModel.Node.Position);
+            IStorable? storable = viewModel.Node.FindHierarchicalParent<IStorable>();
+            return RecordableCommands.Edit(viewModel.Node, Node.PositionProperty, (viewModel.Position.Value.X, viewModel.Position.Value.Y))
+                .WithStoables([storable]);
         }
 
         selection.Select(CreateCommand)
             .Append(CreateCommand(this))
             .ToArray()
             .ToCommand()
-            .DoAndRecord(CommandRecorder.Default);
+            .DoAndRecord(EditorContext.CommandRecorder);
     }
 
     public void UpdateName(string? name)
     {
-        new ChangePropertyCommand<string>(Node, CoreObject.NameProperty, name, Node.Name)
-            .DoAndRecord(CommandRecorder.Default);
+        IStorable? storable = Node.FindHierarchicalParent<IStorable>();
+        RecordableCommands.Edit(Node, CoreObject.NameProperty, name)
+            .WithStoables([storable])
+            .DoAndRecord(EditorContext.CommandRecorder);
     }
 
     public void WriteToJson(JsonObject json)

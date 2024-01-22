@@ -1,6 +1,13 @@
-﻿namespace Beutl.Commands;
+﻿using System.Collections.Immutable;
 
-public sealed class ChangePropertyCommand<T>(ICoreObject obj, CoreProperty<T> property, T? newValue, T? oldValue) : IRecordableCommand
+namespace Beutl.Commands;
+
+internal sealed class ChangePropertyCommand<T>(
+    ICoreObject obj,
+    CoreProperty<T> property,
+    T? newValue,
+    T? oldValue,
+    ImmutableArray<IStorable?> storables) : IRecordableCommand
 {
     public ICoreObject Object { get; } = obj;
 
@@ -9,6 +16,8 @@ public sealed class ChangePropertyCommand<T>(ICoreObject obj, CoreProperty<T> pr
     public T? NewValue { get; } = newValue;
 
     public T? OldValue { get; } = oldValue;
+
+    public ImmutableArray<IStorable?> GetStorables() => storables;
 
     public void Do()
     {

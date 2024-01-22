@@ -78,7 +78,14 @@ public sealed class SourceVideoOperator : DrawablePublishOperator<SourceVideo>
     {
         if (backward)
         {
-            return new ChangeSetterValueCommand<TimeSpan>(OffsetPosition, OffsetPosition.Value, OffsetPosition.Value + startDelta);
+            IStorable? storable = this.FindHierarchicalParent<IStorable>();
+            TimeSpan newValue = OffsetPosition.Value + startDelta;
+            TimeSpan oldValue = OffsetPosition.Value;
+
+            return RecordableCommands.Create([storable])
+                .OnDo(() => OffsetPosition.Value = newValue)
+                .OnUndo(() => OffsetPosition.Value = oldValue)
+                .ToCommand();
         }
         else
         {

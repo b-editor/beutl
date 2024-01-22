@@ -3,6 +3,7 @@
 using Avalonia.Controls;
 
 using Beutl.ViewModels;
+using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
 
 namespace Beutl.Services.PrimitiveImpls;
@@ -34,7 +35,15 @@ public sealed class GraphEditorTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        context = null;
-        return false;
+        if (editorContext is EditViewModel editViewModel)
+        {
+            context = new GraphEditorTabViewModel(editViewModel);
+            return true;
+        }
+        else
+        {
+            context = null;
+            return false;
+        }
     }
 }

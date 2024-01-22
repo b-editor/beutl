@@ -2,8 +2,8 @@
 
 namespace Beutl.ViewModels.NodeTree;
 
-public class OutputSocketViewModel(IOutputSocket? socket, IPropertyEditorContext? propertyEditorContext, Node node)
-    : SocketViewModel(socket, propertyEditorContext, node)
+public class OutputSocketViewModel(IOutputSocket? socket, IPropertyEditorContext? propertyEditorContext, Node node, EditViewModel editViewModel)
+    : SocketViewModel(socket, propertyEditorContext, node, editViewModel)
 {
     public new IOutputSocket? Model => base.Model as IOutputSocket;
 

@@ -6,6 +6,8 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels.Tools;
 
+using Microsoft.Extensions.DependencyInjection;
+
 namespace Beutl.Views.Tools;
 
 public sealed partial class SourceOperatorsTab : UserControl
@@ -58,8 +60,9 @@ public sealed partial class SourceOperatorsTab : UserControl
             && DataContext is SourceOperatorsTabViewModel vm
             && vm.Element.Value is Element element)
         {
+            CommandRecorder recorder = vm.GetRequiredService<CommandRecorder>();
             element.Operation.AddChild((SourceOperator)Activator.CreateInstance(item)!)
-                .DoAndRecord(CommandRecorder.Default);
+                .DoAndRecord(recorder);
 
             e.Handled = true;
         }

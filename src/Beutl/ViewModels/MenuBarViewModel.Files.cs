@@ -123,6 +123,12 @@ public partial class MenuBarViewModel
             }
 
             NotificationService.ShowSuccess(string.Empty, string.Format(Message.ItemsSaved, itemsCount.ToString()));
+
+            if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled
+                && EditorService.Current.TabItems.All(v => v.Context.Value is ISupportAutoSaveEditorContext))
+            {
+                NotificationService.ShowInformation(string.Empty, Message.Files_are_saved_automatically);
+            }
         }
         catch (Exception ex)
         {
@@ -149,6 +155,12 @@ public partial class MenuBarViewModel
                 if (result)
                 {
                     NotificationService.ShowSuccess(string.Empty, string.Format(Message.ItemSaved, item.FileName));
+
+                    if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled
+                        && item.Context.Value is ISupportAutoSaveEditorContext)
+                    {
+                        NotificationService.ShowInformation(string.Empty, Message.Files_are_saved_automatically);
+                    }
                 }
                 else
                 {

@@ -40,6 +40,14 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.EnableAutoSave_Description}" Header="{x:Static lang:SettingsPage.EnableAutoSave}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{CompiledBinding EnableAutoSave.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.ShowExactBoundaries_Description}" Header="{x:Static lang:SettingsPage.ShowExactBoundaries}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"

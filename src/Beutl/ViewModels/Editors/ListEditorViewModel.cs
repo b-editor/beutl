@@ -253,6 +253,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
     {
         if (List.Value == null)
         {
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             Type listType = WrappedProperty.PropertyType;
             if (WrappedProperty.IsReadOnly)
                 throw new InvalidOperationException("読み取り専用です。");
@@ -261,8 +262,14 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
                 throw new InvalidOperationException("抽象型を初期化できません。");
 
             var list = Activator.CreateInstance(listType) as IList<TItem>;
-            var command = new SetCommand(WrappedProperty, null, list);
-            command.DoAndRecord(CommandRecorder.Default);
+
+            IAbstractProperty prop = WrappedProperty;
+
+            RecordableCommands.Create(GetStorables())
+                .OnDo(() => prop.SetValue(list))
+                .OnUndo(() => prop.SetValue(null))
+                .ToCommand()
+                .DoAndRecord(recorder);
         }
         else
         {
@@ -274,11 +281,18 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
     {
         if (List.Value != null)
         {
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             if (WrappedProperty.IsReadOnly)
                 throw new InvalidOperationException("読み取り専用です。");
 
-            var command = new SetCommand(WrappedProperty, List.Value, null);
-            command.DoAndRecord(CommandRecorder.Default);
+            IAbstractProperty prop = WrappedProperty;
+            IList<TItem?> oldValue = List.Value;
+
+            RecordableCommands.Create(GetStorables())
+                .OnDo(() => prop.SetValue(null))
+                .OnUndo(() => prop.SetValue(oldValue))
+                .ToCommand()
+                .DoAndRecord(recorder);
         }
     }
 
@@ -295,26 +309,29 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     public void AddItem(TItem? item)
     {
+        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
         List.Value!.BeginRecord()
             .Add(item)
-            .ToCommand()
-            .DoAndRecord(CommandRecorder.Default);
+            .ToCommand(GetStorables())
+            .DoAndRecord(recorder);
     }
 
     public void RemoveItem(int index)
     {
+        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
         List.Value!.BeginRecord()
             .RemoveAt(index)
-            .ToCommand()
-            .DoAndRecord(CommandRecorder.Default);
+            .ToCommand(GetStorables())
+            .DoAndRecord(recorder);
     }
 
     public void MoveItem(int oldIndex, int newIndex)
     {
+        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
         List.Value!.BeginRecord()
             .Move(oldIndex, newIndex)
-            .ToCommand()
-            .DoAndRecord(CommandRecorder.Default);
+            .ToCommand(GetStorables())
+            .DoAndRecord(recorder);
     }
 
     public override void ReadFromJson(JsonObject json)

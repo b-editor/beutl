@@ -217,8 +217,8 @@
                         Theme="{StaticResource TransparentButton}">
                     <Button.Flyout>
                         <Flyout FlyoutPresenterClasses="HiddenNotificationPadding8">
-                            <ScrollViewer>
-                                <StackPanel x:Name="HiddenNotificationPanel" Spacing="8" />
+                            <ScrollViewer Margin="-8">
+                                <StackPanel x:Name="HiddenNotificationPanel" Spacing="4" />
                             </ScrollViewer>
                         </Flyout>
                     </Button.Flyout>
@@ -258,7 +258,7 @@
                     Grid.RowSpan="2"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
-                    Spacing="8">
+                    Spacing="4">
             <StackPanel.Styles>
                 <Style Selector="ui|InfoBar">
                     <Style Selector="^">

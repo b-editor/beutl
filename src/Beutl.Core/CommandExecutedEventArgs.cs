@@ -1,8 +1,12 @@
-﻿namespace Beutl;
+﻿using System.Collections.Immutable;
 
-public class CommandExecutedEventArgs(IRecordableCommand command, CommandType type) : EventArgs
+namespace Beutl;
+
+public class CommandExecutedEventArgs(IRecordableCommand command, CommandType type, ImmutableHashSet<IStorable> storables) : EventArgs
 {
     public IRecordableCommand Command { get; } = command;
 
     public CommandType Type { get; } = type;
+
+    public ImmutableHashSet<IStorable> Storables { get; } = storables;
 }

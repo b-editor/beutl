@@ -6,6 +6,8 @@ using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes;
 using Beutl.Services;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.NodeTree;
@@ -61,16 +63,19 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
 
     public void Remove()
     {
+        CommandRecorder recorder = _parent.GetRequiredService<CommandRecorder>();
         _nodeTree.Nodes.BeginRecord<Node>()
             .Remove(Node)
-            .ToCommand()
-            .DoAndRecord(CommandRecorder.Default);
+            .ToCommand([_parent.Model])
+            .DoAndRecord(recorder);
     }
 
     public void UpdateName(string? name)
     {
-        new ChangePropertyCommand<string>(Node, CoreObject.NameProperty, name, Node.Name)
-            .DoAndRecord(CommandRecorder.Default);
+        CommandRecorder recorder = _parent.GetRequiredService<CommandRecorder>();
+        RecordableCommands.Edit(Node, CoreObject.NameProperty, name)
+            .WithStoables([_parent.Model])
+            .DoAndRecord(recorder);
     }
 
     public void Dispose()
