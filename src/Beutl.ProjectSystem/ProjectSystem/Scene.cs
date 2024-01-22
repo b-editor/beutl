@@ -564,8 +564,16 @@ public class Scene : ProjectItem
         else if (e.Action == NotifyCollectionChangedAction.Add
             && e.NewItems != null)
         {
+            string dirPath = Path.GetDirectoryName(FileName)!;
             foreach (Element item in e.NewItems.OfType<Element>())
             {
+                string rel = Path.GetRelativePath(dirPath, item.FileName).Replace('\\', '/');
+
+                if (_excludeElements.Contains(rel) && File.Exists(item.FileName))
+                {
+                    _excludeElements.Remove(rel);
+                }
+
                 if (item.Range.Contains(CurrentFrame))
                     shouldRender = true;
             }
