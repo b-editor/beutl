@@ -73,7 +73,8 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
     public void UpdateName(string? name)
     {
         CommandRecorder recorder = _parent.GetRequiredService<CommandRecorder>();
-        new ChangePropertyCommand<string>(Node, CoreObject.NameProperty, name, Node.Name, [_parent.Model])
+        RecordableCommands.Edit(Node, CoreObject.NameProperty, name)
+            .WithStoables([_parent.Model])
             .DoAndRecord(recorder);
     }
 

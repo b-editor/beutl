@@ -27,28 +27,6 @@ using AvaRect = Avalonia.Rect;
 
 namespace Beutl.Views;
 
-file static class CommandHelper
-{
-    public static IRecordableCommand? Compose(IRecordableCommand? first, IRecordableCommand? second)
-    {
-        if (second != null)
-        {
-            if (first != null)
-            {
-                return first.Append(second);
-            }
-            else
-            {
-                return second;
-            }
-        }
-        else
-        {
-            return first;
-        }
-    }
-}
-
 public partial class EditView
 {
     private static double Length(AvaPoint point)
@@ -68,12 +46,12 @@ public partial class EditView
 
         public IRecordableCommand? CreateCommand(ImmutableArray<IStorable?> storables)
         {
-            return CommandHelper.Compose(
+            return RecordableCommands.Append(
                 Previous != null && Previous.Value != OldPreviousValue
-                    ? new ChangePropertyCommand<float>(Previous, KeyFrame<float>.ValueProperty, Previous.Value, OldPreviousValue, storables)
+                    ? RecordableCommands.Edit(Previous, KeyFrame<float>.ValueProperty, Previous.Value, OldPreviousValue).WithStoables(storables)
                     : null,
                 Next != null && Next.Value != OldNextValue
-                    ? new ChangePropertyCommand<float>(Next, KeyFrame<float>.ValueProperty, Next.Value, OldNextValue, storables)
+                    ? RecordableCommands.Edit(Next, KeyFrame<float>.ValueProperty, Next.Value, OldNextValue).WithStoables(storables)
                     : null);
         }
     }
@@ -324,12 +302,12 @@ public partial class EditView
         {
             if (_translateTransform != null)
             {
-                return CommandHelper.Compose(
+                return RecordableCommands.Append(
                     _translateTransform.X != _oldTranslation.X
-                        ? new ChangePropertyCommand<float>(_translateTransform, TranslateTransform.XProperty, _translateTransform.X, _oldTranslation.X, storables)
+                        ? RecordableCommands.Edit(_translateTransform, TranslateTransform.XProperty, _translateTransform.X, _oldTranslation.X).WithStoables(storables)
                         : null,
                     _translateTransform.Y != _oldTranslation.Y
-                        ? new ChangePropertyCommand<float>(_translateTransform, TranslateTransform.YProperty, _translateTransform.Y, _oldTranslation.Y, storables)
+                        ? RecordableCommands.Edit(_translateTransform, TranslateTransform.YProperty, _translateTransform.Y, _oldTranslation.Y).WithStoables(storables)
                         : null);
             }
 
@@ -343,9 +321,9 @@ public partial class EditView
                 _imagePressed = false;
 
                 ImmutableArray<IStorable?> storables = [Element];
-                IRecordableCommand? command = CommandHelper.Compose(
+                IRecordableCommand? command = RecordableCommands.Append(
                     CreateTranslationCommand(storables),
-                    CommandHelper.Compose(_xKeyFrame?.CreateCommand(storables), _yKeyFrame?.CreateCommand(storables)));
+                    RecordableCommands.Append(_xKeyFrame?.CreateCommand(storables), _yKeyFrame?.CreateCommand(storables)));
                 command?.DoAndRecord(viewModel.CommandRecorder);
 
                 Element = null;

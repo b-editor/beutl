@@ -2,7 +2,7 @@
 
 namespace Beutl.Commands;
 
-public sealed class ChangePropertyCommand<T>(
+internal sealed class ChangePropertyCommand<T>(
     ICoreObject obj,
     CoreProperty<T> property,
     T? newValue,

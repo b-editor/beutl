@@ -201,8 +201,9 @@ public sealed partial class ElementView : UserControl
     {
         Element model = ViewModel.Model;
         CommandRecorder recorder = ViewModel.Timeline.EditorContext.CommandRecorder;
-        var command = new ChangePropertyCommand<bool>(model, Element.UseNodeProperty, !model.UseNode, model.UseNode, [model]);
-        command.DoAndRecord(recorder);
+        RecordableCommands.Edit(model, Element.UseNodeProperty, !model.UseNode)
+            .WithStoables([model])
+            .DoAndRecord(recorder);
     }
 
     private void OnTextBoxLostFocus(object? sender, RoutedEventArgs e)
@@ -557,7 +558,7 @@ public sealed partial class ElementView : UserControl
 
                 if (AssociatedObject is { ViewModel: { } viewModel })
                 {
-                    CommandRecorder recorder=viewModel.Timeline.EditorContext.CommandRecorder;
+                    CommandRecorder recorder = viewModel.Timeline.EditorContext.CommandRecorder;
                     e.Handled = true;
                     var elems = new List<Element>() { viewModel.Model };
                     elems.AddRange(viewModel.Timeline.GetSelected(viewModel).Select(x => x.Model));

@@ -26,10 +26,10 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
         if (!EqualityComparer<IImageSource?>.Default.Equals(oldValue, newValue))
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            if (EditingKeyFrame.Value != null)
+            if (EditingKeyFrame.Value is { } kf)
             {
                 recorder.DoAndPush(
-                    new SetKeyFrameValueCommand(EditingKeyFrame.Value, oldValue, newValue, GetStorables()));
+                    new SetKeyFrameValueCommand(kf, oldValue, newValue, GetStorables()));
             }
             else
             {

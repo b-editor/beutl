@@ -90,8 +90,9 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
                 if (Value.Value is FilterEffect filter)
                 {
                     CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-                    var command = new ChangePropertyCommand<bool>(filter, FilterEffect.IsEnabledProperty, v, !v, GetStorables());
-                    command.DoAndRecord(recorder);
+                    RecordableCommands.Edit(filter, FilterEffect.IsEnabledProperty, v)
+                        .WithStoables(GetStorables())
+                        .DoAndRecord(recorder);
                 }
             })
             .DisposeWith(Disposables);

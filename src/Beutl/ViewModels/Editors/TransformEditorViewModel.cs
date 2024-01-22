@@ -126,8 +126,9 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
                 if (Value.Value is Transform transform)
                 {
                     CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-                    var command = new ChangePropertyCommand<bool>(transform, Transform.IsEnabledProperty, v, !v, GetStorables());
-                    command.DoAndRecord(recorder);
+                    RecordableCommands.Edit(transform, Transform.IsEnabledProperty, v, !v)
+                        .WithStoables(GetStorables())
+                        .DoAndRecord(recorder);
                 }
             })
             .DisposeWith(Disposables);

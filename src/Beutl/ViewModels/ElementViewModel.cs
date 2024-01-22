@@ -105,7 +105,8 @@ public sealed class ElementViewModel : IDisposable
             .Subscribe(c =>
             {
                 CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-                new ChangePropertyCommand<Media.Color>(Model, Element.AccentColorProperty, c.ToMedia(), Model.AccentColor, [Model])
+                RecordableCommands.Edit(Model, Element.AccentColorProperty, c.ToMedia(), Model.AccentColor)
+                    .WithStoables([Model])
                     .DoAndRecord(recorder);
             })
             .AddTo(_disposables);

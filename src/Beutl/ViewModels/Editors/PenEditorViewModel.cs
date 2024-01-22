@@ -112,8 +112,13 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
         if (!EqualityComparer<IPen>.Default.Equals(oldValue, newValue))
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            recorder.DoAndPush(
-                new SetCommand(WrappedProperty, oldValue, newValue, GetStorables()));
+            IAbstractProperty prop = WrappedProperty;
+
+            RecordableCommands.Create(GetStorables())
+                .OnDo(() => prop.SetValue(newValue))
+                .OnUndo(() => prop.SetValue(oldValue))
+                .ToCommand()
+                .DoAndRecord(recorder);
         }
     }
 

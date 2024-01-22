@@ -228,34 +228,13 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
             IStorable? storable = sourceOperation.FindHierarchicalParent<IStorable>();
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            var command = new ReplaceItemCommand(
-                sourceOperation.Children, index, @operator, Model, [storable]);
-            command.DoAndRecord(recorder);
-        }
-    }
 
-    private sealed class ReplaceItemCommand(
-        IList<SourceOperator> list,
-        int index,
-        SourceOperator item,
-        SourceOperator oldItem,
-        ImmutableArray<IStorable?> storables) : IRecordableCommand
-    {
-        public ImmutableArray<IStorable?> GetStorables() => storables;
-
-        public void Do()
-        {
-            list[index] = item;
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            list[index] = oldItem;
+            var (newValue, oldValue) = (@operator, Model);
+            RecordableCommands.Create([storable])
+                .OnDo(() => sourceOperation.Children[index] = newValue)
+                .OnUndo(() => sourceOperation.Children[index] = oldValue)
+                .ToCommand()
+                .DoAndRecord(recorder);
         }
     }
 }

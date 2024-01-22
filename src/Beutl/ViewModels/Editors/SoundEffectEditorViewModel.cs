@@ -80,8 +80,9 @@ public sealed class SoundEffectEditorViewModel : ValueEditorViewModel<ISoundEffe
                 if (Value.Value is SoundEffect effect)
                 {
                     CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-                    var command = new ChangePropertyCommand<bool>(effect, SoundEffect.IsEnabledProperty, v, !v, GetStorables());
-                    command.DoAndRecord(recorder);
+                    RecordableCommands.Edit(effect, SoundEffect.IsEnabledProperty, v, !v)
+                        .WithStoables(GetStorables())
+                        .DoAndRecord(recorder);
                 }
             })
             .DisposeWith(Disposables);

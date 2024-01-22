@@ -242,13 +242,16 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         if (Model.Easing is SplineEasing splineEasing)
         {
             CommandRecorder recorder = _parent.Parent.EditorContext.CommandRecorder;
-            var oldValues = (oldX, oldY);
+            var oldValues = (X1: oldX, Y1: oldY);
             var newValues = (splineEasing.X1, splineEasing.Y1);
             if (oldValues == newValues)
                 return;
-            var command = new SubmitControlPointCommand(
-                oldValues, newValues, splineEasing, true, GetStorables());
-            command.DoAndRecord(recorder);
+
+            RecordableCommands.Create(GetStorables())
+                .OnDo(() => (splineEasing.X1, splineEasing.Y1) = (newValues.X1, newValues.Y1))
+                .OnUndo(() => (splineEasing.X1, splineEasing.Y1) = (oldValues.X1, oldValues.Y1))
+                .ToCommand()
+                .DoAndRecord(recorder);
         }
     }
 
@@ -257,13 +260,16 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         if (Model.Easing is SplineEasing splineEasing)
         {
             CommandRecorder recorder = _parent.Parent.EditorContext.CommandRecorder;
-            var oldValues = (oldX, oldY);
+            var oldValues = (X2: oldX, Y2: oldY);
             var newValues = (splineEasing.X2, splineEasing.Y2);
             if (oldValues == newValues)
                 return;
-            var command = new SubmitControlPointCommand(
-                oldValues, newValues, splineEasing, false, GetStorables());
-            command.DoAndRecord(recorder);
+
+            RecordableCommands.Create(GetStorables())
+                .OnDo(() => (splineEasing.X2, splineEasing.Y2) = (newValues.X2, newValues.Y2))
+                .OnUndo(() => (splineEasing.X2, splineEasing.Y2) = (oldValues.X2, oldValues.Y2))
+                .ToCommand()
+                .DoAndRecord(recorder);
         }
     }
 
@@ -284,25 +290,27 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
         if (_parent.TryConvertFromDouble(Model.Value, EndY.Value / parent2.ScaleY.Value, animation.Property.PropertyType, out object? obj))
         {
-            var command = new SubmitKeyFrameCommand(
-                keyframe: Model,
-                oldTime: oldKeyTime,
-                newTime: Right.Value.ToTimeSpan(scale).RoundToRate(rate),
-                oldValue: Model.Value,
-                newValue: obj,
-                storables: GetStorables());
-            command.DoAndRecord(recorder);
+            var keyframe = Model;
+            var (oldTime, oldValue) = (oldKeyTime, Model.Value);
+            var (newTime, newValue) = (Right.Value.ToTimeSpan(scale).RoundToRate(rate), obj);
+
+            RecordableCommands.Create(GetStorables())
+                .OnDo(() => (keyframe.Value, keyframe.KeyTime) = (newValue, newTime))
+                .OnUndo(() => (keyframe.Value, keyframe.KeyTime) = (oldValue, oldTime))
+                .ToCommand()
+                .DoAndRecord(recorder);
+
             EndY.Value = _parent.ConvertToDouble(Model.Value) * parent2.ScaleY.Value;
         }
         else
         {
-            var command = new ChangePropertyCommand<TimeSpan>(
-                obj: Model,
+            RecordableCommands.Edit(
+                target: Model,
                 property: KeyFrame.KeyTimeProperty,
-                newValue: Right.Value.ToTimeSpan(scale).RoundToRate(rate),
-                oldValue: oldKeyTime,
-                storables: GetStorables());
-            command.DoAndRecord(recorder);
+                value: Right.Value.ToTimeSpan(scale).RoundToRate(rate),
+                oldValue: oldKeyTime)
+                .WithStoables(GetStorables())
+                .DoAndRecord(recorder);
         }
 
         Right.Value = Model.KeyTime.ToPixel(_parent.Parent.Options.Value.Scale);
@@ -311,63 +319,5 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     private ImmutableArray<IStorable?> GetStorables()
     {
         return [_parent.Parent.Element];
-    }
-
-    private sealed class SubmitControlPointCommand(
-        (float, float) oldValue, (float, float) newValue, SplineEasing splineEasing, bool first,
-        ImmutableArray<IStorable?> storables) : IRecordableCommand
-    {
-        public ImmutableArray<IStorable?> GetStorables() => storables;
-
-        public void Do()
-        {
-            if (first)
-            {
-                splineEasing.X1 = newValue.Item1;
-                splineEasing.Y1 = newValue.Item2;
-            }
-            else
-            {
-                splineEasing.X2 = newValue.Item1;
-                splineEasing.Y2 = newValue.Item2;
-            }
-        }
-
-        public void Redo() => Do();
-
-        public void Undo()
-        {
-            if (first)
-            {
-                splineEasing.X1 = oldValue.Item1;
-                splineEasing.Y1 = oldValue.Item2;
-            }
-            else
-            {
-                splineEasing.X2 = oldValue.Item1;
-                splineEasing.Y2 = oldValue.Item2;
-            }
-        }
-    }
-
-    private sealed class SubmitKeyFrameCommand(
-        IKeyFrame keyframe, TimeSpan oldTime, TimeSpan newTime, object? oldValue, object? newValue,
-        ImmutableArray<IStorable?> storables) : IRecordableCommand
-    {
-        public ImmutableArray<IStorable?> GetStorables() => storables;
-
-        public void Do()
-        {
-            keyframe.Value = newValue;
-            keyframe.KeyTime = newTime;
-        }
-
-        public void Redo() => Do();
-
-        public void Undo()
-        {
-            keyframe.Value = oldValue;
-            keyframe.KeyTime = oldTime;
-        }
     }
 }

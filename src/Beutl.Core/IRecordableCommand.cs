@@ -15,7 +15,7 @@ public interface IRecordableCommand
     void Redo();
 }
 
-public static class RecordableCommandExtensions
+public static partial class RecordableCommands
 {
     public static void DoAndRecord(this IRecordableCommand command, CommandRecorder recorder)
     {
@@ -27,9 +27,23 @@ public static class RecordableCommandExtensions
         recorder.PushOnly(command);
     }
 
-    public static IRecordableCommand Append(this IRecordableCommand command1, IRecordableCommand command2)
+    public static IRecordableCommand Append(this IRecordableCommand? command1, IRecordableCommand? command2)
     {
-        return new ConnectedCommand(command1, command2);
+        if (command2 != null)
+        {
+            if (command1 != null)
+            {
+                return new ConnectedCommand(command1, command2);
+            }
+            else
+            {
+                return command2;
+            }
+        }
+        else
+        {
+            return command1 ?? EmptyCommand.Instance;
+        }
     }
 
     public static IRecordableCommand ToCommand(this IRecordableCommand[] commands)
@@ -193,6 +207,30 @@ public static class RecordableCommandExtensions
                 IRecordableCommand? item = commands[i];
                 item.Undo();
             }
+        }
+    }
+
+    private sealed class EmptyCommand : IRecordableCommand
+    {
+        public static readonly EmptyCommand Instance = new();
+
+        public bool Nothing => true;
+
+        public ImmutableArray<IStorable?> GetStorables()
+        {
+            return [];
+        }
+
+        public void Do()
+        {
+        }
+
+        public void Redo()
+        {
+        }
+
+        public void Undo()
+        {
         }
     }
 }

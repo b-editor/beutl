@@ -198,12 +198,8 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
         static IRecordableCommand CreateCommand(NodeViewModel viewModel)
         {
             IStorable? storable = viewModel.Node.FindHierarchicalParent<IStorable>();
-            return new ChangePropertyCommand<(double, double)>(
-                viewModel.Node,
-                Node.PositionProperty,
-                (viewModel.Position.Value.X, viewModel.Position.Value.Y),
-                viewModel.Node.Position,
-                [storable]);
+            return RecordableCommands.Edit(viewModel.Node, Node.PositionProperty, (viewModel.Position.Value.X, viewModel.Position.Value.Y))
+                .WithStoables([storable]);
         }
 
         selection.Select(CreateCommand)
@@ -216,10 +212,8 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
     public void UpdateName(string? name)
     {
         IStorable? storable = Node.FindHierarchicalParent<IStorable>();
-        new ChangePropertyCommand<string>(
-            Node, CoreObject.NameProperty,
-            name, Node.Name,
-            [storable])
+        RecordableCommands.Edit(Node, CoreObject.NameProperty, name)
+            .WithStoables([storable])
             .DoAndRecord(EditorContext.CommandRecorder);
     }
 

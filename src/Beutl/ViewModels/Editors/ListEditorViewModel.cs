@@ -262,8 +262,14 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
                 throw new InvalidOperationException("抽象型を初期化できません。");
 
             var list = Activator.CreateInstance(listType) as IList<TItem>;
-            var command = new SetCommand(WrappedProperty, null, list, GetStorables());
-            command.DoAndRecord(recorder);
+
+            IAbstractProperty prop = WrappedProperty;
+
+            RecordableCommands.Create(GetStorables())
+                .OnDo(() => prop.SetValue(list))
+                .OnUndo(() => prop.SetValue(null))
+                .ToCommand()
+                .DoAndRecord(recorder);
         }
         else
         {
@@ -279,8 +285,14 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
             if (WrappedProperty.IsReadOnly)
                 throw new InvalidOperationException("読み取り専用です。");
 
-            var command = new SetCommand(WrappedProperty, List.Value, null, GetStorables());
-            command.DoAndRecord(recorder);
+            IAbstractProperty prop = WrappedProperty;
+            IList<TItem?> oldValue = List.Value;
+
+            RecordableCommands.Create(GetStorables())
+                .OnDo(() => prop.SetValue(null))
+                .OnUndo(() => prop.SetValue(oldValue))
+                .ToCommand()
+                .DoAndRecord(recorder);
         }
     }
 

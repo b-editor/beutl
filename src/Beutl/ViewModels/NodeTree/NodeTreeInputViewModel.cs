@@ -27,7 +27,8 @@ public sealed class NodeTreeInputViewModel : IDisposable, IServiceProvider
             .Subscribe(v =>
             {
                 CommandRecorder recorder = _parent.GetRequiredService<CommandRecorder>();
-                new ChangePropertyCommand<bool>(Model, Element.UseNodeProperty, v, !v, [element])
+                RecordableCommands.Edit(Model, Element.UseNodeProperty, v, !v)
+                    .WithStoables([element])
                     .DoAndRecord(recorder);
             })
             .DisposeWith(_disposables);

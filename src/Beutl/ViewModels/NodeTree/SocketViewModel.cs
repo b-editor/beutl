@@ -93,9 +93,14 @@ public class SocketViewModel : NodeItemViewModel
         else if (Model != null && target.Model != null
             && SortSocket(Model, target.Model, out IInputSocket? inputSocket, out IOutputSocket? outputSocket))
         {
-            var command = new ConnectCommand(inputSocket, outputSocket);
-            command.DoAndRecord(_editViewModel.CommandRecorder);
-            return command.IsConnected;
+            bool isConnected = outputSocket.TryConnect(inputSocket);
+            RecordableCommands.Create([.. GetStorables(inputSocket), .. GetStorables(outputSocket)])
+                .OnUndo(() => outputSocket.Disconnect(inputSocket))
+                .OnRedo(() => outputSocket.TryConnect(inputSocket))
+                .ToCommand()
+                .PushTo(_editViewModel.CommandRecorder);
+
+            return isConnected;
         }
         else
         {
@@ -103,13 +108,25 @@ public class SocketViewModel : NodeItemViewModel
         }
     }
 
+    private IRecordableCommand CreateDisconnectCommand(IInputSocket inputSocket, IOutputSocket outputSocket)
+    {
+        return RecordableCommands.Create([.. GetStorables(inputSocket), .. GetStorables(outputSocket)])
+            .OnDo(() => outputSocket.Disconnect(inputSocket))
+            .OnUndo(() => outputSocket.TryConnect(inputSocket))
+            .ToCommand();
+    }
+
     public bool TryDisconnect(SocketViewModel target)
     {
         if (Model != null && target.Model != null
             && SortSocket(Model, target.Model, out IInputSocket? inputSocket, out IOutputSocket? outputSocket))
         {
-            var command = new DisconnectCommand(inputSocket, outputSocket);
-            command.DoAndRecord(_editViewModel.CommandRecorder);
+            RecordableCommands.Create([.. GetStorables(inputSocket), .. GetStorables(outputSocket)])
+                .OnDo(() => outputSocket.Disconnect(inputSocket))
+                .OnUndo(() => outputSocket.TryConnect(inputSocket))
+                .ToCommand()
+                .DoAndRecord(_editViewModel.CommandRecorder);
+
             return true;
         }
         else
@@ -123,11 +140,12 @@ public class SocketViewModel : NodeItemViewModel
         switch (Model)
         {
             case IInputSocket inputSocket when inputSocket.Connection is { } connection:
-                new DisconnectCommand(connection.Input, connection.Output)
+                CreateDisconnectCommand(connection.Input, connection.Output)
                     .DoAndRecord(_editViewModel.CommandRecorder);
                 break;
+
             case IOutputSocket outputSocket when outputSocket.Connections.Count > 0:
-                outputSocket.Connections.Select(x => new DisconnectCommand(x.Input, x.Output))
+                outputSocket.Connections.Select(x => CreateDisconnectCommand(x.Input, x.Output))
                     .ToArray()
                     .ToCommand()
                     .DoAndRecord(_editViewModel.CommandRecorder);
@@ -148,12 +166,8 @@ public class SocketViewModel : NodeItemViewModel
 
     public void UpdateName(string? e)
     {
-        new ChangePropertyCommand<string>(
-            Model!,
-            CoreObject.NameProperty,
-            e,
-            Model!.Name,
-            GetStorables(Model!))
+        RecordableCommands.Edit(Model!, CoreObject.NameProperty, e)
+            .WithStoables(GetStorables(Model!))
             .DoAndRecord(_editViewModel.CommandRecorder);
     }
 
@@ -242,54 +256,6 @@ public class SocketViewModel : NodeItemViewModel
             {
                 node1.Items.Remove(_socket);
             }
-        }
-    }
-
-    private sealed class DisconnectCommand(IInputSocket inputSocket, IOutputSocket outputSocket) : IRecordableCommand
-    {
-        public ImmutableArray<IStorable?> GetStorables()
-        {
-            return SocketViewModel.GetStorables(inputSocket);
-        }
-
-        public void Do()
-        {
-            outputSocket.Disconnect(inputSocket);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            outputSocket.TryConnect(inputSocket);
-        }
-    }
-
-    private sealed class ConnectCommand(IInputSocket inputSocket, IOutputSocket outputSocket) : IRecordableCommand
-    {
-        public bool IsConnected { get; set; }
-
-        public ImmutableArray<IStorable?> GetStorables()
-        {
-            return SocketViewModel.GetStorables(inputSocket);
-        }
-
-        public void Do()
-        {
-            IsConnected = outputSocket.TryConnect(inputSocket);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            outputSocket.Disconnect(inputSocket);
         }
     }
 }

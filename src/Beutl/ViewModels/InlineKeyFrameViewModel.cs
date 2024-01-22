@@ -30,7 +30,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
                     .Remove(Model)
                     .ToCommand([parent.Element.Model])
                     .DoAndRecord(recorder);
-            })
+        })
             .DisposeWith(_disposables);
     }
 
@@ -52,7 +52,8 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
 
         TimeSpan time = Left.Value.ToTimeSpan(scale).RoundToRate(rate);
-        new ChangePropertyCommand<TimeSpan>(Model, KeyFrame.KeyTimeProperty, time, Model.KeyTime, [_parent.Element.Model])
+        RecordableCommands.Edit(Model, KeyFrame.KeyTimeProperty, time)
+            .WithStoables([_parent.Element.Model])
             .DoAndRecord(recorder);
 
         Left.Value = time.ToPixel(scale);

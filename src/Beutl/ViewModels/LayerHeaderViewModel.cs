@@ -32,12 +32,7 @@ public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
         {
             CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
             Timeline.Scene.Children.Where(i => i.ZIndex == Number.Value && i.IsEnabled != b)
-                .Select(item => new ChangePropertyCommand<bool>(
-                    obj: item,
-                    property: Element.IsEnabledProperty,
-                    newValue: b,
-                    oldValue: item.IsEnabled,
-                    storables: [item]))
+                .Select(item => RecordableCommands.Edit(item, Element.IsEnabledProperty, b).WithStoables([item]))
                 .ToArray()
                 .ToCommand()
                 .DoAndRecord(recorder);
@@ -174,25 +169,11 @@ public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
     public void SetColor(Color color)
     {
         CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-        new SetColorCommand(this, color)
+        var (newValue, oldValue) = (Color.Value, color);
+        RecordableCommands.Create()
+            .OnDo(() => Color.Value = newValue)
+            .OnUndo(() => Color.Value = oldValue)
+            .ToCommand()
             .DoAndRecord(recorder);
-    }
-
-    private sealed class SetColorCommand(LayerHeaderViewModel viewModel, Color color) : IRecordableCommand
-    {
-        public void Do()
-        {
-            (color, viewModel.Color.Value) = (viewModel.Color.Value, color);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            Do();
-        }
     }
 }

@@ -305,15 +305,20 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            if (EditingKeyFrame.Value != null)
+            if (EditingKeyFrame.Value is { } kf)
             {
-                recorder.DoAndPush(
-                    new SetKeyFrameValueCommand(EditingKeyFrame.Value, oldValue, newValue, GetStorables()));
+                RecordableCommands.Edit(kf, KeyFrame<T>.ValueProperty, newValue, oldValue)
+                    .WithStoables(GetStorables())
+                    .DoAndRecord(recorder);
             }
             else
             {
-                recorder.DoAndPush(
-                    new SetCommand(WrappedProperty, oldValue, newValue, GetStorables()));
+                IAbstractProperty<T> prop = WrappedProperty;
+                RecordableCommands.Create(GetStorables())
+                    .OnDo(() => prop.SetValue(newValue))
+                    .OnUndo(() => prop.SetValue(oldValue))
+                    .ToCommand()
+                    .DoAndRecord(recorder);
             }
         }
     }
@@ -358,8 +363,11 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                     KeyTime = keyTime
                 };
 
-                var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe, GetStorables());
-                command.DoAndRecord(recorder);
+                RecordableCommands.Create(GetStorables())
+                    .OnDo(() => kfAnimation.KeyFrames.Add(keyframe, out _))
+                    .OnUndo(() => kfAnimation.KeyFrames.Remove(keyframe))
+                    .ToCommand()
+                    .DoAndRecord(recorder);
 
                 int index = kfAnimation.KeyFrames.IndexOf(keyframe);
                 if (index >= 0)
@@ -398,8 +406,21 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             && animatableProperty.GetCoreProperty() is CoreProperty<T> coreProperty)
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            var command = new PrepareAnimationCommand(animatableProperty, coreProperty, GetStorables());
-            command.DoAndRecord(recorder);
+            var oldAnimation = animatableProperty.Animation;
+            var newAnimation = new KeyFrameAnimation<T>(coreProperty);
+            T initialValue = animatableProperty.GetValue()!;
+            newAnimation.KeyFrames.Add(new KeyFrame<T>
+            {
+                Value = initialValue,
+                Easing = new SplineEasing(),
+                KeyTime = TimeSpan.Zero
+            });
+
+            RecordableCommands.Create(GetStorables())
+                .OnDo(() => animatableProperty.Animation = newAnimation)
+                .OnUndo(() => animatableProperty.Animation = oldAnimation)
+                .ToCommand()
+                .DoAndRecord(recorder);
         }
     }
 
@@ -408,146 +429,13 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         if (WrappedProperty is IAbstractAnimatableProperty<T> animatableProperty)
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            var command = new RemoveAnimationCommand(animatableProperty, GetStorables());
-            command.DoAndRecord(recorder);
-        }
-    }
+            IAnimation<T>? oldAnimation = animatableProperty.Animation;
 
-    private sealed class SetCommand(
-        IAbstractProperty<T> setter, T? oldValue, T? newValue,
-        ImmutableArray<IStorable?> storables) : IRecordableCommand
-    {
-        public ImmutableArray<IStorable?> GetStorables() => storables;
-
-        public void Do()
-        {
-            setter.SetValue(newValue);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            setter.SetValue(oldValue);
-        }
-    }
-
-    private sealed class SetKeyFrameValueCommand(
-        KeyFrame<T> setter, T? oldValue, T? newValue,
-        ImmutableArray<IStorable?> storables) : IRecordableCommand
-    {
-        public ImmutableArray<IStorable?> GetStorables() => storables;
-
-        public void Do()
-        {
-            setter.SetValue(KeyFrame<T>.ValueProperty, newValue);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            setter.SetValue(KeyFrame<T>.ValueProperty, oldValue);
-        }
-    }
-
-    private sealed class AddKeyFrameCommand(
-        KeyFrames keyFrames, IKeyFrame keyFrame, ImmutableArray<IStorable?> storables) : IRecordableCommand
-    {
-        public ImmutableArray<IStorable?> GetStorables() => storables;
-
-        public void Do()
-        {
-            keyFrames.Add(keyFrame, out _);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            keyFrames.Remove(keyFrame);
-        }
-    }
-
-    private sealed class PrepareAnimationCommand : IRecordableCommand
-    {
-        private readonly IAbstractAnimatableProperty<T> _property;
-        private readonly ImmutableArray<IStorable?> _storables;
-        private readonly IAnimation<T>? _oldAnimation;
-        private readonly KeyFrameAnimation<T>? _newAnimation;
-
-        public PrepareAnimationCommand(
-            IAbstractAnimatableProperty<T> property, CoreProperty<T> coreProperty,
-            ImmutableArray<IStorable?> storables)
-        {
-            _property = property;
-            _storables = storables;
-            _oldAnimation = _property.Animation;
-            _newAnimation = new KeyFrameAnimation<T>(coreProperty);
-            T initialValue = property.GetValue()!;
-            _newAnimation.KeyFrames.Add(new KeyFrame<T>
-            {
-                Value = initialValue,
-                Easing = new SplineEasing(),
-                KeyTime = TimeSpan.Zero
-            });
-        }
-
-        public ImmutableArray<IStorable?> GetStorables() => _storables;
-
-        public void Do()
-        {
-            _property.Animation = _newAnimation;
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            _property.Animation = _oldAnimation;
-        }
-    }
-
-    private sealed class RemoveAnimationCommand : IRecordableCommand
-    {
-        private readonly IAbstractAnimatableProperty<T> _property;
-        private readonly ImmutableArray<IStorable?> _storables;
-        private readonly IAnimation<T>? _oldAnimation;
-
-        public RemoveAnimationCommand(IAbstractAnimatableProperty<T> property, ImmutableArray<IStorable?> storables)
-        {
-            _property = property;
-            _storables = storables;
-            _oldAnimation = _property.Animation;
-        }
-
-        public ImmutableArray<IStorable?> GetStorables() => _storables;
-
-        public void Do()
-        {
-            _property.Animation = null;
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            _property.Animation = _oldAnimation;
+            RecordableCommands.Create(GetStorables())
+                .OnDo(() => animatableProperty.Animation = null)
+                .OnUndo(() => animatableProperty.Animation = oldAnimation)
+                .ToCommand()
+                .DoAndRecord(recorder);
         }
     }
 }

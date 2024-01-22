@@ -71,13 +71,13 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
 
             if (model.Color != newColor)
             {
-                command = new ChangePropertyCommand<Color>(model, GradientStop.ColorProperty, newColor, oldColor2, []);
+                command = RecordableCommands.Edit(model, GradientStop.ColorProperty, newColor, oldColor2);
             }
 
             if (!MathUtilities.AreClose(model.Offset, oldOffset2))
             {
-                var tmp = new ChangePropertyCommand<float>(model, GradientStop.OffsetProperty, newOffset, oldOffset2, []);
-                command = command == null ? tmp : command.Append(tmp);
+                command = command.Append(
+                    RecordableCommands.Edit(model, GradientStop.OffsetProperty, newOffset, oldOffset2));
             }
 
             GradientStop? prev = index > 0 ? Value.Value[index - 1] : null;

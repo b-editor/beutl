@@ -30,8 +30,8 @@ public sealed class InlineAnimationLayerViewModel<T>(
             if (keyFrame != null)
             {
                 CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-                new ChangePropertyCommand<Easing>(
-                    keyFrame, KeyFrame.EasingProperty, easing, keyFrame.Easing, [Element.Model])
+                RecordableCommands.Edit(keyFrame, KeyFrame.EasingProperty, easing)
+                    .WithStoables([Element.Model])
                     .DoAndRecord(recorder);
             }
             else
@@ -56,30 +56,12 @@ public sealed class InlineAnimationLayerViewModel<T>(
                     KeyTime = keyTime
                 };
 
-                var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe, [Element.Model]);
-                command.DoAndRecord(recorder);
+                RecordableCommands.Create([Element.Model])
+                    .OnDo(() => kfAnimation.KeyFrames.Add(keyframe, out _))
+                    .OnUndo(() => kfAnimation.KeyFrames.Remove(keyframe))
+                    .ToCommand()
+                    .DoAndRecord(recorder);
             }
-        }
-    }
-
-    private sealed class AddKeyFrameCommand(
-        KeyFrames keyFrames, IKeyFrame keyFrame, ImmutableArray<IStorable?> storables) : IRecordableCommand
-    {
-        public ImmutableArray<IStorable?> GetStorables() => storables;
-
-        public void Do()
-        {
-            keyFrames.Add(keyFrame, out _);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            keyFrames.Remove(keyFrame);
         }
     }
 }

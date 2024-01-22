@@ -29,12 +29,8 @@ public sealed class GraphEditorViewModel<T>(
         IKeyFrame? keyFrame = Animation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
         if (keyFrame != null)
         {
-            new ChangePropertyCommand<Easing>(
-                keyFrame,
-                KeyFrame.EasingProperty,
-                easing,
-                keyFrame.Easing,
-                GetStorables())
+            RecordableCommands.Edit(keyFrame, KeyFrame.EasingProperty, easing)
+                .WithStoables(GetStorables())
                 .DoAndRecord(recorder);
         }
         else
@@ -57,29 +53,11 @@ public sealed class GraphEditorViewModel<T>(
                 KeyTime = keyTime
             };
 
-            var command = new AddKeyFrameCommand(kfAnimation.KeyFrames, keyframe, GetStorables());
-            command.DoAndRecord(recorder);
-        }
-    }
-
-    private sealed class AddKeyFrameCommand(
-        KeyFrames keyFrames, IKeyFrame keyFrame, ImmutableArray<IStorable?> storables) : IRecordableCommand
-    {
-        public ImmutableArray<IStorable?> GetStorables() => storables;
-
-        public void Do()
-        {
-            keyFrames.Add(keyFrame, out _);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            keyFrames.Remove(keyFrame);
+            RecordableCommands.Create(GetStorables())
+                .OnDo(() => kfAnimation.KeyFrames.Add(keyframe, out _))
+                .OnUndo(() => kfAnimation.KeyFrames.Remove(keyframe))
+                .ToCommand()
+                .DoAndRecord(recorder);
         }
     }
 }
@@ -193,14 +171,9 @@ public abstract class GraphEditorViewModel : IDisposable
     public void UpdateUseGlobalClock(bool value)
     {
         CommandRecorder recorder = EditorContext.CommandRecorder;
-        var command = new ChangePropertyCommand<bool>(
-            obj: (ICoreObject)Animation,
-            property: KeyFrameAnimation.UseGlobalClockProperty,
-            newValue: value,
-            oldValue: UseGlobalClock.Value,
-            storables: GetStorables());
-
-        command.DoAndRecord(recorder);
+        RecordableCommands.Edit((ICoreObject)Animation, KeyFrameAnimation.UseGlobalClockProperty, value)
+            .WithStoables(GetStorables())
+            .DoAndRecord(recorder);
     }
 
     private void OnItemVerticalRangeChanged(object? sender, EventArgs e)

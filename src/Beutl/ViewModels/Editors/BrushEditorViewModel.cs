@@ -12,28 +12,6 @@ using ReactiveUI;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class SetCommand(
-    IAbstractProperty setter, object? oldValue, object? newValue,
-    ImmutableArray<IStorable?> storables) : IRecordableCommand
-{
-    public ImmutableArray<IStorable?> GetStorables() => storables;
-
-    public void Do()
-    {
-        setter.SetValue(newValue);
-    }
-
-    public void Redo()
-    {
-        Do();
-    }
-
-    public void Undo()
-    {
-        setter.SetValue(oldValue);
-    }
-}
-
 public sealed class BrushEditorViewModel : BaseEditorViewModel
 {
     public BrushEditorViewModel(IAbstractProperty property)
@@ -118,8 +96,13 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         if (!EqualityComparer<IBrush>.Default.Equals(oldValue, newValue))
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            recorder.DoAndPush(
-                new SetCommand(WrappedProperty, oldValue, newValue, GetStorables()));
+            IAbstractProperty prop = WrappedProperty;
+
+            RecordableCommands.Create(GetStorables())
+                .OnDo(() => prop.SetValue(newValue))
+                .OnUndo(() => prop.SetValue(oldValue))
+                .ToCommand()
+                .DoAndRecord(recorder);
         }
     }
 
