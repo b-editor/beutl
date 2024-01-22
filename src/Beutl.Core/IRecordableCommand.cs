@@ -103,21 +103,7 @@ public static partial class RecordableCommands
             get
             {
                 IRecordableCommand[] items = [command1, command2];
-                return items.All(item =>
-                {
-                    if (item is MultipleCommand mc)
-                    {
-                        if (mc.Nothing)
-                            return true;
-                    }
-                    else if (item is ConnectedCommand cc)
-                    {
-                        if (cc.Nothing)
-                            return true;
-                    }
-
-                    return false;
-                });
+                return items.All(item => item.Nothing);
             }
         }
 
@@ -156,22 +142,7 @@ public static partial class RecordableCommands
                 if (commands.Length == 0)
                     return true;
 
-
-                return commands.All(item =>
-                {
-                    if (item is MultipleCommand mc)
-                    {
-                        if (mc.Nothing)
-                            return true;
-                    }
-                    else if (item is ConnectedCommand cc)
-                    {
-                        if (cc.Nothing)
-                            return true;
-                    }
-
-                    return false;
-                });
+                return commands.All(item => item.Nothing);
             }
         }
 
