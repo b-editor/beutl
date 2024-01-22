@@ -26,9 +26,7 @@ public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        // Todo: auto-save
-        // Skip(1)
-        IsEnabled.Subscribe(b =>
+        IsEnabled.Skip(1).Subscribe(b =>
         {
             CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
             Timeline.Scene.Children.Where(i => i.ZIndex == Number.Value && i.IsEnabled != b)
