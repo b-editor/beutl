@@ -62,7 +62,7 @@ public sealed partial class PropertyEditorMenu : UserControl
             viewModel.PrepareToEditAnimation();
 
             // タイムラインのタブを開く
-            var anmTimelineViewModel = new GraphEditorTabViewModel();
+            var anmTimelineViewModel = new GraphEditorTabViewModel(editViewModel);
 
             Type viewModelType = typeof(GraphEditorViewModel<>).MakeGenericType(animatableProperty.PropertyType);
             anmTimelineViewModel.SelectedAnimation.Value = (GraphEditorViewModel)Activator.CreateInstance(

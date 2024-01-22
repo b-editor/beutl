@@ -30,7 +30,7 @@ public partial class InlineAnimationLayerHeader : UserControl
             && viewModel.Property is IAbstractAnimatableProperty { Animation: IKeyFrameAnimation kfAnimation, PropertyType: Type propType })
         {
             // タイムラインのタブを開く
-            var anmTimelineViewModel = new GraphEditorTabViewModel();
+            var anmTimelineViewModel = new GraphEditorTabViewModel(editViewModel);
 
             Type viewModelType = typeof(GraphEditorViewModel<>).MakeGenericType(propType);
             anmTimelineViewModel.SelectedAnimation.Value = (GraphEditorViewModel)Activator.CreateInstance(
