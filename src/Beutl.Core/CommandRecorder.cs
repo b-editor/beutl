@@ -197,6 +197,7 @@ public class CommandRecorder : INotifyPropertyChanged
             if (entry == null)
             {
                 _logger.LogWarning("Undo stack is empty.");
+                _semaphoreSlim.Release();
                 return;
             }
 
@@ -239,6 +240,7 @@ public class CommandRecorder : INotifyPropertyChanged
             if (entry == null)
             {
                 _logger.LogWarning("Redo stack is empty.");
+                _semaphoreSlim.Release();
                 return;
             }
 
