@@ -24,7 +24,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     private bool _disposedValue;
     private IDisposable? _currentFrameRevoker;
     private bool _skipKeyFrameIndexSubscription;
-    internal Element? _element;
+    private Element? _element;
     private EditViewModel? _editViewModel;
     private IServiceProvider? _parentServices;
 
