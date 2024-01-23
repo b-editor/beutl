@@ -11,6 +11,7 @@ namespace Beutl.Extensions.FFmpeg.Decoding;
 public sealed class FFmpegDecodingSettings : ExtensionSettings
 {
     public static readonly CoreProperty<ScalingAlgorithm> ScalingProperty;
+    public static readonly CoreProperty<int> ThreadCountProperty;
 
     static FFmpegDecodingSettings()
     {
@@ -18,13 +19,23 @@ public sealed class FFmpegDecodingSettings : ExtensionSettings
             .DefaultValue(ScalingAlgorithm.Bicubic)
             .Register();
 
-        AffectsConfig<FFmpegDecodingSettings>(ScalingProperty);
+        ThreadCountProperty = ConfigureProperty<int, FFmpegDecodingSettings>(nameof(ThreadCount))
+            .DefaultValue(-1)
+            .Register();
+
+        AffectsConfig<FFmpegDecodingSettings>(ScalingProperty, ThreadCountProperty);
     }
 
     public ScalingAlgorithm Scaling
     {
         get => GetValue(ScalingProperty);
         set => SetValue(ScalingProperty, value);
+    }
+
+    public int ThreadCount
+    {
+        get => GetValue(ThreadCountProperty);
+        set => SetValue(ThreadCountProperty, value);
     }
 
     public enum ScalingAlgorithm

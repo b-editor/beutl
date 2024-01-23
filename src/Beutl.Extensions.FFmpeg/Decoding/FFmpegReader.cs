@@ -651,6 +651,17 @@ public sealed unsafe class FFmpegReader : MediaReader
                 return;
             }
 
+            if (_settings.ThreadCount != 0)
+            {
+                _videoCodecContext->thread_count = Math.Min(
+                    Environment.ProcessorCount,
+                    _settings.ThreadCount > 0 ? _settings.ThreadCount : 16);
+            }
+            else
+            {
+                _videoCodecContext->thread_count = 0;
+            }
+
             if (ffmpeg.avcodec_open2(_videoCodecContext, _videoCodec, null) != 0)
             {
                 Debug.WriteLine("avcodec_open2 failed");
@@ -658,8 +669,6 @@ public sealed unsafe class FFmpegReader : MediaReader
                 return;
             }
 
-            //スレッド数の設定はavcodec_open2後でないと全フレームデコードできない
-            _videoCodecContext->thread_count = 0;
             GenerateSwsContext();
 
             if (_swsContext == null)
@@ -701,14 +710,23 @@ public sealed unsafe class FFmpegReader : MediaReader
                 return;
             }
 
+            if (_settings.ThreadCount != 0)
+            {
+                _audioCodecContext->thread_count = Math.Min(
+                    Environment.ProcessorCount,
+                    _settings.ThreadCount > 0 ? _settings.ThreadCount : 16);
+            }
+            else
+            {
+                _audioCodecContext->thread_count = 0;
+            }
+
             if (ffmpeg.avcodec_open2(_audioCodecContext, _audioCodec, null) != 0)
             {
                 Debug.WriteLine("avcodec_open2 failed\n");
                 _hasAudio = false;
                 return;
             }
-            //スレッド数の設定はavcodec_open2後でないと全フレームデコードできない
-            _audioCodecContext->thread_count = 0;
 
             _audioFrame = ffmpeg.av_frame_alloc();
             _audioPacket = ffmpeg.av_packet_alloc();
