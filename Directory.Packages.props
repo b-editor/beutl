@@ -24,6 +24,7 @@
     <PackageVersion Include="FluentIcons.FluentAvalonia" Version="1.1.224" />
     <PackageVersion Include="FluentTextTable" Version="1.0.0" />
     <PackageVersion Include="ILGPU.Algorithms" Version="1.5.1" />
+    <PackageVersion Include="NAudio.Wasapi" Version="2.2.1" />
     <PackageVersion Include="Nerdbank.GitVersioning" Version="3.6.133" />
     <PackageVersion Include="HarfBuzzSharp" Version="7.3.0.1" />
     <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="7.3.0.1" />

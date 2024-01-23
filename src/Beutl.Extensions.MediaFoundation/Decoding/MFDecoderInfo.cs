@@ -1,4 +1,5 @@
 ﻿using Beutl.Media.Decoding;
+using Beutl.Rendering;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
@@ -36,7 +37,7 @@ public sealed class MFDecoderInfo : IDecoderInfo
     {
         try
         {
-            return new MediaFoundationReader(file, options);
+            return RenderThread.Dispatcher.Invoke(() => new MediaFoundationReader(file, options));
         }
         catch
         {
