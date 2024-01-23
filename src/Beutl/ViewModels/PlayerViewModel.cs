@@ -1,4 +1,6 @@
-﻿using Avalonia.Media.Imaging;
+﻿using System.Collections.Concurrent;
+
+using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 
 using Beutl.Audio.Platforms.OpenAL;
@@ -28,6 +30,155 @@ using Vortice.Multimedia;
 
 namespace Beutl.ViewModels;
 
+interface IPlayer : IDisposable
+{
+    public record struct Frame(Bitmap<Bgra8888> Bitmap, TimeSpan Time);
+
+    void Start();
+
+    bool TryDequeue(out Frame frame);
+}
+
+class BufferedPlayer : IPlayer
+{
+    private readonly ILogger _logger = Log.CreateLogger<BufferedPlayer>();
+    private readonly ConcurrentQueue<IPlayer.Frame> _queue = new();
+    private readonly EditViewModel _editViewModel;
+    private readonly Scene _scene;
+    private readonly IReadOnlyReactiveProperty<bool> _isPlaying;
+    private readonly TaskCompletionSource _tsc;
+    private readonly int _rate;
+    private volatile CancellationTokenSource? _waitRenderToken;
+    private volatile TaskCompletionSource? _waitTimerTcs;
+    private readonly IDisposable _disposable;
+    private TimeSpan? _requestedFrame;
+    private bool _isDisposed;
+
+    public BufferedPlayer(
+        EditViewModel editViewModel,
+        Scene scene, IReactiveProperty<bool> isPlaying,
+        TaskCompletionSource tsc, int rate)
+    {
+        _editViewModel = editViewModel;
+        _scene = scene;
+        _isPlaying = isPlaying;
+        _tsc = tsc;
+        _rate = rate;
+
+        _disposable = isPlaying.Where(v => !v).Subscribe(_ =>
+        {
+            _waitRenderToken?.Cancel();
+            _waitTimerTcs?.TrySetResult();
+        });
+    }
+
+    public void Start()
+    {
+        TimeSpan start = _scene.CurrentFrame;
+        TimeSpan tick = TimeSpan.FromSeconds(1d / _rate);
+        TimeSpan duration = _scene.Duration;
+
+        RenderThread.Dispatcher.Dispatch(async () =>
+        {
+            try
+            {
+                for (TimeSpan time = start; time < duration; time += tick)
+                {
+                    if (!_isPlaying.Value)
+                        break;
+
+                    time = time.RoundToRate(_rate);
+
+                    if (_queue.Count >= 120)
+                    {
+                        Debug.WriteLine("wait timer");
+                        await WaitTimer();
+                    }
+
+                    if (!_isPlaying.Value)
+                        break;
+
+                    if (_scene.Renderer.Render(time))
+                    {
+                        Debug.WriteLine($"{time} rendered.");
+                        _queue.Enqueue(new(_scene.Renderer.Snapshot(), time));
+                        _waitRenderToken?.Cancel();
+
+                        _editViewModel.BufferStatus.EndTime.Value = time;
+                    }
+
+                    TimeSpan? requestedFrame = _requestedFrame;
+                    if (requestedFrame.HasValue)
+                    {
+                        time = requestedFrame.Value + (tick * 2);
+                        _requestedFrame = null;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_while_drawing_frame);
+                _logger.LogError(ex, "An exception occurred while drawing the frame.");
+            }
+            finally
+            {
+                _tsc.TrySetResult();
+            }
+        });
+    }
+
+    public bool TryDequeue(out IPlayer.Frame frame)
+    {
+        _waitTimerTcs?.TrySetResult();
+        if (_queue.TryDequeue(out IPlayer.Frame f))
+        {
+            frame = f;
+            return true;
+        }
+
+        Debug.WriteLine("wait rendered");
+        WaitRender();
+
+        return _queue.TryDequeue(out frame);
+    }
+
+    private void WaitRender()
+    {
+        if (_isDisposed) return;
+        _waitRenderToken = new CancellationTokenSource();
+
+        _waitRenderToken.Token.WaitHandle.WaitOne(TimeSpan.FromSeconds(1d / _rate));
+        _waitRenderToken = null;
+    }
+
+    private async ValueTask WaitTimer()
+    {
+        if (_isDisposed) return;
+        _waitTimerTcs = new TaskCompletionSource();
+
+        await _waitTimerTcs.Task;
+        _waitTimerTcs = null;
+    }
+
+    public void Skipped(TimeSpan requested)
+    {
+        Debug.WriteLine($"{requested} skipped");
+        _requestedFrame = requested;
+    }
+
+    public void Dispose()
+    {
+        _isDisposed = true;
+        _waitRenderToken?.Cancel();
+        _waitTimerTcs?.TrySetResult();
+        _disposable.Dispose();
+        while (_queue.TryDequeue(out var f))
+        {
+            f.Bitmap.Dispose();
+        }
+    }
+}
+
 public sealed class PlayerViewModel : IDisposable
 {
     private static readonly TimeSpan s_second = TimeSpan.FromSeconds(1);
@@ -36,7 +187,6 @@ public sealed class PlayerViewModel : IDisposable
     private readonly ReactivePropertySlim<bool> _isEnabled;
     private readonly EditViewModel _editViewModel;
     private CancellationTokenSource? _cts;
-    private bool _playingAndRendering;
 
     public PlayerViewModel(EditViewModel editViewModel)
     {
@@ -154,57 +304,92 @@ public sealed class PlayerViewModel : IDisposable
 
     public Rect LastSelectedRect { get; set; }
 
-    public async void Play()
+    public void Play()
     {
-        if (!_isEnabled.Value || Scene == null)
-            return;
-
-        IRenderer renderer = Scene.Renderer;
-        renderer.RenderInvalidated -= Renderer_RenderInvalidated;
-
-        try
+        Task.Run(async () =>
         {
-            IsPlaying.Value = true;
-            int rate = GetFrameRate();
+            if (!_isEnabled.Value || Scene == null)
+                return;
 
-            PlayAudio(Scene);
+            IRenderer renderer = Scene.Renderer;
+            renderer.RenderInvalidated -= Renderer_RenderInvalidated;
 
-            TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
-            TimeSpan startFrame = Scene.CurrentFrame;
-            DateTime startTime = DateTime.Now;
-            TimeSpan duration = Scene.Duration;
-            var tcs = new TaskCompletionSource();
-            using var timer = new System.Timers.Timer(tick);
-
-            timer.Elapsed += (_, e) =>
+            try
             {
-                TimeSpan time = (e.SignalTime - startTime) + startFrame;
-                time = time.RoundToRate(rate);
+                IsPlaying.Value = true;
+                int rate = GetFrameRate();
 
-                if (time >= duration || !IsPlaying.Value)
-                {
-                    timer.Stop();
-                    tcs.SetResult();
-                }
-                else
-                {
-                    Render(renderer, time);
-                }
-            };
-            timer.Start();
+                TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
+                TimeSpan startFrame = Scene.CurrentFrame;
+                TimeSpan duration = Scene.Duration;
+                var tcs = new TaskCompletionSource();
+                _editViewModel.BufferStatus.StartTime.Value = startFrame;
+                _editViewModel.BufferStatus.EndTime.Value = startFrame;
 
-            await tcs.Task;
-            IsPlaying.Value = false;
-        }
-        catch (Exception ex)
-        {
-            // 本来ここには例外が来ないはず
-            _logger.LogError(ex, "An exception occurred during the playback process.");
-        }
-        finally
-        {
-            renderer.RenderInvalidated += Renderer_RenderInvalidated;
-        }
+                using var playerImpl = new BufferedPlayer(_editViewModel, Scene, IsPlaying, tcs, rate);
+                playerImpl.Start();
+
+                PlayAudio(Scene);
+
+                using var timer = new System.Timers.Timer(tick);
+                bool timerProcessing = false;
+                timer.Elapsed += (_, e) =>
+                {
+                    startFrame += tick;
+                    TimeSpan time = startFrame;
+                    time = time.RoundToRate(rate);
+
+                    if (time >= duration || !IsPlaying.Value)
+                    {
+                        timer.Stop();
+                        tcs.TrySetResult();
+                        return;
+                    }
+
+                    if (timerProcessing)
+                    {
+                        playerImpl.Skipped(time);
+                        return;
+                    }
+
+                    try
+                    {
+                        timerProcessing = true;
+
+                        if (playerImpl.TryDequeue(out IPlayer.Frame frame))
+                        {
+                            using (frame.Bitmap)
+                            {
+                                UpdateImage(frame.Bitmap);
+
+                                if (Scene != null)
+                                {
+                                    Scene.CurrentFrame = frame.Time;
+                                    _editViewModel.BufferStatus.StartTime.Value = frame.Time;
+                                }
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        timerProcessing = false;
+                    }
+                };
+                timer.Start();
+
+                await tcs.Task;
+                IsPlaying.Value = false;
+            }
+            catch (Exception ex)
+            {
+                // 本来ここには例外が来ないはず
+                _logger.LogError(ex, "An exception occurred during the playback process.");
+            }
+            finally
+            {
+                renderer.RenderInvalidated += Renderer_RenderInvalidated;
+            }
+        });
     }
 
     private int GetFrameRate()
@@ -388,38 +573,6 @@ public sealed class PlayerViewModel : IDisposable
     public void Pause()
     {
         IsPlaying.Value = false;
-    }
-
-    private void Render(IRenderer renderer, TimeSpan timeSpan)
-    {
-        if (_playingAndRendering)
-            return;
-        _playingAndRendering = true;
-
-        RenderThread.Dispatcher.Dispatch(() =>
-        {
-            try
-            {
-                if (IsPlaying.Value && renderer.Render(timeSpan))
-                {
-                    using Bitmap<Bgra8888> bitmap = renderer.Snapshot();
-                    UpdateImage(bitmap);
-
-                    if (Scene != null)
-                        Scene.CurrentFrame = timeSpan;
-                }
-            }
-            catch (Exception ex)
-            {
-                NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_while_drawing_frame);
-                _logger.LogError(ex, "An exception occurred while drawing the frame.");
-                IsPlaying.Value = false;
-            }
-            finally
-            {
-                _playingAndRendering = false;
-            }
-        });
     }
 
     private unsafe void UpdateImage(Bitmap<Bgra8888> source)

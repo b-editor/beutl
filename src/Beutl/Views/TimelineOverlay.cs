@@ -11,6 +11,8 @@ public static class TimelineSharedObject
     public static readonly IPen BluePen;
     public static readonly IPen SelectionPen;
     public static readonly IBrush SelectionFillBrush = new ImmutableSolidColorBrush(Colors.CornflowerBlue, 0.3);
+    public static readonly IBrush BufferRangeFillBrush = new ImmutableSolidColorBrush(Colors.SkyBlue);
+    public static readonly IBrush DropFrameFillBrush = new ImmutableSolidColorBrush(Colors.Orange);
 
     static TimelineSharedObject()
     {

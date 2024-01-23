@@ -69,6 +69,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
         Scale = Options.Select(o => o.Scale);
         Offset = Options.Select(o => o.Offset);
+        BufferStatus = new BufferStatusViewModel(this)
+            .DisposeWith(_disposables);
 
         RestoreState();
 
@@ -145,6 +147,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public PlayerViewModel Player { get; private set; }
 
+    public BufferStatusViewModel BufferStatus { get; private set; }
+
     public CommandRecorder CommandRecorder { get; private set; }
 
     public EditorExtension Extension => SceneEditorExtension.Instance;
@@ -171,6 +175,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         IsEnabled.Dispose();
         Library = null!;
         Player = null!;
+        BufferStatus = null!;
 
         foreach (ToolTabViewModel item in BottomTabItems.GetMarshal().Value)
         {

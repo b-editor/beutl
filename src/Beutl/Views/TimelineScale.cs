@@ -1,8 +1,11 @@
-﻿using Avalonia;
+﻿using System.Collections.Immutable;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
+using Avalonia.Threading;
 
 namespace Beutl.Views;
 
@@ -26,6 +29,12 @@ public sealed class TimelineScale : Control
         = AvaloniaProperty.RegisterDirect<TimelineScale, Thickness>(
             nameof(SeekBarMargin), o => o.SeekBarMargin, (o, v) => o.SeekBarMargin = v);
 
+    public static readonly StyledProperty<double> BufferStartProperty
+        = AvaloniaProperty.Register<TimelineScale, double>(nameof(BufferStart));
+
+    public static readonly StyledProperty<double> BufferLengthProperty
+        = AvaloniaProperty.Register<TimelineScale, double>(nameof(BufferLength));
+
     private static readonly Typeface s_typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Medium);
     private readonly Pen _pen;
     private IBrush _brush = Brushes.White;
@@ -37,7 +46,13 @@ public sealed class TimelineScale : Control
 
     static TimelineScale()
     {
-        AffectsRender<TimelineScale>(ScaleProperty, OffsetProperty, EndingBarMarginProperty, SeekBarMarginProperty);
+        AffectsRender<TimelineScale>(
+            ScaleProperty,
+            OffsetProperty,
+            EndingBarMarginProperty,
+            SeekBarMarginProperty,
+            BufferStartProperty,
+            BufferLengthProperty);
     }
 
     public TimelineScale()
@@ -68,6 +83,18 @@ public sealed class TimelineScale : Control
     {
         get => _seekBarMargin;
         set => SetAndRaise(SeekBarMarginProperty, ref _seekBarMargin, value);
+    }
+
+    public double BufferStart
+    {
+        get => GetValue(BufferStartProperty);
+        set => SetValue(BufferStartProperty, value);
+    }
+
+    public double BufferLength
+    {
+        get => GetValue(BufferLengthProperty);
+        set => SetValue(BufferLengthProperty, value);
     }
 
     protected override void OnLoaded(RoutedEventArgs e)
@@ -138,6 +165,10 @@ public sealed class TimelineScale : Control
                     context.DrawLine(_pen, new(xx, top), new(xx, height));
                 }
             }
+
+            context.DrawRectangle(
+                TimelineSharedObject.BufferRangeFillBrush, null,
+                new RoundedRect(new Rect(BufferStart, Height - 4, BufferLength, 4)));
 
             var size = new Size(1.25, height);
             var seekbar = new Point(_seekBarMargin.Left, 0);

@@ -28,6 +28,8 @@
                              Height="32"
                              HorizontalAlignment="Stretch"
                              VerticalAlignment="Top"
+                             BufferLength="{Binding EditorContext.BufferStatus.Width.Value}"
+                             BufferStart="{Binding EditorContext.BufferStatus.Start.Value}"
                              EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
                              PointerExited="TimelinePanel_PointerExited"
                              PointerMoved="TimelinePanel_PointerMoved"
