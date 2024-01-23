@@ -30,7 +30,7 @@ public sealed class WaveReader : MediaReader
 
         AudioInfo = new AudioStreamInfo(
             CodecName: $"Wave ({_waveFormat.Encoding})",
-            Duration: new Rational(_reader.Length / _waveFormat.AverageBytesPerSecond),
+            Duration: new Rational(_reader.Length, _waveFormat.AverageBytesPerSecond),
             SampleRate: _waveFormat.SampleRate,
             NumChannels: _waveFormat.Channels);
     }
