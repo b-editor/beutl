@@ -268,6 +268,12 @@ public sealed partial class MainView : UserControl
         }
     }
 
+    [Conditional("DEBUG")]
+    private void ThrowUnhandledException_Click(object? sender, RoutedEventArgs e)
+    {
+        throw new Exception("An unhandled exception occurred.");
+    }
+
     private void GoToInfomationPage(object? sender, RoutedEventArgs e)
     {
         if (DataContext is MainViewModel viewModel)

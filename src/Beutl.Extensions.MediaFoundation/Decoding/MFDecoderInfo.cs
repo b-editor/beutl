@@ -37,7 +37,7 @@ public sealed class MFDecoderInfo : IDecoderInfo
     {
         try
         {
-            return RenderThread.Dispatcher.Invoke(() => new MediaFoundationReader(file, options));
+            return MFThread.Dispatcher.Invoke(() => new MFReader(file, options));
         }
         catch
         {

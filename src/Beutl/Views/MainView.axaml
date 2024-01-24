@@ -173,6 +173,9 @@
                     <MenuItem Click="MonitorKeyModifier_Click"
                               Header="Monitor KeyModifier"
                               IsVisible="{Binding IsDebuggerAttached}" />
+                    <MenuItem Click="ThrowUnhandledException_Click"
+                              Header="Throw Unhandled Exception"
+                              IsVisible="{Binding IsDebuggerAttached}" />
                     <MenuItem Click="GoToInfomationPage" Header="{x:Static lang:Strings.Info}" />
                 </MenuItem>
             </Menu>

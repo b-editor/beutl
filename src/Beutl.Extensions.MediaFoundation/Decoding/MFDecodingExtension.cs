@@ -25,6 +25,35 @@ public sealed class MFDecodingExtension : DecodingExtension
     {
         base.Load();
 
-        MediaManager.Startup();
+        MFThread.Dispatcher.Invoke(() =>
+        {
+            Thread.CurrentThread.IsBackground = true;
+            MediaManager.Startup();
+        });
+
+        AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
+        AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+    }
+
+    private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
+        Shutdown();
+    }
+
+    private void OnProcessExit(object? sender, EventArgs e)
+    {
+        Shutdown();
+    }
+
+    private void Shutdown()
+    {
+        MFThread.Dispatcher.Invoke(() =>
+        {
+            MediaManager.Shutdown();
+        });
+        MFThread.Dispatcher.Stop();
+
+        AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
+        AppDomain.CurrentDomain.UnhandledException -= OnUnhandledException;
     }
 }

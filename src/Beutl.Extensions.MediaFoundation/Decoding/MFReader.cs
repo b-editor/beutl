@@ -7,6 +7,7 @@ using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
+using Beutl.Media.Source;
 using Beutl.Rendering;
 
 using Microsoft.Extensions.Logging;
@@ -26,7 +27,7 @@ namespace Beutl.Embedding.MediaFoundation.Decoding;
 namespace Beutl.Extensions.MediaFoundation.Decoding;
 #endif
 
-public class MediaFoundationReader : MediaReader
+public class MFReader : MediaReader
 {
     private static readonly Lazy<(Guid, string name)[]> s_videoFormats = new(() => typeof(VideoFormatGuids)
         .GetFields()
@@ -35,7 +36,7 @@ public class MediaFoundationReader : MediaReader
         .Select(v => (v.Item1!.Value, v.f.Name))
         .ToArray());
 
-    private readonly ILogger _logger = Log.CreateLogger<MediaFoundationReader>();
+    private readonly ILogger _logger = Log.CreateLogger<MFReader>();
     private readonly string _file;
     private readonly MediaOptions _options;
     private readonly SourceReader? _sourceReader;
@@ -49,11 +50,10 @@ public class MediaFoundationReader : MediaReader
     private readonly WaveFormat? _waveFormat;
     private readonly MediaFoundationResampler? _resampler;
 
-    public MediaFoundationReader(string file, MediaOptions options)
+    public MFReader(string file, MediaOptions options)
     {
         _file = file;
         _options = options;
-
         try
         {
             if (options.StreamsToLoad.HasFlag(MediaMode.Video))
@@ -158,7 +158,7 @@ public class MediaFoundationReader : MediaReader
 
     public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image)
     {
-        if (RenderThread.Dispatcher.CheckAccess())
+        if (MFThread.Dispatcher.CheckAccess())
         {
             return ReadVideoCore(frame, out image);
         }
@@ -168,7 +168,7 @@ public class MediaFoundationReader : MediaReader
             if (!HasVideo || _sourceReader == null || IsDisposed)
                 return false;
 
-            (bool result, IBitmap? image1) = RenderThread.Dispatcher.Invoke(() =>
+            (bool result, IBitmap? image1) = MFThread.Dispatcher.Invoke(() =>
             {
                 bool ret = ReadVideoCore(frame, out IBitmap? image1);
                 return (ret, image1);
@@ -178,6 +178,9 @@ public class MediaFoundationReader : MediaReader
         }
     }
 
+    const long SEEK_TOLERANCE = 10000000;
+    const long MAX_FRAMES_TO_SKIP = 10;
+
     private unsafe bool ReadVideoCore(int frame, [NotNullWhen(true)] out IBitmap? image)
     {
         if (!HasVideo || _sourceReader == null || IsDisposed)
@@ -186,64 +189,71 @@ public class MediaFoundationReader : MediaReader
             return false;
         }
 
-        long handrednano = (long)((frame / VideoInfo.FrameRate.ToDouble()) * 1000 * 1000 * 10);
+        long hns = (long)((frame / VideoInfo.FrameRate.ToDouble()) * 1000 * 1000 * 10);
         long skip = frame - _videoNowFrame;
         if (skip > 100 || skip < 0)
         {
-            _sourceReader.SetCurrentPosition(handrednano);
+            _sourceReader.SetCurrentPosition(hns);
         }
 
-        Sample prevSample = _sourceReader.ReadSample(
-            SourceReaderIndex.FirstVideoStream,
-            SourceReaderControlFlags.None,
-            out _,
-            out SourceReaderFlags readerFlags,
-            out long llTimestampRef);
-
-        if (readerFlags.HasFlag(SourceReaderFlags.Endofstream) || readerFlags.HasFlag(SourceReaderFlags.Error))
-        {
-            image = null;
-            return false;
-        }
-
-        if (handrednano <= llTimestampRef)
-        {
-            image = SampleToBitmap(prevSample);
-            prevSample.Dispose();
-            _videoNowFrame = frame;
-            return true;
-        }
-
+        Sample? sample = null;
+        int cSkipped = 0;
         while (true)
         {
-            Sample sample = _sourceReader.ReadSample(
+            Sample? sampleTmp = _sourceReader.ReadSample(
                 SourceReaderIndex.FirstVideoStream,
                 SourceReaderControlFlags.None,
                 out _,
-                out SourceReaderFlags readerFlags2,
-                out long llTimestampRef2);
+                out SourceReaderFlags readerFlags,
+                out _);
 
-            if (sample == null
-                || readerFlags2.HasFlag(SourceReaderFlags.Endofstream)
-                || readerFlags2.HasFlag(SourceReaderFlags.Error))
+            if (sampleTmp == null || readerFlags.HasFlag(SourceReaderFlags.Error))
             {
-                prevSample.Dispose();
-                sample?.Dispose();
+                continue;
+            }
+
+            if (readerFlags.HasFlag(SourceReaderFlags.Endofstream))
+            {
                 break;
             }
 
-            if (llTimestampRef <= handrednano && handrednano <= llTimestampRef2)
+            if (readerFlags.HasFlag(SourceReaderFlags.Currentmediatypechanged))
             {
-                image = SampleToBitmap(sample);
-                prevSample.Dispose();
-                sample.Dispose();
-                _videoNowFrame = frame;
-                return true;
+                image = null;
+                return false;
             }
 
-            prevSample.Dispose();
-            prevSample = sample;
-            llTimestampRef = llTimestampRef2;
+            // We got a sample. Hold onto it.
+
+            sample?.Dispose();
+            sample = sampleTmp;
+
+            long timeStamp = sample.SampleTime;
+            // Keep going until we get a frame that is within tolerance of the
+            // desired seek position, or until we skip MAX_FRAMES_TO_SKIP frames.
+
+            // During this process, we might reach the end of the file, so we
+            // always cache the last sample that we got (pSample).
+
+            if ((cSkipped < MAX_FRAMES_TO_SKIP) &&
+                 (timeStamp + SEEK_TOLERANCE < hns))
+            {
+                sampleTmp.Dispose();
+
+                ++cSkipped;
+                continue;
+            }
+
+            hns = timeStamp;
+            break;
+        }
+
+        if (sample?.IsDisposed == false)
+        {
+            image = SampleToBitmap(sample);
+            sample.Dispose();
+            _videoNowFrame = frame;
+            return true;
         }
 
         image = null;
@@ -252,7 +262,7 @@ public class MediaFoundationReader : MediaReader
 
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound)
     {
-        if (RenderThread.Dispatcher.CheckAccess())
+        if (MFThread.Dispatcher.CheckAccess())
         {
             return ReadAudioCore(start, length, out sound);
         }
@@ -262,7 +272,7 @@ public class MediaFoundationReader : MediaReader
             if (IsDisposed || _audioReader == null || _waveFormat == null || _resampler == null)
                 return false;
 
-            (bool result, IPcm? sound1) = RenderThread.Dispatcher.Invoke(() =>
+            (bool result, IPcm? sound1) = MFThread.Dispatcher.Invoke(() =>
             {
                 bool ret = ReadAudioCore(start, length, out IPcm? sound1);
                 return (ret, sound1);
