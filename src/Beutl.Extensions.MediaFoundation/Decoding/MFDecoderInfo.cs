@@ -7,7 +7,7 @@ namespace Beutl.Embedding.MediaFoundation.Decoding;
 namespace Beutl.Extensions.MediaFoundation.Decoding;
 #endif
 
-public sealed class MFDecoderInfo : IDecoderInfo
+public sealed class MFDecoderInfo(MFDecodingExtension extension) : IDecoderInfo
 {
     public string Name => "Media Foundation Decoder";
 
@@ -37,7 +37,7 @@ public sealed class MFDecoderInfo : IDecoderInfo
     {
         try
         {
-            return MFThread.Dispatcher.Invoke(() => new MFReader(file, options));
+            return MFThread.Dispatcher.Invoke(() => new MFReader(file, options, extension));
         }
         catch
         {

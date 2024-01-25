@@ -1,0 +1,13 @@
+CLSID_VideoProcessorMFT
+GetDesktopWindow
+//BITMAPINFOHEADER
+//WAVEFORMATEX
+MFCreateMFVideoFormatFromMFMediaType
+MFCreateWaveFormatExFromMFMediaType
+RECT
+MFRatio
+MulDiv
+WAVE_FORMAT_PCM
+MFCreateSample
+MFCreateMemoryBuffer
+DXVA2CreateDirect3DDeviceManager9

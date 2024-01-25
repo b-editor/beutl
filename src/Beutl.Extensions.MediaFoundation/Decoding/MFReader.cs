@@ -1,25 +1,21 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
+using Beutl.Graphics;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
-using Beutl.Media.Source;
-using Beutl.Rendering;
 
 using Microsoft.Extensions.Logging;
 
 using NAudio.Wave;
 
-using SharpDX.MediaFoundation;
+using OpenCvSharp;
 
 using static NAudio.Wave.MediaFoundationReader;
-
-using MediaType = SharpDX.MediaFoundation.MediaType;
-using Sample = SharpDX.MediaFoundation.Sample;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
@@ -29,28 +25,18 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 
 public class MFReader : MediaReader
 {
-    private static readonly Lazy<(Guid, string name)[]> s_videoFormats = new(() => typeof(VideoFormatGuids)
-        .GetFields()
-        .Select(f => f.GetValue(null) is Guid id ? ((Guid?)id, f) : (null, f))
-        .Where(v => v.Item1.HasValue)
-        .Select(v => (v.Item1!.Value, v.f.Name))
-        .ToArray());
-
-    private readonly ILogger _logger = Log.CreateLogger<MFReader>();
     private readonly string _file;
     private readonly MediaOptions _options;
-    private readonly SourceReader? _sourceReader;
-    private readonly MediaAttributes? _attributes;
-    private readonly MediaType? _newMediaType;
-    private long _videoNowFrame;
+
+    private readonly MFDecoder? _decoder;
     private readonly VideoStreamInfo? _videoInfo;
 
     private readonly AudioStreamInfo? _audioInfo;
-    private readonly NAudio.Wave.MediaFoundationReader? _audioReader;
+    private readonly MediaFoundationReader? _audioReader;
     private readonly WaveFormat? _waveFormat;
     private readonly MediaFoundationResampler? _resampler;
 
-    public MFReader(string file, MediaOptions options)
+    public MFReader(string file, MediaOptions options, MFDecodingExtension extension)
     {
         _file = file;
         _options = options;
@@ -58,69 +44,32 @@ public class MFReader : MediaReader
         {
             if (options.StreamsToLoad.HasFlag(MediaMode.Video))
             {
-                try
-                {
-                    _attributes = new MediaAttributes(1);
-                    _newMediaType = new MediaType();
-
-                    //SourceReaderに動画のパスを設定
-                    _attributes.Set(SourceReaderAttributeKeys.EnableVideoProcessing.Guid, true);
-                    _sourceReader = new SourceReader(file, _attributes);
-
-                    MediaType originalmediaType = _sourceReader.GetCurrentMediaType(SourceReaderIndex.FirstVideoStream);
-                    Guid subtype = originalmediaType.Get(MediaTypeAttributeKeys.Subtype);
-                    (Guid, string name) fmt = s_videoFormats.Value
-                        .FirstOrDefault(v => v.Item1 == subtype);
-
-                    _newMediaType.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Video);
-                    _newMediaType.Set(MediaTypeAttributeKeys.Subtype, VideoFormatGuids.Rgb32);
-                    _sourceReader.SetCurrentMediaType(SourceReaderIndex.FirstVideoStream, _newMediaType);
-
-                    MediaType mediaType = _sourceReader.GetCurrentMediaType(SourceReaderIndex.FirstVideoStream);
-                    // 100ナノ秒
-                    long duration = _sourceReader.GetPresentationAttribute(SourceReaderIndex.MediaSource, PresentationDescriptionAttributeKeys.Duration);
-                    long framerate = mediaType.Get(MediaTypeAttributeKeys.FrameRate);
-                    long frameSize = mediaType.Get(MediaTypeAttributeKeys.FrameSize);
-                    var size = new PixelSize((int)(frameSize >> 32), (int)(frameSize & 0xffffffff));
-                    var rate = new Rational((int)(framerate >> 32), (int)(framerate & 0xffffffff));
-
-                    _videoInfo = new VideoStreamInfo(
-                        fmt.name ?? subtype.ToString(),
-                        new Rational(duration, 1000 * 1000 * 10),
-                        size,
-                        rate);
-                    HasVideo = true;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "An exception occurred during initialization of the video stream.");
-                }
+                _decoder = new MFDecoder(file, new MediaOptions(MediaMode.Video), extension);
+                MFMediaInfo info = _decoder.GetMediaInfo();
+                _videoInfo = new VideoStreamInfo(
+                    info.VideoFormatName ?? "Unknown",
+                    info.TotalFrameCount,
+                    new PixelSize(info.ImageFormat.Width, info.ImageFormat.Height),
+                    new Rational(info.Numerator, info.Denominator));
+                HasVideo = true;
             }
 
             if (options.StreamsToLoad.HasFlag(MediaMode.Audio))
             {
-                try
+                _audioReader = new MediaFoundationReader(_file, new MediaFoundationReaderSettings
                 {
-                    _audioReader = new NAudio.Wave.MediaFoundationReader(_file, new MediaFoundationReaderSettings
-                    {
-                        RequestFloatOutput = true
-                    });
-                    _waveFormat = _audioReader.WaveFormat;
+                    RequestFloatOutput = true
+                });
+                _waveFormat = _audioReader.WaveFormat;
 
-                    _resampler = new MediaFoundationResampler(_audioReader, WaveFormat.CreateIeeeFloatWaveFormat(options.SampleRate, 2));
+                _resampler = new MediaFoundationResampler(_audioReader, WaveFormat.CreateIeeeFloatWaveFormat(options.SampleRate, 2));
 
-                    _audioInfo = new AudioStreamInfo(
-                        CodecName: _waveFormat.Encoding.ToString(),
-                        Duration: new Rational(_audioReader.Length, _waveFormat.AverageBytesPerSecond),
-                        SampleRate: _waveFormat.SampleRate,
-                        NumChannels: _waveFormat.Channels);
-                    HasAudio = true;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "An exception occurred during initialization of the audio stream.");
-
-                }
+                _audioInfo = new AudioStreamInfo(
+                    CodecName: _waveFormat.Encoding.ToString(),
+                    Duration: new Rational(_audioReader.Length, _waveFormat.AverageBytesPerSecond),
+                    SampleRate: _waveFormat.SampleRate,
+                    NumChannels: _waveFormat.Channels);
+                HasAudio = true;
             }
         }
         finally
@@ -136,26 +85,6 @@ public class MFReader : MediaReader
 
     public override bool HasAudio { get; }
 
-    private unsafe Bitmap<Bgra8888> SampleToBitmap(Sample sample)
-    {
-        using (MediaBuffer buf = sample.ConvertToContiguousBuffer())
-        {
-            try
-            {
-                nint pBuffer = buf.Lock(out int maxLength, out int currentLength);
-
-                var bmp = new Bitmap<Bgra8888>(VideoInfo.FrameSize.Width, VideoInfo.FrameSize.Height);
-                Buffer.MemoryCopy((void*)pBuffer, (void*)bmp.Data, bmp.ByteCount, bmp.ByteCount);
-
-                return bmp;
-            }
-            finally
-            {
-                buf.Unlock();
-            }
-        }
-    }
-
     public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image)
     {
         if (MFThread.Dispatcher.CheckAccess())
@@ -165,7 +94,7 @@ public class MFReader : MediaReader
         else
         {
             image = null;
-            if (!HasVideo || _sourceReader == null || IsDisposed)
+            if (!HasVideo || _decoder == null || IsDisposed)
                 return false;
 
             (bool result, IBitmap? image1) = MFThread.Dispatcher.Invoke(() =>
@@ -178,86 +107,30 @@ public class MFReader : MediaReader
         }
     }
 
-    const long SEEK_TOLERANCE = 10000000;
-    const long MAX_FRAMES_TO_SKIP = 10;
-
     private unsafe bool ReadVideoCore(int frame, [NotNullWhen(true)] out IBitmap? image)
     {
-        if (!HasVideo || _sourceReader == null || IsDisposed)
-        {
-            image = null;
+        image = null;
+        if (!HasVideo || _decoder == null || IsDisposed)
             return false;
-        }
 
-        long hns = (long)((frame / VideoInfo.FrameRate.ToDouble()) * 1000 * 1000 * 10);
-        long skip = frame - _videoNowFrame;
-        if (skip > 100 || skip < 0)
+        MFMediaInfo info = _decoder.GetMediaInfo();
+        using var mat = new Mat(info.ImageFormat.Height, info.ImageFormat.Width, MatType.CV_8UC2);
+
+        int r = _decoder.ReadFrame(frame, mat.Data);
+        if (r != 0)
         {
-            _sourceReader.SetCurrentPosition(hns);
-        }
+            using var dst = new Mat(info.ImageFormat.Height, info.ImageFormat.Width, MatType.CV_8UC4);
+            Cv2.CvtColor(mat, dst, ColorConversionCodes.YUV2BGRA_YUY2);
+            var result = new Bitmap<Bgra8888>(info.ImageFormat.Width, info.ImageFormat.Height);
+            Buffer.MemoryCopy((void*)dst.Data, (void*)result.Data, result.ByteCount, result.ByteCount);
 
-        Sample? sample = null;
-        int cSkipped = 0;
-        while (true)
-        {
-            Sample? sampleTmp = _sourceReader.ReadSample(
-                SourceReaderIndex.FirstVideoStream,
-                SourceReaderControlFlags.None,
-                out _,
-                out SourceReaderFlags readerFlags,
-                out _);
-
-            if (sampleTmp == null || readerFlags.HasFlag(SourceReaderFlags.Error))
-            {
-                continue;
-            }
-
-            if (readerFlags.HasFlag(SourceReaderFlags.Endofstream))
-            {
-                break;
-            }
-
-            if (readerFlags.HasFlag(SourceReaderFlags.Currentmediatypechanged))
-            {
-                image = null;
-                return false;
-            }
-
-            // We got a sample. Hold onto it.
-
-            sample?.Dispose();
-            sample = sampleTmp;
-
-            long timeStamp = sample.SampleTime;
-            // Keep going until we get a frame that is within tolerance of the
-            // desired seek position, or until we skip MAX_FRAMES_TO_SKIP frames.
-
-            // During this process, we might reach the end of the file, so we
-            // always cache the last sample that we got (pSample).
-
-            if ((cSkipped < MAX_FRAMES_TO_SKIP) &&
-                 (timeStamp + SEEK_TOLERANCE < hns))
-            {
-                sampleTmp.Dispose();
-
-                ++cSkipped;
-                continue;
-            }
-
-            hns = timeStamp;
-            break;
-        }
-
-        if (sample?.IsDisposed == false)
-        {
-            image = SampleToBitmap(sample);
-            sample.Dispose();
-            _videoNowFrame = frame;
+            image = result;
             return true;
         }
-
-        image = null;
-        return false;
+        else
+        {
+            return false;
+        }
     }
 
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound)
@@ -310,9 +183,7 @@ public class MFReader : MediaReader
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
-        _sourceReader?.Dispose();
-        _attributes?.Dispose();
-        _newMediaType?.Dispose();
+        _decoder?.Dispose();
         _audioReader?.Dispose();
         _resampler?.Dispose();
     }

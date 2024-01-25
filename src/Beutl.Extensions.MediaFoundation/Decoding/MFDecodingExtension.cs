@@ -1,5 +1,8 @@
 ﻿using Beutl.Extensibility;
+using Beutl.Logging;
 using Beutl.Media.Decoding;
+
+using Microsoft.Extensions.Logging;
 
 using SharpDX.MediaFoundation;
 
@@ -12,13 +15,17 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 [Export]
 public sealed class MFDecodingExtension : DecodingExtension
 {
+    private readonly ILogger _logger = Log.CreateLogger<MFDecodingExtension>();
+
     public override string Name => "MediaFoundationDecoding";
 
     public override string DisplayName => "Media Foundation Decoding";
 
+    public override MFDecodingSettings Settings { get; } = new MFDecodingSettings();
+
     public override IDecoderInfo GetDecoderInfo()
     {
-        return new MFDecoderInfo();
+        return new MFDecoderInfo(this);
     }
 
     public override void Load()
