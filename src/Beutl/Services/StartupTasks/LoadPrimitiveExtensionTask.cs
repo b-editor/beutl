@@ -45,37 +45,75 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                 await Task.Yield();
 #if FFMPEG_BUILD_IN
 #pragma warning disable CS0436
-                activity?.AddEvent(new("Loading_FFmpeg"));
-
-                // Beutl.Extensions.FFmpeg.csproj
-                var pkg = new LocalPackage
                 {
-                    ShortDescription = "FFmpeg for beutl",
-                    Name = "Beutl.Embedding.FFmpeg",
-                    DisplayName = "Beutl.Embedding.FFmpeg",
-                    InstalledPath = AppContext.BaseDirectory,
-                    Tags = { "ffmpeg", "decoder", "decoding", "encoder", "encoding", "video", "audio" },
-                    Version = GitVersionInformation.NuGetVersionV2,
-                    WebSite = "https://github.com/b-editor/beutl",
-                    Publisher = "b-editor"
-                };
-                try
-                {
-                    var decoding = new Embedding.FFmpeg.Decoding.FFmpegDecodingExtension();
-                    var encoding = new Embedding.FFmpeg.Encoding.FFmpegEncodingExtension();
-                    _manager.SetupExtensionSettings(decoding);
-                    _manager.SetupExtensionSettings(encoding);
-                    decoding.Load();
-                    encoding.Load();
+                    activity?.AddEvent(new("Loading_FFmpeg"));
 
-                    provider.AddExtensions(pkg.LocalId, [decoding, encoding]);
+                    // Beutl.Extensions.FFmpeg.csproj
+                    var pkg = new LocalPackage
+                    {
+                        ShortDescription = "FFmpeg for beutl",
+                        Name = "Beutl.Embedding.FFmpeg",
+                        DisplayName = "Beutl.Embedding.FFmpeg",
+                        InstalledPath = AppContext.BaseDirectory,
+                        Tags = { "ffmpeg", "decoder", "decoding", "encoder", "encoding", "video", "audio" },
+                        Version = GitVersionInformation.NuGetVersionV2,
+                        WebSite = "https://github.com/b-editor/beutl",
+                        Publisher = "b-editor"
+                    };
+                    try
+                    {
+                        var decoding = new Embedding.FFmpeg.Decoding.FFmpegDecodingExtension();
+                        var encoding = new Embedding.FFmpeg.Encoding.FFmpegEncodingExtension();
+                        _manager.SetupExtensionSettings(decoding);
+                        _manager.SetupExtensionSettings(encoding);
+                        decoding.Load();
+                        encoding.Load();
+
+                        provider.AddExtensions(pkg.LocalId, [decoding, encoding]);
+                    }
+                    catch (Exception ex)
+                    {
+                        Failures.Add((pkg, ex));
+                    }
+
+                    activity?.AddEvent(new("Loaded_FFmpeg"));
                 }
-                catch (Exception ex)
-                {
-                    Failures.Add((pkg, ex));
-                }
+#pragma warning restore CS0436
+#endif
 
-                activity?.AddEvent(new("Loaded_FFmpeg"));
+#if MF_BUILD_IN
+#pragma warning disable CS0436
+                if (OperatingSystem.IsWindows())
+                {
+                    activity?.AddEvent(new("Loading_MediaFoundation"));
+
+                    // Beutl.Extensions.FFmpeg.csproj
+                    var pkg = new LocalPackage
+                    {
+                        ShortDescription = "MediaFoundation for beutl",
+                        Name = "Beutl.Embedding.MediaFoundation",
+                        DisplayName = "Beutl.Embedding.MediaFoundation",
+                        InstalledPath = AppContext.BaseDirectory,
+                        Tags = { "windows", "media-foundation", "decoder", "decoding", "encoder", "encoding", "video", "audio" },
+                        Version = GitVersionInformation.NuGetVersionV2,
+                        WebSite = "https://github.com/b-editor/beutl",
+                        Publisher = "b-editor"
+                    };
+                    try
+                    {
+                        var decoding = new Embedding.MediaFoundation.Decoding.MFDecodingExtension();
+                        _manager.SetupExtensionSettings(decoding);
+                        decoding.Load();
+
+                        provider.AddExtensions(pkg.LocalId, [decoding]);
+                    }
+                    catch (Exception ex)
+                    {
+                        Failures.Add((pkg, ex));
+                    }
+
+                    activity?.AddEvent(new("Loaded_MediaFoundation"));
+                }
 #pragma warning restore CS0436
 #endif
             }

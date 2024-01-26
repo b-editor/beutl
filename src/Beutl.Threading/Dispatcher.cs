@@ -70,6 +70,7 @@ public class Dispatcher
         {
             dispatcher.Start();
         });
+        thread.TrySetApartmentState(ApartmentState.STA);
         thread.Start();
 
         return dispatcher;

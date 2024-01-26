@@ -71,6 +71,7 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
                 if (extension.TryCreateContextForSettings(foundItems, out IPropertyEditorContext? context))
                 {
                     tempItems.Add(context);
+                    context.Accept(this);
                 }
 
                 props.RemoveMany(foundItems);
@@ -105,10 +106,5 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
         }
 
         Properties.AddRange(tempItems);
-
-        foreach (IPropertyEditorContext? item in Properties)
-        {
-            item?.Accept(this);
-        }
     }
 }

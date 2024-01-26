@@ -1,0 +1,82 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RepositoryUrl>https://github.com/b-editor/beutl</RepositoryUrl>
+    <Authors>b-editor</Authors>
+
+    <MFBuildIn Condition="'$(MFBuildIn)' == ''">True</MFBuildIn>
+    <DefineConstants>$(DefineConstants);DESKTOP_APP</DefineConstants>
+    <DefineConstants Condition="'$(MFBuildIn)'=='True'">$(DefineConstants);MF_BUILD_IN</DefineConstants>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.CsWin32">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="SharpDX.Direct3D9" />
+    <PackageReference Include="SharpDX.MediaFoundation" />
+    <PackageReference Include="NAudio.Wasapi" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Properties\Strings.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Strings.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Strings.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <Choose>
+    <When Condition="'$(MFBuildIn)'=='True'">
+
+      <PropertyGroup>
+        <AssemblyName>Beutl.Embedding.MediaFoundation</AssemblyName>
+        <PackageId>Beutl.Embedding.MediaFoundation</PackageId>
+        <Title>Beutl.Embedding.MediaFoundation</Title>
+      </PropertyGroup>
+
+      <ItemGroup>
+        <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj" />
+      </ItemGroup>
+
+    </When>
+    <Otherwise>
+
+      <PropertyGroup>
+        <AssemblyName>Beutl.Extensions.MediaFoundation</AssemblyName>
+        <PackageId>Beutl.Extensions.MediaFoundation</PackageId>
+        <Title>Beutl.Extensions.MediaFoundation</Title>
+      </PropertyGroup>
+
+      <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+        <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+        <OutputPath>$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))\.beutl\sideloads\$(AssemblyName)</OutputPath>
+      </PropertyGroup>
+
+      <ItemGroup>
+        <ProjectReference Include="..\..\src\Beutl.Controls\Beutl.Controls.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.Configuration\Beutl.Configuration.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.Core\Beutl.Core.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.Language\Beutl.Language.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.Operators\Beutl.Operators.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.Threading\Beutl.Threading.csproj" Private="false" ExcludeAssets="runtime" />
+        <ProjectReference Include="..\..\src\Beutl.Utilities\Beutl.Utilities.csproj" Private="false" ExcludeAssets="runtime" />
+      </ItemGroup>
+
+    </Otherwise>
+  </Choose>
+
+</Project>
