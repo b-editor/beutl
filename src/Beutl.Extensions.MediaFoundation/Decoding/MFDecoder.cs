@@ -128,7 +128,7 @@ internal sealed class MFDecoder : IDisposable
 
             if (_mediaInfo.VideoStreamIndex == -1 && _mediaInfo.AudioStreamIndex == -1)
             {
-                const string message = "ファイルには映像も音声も含まれていません";
+                const string message = "File contains no video or audio.";
                 _logger.LogInformation(message);
                 throw new Exception(message);
             }
@@ -136,7 +136,7 @@ internal sealed class MFDecoder : IDisposable
             if (_useDXVA2 && _videoSourceReader != null)
             {
                 // Send a message to the decoder to tell it to use DXVA2.
-                var videoDecoderPtr = _videoSourceReader.GetServiceForStream(
+                nint videoDecoderPtr = _videoSourceReader.GetServiceForStream(
                     _mediaInfo.VideoStreamIndex,
                     Guid.Empty,
                     SharpDX.Utilities.GetGuidFromType(typeof(Transform)));
@@ -160,6 +160,7 @@ internal sealed class MFDecoder : IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "An exception occurred during initialization of the video stream.");
+            throw;
         }
         finally
         {
@@ -217,7 +218,7 @@ internal sealed class MFDecoder : IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "DXVA2の初期化中に例外が発生しました。");
+            _logger.LogError(ex, "An exception occurred during initialization of DXVA2.");
             return false;
         }
     }
@@ -244,7 +245,6 @@ internal sealed class MFDecoder : IDisposable
         Sample? sample = _sampleCache.SearchFrameSample(frame);
         if (sample != null)
         {
-            //INFO_LOG << L"Sample cache found!";
             return funcCopyBuffer(sample);
         }
 
@@ -252,19 +252,18 @@ internal sealed class MFDecoder : IDisposable
 
         if (currentFrame == -1)
         {
-            currentFrame = TimestampUtilities.ConvertFrameFromTimeStamp(_currentVideoTimeStamp, _mediaInfo.Numerator, _mediaInfo.Denominator);
+            currentFrame = TimestampUtilities.ConvertFrameFromTimeStamp(_currentVideoTimeStamp, _mediaInfo.Fps);
         }
 
         if (frame < currentFrame || (currentFrame + _thresholdFrameCount) < frame)
         {
-            long destTimePosition = TimestampUtilities.ConvertTimeStampFromFrame(frame, _mediaInfo.Numerator, _mediaInfo.Denominator);
+            long destTimePosition = TimestampUtilities.ConvertTimeStampFromFrame(frame, _mediaInfo.Fps);
             SeekVideo(destTimePosition);
             _logger.LogDebug(
                 "ReadFrame Seek currentFrame: {currentFrame}, destFrame: {destFrame} - destTimePos: {destTimePos} relativeFrame: {relativeFrame}",
                 currentFrame, frame, TimestampUtilities.ConvertSecFrom100ns(destTimePosition), frame - currentFrame);
         }
 
-        int skipCount = 0;
         sample = ReadSample(_mediaInfo.VideoStreamIndex);
         while (sample != null)
         {
@@ -280,15 +279,10 @@ internal sealed class MFDecoder : IDisposable
                             "wrong frame currentFrame: {currentFrame} targetFrame: {frame} readSampleFrame: {readSampleFrame} distance: {distance}",
                             currentFrame, frame, readSampleFrame, readSampleFrame - frame);
                     }
-                    if (skipCount > 0)
-                    {
-                        //INFO_LOG << L"ReadFrame skipCount: " << skipCount;
-                    }
 
                     return funcCopyBuffer(sample);
                 }
                 sample = ReadSample(_mediaInfo.VideoStreamIndex);
-                ++skipCount;
             }
             catch
             {
@@ -304,7 +298,6 @@ internal sealed class MFDecoder : IDisposable
         bool hitCache = _sampleCache.SearchAudioSampleAndCopyBuffer(start, length, buf);
         if (hitCache)
         {
-            //INFO_LOG << L"ReadAudio cache hit! start: " << start;
             return length;
         }
 
@@ -324,8 +317,6 @@ internal sealed class MFDecoder : IDisposable
                 start - currentSample);
         }
 
-        int skipCount = 0;
-        int nohitChacheCount = 0;
         Sample? sample = ReadSample(_mediaInfo.AudioStreamIndex);
         while (sample != null)
         {
@@ -337,23 +328,10 @@ internal sealed class MFDecoder : IDisposable
                 {
                     if (_sampleCache.SearchAudioSampleAndCopyBuffer(start, length, buf))
                     {
-                        if (skipCount > 0)
-                        {
-                            //INFO_LOG << L"ReadAudio skipCount: " << skipCount;
-                        }
                         return length;
-                    }
-                    else
-                    {
-                        if (nohitChacheCount > 1)
-                        {
-                            //ERROR_LOG << L"nohitChacheCount > 1 : " << nohitChacheCount;
-                        }
-                        ++nohitChacheCount;
                     }
                 }
                 sample = ReadSample(_mediaInfo.AudioStreamIndex);
-                ++skipCount;
             }
             catch
             {
@@ -379,7 +357,7 @@ internal sealed class MFDecoder : IDisposable
         }
         else
         {
-            _logger.LogWarning("MFVideoDecoder::ReadSample: streamIndex is invalid");
+            _logger.LogWarning("MFDecoder.ReadSample: streamIndex is invalid");
             return null;
         }
 
@@ -430,7 +408,7 @@ internal sealed class MFDecoder : IDisposable
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "MFVideoDecoder::ReadSample MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED ConfigureDecoder failed");
+                _logger.LogError(ex, "MFDecoder.ReadSample MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED ConfigureDecoder failed");
                 return null;
             }
         }
@@ -440,14 +418,12 @@ internal sealed class MFDecoder : IDisposable
         timestamp -= _firstGapTimeStamp;
         if (actualStreamIndex == _mediaInfo.VideoStreamIndex)
         {
-            //llTimeStamp -= m_firstVideoTimeStamp;
-            int frame = TimestampUtilities.ConvertFrameFromTimeStamp(timestamp, _mediaInfo.Numerator, _mediaInfo.Denominator);
+            int frame = TimestampUtilities.ConvertFrameFromTimeStamp(timestamp, _mediaInfo.Fps);
             _sampleCache.AddFrameSample(frame, sample);
             _currentVideoTimeStamp = timestamp;
         }
         else if (actualStreamIndex == _mediaInfo.AudioStreamIndex)
         {
-            //llTimeStamp -= m_firstAudioTimeStamp;
             int sampleNum = TimestampUtilities.ConvertSampleFromTimeStamp(timestamp, _mediaInfo.AudioFormat.SampleRate);
             _sampleCache.AddAudioSample(sampleNum, sample);
             _currentAudioTimeStamp = timestamp;
@@ -492,8 +468,6 @@ internal sealed class MFDecoder : IDisposable
         }
 
         using MediaType mediaType = _videoSourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
-
-        //INFO_LOG << L"m_spVideoSourceReader->GetCurrentMediaType: \n" << PrintMFAttributes(mediaType);
 
         Guid subType = mediaType.Get(MediaTypeAttributeKeys.Subtype);
 
@@ -561,7 +535,7 @@ internal sealed class MFDecoder : IDisposable
         _transform.ProcessMessage(TMessageType.NotifyBeginStreaming, 0);
 
         // 出力先IMFSample作成
-        _transform.GetOutputStreamInfo(0, out var streamInfo);
+        _transform.GetOutputStreamInfo(0, out TOutputStreamInformation streamInfo);
 
         _mfOutBufferSample = MediaFactory.CreateSample();
 
@@ -577,7 +551,7 @@ internal sealed class MFDecoder : IDisposable
             {
                 using MediaType currentMediaType = sourceReader.GetCurrentMediaType(streamIndex);
 
-                sourceReader.GetStreamSelection(streamIndex, out var selected);
+                sourceReader.GetStreamSelection(streamIndex, out SharpDX.Mathematics.Interop.RawBool selected);
                 if (!selected)
                 {
                     continue;
@@ -613,10 +587,7 @@ internal sealed class MFDecoder : IDisposable
         // Select a subtype.
         if (majorType == MediaTypeGuids.Video)
         {
-            // YUY2
             subType = VideoFormatGuids.YUY2;
-            //MFVideoFormat_RGB32;
-            //subtype = MFVideoFormat_NV12;
         }
         else if (majorType == MediaTypeGuids.Audio)
         {
@@ -684,7 +655,7 @@ internal sealed class MFDecoder : IDisposable
         }
         else
         {
-            const string message = "ファイルには映像も音声も存在しません";
+            const string message = "File contains no video or audio.";
             _logger.LogError(message);
             throw new Exception(message);
         }
@@ -710,8 +681,7 @@ internal sealed class MFDecoder : IDisposable
             bih.Width = destRect.right;
             bih.Height = destRect.bottom;
 
-            _mediaInfo.Numerator = ppMFVF->videoInfo.FramesPerSecond.Numerator;
-            _mediaInfo.Denominator = ppMFVF->videoInfo.FramesPerSecond.Denominator;
+            _mediaInfo.Fps = ppMFVF->videoInfo.FramesPerSecond;
 
             Marshal.FreeCoTaskMem((nint)ppMFVF);
 
@@ -722,7 +692,7 @@ internal sealed class MFDecoder : IDisposable
 
             _mediaInfo.ImageFormat = bih;
             _mediaInfo.TotalFrameCount =
-                TimestampUtilities.ConvertFrameFromTimeStamp(_mediaInfo.HnsDuration, _mediaInfo.Numerator, _mediaInfo.Denominator);
+                TimestampUtilities.ConvertFrameFromTimeStamp(_mediaInfo.HnsDuration, _mediaInfo.Fps);
             _mediaInfo.OutImageBufferSize = bih.Width * bih.Height * (bih.BitCount / 8);
             _mediaInfo.VideoFormatName = VideoFormatName.GetName(subType) ?? subType.ToString();
         }
@@ -760,7 +730,7 @@ internal sealed class MFDecoder : IDisposable
         {
             _ = ReadSample(_mediaInfo.VideoStreamIndex) ?? throw new Exception("TestFirstReadSample() failed");
             _logger.LogInformation(
-                "TestFirstReadSample m_firstVideoTimeStamp: {_currentVideoTimeStamp} ({seconds})",
+                "TestFirstReadSample firstVideoTimeStamp: {currentVideoTimeStamp} ({seconds})",
                 _currentVideoTimeStamp, TimestampUtilities.ConvertSecFrom100ns(_currentVideoTimeStamp));
             firstVideoTimeStamp = _currentVideoTimeStamp;
             SeekVideo(0);
@@ -770,7 +740,7 @@ internal sealed class MFDecoder : IDisposable
         {
             _ = ReadSample(_mediaInfo.AudioStreamIndex) ?? throw new Exception("TestFirstReadSample() failed");
             _logger.LogInformation(
-                "TestFirstReadSample m_firstAudioTimeStamp: {m_currentAudioTimeStamp} ({seconds})",
+                "TestFirstReadSample firstAudioTimeStamp: {currentAudioTimeStamp} ({seconds})",
                 _currentAudioTimeStamp, TimestampUtilities.ConvertSecFrom100ns(_currentAudioTimeStamp));
             firstAudioTimeStamp = _currentAudioTimeStamp;
             SeekAudio(0);
@@ -782,7 +752,6 @@ internal sealed class MFDecoder : IDisposable
         {
             if (firstVideoTimeStamp != firstAudioTimeStamp)
             {
-                //ATLASSERT(FALSE);
                 _logger.LogWarning(
                     "fisrt timestamp gapped - firstVideoTimeStamp: {firstVideoTimeStamp} firstAudioTimestamp: {firstAudioTimestamp}",
                     firstVideoTimeStamp, firstAudioTimeStamp);
@@ -790,7 +759,7 @@ internal sealed class MFDecoder : IDisposable
         }
 
         _firstGapTimeStamp = Math.Max(firstVideoTimeStamp, firstAudioTimeStamp);
-        _logger.LogInformation("TestFirstReadSample - m_firstGapTimeStamp: {_firstGapTimeStamp}", _firstGapTimeStamp);
+        _logger.LogInformation("TestFirstReadSample - firstGapTimeStamp: {firstGapTimeStamp}", _firstGapTimeStamp);
     }
 
     public void Dispose()
@@ -822,7 +791,6 @@ internal sealed class MFDecoder : IDisposable
             Marshal.ReleaseComObject(_deviceManager);
         }
 
-        //m_spSourceReader.Release();
         _videoSourceReader?.Dispose();
         _audioSourceReader?.Dispose();
     }

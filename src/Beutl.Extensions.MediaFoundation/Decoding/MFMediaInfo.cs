@@ -3,6 +3,8 @@
 using SharpDX.Multimedia;
 using SharpDX.Win32;
 
+using Windows.Win32.Media.MediaFoundation;
+
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
 #else
@@ -14,8 +16,7 @@ internal struct MFMediaInfo
     public int VideoStreamIndex; // -1 で映像は存在しない
     public int AudioStreamIndex; // -1 で音声は存在しない
 
-    public uint Numerator;
-    public uint Denominator;
+    public MFRatio Fps;
     public long HnsDuration;    // 100ns units
     public int TotalFrameCount;
     public BitmapInfoHeader ImageFormat;
@@ -34,7 +35,7 @@ internal struct MFMediaInfo
 
         if (VideoStreamIndex != -1)
         {
-            double fps = (double)Numerator / Denominator;
+            double fps = (double)Fps.Numerator / Fps.Denominator;
             sb.AppendLine($"VideoStreamIndex: {VideoStreamIndex}");
             sb.AppendLine($"  Fps: {fps}");
             sb.AppendLine($"  TotalFrameCount: {TotalFrameCount}");

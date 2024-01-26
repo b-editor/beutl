@@ -1,12 +1,14 @@
 ﻿// https://github.com/amate/MFVideoReader
 
 #if MF_BUILD_IN
+using Windows.Win32.Media.MediaFoundation;
+
 namespace Beutl.Embedding.MediaFoundation.Decoding;
 #else
 namespace Beutl.Extensions.MediaFoundation.Decoding;
 #endif
 
-public static class TimestampUtilities
+internal static class TimestampUtilities
 {
     public static double ConvertSecFrom100ns(long hnsTime)
     {
@@ -17,17 +19,17 @@ public static class TimestampUtilities
     {
         return (long)(sec * 10000000);
     }
-
-    public static int ConvertFrameFromTimeStamp(long nsTimeStamp, uint nume, uint denom)
+    
+    public static int ConvertFrameFromTimeStamp(long nsTimeStamp, MFRatio rate)
     {
-        double frame = ConvertSecFrom100ns(nsTimeStamp) * nume / denom;
+        double frame = ConvertSecFrom100ns(nsTimeStamp) * rate.Numerator / rate.Denominator;
         return (int)Math.Round(frame, MidpointRounding.AwayFromZero);
     }
 
     // frame -> timestamp
-    public static long ConvertTimeStampFromFrame(long frame, uint nume, uint denom)
+    public static long ConvertTimeStampFromFrame(long frame, MFRatio rate)
     {
-        double frameSec = (double)(frame * denom) / nume;
+        double frameSec = (double)(frame * rate.Denominator) / rate.Numerator;
         return Convert100nsFromSec(frameSec);
     }
 
