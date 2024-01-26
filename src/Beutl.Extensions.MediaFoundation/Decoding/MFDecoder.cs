@@ -50,13 +50,13 @@ internal sealed class MFDecoder : IDisposable
     private long _currentVideoTimeStamp = 0;
     private long _currentAudioTimeStamp = 0;
 
-    private readonly MFSampleCache _sampleCache = new();
+    private readonly MFSampleCache _sampleCache;
 
     // 現在のフレームからどれくらいの範囲ならシーケンシャル読み込みさせるかの閾値
-    private const int ThresholdFrameCount = 30;
+    private readonly int _thresholdFrameCount = 30;
 
     // 現在のサンプル数からどれくらいの範囲ならシーケンシャル読み込みさせるかの閾値
-    private const int ThresholdSampleCount = 30000;
+    private readonly int _thresholdSampleCount = 30000;
 
     public MFDecoder(string file, MediaOptions options, MFDecodingExtension extension)
     {
@@ -65,6 +65,9 @@ internal sealed class MFDecoder : IDisposable
         SharpDX.Configuration.UseThreadStaticObjectTracking = true;
         _file = file;
         _options = options;
+        _thresholdFrameCount = extension.Settings.ThresholdFrameCount;
+        _thresholdSampleCount = extension.Settings.ThresholdSampleCount;
+        _sampleCache = new MFSampleCache(new(extension.Settings.MaxVideoBufferSize, extension.Settings.MaxAudioBufferSize));
 
         _useDXVA2 = InitializeDXVA2(extension.Settings.UseDXVA2);
 
@@ -252,7 +255,7 @@ internal sealed class MFDecoder : IDisposable
             currentFrame = TimestampUtilities.ConvertFrameFromTimeStamp(_currentVideoTimeStamp, _mediaInfo.Numerator, _mediaInfo.Denominator);
         }
 
-        if (frame < currentFrame || (currentFrame + ThresholdFrameCount) < frame)
+        if (frame < currentFrame || (currentFrame + _thresholdFrameCount) < frame)
         {
             long destTimePosition = TimestampUtilities.ConvertTimeStampFromFrame(frame, _mediaInfo.Numerator, _mediaInfo.Denominator);
             SeekVideo(destTimePosition);
@@ -310,7 +313,7 @@ internal sealed class MFDecoder : IDisposable
         {
             currentSample = TimestampUtilities.ConvertSampleFromTimeStamp(_currentAudioTimeStamp, _mediaInfo.AudioFormat.SampleRate);
         }
-        if (start < currentSample || (currentSample + ThresholdSampleCount) < start)
+        if (start < currentSample || (currentSample + _thresholdSampleCount) < start)
         {
             long destTimePosition = TimestampUtilities.ConvertTimeStampFromSample(start, _mediaInfo.AudioFormat.SampleRate);
             SeekAudio(destTimePosition);

@@ -15,18 +15,19 @@ namespace Beutl.Embedding.MediaFoundation.Decoding;
 namespace Beutl.Extensions.MediaFoundation.Decoding;
 #endif
 
-public class MFSampleCache
+public record MFSampleCacheOptions(
+    int MaxVideoBufferSize = 4, // あまり大きな値を設定するとReadSampleで停止する
+    int MaxAudioBufferSize = 20);
+
+public class MFSampleCache(MFSampleCacheOptions options)
 {
     private readonly ILogger _logger = Log.CreateLogger<MFSampleCache>();
-
-    public const int MaxVideoBufferSize = 4;    // あまり大きな値を設定するとReadSampleで停止する
-    public const int MaxAudioBufferSize = 20;
 
     public const int FrameWaringGapCount = 1;
     public const int AudioSampleWaringGapCount = 1000;
 
-    private CircularBuffer<VideoCache> _videoCircularBuffer = new(MaxVideoBufferSize);
-    private CircularBuffer<AudioCache> _audioCircularBuffer = new(MaxAudioBufferSize);
+    private CircularBuffer<VideoCache> _videoCircularBuffer = new(options.MaxVideoBufferSize);
+    private CircularBuffer<AudioCache> _audioCircularBuffer = new(options.MaxAudioBufferSize);
     private short _nBlockAlign;
 
     private readonly record struct VideoCache(int Frame, Sample Sample);
@@ -77,7 +78,7 @@ public class MFSampleCache
     public void ResetVideo()
     {
         CircularBuffer<VideoCache> old = _videoCircularBuffer;
-        _videoCircularBuffer = new CircularBuffer<VideoCache>(4);
+        _videoCircularBuffer = new CircularBuffer<VideoCache>(options.MaxVideoBufferSize);
         foreach (VideoCache item in old)
         {
             item.Sample.Dispose();
