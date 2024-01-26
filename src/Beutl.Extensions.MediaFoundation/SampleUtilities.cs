@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿// https://github.com/amate/MFVideoReader
+
+using System.Diagnostics;
 
 using SharpDX.MediaFoundation;
 

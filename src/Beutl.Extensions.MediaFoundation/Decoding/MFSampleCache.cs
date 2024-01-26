@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿// https://github.com/amate/MFVideoReader
+
+using System.Diagnostics;
 
 using Beutl.Collections;
 using Beutl.Logging;
@@ -17,15 +19,15 @@ public class MFSampleCache
 {
     private readonly ILogger _logger = Log.CreateLogger<MFSampleCache>();
 
-    public const int kMaxVideoBufferSize = 4;    // あまり大きな値を設定するとReadSampleで停止する
-    public const int kMaxAudioBufferSize = 20;
+    public const int MaxVideoBufferSize = 4;    // あまり大きな値を設定するとReadSampleで停止する
+    public const int MaxAudioBufferSize = 20;
 
-    public const int kFrameWaringGapCount = 1;
-    public const int kAudioSampleWaringGapCount = 1000;
+    public const int FrameWaringGapCount = 1;
+    public const int AudioSampleWaringGapCount = 1000;
 
-    private CircularBuffer<VideoCache> m_videoCircularBuffer = new(kMaxVideoBufferSize);
-    private CircularBuffer<AudioCache> m_audioCircularBuffer = new(kMaxAudioBufferSize);
-    private short m_nBlockAlign;
+    private CircularBuffer<VideoCache> _videoCircularBuffer = new(MaxVideoBufferSize);
+    private CircularBuffer<AudioCache> _audioCircularBuffer = new(MaxAudioBufferSize);
+    private short _nBlockAlign;
 
     private readonly record struct VideoCache(int Frame, Sample Sample);
 
@@ -74,8 +76,8 @@ public class MFSampleCache
 
     public void ResetVideo()
     {
-        CircularBuffer<VideoCache> old = m_videoCircularBuffer;
-        m_videoCircularBuffer = new CircularBuffer<VideoCache>(4);
+        CircularBuffer<VideoCache> old = _videoCircularBuffer;
+        _videoCircularBuffer = new CircularBuffer<VideoCache>(4);
         foreach (VideoCache item in old)
         {
             item.Sample.Dispose();
@@ -84,12 +86,12 @@ public class MFSampleCache
 
     public void ResetAudio(short nBlockAlign)
     {
-        m_nBlockAlign = nBlockAlign;
-        foreach (AudioCache item in m_audioCircularBuffer)
+        _nBlockAlign = nBlockAlign;
+        foreach (AudioCache item in _audioCircularBuffer)
         {
             item.Sample.Dispose();
         }
-        m_audioCircularBuffer.Clear();
+        _audioCircularBuffer.Clear();
     }
 
     public void AddFrameSample(int frame, Sample pSample)
@@ -97,7 +99,7 @@ public class MFSampleCache
         int lastFrameNum = LastFrameNumber();
         if (lastFrameNum != -1)
         {
-            if (Math.Abs(lastFrameNum + 1 - frame) > kFrameWaringGapCount)
+            if (Math.Abs(lastFrameNum + 1 - frame) > FrameWaringGapCount)
             {
                 //_logger.LogWarning("frame error - frame: {frame} actual frame: {actual}", frame, lastFrameNum + 1);
             }
@@ -105,14 +107,14 @@ public class MFSampleCache
             frame = lastFrameNum + 1;
         }
 
-        if (m_videoCircularBuffer.IsFull)
+        if (_videoCircularBuffer.IsFull)
         {
-            m_videoCircularBuffer.Front().Sample.Dispose();
-            m_videoCircularBuffer.PopFront();
+            _videoCircularBuffer.Front().Sample.Dispose();
+            _videoCircularBuffer.PopFront();
         }
 
         var videoCache = new VideoCache(frame, pSample);
-        m_videoCircularBuffer.PushBack(videoCache);
+        _videoCircularBuffer.PushBack(videoCache);
     }
 
     public void AddAudioSample(int startSample, Sample pSample)
@@ -120,8 +122,8 @@ public class MFSampleCache
         int lastAudioSampleNum = LastAudioSampleNumber();
         if (lastAudioSampleNum != -1)
         {
-            int actualAudioSampleNum = lastAudioSampleNum + m_audioCircularBuffer.Back().AudioSampleCount;
-            if (Math.Abs(startSample - actualAudioSampleNum) > kAudioSampleWaringGapCount)
+            int actualAudioSampleNum = lastAudioSampleNum + _audioCircularBuffer.Back().AudioSampleCount;
+            if (Math.Abs(startSample - actualAudioSampleNum) > AudioSampleWaringGapCount)
             {
                 _logger.LogWarning(
                     "sample laggin - lag: {lag} startSample: {startSample} lastAudioSampleNum: {lastAudioSampleNum}",
@@ -130,28 +132,28 @@ public class MFSampleCache
                     actualAudioSampleNum);
             }
 
-            startSample = lastAudioSampleNum + m_audioCircularBuffer.Back().AudioSampleCount;
+            startSample = lastAudioSampleNum + _audioCircularBuffer.Back().AudioSampleCount;
         }
 
         int totalLength = pSample.TotalLength;
-        int audioSampleCount = totalLength / m_nBlockAlign;
-        Debug.Assert((totalLength % m_nBlockAlign) == 0);
+        int audioSampleCount = totalLength / _nBlockAlign;
+        Debug.Assert((totalLength % _nBlockAlign) == 0);
 
-        if (m_audioCircularBuffer.IsFull)
+        if (_audioCircularBuffer.IsFull)
         {
-            m_audioCircularBuffer.Front().Sample.Dispose();
-            m_audioCircularBuffer.PopFront();
+            _audioCircularBuffer.Front().Sample.Dispose();
+            _audioCircularBuffer.PopFront();
         }
 
         var audioCache = new AudioCache(startSample, pSample, audioSampleCount);
-        m_audioCircularBuffer.PushBack(audioCache);
+        _audioCircularBuffer.PushBack(audioCache);
     }
 
     public int LastFrameNumber()
     {
-        if (m_videoCircularBuffer.Size > 0)
+        if (_videoCircularBuffer.Size > 0)
         {
-            VideoCache prevVideoCache = m_videoCircularBuffer.Back();
+            VideoCache prevVideoCache = _videoCircularBuffer.Back();
             return prevVideoCache.Frame;
         }
 
@@ -160,9 +162,9 @@ public class MFSampleCache
 
     public int LastAudioSampleNumber()
     {
-        if (m_audioCircularBuffer.Size > 0)
+        if (_audioCircularBuffer.Size > 0)
         {
-            AudioCache prevAudioCache = m_audioCircularBuffer.Back();
+            AudioCache prevAudioCache = _audioCircularBuffer.Back();
             return prevAudioCache.StartSampleNum;
         }
 
@@ -171,7 +173,7 @@ public class MFSampleCache
 
     public Sample? SearchFrameSample(int frame)
     {
-        foreach (VideoCache videoCache in m_videoCircularBuffer.Reverse())
+        foreach (VideoCache videoCache in _videoCircularBuffer.Reverse())
         {
             if (videoCache.Frame == frame)
             {
@@ -184,9 +186,9 @@ public class MFSampleCache
 
     public bool SearchAudioSampleAndCopyBuffer(int startSample, int copySampleLength, nint buffer)
     {
-        foreach (AudioCache audioCache in m_audioCircularBuffer)
+        foreach (AudioCache audioCache in _audioCircularBuffer)
         {
-            if (audioCache.CopyBuffer(ref startSample, ref copySampleLength, ref buffer, m_nBlockAlign))
+            if (audioCache.CopyBuffer(ref startSample, ref copySampleLength, ref buffer, _nBlockAlign))
             {
                 if (copySampleLength == 0)
                 {

@@ -1,4 +1,6 @@
-﻿#if MF_BUILD_IN
+﻿// https://github.com/amate/MFVideoReader
+
+#if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
 #else
 namespace Beutl.Extensions.MediaFoundation.Decoding;

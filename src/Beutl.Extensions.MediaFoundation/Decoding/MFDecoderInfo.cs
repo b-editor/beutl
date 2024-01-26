@@ -1,5 +1,4 @@
 ﻿using Beutl.Media.Decoding;
-using Beutl.Rendering;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;

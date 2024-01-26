@@ -1,4 +1,6 @@
-﻿using SharpDX.MediaFoundation;
+﻿// https://github.com/amate/MFVideoReader
+
+using SharpDX.MediaFoundation;
 
 using Windows.Win32;
 using Windows.Win32.Foundation;
