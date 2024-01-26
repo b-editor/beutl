@@ -74,12 +74,21 @@ public class MFSampleCache
 
     public void ResetVideo()
     {
+        CircularBuffer<VideoCache> old = m_videoCircularBuffer;
         m_videoCircularBuffer = new CircularBuffer<VideoCache>(4);
+        foreach (VideoCache item in old)
+        {
+            item.Sample.Dispose();
+        }
     }
 
     public void ResetAudio(short nBlockAlign)
     {
         m_nBlockAlign = nBlockAlign;
+        foreach (AudioCache item in m_audioCircularBuffer)
+        {
+            item.Sample.Dispose();
+        }
         m_audioCircularBuffer.Clear();
     }
 
@@ -90,10 +99,16 @@ public class MFSampleCache
         {
             if (Math.Abs(lastFrameNum + 1 - frame) > kFrameWaringGapCount)
             {
-                _logger.LogWarning("frame error - frame: {frame} actual frame: {actual}", frame, lastFrameNum + 1);
+                //_logger.LogWarning("frame error - frame: {frame} actual frame: {actual}", frame, lastFrameNum + 1);
             }
 
             frame = lastFrameNum + 1;
+        }
+
+        if (m_videoCircularBuffer.IsFull)
+        {
+            m_videoCircularBuffer.Front().Sample.Dispose();
+            m_videoCircularBuffer.PopFront();
         }
 
         var videoCache = new VideoCache(frame, pSample);
@@ -121,6 +136,12 @@ public class MFSampleCache
         int totalLength = pSample.TotalLength;
         int audioSampleCount = totalLength / m_nBlockAlign;
         Debug.Assert((totalLength % m_nBlockAlign) == 0);
+
+        if (m_audioCircularBuffer.IsFull)
+        {
+            m_audioCircularBuffer.Front().Sample.Dispose();
+            m_audioCircularBuffer.PopFront();
+        }
 
         var audioCache = new AudioCache(startSample, pSample, audioSampleCount);
         m_audioCircularBuffer.PushBack(audioCache);

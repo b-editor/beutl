@@ -35,6 +35,7 @@ public sealed class MFDecodingExtension : DecodingExtension
         MFThread.Dispatcher.Invoke(() =>
         {
             Thread.CurrentThread.IsBackground = true;
+            Thread.CurrentThread.Name = "Beutl.MediaFoundation";
             MediaManager.Startup();
         });
 

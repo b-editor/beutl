@@ -46,7 +46,7 @@ internal sealed class MFDecoder : IDisposable
     private MFMediaInfo _mediaInfo;
     private readonly bool _useDXVA2;
     private Sample? _spMFOutBufferSample;
-    private readonly long _firstGapTimeStamp = 0;
+    private long _firstGapTimeStamp = 0;
     private long _currentVideoTimeStamp = 0;
     private long _currentAudioTimeStamp = 0;
 
@@ -60,6 +60,9 @@ internal sealed class MFDecoder : IDisposable
 
     public MFDecoder(string file, MediaOptions options, MFDecodingExtension extension)
     {
+        SharpDX.Configuration.EnableObjectTracking = true;
+        SharpDX.Configuration.EnableReleaseOnFinalizer = true;
+        SharpDX.Configuration.UseThreadStaticObjectTracking = true;
         _file = file;
         _options = options;
 
@@ -134,7 +137,7 @@ internal sealed class MFDecoder : IDisposable
                     _mediaInfo.VideoStreamIndex,
                     Guid.Empty,
                     SharpDX.Utilities.GetGuidFromType(typeof(Transform)));
-                var videoDecoder = new Transform(videoDecoderPtr);
+                using var videoDecoder = new Transform(videoDecoderPtr);
 
                 try
                 {
@@ -149,6 +152,7 @@ internal sealed class MFDecoder : IDisposable
                 }
             }
 
+            TestFirstReadSample();
         }
         catch (Exception ex)
         {
@@ -161,7 +165,7 @@ internal sealed class MFDecoder : IDisposable
 
     private IDirect3DDeviceManager9 CreateD3DDevManager(IntPtr video_window, out Device device)
     {
-        var d3d = new Direct3D();
+        using var d3d = new Direct3D();
 
         var presentParams = new PresentParameters
         {
@@ -484,7 +488,7 @@ internal sealed class MFDecoder : IDisposable
             return;
         }
 
-        MediaType mediaType = _videoSourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
+        using MediaType mediaType = _videoSourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
 
         //INFO_LOG << L"m_spVideoSourceReader->GetCurrentMediaType: \n" << PrintMFAttributes(mediaType);
 
@@ -502,7 +506,7 @@ internal sealed class MFDecoder : IDisposable
         uint height = (uint)(frameSize & 0xffffffff);
 
         RECT rcSrc = RECT.FromXYWH(0, 0, (int)width, (int)height);
-        MFRatio srcPAR = new() { Numerator = pixelNume, Denominator = pixelDenom };
+        Ratio srcPAR = new() { Numerator = (int)pixelNume, Denominator = (int)pixelDenom };
         RECT destRect = AspectRatioUtilities.CorrectAspectRatio(rcSrc, srcPAR, new() { Numerator = 1, Denominator = 1 });
         uint destWidth = (uint)destRect.right;
         uint destHeight = (uint)destRect.bottom;
@@ -526,7 +530,7 @@ internal sealed class MFDecoder : IDisposable
 
         // 色変換 NV12 -> YUY2
         // 動画の幅は 2の倍数、高さは 16の倍数でないとダメっぽい？
-        var spInputMediaType = new MediaType();
+        using var spInputMediaType = new MediaType();
         spInputMediaType.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Video);
         spInputMediaType.Set(MediaTypeAttributeKeys.Subtype, VideoFormatGuids.NV12);
         spInputMediaType.Set(MediaTypeAttributeKeys.AllSamplesIndependent, 1); // UnCompressed
@@ -537,14 +541,15 @@ internal sealed class MFDecoder : IDisposable
         spInputMediaType.Set(MediaTypeAttributeKeys.FrameSize, ((long)width << 32) | height);
         _transform.SetInputType(0, spInputMediaType, 0);
 
-        var spOutputMediaType = new MediaType();
+        using var spOutputMediaType = new MediaType();
         spOutputMediaType.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Video);
         // YUY2
         spOutputMediaType.Set(MediaTypeAttributeKeys.Subtype, VideoFormatGuids.YUY2);
         spOutputMediaType.Set(MediaTypeAttributeKeys.AllSamplesIndependent, 1); // UnCompressed
         spOutputMediaType.Set(MediaTypeAttributeKeys.FixedSizeSamples, 1); // UnCompressed
 
-        spOutputMediaType.Set(MediaTypeAttributeKeys.PixelAspectRatio, ((long)1 << 32) | 1);
+        spInputMediaType.Set(MediaTypeAttributeKeys.PixelAspectRatio, ((long)1 << 32) | 1);
+        //spOutputMediaType.Set(MediaTypeAttributeKeys.PixelAspectRatio, ((long)1 << 32) | 1);
         spOutputMediaType.Set(MediaTypeAttributeKeys.FrameSize, ((long)destWidth << 32) | destHeight);
         _transform.SetOutputType(0, spOutputMediaType, 0);
 
@@ -555,13 +560,10 @@ internal sealed class MFDecoder : IDisposable
         // 出力先IMFSample作成
         _transform.GetOutputStreamInfo(0, out var streamInfo);
 
-        HRESULT hr = PInvoke.MFCreateSample(out var tmpSample);
-        Marshal.ThrowExceptionForHR(hr);
-        _spMFOutBufferSample = new Sample(Marshal.GetIUnknownForObject(tmpSample));
+        _spMFOutBufferSample = MediaFactory.CreateSample();
 
-        hr = PInvoke.MFCreateMemoryBuffer((uint)streamInfo.CbSize, out var tmpBuffer);
-        Marshal.ThrowExceptionForHR(hr);
-        tmpSample.AddBuffer(tmpBuffer);
+        MediaBuffer buffer = MediaFactory.CreateMemoryBuffer(streamInfo.CbSize);
+        _spMFOutBufferSample.AddBuffer(buffer);
     }
 
     private static void SelectStream(SourceReader sourceReader, Guid selectMajorType)
@@ -570,7 +572,7 @@ internal sealed class MFDecoder : IDisposable
         {
             try
             {
-                MediaType currentMediaType = sourceReader.GetCurrentMediaType(streamIndex);
+                using MediaType currentMediaType = sourceReader.GetCurrentMediaType(streamIndex);
 
                 sourceReader.GetStreamSelection(streamIndex, out var selected);
                 if (!selected)
@@ -597,12 +599,12 @@ internal sealed class MFDecoder : IDisposable
 
     private void ConfigureDecoder(SourceReader sourceReader, SourceReaderIndex readerIndex)
     {
-        MediaType nativeType = sourceReader.GetNativeMediaType(readerIndex, 0);
+        using MediaType nativeType = sourceReader.GetNativeMediaType(readerIndex, 0);
 
         Guid majorType = nativeType.Get(MediaTypeAttributeKeys.MajorType);
         Guid subType;
 
-        var type = new MediaType();
+        using var type = new MediaType();
         type.Set(MediaTypeAttributeKeys.MajorType, majorType);
 
         // Select a subtype.
@@ -643,7 +645,7 @@ internal sealed class MFDecoder : IDisposable
         {
             try
             {
-                MediaType currentMediaType = sourceReader.GetCurrentMediaType(streamIndex);
+                using MediaType currentMediaType = sourceReader.GetCurrentMediaType(streamIndex);
 
                 sourceReader.GetStreamSelection(streamIndex, out SharpDX.Mathematics.Interop.RawBool selected);
                 if (!selected)
@@ -723,7 +725,7 @@ internal sealed class MFDecoder : IDisposable
         }
         if (_mediaInfo.AudioStreamIndex != -1)
         {   // audio
-            MediaType mediaType = sourceReader.GetCurrentMediaType(_mediaInfo.AudioStreamIndex);
+            using MediaType mediaType = sourceReader.GetCurrentMediaType(_mediaInfo.AudioStreamIndex);
 
             uint pcbSize = 0;
             HRESULT hr = PInvoke.MFCreateWaveFormatExFromMFMediaType(
@@ -745,6 +747,49 @@ internal sealed class MFDecoder : IDisposable
 
         _logger.LogInformation("ChechMediaInfo: \n{MediaInfo}", _mediaInfo.GetMediaInfoText());
     }
+
+    private void TestFirstReadSample()
+    {
+        long firstVideoTimeStamp = 0;
+        long firstAudioTimeStamp = 0;
+
+        if (_mediaInfo.VideoStreamIndex != -1 && _options.StreamsToLoad.HasFlag(MediaMode.Video))
+        {
+            Sample? spSample = ReadSample(_mediaInfo.VideoStreamIndex) ?? throw new Exception("TestFirstReadSample() failed");
+            _logger.LogInformation(
+                "TestFirstReadSample m_firstVideoTimeStamp: {_currentVideoTimeStamp} ({seconds})",
+                _currentVideoTimeStamp, TimestampUtilities.ConvertSecFrom100ns(_currentVideoTimeStamp));
+            firstVideoTimeStamp = _currentVideoTimeStamp;
+            SeekVideo(0);
+            _currentVideoTimeStamp = 0;
+        }
+        if (_mediaInfo.AudioStreamIndex != -1 && _options.StreamsToLoad.HasFlag(MediaMode.Audio))
+        {
+            Sample? spSample = ReadSample(_mediaInfo.AudioStreamIndex) ?? throw new Exception("TestFirstReadSample() failed");
+            _logger.LogInformation(
+                "TestFirstReadSample m_firstAudioTimeStamp: {m_currentAudioTimeStamp} ({seconds})",
+                _currentAudioTimeStamp, TimestampUtilities.ConvertSecFrom100ns(_currentAudioTimeStamp));
+            firstAudioTimeStamp = _currentAudioTimeStamp;
+            SeekAudio(0);
+            _currentAudioTimeStamp = 0;
+        }
+        if (_mediaInfo.VideoStreamIndex != -1
+            && _mediaInfo.AudioStreamIndex != -1
+             && _options.StreamsToLoad == MediaMode.AudioVideo)
+        {
+            if (firstVideoTimeStamp != firstAudioTimeStamp)
+            {
+                //ATLASSERT(FALSE);
+                _logger.LogWarning(
+                    "fisrt timestamp gapped - firstVideoTimeStamp: {firstVideoTimeStamp} firstAudioTimestamp: {firstAudioTimestamp}",
+                    firstVideoTimeStamp, firstAudioTimeStamp);
+            }
+        }
+
+        _firstGapTimeStamp = Math.Max(firstVideoTimeStamp, firstAudioTimeStamp);
+        _logger.LogInformation("TestFirstReadSample - m_firstGapTimeStamp: {_firstGapTimeStamp}", _firstGapTimeStamp);
+    }
+
 
     public void Dispose()
     {
