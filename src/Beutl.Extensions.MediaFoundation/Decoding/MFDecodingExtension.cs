@@ -1,4 +1,5 @@
 ﻿using Beutl.Extensibility;
+using Beutl.Extensions.MediaFoundation.Properties;
 using Beutl.Media.Decoding;
 
 using SharpDX.MediaFoundation;
@@ -14,7 +15,7 @@ public sealed class MFDecodingExtension : DecodingExtension
 {
     public override string Name => "MediaFoundationDecoding";
 
-    public override string DisplayName => "Media Foundation Decoding";
+    public override string DisplayName => Strings.DecodingName;
 
     public override MFDecodingSettings Settings { get; } = new MFDecodingSettings();
 

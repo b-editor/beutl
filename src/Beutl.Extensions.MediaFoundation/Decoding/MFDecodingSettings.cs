@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
 using Beutl.Extensibility;
+using Beutl.Extensions.MediaFoundation.Properties;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
@@ -29,7 +30,7 @@ public sealed class MFDecodingSettings : ExtensionSettings
         ThresholdSampleCountProperty = ConfigureProperty<int, MFDecodingSettings>(nameof(ThresholdSampleCount))
             .DefaultValue(30000)
             .Register();
-        
+
         MaxVideoBufferSizeProperty = ConfigureProperty<int, MFDecodingSettings>(nameof(MaxVideoBufferSize))
             .DefaultValue(4)
             .Register();
@@ -41,6 +42,7 @@ public sealed class MFDecodingSettings : ExtensionSettings
         AffectsConfig<MFDecodingSettings>(UseDXVA2Property);
     }
 
+    [Display(Name = nameof(Strings.UseDXVA2), Description = nameof(Strings.UseDXVA2_Description), ResourceType = typeof(Strings))]
     public bool UseDXVA2
     {
         get => GetValue(UseDXVA2Property);
@@ -48,13 +50,21 @@ public sealed class MFDecodingSettings : ExtensionSettings
     }
 
     [Range(1, int.MaxValue)]
+    [Display(
+        Name = nameof(Strings.SeekThresholdInVideoStream),
+        Description = nameof(Strings.SeekThresholdInVideoStream_Description),
+        ResourceType = typeof(Strings))]
     public int ThresholdFrameCount
     {
         get => GetValue(ThresholdFrameCountProperty);
         set => SetValue(ThresholdFrameCountProperty, value);
     }
-    
+
     [Range(1, int.MaxValue)]
+    [Display(
+        Name = nameof(Strings.SeekThresholdInAudioStream),
+        Description = nameof(Strings.SeekThresholdInAudioStream_Description),
+        ResourceType = typeof(Strings))]
     public int ThresholdSampleCount
     {
         get => GetValue(ThresholdSampleCountProperty);
@@ -62,7 +72,10 @@ public sealed class MFDecodingSettings : ExtensionSettings
     }
 
     [Range(1, int.MaxValue)]
-    [Display(GroupName = "Cache")]
+    [Display(
+        Name = nameof(Strings.MaxVideoBufferSize),
+        GroupName = nameof(Strings.Cache),
+        ResourceType = typeof(Strings))]
     public int MaxVideoBufferSize
     {
         get => GetValue(MaxVideoBufferSizeProperty);
@@ -70,7 +83,10 @@ public sealed class MFDecodingSettings : ExtensionSettings
     }
 
     [Range(1, int.MaxValue)]
-    [Display(GroupName = "Cache")]
+    [Display(
+        Name = nameof(Strings.MaxAudioBufferSize),
+        GroupName = nameof(Strings.Cache),
+        ResourceType = typeof(Strings))]
     public int MaxAudioBufferSize
     {
         get => GetValue(MaxAudioBufferSizeProperty);

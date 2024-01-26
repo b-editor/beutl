@@ -46,7 +46,7 @@ public class MFReader : MediaReader
                     info.VideoFormatName ?? "Unknown",
                     info.TotalFrameCount,
                     new PixelSize(info.ImageFormat.Width, info.ImageFormat.Height),
-                    new Rational(info.Numerator, info.Denominator));
+                    new Rational(info.Fps.Numerator, info.Fps.Denominator));
                 HasVideo = true;
             }
 

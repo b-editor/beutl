@@ -1,4 +1,5 @@
-﻿using Beutl.Media.Decoding;
+﻿using Beutl.Extensions.MediaFoundation.Properties;
+using Beutl.Media.Decoding;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
@@ -8,7 +9,7 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 
 public sealed class MFDecoderInfo(MFDecodingExtension extension) : IDecoderInfo
 {
-    public string Name => "Media Foundation Decoder";
+    public string Name => Strings.DecodingName;
 
     //https://learn.microsoft.com/ja-jp/windows/win32/medfound/supported-media-formats-in-media-foundation
     public IEnumerable<string> AudioExtensions()
