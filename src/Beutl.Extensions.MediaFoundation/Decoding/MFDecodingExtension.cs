@@ -1,8 +1,5 @@
 ﻿using Beutl.Extensibility;
-using Beutl.Logging;
 using Beutl.Media.Decoding;
-
-using Microsoft.Extensions.Logging;
 
 using SharpDX.MediaFoundation;
 
@@ -28,17 +25,20 @@ public sealed class MFDecodingExtension : DecodingExtension
 
     public override void Load()
     {
-        base.Load();
-
-        MFThread.Dispatcher.Invoke(() =>
+        if (OperatingSystem.IsWindows())
         {
-            Thread.CurrentThread.IsBackground = true;
-            Thread.CurrentThread.Name = "Beutl.MediaFoundation";
-            MediaManager.Startup();
-        });
+            DecoderRegistry.Register(GetDecoderInfo());
 
-        AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
-        AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+            MFThread.Dispatcher.Invoke(() =>
+            {
+                Thread.CurrentThread.IsBackground = true;
+                Thread.CurrentThread.Name = "Beutl.MediaFoundation";
+                MediaManager.Startup();
+            });
+
+            AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
+            AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+        }
     }
 
     private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)

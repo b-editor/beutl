@@ -83,6 +83,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
 
 #if MF_BUILD_IN
 #pragma warning disable CS0436
+                if (OperatingSystem.IsWindows())
                 {
                     activity?.AddEvent(new("Loading_MediaFoundation"));
 
