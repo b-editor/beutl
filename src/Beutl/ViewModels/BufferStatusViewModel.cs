@@ -1,5 +1,7 @@
 ﻿using System.Collections.Immutable;
 
+using Avalonia.Threading;
+
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -8,6 +10,7 @@ public sealed class BufferStatusViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly EditViewModel _editViewModel;
+    private CancellationTokenSource? _cts;
 
     public BufferStatusViewModel(EditViewModel editViewModel)
     {
@@ -29,8 +32,12 @@ public sealed class BufferStatusViewModel : IDisposable
 
     private void OnFrameCacheManagerBlocksUpdated(ImmutableArray<(int Start, int Length)> obj)
     {
-        CacheBlocks.Value = obj.SelectArray(
-            v => new CacheBlock(_editViewModel.Player.GetFrameRate(), v.Start, v.Length));
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        Dispatcher.UIThread.InvokeAsync(
+            () => CacheBlocks.Value = obj.SelectArray(v => new CacheBlock(_editViewModel.Player.GetFrameRate(), v.Start, v.Length)),
+            DispatcherPriority.Background,
+            _cts.Token);
     }
 
     public ReactivePropertySlim<TimeSpan> StartTime { get; } = new();

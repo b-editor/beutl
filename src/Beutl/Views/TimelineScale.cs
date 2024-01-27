@@ -57,7 +57,8 @@ public sealed class TimelineScale : Control
             EndingBarMarginProperty,
             SeekBarMarginProperty,
             BufferStartProperty,
-            BufferEndProperty);
+            BufferEndProperty,
+            CacheBlocksProperty);
     }
 
     public TimelineScale()

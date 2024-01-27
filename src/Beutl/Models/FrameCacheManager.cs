@@ -1,6 +1,8 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+
+using Beutl.Configuration;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Pixel;
@@ -14,8 +16,8 @@ public sealed class FrameCacheManager : IDisposable
     private readonly SortedDictionary<int, CacheEntry> _entries = [];
     private readonly object _lock = new();
     private readonly PixelSize _frameSize;
+    private readonly ulong _maxSize;
     private ulong _size;
-    private const ulong MaxSize = 1024 * 1024 * 1024;
 
     public event Action<int>? Added;
     public event Action<int[]>? Removed;
@@ -24,6 +26,7 @@ public sealed class FrameCacheManager : IDisposable
     public FrameCacheManager(PixelSize frameSize)
     {
         _frameSize = frameSize;
+        _maxSize = (ulong)(GlobalConfiguration.Instance.EditorConfig.FrameCacheMaxSize * 1024 * 1024);
     }
 
     public ImmutableArray<(int Start, int Length)> Blocks { get; private set; }
@@ -44,7 +47,7 @@ public sealed class FrameCacheManager : IDisposable
             }
         }
 
-        if (_size >= MaxSize)
+        if (_size >= _maxSize)
         {
             Task.Run(Optimize);
         }
@@ -165,9 +168,9 @@ public sealed class FrameCacheManager : IDisposable
     {
         lock (_lock)
         {
-            if (_size >= MaxSize)
+            if (_size >= _maxSize)
             {
-                ulong excess = _size - MaxSize;
+                ulong excess = _size - _maxSize;
                 int sizePerCache = _frameSize.Width * _frameSize.Height * 4;
                 var targetCount = excess / (ulong)sizePerCache;
 
@@ -177,7 +180,7 @@ public sealed class FrameCacheManager : IDisposable
                     .ToArray();
                 foreach (KeyValuePair<int, CacheEntry> item in items)
                 {
-                    if (_size < MaxSize)
+                    if (_size < _maxSize)
                         break;
 
                     item.Value.Dispose();

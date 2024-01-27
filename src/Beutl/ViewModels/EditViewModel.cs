@@ -75,6 +75,18 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
         RestoreState();
 
+        scene.GetPropertyChangedObservable(Scene.RendererProperty)
+            .Subscribe(e =>
+            {
+                if (e.NewValue != null)
+                {
+                    FrameCacheManager old = FrameCacheManager;
+                    FrameCacheManager = new FrameCacheManager(e.NewValue.FrameSize);
+                    old.Dispose();
+                }
+            })
+            .DisposeWith(_disposables);
+
         SelectedObject.CombineWithPrevious()
             .Subscribe(v =>
             {
