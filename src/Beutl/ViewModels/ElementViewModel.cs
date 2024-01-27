@@ -270,6 +270,14 @@ public sealed class ElementViewModel : IDisposable
         TimeSpan start = BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate);
         TimeSpan length = Width.Value.ToTimeSpan(scale).RoundToRate(rate);
         int zindex = Timeline.ToLayerNumber(Margin.Value);
+
+        if (zindex == Model.ZIndex
+            && start == Model.Start
+            && length == Model.Length)
+        {
+            return;
+        }
+
         Scene.MoveChild(zindex, start, length, Model)
             .DoAndRecord(recorder);
 

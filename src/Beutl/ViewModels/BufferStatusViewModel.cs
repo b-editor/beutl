@@ -1,4 +1,6 @@
-﻿using Reactive.Bindings;
+﻿using System.Collections.Immutable;
+
+using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
@@ -16,13 +18,19 @@ public sealed class BufferStatusViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IObservable<TimeSpan> length = EndTime.CombineLatest(StartTime)
-            .Select(v => v.First - v.Second);
-
-        Width = length.CombineLatest(editViewModel.Scale)
-            .Select(v => Math.Max(0, v.First.ToPixel(v.Second)))
+        End = EndTime.CombineLatest(editViewModel.Scale)
+            .Select(v => v.First.ToPixel(v.Second))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
+
+        editViewModel.FrameCacheManager.BlocksUpdated += OnFrameCacheManagerBlocksUpdated;
+        _disposables.Add(Disposable.Create(editViewModel.FrameCacheManager, m => m.BlocksUpdated -= OnFrameCacheManagerBlocksUpdated));
+    }
+
+    private void OnFrameCacheManagerBlocksUpdated(ImmutableArray<(int Start, int Length)> obj)
+    {
+        CacheBlocks.Value = obj.SelectArray(
+            v => new CacheBlock(_editViewModel.Player.GetFrameRate(), v.Start, v.Length));
     }
 
     public ReactivePropertySlim<TimeSpan> StartTime { get; } = new();
@@ -31,10 +39,26 @@ public sealed class BufferStatusViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<double> Start { get; }
 
-    public ReadOnlyReactivePropertySlim<double> Width { get; }
+    public ReadOnlyReactivePropertySlim<double> End { get; }
+
+    public ReactivePropertySlim<CacheBlock[]> CacheBlocks { get; } = new([]);
+
+    public sealed class CacheBlock
+    {
+        public CacheBlock(int rate, int start, int length)
+        {
+            Start = TimeSpanExtensions.ToTimeSpan(start, rate);
+            Length = TimeSpanExtensions.ToTimeSpan(length, rate);
+        }
+
+        public TimeSpan Start { get; }
+
+        public TimeSpan Length { get; }
+    }
 
     public void Dispose()
     {
         _disposables.Dispose();
+        CacheBlocks.Value = [];
     }
 }

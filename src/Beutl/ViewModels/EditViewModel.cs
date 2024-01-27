@@ -61,6 +61,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             .DisposeWith(_disposables);
         Commands = new KnownCommandsImpl(scene, this);
         CommandRecorder = new CommandRecorder();
+        FrameCacheManager = new FrameCacheManager(new(scene.Width, scene.Height));
         SelectedObject = new ReactiveProperty<CoreObject?>()
             .DisposeWith(_disposables);
 
@@ -97,6 +98,20 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     private void OnCommandRecorderExecuted(object? sender, CommandExecutedEventArgs e)
     {
+        int rate = Player.GetFrameRate();
+        bool removedAnyCache = false;
+        foreach (Element item in e.Storables.OfType<Element>())
+        {
+            int st = (int)item.Start.ToFrameNumber(rate);
+            int ed = (int)Math.Ceiling(item.Range.End.ToFrameNumber(rate));
+            removedAnyCache |= FrameCacheManager.RemoveRange(st, ed);
+        }
+
+        if (removedAnyCache)
+        {
+            FrameCacheManager.UpdateBlocks();
+        }
+
         if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled)
         {
             Dispatcher.UIThread.Invoke(() =>
@@ -151,6 +166,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public CommandRecorder CommandRecorder { get; private set; }
 
+    public FrameCacheManager FrameCacheManager { get; private set; }
+
     public EditorExtension Extension => SceneEditorExtension.Instance;
 
     public string EdittingFile => Scene.FileName;
@@ -195,6 +212,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         CommandRecorder.Executed -= OnCommandRecorderExecuted;
         CommandRecorder.Clear();
         CommandRecorder = null!;
+        FrameCacheManager.Dispose();
+        FrameCacheManager = null!;
     }
 
     public T? FindToolTab<T>(Func<T, bool> condition)

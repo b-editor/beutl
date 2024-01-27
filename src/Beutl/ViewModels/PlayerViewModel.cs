@@ -1,6 +1,4 @@
-﻿using System.Collections.Concurrent;
-
-using Avalonia.Media.Imaging;
+﻿using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 
 using Beutl.Audio.Platforms.OpenAL;
@@ -13,6 +11,8 @@ using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
+using Beutl.Media.Source;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;
 using Beutl.Rendering.Cache;
@@ -29,155 +29,6 @@ using SkiaSharp;
 using Vortice.Multimedia;
 
 namespace Beutl.ViewModels;
-
-interface IPlayer : IDisposable
-{
-    public record struct Frame(Bitmap<Bgra8888> Bitmap, TimeSpan Time);
-
-    void Start();
-
-    bool TryDequeue(out Frame frame);
-}
-
-class BufferedPlayer : IPlayer
-{
-    private readonly ILogger _logger = Log.CreateLogger<BufferedPlayer>();
-    private readonly ConcurrentQueue<IPlayer.Frame> _queue = new();
-    private readonly EditViewModel _editViewModel;
-    private readonly Scene _scene;
-    private readonly IReadOnlyReactiveProperty<bool> _isPlaying;
-    private readonly TaskCompletionSource _tsc;
-    private readonly int _rate;
-    private volatile CancellationTokenSource? _waitRenderToken;
-    private volatile TaskCompletionSource? _waitTimerTcs;
-    private readonly IDisposable _disposable;
-    private TimeSpan? _requestedFrame;
-    private bool _isDisposed;
-
-    public BufferedPlayer(
-        EditViewModel editViewModel,
-        Scene scene, IReactiveProperty<bool> isPlaying,
-        TaskCompletionSource tsc, int rate)
-    {
-        _editViewModel = editViewModel;
-        _scene = scene;
-        _isPlaying = isPlaying;
-        _tsc = tsc;
-        _rate = rate;
-
-        _disposable = isPlaying.Where(v => !v).Subscribe(_ =>
-        {
-            _waitRenderToken?.Cancel();
-            _waitTimerTcs?.TrySetResult();
-        });
-    }
-
-    public void Start()
-    {
-        TimeSpan start = _scene.CurrentFrame;
-        TimeSpan tick = TimeSpan.FromSeconds(1d / _rate);
-        TimeSpan duration = _scene.Duration;
-
-        RenderThread.Dispatcher.Dispatch(async () =>
-        {
-            try
-            {
-                for (TimeSpan time = start; time < duration; time += tick)
-                {
-                    if (!_isPlaying.Value)
-                        break;
-
-                    time = time.RoundToRate(_rate);
-
-                    if (_queue.Count >= 120)
-                    {
-                        Debug.WriteLine("wait timer");
-                        await WaitTimer();
-                    }
-
-                    if (!_isPlaying.Value)
-                        break;
-
-                    if (_scene.Renderer.Render(time))
-                    {
-                        Debug.WriteLine($"{time} rendered.");
-                        _queue.Enqueue(new(_scene.Renderer.Snapshot(), time));
-                        _waitRenderToken?.Cancel();
-
-                        _editViewModel.BufferStatus.EndTime.Value = time;
-                    }
-
-                    TimeSpan? requestedFrame = _requestedFrame;
-                    if (requestedFrame.HasValue)
-                    {
-                        time = requestedFrame.Value + (tick * 2);
-                        _requestedFrame = null;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_while_drawing_frame);
-                _logger.LogError(ex, "An exception occurred while drawing the frame.");
-            }
-            finally
-            {
-                _tsc.TrySetResult();
-            }
-        });
-    }
-
-    public bool TryDequeue(out IPlayer.Frame frame)
-    {
-        _waitTimerTcs?.TrySetResult();
-        if (_queue.TryDequeue(out IPlayer.Frame f))
-        {
-            frame = f;
-            return true;
-        }
-
-        Debug.WriteLine("wait rendered");
-        WaitRender();
-
-        return _queue.TryDequeue(out frame);
-    }
-
-    private void WaitRender()
-    {
-        if (_isDisposed) return;
-        _waitRenderToken = new CancellationTokenSource();
-
-        _waitRenderToken.Token.WaitHandle.WaitOne(TimeSpan.FromSeconds(1d / _rate));
-        _waitRenderToken = null;
-    }
-
-    private async ValueTask WaitTimer()
-    {
-        if (_isDisposed) return;
-        _waitTimerTcs = new TaskCompletionSource();
-
-        await _waitTimerTcs.Task;
-        _waitTimerTcs = null;
-    }
-
-    public void Skipped(TimeSpan requested)
-    {
-        Debug.WriteLine($"{requested} skipped");
-        _requestedFrame = requested;
-    }
-
-    public void Dispose()
-    {
-        _isDisposed = true;
-        _waitRenderToken?.Cancel();
-        _waitTimerTcs?.TrySetResult();
-        _disposable.Dispose();
-        while (_queue.TryDequeue(out var f))
-        {
-            f.Bitmap.Dispose();
-        }
-    }
-}
 
 public sealed class PlayerViewModel : IDisposable
 {
@@ -320,11 +171,13 @@ public sealed class PlayerViewModel : IDisposable
                 int rate = GetFrameRate();
 
                 TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
-                TimeSpan startFrame = Scene.CurrentFrame;
-                TimeSpan duration = Scene.Duration;
+                TimeSpan startTime = Scene.CurrentFrame;
+                TimeSpan durationTime = Scene.Duration;
+                int startFrame = (int)startTime.ToFrameNumber(rate);
+                int durationFrame = (int)Math.Ceiling(durationTime.ToFrameNumber(rate));
                 var tcs = new TaskCompletionSource();
-                _editViewModel.BufferStatus.StartTime.Value = startFrame;
-                _editViewModel.BufferStatus.EndTime.Value = startFrame;
+                _editViewModel.BufferStatus.StartTime.Value = startTime;
+                _editViewModel.BufferStatus.EndTime.Value = startTime;
 
                 using var playerImpl = new BufferedPlayer(_editViewModel, Scene, IsPlaying, tcs, rate);
                 playerImpl.Start();
@@ -335,11 +188,9 @@ public sealed class PlayerViewModel : IDisposable
                 bool timerProcessing = false;
                 timer.Elapsed += (_, e) =>
                 {
-                    startFrame += tick;
-                    TimeSpan time = startFrame;
-                    time = time.RoundToRate(rate);
+                    startFrame++;
 
-                    if (time >= duration || !IsPlaying.Value)
+                    if (startFrame >= durationFrame || !IsPlaying.Value)
                     {
                         timer.Stop();
                         tcs.TrySetResult();
@@ -348,7 +199,7 @@ public sealed class PlayerViewModel : IDisposable
 
                     if (timerProcessing)
                     {
-                        playerImpl.Skipped(time);
+                        playerImpl.Skipped(startFrame);
                         return;
                     }
 
@@ -358,14 +209,14 @@ public sealed class PlayerViewModel : IDisposable
 
                         if (playerImpl.TryDequeue(out IPlayer.Frame frame))
                         {
+                            // 所有権が移転したので
                             using (frame.Bitmap)
                             {
-                                UpdateImage(frame.Bitmap);
+                                UpdateImage(frame.Bitmap.Value);
 
                                 if (Scene != null)
                                 {
-                                    Scene.CurrentFrame = frame.Time;
-                                    _editViewModel.BufferStatus.StartTime.Value = frame.Time;
+                                    Scene.CurrentFrame = TimeSpanExtensions.ToTimeSpan(frame.Time, rate);
                                 }
                             }
                         }
@@ -378,7 +229,10 @@ public sealed class PlayerViewModel : IDisposable
                 timer.Start();
 
                 await tcs.Task;
+                _editViewModel.FrameCacheManager.UpdateBlocks();
                 IsPlaying.Value = false;
+                _editViewModel.BufferStatus.StartTime.Value = TimeSpan.Zero;
+                _editViewModel.BufferStatus.EndTime.Value = TimeSpan.Zero;
             }
             catch (Exception ex)
             {
@@ -392,7 +246,7 @@ public sealed class PlayerViewModel : IDisposable
         });
     }
 
-    private int GetFrameRate()
+    public int GetFrameRate()
     {
         int rate = Project?.GetFrameRate() ?? 30;
         if (rate <= 0)
@@ -603,7 +457,7 @@ public sealed class PlayerViewModel : IDisposable
         PreviewInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
-    private void DrawBoundaries(Renderer renderer)
+    private void DrawBoundaries(Renderer renderer, ImmediateCanvas canvas)
     {
         int? selected = _editViewModel.SelectedLayerNumber.Value;
         if (selected.HasValue)
@@ -613,14 +467,13 @@ public sealed class PlayerViewModel : IDisposable
             if (scale == 0)
                 scale = 1;
 
-            ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
             Rect[] boundary = renderer.RenderScene[selected.Value].GetBoundaries();
             if (boundary.Length > 0)
             {
-                var pen = new Media.Immutable.ImmutablePen(Media.Brushes.White, null, 0, 1 / scale);
+                var pen = new Media.Immutable.ImmutablePen(Brushes.White, null, 0, 1 / scale);
                 bool exactBounds = GlobalConfiguration.Instance.ViewConfig.ShowExactBoundaries;
 
-                foreach (Rect item in renderer.RenderScene[selected.Value].GetBoundaries())
+                foreach (Rect item in boundary)
                 {
                     Rect rect = item;
                     if (!exactBounds)
@@ -642,13 +495,47 @@ public sealed class PlayerViewModel : IDisposable
             {
                 try
                 {
-                    if (Scene is { Renderer: Renderer renderer }
-                        && renderer.Render(Scene.CurrentFrame))
-                    {
-                        DrawBoundaries(renderer);
+                    if (Scene is not { Renderer: SceneRenderer renderer }) return;
+                    int rate = GetFrameRate();
+                    TimeSpan time = Scene.CurrentFrame;
+                    int frame = (int)Math.Round(time.ToFrameNumber(rate), MidpointRounding.AwayFromZero);
+                    time = TimeSpanExtensions.ToTimeSpan(frame, rate);
+                    Bitmap<Bgra8888>? bitmap = null;
 
-                        using Media.Bitmap<Bgra8888> bitmap = renderer.Snapshot();
-                        UpdateImage(bitmap);
+                    if (_editViewModel.FrameCacheManager.TryGet(frame, out var cache))
+                    {
+                        using (cache)
+                        {
+                            renderer.GraphicsEvaluator.Evaluate();
+
+                            ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
+                            canvas.Clear();
+                            canvas.DrawBitmap(cache.Value, Brushes.White, null);
+                            DrawBoundaries(renderer, canvas);
+
+                            bitmap = renderer.Snapshot();
+                        }
+                    }
+                    else if (renderer.Render(time))
+                    {
+                        using (var forCache = Ref<Bitmap<Bgra8888>>.Create(renderer.Snapshot()))
+                        {
+                            _editViewModel.FrameCacheManager.Add(frame, forCache);
+                            _editViewModel.FrameCacheManager.UpdateBlocks();
+                        }
+
+                        ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
+                        DrawBoundaries(renderer, canvas);
+
+                        bitmap = renderer.Snapshot();
+                    }
+
+                    if (bitmap != null)
+                    {
+                        using (bitmap)
+                        {
+                            UpdateImage(bitmap);
+                        }
                     }
                 }
                 catch (Exception ex)

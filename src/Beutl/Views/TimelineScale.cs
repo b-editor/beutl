@@ -7,6 +7,8 @@ using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 using Avalonia.Threading;
 
+using static Beutl.ViewModels.BufferStatusViewModel;
+
 namespace Beutl.Views;
 
 public sealed class TimelineScale : Control
@@ -32,8 +34,11 @@ public sealed class TimelineScale : Control
     public static readonly StyledProperty<double> BufferStartProperty
         = AvaloniaProperty.Register<TimelineScale, double>(nameof(BufferStart));
 
-    public static readonly StyledProperty<double> BufferLengthProperty
-        = AvaloniaProperty.Register<TimelineScale, double>(nameof(BufferLength));
+    public static readonly StyledProperty<double> BufferEndProperty
+        = AvaloniaProperty.Register<TimelineScale, double>(nameof(BufferEnd));
+
+    public static readonly StyledProperty<CacheBlock[]?> CacheBlocksProperty
+        = AvaloniaProperty.Register<TimelineScale, CacheBlock[]?>(nameof(CacheBlocks));
 
     private static readonly Typeface s_typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Medium);
     private readonly Pen _pen;
@@ -52,7 +57,7 @@ public sealed class TimelineScale : Control
             EndingBarMarginProperty,
             SeekBarMarginProperty,
             BufferStartProperty,
-            BufferLengthProperty);
+            BufferEndProperty);
     }
 
     public TimelineScale()
@@ -91,10 +96,16 @@ public sealed class TimelineScale : Control
         set => SetValue(BufferStartProperty, value);
     }
 
-    public double BufferLength
+    public double BufferEnd
     {
-        get => GetValue(BufferLengthProperty);
-        set => SetValue(BufferLengthProperty, value);
+        get => GetValue(BufferEndProperty);
+        set => SetValue(BufferEndProperty, value);
+    }
+
+    public CacheBlock[]? CacheBlocks
+    {
+        get => GetValue(CacheBlocksProperty);
+        set => SetValue(CacheBlocksProperty, value);
     }
 
     protected override void OnLoaded(RoutedEventArgs e)
@@ -166,9 +177,22 @@ public sealed class TimelineScale : Control
                 }
             }
 
-            context.DrawRectangle(
-                TimelineSharedObject.BufferRangeFillBrush, null,
-                new RoundedRect(new Rect(BufferStart, Height - 4, BufferLength, 4)));
+            if (CacheBlocks != null)
+            {
+                foreach (CacheBlock item in CacheBlocks)
+                {
+                    context.DrawRectangle(
+                        TimelineSharedObject.CacheBlockFillBrush, null,
+                        new RoundedRect(new Rect(item.Start.ToPixel(Scale), Height - 4, item.Length.ToPixel(Scale), 4)));
+                }
+            }
+
+            if (BufferEnd != BufferStart)
+            {
+                context.DrawRectangle(
+                    TimelineSharedObject.BufferRangeFillBrush, null,
+                    new RoundedRect(new Rect(BufferStart, Height - 4, BufferEnd - BufferStart, 4)));
+            }
 
             var size = new Size(1.25, height);
             var seekbar = new Point(_seekBarMargin.Left, 0);
