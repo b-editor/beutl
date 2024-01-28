@@ -24,7 +24,7 @@ public class BufferedPlayer : IPlayer
     private readonly TaskCompletionSource _tsc;
     private readonly int _rate;
     private volatile CancellationTokenSource? _waitRenderToken;
-    private volatile TaskCompletionSource? _waitTimerTcs;
+    private volatile CancellationTokenSource? _waitTimerToken;
     private readonly IDisposable _disposable;
     private int? _requestedFrame;
     private bool _isDisposed;
@@ -44,7 +44,7 @@ public class BufferedPlayer : IPlayer
         _disposable = isPlaying.Where(v => !v).Subscribe(_ =>
         {
             _waitRenderToken?.Cancel();
-            _waitTimerTcs?.TrySetResult();
+            _waitTimerToken?.Cancel();
         });
     }
 
@@ -53,7 +53,7 @@ public class BufferedPlayer : IPlayer
         int startFrame = (int)_scene.CurrentFrame.ToFrameNumber(_rate);
         int durationFrame = (int)Math.Ceiling(_scene.Duration.ToFrameNumber(_rate));
 
-        RenderThread.Dispatcher.Dispatch(async () =>
+        RenderThread.Dispatcher.Dispatch(() =>
         {
             try
             {
@@ -65,7 +65,7 @@ public class BufferedPlayer : IPlayer
                     if (_queue.Count >= 120)
                     {
                         Debug.WriteLine("wait timer");
-                        await WaitTimer();
+                        WaitTimer();
                     }
 
                     if (!_isPlaying.Value)
@@ -118,12 +118,12 @@ public class BufferedPlayer : IPlayer
             {
                 _tsc.TrySetResult();
             }
-        });
+        }, Threading.DispatchPriority.High);
     }
 
     public bool TryDequeue(out IPlayer.Frame frame)
     {
-        _waitTimerTcs?.TrySetResult();
+        _waitTimerToken?.Cancel();
         if (_queue.TryDequeue(out IPlayer.Frame f))
         {
             frame = f;
@@ -145,13 +145,13 @@ public class BufferedPlayer : IPlayer
         _waitRenderToken = null;
     }
 
-    private async ValueTask WaitTimer()
+    private void WaitTimer()
     {
         if (_isDisposed) return;
-        _waitTimerTcs = new TaskCompletionSource();
+        _waitTimerToken = new CancellationTokenSource();
 
-        await _waitTimerTcs.Task;
-        _waitTimerTcs = null;
+        _waitTimerToken.Token.WaitHandle.WaitOne();
+        _waitTimerToken = null;
     }
 
     public void Skipped(int requestedFrame)
@@ -164,7 +164,7 @@ public class BufferedPlayer : IPlayer
     {
         _isDisposed = true;
         _waitRenderToken?.Cancel();
-        _waitTimerTcs?.TrySetResult();
+        _waitTimerToken?.Cancel();
         _disposable.Dispose();
         while (_queue.TryDequeue(out var f))
         {
