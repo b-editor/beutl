@@ -837,13 +837,16 @@ public class Scene : ProjectItem
         Element element,
         TimeSpan newStart, TimeSpan oldStart,
         TimeSpan newLength, TimeSpan oldLength,
-        Scene scene) : IRecordableCommand
+        Scene scene) : IRecordableCommand, IAffectsTimelineCommand
     {
         private readonly int _oldZIndex = element.ZIndex;
         private readonly TimeSpan _oldSceneDuration = scene.Duration;
         private readonly bool _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
 
         public ImmutableArray<IStorable?> GetStorables() => [scene, element];
+
+        public ImmutableArray<TimeRange> GetAffectedRange()
+            => [new TimeRange(newStart, newLength), new TimeRange(oldStart, oldLength)];
 
         public void Do()
         {
@@ -922,6 +925,7 @@ public class Scene : ProjectItem
         private readonly bool _adjustSceneDuration;
         private readonly TimeSpan _oldSceneDuration;
         private readonly TimeSpan _newSceneDuration;
+        private readonly ImmutableArray<TimeRange> _affectedRange;
 
         public MultipleMoveCommand(
             Scene scene,
@@ -963,6 +967,13 @@ public class Scene : ProjectItem
                 {
                     _newSceneDuration = maxEndingTime;
                 }
+            }
+
+            if (!_conflict)
+            {
+                _affectedRange = elements
+                    .SelectMany(v => new[] { v.Range, v.Range.AddStart(_deltaTime) })
+                    .ToImmutableArray();
             }
         }
 
@@ -1026,6 +1037,8 @@ public class Scene : ProjectItem
 
             return [_scene, .. _elements];
         }
+
+        public ImmutableArray<TimeRange> GetAffectedRange() => _affectedRange;
 
         public void Do()
         {

@@ -95,6 +95,24 @@ public sealed class FrameCacheManager : IDisposable
         }
     }
 
+    public void RemoveAndUpdateBlocks(IEnumerable<(int Start, int End)> timeRanges)
+    {
+        lock (_lock)
+        {
+            bool removedAnyCache = false;
+
+            foreach ((int Start, int End) in timeRanges)
+            {
+                removedAnyCache |= RemoveRange(Start, End);
+            }
+
+            if (removedAnyCache)
+            {
+                UpdateBlocks();
+            }
+        }
+    }
+
     public void Dispose()
     {
         lock (_lock)

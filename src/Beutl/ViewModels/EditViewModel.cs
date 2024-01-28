@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Collections.Immutable;
+using System.Numerics;
 using System.Text.Json.Nodes;
 using System.Windows.Input;
 
@@ -110,19 +111,16 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     private void OnCommandRecorderExecuted(object? sender, CommandExecutedEventArgs e)
     {
-        int rate = Player.GetFrameRate();
-        bool removedAnyCache = false;
-        foreach (Element item in e.Storables.OfType<Element>())
+        Task.Run(() =>
         {
-            int st = (int)item.Start.ToFrameNumber(rate);
-            int ed = (int)Math.Ceiling(item.Range.End.ToFrameNumber(rate));
-            removedAnyCache |= FrameCacheManager.RemoveRange(st, ed);
-        }
+            int rate = Player.GetFrameRate();
+            IEnumerable<TimeRange> affectedRange = e.Command is IAffectsTimelineCommand affectsTimeline
+                ? affectsTimeline.GetAffectedRange()
+                : e.Storables.OfType<Element>().Select(v => v.Range);
 
-        if (removedAnyCache)
-        {
-            FrameCacheManager.UpdateBlocks();
-        }
+            FrameCacheManager.RemoveAndUpdateBlocks(affectedRange
+                .Select(item => (Start: (int)item.Start.ToFrameNumber(rate), End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
+        });
 
         if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled)
         {
