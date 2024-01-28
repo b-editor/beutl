@@ -61,6 +61,11 @@
             </local:TimelineScale.ContextFlyout>
         </local:TimelineScale>
 
+        <ui:TeachingTip x:Name="CacheTip"
+                        Title="フレームキャッシュ"
+                        Subtitle="右クリックでキャッシュの操作ができます"
+                        Target="{Binding #Scale}" />
+
         <Grid ClipToBounds="True">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="12" />

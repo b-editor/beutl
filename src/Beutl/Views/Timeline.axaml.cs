@@ -417,6 +417,21 @@ public sealed partial class Timeline : UserControl
                 _rangeSelection.Clear();
             }
 
+            if (Scale.IsPointerOver && ViewModel.HoveredCacheBlock.Value is { } cache)
+            {
+                long size = ViewModel.Scene.Width * ViewModel.Scene.Height * 4L;
+                size *= cache.LengthFrame;
+
+                // Todo: ram-preview ローカライズ
+                CacheTip.Content = $"""
+                    サイズ: {Utilities.StringFormats.ToHumanReadableSize(unchecked(size))}
+                    開始位置: {cache.Start}
+                    長さ: {cache.Length}
+                    {(cache.IsLocked ? "固定済み" : "固定していません")}
+                    """;
+                CacheTip.IsOpen = true;
+            }
+
             _mouseFlag = MouseFlags.Free;
         }
         else if (pointerPt.Properties.PointerUpdateKind == PointerUpdateKind.RightButtonReleased)
