@@ -179,7 +179,7 @@ public sealed class PlayerViewModel : IDisposable
                 _editViewModel.BufferStatus.StartTime.Value = startTime;
                 _editViewModel.BufferStatus.EndTime.Value = startTime;
 
-                using var playerImpl = new BufferedPlayer(_editViewModel, Scene, IsPlaying, tcs, rate);
+                using var playerImpl = new BufferedPlayer(_editViewModel, Scene, IsPlaying, rate);
                 playerImpl.Start();
 
                 PlayAudio(Scene);

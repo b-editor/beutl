@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Pixel;
@@ -7,13 +8,14 @@ using Beutl.ProjectSystem;
 using Beutl.Rendering;
 using Beutl.Services;
 using Beutl.ViewModels;
+
 using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
 
 namespace Beutl.Models;
 
-public class BufferedPlayer : IPlayer
+public sealed class BufferedPlayer : IPlayer
 {
     private readonly ILogger _logger = Log.CreateLogger<BufferedPlayer>();
     private readonly ConcurrentQueue<IPlayer.Frame> _queue = new();
@@ -21,7 +23,6 @@ public class BufferedPlayer : IPlayer
     private readonly FrameCacheManager _frameCacheManager;
     private readonly Scene _scene;
     private readonly IReadOnlyReactiveProperty<bool> _isPlaying;
-    private readonly TaskCompletionSource _tsc;
     private readonly int _rate;
     private volatile CancellationTokenSource? _waitRenderToken;
     private volatile CancellationTokenSource? _waitTimerToken;
@@ -30,15 +31,13 @@ public class BufferedPlayer : IPlayer
     private bool _isDisposed;
 
     public BufferedPlayer(
-        EditViewModel editViewModel,
-        Scene scene, IReactiveProperty<bool> isPlaying,
-        TaskCompletionSource tsc, int rate)
+        EditViewModel editViewModel, Scene scene,
+        IReactiveProperty<bool> isPlaying, int rate)
     {
         _editViewModel = editViewModel;
         _frameCacheManager = editViewModel.FrameCacheManager;
         _scene = scene;
         _isPlaying = isPlaying;
-        _tsc = tsc;
         _rate = rate;
 
         _disposable = isPlaying.Where(v => !v).Subscribe(_ =>
@@ -113,10 +112,6 @@ public class BufferedPlayer : IPlayer
             {
                 NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_while_drawing_frame);
                 _logger.LogError(ex, "An exception occurred while drawing the frame.");
-            }
-            finally
-            {
-                _tsc.TrySetResult();
             }
         }, Threading.DispatchPriority.High);
     }
