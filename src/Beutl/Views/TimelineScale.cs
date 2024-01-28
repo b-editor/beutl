@@ -40,6 +40,9 @@ public sealed class TimelineScale : Control
     public static readonly StyledProperty<CacheBlock[]?> CacheBlocksProperty
         = AvaloniaProperty.Register<TimelineScale, CacheBlock[]?>(nameof(CacheBlocks));
 
+    public static readonly StyledProperty<CacheBlock?> HoveredCacheBlockProperty
+        = AvaloniaProperty.Register<TimelineScale, CacheBlock?>(nameof(HoveredCacheBlock));
+
     private static readonly Typeface s_typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Medium);
     private readonly Pen _pen;
     private IBrush _brush = Brushes.White;
@@ -58,7 +61,8 @@ public sealed class TimelineScale : Control
             SeekBarMarginProperty,
             BufferStartProperty,
             BufferEndProperty,
-            CacheBlocksProperty);
+            CacheBlocksProperty,
+            HoveredCacheBlockProperty);
     }
 
     public TimelineScale()
@@ -107,6 +111,12 @@ public sealed class TimelineScale : Control
     {
         get => GetValue(CacheBlocksProperty);
         set => SetValue(CacheBlocksProperty, value);
+    }
+
+    public CacheBlock? HoveredCacheBlock
+    {
+        get => GetValue(HoveredCacheBlockProperty);
+        set => SetValue(HoveredCacheBlockProperty, value);
     }
 
     protected override void OnLoaded(RoutedEventArgs e)
@@ -180,12 +190,28 @@ public sealed class TimelineScale : Control
 
             if (CacheBlocks != null)
             {
+                TimeSpan left = originX.ToTimeSpan(Scale);
+                TimeSpan right = l.ToTimeSpan(Scale);
+
                 foreach (CacheBlock item in CacheBlocks)
                 {
+                    TimeSpan end = item.Start + item.Length;
+                    if (end < left || item.Start > right)
+                    {
+                        continue;
+                    }
+
                     context.DrawRectangle(
                         TimelineSharedObject.CacheBlockFillBrush, null,
                         new RoundedRect(new Rect(item.Start.ToPixel(Scale), Height - 4, item.Length.ToPixel(Scale), 4)));
                 }
+            }
+
+            if (HoveredCacheBlock is { } hover)
+            {
+                context.DrawRectangle(
+                    TimelineSharedObject.CacheBlockFillBrush, null,
+                    new RoundedRect(new Rect(hover.Start.ToPixel(Scale), Height - 6, hover.Length.ToPixel(Scale), 6)));
             }
 
             if (BufferEnd != BufferStart)

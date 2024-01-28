@@ -50,17 +50,15 @@ public sealed class BufferStatusViewModel : IDisposable
 
     public ReactivePropertySlim<CacheBlock[]> CacheBlocks { get; } = new([]);
 
-    public sealed class CacheBlock
+    public sealed class CacheBlock(int rate, int start, int length)
     {
-        public CacheBlock(int rate, int start, int length)
-        {
-            Start = TimeSpanExtensions.ToTimeSpan(start, rate);
-            Length = TimeSpanExtensions.ToTimeSpan(length, rate);
-        }
+        public TimeSpan Start { get; } = TimeSpanExtensions.ToTimeSpan(start, rate);
 
-        public TimeSpan Start { get; }
+        public TimeSpan Length { get; } = TimeSpanExtensions.ToTimeSpan(length, rate);
 
-        public TimeSpan Length { get; }
+        public int StartFrame { get; } = start;
+
+        public int LengthFrame { get; } = length;
     }
 
     public void Dispose()

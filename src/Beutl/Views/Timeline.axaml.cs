@@ -44,6 +44,7 @@ public sealed partial class Timeline : UserControl
 
     internal MouseFlags _mouseFlag = MouseFlags.Free;
     internal TimeSpan _pointerFrame;
+    private bool _rightButtonPressed;
     private readonly ILogger _logger = Log.CreateLogger<Timeline>();
     private TimelineViewModel? _viewModel;
     private readonly CompositeDisposable _disposables = [];
@@ -368,12 +369,12 @@ public sealed partial class Timeline : UserControl
         TimelineViewModel viewModel = ViewModel;
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
         int rate = viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate();
-        _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
+        _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale).FloorToRate(rate);
 
         if (_pointerFrame >= viewModel.Scene.Duration)
         {
             _pointerFrame = viewModel.Scene.Duration - TimeSpan.FromSeconds(1d / rate);
-            _pointerFrame = _pointerFrame.RoundToRate(rate);
+            //_pointerFrame = _pointerFrame.RoundToRate(rate);
         }
 
         if (_mouseFlag == MouseFlags.SeekBarPressed)
@@ -385,6 +386,21 @@ public sealed partial class Timeline : UserControl
             Rect rect = overlay.SelectionRange;
             overlay.SelectionRange = new(rect.Position, pointerPt.Position);
             UpdateRangeSelection();
+        }
+        else
+        {
+            Point posScale = e.GetPosition(Scale);
+
+            if (Scale.IsPointerOver && posScale.Y > Scale.Bounds.Height - 8)
+            {
+                BufferStatusViewModel.CacheBlock[] cacheBlocks = viewModel.EditorContext.BufferStatus.CacheBlocks.Value;
+
+                Scale.HoveredCacheBlock = Array.Find(cacheBlocks, v => new TimeRange(v.Start, v.Length).Contains(_pointerFrame));
+            }
+            else
+            {
+                Scale.HoveredCacheBlock = null;
+            }
         }
     }
 
@@ -402,6 +418,10 @@ public sealed partial class Timeline : UserControl
             }
 
             _mouseFlag = MouseFlags.Free;
+        }
+        else if (pointerPt.Properties.PointerUpdateKind == PointerUpdateKind.RightButtonReleased)
+        {
+            _rightButtonPressed = false;
         }
     }
 
@@ -458,12 +478,19 @@ public sealed partial class Timeline : UserControl
                 viewModel.Scene.CurrentFrame = viewModel.ClickedFrame;
             }
         }
+
+        _rightButtonPressed = pointerPt.Properties.IsRightButtonPressed;
     }
 
     // ポインターが離れた
     private void TimelinePanel_PointerExited(object? sender, PointerEventArgs e)
     {
         _mouseFlag = MouseFlags.Free;
+
+        if (!_rightButtonPressed)
+        {
+            Scale.HoveredCacheBlock = null;
+        }
     }
 
     // ドロップされた
@@ -708,6 +735,15 @@ public sealed partial class Timeline : UserControl
                     Offset = new Vector2((float)newOffsetX, (float)newOffsetY)
                 };
             }
+        }
+    }
+
+    private void DeleteFrameCacheClick(object? sender, RoutedEventArgs e)
+    {
+        if (Scale.HoveredCacheBlock is { } block)
+        {
+            ViewModel.EditorContext.FrameCacheManager.RemoveAndUpdateBlocks(
+                new[] { (block.StartFrame, block.StartFrame + block.LengthFrame) });
         }
     }
 }

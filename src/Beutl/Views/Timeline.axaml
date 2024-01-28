@@ -38,7 +38,15 @@
                              PointerReleased="TimelinePanel_PointerReleased"
                              Scale="{Binding Options.Value.Scale}"
                              SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
-                             Offset="{Binding #ContentScroll.Offset, Mode=OneWay}" />
+                             Offset="{Binding #ContentScroll.Offset, Mode=OneWay}">
+            <local:TimelineScale.ContextFlyout>
+                <ui:FAMenuFlyout>
+                    <ui:MenuFlyoutItem Click="DeleteFrameCacheClick"
+                                       IsEnabled="{Binding #Scale.HoveredCacheBlock, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                       Text="キャッシュを削除" />
+                </ui:FAMenuFlyout>
+            </local:TimelineScale.ContextFlyout>
+        </local:TimelineScale>
 
         <Grid ClipToBounds="True">
             <Grid.ColumnDefinitions>
