@@ -48,23 +48,23 @@
                              Offset="{Binding #ContentScroll.Offset, Mode=OneWay}">
             <local:TimelineScale.ContextFlyout>
                 <ui:FAMenuFlyout>
-                    <ui:MenuFlyoutItem Click="DeleteAllFrameCacheClick" Text="すべて削除" />
+                    <ui:MenuFlyoutItem Click="DeleteAllFrameCacheClick" Text="{x:Static lang:Strings.DeleteAll}" />
                     <ui:MenuFlyoutItem Click="DeleteFrameCacheClick"
                                        IsEnabled="{Binding !!HoveredCacheBlock.Value}"
-                                       Text="削除" />
+                                       Text="{x:Static lang:Strings.Delete}" />
                     <ui:MenuFlyoutItem Click="LockFrameCacheClick"
                                        IsEnabled="{Binding IsLockCacheButtonEnabled.Value}"
-                                       Text="ロック" />
+                                       Text="{x:Static lang:Strings.Lock}" />
                     <ui:MenuFlyoutItem Click="UnlockFrameCacheClick"
                                        IsEnabled="{Binding IsUnlockCacheButtonEnabled.Value}"
-                                       Text="ロック解除" />
+                                       Text="{x:Static lang:Strings.Unlock}" />
                 </ui:FAMenuFlyout>
             </local:TimelineScale.ContextFlyout>
         </local:TimelineScale>
 
         <ui:TeachingTip x:Name="CacheTip"
-                        Title="フレームキャッシュ"
-                        Subtitle="右クリックでキャッシュの操作ができます"
+                        Title="{x:Static lang:Strings.FrameCache}"
+                        Subtitle="{x:Static lang:Strings.RightClickToOperateCache}"
                         Target="{Binding #Scale}" />
 
         <Grid ClipToBounds="True">

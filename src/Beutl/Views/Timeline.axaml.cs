@@ -422,12 +422,11 @@ public sealed partial class Timeline : UserControl
                 long size = ViewModel.Scene.Width * ViewModel.Scene.Height * 4L;
                 size *= cache.LengthFrame;
 
-                // Todo: ram-preview ローカライズ
                 CacheTip.Content = $"""
-                    サイズ: {Utilities.StringFormats.ToHumanReadableSize(unchecked(size))}
-                    開始位置: {cache.Start}
-                    長さ: {cache.Length}
-                    {(cache.IsLocked ? "固定済み" : "固定していません")}
+                    {Strings.MemoryUsage}: {Utilities.StringFormats.ToHumanReadableSize(unchecked(size))}
+                    {Strings.StartTime}: {cache.Start}
+                    {Strings.DurationTime}: {cache.Length}
+                    {(cache.IsLocked ? Strings.Locked : Strings.Unlocked)}
                     """;
                 CacheTip.IsOpen = true;
             }

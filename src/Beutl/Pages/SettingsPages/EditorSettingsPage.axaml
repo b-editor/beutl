@@ -56,6 +56,18 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.FrameCacheMaxSize}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBox MinWidth="250" Text="{Binding FrameCacheMaxSize.Value}">
+                            <TextBox.InnerRightContent>
+                                <TextBlock Margin="8,0"
+                                           VerticalAlignment="Center"
+                                           Text="MB" />
+                            </TextBox.InnerRightContent>
+                        </TextBox>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
                 <!--  終了しなくても、新しい要素では変更が反映されている  -->
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.HidePrimaryProperties_Description}" Header="{x:Static lang:SettingsPage.HidePrimaryProperties}">
                     <ctrls:OptionsDisplayItem.ActionButton>

@@ -259,6 +259,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Frame cache size に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FrameCacheMaxSize {
+            get {
+                return ResourceManager.GetString("FrameCacheMaxSize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Gpu Infomation に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string GpuInfomation {

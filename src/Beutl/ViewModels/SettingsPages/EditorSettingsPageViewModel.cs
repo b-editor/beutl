@@ -26,6 +26,9 @@ public sealed class EditorSettingsPageViewModel
         ShowExactBoundaries = _viewConfig.GetObservable(ViewConfig.ShowExactBoundariesProperty).ToReactiveProperty();
         ShowExactBoundaries.Subscribe(b => _viewConfig.ShowExactBoundaries = b);
 
+        FrameCacheMaxSize = _editorConfig.GetObservable(EditorConfig.FrameCacheMaxSizeProperty).ToReactiveProperty();
+        FrameCacheMaxSize.Subscribe(b => _editorConfig.FrameCacheMaxSize = b);
+
         HidePrimaryProperties = _viewConfig.GetObservable(ViewConfig.HidePrimaryPropertiesProperty).ToReactiveProperty();
         HidePrimaryProperties.Subscribe(b => _viewConfig.HidePrimaryProperties = b);
 
@@ -42,6 +45,8 @@ public sealed class EditorSettingsPageViewModel
     public ReactiveProperty<bool> EnableAutoSave { get; }
 
     public ReactiveProperty<bool> ShowExactBoundaries { get; }
+    
+    public ReactiveProperty<double> FrameCacheMaxSize { get; }
 
     public ReactiveProperty<bool> HidePrimaryProperties { get; }
 

@@ -1015,4 +1015,28 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="AlwaysDisplay" xml:space="preserve">
     <value>常に表示する</value>
   </data>
+  <data name="MemoryUsage" xml:space="preserve">
+    <value>メモリ使用量</value>
+  </data>
+  <data name="Locked" xml:space="preserve">
+    <value>ロック済み</value>
+  </data>
+  <data name="Unlocked" xml:space="preserve">
+    <value>未ロック</value>
+  </data>
+  <data name="DeleteAll" xml:space="preserve">
+    <value>すべて削除</value>
+  </data>
+  <data name="Lock" xml:space="preserve">
+    <value>ロック</value>
+  </data>
+  <data name="Unlock" xml:space="preserve">
+    <value>ロック解除</value>
+  </data>
+  <data name="FrameCache" xml:space="preserve">
+    <value>フレームキャッシュ</value>
+  </data>
+  <data name="RightClickToOperateCache" xml:space="preserve">
+    <value>右クリックでキャッシュを操作</value>
+  </data>
 </root>

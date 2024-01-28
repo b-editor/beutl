@@ -1015,4 +1015,28 @@ and b-editor maintains the download URL.</value>
   <data name="AlwaysDisplay" xml:space="preserve">
     <value>Always display</value>
   </data>
+  <data name="MemoryUsage" xml:space="preserve">
+    <value>Memory usage</value>
+  </data>
+  <data name="Locked" xml:space="preserve">
+    <value>Locked</value>
+  </data>
+  <data name="Unlocked" xml:space="preserve">
+    <value>Unlocked</value>
+  </data>
+  <data name="DeleteAll" xml:space="preserve">
+    <value>Delete All</value>
+  </data>
+  <data name="Lock" xml:space="preserve">
+    <value>Lock</value>
+  </data>
+  <data name="Unlock" xml:space="preserve">
+    <value>Unlock</value>
+  </data>
+  <data name="FrameCache" xml:space="preserve">
+    <value>Frame cache</value>
+  </data>
+  <data name="RightClickToOperateCache" xml:space="preserve">
+    <value>Right-click to operate cache</value>
+  </data>
 </root>

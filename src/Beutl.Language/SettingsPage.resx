@@ -304,4 +304,7 @@ Enabling this setting may make the border invisible.</value>
   <data name="EnableAutoSave_Description" xml:space="preserve">
     <value>The file is automatically saved after the operation is performed.</value>
   </data>
+  <data name="FrameCacheMaxSize" xml:space="preserve">
+    <value>Frame cache size</value>
+  </data>
 </root>

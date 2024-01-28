@@ -304,4 +304,7 @@
   <data name="EnableAutoSave_Description" xml:space="preserve">
     <value>操作を実行後、自動でファイルを保存します。</value>
   </data>
+  <data name="FrameCacheMaxSize" xml:space="preserve">
+    <value>フレームキャッシュサイズ</value>
+  </data>
 </root>
