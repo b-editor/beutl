@@ -48,9 +48,10 @@
                              Offset="{Binding #ContentScroll.Offset, Mode=OneWay}">
             <local:TimelineScale.ContextFlyout>
                 <ui:FAMenuFlyout>
+                    <ui:MenuFlyoutItem Click="DeleteAllFrameCacheClick" Text="すべて削除" />
                     <ui:MenuFlyoutItem Click="DeleteFrameCacheClick"
                                        IsEnabled="{Binding !!HoveredCacheBlock.Value}"
-                                       Text="キャッシュを削除" />
+                                       Text="削除" />
                     <ui:MenuFlyoutItem Click="LockFrameCacheClick"
                                        IsEnabled="{Binding IsLockCacheButtonEnabled.Value}"
                                        Text="ロック" />

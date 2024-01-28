@@ -789,4 +789,9 @@ public sealed partial class Timeline : UserControl
             ViewModel.EditorContext.FrameCacheManager.UpdateBlocks();
         }
     }
+
+    private void DeleteAllFrameCacheClick(object? sender, RoutedEventArgs e)
+    {
+        ViewModel.EditorContext.FrameCacheManager.Clear();
+    }
 }
