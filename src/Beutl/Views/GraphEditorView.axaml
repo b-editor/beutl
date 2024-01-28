@@ -36,8 +36,11 @@
                              Height="32"
                              HorizontalAlignment="Stretch"
                              VerticalAlignment="Top"
+                             EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                              EndingBarMargin="{Binding EndingBarMargin.Value}"
                              Scale="{Binding Options.Value.Scale}"
+                             ScaleBrush="{DynamicResource TextControlForeground}"
+                             SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
                              SeekBarMargin="{Binding SeekBarMargin.Value}"
                              Offset="{Binding #scroll.Offset, Mode=OneWay}" />
 
@@ -286,7 +289,9 @@
 
                 <local:TimelineOverlay x:Name="overlay"
                                        VerticalAlignment="Stretch"
+                                       EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                                        EndingBarMargin="{Binding EndingBarMargin.Value}"
+                                       SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
                                        SeekBarMargin="{Binding SeekBarMargin.Value}"
                                        Viewport="{Binding #scroll.Viewport, Mode=OneWay}"
                                        ZIndex="6"

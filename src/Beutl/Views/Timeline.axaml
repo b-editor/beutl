@@ -28,22 +28,35 @@
                              Height="32"
                              HorizontalAlignment="Stretch"
                              VerticalAlignment="Top"
+                             BufferBrush="{DynamicResource TextFillColorSecondaryBrush}"
                              BufferEnd="{Binding EditorContext.BufferStatus.End.Value}"
                              BufferStart="{Binding EditorContext.BufferStatus.Start.Value}"
+                             CacheBlockBrush="{DynamicResource SystemFillColorSuccessBrush}"
                              CacheBlocks="{Binding EditorContext.BufferStatus.CacheBlocks.Value}"
+                             EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                              EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
+                             HoveredCacheBlock="{Binding HoveredCacheBlock.Value}"
+                             LockedCacheBlockBrush="{DynamicResource AccentFillColorTertiaryBrush}"
                              PointerExited="TimelinePanel_PointerExited"
                              PointerMoved="TimelinePanel_PointerMoved"
                              PointerPressed="TimelinePanel_PointerPressed"
                              PointerReleased="TimelinePanel_PointerReleased"
                              Scale="{Binding Options.Value.Scale}"
+                             ScaleBrush="{DynamicResource TextControlForeground}"
+                             SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
                              SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
                              Offset="{Binding #ContentScroll.Offset, Mode=OneWay}">
             <local:TimelineScale.ContextFlyout>
                 <ui:FAMenuFlyout>
                     <ui:MenuFlyoutItem Click="DeleteFrameCacheClick"
-                                       IsEnabled="{Binding #Scale.HoveredCacheBlock, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                       IsEnabled="{Binding !!HoveredCacheBlock.Value}"
                                        Text="キャッシュを削除" />
+                    <ui:MenuFlyoutItem Click="LockFrameCacheClick"
+                                       IsEnabled="{Binding IsLockCacheButtonEnabled.Value}"
+                                       Text="ロック" />
+                    <ui:MenuFlyoutItem Click="UnlockFrameCacheClick"
+                                       IsEnabled="{Binding IsUnlockCacheButtonEnabled.Value}"
+                                       Text="ロック解除" />
                 </ui:FAMenuFlyout>
             </local:TimelineScale.ContextFlyout>
         </local:TimelineScale>
@@ -161,7 +174,9 @@
 
                 <local:TimelineOverlay x:Name="overlay"
                                        VerticalAlignment="Stretch"
+                                       EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                                        EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
+                                       SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
                                        SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
                                        Viewport="{Binding #ContentScroll.Viewport, Mode=OneWay}"
                                        ZIndex="6"

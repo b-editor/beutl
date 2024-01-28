@@ -395,11 +395,11 @@ public sealed partial class Timeline : UserControl
             {
                 BufferStatusViewModel.CacheBlock[] cacheBlocks = viewModel.EditorContext.BufferStatus.CacheBlocks.Value;
 
-                Scale.HoveredCacheBlock = Array.Find(cacheBlocks, v => new TimeRange(v.Start, v.Length).Contains(_pointerFrame));
+                viewModel.HoveredCacheBlock.Value = Array.Find(cacheBlocks, v => new TimeRange(v.Start, v.Length).Contains(_pointerFrame));
             }
             else
             {
-                Scale.HoveredCacheBlock = null;
+                viewModel.HoveredCacheBlock.Value = null;
             }
         }
     }
@@ -489,7 +489,7 @@ public sealed partial class Timeline : UserControl
 
         if (!_rightButtonPressed)
         {
-            Scale.HoveredCacheBlock = null;
+            ViewModel.HoveredCacheBlock.Value = null;
         }
     }
 
@@ -740,10 +740,38 @@ public sealed partial class Timeline : UserControl
 
     private void DeleteFrameCacheClick(object? sender, RoutedEventArgs e)
     {
-        if (Scale.HoveredCacheBlock is { } block)
+        if (ViewModel.HoveredCacheBlock.Value is { } block)
         {
+            if (block.IsLocked)
+            {
+                ViewModel.EditorContext.FrameCacheManager.Unlock(
+                    block.StartFrame, block.StartFrame + block.LengthFrame);
+            }
+
             ViewModel.EditorContext.FrameCacheManager.RemoveAndUpdateBlocks(
                 new[] { (block.StartFrame, block.StartFrame + block.LengthFrame) });
+        }
+    }
+
+    private void LockFrameCacheClick(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel.HoveredCacheBlock.Value is { } block)
+        {
+            ViewModel.EditorContext.FrameCacheManager.Lock(
+                block.StartFrame, block.StartFrame + block.LengthFrame);
+
+            ViewModel.EditorContext.FrameCacheManager.UpdateBlocks();
+        }
+    }
+
+    private void UnlockFrameCacheClick(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel.HoveredCacheBlock.Value is { } block)
+        {
+            ViewModel.EditorContext.FrameCacheManager.Unlock(
+                block.StartFrame, block.StartFrame + block.LengthFrame);
+
+            ViewModel.EditorContext.FrameCacheManager.UpdateBlocks();
         }
     }
 }

@@ -2,6 +2,8 @@
 
 using Avalonia.Threading;
 
+using Beutl.Models;
+
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -30,12 +32,12 @@ public sealed class BufferStatusViewModel : IDisposable
         _disposables.Add(Disposable.Create(editViewModel.FrameCacheManager, m => m.BlocksUpdated -= OnFrameCacheManagerBlocksUpdated));
     }
 
-    private void OnFrameCacheManagerBlocksUpdated(ImmutableArray<(int Start, int Length)> obj)
+    private void OnFrameCacheManagerBlocksUpdated(ImmutableArray<FrameCacheManager.CacheBlock> obj)
     {
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         Dispatcher.UIThread.InvokeAsync(
-            () => CacheBlocks.Value = obj.SelectArray(v => new CacheBlock(_editViewModel.Player.GetFrameRate(), v.Start, v.Length)),
+            () => CacheBlocks.Value = obj.SelectArray(v => new CacheBlock(_editViewModel.Player.GetFrameRate(), v.Start, v.Length, v.IsLocked)),
             DispatcherPriority.Background,
             _cts.Token);
     }
@@ -50,7 +52,7 @@ public sealed class BufferStatusViewModel : IDisposable
 
     public ReactivePropertySlim<CacheBlock[]> CacheBlocks { get; } = new([]);
 
-    public sealed class CacheBlock(int rate, int start, int length)
+    public sealed class CacheBlock(int rate, int start, int length, bool isLocked)
     {
         public TimeSpan Start { get; } = TimeSpanExtensions.ToTimeSpan(start, rate);
 
@@ -59,6 +61,8 @@ public sealed class BufferStatusViewModel : IDisposable
         public int StartFrame { get; } = start;
 
         public int LengthFrame { get; } = length;
+
+        public bool IsLocked { get; } = isLocked;
     }
 
     public void Dispose()

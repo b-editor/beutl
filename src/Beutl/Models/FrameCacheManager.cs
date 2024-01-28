@@ -1,9 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.InteropServices;
 
 using Beutl.Configuration;
-using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
@@ -21,7 +19,7 @@ public sealed class FrameCacheManager : IDisposable
 
     public event Action<int>? Added;
     public event Action<int[]>? Removed;
-    public event Action<ImmutableArray<(int Start, int Length)>>? BlocksUpdated;
+    public event Action<ImmutableArray<CacheBlock>>? BlocksUpdated;
 
     public FrameCacheManager(PixelSize frameSize)
     {
@@ -29,7 +27,7 @@ public sealed class FrameCacheManager : IDisposable
         _maxSize = (ulong)(GlobalConfiguration.Instance.EditorConfig.FrameCacheMaxSize * 1024 * 1024);
     }
 
-    public ImmutableArray<(int Start, int Length)> Blocks { get; private set; }
+    public ImmutableArray<CacheBlock> Blocks { get; private set; }
 
     public void Add(int frame, Ref<Bitmap<Bgra8888>> bitmap)
     {
@@ -37,7 +35,8 @@ public sealed class FrameCacheManager : IDisposable
         {
             if (_entries.TryGetValue(frame, out CacheEntry? old))
             {
-                old.SetBitmap(bitmap);
+                if (!old.IsLocked)
+                    old.SetBitmap(bitmap);
             }
             else
             {
@@ -74,7 +73,8 @@ public sealed class FrameCacheManager : IDisposable
     {
         lock (_lock)
         {
-            int[] keys = _entries.Select(p => p.Key)
+            int[] keys = _entries.Where(v => !v.Value.IsLocked)
+                .Select(p => p.Key)
                 .SkipWhile(t => t < start)
                 .TakeWhile(t => t < end)
                 .ToArray();
@@ -92,6 +92,42 @@ public sealed class FrameCacheManager : IDisposable
                 Removed?.Invoke(keys);
 
             return keys.Length > 0;
+        }
+    }
+
+    public void Lock(int start, int end)
+    {
+        lock (_lock)
+        {
+            foreach (KeyValuePair<int, CacheEntry> item in _entries
+                .SkipWhile(t => t.Key < start)
+                .TakeWhile(t => t.Key < end))
+            {
+                if (!item.Value.IsLocked)
+                {
+                    _size -= (uint)item.Value.ByteCount;
+                }
+
+                item.Value.IsLocked = true;
+            }
+        }
+    }
+
+    public void Unlock(int start, int end)
+    {
+        lock (_lock)
+        {
+            foreach (KeyValuePair<int, CacheEntry> item in _entries
+                .SkipWhile(t => t.Key < start)
+                .TakeWhile(t => t.Key < end))
+            {
+                if (item.Value.IsLocked)
+                {
+                    _size += (uint)item.Value.ByteCount;
+                }
+
+                item.Value.IsLocked = false;
+            }
         }
     }
 
@@ -115,6 +151,11 @@ public sealed class FrameCacheManager : IDisposable
 
     public void Dispose()
     {
+        Clear();
+    }
+
+    public void Clear()
+    {
         lock (_lock)
         {
             int[] keys = [.. _entries.Keys];
@@ -126,39 +167,43 @@ public sealed class FrameCacheManager : IDisposable
             _size = 0;
             _entries.Clear();
             Removed?.Invoke(keys);
+            BlocksUpdated?.Invoke([]);
         }
     }
 
     // |oxxxxoooxoxxxo|
     // GetBlock() -> [(1, 4), (8, 1), (10, 4)]
-    public ImmutableArray<(int Start, int Length)> CalculateBlocks()
+    public ImmutableArray<CacheBlock> CalculateBlocks()
     {
         lock (_lock)
         {
-            var list = new List<(int Start, int Length)>();
+            var list = new List<CacheBlock>();
             int start = -1;
             int expect = 0;
             int count = 0;
-            foreach (int key in _entries.Keys)
+            bool isLocked = false;
+            foreach ((int key, CacheEntry item) in _entries)
             {
                 if (start == -1)
                 {
                     start = key;
+                    isLocked = item.IsLocked;
                     expect = key;
                 }
 
-                if (expect == key)
+                if (expect == key && isLocked == item.IsLocked)
                 {
                     count++;
                     expect = key + 1;
                 }
                 else
                 {
-                    list.Add((start, count));
+                    list.Add(new(start, count, isLocked));
                     start = -1;
                     count = 0;
 
                     start = key;
+                    isLocked = item.IsLocked;
                     expect = key + 1;
                     count++;
                 }
@@ -166,7 +211,7 @@ public sealed class FrameCacheManager : IDisposable
 
             if (start != -1)
             {
-                list.Add((start, count));
+                list.Add(new(start, count, isLocked));
             }
 
             return [.. list];
@@ -193,6 +238,7 @@ public sealed class FrameCacheManager : IDisposable
                 var targetCount = excess / (ulong)sizePerCache;
 
                 var items = _entries
+                    .Where(v => !v.Value.IsLocked)
                     .OrderBy(v => v.Value.LastAccessTime)
                     .Take((int)targetCount)
                     .ToArray();
@@ -211,17 +257,15 @@ public sealed class FrameCacheManager : IDisposable
         }
     }
 
+    public record CacheBlock(int Start, int Length, bool IsLocked);
+
     private class CacheEntry : IDisposable
     {
-        private readonly int _width;
-        private readonly int _height;
         private Ref<Bitmap<Bgra8888>> _bitmap;
 
         public CacheEntry(Ref<Bitmap<Bgra8888>> bitmap)
         {
             _bitmap = bitmap.Clone();
-            _width = _bitmap.Value.Width;
-            _height = _bitmap.Value.Height;
             ByteCount = bitmap.Value.ByteCount;
             LastAccessTime = DateTime.UtcNow;
         }
@@ -229,6 +273,8 @@ public sealed class FrameCacheManager : IDisposable
         public DateTime LastAccessTime { get; private set; }
 
         public int ByteCount { get; }
+
+        public bool IsLocked { get; set; }
 
         public void SetBitmap(Ref<Bitmap<Bgra8888>> bitmap)
         {
