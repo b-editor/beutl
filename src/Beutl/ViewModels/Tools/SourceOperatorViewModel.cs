@@ -26,7 +26,16 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
         _parent = parent;
         IsEnabled = model.GetObservable(SourceOperator.IsEnabledProperty)
             .ToReactiveProperty();
-        IsEnabled.Subscribe(v => Model.IsEnabled = v);
+        IsEnabled.Skip(1).Subscribe(v =>
+        {
+            CommandRecorder? recorder = this.GetService<CommandRecorder>();
+            if (recorder!=null)
+            {
+                RecordableCommands.Edit(Model, SourceOperator.IsEnabledProperty, v)
+                    .WithStoables([parent.Element.Value])
+                    .DoAndRecord(recorder);
+            }
+        });
 
         Init();
 
