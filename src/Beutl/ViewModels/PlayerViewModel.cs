@@ -178,7 +178,12 @@ public sealed class PlayerViewModel : IDisposable
                 var tcs = new TaskCompletionSource();
                 _editViewModel.BufferStatus.StartTime.Value = startTime;
                 _editViewModel.BufferStatus.EndTime.Value = startTime;
+                _editViewModel.FrameCacheManager.Options = _editViewModel.FrameCacheManager.Options with
+                {
+                    DeletionStrategy = FrameCacheDeletionStrategy.BackwardBlock
+                };
 
+                _editViewModel.FrameCacheManager.CurrentFrame = startFrame;
                 using var playerImpl = new BufferedPlayer(_editViewModel, Scene, IsPlaying, rate);
                 playerImpl.Start();
 
@@ -217,6 +222,7 @@ public sealed class PlayerViewModel : IDisposable
                                 if (Scene != null)
                                 {
                                     Scene.CurrentFrame = TimeSpanExtensions.ToTimeSpan(frame.Time, rate);
+                                    _editViewModel.FrameCacheManager.CurrentFrame = frame.Time;
                                 }
                             }
                         }
@@ -241,6 +247,10 @@ public sealed class PlayerViewModel : IDisposable
             }
             finally
             {
+                _editViewModel.FrameCacheManager.Options = _editViewModel.FrameCacheManager.Options with
+                {
+                    DeletionStrategy = FrameCacheDeletionStrategy.Old
+                };
                 renderer.RenderInvalidated += Renderer_RenderInvalidated;
             }
         });

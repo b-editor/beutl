@@ -62,7 +62,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             .DisposeWith(_disposables);
         Commands = new KnownCommandsImpl(scene, this);
         CommandRecorder = new CommandRecorder();
-        FrameCacheManager = new FrameCacheManager(new(scene.Width, scene.Height));
+        FrameCacheManager = new FrameCacheManager(new(scene.Width, scene.Height), new());
         SelectedObject = new ReactiveProperty<CoreObject?>()
             .DisposeWith(_disposables);
 
@@ -82,7 +82,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 if (e.NewValue != null)
                 {
                     FrameCacheManager old = FrameCacheManager;
-                    FrameCacheManager = new FrameCacheManager(e.NewValue.FrameSize);
+                    FrameCacheManager = new FrameCacheManager(e.NewValue.FrameSize, new());
                     old.Dispose();
                 }
             })

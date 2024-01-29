@@ -419,11 +419,10 @@ public sealed partial class Timeline : UserControl
 
             if (Scale.IsPointerOver && ViewModel.HoveredCacheBlock.Value is { } cache)
             {
-                long size = ViewModel.Scene.Width * ViewModel.Scene.Height * 4L;
-                size *= cache.LengthFrame;
+                long size = ViewModel.EditorContext.FrameCacheManager.CalculateByteCount(cache.StartFrame, cache.StartFrame + cache.LengthFrame);
 
                 CacheTip.Content = $"""
-                    {Strings.MemoryUsage}: {Utilities.StringFormats.ToHumanReadableSize(unchecked(size))}
+                    {Strings.MemoryUsage}: {Utilities.StringFormats.ToHumanReadableSize(size)}
                     {Strings.StartTime}: {cache.Start}
                     {Strings.DurationTime}: {cache.Length}
                     {(cache.IsLocked ? Strings.Locked : Strings.Unlocked)}
