@@ -13,7 +13,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Models;
 
-public sealed class FrameCacheManager : IDisposable
+public sealed partial class FrameCacheManager : IDisposable
 {
     private readonly SortedDictionary<int, CacheEntry> _entries = [];
     private readonly object _lock = new();
@@ -190,74 +190,6 @@ public sealed class FrameCacheManager : IDisposable
         }
     }
 
-    // |□■■■■□□□■□■■■□|
-    // GetBlock() -> [(1, 4), (8, 1), (10, 3)]
-    public ImmutableArray<CacheBlock> CalculateBlocks()
-    {
-        return CalculateBlocks(int.MinValue, int.MaxValue);
-    }
-
-    public ImmutableArray<CacheBlock> CalculateBlocks(int start, int end)
-    {
-        lock (_lock)
-        {
-            var list = new List<CacheBlock>();
-            int blockStart = -1;
-            int expect = 0;
-            int count = 0;
-            bool isLocked = false;
-            //SortedSet<KeyValuePair<int, CacheEntry>> set = GetInnerSet(_entries);
-            //: set.GetViewBetween(new(start, null!), new(end, null!));
-            IEnumerable<KeyValuePair<int, CacheEntry>> items
-                = start == int.MinValue && end == int.MaxValue
-                    ? _entries
-                    : _entries.SkipWhile(t => t.Key < start).TakeWhile(t => t.Key < end);
-
-            foreach ((int key, CacheEntry item) in items)
-            {
-                if (blockStart == -1)
-                {
-                    blockStart = key;
-                    isLocked = item.IsLocked;
-                    expect = key;
-                }
-
-                if (expect == key && isLocked == item.IsLocked)
-                {
-                    count++;
-                    expect = key + 1;
-                }
-                else
-                {
-                    list.Add(new(blockStart, count, isLocked));
-                    blockStart = -1;
-                    count = 0;
-
-                    blockStart = key;
-                    isLocked = item.IsLocked;
-                    expect = key + 1;
-                    count++;
-                }
-            }
-
-            if (blockStart != -1)
-            {
-                list.Add(new(blockStart, count, isLocked));
-            }
-
-            return [.. list];
-        }
-    }
-
-    public void UpdateBlocks()
-    {
-        lock (_lock)
-        {
-            Blocks = CalculateBlocks();
-            BlocksUpdated?.Invoke(Blocks);
-        }
-    }
-
     private void AutoDelete()
     {
         KeyValuePair<int, CacheEntry>[] GetOldCaches(long targetCount)
@@ -351,98 +283,5 @@ public sealed class FrameCacheManager : IDisposable
     {
         return i420 ? size.Width * (int)(size.Height * 1.5)
             : size.Width * size.Height * 4;
-    }
-
-    // https://github.com/dotnet/runtime/issues/92633
-    //[UnsafeAccessor(UnsafeAccessorKind.Field, Name = "_set")]
-    //private static extern ref SortedSet<KeyValuePair<int, CacheEntry>> GetInnerSet(SortedDictionary<int, CacheEntry> self);
-
-    public record CacheBlock(int Start, int Length, bool IsLocked);
-
-    internal class CacheEntry : IDisposable
-    {
-        private Mat _mat;
-
-        public CacheEntry(Ref<Bitmap<Bgra8888>> bitmap, FrameCacheOptions options)
-        {
-            using (Ref<Bitmap<Bgra8888>> t = bitmap.Clone())
-            {
-                _mat = ToYUV(t.Value, options);
-            }
-
-            LastAccessTime = DateTime.UtcNow;
-        }
-
-        public DateTime LastAccessTime { get; private set; }
-
-        public int ByteCount => (int)(_mat.DataEnd - _mat.DataStart);
-
-        public bool IsLocked { get; set; }
-
-        public void SetBitmap(Ref<Bitmap<Bgra8888>> bitmap, FrameCacheOptions options)
-        {
-            _mat?.Dispose();
-            using (Ref<Bitmap<Bgra8888>> t = bitmap.Clone())
-            {
-                _mat = ToYUV(t.Value, options);
-            }
-
-            LastAccessTime = DateTime.UtcNow;
-        }
-
-        public Ref<Bitmap<Bgra8888>> GetBitmap()
-        {
-            LastAccessTime = DateTime.UtcNow;
-            return Ref<Bitmap<Bgra8888>>.Create(ToBitmap(_mat));
-        }
-
-        private static Mat ToYUV(Bitmap<Bgra8888> bitmap, FrameCacheOptions options)
-        {
-            var result = new Mat(bitmap.Height, bitmap.Width, MatType.CV_8UC4, bitmap.Data);
-
-            PixelSize size = new(bitmap.Width, bitmap.Height);
-            PixelSize newSize = options.GetSize(size);
-            if (newSize != size)
-            {
-                Mat tmp = result.Resize(new Size(newSize.Width, newSize.Height));
-                result.Dispose();
-                result = tmp;
-            }
-
-            if (options.ColorType == FrameCacheColorType.YUV)
-            {
-                var mat = new Mat((int)(result.Rows * 1.5), result.Cols, MatType.CV_8UC1);
-                Cv2.CvtColor(result, mat, ColorConversionCodes.BGRA2YUV_I420);
-                result.Dispose();
-                result = mat;
-            }
-
-            return result;
-        }
-
-        private static unsafe Bitmap<Bgra8888> ToBitmap(Mat mat)
-        {
-            Bitmap<Bgra8888>? bitmap;
-            if (mat.Type() == MatType.CV_8UC4)
-            {
-                bitmap = new Bitmap<Bgra8888>(mat.Width, mat.Height);
-                Buffer.MemoryCopy((void*)mat.Data, (void*)bitmap.Data, bitmap.ByteCount, bitmap.ByteCount);
-            }
-            else
-            {
-                bitmap = new Bitmap<Bgra8888>(mat.Width, (int)(mat.Height / 1.5));
-                using var bgra = new Mat(bitmap.Height, bitmap.Width, MatType.CV_8UC4, bitmap.Data);
-
-                Cv2.CvtColor(mat, bgra, ColorConversionCodes.YUV2BGRA_I420);
-            }
-
-            return bitmap;
-        }
-
-        public void Dispose()
-        {
-            _mat?.Dispose();
-            _mat = null!;
-        }
     }
 }
