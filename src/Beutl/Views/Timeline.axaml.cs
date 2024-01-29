@@ -761,7 +761,7 @@ public sealed partial class Timeline : UserControl
                     block.StartFrame, block.StartFrame + block.LengthFrame);
             }
 
-            ViewModel.EditorContext.FrameCacheManager.RemoveAndUpdateBlocks(
+            ViewModel.EditorContext.FrameCacheManager.DeleteAndUpdateBlocks(
                 new[] { (block.StartFrame, block.StartFrame + block.LengthFrame) });
         }
     }

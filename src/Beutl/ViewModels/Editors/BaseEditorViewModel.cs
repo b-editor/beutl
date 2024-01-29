@@ -336,7 +336,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                     ImmutableArray<IStorable?> storables = GetStorables();
                     IEnumerable<TimeRange> affectedRange = storables.OfType<Element>().Select(v => v.Range);
 
-                    cacheManager.RemoveAndUpdateBlocks(affectedRange
+                    cacheManager.DeleteAndUpdateBlocks(affectedRange
                         .Select(item => (Start: (int)item.Start.ToFrameNumber(rate), End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
                 });
             }

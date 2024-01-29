@@ -118,7 +118,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 ? affectsTimeline.GetAffectedRange()
                 : e.Storables.OfType<Element>().Select(v => v.Range);
 
-            FrameCacheManager.RemoveAndUpdateBlocks(affectedRange
+            FrameCacheManager.DeleteAndUpdateBlocks(affectedRange
                 .Select(item => (Start: (int)item.Start.ToFrameNumber(rate), End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
         });
 

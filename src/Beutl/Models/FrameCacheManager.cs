@@ -1,13 +1,10 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 
 using Beutl.Configuration;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
-
-using OpenCvSharp;
 
 using Reactive.Bindings;
 
@@ -80,26 +77,23 @@ public sealed partial class FrameCacheManager : IDisposable
         }
     }
 
-    public bool RemoveRange(int start, int end)
+    public bool DeleteRange(int start, int end)
     {
         lock (_lock)
         {
-            int[] keys = _entries.Where(v => !v.Value.IsLocked)
-                .Select(p => p.Key)
-                .SkipWhile(t => t < start)
-                .TakeWhile(t => t < end)
+            KeyValuePair<int, CacheEntry>[] items = _entries.Where(v => !v.Value.IsLocked)
+                .SkipWhile(t => t.Key < start)
+                .TakeWhile(t => t.Key < end)
                 .ToArray();
 
-            foreach (int key in keys)
+            foreach ((int key, CacheEntry e) in items)
             {
-                if (_entries.Remove(key, out CacheEntry? e))
-                {
-                    _size -= e.ByteCount;
-                    e.Dispose();
-                }
+                _entries.Remove(key);
+                _size -= e.ByteCount;
+                e.Dispose();
             }
 
-            return keys.Length > 0;
+            return items.Length > 0;
         }
     }
 
@@ -150,7 +144,7 @@ public sealed partial class FrameCacheManager : IDisposable
         }
     }
 
-    public void RemoveAndUpdateBlocks(IEnumerable<(int Start, int End)> timeRanges)
+    public void DeleteAndUpdateBlocks(IEnumerable<(int Start, int End)> timeRanges)
     {
         lock (_lock)
         {
@@ -158,7 +152,7 @@ public sealed partial class FrameCacheManager : IDisposable
 
             foreach ((int Start, int End) in timeRanges)
             {
-                removedAnyCache |= RemoveRange(Start, End);
+                removedAnyCache |= DeleteRange(Start, End);
             }
 
             if (removedAnyCache)
@@ -178,7 +172,6 @@ public sealed partial class FrameCacheManager : IDisposable
     {
         lock (_lock)
         {
-            int[] keys = [.. _entries.Keys];
             foreach (CacheEntry item in _entries.Values)
             {
                 item.Dispose();
@@ -237,14 +230,14 @@ public sealed partial class FrameCacheManager : IDisposable
                     skip = item;
                 }
 
-                RemoveRange(item.Start, item.Start + item.Length);
+                DeleteRange(item.Start, item.Start + item.Length);
                 if (_size < _maxSize.Value)
                     return;
             }
 
             if (skip != null)
             {
-                RemoveRange(skip.Start, skip.Start + skip.Length - 1);
+                DeleteRange(skip.Start, skip.Start + skip.Length - 1);
             }
         }
 
