@@ -4,7 +4,7 @@ namespace Beutl.Models;
 
 public record FrameCacheOptions(
     FrameCacheScale Scale = FrameCacheScale.Original,
-    FrameCacheColorType ColorType = FrameCacheColorType.YUV,
+    FrameCacheColorType ColorType = FrameCacheColorType.BGRA,
     FrameCacheDeletionStrategy DeletionStrategy = FrameCacheDeletionStrategy.Old)
 {
     public PixelSize? Size { get; init; }
@@ -13,7 +13,7 @@ public record FrameCacheOptions(
     {
         return Scale switch
         {
-            FrameCacheScale.Quarter => original,
+            FrameCacheScale.Original => original,
             FrameCacheScale.Manual => Size ?? original,
             FrameCacheScale.Half => PixelSize.FromSize(original.ToSize(0.5f), 1),
             _ => PixelSize.FromSize(original.ToSize(0.5f), 0.5f)

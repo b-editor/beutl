@@ -305,6 +305,30 @@
     <value>操作を実行後、自動でファイルを保存します。</value>
   </data>
   <data name="FrameCacheMaxSize" xml:space="preserve">
-    <value>フレームキャッシュサイズ</value>
+    <value>最大バイト数</value>
+  </data>
+  <data name="FrameCacheMaxSize_Description" xml:space="preserve">
+    <value>このバイト数を超えないようにキャッシュ数を調整します。</value>
+  </data>
+  <data name="FrameCacheScale" xml:space="preserve">
+    <value>スケール</value>
+  </data>
+  <data name="FrameCacheScale_Quarter" xml:space="preserve">
+    <value>四分の一</value>
+  </data>
+  <data name="FrameCacheScale_Original" xml:space="preserve">
+    <value>オリジナル</value>
+  </data>
+  <data name="FrameCacheScale_FitToPreviewer" xml:space="preserve">
+    <value>プレビュー画面に合わせる</value>
+  </data>
+  <data name="FrameCacheScale_Half" xml:space="preserve">
+    <value>二分の一</value>
+  </data>
+  <data name="FrameCacheColorType" xml:space="preserve">
+    <value>色空間</value>
+  </data>
+  <data name="PropertyEditor" xml:space="preserve">
+    <value>プロパティエディタ</value>
   </data>
 </root>

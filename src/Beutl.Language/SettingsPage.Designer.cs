@@ -259,11 +259,74 @@ namespace Beutl.Language {
         }
         
         /// <summary>
-        ///   Frame cache size に類似しているローカライズされた文字列を検索します。
+        ///   Color space に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FrameCacheColorType {
+            get {
+                return ResourceManager.GetString("FrameCacheColorType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Maximum bytes に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string FrameCacheMaxSize {
             get {
                 return ResourceManager.GetString("FrameCacheMaxSize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   The number of caches will be adjusted so that it does not exceed this number of bytes. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FrameCacheMaxSize_Description {
+            get {
+                return ResourceManager.GetString("FrameCacheMaxSize_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Scale に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FrameCacheScale {
+            get {
+                return ResourceManager.GetString("FrameCacheScale", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Fit to preview screen に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FrameCacheScale_FitToPreviewer {
+            get {
+                return ResourceManager.GetString("FrameCacheScale_FitToPreviewer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Half に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FrameCacheScale_Half {
+            get {
+                return ResourceManager.GetString("FrameCacheScale_Half", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Original に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FrameCacheScale_Original {
+            get {
+                return ResourceManager.GetString("FrameCacheScale_Original", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Quarter に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FrameCacheScale_Quarter {
+            get {
+                return ResourceManager.GetString("FrameCacheScale_Quarter", resourceCulture);
             }
         }
         
@@ -354,6 +417,15 @@ namespace Beutl.Language {
         public static string PrimaryProperties {
             get {
                 return ResourceManager.GetString("PrimaryProperties", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Property editor に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string PropertyEditor {
+            get {
+                return ResourceManager.GetString("PropertyEditor", resourceCulture);
             }
         }
         

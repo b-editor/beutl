@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.ComponentModel;
 using System.Numerics;
 using System.Text.Json.Nodes;
 using System.Windows.Input;
@@ -62,7 +63,12 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             .DisposeWith(_disposables);
         Commands = new KnownCommandsImpl(scene, this);
         CommandRecorder = new CommandRecorder();
-        FrameCacheManager = new FrameCacheManager(new(scene.Width, scene.Height), new());
+        var config = GlobalConfiguration.Instance.EditorConfig;
+        FrameCacheManager = new FrameCacheManager(
+            new PixelSize(scene.Width, scene.Height),
+            new FrameCacheOptions(Scale: (FrameCacheScale)config.FrameCacheScale, ColorType: (FrameCacheColorType)config.FrameCacheColorType));
+        config.PropertyChanged += OnEditorConfigPropertyChanged;
+
         SelectedObject = new ReactiveProperty<CoreObject?>()
             .DisposeWith(_disposables);
 
@@ -107,6 +113,19 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         KeyBindings = CreateKeyBindings();
 
         CommandRecorder.Executed += OnCommandRecorderExecuted;
+    }
+
+    private void OnEditorConfigPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(EditorConfig.FrameCacheColorType) or nameof(EditorConfig.FrameCacheScale)
+            && sender is EditorConfig config)
+        {
+            FrameCacheManager.Options = FrameCacheManager.Options with
+            {
+                ColorType = (FrameCacheColorType)config.FrameCacheColorType,
+                Scale = (FrameCacheScale)config.FrameCacheScale
+            };
+        }
     }
 
     private void OnCommandRecorderExecuted(object? sender, CommandExecutedEventArgs e)
@@ -196,6 +215,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public void Dispose()
     {
+        GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         SaveState();
         _disposables.Dispose();
         Options.Dispose();

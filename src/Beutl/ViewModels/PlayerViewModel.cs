@@ -38,6 +38,7 @@ public sealed class PlayerViewModel : IDisposable
     private readonly ReactivePropertySlim<bool> _isEnabled;
     private readonly EditViewModel _editViewModel;
     private CancellationTokenSource? _cts;
+    private Size _maxFrameSize;
 
     public PlayerViewModel(EditViewModel editViewModel)
     {
@@ -151,7 +152,42 @@ public sealed class PlayerViewModel : IDisposable
     public event EventHandler? PreviewInvalidated;
 
     // View側から設定
-    public Size MaxFrameSize { get; set; }
+    public Size MaxFrameSize
+    {
+        get => _maxFrameSize;
+        set
+        {
+            _maxFrameSize = value;
+
+            if(_maxFrameSize != value)
+            {
+                FrameCacheManager frameCacheManager = _editViewModel.FrameCacheManager;
+                var frameSize = frameCacheManager.FrameSize.ToSize(1);
+                float scale = (float)Stretch.Uniform.CalculateScaling(MaxFrameSize, frameSize, StretchDirection.Both).X;
+                if (scale != 0)
+                {
+                    int den = (int)(1 / scale);
+                    if (den % 2 == 1)
+                    {
+                        den++;
+                    }
+
+                    frameCacheManager.Options = frameCacheManager.Options with
+                    {
+                        Size = PixelSize.FromSize(frameSize, 1f / den)
+                    };
+                }
+                else
+                {
+
+                    frameCacheManager.Options = frameCacheManager.Options with
+                    {
+                        Size = null
+                    };
+                }
+            }
+        }
+    }
 
     public Rect LastSelectedRect { get; set; }
 
@@ -163,6 +199,8 @@ public sealed class PlayerViewModel : IDisposable
                 return;
 
             IRenderer renderer = Scene.Renderer;
+            BufferStatusViewModel bufferStatus = _editViewModel.BufferStatus;
+            FrameCacheManager frameCacheManager = _editViewModel.FrameCacheManager;
             renderer.RenderInvalidated -= Renderer_RenderInvalidated;
 
             try
@@ -176,14 +214,14 @@ public sealed class PlayerViewModel : IDisposable
                 int startFrame = (int)startTime.ToFrameNumber(rate);
                 int durationFrame = (int)Math.Ceiling(durationTime.ToFrameNumber(rate));
                 var tcs = new TaskCompletionSource();
-                _editViewModel.BufferStatus.StartTime.Value = startTime;
-                _editViewModel.BufferStatus.EndTime.Value = startTime;
-                _editViewModel.FrameCacheManager.Options = _editViewModel.FrameCacheManager.Options with
+                bufferStatus.StartTime.Value = startTime;
+                bufferStatus.EndTime.Value = startTime;
+                frameCacheManager.Options = frameCacheManager.Options with
                 {
                     DeletionStrategy = FrameCacheDeletionStrategy.BackwardBlock
                 };
 
-                _editViewModel.FrameCacheManager.CurrentFrame = startFrame;
+                frameCacheManager.CurrentFrame = startFrame;
                 using var playerImpl = new BufferedPlayer(_editViewModel, Scene, IsPlaying, rate);
                 playerImpl.Start();
 
@@ -235,10 +273,10 @@ public sealed class PlayerViewModel : IDisposable
                 timer.Start();
 
                 await tcs.Task;
-                _editViewModel.FrameCacheManager.UpdateBlocks();
+                frameCacheManager.UpdateBlocks();
                 IsPlaying.Value = false;
-                _editViewModel.BufferStatus.StartTime.Value = TimeSpan.Zero;
-                _editViewModel.BufferStatus.EndTime.Value = TimeSpan.Zero;
+                bufferStatus.StartTime.Value = TimeSpan.Zero;
+                bufferStatus.EndTime.Value = TimeSpan.Zero;
             }
             catch (Exception ex)
             {
@@ -247,7 +285,7 @@ public sealed class PlayerViewModel : IDisposable
             }
             finally
             {
-                _editViewModel.FrameCacheManager.Options = _editViewModel.FrameCacheManager.Options with
+                frameCacheManager.Options = frameCacheManager.Options with
                 {
                     DeletionStrategy = FrameCacheDeletionStrategy.Old
                 };
@@ -520,7 +558,13 @@ public sealed class PlayerViewModel : IDisposable
 
                             ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
                             canvas.Clear();
-                            canvas.DrawBitmap(cache.Value, Brushes.White, null);
+
+                            using (canvas.PushTransform(
+                                Matrix.CreateScale(canvas.Size.Width / (float)cache.Value.Width, canvas.Size.Height / (float)cache.Value.Height)))
+                            {
+                                canvas.DrawBitmap(cache.Value, Brushes.White, null);
+                            }
+
                             DrawBoundaries(renderer, canvas);
 
                             bitmap = renderer.Snapshot();

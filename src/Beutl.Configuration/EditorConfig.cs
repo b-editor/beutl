@@ -12,12 +12,32 @@ public enum LibraryTabDisplayMode
     Hide
 }
 
+public enum FrameCacheConfigScale
+{
+    Original,
+
+    FitToPreviewer,
+
+    Half,
+
+    Quarter,
+}
+
+public enum FrameCacheConfigColorType
+{
+    RGBA,
+
+    YUV
+}
+
 public sealed class EditorConfig : ConfigurationBase
 {
     public static readonly CoreProperty<bool> AutoAdjustSceneDurationProperty;
     public static readonly CoreProperty<bool> EnablePointerLockInPropertyProperty;
     public static readonly CoreProperty<bool> IsAutoSaveEnabledProperty;
     public static readonly CoreProperty<double> FrameCacheMaxSizeProperty;
+    public static readonly CoreProperty<FrameCacheConfigScale> FrameCacheScaleProperty;
+    public static readonly CoreProperty<FrameCacheConfigColorType> FrameCacheColorTypeProperty;
 
     static EditorConfig()
     {
@@ -41,6 +61,14 @@ public sealed class EditorConfig : ConfigurationBase
         // デフォルトはメモリ容量の半分にする
         FrameCacheMaxSizeProperty = ConfigureProperty<double, EditorConfig>(nameof(FrameCacheMaxSize))
             .DefaultValue(memSizeInMG / 2)
+            .Register();
+
+        FrameCacheScaleProperty = ConfigureProperty<FrameCacheConfigScale, EditorConfig>(nameof(FrameCacheScale))
+            .DefaultValue(FrameCacheConfigScale.FitToPreviewer)
+            .Register();
+
+        FrameCacheColorTypeProperty = ConfigureProperty<FrameCacheConfigColorType, EditorConfig>(nameof(FrameCacheColorType))
+            .DefaultValue(FrameCacheConfigColorType.RGBA)
             .Register();
     }
 
@@ -71,6 +99,18 @@ public sealed class EditorConfig : ConfigurationBase
     {
         get => GetValue(FrameCacheMaxSizeProperty);
         set => SetValue(FrameCacheMaxSizeProperty, value);
+    }
+
+    public FrameCacheConfigScale FrameCacheScale
+    {
+        get => GetValue(FrameCacheScaleProperty);
+        set => SetValue(FrameCacheScaleProperty, value);
+    }
+    
+    public FrameCacheConfigColorType FrameCacheColorType
+    {
+        get => GetValue(FrameCacheColorTypeProperty);
+        set => SetValue(FrameCacheColorTypeProperty, value);
     }
 
     public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes { get; } = new()

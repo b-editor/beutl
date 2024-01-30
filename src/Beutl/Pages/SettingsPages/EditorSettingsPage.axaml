@@ -32,14 +32,6 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.EnablePointerLockInProperty_Description}" Header="{x:Static lang:SettingsPage.EnablePointerLockInProperty}">
-                    <ctrls:OptionsDisplayItem.ActionButton>
-                        <ToggleSwitch Classes="left"
-                                      IsChecked="{CompiledBinding EnablePointerLockInProperty.Value}"
-                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
-                    </ctrls:OptionsDisplayItem.ActionButton>
-                </ctrls:OptionsDisplayItem>
-
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.EnableAutoSave_Description}" Header="{x:Static lang:SettingsPage.EnableAutoSave}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"
@@ -56,7 +48,11 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.FrameCacheMaxSize}">
+                <TextBlock Margin="0,16,0,0"
+                           Text="{x:Static lang:Strings.FrameCache}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.FrameCacheMaxSize_Description}" Header="{x:Static lang:SettingsPage.FrameCacheMaxSize}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBox MinWidth="250" Text="{Binding FrameCacheMaxSize.Value}">
                             <TextBox.InnerRightContent>
@@ -65,6 +61,38 @@
                                            Text="MB" />
                             </TextBox.InnerRightContent>
                         </TextBox>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.FrameCacheScale}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding FrameCacheScale.Value}">
+                            <ComboBoxItem Content="{x:Static lang:SettingsPage.FrameCacheScale_Original}" />
+                            <ComboBoxItem Content="{x:Static lang:SettingsPage.FrameCacheScale_FitToPreviewer}" />
+                            <ComboBoxItem Content="{x:Static lang:SettingsPage.FrameCacheScale_Half}" />
+                            <ComboBoxItem Content="{x:Static lang:SettingsPage.FrameCacheScale_Quarter}" />
+                        </ComboBox>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.FrameCacheColorType}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding FrameCacheColorType.Value}">
+                            <ComboBoxItem Content="RGBA" />
+                            <ComboBoxItem Content="YUV" />
+                        </ComboBox>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <TextBlock Margin="0,16,0,0"
+                           Text="{x:Static lang:SettingsPage.PropertyEditor}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.EnablePointerLockInProperty_Description}" Header="{x:Static lang:SettingsPage.EnablePointerLockInProperty}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{CompiledBinding EnablePointerLockInProperty.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 

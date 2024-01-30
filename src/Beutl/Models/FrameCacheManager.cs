@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 
 using Beutl.Configuration;
+using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
@@ -14,7 +15,6 @@ public sealed partial class FrameCacheManager : IDisposable
 {
     private readonly SortedDictionary<int, CacheEntry> _entries = [];
     private readonly object _lock = new();
-    private readonly PixelSize _frameSize;
     private readonly ReadOnlyReactivePropertySlim<long> _maxSize;
     private long _size;
 
@@ -22,7 +22,7 @@ public sealed partial class FrameCacheManager : IDisposable
 
     public FrameCacheManager(PixelSize frameSize, FrameCacheOptions options)
     {
-        _frameSize = frameSize;
+        FrameSize = frameSize;
         Options = options;
 
         _maxSize = GlobalConfiguration.Instance.EditorConfig.GetObservable(EditorConfig.FrameCacheMaxSizeProperty)
@@ -36,6 +36,8 @@ public sealed partial class FrameCacheManager : IDisposable
 
     // 再生中のフレーム
     public int CurrentFrame { get; set; }
+
+    public PixelSize FrameSize { get; }
 
     public void Add(int frame, Ref<Bitmap<Bgra8888>> bitmap)
     {
@@ -259,7 +261,7 @@ public sealed partial class FrameCacheManager : IDisposable
                 }
 
                 long excess = _size - _maxSize.Value;
-                int sizePerCache = CalculateBitmapByteSize(Options.GetSize(_frameSize), Options.ColorType == FrameCacheColorType.YUV);
+                int sizePerCache = CalculateBitmapByteSize(Options.GetSize(FrameSize), Options.ColorType == FrameCacheColorType.YUV);
                 long targetCount = excess / sizePerCache;
 
                 var items = Options.DeletionStrategy == FrameCacheDeletionStrategy.Old
