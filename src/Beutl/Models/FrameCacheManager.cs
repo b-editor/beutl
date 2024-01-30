@@ -187,6 +187,7 @@ public sealed partial class FrameCacheManager : IDisposable
 
     private void AutoDelete()
     {
+        int currentFrame = CurrentFrame;
         KeyValuePair<int, CacheEntry>[] GetOldCaches(long targetCount)
         {
             return _entries
@@ -199,8 +200,8 @@ public sealed partial class FrameCacheManager : IDisposable
         KeyValuePair<int, CacheEntry>[] GetFarCaches(long targetCount)
         {
             return _entries
-                .Where(v => !v.Value.IsLocked && v.Key < CurrentFrame)
-                .OrderBy(v => v.Key - CurrentFrame)
+                .Where(v => !v.Value.IsLocked && v.Key < currentFrame)
+                .OrderBy(v => v.Key - currentFrame)
                 .Take((int)targetCount)
                 .ToArray();
         }
@@ -220,14 +221,14 @@ public sealed partial class FrameCacheManager : IDisposable
 
         void DeleteBackwardBlock()
         {
-            ImmutableArray<CacheBlock> blocks = CalculateBlocks(int.MinValue, CurrentFrame);
+            ImmutableArray<CacheBlock> blocks = CalculateBlocks(int.MinValue, currentFrame);
             CacheBlock? skip = null;
 
             foreach (CacheBlock? item in blocks.Where(v => !v.IsLocked)
                 .OrderByDescending(b => b.Length)
                 .ToArray())
             {
-                if (item.Start + item.Length < CurrentFrame)
+                if (item.Start + item.Length < currentFrame)
                 {
                     skip = item;
                 }
