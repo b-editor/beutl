@@ -923,6 +923,8 @@ public class Scene : ProjectItem
         private readonly TimeSpan _oldSceneDuration = scene.Duration;
         private readonly bool _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
 
+        public bool Nothing => newStart == oldStart && newLength == oldLength && zIndex == _oldZIndex;
+
         public ImmutableArray<IStorable?> GetStorables() => [scene, element];
 
         public ImmutableArray<TimeRange> GetAffectedRange()
