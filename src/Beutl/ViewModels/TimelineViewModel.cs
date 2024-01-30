@@ -133,10 +133,56 @@ public sealed class TimelineViewModel : IToolContext
         IsLockCacheButtonEnabled = HoveredCacheBlock.Select(v => v is { IsLocked: false })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        
+
         IsUnlockCacheButtonEnabled = HoveredCacheBlock.Select(v => v is { IsLocked: true })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
+
+        DeleteAllFrameCache = new ReactiveCommandSlim()
+            .WithSubscribe(EditorContext.FrameCacheManager.Clear);
+
+        DeleteFrameCache = HoveredCacheBlock.Select(v => v != null)
+            .ToReactiveCommandSlim()
+            .WithSubscribe(() =>
+            {
+                if (HoveredCacheBlock.Value is { } block)
+                {
+                    if (block.IsLocked)
+                    {
+                        EditorContext.FrameCacheManager.Unlock(
+                            block.StartFrame, block.StartFrame + block.LengthFrame);
+                    }
+
+                    EditorContext.FrameCacheManager.DeleteAndUpdateBlocks(
+                        new[] { (block.StartFrame, block.StartFrame + block.LengthFrame) });
+                }
+            });
+
+        LockFrameCache = HoveredCacheBlock.Select(v => v?.IsLocked == false)
+            .ToReactiveCommandSlim()
+            .WithSubscribe(() =>
+            {
+                if (HoveredCacheBlock.Value is { } block)
+                {
+                    EditorContext.FrameCacheManager.Lock(
+                        block.StartFrame, block.StartFrame + block.LengthFrame);
+
+                    EditorContext.FrameCacheManager.UpdateBlocks();
+                }
+            });
+
+        UnlockFrameCache = HoveredCacheBlock.Select(v => v?.IsLocked == true)
+            .ToReactiveCommandSlim()
+            .WithSubscribe(() =>
+            {
+                if (HoveredCacheBlock.Value is { } block)
+                {
+                    EditorContext.FrameCacheManager.Unlock(
+                        block.StartFrame, block.StartFrame + block.LengthFrame);
+
+                    EditorContext.FrameCacheManager.UpdateBlocks();
+                }
+            });
 
         // Todo: 設定からショートカットを変更できるようにする。
         KeyBindings = [];
@@ -199,10 +245,18 @@ public sealed class TimelineViewModel : IToolContext
 
     public ReactiveCommandSlim AdjustDurationToCurrent { get; } = new();
 
+    public ReactiveCommandSlim DeleteAllFrameCache { get; }
+
+    public ReactiveCommandSlim DeleteFrameCache { get; }
+
+    public ReactiveCommandSlim LockFrameCache { get; }
+
+    public ReactiveCommandSlim UnlockFrameCache { get; }
+
     public ReactiveProperty<bool> AutoAdjustSceneDuration { get; }
 
     public ReactivePropertySlim<CacheBlock?> HoveredCacheBlock { get; } = new();
-    
+
     public ReadOnlyReactivePropertySlim<bool> IsLockCacheButtonEnabled { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsUnlockCacheButtonEnabled { get; }

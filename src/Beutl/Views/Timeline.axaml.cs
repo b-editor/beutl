@@ -751,45 +751,7 @@ public sealed partial class Timeline : UserControl
         }
     }
 
-    private void DeleteFrameCacheClick(object? sender, RoutedEventArgs e)
+    private void Binding(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (ViewModel.HoveredCacheBlock.Value is { } block)
-        {
-            if (block.IsLocked)
-            {
-                ViewModel.EditorContext.FrameCacheManager.Unlock(
-                    block.StartFrame, block.StartFrame + block.LengthFrame);
-            }
-
-            ViewModel.EditorContext.FrameCacheManager.DeleteAndUpdateBlocks(
-                new[] { (block.StartFrame, block.StartFrame + block.LengthFrame) });
-        }
-    }
-
-    private void LockFrameCacheClick(object? sender, RoutedEventArgs e)
-    {
-        if (ViewModel.HoveredCacheBlock.Value is { } block)
-        {
-            ViewModel.EditorContext.FrameCacheManager.Lock(
-                block.StartFrame, block.StartFrame + block.LengthFrame);
-
-            ViewModel.EditorContext.FrameCacheManager.UpdateBlocks();
-        }
-    }
-
-    private void UnlockFrameCacheClick(object? sender, RoutedEventArgs e)
-    {
-        if (ViewModel.HoveredCacheBlock.Value is { } block)
-        {
-            ViewModel.EditorContext.FrameCacheManager.Unlock(
-                block.StartFrame, block.StartFrame + block.LengthFrame);
-
-            ViewModel.EditorContext.FrameCacheManager.UpdateBlocks();
-        }
-    }
-
-    private void DeleteAllFrameCacheClick(object? sender, RoutedEventArgs e)
-    {
-        ViewModel.EditorContext.FrameCacheManager.Clear();
     }
 }

@@ -48,16 +48,10 @@
                              Offset="{Binding #ContentScroll.Offset, Mode=OneWay}">
             <local:TimelineScale.ContextFlyout>
                 <ui:FAMenuFlyout>
-                    <ui:MenuFlyoutItem Click="DeleteAllFrameCacheClick" Text="{x:Static lang:Strings.DeleteAll}" />
-                    <ui:MenuFlyoutItem Click="DeleteFrameCacheClick"
-                                       IsEnabled="{Binding !!HoveredCacheBlock.Value}"
-                                       Text="{x:Static lang:Strings.Delete}" />
-                    <ui:MenuFlyoutItem Click="LockFrameCacheClick"
-                                       IsEnabled="{Binding IsLockCacheButtonEnabled.Value}"
-                                       Text="{x:Static lang:Strings.Lock}" />
-                    <ui:MenuFlyoutItem Click="UnlockFrameCacheClick"
-                                       IsEnabled="{Binding IsUnlockCacheButtonEnabled.Value}"
-                                       Text="{x:Static lang:Strings.Unlock}" />
+                    <ui:MenuFlyoutItem Command="{Binding DeleteAllFrameCache}" Text="{x:Static lang:Strings.DeleteAll}" />
+                    <ui:MenuFlyoutItem Command="{Binding DeleteFrameCache}" Text="{x:Static lang:Strings.Delete}" />
+                    <ui:MenuFlyoutItem Command="{Binding LockFrameCache}" Text="{x:Static lang:Strings.Lock}" />
+                    <ui:MenuFlyoutItem Command="{Binding UnlockFrameCache}" Text="{x:Static lang:Strings.Unlock}" />
                 </ui:FAMenuFlyout>
             </local:TimelineScale.ContextFlyout>
         </local:TimelineScale>
