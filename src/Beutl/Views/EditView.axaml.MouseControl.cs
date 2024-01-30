@@ -269,6 +269,14 @@ public partial class EditView
                 }
 
                 _scaledStartPosition = scaledPosition;
+                if (Element != null)
+                {
+                    int rate = viewModel.Player.GetFrameRate();
+                    int st = (int)Element.Start.ToFrameNumber(rate);
+                    int ed = (int)Math.Ceiling(Element.Range.End.ToFrameNumber(rate));
+
+                    viewModel.FrameCacheManager.DeleteAndUpdateBlocks(new[] { (st, ed) });
+                }
                 e.Handled = true;
             }
         }
@@ -321,9 +329,8 @@ public partial class EditView
                 _imagePressed = false;
 
                 ImmutableArray<IStorable?> storables = [Element];
-                IRecordableCommand? command = RecordableCommands.Append(
-                    CreateTranslationCommand(storables),
-                    RecordableCommands.Append(_xKeyFrame?.CreateCommand(storables), _yKeyFrame?.CreateCommand(storables)));
+                IRecordableCommand? command = CreateTranslationCommand(storables)
+                    .Append((_xKeyFrame?.CreateCommand(storables)).Append(_yKeyFrame?.CreateCommand(storables)));
                 command?.DoAndRecord(viewModel.CommandRecorder);
 
                 Element = null;
@@ -544,7 +551,6 @@ public partial class EditView
                 _pressed = false;
             }
         }
-
 
         public void OnPressed(PointerPressedEventArgs e)
         {
