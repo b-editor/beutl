@@ -92,10 +92,8 @@ public sealed partial class FrameCacheManager : IDisposable
     {
         lock (_lock)
         {
-            KeyValuePair<int, CacheEntry>[] items = _entries.Where(v => !v.Value.IsLocked)
-                .SkipWhile(t => t.Key < start)
-                .TakeWhile(t => t.Key < end)
-                .ToArray();
+            KeyValuePair<int, CacheEntry>[] items
+                = GetRange(_entries.Where(v => !v.Value.IsLocked), start, end).ToArray();
 
             foreach ((int key, CacheEntry e) in items)
             {
@@ -112,9 +110,7 @@ public sealed partial class FrameCacheManager : IDisposable
     {
         lock (_lock)
         {
-            foreach (KeyValuePair<int, CacheEntry> item in _entries
-                .SkipWhile(t => t.Key < start)
-                .TakeWhile(t => t.Key < end))
+            foreach (KeyValuePair<int, CacheEntry> item in GetRange( _entries, start, end))
             {
                 if (!item.Value.IsLocked)
                 {
@@ -130,9 +126,7 @@ public sealed partial class FrameCacheManager : IDisposable
     {
         lock (_lock)
         {
-            foreach (KeyValuePair<int, CacheEntry> item in _entries
-                .SkipWhile(t => t.Key < start)
-                .TakeWhile(t => t.Key < end))
+            foreach (KeyValuePair<int, CacheEntry> item in GetRange( _entries, start, end))
             {
                 if (item.Value.IsLocked)
                 {
@@ -148,10 +142,7 @@ public sealed partial class FrameCacheManager : IDisposable
     {
         lock (_lock)
         {
-            return _entries
-                .SkipWhile(t => t.Key < start)
-                .TakeWhile(t => t.Key < end)
-                .Sum(t => (long)t.Value.ByteCount);
+            return GetRange(_entries, start, end).Sum(t => (long)t.Value.ByteCount);
         }
     }
 
@@ -287,5 +278,12 @@ public sealed partial class FrameCacheManager : IDisposable
     {
         return i420 ? size.Width * (int)(size.Height * 1.5)
             : size.Width * size.Height * 4;
+    }
+
+    private static IEnumerable<KeyValuePair<int, CacheEntry>> GetRange(IEnumerable<KeyValuePair<int, CacheEntry>> source, int start, int end)
+    {
+        return source
+            .SkipWhile(t => t.Key < start)
+            .TakeWhile(t => t.Key < end);
     }
 }

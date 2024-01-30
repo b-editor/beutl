@@ -28,7 +28,7 @@ public partial class FrameCacheManager
             IEnumerable<KeyValuePair<int, CacheEntry>> items
                 = start == int.MinValue && end == int.MaxValue
                     ? _entries
-                    : _entries.SkipWhile(t => t.Key < start).TakeWhile(t => t.Key < end);
+                    : GetRange(_entries, start, end);
 
             foreach ((int key, CacheEntry item) in items)
             {
