@@ -54,6 +54,7 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
             GradientStop? model = Value.Value[index];
             model.Color = stop.Color.ToMedia();
             model.Offset = (float)stop.Offset;
+            InvalidateFrameCache();
         }
     }
 
