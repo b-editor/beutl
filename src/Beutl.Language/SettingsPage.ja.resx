@@ -331,4 +331,7 @@
   <data name="PropertyEditor" xml:space="preserve">
     <value>プロパティエディタ</value>
   </data>
+  <data name="EnableFrameCache" xml:space="preserve">
+    <value>フレームキャッシュを有効化</value>
+  </data>
 </root>

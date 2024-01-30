@@ -66,7 +66,10 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         var config = GlobalConfiguration.Instance.EditorConfig;
         FrameCacheManager = new FrameCacheManager(
             new PixelSize(scene.Width, scene.Height),
-            new FrameCacheOptions(Scale: (FrameCacheScale)config.FrameCacheScale, ColorType: (FrameCacheColorType)config.FrameCacheColorType));
+            new FrameCacheOptions(Scale: (FrameCacheScale)config.FrameCacheScale, ColorType: (FrameCacheColorType)config.FrameCacheColorType))
+        {
+            IsEnabled = config.IsFrameCacheEnabled
+        };
         config.PropertyChanged += OnEditorConfigPropertyChanged;
 
         SelectedObject = new ReactiveProperty<CoreObject?>()
@@ -117,14 +120,24 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     private void OnEditorConfigPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(EditorConfig.FrameCacheColorType) or nameof(EditorConfig.FrameCacheScale)
-            && sender is EditorConfig config)
+        if (sender is EditorConfig config)
         {
-            FrameCacheManager.Options = FrameCacheManager.Options with
+            if (e.PropertyName is nameof(EditorConfig.FrameCacheColorType) or nameof(EditorConfig.FrameCacheScale))
             {
-                ColorType = (FrameCacheColorType)config.FrameCacheColorType,
-                Scale = (FrameCacheScale)config.FrameCacheScale
-            };
+                FrameCacheManager.Options = FrameCacheManager.Options with
+                {
+                    ColorType = (FrameCacheColorType)config.FrameCacheColorType,
+                    Scale = (FrameCacheScale)config.FrameCacheScale
+                };
+            }
+            else if (e.PropertyName is nameof(EditorConfig.IsFrameCacheEnabled))
+            {
+                FrameCacheManager.IsEnabled = config.IsFrameCacheEnabled;
+                if (!config.IsFrameCacheEnabled)
+                {
+                    FrameCacheManager.Clear();
+                }
+            }
         }
     }
 

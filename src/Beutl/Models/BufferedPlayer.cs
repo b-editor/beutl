@@ -101,7 +101,7 @@ public sealed class BufferedPlayer : IPlayer
                         _editViewModel.BufferStatus.EndTime.Value = time;
 
                     int? requestedFrame = _requestedFrame;
-                    if (requestedFrame.HasValue && requestedFrame.Value > frame)
+                    if (requestedFrame > frame)
                     {
                         frame = requestedFrame.Value + 2;
                         _requestedFrame = null;

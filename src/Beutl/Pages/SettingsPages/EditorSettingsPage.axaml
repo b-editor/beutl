@@ -52,7 +52,17 @@
                            Text="{x:Static lang:Strings.FrameCache}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.FrameCacheMaxSize_Description}" Header="{x:Static lang:SettingsPage.FrameCacheMaxSize}">
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.EnableFrameCache}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{CompiledBinding IsFrameCacheEnabled.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.FrameCacheMaxSize_Description}"
+                                          Header="{x:Static lang:SettingsPage.FrameCacheMaxSize}"
+                                          IsEnabled="{CompiledBinding IsFrameCacheEnabled.Value}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBox MinWidth="250" Text="{Binding FrameCacheMaxSize.Value}">
                             <TextBox.InnerRightContent>
@@ -64,7 +74,7 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.FrameCacheScale}">
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.FrameCacheScale}" IsEnabled="{CompiledBinding IsFrameCacheEnabled.Value}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding FrameCacheScale.Value}">
                             <ComboBoxItem Content="{x:Static lang:SettingsPage.FrameCacheScale_Original}" />
@@ -75,7 +85,7 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.FrameCacheColorType}">
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.FrameCacheColorType}" IsEnabled="{CompiledBinding IsFrameCacheEnabled.Value}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding FrameCacheColorType.Value}">
                             <ComboBoxItem Content="RGBA" />

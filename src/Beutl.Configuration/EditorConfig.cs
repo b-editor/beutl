@@ -35,6 +35,7 @@ public sealed class EditorConfig : ConfigurationBase
     public static readonly CoreProperty<bool> AutoAdjustSceneDurationProperty;
     public static readonly CoreProperty<bool> EnablePointerLockInPropertyProperty;
     public static readonly CoreProperty<bool> IsAutoSaveEnabledProperty;
+    public static readonly CoreProperty<bool> IsFrameCacheEnabledProperty;
     public static readonly CoreProperty<double> FrameCacheMaxSizeProperty;
     public static readonly CoreProperty<FrameCacheConfigScale> FrameCacheScaleProperty;
     public static readonly CoreProperty<FrameCacheConfigColorType> FrameCacheColorTypeProperty;
@@ -50,6 +51,10 @@ public sealed class EditorConfig : ConfigurationBase
             .Register();
 
         IsAutoSaveEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsAutoSaveEnabled))
+            .DefaultValue(true)
+            .Register();
+
+        IsFrameCacheEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsFrameCacheEnabled))
             .DefaultValue(true)
             .Register();
 
@@ -93,6 +98,12 @@ public sealed class EditorConfig : ConfigurationBase
     {
         get => GetValue(IsAutoSaveEnabledProperty);
         set => SetValue(IsAutoSaveEnabledProperty, value);
+    }
+    
+    public bool IsFrameCacheEnabled
+    {
+        get => GetValue(IsFrameCacheEnabledProperty);
+        set => SetValue(IsFrameCacheEnabledProperty, value);
     }
 
     public double FrameCacheMaxSize

@@ -2,7 +2,6 @@
 using System.Diagnostics.CodeAnalysis;
 
 using Beutl.Configuration;
-using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
@@ -37,10 +36,14 @@ public sealed partial class FrameCacheManager : IDisposable
     // 再生中のフレーム
     public int CurrentFrame { get; set; }
 
+    public bool IsEnabled { get; set; }
+
     public PixelSize FrameSize { get; }
 
     public void Add(int frame, Ref<Bitmap<Bgra8888>> bitmap)
     {
+        if (!IsEnabled) return;
+
         lock (_lock)
         {
             if (_entries.TryGetValue(frame, out CacheEntry? old))
@@ -64,6 +67,12 @@ public sealed partial class FrameCacheManager : IDisposable
 
     public bool TryGet(int frame, [MaybeNullWhen(false)] out Ref<Bitmap<Bgra8888>> bitmap)
     {
+        if (!IsEnabled)
+        {
+            bitmap = null;
+            return false;
+        }
+
         lock (_lock)
         {
             if (_entries.TryGetValue(frame, out CacheEntry? e))

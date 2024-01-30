@@ -331,4 +331,7 @@ Enabling this setting may make the border invisible.</value>
   <data name="PropertyEditor" xml:space="preserve">
     <value>Property editor</value>
   </data>
+  <data name="EnableFrameCache" xml:space="preserve">
+    <value>Enable frame cache</value>
+  </data>
 </root>

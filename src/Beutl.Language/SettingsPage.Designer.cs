@@ -232,6 +232,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Enable frame cache に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string EnableFrameCache {
+            get {
+                return ResourceManager.GetString("EnableFrameCache", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Enable pointer lock に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string EnablePointerLockInProperty {
