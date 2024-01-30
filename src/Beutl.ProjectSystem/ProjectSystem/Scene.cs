@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using Beutl.Configuration;
@@ -12,6 +13,7 @@ using Beutl.Media;
 using Beutl.Rendering;
 using Beutl.Rendering.Cache;
 using Beutl.Serialization;
+using Beutl.Utilities;
 
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
@@ -212,6 +214,13 @@ public class Scene : ProjectItem
         ArgumentNullException.ThrowIfNull(element);
 
         return new AddCommand(this, element, overlapHandling);
+    }
+
+    public IRecordableCommand DeleteChild(Element element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+
+        return new DeleteCommand(this, element);
     }
 
     public IRecordableCommand RemoveChild(Element element)
@@ -829,6 +838,77 @@ public class Scene : ProjectItem
         {
             element.ZIndex = _zIndex;
             scene.Children.Add(element);
+        }
+    }
+
+    private sealed class DeleteCommand : IRecordableCommand, IAffectsTimelineCommand
+    {
+        private readonly Scene _scene;
+        private readonly TimeRange _timeRange;
+        private readonly byte[] _jsonBytes;
+        private string _fileName;
+        private Element? _element;
+
+        public DeleteCommand(Scene scene, Element element)
+        {
+            _scene = scene;
+            _element = element;
+            _fileName = element.FileName;
+            _timeRange = element.Range;
+
+            var jsonObject = new JsonObject();
+            var context = new JsonSerializationContext(typeof(Element), NullSerializationErrorNotifier.Instance, json: jsonObject);
+            using (ThreadLocalSerializationContext.Enter(context))
+            {
+                element.Serialize(context);
+            }
+
+            _jsonBytes = JsonSerializer.SerializeToUtf8Bytes(jsonObject);
+        }
+
+        public ImmutableArray<IStorable?> GetStorables() => [_scene];
+
+        public ImmutableArray<TimeRange> GetAffectedRange() => [_timeRange];
+
+        public void Do()
+        {
+            if (_element != null)
+            {
+                string fileName = _element.FileName;
+                if (File.Exists(fileName))
+                {
+                    File.Delete(fileName);
+                }
+
+                _scene.Children.Remove(_element);
+                _element = null;
+            }
+        }
+
+        public void Redo()
+        {
+            Do();
+        }
+
+        public void Undo()
+        {
+            if (File.Exists(_fileName))
+            {
+                _fileName = RandomFileNameGenerator.Generate(Path.GetDirectoryName(_scene.FileName)!, "belm");
+            }
+
+            _element = new Element();
+
+            JsonObject? jsonObject = JsonSerializer.Deserialize<JsonObject>(_jsonBytes);
+            var context = new JsonSerializationContext(typeof(Element), NullSerializationErrorNotifier.Instance, json: jsonObject);
+            using (ThreadLocalSerializationContext.Enter(context))
+            {
+                _element.Deserialize(context);
+            }
+
+            _element.Save(_fileName);
+
+            _scene.Children.Add(_element);
         }
     }
 

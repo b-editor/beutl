@@ -320,13 +320,8 @@ public sealed class ElementViewModel : IDisposable
 
     private void OnDelete()
     {
-        string fileName = Model.FileName;
-        if (File.Exists(fileName))
-        {
-            File.Delete(fileName);
-        }
-
-        Scene.RemoveChild(Model).Do();
+        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+        Scene.DeleteChild(Model).DoAndRecord(recorder);
     }
 
     private void OnBringAnimationToTop()
