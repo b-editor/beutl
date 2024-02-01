@@ -1,4 +1,7 @@
-﻿using Beutl.Extensibility;
+﻿using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
+
+using Beutl.Extensibility;
 using Beutl.Extensions.MediaFoundation.Properties;
 using Beutl.Media.Decoding;
 
@@ -37,17 +40,21 @@ public sealed class MFDecodingExtension : DecodingExtension
                 MediaManager.Startup();
             });
 
-            AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
+            if (Application.Current?.ApplicationLifetime is IControlledApplicationLifetime lifetime)
+            {
+                lifetime.Exit += OnApplicationExit;
+            }
+
             AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         }
     }
 
-    private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    private void OnApplicationExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
         Shutdown();
     }
 
-    private void OnProcessExit(object? sender, EventArgs e)
+    private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
     {
         Shutdown();
     }
@@ -60,7 +67,6 @@ public sealed class MFDecodingExtension : DecodingExtension
         });
         MFThread.Dispatcher.Stop();
 
-        AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
         AppDomain.CurrentDomain.UnhandledException -= OnUnhandledException;
     }
 }
