@@ -1,4 +1,4 @@
-﻿namespace Beutl;
+﻿namespace Beutl.Utilities;
 
 public static class RandomFileNameGenerator
 {

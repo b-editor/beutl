@@ -304,4 +304,34 @@ Enabling this setting may make the border invisible.</value>
   <data name="EnableAutoSave_Description" xml:space="preserve">
     <value>The file is automatically saved after the operation is performed.</value>
   </data>
+  <data name="FrameCacheMaxSize" xml:space="preserve">
+    <value>Maximum bytes</value>
+  </data>
+  <data name="FrameCacheMaxSize_Description" xml:space="preserve">
+    <value>The number of caches will be adjusted so that it does not exceed this number of bytes.</value>
+  </data>
+  <data name="FrameCacheScale" xml:space="preserve">
+    <value>Scale</value>
+  </data>
+  <data name="FrameCacheScale_Original" xml:space="preserve">
+    <value>Original</value>
+  </data>
+  <data name="FrameCacheScale_FitToPreviewer" xml:space="preserve">
+    <value>Fit to preview screen</value>
+  </data>
+  <data name="FrameCacheScale_Half" xml:space="preserve">
+    <value>Half</value>
+  </data>
+  <data name="FrameCacheScale_Quarter" xml:space="preserve">
+    <value>Quarter</value>
+  </data>
+  <data name="FrameCacheColorType" xml:space="preserve">
+    <value>Color space</value>
+  </data>
+  <data name="PropertyEditor" xml:space="preserve">
+    <value>Property editor</value>
+  </data>
+  <data name="EnableFrameCache" xml:space="preserve">
+    <value>Enable frame cache</value>
+  </data>
 </root>

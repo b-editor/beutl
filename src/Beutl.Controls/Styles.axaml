@@ -74,11 +74,11 @@
         </ResourceDictionary>
     </Styles.Resources>
 
-    <Style Selector="PopupRoot">
+    <!--<Style Selector="PopupRoot">
         <Setter Property="TransparencyLevelHint" Value="AcrylicBlur" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="TransparencyBackgroundFallback" Value="Transparent" />
-    </Style>
+    </Style>-->
     <Style Selector="MenuFlyoutPresenter /template/ Border#LayoutRoot">
         <Setter Property="Background">
             <SolidColorBrush Opacity="0.725" Color="{DynamicResource SolidBackgroundFillColorBase}" />

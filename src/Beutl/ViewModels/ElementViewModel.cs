@@ -270,6 +270,7 @@ public sealed class ElementViewModel : IDisposable
         TimeSpan start = BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate);
         TimeSpan length = Width.Value.ToTimeSpan(scale).RoundToRate(rate);
         int zindex = Timeline.ToLayerNumber(Margin.Value);
+
         Scene.MoveChild(zindex, start, length, Model)
             .DoAndRecord(recorder);
 
@@ -312,13 +313,8 @@ public sealed class ElementViewModel : IDisposable
 
     private void OnDelete()
     {
-        string fileName = Model.FileName;
-        if (File.Exists(fileName))
-        {
-            File.Delete(fileName);
-        }
-
-        Scene.RemoveChild(Model).Do();
+        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+        Scene.DeleteChild(Model).DoAndRecord(recorder);
     }
 
     private void OnBringAnimationToTop()

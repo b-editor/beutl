@@ -33,6 +33,11 @@ internal static class Program
 
         UnhandledExceptionHandler.Initialize();
 
+        RenderThread.Dispatcher.Dispatch(() =>
+        {
+            Thread.CurrentThread.Name = "Beutl.RenderThread";
+            Thread.CurrentThread.IsBackground = true;
+        }, Threading.DispatchPriority.High);
         RenderThread.Dispatcher.Dispatch(SharedGPUContext.Create, Threading.DispatchPriority.High);
 
         BuildAvaloniaApp()

@@ -28,14 +28,38 @@
                              Height="32"
                              HorizontalAlignment="Stretch"
                              VerticalAlignment="Top"
+                             BufferBrush="{DynamicResource TextFillColorSecondaryBrush}"
+                             BufferEnd="{Binding EditorContext.BufferStatus.End.Value}"
+                             BufferStart="{Binding EditorContext.BufferStatus.Start.Value}"
+                             CacheBlockBrush="{DynamicResource SystemFillColorSuccessBrush}"
+                             CacheBlocks="{Binding EditorContext.BufferStatus.CacheBlocks.Value}"
+                             EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                              EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
+                             HoveredCacheBlock="{Binding HoveredCacheBlock.Value}"
+                             LockedCacheBlockBrush="{DynamicResource AccentFillColorTertiaryBrush}"
                              PointerExited="TimelinePanel_PointerExited"
                              PointerMoved="TimelinePanel_PointerMoved"
                              PointerPressed="TimelinePanel_PointerPressed"
                              PointerReleased="TimelinePanel_PointerReleased"
                              Scale="{Binding Options.Value.Scale}"
+                             ScaleBrush="{DynamicResource TextControlForeground}"
+                             SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
                              SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
-                             Offset="{Binding #ContentScroll.Offset, Mode=OneWay}" />
+                             Offset="{Binding #ContentScroll.Offset, Mode=OneWay}">
+            <local:TimelineScale.ContextFlyout>
+                <ui:FAMenuFlyout>
+                    <ui:MenuFlyoutItem Command="{Binding DeleteAllFrameCache}" Text="{x:Static lang:Strings.DeleteAll}" />
+                    <ui:MenuFlyoutItem Command="{Binding DeleteFrameCache}" Text="{x:Static lang:Strings.Delete}" />
+                    <ui:MenuFlyoutItem Command="{Binding LockFrameCache}" Text="{x:Static lang:Strings.Lock}" />
+                    <ui:MenuFlyoutItem Command="{Binding UnlockFrameCache}" Text="{x:Static lang:Strings.Unlock}" />
+                </ui:FAMenuFlyout>
+            </local:TimelineScale.ContextFlyout>
+        </local:TimelineScale>
+
+        <ui:TeachingTip x:Name="CacheTip"
+                        Title="{x:Static lang:Strings.FrameCache}"
+                        Subtitle="{x:Static lang:Strings.RightClickToOperateCache}"
+                        Target="{Binding #Scale}" />
 
         <Grid ClipToBounds="True">
             <Grid.ColumnDefinitions>
@@ -150,7 +174,9 @@
 
                 <local:TimelineOverlay x:Name="overlay"
                                        VerticalAlignment="Stretch"
+                                       EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                                        EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
+                                       SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
                                        SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
                                        Viewport="{Binding #ContentScroll.Viewport, Mode=OneWay}"
                                        ZIndex="6"

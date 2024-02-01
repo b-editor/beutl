@@ -773,6 +773,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Delete All に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DeleteAll {
+            get {
+                return ResourceManager.GetString("DeleteAll", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Destination に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string DestinationRect {
@@ -1205,6 +1214,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Frame cache に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FrameCache {
+            get {
+                return ResourceManager.GetString("FrameCache", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Frame rate に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string FrameRate {
@@ -1547,6 +1565,24 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Lock に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Lock {
+            get {
+                return ResourceManager.GetString("Lock", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Locked に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Locked {
+            get {
+                return ResourceManager.GetString("Locked", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   LumaColor に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string LumaColor {
@@ -1579,6 +1615,15 @@ namespace Beutl.Language {
         public static string MaskType {
             get {
                 return ResourceManager.GetString("MaskType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Memory usage に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string MemoryUsage {
+            get {
+                return ResourceManager.GetString("MemoryUsage", resourceCulture);
             }
         }
         
@@ -2083,6 +2128,15 @@ namespace Beutl.Language {
         public static string Right {
             get {
                 return ResourceManager.GetString("Right", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Right-click to operate cache に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RightClickToOperateCache {
+            get {
+                return ResourceManager.GetString("RightClickToOperateCache", resourceCulture);
             }
         }
         
@@ -2686,6 +2740,24 @@ namespace Beutl.Language {
         public static string Unknown {
             get {
                 return ResourceManager.GetString("Unknown", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Unlock に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Unlock {
+            get {
+                return ResourceManager.GetString("Unlock", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Unlocked に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Unlocked {
+            get {
+                return ResourceManager.GetString("Unlocked", resourceCulture);
             }
         }
         

@@ -8,6 +8,7 @@ using Avalonia.Data;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Media;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
 
@@ -275,6 +276,22 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
         return _parentServices?.GetService(serviceType);
     }
+
+    public void InvalidateFrameCache()
+    {
+        if (this.GetService<EditViewModel>() is { Player: { } player, FrameCacheManager: { } cacheManager })
+        {
+            Task.Run(() =>
+            {
+                int rate = player.GetFrameRate();
+                ImmutableArray<IStorable?> storables = GetStorables();
+                IEnumerable<TimeRange> affectedRange = storables.OfType<Element>().Select(v => v.Range);
+
+                cacheManager.DeleteAndUpdateBlocks(affectedRange
+                    .Select(item => (Start: (int)item.Start.ToFrameNumber(rate), End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
+            });
+        }
+    }
 }
 
 public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
@@ -328,11 +345,13 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         if (EditingKeyFrame.Value != null)
         {
             EditingKeyFrame.Value.Value = value!;
+            InvalidateFrameCache();
             return EditingKeyFrame.Value.Value;
         }
         else
         {
             WrappedProperty.SetValue(value);
+            InvalidateFrameCache();
             return WrappedProperty.GetValue();
         }
     }

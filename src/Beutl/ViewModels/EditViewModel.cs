@@ -1,4 +1,6 @@
-﻿using System.Numerics;
+﻿using System.Collections.Immutable;
+using System.ComponentModel;
+using System.Numerics;
 using System.Text.Json.Nodes;
 using System.Windows.Input;
 
@@ -61,6 +63,15 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             .DisposeWith(_disposables);
         Commands = new KnownCommandsImpl(scene, this);
         CommandRecorder = new CommandRecorder();
+        var config = GlobalConfiguration.Instance.EditorConfig;
+        FrameCacheManager = new FrameCacheManager(
+            new PixelSize(scene.Width, scene.Height),
+            new FrameCacheOptions(Scale: (FrameCacheScale)config.FrameCacheScale, ColorType: (FrameCacheColorType)config.FrameCacheColorType))
+        {
+            IsEnabled = config.IsFrameCacheEnabled
+        };
+        config.PropertyChanged += OnEditorConfigPropertyChanged;
+
         SelectedObject = new ReactiveProperty<CoreObject?>()
             .DisposeWith(_disposables);
 
@@ -69,8 +80,22 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
         Scale = Options.Select(o => o.Scale);
         Offset = Options.Select(o => o.Offset);
+        BufferStatus = new BufferStatusViewModel(this)
+            .DisposeWith(_disposables);
 
         RestoreState();
+
+        scene.GetPropertyChangedObservable(Scene.RendererProperty)
+            .Subscribe(e =>
+            {
+                if (e.NewValue != null)
+                {
+                    FrameCacheManager old = FrameCacheManager;
+                    FrameCacheManager = new FrameCacheManager(e.NewValue.FrameSize, new());
+                    old.Dispose();
+                }
+            })
+            .DisposeWith(_disposables);
 
         SelectedObject.CombineWithPrevious()
             .Subscribe(v =>
@@ -93,8 +118,42 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         CommandRecorder.Executed += OnCommandRecorderExecuted;
     }
 
+    private void OnEditorConfigPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is EditorConfig config)
+        {
+            if (e.PropertyName is nameof(EditorConfig.FrameCacheColorType) or nameof(EditorConfig.FrameCacheScale))
+            {
+                FrameCacheManager.Options = FrameCacheManager.Options with
+                {
+                    ColorType = (FrameCacheColorType)config.FrameCacheColorType,
+                    Scale = (FrameCacheScale)config.FrameCacheScale
+                };
+            }
+            else if (e.PropertyName is nameof(EditorConfig.IsFrameCacheEnabled))
+            {
+                FrameCacheManager.IsEnabled = config.IsFrameCacheEnabled;
+                if (!config.IsFrameCacheEnabled)
+                {
+                    FrameCacheManager.Clear();
+                }
+            }
+        }
+    }
+
     private void OnCommandRecorderExecuted(object? sender, CommandExecutedEventArgs e)
     {
+        Task.Run(() =>
+        {
+            int rate = Player.GetFrameRate();
+            IEnumerable<TimeRange> affectedRange = e.Command is IAffectsTimelineCommand affectsTimeline
+                ? affectsTimeline.GetAffectedRange()
+                : e.Storables.OfType<Element>().Select(v => v.Range);
+
+            FrameCacheManager.DeleteAndUpdateBlocks(affectedRange
+                .Select(item => (Start: (int)item.Start.ToFrameNumber(rate), End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
+        });
+
         if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled)
         {
             Dispatcher.UIThread.Invoke(() =>
@@ -145,7 +204,11 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public PlayerViewModel Player { get; private set; }
 
+    public BufferStatusViewModel BufferStatus { get; private set; }
+
     public CommandRecorder CommandRecorder { get; private set; }
+
+    public FrameCacheManager FrameCacheManager { get; private set; }
 
     public EditorExtension Extension => SceneEditorExtension.Instance;
 
@@ -165,12 +228,14 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public void Dispose()
     {
+        GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         SaveState();
         _disposables.Dispose();
         Options.Dispose();
         IsEnabled.Dispose();
         Library = null!;
         Player = null!;
+        BufferStatus = null!;
 
         foreach (ToolTabViewModel item in BottomTabItems.GetMarshal().Value)
         {
@@ -190,6 +255,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         CommandRecorder.Executed -= OnCommandRecorderExecuted;
         CommandRecorder.Clear();
         CommandRecorder = null!;
+        FrameCacheManager.Dispose();
+        FrameCacheManager = null!;
     }
 
     public T? FindToolTab<T>(Func<T, bool> condition)

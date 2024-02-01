@@ -1,8 +1,10 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.Media.TextFormatting;
+
+using static Beutl.ViewModels.BufferStatusViewModel;
 
 namespace Beutl.Views;
 
@@ -26,24 +28,67 @@ public sealed class TimelineScale : Control
         = AvaloniaProperty.RegisterDirect<TimelineScale, Thickness>(
             nameof(SeekBarMargin), o => o.SeekBarMargin, (o, v) => o.SeekBarMargin = v);
 
+    public static readonly StyledProperty<double> BufferStartProperty
+        = AvaloniaProperty.Register<TimelineScale, double>(nameof(BufferStart));
+
+    public static readonly StyledProperty<double> BufferEndProperty
+        = AvaloniaProperty.Register<TimelineScale, double>(nameof(BufferEnd));
+
+    public static readonly StyledProperty<CacheBlock[]?> CacheBlocksProperty
+        = AvaloniaProperty.Register<TimelineScale, CacheBlock[]?>(nameof(CacheBlocks));
+
+    public static readonly StyledProperty<CacheBlock?> HoveredCacheBlockProperty
+        = AvaloniaProperty.Register<TimelineScale, CacheBlock?>(nameof(HoveredCacheBlock));
+
+    public static readonly StyledProperty<IBrush?> ScaleBrushProperty
+        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(ScaleBrush));
+
+    public static readonly StyledProperty<IBrush?> SeekBarBrushProperty
+        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(SeekBarBrush));
+
+    public static readonly StyledProperty<IBrush?> EndingBarBrushProperty
+        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(EndingBarBrush));
+
+    public static readonly StyledProperty<IBrush?> CacheBlockBrushProperty
+        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(CacheBlockBrush));
+
+    public static readonly StyledProperty<IBrush?> LockedCacheBlockBrushProperty
+        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(LockedCacheBlockBrush));
+
+    public static readonly StyledProperty<IBrush?> BufferBrushProperty
+        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(BufferBrush));
+
     private static readonly Typeface s_typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Medium);
-    private readonly Pen _pen;
-    private IBrush _brush = Brushes.White;
     private float _scale = 1;
     private Vector _offset;
     private Thickness _endingBarMargin;
     private Thickness _seekBarMargin;
-    private IDisposable? _disposable;
+    private ImmutablePen? _pen;
+    private ImmutablePen? _seekBarPen;
+    private ImmutablePen? _endingBarPen;
 
     static TimelineScale()
     {
-        AffectsRender<TimelineScale>(ScaleProperty, OffsetProperty, EndingBarMarginProperty, SeekBarMarginProperty);
+        AffectsRender<TimelineScale>(
+            ScaleProperty,
+            OffsetProperty,
+            EndingBarMarginProperty,
+            SeekBarMarginProperty,
+            BufferStartProperty,
+            BufferEndProperty,
+            CacheBlocksProperty,
+            HoveredCacheBlockProperty,
+            ScaleBrushProperty,
+            SeekBarBrushProperty,
+            EndingBarBrushProperty,
+            CacheBlockBrushProperty,
+            LockedCacheBlockBrushProperty,
+            BufferBrushProperty);
     }
 
     public TimelineScale()
     {
         ClipToBounds = true;
-        _pen = new Pen(_brush, 1);
     }
 
     public float Scale
@@ -70,29 +115,89 @@ public sealed class TimelineScale : Control
         set => SetAndRaise(SeekBarMarginProperty, ref _seekBarMargin, value);
     }
 
-    protected override void OnLoaded(RoutedEventArgs e)
+    public double BufferStart
     {
-        base.OnLoaded(e);
-        _disposable = this.GetResourceObservable("TextControlForeground").Subscribe(b =>
-        {
-            if (b is IBrush brush)
-            {
-                _brush = brush;
-                _pen.Brush = brush;
-                InvalidateVisual();
-            }
-        });
+        get => GetValue(BufferStartProperty);
+        set => SetValue(BufferStartProperty, value);
     }
 
-    protected override void OnUnloaded(RoutedEventArgs e)
+    public double BufferEnd
     {
-        base.OnUnloaded(e);
-        _disposable?.Dispose();
+        get => GetValue(BufferEndProperty);
+        set => SetValue(BufferEndProperty, value);
+    }
+
+    public CacheBlock[]? CacheBlocks
+    {
+        get => GetValue(CacheBlocksProperty);
+        set => SetValue(CacheBlocksProperty, value);
+    }
+
+    public CacheBlock? HoveredCacheBlock
+    {
+        get => GetValue(HoveredCacheBlockProperty);
+        set => SetValue(HoveredCacheBlockProperty, value);
+    }
+
+    public IBrush? ScaleBrush
+    {
+        get => GetValue(ScaleBrushProperty);
+        set => SetValue(ScaleBrushProperty, value);
+    }
+
+    public IBrush? SeekBarBrush
+    {
+        get => GetValue(SeekBarBrushProperty);
+        set => SetValue(SeekBarBrushProperty, value);
+    }
+
+    public IBrush? EndingBarBrush
+    {
+        get => GetValue(EndingBarBrushProperty);
+        set => SetValue(EndingBarBrushProperty, value);
+    }
+
+    public IBrush? CacheBlockBrush
+    {
+        get => GetValue(CacheBlockBrushProperty);
+        set => SetValue(CacheBlockBrushProperty, value);
+    }
+
+    public IBrush? LockedCacheBlockBrush
+    {
+        get => GetValue(LockedCacheBlockBrushProperty);
+        set => SetValue(LockedCacheBlockBrushProperty, value);
+    }
+
+    public IBrush? BufferBrush
+    {
+        get => GetValue(BufferBrushProperty);
+        set => SetValue(BufferBrushProperty, value);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == ScaleBrushProperty)
+        {
+            _pen = new ImmutablePen(ScaleBrush?.ToImmutable(), 1);
+        }
+        else if (change.Property == SeekBarBrushProperty)
+        {
+            _seekBarPen = new ImmutablePen(SeekBarBrush?.ToImmutable(), 1.25);
+        }
+        else if (change.Property == EndingBarBrushProperty)
+        {
+            _endingBarPen = new ImmutablePen(EndingBarBrush?.ToImmutable(), 1.25);
+        }
     }
 
     public override void Render(DrawingContext context)
     {
         base.Render(context);
+        _pen ??= new ImmutablePen(ScaleBrush?.ToImmutable(), 1);
+        _seekBarPen ??= new ImmutablePen(SeekBarBrush?.ToImmutable(), 1.25);
+        _endingBarPen ??= new ImmutablePen(EndingBarBrush?.ToImmutable(), 1.25);
 
         const int top = 16;
 
@@ -119,7 +224,7 @@ public sealed class TimelineScale : Control
                     context.DrawLine(_pen, new(x, 5), new(x, height));
                 }
 
-                using var text = new TextLayout(time.ToString("hh\\:mm\\:ss\\.ff"), s_typeface, 13, _brush);
+                using var text = new TextLayout(time.ToString("hh\\:mm\\:ss\\.ff"), s_typeface, 13, ScaleBrush);
                 var textbounds = new Rect(x + 8, 0, text.Width, text.Height);
 
                 if (viewport.Intersects(textbounds) && (recentPix == 0d || (x + 8) > recentPix))
@@ -139,14 +244,47 @@ public sealed class TimelineScale : Control
                 }
             }
 
+            if (BufferEnd != BufferStart)
+            {
+                context.DrawRectangle(
+                    BufferBrush, null,
+                    new RoundedRect(new Rect(BufferStart, Height - 4, BufferEnd - BufferStart, 4)));
+            }
+
+            if (CacheBlocks != null)
+            {
+                TimeSpan left = originX.ToTimeSpan(Scale);
+                TimeSpan right = l.ToTimeSpan(Scale);
+
+                foreach (CacheBlock item in CacheBlocks)
+                {
+                    TimeSpan end = item.Start + item.Length;
+                    if (end < left || item.Start > right)
+                    {
+                        continue;
+                    }
+
+                    context.DrawRectangle(
+                        item.IsLocked ? LockedCacheBlockBrush : CacheBlockBrush, null,
+                        new RoundedRect(new Rect(item.Start.ToPixel(Scale), Height - 4, item.Length.ToPixel(Scale), 4)));
+                }
+            }
+
+            if (HoveredCacheBlock is { } hover)
+            {
+                context.DrawRectangle(
+                    hover.IsLocked ? LockedCacheBlockBrush : CacheBlockBrush, null,
+                    new RoundedRect(new Rect(hover.Start.ToPixel(Scale), Height - 6, hover.Length.ToPixel(Scale), 6)));
+            }
+
             var size = new Size(1.25, height);
             var seekbar = new Point(_seekBarMargin.Left, 0);
             var endingbar = new Point(_endingBarMargin.Left, 0);
             var bottom = new Point(0, height);
 
-            context.DrawLine(TimelineSharedObject.RedPen, seekbar, seekbar + bottom);
+            context.DrawLine(_seekBarPen, seekbar, seekbar + bottom);
 
-            context.DrawLine(TimelineSharedObject.BluePen, endingbar, endingbar + bottom);
+            context.DrawLine(_endingBarPen, endingbar, endingbar + bottom);
         }
     }
 }

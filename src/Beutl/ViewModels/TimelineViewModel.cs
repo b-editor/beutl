@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.Numerics;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
+using System.Windows.Input;
 
 using Avalonia;
 using Avalonia.Input;
@@ -27,6 +28,8 @@ using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+
+using static Beutl.ViewModels.BufferStatusViewModel;
 
 namespace Beutl.ViewModels;
 
@@ -53,6 +56,7 @@ public sealed class TimelineViewModel : IToolContext
         EditorContext = editViewModel;
         Scene = editViewModel.Scene;
         Player = editViewModel.Player;
+        FrameSelectionRange = new FrameSelectionRange(editViewModel.Scale).DisposeWith(_disposables);
         PanelWidth = Scene.GetObservable(Scene.DurationProperty)
             .CombineLatest(editViewModel.Scale)
             .Select(item => item.First.ToPixel(item.Second))
@@ -126,25 +130,63 @@ public sealed class TimelineViewModel : IToolContext
         AutoAdjustSceneDuration = editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty).ToReactiveProperty();
         AutoAdjustSceneDuration.Subscribe(b => editorConfig.AutoAdjustSceneDuration = b);
 
+        IsLockCacheButtonEnabled = HoveredCacheBlock.Select(v => v is { IsLocked: false })
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        IsUnlockCacheButtonEnabled = HoveredCacheBlock.Select(v => v is { IsLocked: true })
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        DeleteAllFrameCache = new ReactiveCommandSlim()
+            .WithSubscribe(EditorContext.FrameCacheManager.Clear);
+
+        DeleteFrameCache = HoveredCacheBlock.Select(v => v != null)
+            .ToReactiveCommandSlim()
+            .WithSubscribe(() =>
+            {
+                if (HoveredCacheBlock.Value is { } block)
+                {
+                    if (block.IsLocked)
+                    {
+                        EditorContext.FrameCacheManager.Unlock(
+                            block.StartFrame, block.StartFrame + block.LengthFrame);
+                    }
+
+                    EditorContext.FrameCacheManager.DeleteAndUpdateBlocks(
+                        new[] { (block.StartFrame, block.StartFrame + block.LengthFrame) });
+                }
+            });
+
+        LockFrameCache = HoveredCacheBlock.Select(v => v?.IsLocked == false)
+            .ToReactiveCommandSlim()
+            .WithSubscribe(() =>
+            {
+                if (HoveredCacheBlock.Value is { } block)
+                {
+                    EditorContext.FrameCacheManager.Lock(
+                        block.StartFrame, block.StartFrame + block.LengthFrame);
+
+                    EditorContext.FrameCacheManager.UpdateBlocks();
+                }
+            });
+
+        UnlockFrameCache = HoveredCacheBlock.Select(v => v?.IsLocked == true)
+            .ToReactiveCommandSlim()
+            .WithSubscribe(() =>
+            {
+                if (HoveredCacheBlock.Value is { } block)
+                {
+                    EditorContext.FrameCacheManager.Unlock(
+                        block.StartFrame, block.StartFrame + block.LengthFrame);
+
+                    EditorContext.FrameCacheManager.UpdateBlocks();
+                }
+            });
+
         // Todo: 設定からショートカットを変更できるようにする。
         KeyBindings = [];
-        PlatformHotkeyConfiguration? keyConf = Application.Current?.PlatformSettings?.HotkeyConfiguration;
-        if (keyConf != null)
-        {
-            KeyBindings.AddRange(keyConf.Paste.Select(i => new KeyBinding
-            {
-                Command = Paste,
-                Gesture = i
-            }));
-        }
-        else
-        {
-            KeyBindings.Add(new KeyBinding
-            {
-                Command = Paste,
-                Gesture = new KeyGesture(Key.V, keyConf?.CommandModifiers ?? KeyModifiers.Control)
-            });
-        }
+        ConfigureKeyBindings();
     }
 
     private void OnAdjustDurationToPointer()
@@ -203,7 +245,23 @@ public sealed class TimelineViewModel : IToolContext
 
     public ReactiveCommandSlim AdjustDurationToCurrent { get; } = new();
 
+    public ReactiveCommandSlim DeleteAllFrameCache { get; }
+
+    public ReactiveCommandSlim DeleteFrameCache { get; }
+
+    public ReactiveCommandSlim LockFrameCache { get; }
+
+    public ReactiveCommandSlim UnlockFrameCache { get; }
+
     public ReactiveProperty<bool> AutoAdjustSceneDuration { get; }
+
+    public ReactivePropertySlim<CacheBlock?> HoveredCacheBlock { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<bool> IsLockCacheButtonEnabled { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsUnlockCacheButtonEnabled { get; }
+
+    public FrameSelectionRange FrameSelectionRange { get; }
 
     public TimeSpan ClickedFrame { get; set; }
 
@@ -596,6 +654,35 @@ public sealed class TimelineViewModel : IToolContext
     public ElementViewModel? GetViewModelFor(Element element)
     {
         return Elements.FirstOrDefault(x => x.Model == element);
+    }
+
+    // Todo: 設定からショートカットを変更できるようにする。
+    private void ConfigureKeyBindings()
+    {
+        static KeyBinding KeyBinding(Key key, KeyModifiers modifiers, ICommand command)
+        {
+            return new KeyBinding
+            {
+                Gesture = new KeyGesture(key, modifiers),
+                Command = command
+            };
+        }
+
+        PlatformHotkeyConfiguration? keyConf = Application.Current?.PlatformSettings?.HotkeyConfiguration;
+        if (keyConf != null)
+        {
+            KeyBindings.AddRange(keyConf.Paste.Select(i => new KeyBinding
+            {
+                Command = Paste,
+                Gesture = i
+            }));
+        }
+        else
+        {
+            KeyBindings.Add(KeyBinding(Key.V, keyConf?.CommandModifiers ?? KeyModifiers.Control, Paste));
+        }
+
+        //KeyBindings.Add(KeyBinding(Key.))
     }
 
     private sealed class TrackedLayerTopObservable(int layerNum, TimelineViewModel timeline) : LightweightObservableBase<double>, IDisposable

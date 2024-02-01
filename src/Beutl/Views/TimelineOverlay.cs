@@ -7,15 +7,11 @@ namespace Beutl.Views;
 
 public static class TimelineSharedObject
 {
-    public static readonly IPen RedPen;
-    public static readonly IPen BluePen;
     public static readonly IPen SelectionPen;
     public static readonly IBrush SelectionFillBrush = new ImmutableSolidColorBrush(Colors.CornflowerBlue, 0.3);
 
     static TimelineSharedObject()
     {
-        RedPen = new ImmutablePen(Brushes.Red, 1.25);
-        BluePen = new ImmutablePen(Brushes.Blue, 1.25);
         SelectionPen = new ImmutablePen(Brushes.CornflowerBlue, 0.5);
     }
 }
@@ -42,15 +38,30 @@ public sealed class TimelineOverlay : Control
         = AvaloniaProperty.RegisterDirect<TimelineOverlay, Thickness>(
             nameof(SeekBarMargin), o => o.SeekBarMargin, (o, v) => o.SeekBarMargin = v);
 
+    public static readonly StyledProperty<IBrush?> SeekBarBrushProperty
+        = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(SeekBarBrush));
+    
+    public static readonly StyledProperty<IBrush?> EndingBarBrushProperty
+        = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(EndingBarBrush));
+
     private Vector _offset;
     private Thickness _endingBarMargin;
     private Thickness _seekBarMargin;
     private Size _viewport;
     private Rect _selectionRange;
+    private ImmutablePen? _seekBarPen;
+    private ImmutablePen? _endingBarPen;
 
     static TimelineOverlay()
     {
-        AffectsRender<TimelineOverlay>(OffsetProperty, ViewportProperty, SelectionRangeProperty, EndingBarMarginProperty, SeekBarMarginProperty);
+        AffectsRender<TimelineOverlay>(
+            OffsetProperty,
+            ViewportProperty,
+            SelectionRangeProperty,
+            EndingBarMarginProperty,
+            SeekBarMarginProperty,
+            SeekBarBrushProperty,
+            EndingBarBrushProperty);
     }
 
     public TimelineOverlay()
@@ -88,9 +99,37 @@ public sealed class TimelineOverlay : Control
         set => SetAndRaise(SeekBarMarginProperty, ref _seekBarMargin, value);
     }
 
+    public IBrush? SeekBarBrush
+    {
+        get => GetValue(SeekBarBrushProperty);
+        set => SetValue(SeekBarBrushProperty, value);
+    }
+    
+    public IBrush? EndingBarBrush
+    {
+        get => GetValue(EndingBarBrushProperty);
+        set => SetValue(EndingBarBrushProperty, value);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == SeekBarBrushProperty)
+        {
+            _seekBarPen = new ImmutablePen(SeekBarBrush?.ToImmutable(), 1.25);
+        }
+        else if (change.Property == EndingBarBrushProperty)
+        {
+            _endingBarPen = new ImmutablePen(EndingBarBrush?.ToImmutable(), 1.25);
+        }
+    }
+
     public override void Render(DrawingContext context)
     {
         base.Render(context);
+        _seekBarPen ??= new ImmutablePen(SeekBarBrush?.ToImmutable(), 1.25);
+        _endingBarPen ??= new ImmutablePen(EndingBarBrush?.ToImmutable(), 1.25);
+
         Rect rect = _selectionRange.Normalize();
         context.FillRectangle(TimelineSharedObject.SelectionFillBrush, rect);
 
@@ -103,8 +142,8 @@ public sealed class TimelineOverlay : Control
             var endingbar = new Point(_endingBarMargin.Left, 0);
             var bottom = new Point(0, height);
 
-            context.DrawLine(TimelineSharedObject.RedPen, seekbar, seekbar + bottom);
-            context.DrawLine(TimelineSharedObject.BluePen, endingbar, endingbar + bottom);
+            context.DrawLine(_seekBarPen, seekbar, seekbar + bottom);
+            context.DrawLine(_endingBarPen, endingbar, endingbar + bottom);
         }
     }
 }

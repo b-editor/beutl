@@ -11,6 +11,8 @@ using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
+using Beutl.Media.Source;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;
 using Beutl.Rendering.Cache;
@@ -36,7 +38,7 @@ public sealed class PlayerViewModel : IDisposable
     private readonly ReactivePropertySlim<bool> _isEnabled;
     private readonly EditViewModel _editViewModel;
     private CancellationTokenSource? _cts;
-    private bool _playingAndRendering;
+    private Size _maxFrameSize;
 
     public PlayerViewModel(EditViewModel editViewModel)
     {
@@ -150,64 +152,149 @@ public sealed class PlayerViewModel : IDisposable
     public event EventHandler? PreviewInvalidated;
 
     // View側から設定
-    public Size MaxFrameSize { get; set; }
-
-    public Rect LastSelectedRect { get; set; }
-
-    public async void Play()
+    public Size MaxFrameSize
     {
-        if (!_isEnabled.Value || Scene == null)
-            return;
-
-        IRenderer renderer = Scene.Renderer;
-        renderer.RenderInvalidated -= Renderer_RenderInvalidated;
-
-        try
+        get => _maxFrameSize;
+        set
         {
-            IsPlaying.Value = true;
-            int rate = GetFrameRate();
+            _maxFrameSize = value;
 
-            PlayAudio(Scene);
-
-            TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
-            TimeSpan startFrame = Scene.CurrentFrame;
-            DateTime startTime = DateTime.Now;
-            TimeSpan duration = Scene.Duration;
-            var tcs = new TaskCompletionSource();
-            using var timer = new System.Timers.Timer(tick);
-
-            timer.Elapsed += (_, e) =>
+            if(_maxFrameSize != value)
             {
-                TimeSpan time = (e.SignalTime - startTime) + startFrame;
-                time = time.RoundToRate(rate);
-
-                if (time >= duration || !IsPlaying.Value)
+                FrameCacheManager frameCacheManager = _editViewModel.FrameCacheManager;
+                var frameSize = frameCacheManager.FrameSize.ToSize(1);
+                float scale = (float)Stretch.Uniform.CalculateScaling(MaxFrameSize, frameSize, StretchDirection.Both).X;
+                if (scale != 0)
                 {
-                    timer.Stop();
-                    tcs.SetResult();
+                    int den = (int)(1 / scale);
+                    if (den % 2 == 1)
+                    {
+                        den++;
+                    }
+
+                    frameCacheManager.Options = frameCacheManager.Options with
+                    {
+                        Size = PixelSize.FromSize(frameSize, 1f / den)
+                    };
                 }
                 else
                 {
-                    Render(renderer, time);
-                }
-            };
-            timer.Start();
 
-            await tcs.Task;
-            IsPlaying.Value = false;
-        }
-        catch (Exception ex)
-        {
-            // 本来ここには例外が来ないはず
-            _logger.LogError(ex, "An exception occurred during the playback process.");
-        }
-        finally
-        {
-            renderer.RenderInvalidated += Renderer_RenderInvalidated;
+                    frameCacheManager.Options = frameCacheManager.Options with
+                    {
+                        Size = null
+                    };
+                }
+            }
         }
     }
 
-    private int GetFrameRate()
+    public Rect LastSelectedRect { get; set; }
+
+    public void Play()
+    {
+        Task.Run(async () =>
+        {
+            if (!_isEnabled.Value || Scene == null)
+                return;
+
+            IRenderer renderer = Scene.Renderer;
+            BufferStatusViewModel bufferStatus = _editViewModel.BufferStatus;
+            FrameCacheManager frameCacheManager = _editViewModel.FrameCacheManager;
+            renderer.RenderInvalidated -= Renderer_RenderInvalidated;
+
+            try
+            {
+                IsPlaying.Value = true;
+                int rate = GetFrameRate();
+
+                TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
+                TimeSpan startTime = Scene.CurrentFrame;
+                TimeSpan durationTime = Scene.Duration;
+                int startFrame = (int)startTime.ToFrameNumber(rate);
+                int durationFrame = (int)Math.Ceiling(durationTime.ToFrameNumber(rate));
+                var tcs = new TaskCompletionSource();
+                bufferStatus.StartTime.Value = startTime;
+                bufferStatus.EndTime.Value = startTime;
+                frameCacheManager.Options = frameCacheManager.Options with
+                {
+                    DeletionStrategy = FrameCacheDeletionStrategy.BackwardBlock
+                };
+
+                frameCacheManager.CurrentFrame = startFrame;
+                using var playerImpl = new BufferedPlayer(_editViewModel, Scene, IsPlaying, rate);
+                playerImpl.Start();
+
+                PlayAudio(Scene);
+
+                using var timer = new System.Timers.Timer(tick);
+                bool timerProcessing = false;
+                timer.Elapsed += (_, e) =>
+                {
+                    startFrame++;
+
+                    if (startFrame >= durationFrame || !IsPlaying.Value)
+                    {
+                        timer.Stop();
+                        tcs.TrySetResult();
+                        return;
+                    }
+
+                    if (timerProcessing)
+                    {
+                        playerImpl.Skipped(startFrame);
+                        return;
+                    }
+
+                    try
+                    {
+                        timerProcessing = true;
+
+                        if (playerImpl.TryDequeue(out IPlayer.Frame frame))
+                        {
+                            // 所有権が移転したので
+                            using (frame.Bitmap)
+                            {
+                                UpdateImage(frame.Bitmap.Value);
+
+                                if (Scene != null)
+                                {
+                                    Scene.CurrentFrame = TimeSpanExtensions.ToTimeSpan(frame.Time, rate);
+                                    _editViewModel.FrameCacheManager.CurrentFrame = frame.Time;
+                                }
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        timerProcessing = false;
+                    }
+                };
+                timer.Start();
+
+                await tcs.Task;
+                frameCacheManager.UpdateBlocks();
+                IsPlaying.Value = false;
+                bufferStatus.StartTime.Value = TimeSpan.Zero;
+                bufferStatus.EndTime.Value = TimeSpan.Zero;
+            }
+            catch (Exception ex)
+            {
+                // 本来ここには例外が来ないはず
+                _logger.LogError(ex, "An exception occurred during the playback process.");
+            }
+            finally
+            {
+                frameCacheManager.Options = frameCacheManager.Options with
+                {
+                    DeletionStrategy = FrameCacheDeletionStrategy.Old
+                };
+                renderer.RenderInvalidated += Renderer_RenderInvalidated;
+            }
+        });
+    }
+
+    public int GetFrameRate()
     {
         int rate = Project?.GetFrameRate() ?? 30;
         if (rate <= 0)
@@ -390,38 +477,6 @@ public sealed class PlayerViewModel : IDisposable
         IsPlaying.Value = false;
     }
 
-    private void Render(IRenderer renderer, TimeSpan timeSpan)
-    {
-        if (_playingAndRendering)
-            return;
-        _playingAndRendering = true;
-
-        RenderThread.Dispatcher.Dispatch(() =>
-        {
-            try
-            {
-                if (IsPlaying.Value && renderer.Render(timeSpan))
-                {
-                    using Bitmap<Bgra8888> bitmap = renderer.Snapshot();
-                    UpdateImage(bitmap);
-
-                    if (Scene != null)
-                        Scene.CurrentFrame = timeSpan;
-                }
-            }
-            catch (Exception ex)
-            {
-                NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_while_drawing_frame);
-                _logger.LogError(ex, "An exception occurred while drawing the frame.");
-                IsPlaying.Value = false;
-            }
-            finally
-            {
-                _playingAndRendering = false;
-            }
-        });
-    }
-
     private unsafe void UpdateImage(Bitmap<Bgra8888> source)
     {
         WriteableBitmap bitmap;
@@ -450,7 +505,7 @@ public sealed class PlayerViewModel : IDisposable
         PreviewInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
-    private void DrawBoundaries(Renderer renderer)
+    private void DrawBoundaries(Renderer renderer, ImmediateCanvas canvas)
     {
         int? selected = _editViewModel.SelectedLayerNumber.Value;
         if (selected.HasValue)
@@ -460,14 +515,13 @@ public sealed class PlayerViewModel : IDisposable
             if (scale == 0)
                 scale = 1;
 
-            ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
             Rect[] boundary = renderer.RenderScene[selected.Value].GetBoundaries();
             if (boundary.Length > 0)
             {
-                var pen = new Media.Immutable.ImmutablePen(Media.Brushes.White, null, 0, 1 / scale);
+                var pen = new Media.Immutable.ImmutablePen(Brushes.White, null, 0, 1 / scale);
                 bool exactBounds = GlobalConfiguration.Instance.ViewConfig.ShowExactBoundaries;
 
-                foreach (Rect item in renderer.RenderScene[selected.Value].GetBoundaries())
+                foreach (Rect item in boundary)
                 {
                     Rect rect = item;
                     if (!exactBounds)
@@ -489,13 +543,53 @@ public sealed class PlayerViewModel : IDisposable
             {
                 try
                 {
-                    if (Scene is { Renderer: Renderer renderer }
-                        && renderer.Render(Scene.CurrentFrame))
-                    {
-                        DrawBoundaries(renderer);
+                    if (Scene is not { Renderer: SceneRenderer renderer }) return;
+                    int rate = GetFrameRate();
+                    TimeSpan time = Scene.CurrentFrame;
+                    int frame = (int)Math.Round(time.ToFrameNumber(rate), MidpointRounding.AwayFromZero);
+                    time = TimeSpanExtensions.ToTimeSpan(frame, rate);
+                    Bitmap<Bgra8888>? bitmap = null;
 
-                        using Media.Bitmap<Bgra8888> bitmap = renderer.Snapshot();
-                        UpdateImage(bitmap);
+                    if (_editViewModel.FrameCacheManager.TryGet(frame, out var cache))
+                    {
+                        using (cache)
+                        {
+                            renderer.GraphicsEvaluator.Evaluate();
+
+                            ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
+                            canvas.Clear();
+
+                            using (canvas.PushTransform(
+                                Matrix.CreateScale(canvas.Size.Width / (float)cache.Value.Width, canvas.Size.Height / (float)cache.Value.Height)))
+                            {
+                                canvas.DrawBitmap(cache.Value, Brushes.White, null);
+                            }
+
+                            DrawBoundaries(renderer, canvas);
+
+                            bitmap = renderer.Snapshot();
+                        }
+                    }
+                    else if (renderer.Render(time))
+                    {
+                        using (var forCache = Ref<Bitmap<Bgra8888>>.Create(renderer.Snapshot()))
+                        {
+                            _editViewModel.FrameCacheManager.Add(frame, forCache);
+                            _editViewModel.FrameCacheManager.UpdateBlocks();
+                        }
+
+                        ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
+                        DrawBoundaries(renderer, canvas);
+
+                        bitmap = renderer.Snapshot();
+                    }
+
+                    if (bitmap != null)
+                    {
+                        using (bitmap)
+                        {
+                            UpdateImage(bitmap);
+                        }
                     }
                 }
                 catch (Exception ex)
