@@ -1,4 +1,6 @@
-﻿namespace Beutl.Threading;
+﻿using System.Diagnostics;
+
+namespace Beutl.Threading;
 
 public class Dispatcher
 {
@@ -6,6 +8,7 @@ public class Dispatcher
     private static Dispatcher? s_current;
 
     private readonly QueueSynchronizationContext _synchronizationContext = new();
+    private Thread? _thread;
 
     public static Dispatcher Current => s_current!;
 
@@ -17,6 +20,7 @@ public class Dispatcher
         try
         {
             s_current = this;
+            _thread = Thread.CurrentThread;
             SynchronizationContext.SetSynchronizationContext(_synchronizationContext);
 
             _synchronizationContext.Start();
@@ -36,6 +40,7 @@ public class Dispatcher
         try
         {
             s_current = this;
+            _thread = Thread.CurrentThread;
             SynchronizationContext.SetSynchronizationContext(_synchronizationContext);
 
             _synchronizationContext.Execute();
@@ -50,6 +55,7 @@ public class Dispatcher
     public void Stop()
     {
         _synchronizationContext.Stop();
+        Debug.WriteLine($"'{_thread?.Name ?? _thread?.ManagedThreadId.ToString()}' を停止しました");
     }
 
     public bool CheckAccess()
