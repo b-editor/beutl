@@ -45,7 +45,7 @@ public enum ElementOverlapHandling
     Allow = 1 << 3
 }
 
-public class Scene : ProjectItem
+public class Scene : ProjectItem, IAffectsRender
 {
     public static readonly CoreProperty<int> WidthProperty;
     public static readonly CoreProperty<int> HeightProperty;
@@ -73,7 +73,8 @@ public class Scene : ProjectItem
     {
         _children = new Elements(this);
         _children.CollectionChanged += Children_CollectionChanged;
-        Initialize(width, height);
+        _children.Attached += item => item.Invalidated += OnElementInvalidated;
+        _children.Detached += item => item.Invalidated -= OnElementInvalidated;
         Name = name;
     }
 
@@ -446,7 +447,9 @@ public class Scene : ProjectItem
 
     private void Children_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        bool shouldRender = false;
+        ImmutableArray<TimeRange>.Builder affectedRange
+            = ImmutableArray.CreateBuilder<TimeRange>(Math.Max(e.OldItems?.Count ?? 0, e.NewItems?.Count ?? 0));
+
         if (e.Action == NotifyCollectionChangedAction.Remove
             && e.OldItems != null)
         {
@@ -460,8 +463,7 @@ public class Scene : ProjectItem
                     _excludeElements.Add(rel);
                 }
 
-                if (item.Range.Contains(CurrentFrame))
-                    shouldRender = true;
+                affectedRange.Add(item.Range);
             }
         }
         else if (e.Action == NotifyCollectionChangedAction.Add
@@ -477,13 +479,19 @@ public class Scene : ProjectItem
                     _excludeElements.Remove(rel);
                 }
 
-                if (item.Range.Contains(CurrentFrame))
-                    shouldRender = true;
+                affectedRange.Add(item.Range);
             }
+            }
+
+        Invalidated?.Invoke(this, new TimelineInvalidatedEventArgs(Children)
+        {
+            AffectedRange = affectedRange.DrainToImmutable()
+        });
         }
 
-        if (shouldRender && Renderer is { IsDisposed: false })
-            Renderer.RaiseInvalidated(CurrentFrame);
+    private void OnElementInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    {
+        Invalidated?.Invoke(this, e);
     }
 
     private int NearestLayerNumber(Element element)

@@ -17,7 +17,7 @@ internal sealed class ZeroClock : IClock
     public IClock GlobalClock => this;
 }
 
-internal sealed class InstanceClock : IClock
+public sealed class InstanceClock : IClock
 {
     public InstanceClock()
     {
