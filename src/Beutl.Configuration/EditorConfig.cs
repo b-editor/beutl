@@ -1,5 +1,9 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
+using System.Management;
+using System.Reflection;
+using System.Runtime.Loader;
+using System.Runtime.Versioning;
 
 using Beutl.Collections;
 using Beutl.Serialization;
@@ -99,7 +103,7 @@ public sealed class EditorConfig : ConfigurationBase
         get => GetValue(IsAutoSaveEnabledProperty);
         set => SetValue(IsAutoSaveEnabledProperty, value);
     }
-    
+
     public bool IsFrameCacheEnabled
     {
         get => GetValue(IsFrameCacheEnabledProperty);
@@ -117,7 +121,7 @@ public sealed class EditorConfig : ConfigurationBase
         get => GetValue(FrameCacheScaleProperty);
         set => SetValue(FrameCacheScaleProperty, value);
     }
-    
+
     public FrameCacheConfigColorType FrameCacheColorType
     {
         get => GetValue(FrameCacheColorTypeProperty);
@@ -164,31 +168,26 @@ public sealed class EditorConfig : ConfigurationBase
         }
     }
 
+    [SupportedOSPlatform("windows")]
     private static ulong GetWindowsMemoryCapacity()
     {
-        // wmic memorychip get capacity
-        using var process = Process.Start(new ProcessStartInfo("wmic", "memorychip get capacity")
+        try
         {
-            CreateNoWindow = true,
-            RedirectStandardOutput = true
-        });
+            using var mc = new ManagementClass("Win32_OperatingSystem");
+            using ManagementObjectCollection moc = mc.GetInstances();
 
-        if (process != null && process.WaitForExit(500))
-        {
-            ulong value = 0;
-            while (process.StandardOutput.ReadLine() is string line)
+            ulong total = 0;
+            foreach (ManagementBaseObject? mo in moc)
             {
-                if (ulong.TryParse(line, out ulong v))
-                {
-                    value += v;
-                }
+                total += Convert.ToUInt64(mo["TotalVisibleMemorySize"]);
             }
 
-            return value;
+            return total * 1024;
         }
-
-        // https://www.microsoft.com/ja-jp/windows/windows-11-specifications
-        return 4L * 1024 * 1024 * 1024;
+        catch
+        {
+            return 4L * 1024 * 1024 * 1024;
+        }
     }
 
     private static ulong GetLinuxMemoryCapacity()
