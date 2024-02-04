@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
@@ -38,6 +39,8 @@ public sealed class RenderCache(IGraphicNode node) : IDisposable
 
     public bool IsDisposed { get; private set; }
 
+    public List<WeakReference<IGraphicNode>>? Children { get; private set; }
+
     public void ReportRenderCount(int count)
     {
         _count = count;
@@ -74,6 +77,68 @@ public sealed class RenderCache(IGraphicNode node) : IDisposable
     public int GetMinNumber()
     {
         return _accessor?.Minimum() ?? 0;
+    }
+
+    public void CaptureChildren()
+    {
+        if (_node.TryGetTarget(out IGraphicNode? node)
+            && node is ContainerNode container)
+        {
+            if (Children == null)
+            {
+                Children = new List<WeakReference<IGraphicNode>>(container.Children.Count);
+            }
+            else
+            {
+                Children.EnsureCapacity(container.Children.Count);
+            }
+
+            CollectionsMarshal.SetCount(Children, container.Children.Count);
+            Span<WeakReference<IGraphicNode>> span = CollectionsMarshal.AsSpan(Children);
+
+            for (int i = 0; i < container.Children.Count; i++)
+            {
+                IGraphicNode item = container.Children[i];
+                ref WeakReference<IGraphicNode> refrence = ref span[i];
+
+                if (refrence == null)
+                {
+                    refrence = new WeakReference<IGraphicNode>(item);
+                }
+                else
+                {
+                    refrence.SetTarget(item);
+                }
+            }
+        }
+    }
+
+    public bool SameChildren()
+    {
+        if (Children != null
+            && _node.TryGetTarget(out IGraphicNode? node)
+            && node is ContainerNode container)
+        {
+            if (Children.Count != container.Children.Count)
+                return false;
+
+            for (int i = 0; i < Children.Count; i++)
+            {
+                WeakReference<IGraphicNode> capturedRef = Children[i];
+                IGraphicNode current = container.Children[i];
+                if (!capturedRef.TryGetTarget(out IGraphicNode? captured)
+                    || !ReferenceEquals(captured, current))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        else
+        {
+            return true;
+        }
     }
 
     public bool CanCache()

@@ -45,11 +45,18 @@ public sealed class RenderCacheContext : IDisposable
         if (!cache.CanCache())
             return false;
 
-        if (node is ContainerNode containerNode)
+        if (node is ContainerNode container)
         {
-            foreach (IGraphicNode item in containerNode.Children)
+            if (cache.Children?.Count != container.Children.Count)
+                return false;
+
+            for (int i = 0; i < cache.Children.Count; i++)
             {
-                if (!CanCacheRecursive(item))
+                WeakReference<IGraphicNode> capturedRef = cache.Children[i];
+                IGraphicNode current = container.Children[i];
+                if (!capturedRef.TryGetTarget(out IGraphicNode? captured)
+                    || !ReferenceEquals(captured, current)
+                    || !CanCacheRecursive(current))
                 {
                     return false;
                 }

@@ -176,7 +176,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
             {
                 supportCache.Accepts(cache);
 
-                if (cache.CanCache())
+                if (cache.CanCache() && cache.SameChildren())
                 {
                     if (cache.IsCached)
                     {
@@ -219,6 +219,8 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
                     }
                 }
             }
+
+            cache.CaptureChildren();
         }
 
         node.Render(this);

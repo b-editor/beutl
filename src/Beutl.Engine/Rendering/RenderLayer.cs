@@ -115,7 +115,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
             Drawable drawable = node.Drawable;
             if (entry.IsDirty)
             {
-                var dcanvas = new DeferradCanvas(node, renderScene.Size);
+                using var dcanvas = new DeferradCanvas(node, renderScene.Size);
                 drawable.Render(dcanvas);
                 entry.IsDirty = false;
             }
