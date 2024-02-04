@@ -23,6 +23,7 @@ internal sealed class DispatcherOperation
         if (ExecutionContext is { } ctx)
         {
             ExecutionContext.Run(ctx, _ => Action(), null);
+            ctx.Dispose();
         }
         else
         {
