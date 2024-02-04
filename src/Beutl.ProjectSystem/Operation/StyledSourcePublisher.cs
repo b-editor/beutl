@@ -6,6 +6,7 @@ using Beutl.Configuration;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Rendering;
+using Beutl.Serialization;
 using Beutl.Styling;
 
 namespace Beutl.Operation;
@@ -70,10 +71,9 @@ public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
     {
     }
 
-    // Todo: ObsoleteSerializationApi
-    public override void ReadFromJson(JsonObject json)
+    public override void Deserialize(ICoreSerializationContext context)
     {
-        base.ReadFromJson(json);
+        base.Deserialize(context);
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         if (viewConfig.HidePrimaryProperties)
         {

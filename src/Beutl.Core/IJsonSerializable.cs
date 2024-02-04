@@ -4,11 +4,11 @@ using Beutl.Serialization;
 
 namespace Beutl;
 
+// このインターフェイスはUIの状態を保存するのに使用します
+// プロジェクトファイルの保存にはICoreSerializableを使用してください
 public interface IJsonSerializable
 {
-    [ObsoleteSerializationApi]
     void WriteToJson(JsonObject json);
 
-    [ObsoleteSerializationApi]
     void ReadFromJson(JsonObject json);
 }

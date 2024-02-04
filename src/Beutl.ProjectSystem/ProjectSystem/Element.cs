@@ -152,38 +152,6 @@ public class Element : ProjectItem
         this.JsonRestore2(filename);
     }
 
-    [ObsoleteSerializationApi]
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-
-        if (json.TryGetPropertyValue(nameof(Operation), out JsonNode? operationNode)
-            && operationNode is JsonObject operationObj)
-        {
-            Operation.ReadFromJson(operationObj);
-        }
-
-        if (json.TryGetPropertyValue(nameof(NodeTree), out JsonNode? nodeTreeNode)
-            && nodeTreeNode is JsonObject nodeTreeObj)
-        {
-            NodeTree.ReadFromJson(nodeTreeObj);
-        }
-    }
-
-    [ObsoleteSerializationApi]
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-
-        var operationJson = new JsonObject();
-        Operation.WriteToJson(operationJson);
-        json[nameof(Operation)] = operationJson;
-
-        var nodeTreeJson = new JsonObject();
-        NodeTree.WriteToJson(nodeTreeJson);
-        json[nameof(NodeTree)] = nodeTreeJson;
-    }
-
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);

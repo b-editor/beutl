@@ -180,29 +180,6 @@ public class InputSocket<T> : Socket<T>, IInputSocket
         }
     }
 
-    [ObsoleteSerializationApi]
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-        if (json.TryGetPropertyValue("connection-output", out var destNode)
-            && destNode is JsonValue destValue
-            && destValue.TryGetValue(out Guid outputId))
-        {
-            _outputId = outputId;
-            TryRestoreConnection();
-        }
-    }
-
-    [ObsoleteSerializationApi]
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-        if (Connection != null)
-        {
-            json["connection-output"] = Connection.Output.Id;
-        }
-    }
-
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);

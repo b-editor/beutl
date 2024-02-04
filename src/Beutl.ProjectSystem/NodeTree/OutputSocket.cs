@@ -134,53 +134,6 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
         }
     }
 
-    [ObsoleteSerializationApi]
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-        if (json.TryGetPropertyValue("connection-inputs", out JsonNode? srcNode)
-            && srcNode is JsonArray srcArray)
-        {
-            if (_inputIds != null)
-            {
-                _inputIds.Clear();
-                _inputIds.EnsureCapacity(srcArray.Count);
-            }
-            else
-            {
-                _inputIds = new(srcArray.Count);
-            }
-
-            foreach (JsonNode? item in srcArray)
-            {
-                if (item is JsonValue itemv
-                    && itemv.TryGetValue(out Guid id))
-                {
-                    _inputIds.Add(id);
-                }
-            }
-
-            TryRestoreConnection();
-        }
-    }
-
-    [ObsoleteSerializationApi]
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-
-        if (_connections.Count > 0)
-        {
-            var array = new JsonArray();
-            foreach (Connection item in _connections)
-            {
-                array.Add(item.Input.Id);
-            }
-
-            json["connection-inputs"] = array;
-        }
-    }
-
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);

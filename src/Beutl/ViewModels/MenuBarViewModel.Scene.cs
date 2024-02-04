@@ -6,6 +6,7 @@ using Avalonia.Input.Platform;
 
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels.Tools;
 
@@ -83,8 +84,16 @@ public partial class MenuBarViewModel
 
     private static DataObject CreateElementDataObject(Element element)
     {
-        var jsonNode = new JsonObject();
-        element.WriteToJson(jsonNode);
+        JsonObject? jsonNode;
+
+        var context = new JsonSerializationContext(typeof(Element), NullSerializationErrorNotifier.Instance);
+        using (ThreadLocalSerializationContext.Enter(context))
+        {
+            element.Serialize(context);
+
+            jsonNode = context.GetJsonObject();
+        }
+
         string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
         var data = new DataObject();
         data.Set(DataFormats.Text, json);

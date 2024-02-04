@@ -98,68 +98,6 @@ public sealed class Project : Hierarchical, IStorable
         _saved?.Invoke(this, EventArgs.Empty);
     }
 
-    [ObsoleteSerializationApi]
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-
-        if (json.TryGetPropertyValue("appVersion", out JsonNode? versionNode)
-            && versionNode!.AsValue().TryGetValue(out string? version))
-        {
-            AppVersion = version;
-        }
-
-        if (json.TryGetPropertyValue("minAppVersion", out JsonNode? minVersionNode)
-            && minVersionNode!.AsValue().TryGetValue(out string? minVersion))
-        {
-            MinAppVersion = minVersion;
-        }
-
-        if (json.TryGetPropertyValue("items", out JsonNode? itemsNode))
-        {
-            SyncronizeScenes(itemsNode!.AsArray()
-                .Select(i => (string)i!));
-        }
-
-        if (json.TryGetPropertyValue("variables", out JsonNode? variablesNode)
-            && variablesNode is JsonObject variablesObj)
-        {
-            Variables.Clear();
-            foreach (KeyValuePair<string, JsonNode?> item in variablesObj)
-            {
-                if (item.Value != null)
-                    Variables[item.Key] = item.Value.AsValue().ToString();
-            }
-        }
-    }
-
-    [ObsoleteSerializationApi]
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-
-        json["appVersion"] = AppVersion;
-        json["minAppVersion"] = MinAppVersion;
-
-        var items = new JsonArray();
-        foreach (ProjectItem item in Items)
-        {
-            string path = Path.GetRelativePath(RootDirectory, item.FileName).Replace('\\', '/');
-            var value = JsonValue.Create(path);
-            items.Add(value);
-        }
-
-        json["items"] = items;
-
-        var variables = new JsonObject();
-        foreach (KeyValuePair<string, string> item in Variables)
-        {
-            variables.Add(item.Key, JsonValue.Create(item.Value));
-        }
-
-        json["variables"] = variables;
-    }
-
     public override void Deserialize(ICoreSerializationContext context)
     {
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Deserialize");

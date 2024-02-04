@@ -74,12 +74,6 @@ public abstract class CoreProperty : ICoreProperty
 
     internal abstract void NotifyChanged(CorePropertyChangedEventArgs e);
 
-    [ObsoleteSerializationApi]
-    internal abstract JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value);
-
-    [ObsoleteSerializationApi]
-    internal abstract object? RouteReadFromJson(CorePropertyMetadata metadata, JsonNode? node);
-
     internal abstract void RouteSerialize(ICoreSerializationContext context, object? value);
 
     internal abstract Optional<object?> RouteDeserialize(ICoreSerializationContext context);
@@ -249,81 +243,6 @@ public class CoreProperty<T>(
     internal override object? RouteGetValue(ICoreObject o)
     {
         return o.GetValue<T>(this);
-    }
-
-    [ObsoleteSerializationApi]
-    [SuppressMessage("Performance", "CA1869:'JsonSerializerOptions' インスタンスをキャッシュして再利用する", Justification = "<保留中>")]
-    internal override JsonNode? RouteWriteToJson(CorePropertyMetadata metadata, object? value)
-    {
-        var typedMetadata = (CorePropertyMetadata<T>)metadata;
-
-        if (typedMetadata.JsonConverter is { } jsonConverter)
-        {
-            var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
-
-            options.Converters.Add(jsonConverter);
-            return JsonSerializer.SerializeToNode(value, PropertyType, options);
-        }
-        else if (value is IJsonSerializable child)
-        {
-            var jsonobj = new JsonObject();
-            child.WriteToJson(jsonobj!);
-
-            Type objType = value.GetType();
-            if (objType != PropertyType)
-            {
-                jsonobj.WriteDiscriminator(objType);
-            }
-
-            return jsonobj;
-        }
-        else
-        {
-            var options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
-            return JsonSerializer.SerializeToNode(value, PropertyType, options);
-        }
-    }
-
-    [ObsoleteSerializationApi]
-    [SuppressMessage("Performance", "CA1869:'JsonSerializerOptions' インスタンスをキャッシュして再利用する", Justification = "<保留中>")]
-    internal override object? RouteReadFromJson(CorePropertyMetadata metadata, JsonNode? node)
-    {
-        var typedMetadata = (CorePropertyMetadata<T>)metadata;
-        Type type = PropertyType;
-        JsonSerializerOptions? options;
-
-        if (typedMetadata.JsonConverter is { } jsonConverter)
-        {
-            options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
-
-            options.Converters.Add(jsonConverter);
-            return JsonSerializer.Deserialize(node, type, options);
-        }
-        else if (node is JsonObject jsonObject)
-        {
-            if (jsonObject.TryGetDiscriminator(out Type? realType)
-                && realType.IsAssignableTo(typeof(IJsonSerializable)))
-            {
-                var sobj = (IJsonSerializable?)Activator.CreateInstance(realType);
-                sobj?.ReadFromJson(jsonObject!);
-
-                return sobj;
-            }
-            else if (type.IsAssignableTo(typeof(IJsonSerializable)))
-            {
-                var sobj = (IJsonSerializable?)Activator.CreateInstance(type);
-                sobj?.ReadFromJson(jsonObject!);
-
-                return sobj;
-            }
-        }
-        else if (node == null)
-        {
-            return typedMetadata.DefaultValue;
-        }
-
-        options = new JsonSerializerOptions(JsonHelper.SerializerOptions);
-        return JsonSerializer.Deserialize(node, type, options);
     }
 
     protected override IObservable<CorePropertyChangedEventArgs> GetChanged()

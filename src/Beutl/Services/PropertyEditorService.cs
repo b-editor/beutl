@@ -118,15 +118,6 @@ public static class PropertyEditorService
         return interfaceType?.GenericTypeArguments?.FirstOrDefault();
     }
 
-    private static BaseEditorViewModel? CreateDynamicEnumViewModel(IAbstractProperty s)
-    {
-        if (s.PropertyType.IsAbstract)
-            return null;
-
-        Type type = typeof(DynamicEnumEditorViewModel<>).MakeGenericType(s.PropertyType);
-        return Activator.CreateInstance(type, s) as BaseEditorViewModel;
-    }
-
     private static BaseEditorViewModel? CreateChoiceViewModel(IAbstractProperty s, Type providerType)
     {
         Type type = typeof(ProvidedChoiceEditorViewModel<,>).MakeGenericType(s.PropertyType, providerType);
@@ -173,7 +164,6 @@ public static class PropertyEditorService
             new(typeof(AlignmentX), new(_ => new AlignmentXEditor(), s => new AlignmentXEditorViewModel(s.ToTyped<AlignmentX>()))),
             new(typeof(AlignmentY), new(_ => new AlignmentYEditor(), s => new AlignmentYEditorViewModel(s.ToTyped<AlignmentY>()))),
             new(typeof(Enum), new(CreateEnumEditor, CreateEnumViewModel)),
-            new(typeof(IDynamicEnum), new(_ => new EnumEditor(), CreateDynamicEnumViewModel)),
             new(typeof(FontFamily), new(_ => new FontFamilyEditor(), s => new FontFamilyEditorViewModel(s.ToTyped<FontFamily?>()))),
             new(typeof(FileInfo), new(_ => new StorageFileEditor(), s => new StorageFileEditorViewModel(s.ToTyped<FileInfo>()))),
 

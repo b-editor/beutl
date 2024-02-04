@@ -304,56 +304,6 @@ public class GroupNode : Node
         }
     }
 
-    [ObsoleteSerializationApi]
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-        if (json.TryGetPropertyValue("node-tree", out JsonNode? nodeTreeNode)
-            && nodeTreeNode is JsonObject nodeTreeJson)
-        {
-            Group.ReadFromJson(nodeTreeJson);
-        }
-
-        OnOutputChanged(Group.Output, null);
-        OnInputChanged(Group.Input, null);
-
-        if (json.TryGetPropertyValue("items", out JsonNode? itemsNode)
-            && itemsNode is JsonArray itemsArray)
-        {
-            int index = 0;
-            foreach (JsonNode? item in itemsArray)
-            {
-                if (item is JsonObject itemObj)
-                {
-                    if (index < Items.Count)
-                    {
-                        INodeItem? nodeItem = Items[index];
-                        if (nodeItem is IJsonSerializable serializable)
-                        {
-                            serializable.ReadFromJson(itemObj);
-                        }
-
-                        ((NodeItem)nodeItem).LocalId = index;
-                    }
-                }
-
-                index++;
-            }
-
-            NextLocalId = index;
-        }
-    }
-
-    [ObsoleteSerializationApi]
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-        var groupJson = new JsonObject();
-        Group.WriteToJson(groupJson);
-
-        json["node-tree"] = groupJson;
-    }
-
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
@@ -369,23 +319,27 @@ public class GroupNode : Node
         OnOutputChanged(Group.Output, null);
         OnInputChanged(Group.Input, null);
 
-        if (context.GetValue<JsonArray>(nameof(Items)) is { } itemsArray)
+        if (context.GetValue<JsonArray>("Items") is { } itemsArray)
         {
             int index = 0;
-            foreach (JsonNode? item in itemsArray)
+            foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
             {
-                if (item is JsonObject itemObj)
+                if (index < Items.Count)
                 {
-                    if (index < Items.Count)
+                    INodeItem? nodeItem = Items[index];
+                    if (LocalSerializationErrorNotifier.Current is not { } notifier)
                     {
-                        INodeItem? nodeItem = Items[index];
-                        if (nodeItem is IJsonSerializable serializable)
-                        {
-                            serializable.ReadFromJson(itemObj);
-                        }
-
-                        ((NodeItem)nodeItem).LocalId = index;
+                        notifier = NullSerializationErrorNotifier.Instance;
                     }
+                    ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
+
+                    var innerContext = new JsonSerializationContext(nodeItem.GetType(), notifier, parent, itemJson);
+                    using (ThreadLocalSerializationContext.Enter(innerContext))
+                    {
+                        nodeItem.Deserialize(innerContext);
+                    }
+
+                    ((NodeItem)nodeItem).LocalId = index;
                 }
 
                 index++;

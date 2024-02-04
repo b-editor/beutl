@@ -108,44 +108,6 @@ public abstract class Styleable : Animatable, IStyleable, IModifiableHierarchica
         _styleInstance = instance;
     }
 
-    [ObsoleteSerializationApi]
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-        if (json.TryGetPropertyValue("styles", out JsonNode? stylesNode)
-            && stylesNode is JsonArray stylesArray)
-        {
-            Styles.Clear();
-            Styles.EnsureCapacity(stylesArray.Count);
-
-            foreach (JsonNode? styleNode in stylesArray)
-            {
-                if (styleNode is JsonObject styleObject
-                    && styleObject.ToStyle() is Style style)
-                {
-                    Styles.Add(style);
-                }
-            }
-        }
-    }
-
-    [ObsoleteSerializationApi]
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-        if (Styles.Count > 0)
-        {
-            var styles = new JsonArray();
-
-            foreach (IStyle style in Styles.GetMarshal().Value)
-            {
-                styles.Add(style.ToJson());
-            }
-
-            json["styles"] = styles;
-        }
-    }
-
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);

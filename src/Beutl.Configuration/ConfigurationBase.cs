@@ -40,14 +40,6 @@ public abstract class ConfigurationBase : CoreObject
         ConfigurationChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    [ObsoleteSerializationApi]
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-        json.Remove(nameof(Id));
-        json.Remove(nameof(Name));
-    }
-
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);

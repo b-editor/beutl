@@ -9,6 +9,7 @@ using Beutl.Commands;
 using Beutl.Helpers;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Utilities;
 
@@ -282,8 +283,16 @@ public sealed class ElementViewModel : IDisposable
         IClipboard? clipboard = App.GetClipboard();
         if (clipboard != null)
         {
-            var jsonNode = new JsonObject();
-            Model.WriteToJson(jsonNode);
+            JsonObject? jsonNode;
+
+            var context = new JsonSerializationContext(typeof(Element), NullSerializationErrorNotifier.Instance);
+            using (ThreadLocalSerializationContext.Enter(context))
+            {
+                Model.Serialize(context);
+
+                jsonNode = context.GetJsonObject();
+            }
+
             string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
             var data = new DataObject();
             data.Set(DataFormats.Text, json);
