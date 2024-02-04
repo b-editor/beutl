@@ -107,24 +107,4 @@ public class InnerShadow : FilterEffect
 
         base.Deserialize(context);
     }
-
-    [ObsoleteSerializationApi]
-    public override void ReadFromJson(JsonObject json)
-    {
-        try
-        {
-            JsonNode? animations = json["Animations"] ?? json["animations"];
-            JsonNode? sigma = animations?[nameof(Sigma)];
-
-            if (sigma != null)
-            {
-                Migration_ChangeSigmaType.Update(sigma);
-            }
-        }
-        catch
-        {
-        }
-
-        base.ReadFromJson(json);
-    }
 }

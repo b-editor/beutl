@@ -28,65 +28,6 @@ public sealed class ExtensionConfig : ConfigurationBase
     // Keyには拡張子を含める
     public CoreList<TypeLazy> DecoderPriority { get; } = [];
 
-    [ObsoleteSerializationApi]
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-        JsonNode? GetNode(string name1, string name2)
-        {
-            if (json[name1] is JsonNode node1)
-                return node1;
-            else if (json[name2] is JsonNode node2)
-                return node2;
-            else
-                return null;
-        }
-
-        if (GetNode("editor-extensions", nameof(EditorExtensions)) is JsonObject eeObject)
-        {
-            EditorExtensions.Clear();
-            foreach (KeyValuePair<string, JsonNode?> item in eeObject)
-            {
-                if (item.Value is JsonArray jsonArray)
-                {
-                    EditorExtensions.Add(item.Key, new CoreList<TypeLazy>(jsonArray.OfType<JsonValue>()
-                        .Select(value => value.TryGetValue(out string? type) ? type : null)
-                        .Select(str => new TypeLazy(str!))
-                        .Where(type => type.FormattedTypeName != null)!));
-                }
-            }
-        }
-
-        if (GetNode("decoder-priority", nameof(DecoderPriority)) is JsonArray dpArray)
-        {
-            DecoderPriority.Clear();
-            DecoderPriority.AddRange(dpArray
-                .Select(v => v?.AsValue()?.GetValue<string?>())
-                .Where(v => v != null)
-                .Select(v => new TypeLazy(v!)));
-        }
-    }
-
-    [ObsoleteSerializationApi]
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-
-        var eeObject = new JsonObject();
-        foreach ((string key, ICoreList<TypeLazy> value) in EditorExtensions)
-        {
-            eeObject.Add(key, new JsonArray(value
-                .Select(type => type.FormattedTypeName)
-                .Select(str => JsonValue.Create(str))
-                .ToArray()));
-        }
-
-        var dpArray = new JsonArray(DecoderPriority.Select(v => JsonValue.Create(v.FormattedTypeName)).ToArray());
-
-        json[nameof(EditorExtensions)] = eeObject;
-        json[nameof(DecoderPriority)] = dpArray;
-    }
-
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);

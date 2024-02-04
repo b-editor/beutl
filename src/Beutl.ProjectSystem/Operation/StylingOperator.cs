@@ -284,43 +284,6 @@ public abstract class StylingOperator : SourceOperator
         RaiseInvalidated(new RenderInvalidatedEventArgs(this, nameof(Style)));
     }
 
-    [ObsoleteSerializationApi]
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-
-        Definition[] defs = GetDefintions(GetType());
-        foreach (Definition item in defs.AsSpan())
-        {
-            string name = item.Property.Name;
-            if (json.TryGetPropertyValue(name, out JsonNode? propNode))
-            {
-                ISetter knownSetter = item.Getter.Invoke(this);
-
-                if (propNode.ToSetter(knownSetter.Property.Name, _style.TargetType) is ISetter setter)
-                {
-                    item.Setter.Invoke(this, setter);
-                }
-            }
-        }
-
-        Style = OnInitializeStyle(() => GetSetters(this));
-        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
-    }
-
-    [ObsoleteSerializationApi]
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-        Definition[] defs = GetDefintions(GetType());
-        foreach (Definition item in defs.AsSpan())
-        {
-            string name = item.Property.Name;
-            ISetter setter = item.Getter.Invoke(this);
-            json[name] = setter.ToJson(_style.TargetType).Item2;
-        }
-    }
-
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);

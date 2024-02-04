@@ -13,37 +13,6 @@ public class GroupInput : Node, ISocketsCanBeAdded
     {
         public CoreProperty? AssociatedProperty { get; set; }
 
-        [ObsoleteSerializationApi]
-        public override void ReadFromJson(JsonObject json)
-        {
-            base.ReadFromJson(json);
-            JsonNode propertyJson = json[nameof(AssociatedProperty)]!;
-            string name = (string)propertyJson["Name"]!;
-            string owner = (string)propertyJson["Owner"]!;
-
-            Type ownerType = TypeFormat.ToType(owner)!;
-
-            AssociatedProperty = PropertyRegistry.GetRegistered(ownerType)
-                .FirstOrDefault(x => x.Name == name);
-        }
-
-        [ObsoleteSerializationApi]
-        public override void WriteToJson(JsonObject json)
-        {
-            base.WriteToJson(json);
-            if (AssociatedProperty is { OwnerType: Type ownerType } property)
-            {
-                string name = property.Name;
-                string owner = TypeFormat.ToString(ownerType);
-
-                json[nameof(AssociatedProperty)] = new JsonObject
-                {
-                    ["Name"] = name,
-                    ["Owner"] = owner,
-                };
-            }
-        }
-
         public override void Serialize(ICoreSerializationContext context)
         {
             base.Serialize(context);
@@ -101,31 +70,6 @@ public class GroupInput : Node, ISocketsCanBeAdded
         }
 
         return false;
-    }
-
-    [ObsoleteSerializationApi]
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-        if (json.TryGetPropertyValue("Items", out JsonNode? itemsNode)
-            && itemsNode is JsonArray itemsArray)
-        {
-            int index = 0;
-            foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
-            {
-                if (itemJson.TryGetDiscriminator(out Type? type)
-                    && Activator.CreateInstance(type) is IOutputSocket socket)
-                {
-                    (socket as IJsonSerializable)?.ReadFromJson(itemJson);
-                    Items.Add(socket);
-                    ((NodeItem)socket).LocalId = index;
-                }
-
-                index++;
-            }
-
-            NextLocalId = index;
-        }
     }
 
     public override void Deserialize(ICoreSerializationContext context)

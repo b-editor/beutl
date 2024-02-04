@@ -76,43 +76,6 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
         }
     }
 
-    [ObsoleteSerializationApi]
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-        if (json.TryGetPropertyValue(nameof(KeyFrames), out JsonNode? keyframesNode)
-            && keyframesNode is JsonArray keyframesArray)
-        {
-            KeyFrames.Clear();
-            KeyFrames.EnsureCapacity(keyframesArray.Count);
-
-            foreach (JsonObject childJson in keyframesArray.OfType<JsonObject>())
-            {
-                var item = new KeyFrame<T>();
-                item.ReadFromJson(childJson);
-                KeyFrames.Add(item);
-            }
-        }
-    }
-
-    [ObsoleteSerializationApi]
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-
-        var array = new JsonArray();
-
-        foreach (IKeyFrame item in KeyFrames.GetMarshal().Value)
-        {
-            var itemJson = new JsonObject();
-            item.WriteToJson(itemJson);
-
-            array.Add(itemJson);
-        }
-
-        json[nameof(KeyFrames)] = array;
-    }
-
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);

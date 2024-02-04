@@ -9,23 +9,6 @@ public sealed class DummySourceOperator : SourceOperator, IDummy
 {
     internal JsonObject? Json { get; set; }
 
-    [ObsoleteSerializationApi]
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-        Json = json;
-    }
-
-    [ObsoleteSerializationApi]
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-        if (Json != null)
-        {
-            JsonDeepClone.CopyTo(Json, json);
-        }
-    }
-
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);

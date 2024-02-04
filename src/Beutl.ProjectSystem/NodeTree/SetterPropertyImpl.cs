@@ -91,33 +91,6 @@ public sealed class SetterPropertyImpl<T>(Setter<T> setter, Type implementedType
         Setter.Value = value;
     }
 
-    [ObsoleteSerializationApi]
-    public void WriteToJson(JsonObject json)
-    {
-        json[nameof(Property)] = Property.Name;
-        json["Target"] = TypeFormat.ToString(ImplementedType);
-
-        json[nameof(Setter)] = StyleSerializer.ToJson(Setter, ImplementedType).Item2;
-    }
-
-    [ObsoleteSerializationApi]
-    public void ReadFromJson(JsonObject json)
-    {
-        if (json.TryGetPropertyValue(nameof(Setter), out JsonNode? setterNode)
-            && setterNode != null)
-        {
-            if (StyleSerializer.ToSetter(setterNode, Property.Name, ImplementedType) is Setter<T> setter)
-            {
-                if (setter.Animation != null)
-                {
-                    Setter.Animation = setter.Animation;
-                }
-
-                Setter.Value = setter.Value;
-            }
-        }
-    }
-
     public object? GetDefaultValue()
     {
         return Property.GetMetadata<ICorePropertyMetadata>(ImplementedType).GetDefaultValue();
@@ -128,14 +101,14 @@ public sealed class SetterPropertyImpl<T>(Setter<T> setter, Type implementedType
         context.SetValue(nameof(Property), Property.Name);
         context.SetValue("Target", TypeFormat.ToString(ImplementedType));
 
-        context.SetValue(nameof(Setter), StyleSerializer.ToJson(Setter, ImplementedType).Item2);
+        context.SetValue(nameof(Setter), StyleSerializer.ToJson(Setter, ImplementedType, context).Item2);
     }
 
     public void Deserialize(ICoreSerializationContext context)
     {
         if (context.GetValue<JsonNode>(nameof(Setter)) is { } setterNode)
         {
-            if (StyleSerializer.ToSetter(setterNode, Property.Name, ImplementedType) is Setter<T> setter)
+            if (StyleSerializer.ToSetter(setterNode, Property.Name, ImplementedType, context) is Setter<T> setter)
             {
                 if (setter.Animation != null)
                 {

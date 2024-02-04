@@ -49,56 +49,6 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
             .ToCommand();
     }
 
-    [ObsoleteSerializationApi]
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-
-        if (json.TryGetPropertyValue(nameof(Children), out JsonNode? childrenNode)
-            && childrenNode is JsonArray childrenArray)
-        {
-            foreach (JsonObject operatorJson in childrenArray.OfType<JsonObject>())
-            {
-                Type? type = operatorJson.GetDiscriminator();
-                SourceOperator? @operator = null;
-                if (type?.IsAssignableTo(typeof(SourceOperator)) ?? false)
-                {
-                    @operator = Activator.CreateInstance(type) as SourceOperator;
-                }
-
-                @operator ??= new DummySourceOperator();
-                @operator.ReadFromJson(operatorJson);
-                Children.Add(@operator);
-            }
-        }
-    }
-
-    [ObsoleteSerializationApi]
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-
-        Span<SourceOperator> children = _children.GetMarshal().Value;
-        if (children.Length > 0)
-        {
-            var array = new JsonArray();
-
-            foreach (SourceOperator item in children)
-            {
-                var itemJson = new JsonObject();
-                item.WriteToJson(itemJson);
-
-                // DummySourceOperatorはReadFromJsonで取得した、Jsonをリレーするので型名は書かない。
-                if (item is not DummySourceOperator)
-                    itemJson.WriteDiscriminator(item.GetType());
-
-                array.Add(itemJson);
-            }
-
-            json[nameof(Children)] = array;
-        }
-    }
-
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);

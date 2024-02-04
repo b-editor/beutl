@@ -43,51 +43,6 @@ public sealed class SoundEffectGroup : SoundEffect
         return count;
     }
 
-    [ObsoleteSerializationApi]
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-        if (json.TryGetPropertyValue(nameof(Children), out JsonNode? childrenNode)
-            && childrenNode is JsonArray childrenArray)
-        {
-            _children.Clear();
-            _children.EnsureCapacity(childrenArray.Count);
-
-            foreach (JsonObject childJson in childrenArray.OfType<JsonObject>())
-            {
-                if (childJson.TryGetDiscriminator(out Type? type)
-                    && type.IsAssignableTo(typeof(SoundEffect))
-                    && Activator.CreateInstance(type) is IMutableSoundEffect soundEffect)
-                {
-                    soundEffect.ReadFromJson(childJson);
-                    _children.Add(soundEffect);
-                }
-            }
-        }
-    }
-
-    [ObsoleteSerializationApi]
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-
-        var array = new JsonArray();
-
-        foreach (ISoundEffect item in _children.GetMarshal().Value)
-        {
-            if (item is IMutableSoundEffect obj)
-            {
-                var itemJson = new JsonObject();
-                obj.WriteToJson(itemJson);
-                itemJson.WriteDiscriminator(item.GetType());
-
-                array.Add(itemJson);
-            }
-        }
-
-        json[nameof(Children)] = array;
-    }
-
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);

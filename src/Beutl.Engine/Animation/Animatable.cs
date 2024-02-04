@@ -40,47 +40,6 @@ public abstract class Animatable : CoreObject, IAnimatable
         }
     }
 
-    [ObsoleteSerializationApi]
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-        if (json.TryGetPropertyValue("animations", out JsonNode? animationsNode)
-            && animationsNode is JsonObject animationsObj)
-        {
-            Animations.Clear();
-            Animations.EnsureCapacity(animationsObj.Count);
-
-            Type type = GetType();
-            foreach ((string name, JsonNode? node) in animationsObj)
-            {
-                if (node?.ToAnimation(name, type) is IAnimation animation)
-                {
-                    Animations.Add(animation);
-                }
-            }
-        }
-    }
-
-    [ObsoleteSerializationApi]
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-        var animations = new JsonObject();
-
-        foreach (IAnimation item in Animations.GetMarshal().Value)
-        {
-            if (item.ToJson() is { } itemJson)
-            {
-                animations.Add(item.Property.Name, itemJson);
-            }
-        }
-
-        if (animations.Count > 0)
-        {
-            json["animations"] = animations;
-        }
-    }
-
     // NOTE: 互換性のため、JsonArrayではなくJsonObjectになるようにしている
     public override void Serialize(ICoreSerializationContext context)
     {

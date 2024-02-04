@@ -146,47 +146,6 @@ public class TextBlock : Drawable
         set => SetAndRaise(ElementsProperty, ref _elements, value);
     }
 
-    [ObsoleteSerializationApi]
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-        if (json.TryGetPropertyValue("elements", out JsonNode? elmsNode)
-            && elmsNode is JsonArray elnsArray)
-        {
-            var array = new TextElement[elnsArray.Count];
-            for (int i = 0; i < elnsArray.Count; i++)
-            {
-                if (elnsArray[i] is JsonObject elmNode)
-                {
-                    var elm = new TextElement();
-                    elm.ReadFromJson(elmNode);
-                    array[i] = elm;
-                }
-            }
-
-            Elements = new TextElements(array);
-        }
-    }
-
-    [ObsoleteSerializationApi]
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-        OnUpdateText();
-        if (_elements != null)
-        {
-            var array = new JsonArray(_elements.Count);
-            for (int i = 0; i < _elements.Count; i++)
-            {
-                var node = new JsonObject();
-                _elements[i].WriteToJson(node);
-                array[i] = node;
-            }
-
-            json["elements"] = array;
-        }
-    }
-
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);

@@ -9,7 +9,7 @@ using Beutl.Validation;
 
 namespace Beutl;
 
-public interface ICoreObject : INotifyPropertyChanged, IJsonSerializable, INotifyDataErrorInfo, ICoreSerializable
+public interface ICoreObject : INotifyPropertyChanged, INotifyDataErrorInfo, ICoreSerializable
 {
     Guid Id { get; set; }
 
@@ -354,46 +354,6 @@ public abstract class CoreObject : ICoreObject
     public void ClearValue(CoreProperty property)
     {
         SetValue(property, property.GetMetadata<CorePropertyMetadata>(GetType()).GetDefaultValue());
-    }
-
-    [ObsoleteSerializationApi]
-    public virtual void WriteToJson(JsonObject json)
-    {
-        Type ownerType = GetType();
-
-        IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(ownerType);
-        for (int i = 0; i < list.Count; i++)
-        {
-            CoreProperty item = list[i];
-            CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(ownerType);
-            if (metadata.ShouldSerialize && (item is not IStaticProperty sprop || sprop.CanWrite))
-            {
-                JsonNode? valueNode = item.RouteWriteToJson(metadata, GetValue(item));
-                json[item.Name] = valueNode;
-            }
-        }
-    }
-
-    [ObsoleteSerializationApi]
-    public virtual void ReadFromJson(JsonObject json)
-    {
-        Type ownerType = GetType();
-
-        IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(ownerType);
-        for (int i = 0; i < list.Count; i++)
-        {
-            CoreProperty item = list[i];
-            CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(ownerType);
-            if (metadata.ShouldSerialize
-                && (item is not IStaticProperty sprop || sprop.CanWrite)
-                && json.TryGetPropertyValue(item.Name, out JsonNode? jsonNode))
-            {
-                if (item.RouteReadFromJson(metadata, jsonNode) is { } value)
-                {
-                    SetValue(item, value);
-                }
-            }
-        }
     }
 
     protected virtual void OnPropertyChanged(PropertyChangedEventArgs args)
