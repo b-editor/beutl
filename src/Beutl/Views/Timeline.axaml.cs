@@ -374,12 +374,15 @@ public sealed partial class Timeline : UserControl
         if (_pointerFrame >= viewModel.Scene.Duration)
         {
             _pointerFrame = viewModel.Scene.Duration - TimeSpan.FromSeconds(1d / rate);
-            //_pointerFrame = _pointerFrame.RoundToRate(rate);
+        }
+        if (_pointerFrame < TimeSpan.Zero)
+        {
+            _pointerFrame = TimeSpan.Zero;
         }
 
         if (_mouseFlag == MouseFlags.SeekBarPressed)
         {
-            viewModel.Scene.CurrentFrame = _pointerFrame;
+            viewModel.EditorContext.CurrentTime.Value = _pointerFrame;
         }
         else if (_mouseFlag == MouseFlags.RangeSelectionPressed)
         {
@@ -419,7 +422,8 @@ public sealed partial class Timeline : UserControl
 
             if (Scale.IsPointerOver && ViewModel.HoveredCacheBlock.Value is { } cache)
             {
-                long size = ViewModel.EditorContext.FrameCacheManager.CalculateByteCount(cache.StartFrame, cache.StartFrame + cache.LengthFrame);
+                FrameCacheManager cacheManager = ViewModel.EditorContext.FrameCacheManager.Value;
+                long size = cacheManager.CalculateByteCount(cache.StartFrame, cache.StartFrame + cache.LengthFrame);
 
                 CacheTip.Content = $"""
                     {Strings.MemoryUsage}: {Utilities.StringFormats.ToHumanReadableSize(size)}
@@ -488,7 +492,7 @@ public sealed partial class Timeline : UserControl
             else
             {
                 _mouseFlag = MouseFlags.SeekBarPressed;
-                viewModel.Scene.CurrentFrame = viewModel.ClickedFrame;
+                viewModel.EditorContext.CurrentTime.Value = viewModel.ClickedFrame;
             }
         }
 

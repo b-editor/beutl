@@ -38,9 +38,9 @@ public sealed partial class PropertyEditorMenu : UserControl
             {
                 button.ContextFlyout?.ShowAt(button);
             }
-            else if (viewModel.GetService<Scene>() is { } scene)
+            else if (viewModel.GetService<EditViewModel>() is { } editViewModel)
             {
-                TimeSpan keyTime = scene.CurrentFrame;
+                TimeSpan keyTime = editViewModel.CurrentTime.Value;
                 if (symbolIcon.IsFilled)
                 {
                     viewModel.RemoveKeyFrame(keyTime);

@@ -21,6 +21,7 @@ public sealed class BufferedPlayer : IPlayer
     private readonly ConcurrentQueue<IPlayer.Frame> _queue = new();
     private readonly EditViewModel _editViewModel;
     private readonly FrameCacheManager _frameCacheManager;
+    private readonly SceneRenderer _renderer;
     private readonly Scene _scene;
     private readonly IReadOnlyReactiveProperty<bool> _isPlaying;
     private readonly int _rate;
@@ -35,7 +36,8 @@ public sealed class BufferedPlayer : IPlayer
         IReactiveProperty<bool> isPlaying, int rate)
     {
         _editViewModel = editViewModel;
-        _frameCacheManager = editViewModel.FrameCacheManager;
+        _frameCacheManager = editViewModel.FrameCacheManager.Value;
+        _renderer = editViewModel.Renderer.Value;
         _scene = scene;
         _isPlaying = isPlaying;
         _rate = rate;
@@ -49,7 +51,7 @@ public sealed class BufferedPlayer : IPlayer
 
     public void Start()
     {
-        int startFrame = (int)_scene.CurrentFrame.ToFrameNumber(_rate);
+        int startFrame = (int)_editViewModel.CurrentTime.Value.ToFrameNumber(_rate);
         int durationFrame = (int)Math.Ceiling(_scene.Duration.ToFrameNumber(_rate));
 
         RenderThread.Dispatcher.Dispatch(() =>
@@ -80,10 +82,10 @@ public sealed class BufferedPlayer : IPlayer
                     }
                     else
                     {
-                        if (_scene.Renderer.Render(time))
+                        if (_renderer.Render(time))
                         {
                             Debug.WriteLine($"{frame} rendered.");
-                            using (Ref<Bitmap<Bgra8888>> bitmap = Ref<Bitmap<Bgra8888>>.Create(_scene.Renderer.Snapshot()))
+                            using (Ref<Bitmap<Bgra8888>> bitmap = Ref<Bitmap<Bgra8888>>.Create(_renderer.Snapshot()))
                             {
                                 _queue.Enqueue(new(bitmap.Clone(), frame));
                                 _frameCacheManager.Add(frame, bitmap);
@@ -91,7 +93,7 @@ public sealed class BufferedPlayer : IPlayer
                         }
                         else
                         {
-                            var blank = new Bitmap<Bgra8888>(_scene.Width, _scene.Height);
+                            var blank = new Bitmap<Bgra8888>(_scene.FrameSize.Width, _scene.FrameSize.Height);
                             _queue.Enqueue(new(Ref<Bitmap<Bgra8888>>.Create(blank), frame));
                         }
                     }

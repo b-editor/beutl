@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Numerics;
 using System.Text.Json.Nodes;
 using System.Windows.Input;
@@ -28,6 +27,7 @@ using Beutl.ViewModels.Tools;
 using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 using LibraryService = Beutl.Services.LibraryService;
 
@@ -57,19 +57,46 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
     {
         Scene = scene;
         _sceneId = scene.Id.ToString();
+        CurrentTime = new ReactivePropertySlim<TimeSpan>()
+            .DisposeWith(_disposables);
+        Renderer = scene.GetObservable(Scene.FrameSizeProperty).Select(_ => new SceneRenderer(Scene))
+            .Do(r =>
+            {
+                if (r.GetCacheContext() is { } ctx)
+                {
+                    ctx.CacheOptions = scene.CacheOptions;
+                }
+            })
+            .DisposePreviousValue()
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables)!;
+        Composer = Renderer.Select(v => new SceneComposer(Scene, v))
+            .DisposePreviousValue()
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables)!;
+        scene.GetObservable(Scene.CacheOptionsProperty)
+            .Subscribe(options =>
+            {
+                if (Renderer.Value.GetCacheContext() is { } ctx)
+                {
+                    ctx.CacheOptions = options;
+                }
+            })
+            .DisposeWith(_disposables);
+
         Library = new LibraryViewModel(this)
             .DisposeWith(_disposables);
         Player = new PlayerViewModel(this)
             .DisposeWith(_disposables);
         Commands = new KnownCommandsImpl(scene, this);
         CommandRecorder = new CommandRecorder();
-        var config = GlobalConfiguration.Instance.EditorConfig;
-        FrameCacheManager = new FrameCacheManager(
-            new PixelSize(scene.Width, scene.Height),
-            new FrameCacheOptions(Scale: (FrameCacheScale)config.FrameCacheScale, ColorType: (FrameCacheColorType)config.FrameCacheColorType))
-        {
-            IsEnabled = config.IsFrameCacheEnabled
-        };
+        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+
+        FrameCacheManager = scene.GetObservable(Scene.FrameSizeProperty)
+            .Select(v => new FrameCacheManager(v, CreateFrameCacheOptions()) { IsEnabled = config.IsFrameCacheEnabled })
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables)!;
+
         config.PropertyChanged += OnEditorConfigPropertyChanged;
 
         SelectedObject = new ReactiveProperty<CoreObject?>()
@@ -84,18 +111,6 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             .DisposeWith(_disposables);
 
         RestoreState();
-
-        scene.GetPropertyChangedObservable(Scene.RendererProperty)
-            .Subscribe(e =>
-            {
-                if (e.NewValue != null)
-                {
-                    FrameCacheManager old = FrameCacheManager;
-                    FrameCacheManager = new FrameCacheManager(e.NewValue.FrameSize, new());
-                    old.Dispose();
-                }
-            })
-            .DisposeWith(_disposables);
 
         SelectedObject.CombineWithPrevious()
             .Subscribe(v =>
@@ -118,13 +133,19 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         CommandRecorder.Executed += OnCommandRecorderExecuted;
     }
 
+    private static FrameCacheOptions CreateFrameCacheOptions()
+    {
+        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        return new FrameCacheOptions(Scale: (FrameCacheScale)config.FrameCacheScale, ColorType: (FrameCacheColorType)config.FrameCacheColorType);
+    }
+
     private void OnEditorConfigPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (sender is EditorConfig config)
         {
             if (e.PropertyName is nameof(EditorConfig.FrameCacheColorType) or nameof(EditorConfig.FrameCacheScale))
             {
-                FrameCacheManager.Options = FrameCacheManager.Options with
+                FrameCacheManager.Value.Options = FrameCacheManager.Value.Options with
                 {
                     ColorType = (FrameCacheColorType)config.FrameCacheColorType,
                     Scale = (FrameCacheScale)config.FrameCacheScale
@@ -132,10 +153,10 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             }
             else if (e.PropertyName is nameof(EditorConfig.IsFrameCacheEnabled))
             {
-                FrameCacheManager.IsEnabled = config.IsFrameCacheEnabled;
+                FrameCacheManager.Value.IsEnabled = config.IsFrameCacheEnabled;
                 if (!config.IsFrameCacheEnabled)
                 {
-                    FrameCacheManager.Clear();
+                    FrameCacheManager.Value.Clear();
                 }
             }
         }
@@ -150,7 +171,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 ? affectsTimeline.GetAffectedRange()
                 : e.Storables.OfType<Element>().Select(v => v.Range);
 
-            FrameCacheManager.DeleteAndUpdateBlocks(affectedRange
+            FrameCacheManager.Value.DeleteAndUpdateBlocks(affectedRange
                 .Select(item => (Start: (int)item.Start.ToFrameNumber(rate), End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
         });
 
@@ -190,6 +211,12 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public Scene Scene { get; private set; }
 
+    public ReactivePropertySlim<TimeSpan> CurrentTime { get; }
+
+    public ReadOnlyReactivePropertySlim<SceneRenderer> Renderer { get; }
+
+    public ReadOnlyReactivePropertySlim<SceneComposer> Composer { get; }
+
     public LibraryViewModel Library { get; private set; }
 
     public CoreList<ToolTabViewModel> BottomTabItems { get; }
@@ -208,7 +235,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public CommandRecorder CommandRecorder { get; private set; }
 
-    public FrameCacheManager FrameCacheManager { get; private set; }
+    public ReadOnlyReactivePropertySlim<FrameCacheManager> FrameCacheManager { get; private set; }
 
     public EditorExtension Extension => SceneEditorExtension.Instance;
 
@@ -431,6 +458,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
         json["right-items"] = rightItems;
 
+        json["current-time"] = JsonValue.Create(CurrentTime.Value);
+
         json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(EdittingFile)}.config"));
     }
 
@@ -542,6 +571,11 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                     RightTabItems[index].Context.IsSelected.Value = true;
                 }
             }
+
+            if (jsonObject.TryGetPropertyValueAsJsonValue("current-time", out TimeSpan currentTime))
+            {
+                CurrentTime.Value = currentTime;
+            }
         }
         else
         {
@@ -630,7 +664,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 where T : SourceOperator, new()
             {
                 Element element = CreateElement();
-                element.Name = Path.GetFileName(desc.FileName!);
+                element.Name = Path.GetFileName(desc.FileName);
                 SetAccentColor(element, typeof(T).FullName!);
 
                 element.Operation.AddChild(t = new T()).Do();

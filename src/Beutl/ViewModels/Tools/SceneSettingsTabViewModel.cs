@@ -1,7 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Text.Json.Nodes;
-
-using Avalonia;
+﻿using System.Text.Json.Nodes;
 
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
@@ -20,10 +17,11 @@ public sealed class SceneSettingsTabViewModel : IToolContext
     {
         _editViewModel = editViewModel;
         _scene = editViewModel.Scene;
-        Width = _scene.GetObservable(Scene.WidthProperty)
+        IObservable<Media.PixelSize> frameSize = _scene.GetObservable(Scene.FrameSizeProperty);
+        Width = frameSize.Select(v => v.Width)
             .ToReactiveProperty()
             .DisposeWith(_disposable);
-        Height = _scene.GetObservable(Scene.HeightProperty)
+        Height = frameSize.Select(v => v.Height)
             .ToReactiveProperty()
             .DisposeWith(_disposable);
         DurationInput = _scene.GetObservable(Scene.DurationProperty)
@@ -75,12 +73,14 @@ public sealed class SceneSettingsTabViewModel : IToolContext
             {
                 if (TimeSpan.TryParse(DurationInput.Value, out TimeSpan ts))
                 {
-                    if (Width.Value != _scene.Width
-                        || Height.Value != _scene.Height
+                    if (Width.Value != _scene.FrameSize.Width
+                        || Height.Value != _scene.FrameSize.Height
                         || ts != _scene.Duration)
                     {
                         CommandRecorder recorder = _editViewModel.CommandRecorder;
-                        new UpdateSceneSettingsCommand(new(Width.Value, Height.Value), ts, _scene)
+                        RecordableCommands.Edit(_scene, Scene.FrameSizeProperty, new(Width.Value, Height.Value))
+                            .Append(RecordableCommands.Edit(_scene, Scene.DurationProperty, ts))
+                            .WithStoables([_scene])
                             .DoAndRecord(recorder);
                     }
 
@@ -95,8 +95,8 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         Revert = new ReactiveCommand()
             .WithSubscribe(() =>
             {
-                Width.Value = _scene.Width;
-                Height.Value = _scene.Height;
+                Width.Value = _scene.FrameSize.Width;
+                Height.Value = _scene.FrameSize.Height;
                 DurationInput.Value = _scene.Duration.ToString();
                 LayerCount.Value = _editViewModel.Options.Value.MaxLayerCount;
             })
@@ -148,30 +148,5 @@ public sealed class SceneSettingsTabViewModel : IToolContext
     public object? GetService(Type serviceType)
     {
         return null;
-    }
-
-    private sealed class UpdateSceneSettingsCommand(PixelSize newSize, TimeSpan newDuration, Scene scene) : IRecordableCommand
-    {
-        private readonly PixelSize _oldSize = new(scene.Width, scene.Height);
-        private readonly TimeSpan _oldDuration = scene.Duration;
-
-        public ImmutableArray<IStorable?> GetStorables() => [scene];
-
-        public void Do()
-        {
-            scene.Initialize(newSize.Width, newSize.Height);
-            scene.Duration = newDuration;
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            scene.Initialize(_oldSize.Width, _oldSize.Height);
-            scene.Duration = _oldDuration;
-        }
     }
 }

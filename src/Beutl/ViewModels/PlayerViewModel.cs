@@ -37,6 +37,7 @@ public sealed class PlayerViewModel : IDisposable
     private readonly CompositeDisposable _disposables = [];
     private readonly ReactivePropertySlim<bool> _isEnabled;
     private readonly EditViewModel _editViewModel;
+    private IDisposable? _currentFrameSubscription;
     private CancellationTokenSource? _cts;
     private Size _maxFrameSize;
 
@@ -63,7 +64,7 @@ public sealed class PlayerViewModel : IDisposable
             .WithSubscribe(() =>
             {
                 int rate = GetFrameRate();
-                UpdateCurrentFrame(Scene.CurrentFrame + TimeSpan.FromSeconds(1d / rate));
+                UpdateCurrentFrame(_editViewModel.CurrentTime.Value + TimeSpan.FromSeconds(1d / rate));
             })
             .DisposeWith(_disposables);
 
@@ -71,33 +72,19 @@ public sealed class PlayerViewModel : IDisposable
             .WithSubscribe(() =>
             {
                 int rate = GetFrameRate();
-                UpdateCurrentFrame(Scene.CurrentFrame - TimeSpan.FromSeconds(1d / rate));
+                UpdateCurrentFrame(_editViewModel.CurrentTime.Value - TimeSpan.FromSeconds(1d / rate));
             })
             .DisposeWith(_disposables);
 
         Start = new ReactiveCommand(_isEnabled)
-            .WithSubscribe(() => Scene.CurrentFrame = TimeSpan.Zero)
+            .WithSubscribe(() => _editViewModel.CurrentTime.Value = TimeSpan.Zero)
             .DisposeWith(_disposables);
 
         End = new ReactiveCommand(_isEnabled)
-            .WithSubscribe(() => Scene.CurrentFrame = Scene.Duration)
+            .WithSubscribe(() => _editViewModel.CurrentTime.Value = Scene.Duration)
             .DisposeWith(_disposables);
 
-        Scene.Renderer.RenderInvalidated += Renderer_RenderInvalidated;
-        Scene.GetPropertyChangedObservable(Scene.RendererProperty)
-            .Subscribe(a =>
-            {
-                if (a.OldValue != null)
-                {
-                    a.OldValue.RenderInvalidated -= Renderer_RenderInvalidated;
-                }
-
-                if (a.NewValue != null)
-                {
-                    a.NewValue.RenderInvalidated += Renderer_RenderInvalidated;
-                }
-            })
-            .DisposeWith(_disposables);
+        Scene.Invalidated += OnSceneInvalidated;
 
         _isEnabled.Subscribe(v =>
             {
@@ -108,15 +95,28 @@ public sealed class PlayerViewModel : IDisposable
             })
             .DisposeWith(_disposables);
 
-        CurrentFrame = Scene.GetObservable(Scene.CurrentFrameProperty)
+        CurrentFrame = _editViewModel.CurrentTime
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        CurrentFrame.Subscribe(UpdateCurrentFrame)
-            .DisposeWith(_disposables);
+        _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
 
         Duration = Scene.GetObservable(Scene.DurationProperty)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
+    }
+
+    private void OnSceneInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    {
+        if (e is TimelineInvalidatedEventArgs timelineInvalidated)
+        {
+            TimeSpan time = _editViewModel.CurrentTime.Value;
+            if (!timelineInvalidated.AffectedRange.Any(v => v.Contains(time)))
+            {
+                return;
+            }
+        }
+
+        QueueRender();
     }
 
     public Scene? Scene { get; set; }
@@ -159,9 +159,9 @@ public sealed class PlayerViewModel : IDisposable
         {
             _maxFrameSize = value;
 
-            if(_maxFrameSize != value)
+            if (_maxFrameSize != value)
             {
-                FrameCacheManager frameCacheManager = _editViewModel.FrameCacheManager;
+                FrameCacheManager frameCacheManager = _editViewModel.FrameCacheManager.Value;
                 var frameSize = frameCacheManager.FrameSize.ToSize(1);
                 float scale = (float)Stretch.Uniform.CalculateScaling(MaxFrameSize, frameSize, StretchDirection.Both).X;
                 if (scale != 0)
@@ -198,10 +198,11 @@ public sealed class PlayerViewModel : IDisposable
             if (!_isEnabled.Value || Scene == null)
                 return;
 
-            IRenderer renderer = Scene.Renderer;
+            IRenderer renderer = _editViewModel.Renderer.Value;
             BufferStatusViewModel bufferStatus = _editViewModel.BufferStatus;
-            FrameCacheManager frameCacheManager = _editViewModel.FrameCacheManager;
-            renderer.RenderInvalidated -= Renderer_RenderInvalidated;
+            FrameCacheManager frameCacheManager = _editViewModel.FrameCacheManager.Value;
+            Scene.Invalidated -= OnSceneInvalidated;
+            _currentFrameSubscription?.Dispose();
 
             try
             {
@@ -209,7 +210,7 @@ public sealed class PlayerViewModel : IDisposable
                 int rate = GetFrameRate();
 
                 TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
-                TimeSpan startTime = Scene.CurrentFrame;
+                TimeSpan startTime = _editViewModel.CurrentTime.Value;
                 TimeSpan durationTime = Scene.Duration;
                 int startFrame = (int)startTime.ToFrameNumber(rate);
                 int durationFrame = (int)Math.Ceiling(durationTime.ToFrameNumber(rate));
@@ -259,8 +260,8 @@ public sealed class PlayerViewModel : IDisposable
 
                                 if (Scene != null)
                                 {
-                                    Scene.CurrentFrame = TimeSpanExtensions.ToTimeSpan(frame.Time, rate);
-                                    _editViewModel.FrameCacheManager.CurrentFrame = frame.Time;
+                                    _editViewModel.CurrentTime.Value = TimeSpanExtensions.ToTimeSpan(frame.Time, rate);
+                                    _editViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
                                 }
                             }
                         }
@@ -289,7 +290,9 @@ public sealed class PlayerViewModel : IDisposable
                 {
                     DeletionStrategy = FrameCacheDeletionStrategy.Old
                 };
-                renderer.RenderInvalidated += Renderer_RenderInvalidated;
+
+                _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
+                Scene.Invalidated += OnSceneInvalidated;
             }
         });
     }
@@ -338,9 +341,9 @@ public sealed class PlayerViewModel : IDisposable
 
     private async Task PlayWithXA2(XAudioContext audioContext, Scene scene)
     {
-        IComposer composer = scene.Composer;
+        IComposer composer = _editViewModel.Composer.Value;
         int sampleRate = composer.SampleRate;
-        TimeSpan cur = scene.CurrentFrame;
+        TimeSpan cur = _editViewModel.CurrentTime.Value;
         var fmt = new WaveFormat(sampleRate, 32, 2);
         var source = new XAudioSource(audioContext);
         var primaryBuffer = new XAudioBuffer();
@@ -411,8 +414,8 @@ public sealed class PlayerViewModel : IDisposable
         {
             audioContext.MakeCurrent();
 
-            IComposer composer = scene.Composer;
-            TimeSpan cur = scene.CurrentFrame;
+            IComposer composer = _editViewModel.Composer.Value;
+            TimeSpan cur = _editViewModel.CurrentTime.Value;
             int[] buffers = AL.GenBuffers(2);
             int source = AL.GenSource();
 
@@ -535,26 +538,34 @@ public sealed class PlayerViewModel : IDisposable
         }
     }
 
-    private void Renderer_RenderInvalidated(object? sender, TimeSpan e)
+    private void QueueRender()
     {
+        if (_editViewModel.Renderer.Value.IsGraphicsRendering)
+            return;
+
         void RenderOnRenderThread()
         {
             RenderThread.Dispatcher.Dispatch(() =>
             {
                 try
                 {
-                    if (Scene is not { Renderer: SceneRenderer renderer }) return;
+                    SceneRenderer renderer = _editViewModel.Renderer.Value;
+                    FrameCacheManager cacheManager = _editViewModel.FrameCacheManager.Value;
+                    if (renderer is not { IsDisposed: false, IsGraphicsRendering: false })
+                        return;
+
                     int rate = GetFrameRate();
-                    TimeSpan time = Scene.CurrentFrame;
+                    TimeSpan time = _editViewModel.CurrentTime.Value;
                     int frame = (int)Math.Round(time.ToFrameNumber(rate), MidpointRounding.AwayFromZero);
                     time = TimeSpanExtensions.ToTimeSpan(frame, rate);
                     Bitmap<Bgra8888>? bitmap = null;
 
-                    if (_editViewModel.FrameCacheManager.TryGet(frame, out var cache))
+                    if (cacheManager.TryGet(frame, out var cache))
                     {
                         using (cache)
                         {
-                            renderer.GraphicsEvaluator.Evaluate();
+                            renderer.RenderScene.Clear();
+                            renderer.Evaluate(time);
 
                             ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
                             canvas.Clear();
@@ -574,8 +585,8 @@ public sealed class PlayerViewModel : IDisposable
                     {
                         using (var forCache = Ref<Bitmap<Bgra8888>>.Create(renderer.Snapshot()))
                         {
-                            _editViewModel.FrameCacheManager.Add(frame, forCache);
-                            _editViewModel.FrameCacheManager.UpdateBlocks();
+                            cacheManager.Add(frame, forCache);
+                            cacheManager.UpdateBlocks();
                         }
 
                         ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
@@ -611,19 +622,25 @@ public sealed class PlayerViewModel : IDisposable
 
     private void UpdateCurrentFrame(TimeSpan timeSpan)
     {
+        QueueRender();
+
         if (Scene == null) return;
-        if (Scene.CurrentFrame != timeSpan)
+
+        if (_editViewModel.CurrentTime.Value != timeSpan)
         {
-            int rate = Project.GetFrameRate();
-            timeSpan = timeSpan.RoundToRate(rate);
+            //int rate = Project.GetFrameRate();
+            //timeSpan = timeSpan.FloorToRate(rate);
 
-            if (timeSpan >= Scene.Duration)
-            {
-                timeSpan = Scene.Duration - TimeSpan.FromSeconds(1d / rate);
-                timeSpan = timeSpan.RoundToRate(rate);
-            }
+            //if (timeSpan >= Scene.Duration)
+            //{
+            //    timeSpan = Scene.Duration - TimeSpan.FromSeconds(1d / rate);
+            //}
+            //if (timeSpan < TimeSpan.Zero)
+            //{
+            //    timeSpan = TimeSpan.Zero;
+            //}
 
-            Scene.CurrentFrame = timeSpan;
+            _editViewModel.CurrentTime.Value = timeSpan;
         }
     }
 
@@ -631,6 +648,7 @@ public sealed class PlayerViewModel : IDisposable
     {
         Pause();
         _disposables.Dispose();
+        _currentFrameSubscription?.Dispose();
         PreviewInvalidated = null;
         Scene = null!;
     }
@@ -653,7 +671,7 @@ public sealed class PlayerViewModel : IDisposable
         return RenderThread.Dispatcher.InvokeAsync(() =>
         {
             if (Scene == null) throw new Exception("Scene is null.");
-            IRenderer renderer = Scene.Renderer;
+            IRenderer renderer = _editViewModel.Renderer.Value;
             PixelSize frameSize = renderer.FrameSize;
             using var root = new DrawableNode(drawable);
             using var dcanvas = new DeferradCanvas(root, frameSize);
@@ -701,7 +719,7 @@ public sealed class PlayerViewModel : IDisposable
         return RenderThread.Dispatcher.InvokeAsync(() =>
         {
             if (Scene == null) throw new Exception("Scene is null.");
-            IRenderer renderer = Scene.Renderer;
+            IRenderer renderer = _editViewModel.Renderer.Value;
 
             RenderCacheContext? cacheContext = renderer.GetCacheContext();
             RenderCacheOptions? restoreCacheOptions = null;
