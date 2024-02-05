@@ -32,7 +32,7 @@ public readonly struct YieldTaskAwaiter(DispatchPriority priority) : INotifyComp
             throw new DispatcherException("Awaiting Dispatcher.Yield outside of QueueSynchronizationContext");
         }
 
-        context.Post(priority, continuation);
+        context.Post(priority, continuation, default);
     }
 
     public void GetResult()

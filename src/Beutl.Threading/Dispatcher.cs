@@ -8,9 +8,16 @@ public class Dispatcher
     private static Dispatcher? s_current;
 
     private readonly QueueSynchronizationContext _synchronizationContext = new();
-    private Thread? _thread;
+
+    private Dispatcher()
+    {
+        Thread = new Thread(Start);
+        Thread.TrySetApartmentState(ApartmentState.STA);
+    }
 
     public static Dispatcher Current => s_current!;
+
+    public Thread Thread { get; private set; }
 
     public void Start()
     {
@@ -20,7 +27,7 @@ public class Dispatcher
         try
         {
             s_current = this;
-            _thread = Thread.CurrentThread;
+            Thread = Thread.CurrentThread;
             SynchronizationContext.SetSynchronizationContext(_synchronizationContext);
 
             _synchronizationContext.Start();
@@ -40,7 +47,7 @@ public class Dispatcher
         try
         {
             s_current = this;
-            _thread = Thread.CurrentThread;
+            Thread = Thread.CurrentThread;
             SynchronizationContext.SetSynchronizationContext(_synchronizationContext);
 
             _synchronizationContext.Execute();
@@ -55,7 +62,7 @@ public class Dispatcher
     public void Stop()
     {
         _synchronizationContext.Stop();
-        Debug.WriteLine($"'{_thread?.Name ?? _thread?.ManagedThreadId.ToString()}' を停止しました");
+        Debug.WriteLine($"'{Thread?.Name ?? Thread?.ManagedThreadId.ToString()}' を停止しました");
     }
 
     public bool CheckAccess()
@@ -72,13 +79,7 @@ public class Dispatcher
     public static Dispatcher Spawn()
     {
         var dispatcher = new Dispatcher();
-        var thread = new Thread(() =>
-        {
-            dispatcher.Start();
-        });
-        thread.TrySetApartmentState(ApartmentState.STA);
-        thread.Start();
-
+        dispatcher.Thread.Start();
         return dispatcher;
     }
 
@@ -89,92 +90,98 @@ public class Dispatcher
         return dispatcher;
     }
 
-    public void Invoke(Action operation, DispatchPriority priority = DispatchPriority.Medium)
+    public void Invoke(Action operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
         if (CheckAccess())
         {
+            ct.ThrowIfCancellationRequested();
             operation();
         }
         else
         {
-            _synchronizationContext.Send(priority, operation);
+            _synchronizationContext.Send(priority, operation, ct).Wait(ct);
         }
     }
 
-    public T Invoke<T>(Func<T> operation, DispatchPriority priority = DispatchPriority.Medium)
+    public T Invoke<T>(Func<T> operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
         if (CheckAccess())
         {
+            ct.ThrowIfCancellationRequested();
             return operation();
         }
         else
         {
-            return InvokeAsync(operation, priority).Result;
+            Task<T> task = InvokeAsync(operation, priority, ct);
+            task.Wait(ct);
+            return task.Result;
         }
     }
 
-    public Task InvokeAsync(Action operation, DispatchPriority priority = DispatchPriority.Medium)
+    public Task InvokeAsync(Action operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
-        return _synchronizationContext.Send(priority, operation);
+        return _synchronizationContext.Send(priority, operation, ct);
     }
 
-    public async Task InvokeAsync(Func<Task> operation, DispatchPriority priority = DispatchPriority.Medium)
+    public async Task InvokeAsync(Func<Task> operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
-        await await InvokeAsync<Task>(operation, priority);
+        await await InvokeAsync<Task>(operation, priority, ct);
     }
 
-    public Task<T> InvokeAsync<T>(Func<T> operation, DispatchPriority priority = DispatchPriority.Medium)
+    public Task<T> InvokeAsync<T>(Func<T> operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
-        return _synchronizationContext.Send(priority, operation);
+        return _synchronizationContext.Send(priority, operation, ct);
     }
 
-    public async Task<T> InvokeAsync<T>(Func<Task<T>> operation, DispatchPriority priority = DispatchPriority.Medium)
+    public async Task<T> InvokeAsync<T>(Func<Task<T>> operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
-        return await await InvokeAsync<Task<T>>(operation, priority);
+        return await await InvokeAsync<Task<T>>(operation, priority, ct);
     }
 
-    public void Dispatch(Action operation, DispatchPriority priority = DispatchPriority.Medium)
+    public void Dispatch(Action operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
-        _synchronizationContext.Post(priority, operation);
+        _synchronizationContext.Post(priority, operation, ct);
     }
 
-    public void Dispatch(Func<Task> operation, DispatchPriority priority = DispatchPriority.Medium)
+    public void Dispatch(Func<Task> operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
-        _synchronizationContext.Post(priority, () => operation());
+        _synchronizationContext.Post(priority, () => operation(), ct);
     }
 
-    public void Run(Action operation, DispatchPriority priority = DispatchPriority.Medium)
+    public void Run(Action operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
         if (CheckAccess())
         {
-            operation();
+            if (!ct.IsCancellationRequested)
+                operation();
         }
         else
         {
-            Dispatch(operation, priority);
+            Dispatch(operation, priority, ct);
         }
     }
 
-    public void Run(Func<Task> operation, DispatchPriority priority)
+    public void Run(Func<Task> operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
         if (CheckAccess())
         {
-            operation();
+            if (!ct.IsCancellationRequested)
+                operation();
         }
         else
         {
-            Dispatch(operation, priority);
+            Dispatch(operation, priority, ct);
         }
     }
 
-    public void Schedule(TimeSpan delay, Action operation, DispatchPriority priority = DispatchPriority.Medium)
+    public void Schedule(TimeSpan delay, Action operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
-        _synchronizationContext.PostDelayed(DateTime.UtcNow + delay, priority, operation);
+        _synchronizationContext.PostDelayed(DateTime.UtcNow + delay, priority, operation, ct);
     }
 
-    public void Schedule(TimeSpan delay, Func<Task> operation, DispatchPriority priority = DispatchPriority.Medium)
+    public void Schedule(TimeSpan delay, Func<Task> operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
-        _synchronizationContext.PostDelayed(DateTime.UtcNow + delay, priority, () => operation());
+        _synchronizationContext.PostDelayed(DateTime.UtcNow + delay, priority, () => operation(), ct);
     }
 
     public static YieldTask Yield(DispatchPriority priority = DispatchPriority.Low)
