@@ -204,7 +204,7 @@ public partial class EditView
         private KeyFrameState? FindKeyFramePairOrNull(CoreProperty<float> property)
         {
             int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-            TimeSpan globalkeyTime = viewModel.Scene.CurrentFrame;
+            TimeSpan globalkeyTime = viewModel.CurrentTime.Value;
             TimeSpan localKeyTime = Element != null ? globalkeyTime - Element.Start : globalkeyTime;
 
             if (_translateTransform!.Animations.FirstOrDefault(v => v.Property == property) is KeyFrameAnimation<float> animation)
@@ -232,7 +232,7 @@ public partial class EditView
 
                 PointerPoint pointerPoint = e.GetCurrentPoint(Image);
                 AvaPoint imagePosition = pointerPoint.Position;
-                double scaleX = Image.Bounds.Size.Width / viewModel.Scene.Width;
+                double scaleX = Image.Bounds.Size.Width / viewModel.Scene.FrameSize.Width;
                 AvaPoint scaledPosition = imagePosition / scaleX;
                 AvaPoint delta = scaledPosition - _scaledStartPosition;
                 if (_translateTransform == null && Length(delta) >= 1)
@@ -275,7 +275,7 @@ public partial class EditView
                     int st = (int)Element.Start.ToFrameNumber(rate);
                     int ed = (int)Math.Ceiling(Element.Range.End.ToFrameNumber(rate));
 
-                    viewModel.FrameCacheManager.DeleteAndUpdateBlocks(new[] { (st, ed) });
+                    viewModel.FrameCacheManager.Value.DeleteAndUpdateBlocks(new[] { (st, ed) });
                 }
                 e.Handled = true;
             }
@@ -344,23 +344,24 @@ public partial class EditView
 
         public void OnPressed(PointerPressedEventArgs e)
         {
+            Scene scene = viewModel.Scene;
             PointerPoint pointerPoint = e.GetCurrentPoint(Image);
             _imagePressed = pointerPoint.Properties.IsLeftButtonPressed;
             AvaPoint imagePosition = pointerPoint.Position;
-            double scaleX = Image.Bounds.Size.Width / viewModel.Scene.Width;
+            double scaleX = Image.Bounds.Size.Width / scene.FrameSize.Width;
             _scaledStartPosition = imagePosition / scaleX;
 
-            Drawable = viewModel.Scene.Renderer.HitTest(new((float)_scaledStartPosition.X, (float)_scaledStartPosition.Y));
+            Drawable = viewModel.Renderer.Value.HitTest(new((float)_scaledStartPosition.X, (float)_scaledStartPosition.Y));
 
             if (Drawable != null)
             {
                 int zindex = (Drawable as DrawableDecorator)?.OriginalZIndex ?? Drawable.ZIndex;
-                Scene scene = viewModel.Scene;
+                TimeSpan time = viewModel.CurrentTime.Value;
 
                 Element = scene.Children.FirstOrDefault(v =>
                     v.ZIndex == zindex
-                    && v.Start <= scene.CurrentFrame
-                    && scene.CurrentFrame < v.Range.End);
+                    && v.Start <= time
+                    && time < v.Range.End);
 
                 if (Element != null)
                 {
@@ -453,7 +454,7 @@ public partial class EditView
         {
             if (_pressed)
             {
-                float scale = ViewModel.Scene.Width / (float)Image.Bounds.Width;
+                float scale = ViewModel.Scene.FrameSize.Width / (float)Image.Bounds.Width;
                 Rect rect = new Rect(_start.ToBtlPoint() * scale, _position.ToBtlPoint() * scale).Normalize();
 
                 if (ViewModel.Player.TcsForCrop == null)

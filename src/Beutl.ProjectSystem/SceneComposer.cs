@@ -10,7 +10,7 @@ using Beutl.Rendering;
 
 namespace Beutl;
 
-public sealed class SceneComposer(Scene scene) : Composer
+public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
 {
     private readonly List<Element> _entered = [];
     private readonly List<Element> _exited = [];
@@ -41,7 +41,7 @@ public sealed class SceneComposer(Scene scene) : Composer
 
         foreach (Element element in elements)
         {
-            using (PooledList<Renderable> list = element.Evaluate(EvaluationTarget.Audio, clock, scene.Renderer))
+            using (PooledList<Renderable> list = element.Evaluate(EvaluationTarget.Audio, clock, renderer))
             {
                 foreach (Renderable item in list.Span)
                 {

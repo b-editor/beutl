@@ -89,9 +89,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                             {
                                 TimeSpan start = _element?.Start ?? default;
                                 TimeSpan keyTime = EditingKeyFrame.Value.KeyTime;
-                                TimeSpan globalKeyTime = animation.UseGlobalClock ? keyTime : keyTime + start;
 
-                                _editViewModel.Scene.CurrentFrame = globalKeyTime;
+                                _editViewModel.CurrentTime.Value = animation.UseGlobalClock ? keyTime : keyTime + start;
                             }
                         }
                         else
@@ -190,7 +189,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
                 if (WrappedProperty is IAbstractAnimatableProperty animatableProperty)
                 {
-                    _currentFrameRevoker = _editViewModel.Scene.GetObservable(Scene.CurrentFrameProperty)
+                    _currentFrameRevoker = _editViewModel.CurrentTime
                         .CombineLatest(animatableProperty.ObserveAnimation
                             .Select(x => (x as IKeyFrameAnimation)?.KeyFrames)
                             .Select(x => x?.CollectionChangedAsObservable()
@@ -279,7 +278,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public void InvalidateFrameCache()
     {
-        if (this.GetService<EditViewModel>() is { Player: { } player, FrameCacheManager: { } cacheManager })
+        if (this.GetService<EditViewModel>() is { Player: { } player, FrameCacheManager.Value: { } cacheManager })
         {
             Task.Run(() =>
             {

@@ -21,8 +21,6 @@ public interface IRenderer : IDisposable, IImmediateCanvasFactory
 
     bool IsGraphicsRendering { get; }
 
-    event EventHandler<TimeSpan> RenderInvalidated;
-
     Drawable? HitTest(Point point);
 
     [Obsolete("Use Render(TimeSpan) and Snapshot() instead of RenderGraphics.")]
@@ -31,6 +29,4 @@ public interface IRenderer : IDisposable, IImmediateCanvasFactory
     bool Render(TimeSpan timeSpan);
 
     Bitmap<Bgra8888> Snapshot();
-
-    void RaiseInvalidated(TimeSpan timeSpan);
 }

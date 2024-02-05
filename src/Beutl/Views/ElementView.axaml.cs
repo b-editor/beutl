@@ -80,7 +80,7 @@ public sealed partial class ElementView : UserControl
         if (DataContext is ElementViewModel viewModel)
         {
             change2OriginalLength.IsEnabled = viewModel.HasOriginalLength();
-            splitByCurrent.IsEnabled = viewModel.Model.Range.Contains(viewModel.Scene.CurrentFrame);
+            splitByCurrent.IsEnabled = viewModel.Model.Range.Contains(viewModel.Timeline.EditorContext.CurrentTime.Value);
         }
     }
 

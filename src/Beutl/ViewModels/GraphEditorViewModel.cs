@@ -94,7 +94,7 @@ public abstract class GraphEditorViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        SeekBarMargin = Scene.GetObservable(Scene.CurrentFrameProperty)
+        SeekBarMargin = editViewModel.CurrentTime
             .CombineLatest(editViewModel.Scale)
             .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()

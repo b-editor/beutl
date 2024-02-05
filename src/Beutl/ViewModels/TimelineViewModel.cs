@@ -63,9 +63,9 @@ public sealed class TimelineViewModel : IToolContext
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        SeekBarMargin = Scene.GetObservable(Scene.CurrentFrameProperty)
+        SeekBarMargin = editViewModel.CurrentTime
             .CombineLatest(editViewModel.Scale)
-            .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
+            .Select(item => new Thickness(Math.Max(item.First.ToPixel(item.Second), 0), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
@@ -139,7 +139,8 @@ public sealed class TimelineViewModel : IToolContext
             .DisposeWith(_disposables);
 
         DeleteAllFrameCache = new ReactiveCommandSlim()
-            .WithSubscribe(EditorContext.FrameCacheManager.Clear);
+            // EditorContext.FrameCacheManager.Valueは変更されるので、Clearは直接代入しない
+            .WithSubscribe(() => EditorContext.FrameCacheManager.Value.Clear());
 
         DeleteFrameCache = HoveredCacheBlock.Select(v => v != null)
             .ToReactiveCommandSlim()
@@ -147,13 +148,14 @@ public sealed class TimelineViewModel : IToolContext
             {
                 if (HoveredCacheBlock.Value is { } block)
                 {
+                    FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
                     if (block.IsLocked)
                     {
-                        EditorContext.FrameCacheManager.Unlock(
+                        manager.Unlock(
                             block.StartFrame, block.StartFrame + block.LengthFrame);
                     }
 
-                    EditorContext.FrameCacheManager.DeleteAndUpdateBlocks(
+                    manager.DeleteAndUpdateBlocks(
                         new[] { (block.StartFrame, block.StartFrame + block.LengthFrame) });
                 }
             });
@@ -164,10 +166,11 @@ public sealed class TimelineViewModel : IToolContext
             {
                 if (HoveredCacheBlock.Value is { } block)
                 {
-                    EditorContext.FrameCacheManager.Lock(
+                    FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
+                    manager.Lock(
                         block.StartFrame, block.StartFrame + block.LengthFrame);
 
-                    EditorContext.FrameCacheManager.UpdateBlocks();
+                    manager.UpdateBlocks();
                 }
             });
 
@@ -177,10 +180,11 @@ public sealed class TimelineViewModel : IToolContext
             {
                 if (HoveredCacheBlock.Value is { } block)
                 {
-                    EditorContext.FrameCacheManager.Unlock(
+                    FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
+                    manager.Unlock(
                         block.StartFrame, block.StartFrame + block.LengthFrame);
 
-                    EditorContext.FrameCacheManager.UpdateBlocks();
+                    manager.UpdateBlocks();
                 }
             });
 
@@ -202,7 +206,7 @@ public sealed class TimelineViewModel : IToolContext
     private void OnAdjustDurationToCurrent()
     {
         int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
-        TimeSpan time = Scene.CurrentFrame + TimeSpan.FromSeconds(1d / rate);
+        TimeSpan time = EditorContext.CurrentTime.Value + TimeSpan.FromSeconds(1d / rate);
 
         RecordableCommands.Edit(Scene, Scene.DurationProperty, time)
             .WithStoables([Scene])

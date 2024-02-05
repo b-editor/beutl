@@ -5,6 +5,7 @@ using Avalonia.Threading;
 using Beutl.Models;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels;
 
@@ -28,8 +29,11 @@ public sealed class BufferStatusViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        editViewModel.FrameCacheManager.BlocksUpdated += OnFrameCacheManagerBlocksUpdated;
-        _disposables.Add(Disposable.Create(editViewModel.FrameCacheManager, m => m.BlocksUpdated -= OnFrameCacheManagerBlocksUpdated));
+        editViewModel.FrameCacheManager
+            .Select(v => Observable.FromEvent<ImmutableArray<FrameCacheManager.CacheBlock>>(h => v.BlocksUpdated += h, h => v.BlocksUpdated -= h))
+            .Switch()
+            .Subscribe(OnFrameCacheManagerBlocksUpdated)
+            .DisposeWith(_disposables);
     }
 
     private void OnFrameCacheManagerBlocksUpdated(ImmutableArray<FrameCacheManager.CacheBlock> obj)
