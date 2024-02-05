@@ -7,10 +7,11 @@ public class Dispatcher
     [ThreadStatic]
     private static Dispatcher? s_current;
 
-    private readonly QueueSynchronizationContext _synchronizationContext = new();
+    private readonly QueueSynchronizationContext _synchronizationContext;
 
     private Dispatcher()
     {
+        _synchronizationContext = new(this);
         Thread = new Thread(Start);
         Thread.TrySetApartmentState(ApartmentState.STA);
     }
@@ -19,7 +20,29 @@ public class Dispatcher
 
     public Thread Thread { get; private set; }
 
-    public void Start()
+    public bool HasShutdownStarted => _synchronizationContext.HasShutdownStarted;
+
+    public bool HasShutdownFinished => _synchronizationContext.HasShutdownFinished;
+
+    public event EventHandler<DispatcherUnhandledExceptionEventArgs>? UnhandledException
+    {
+        add => _synchronizationContext.UnhandledException += value;
+        remove => _synchronizationContext.UnhandledException -= value;
+    }
+
+    public event EventHandler? ShutdownStarted
+    {
+        add => _synchronizationContext.ShutdownStarted += value;
+        remove => _synchronizationContext.ShutdownStarted -= value;
+    }
+
+    public event EventHandler? ShutdownFinished
+    {
+        add => _synchronizationContext.ShutdownFinished += value;
+        remove => _synchronizationContext.ShutdownFinished -= value;
+    }
+
+    private void Start()
     {
         Dispatcher? oldDispatcher = s_current;
         SynchronizationContext? oldSynchronizationContext = SynchronizationContext.Current;
@@ -39,29 +62,15 @@ public class Dispatcher
         }
     }
 
-    public void Execute()
-    {
-        Dispatcher? oldDispatcher = s_current;
-        SynchronizationContext? oldSynchronizationContext = SynchronizationContext.Current;
-
-        try
-        {
-            s_current = this;
-            Thread = Thread.CurrentThread;
-            SynchronizationContext.SetSynchronizationContext(_synchronizationContext);
-
-            _synchronizationContext.Execute();
-        }
-        finally
-        {
-            s_current = oldDispatcher;
-            SynchronizationContext.SetSynchronizationContext(oldSynchronizationContext);
-        }
-    }
-
+    [Obsolete("Use Shutdown.")]
     public void Stop()
     {
-        _synchronizationContext.Stop();
+        Shutdown();
+    }
+
+    public void Shutdown()
+    {
+        _synchronizationContext.Shutdown();
         Debug.WriteLine($"'{Thread?.Name ?? Thread?.ManagedThreadId.ToString()}' を停止しました");
     }
 

@@ -1,12 +1,22 @@
 ﻿namespace Beutl.Threading;
 
-internal sealed class QueueSynchronizationContext : SynchronizationContext
+internal sealed class QueueSynchronizationContext(Dispatcher dispatcher) : SynchronizationContext
 {
     private readonly OperationQueue _operationQueue = new();
     private readonly TimerQueue _timerQueue = new();
 
     private bool _running;
     private CancellationTokenSource? _waitToken;
+
+    public event EventHandler<DispatcherUnhandledExceptionEventArgs>? UnhandledException;
+
+    public event EventHandler? ShutdownStarted;
+
+    public event EventHandler? ShutdownFinished;
+
+    public bool HasShutdownFinished { get; private set; }
+
+    public bool HasShutdownStarted { get; private set; }
 
     internal void Start()
     {
@@ -17,18 +27,18 @@ internal sealed class QueueSynchronizationContext : SynchronizationContext
             ExecuteAvailableOperations();
             WaitForPendingOperations();
         }
+
+        HasShutdownFinished = true;
+        ShutdownFinished?.Invoke(dispatcher, EventArgs.Empty);
     }
 
-    internal void Execute()
+    internal void Shutdown()
     {
-        _running = true;
-        ExecuteAvailableOperations();
-    }
-
-    internal void Stop()
-    {
+        HasShutdownStarted = true;
         _running = false;
         _waitToken?.Cancel();
+
+        ShutdownStarted?.Invoke(dispatcher, EventArgs.Empty);
     }
 
     private void ExecuteAvailableOperations()
@@ -37,7 +47,20 @@ internal sealed class QueueSynchronizationContext : SynchronizationContext
 
         while (_running && _operationQueue.TryDequeue(out DispatcherOperation? operation))
         {
-            operation.Run();
+            try
+            {
+                operation.Run();
+            }
+            catch (Exception ex)
+            {
+                var args = new DispatcherUnhandledExceptionEventArgs(ex);
+                UnhandledException?.Invoke(dispatcher, args);
+                if (!args.Handled)
+                {
+                    throw;
+                }
+            }
+
             FlushTimerQueue();
         }
     }

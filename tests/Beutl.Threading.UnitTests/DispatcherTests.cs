@@ -13,7 +13,7 @@ public class DispatcherTests
         int dispatcherId = dispatcher.Invoke(() => Environment.CurrentManagedThreadId);
         Assert.That(id, Is.Not.EqualTo(dispatcherId));
 
-        dispatcher.Stop();
+        dispatcher.Shutdown();
     }
 
     [Test]
@@ -24,7 +24,7 @@ public class DispatcherTests
         Assert.Catch<OperationCanceledException>(
             () => dispatcher.Invoke(() => { }, ct: new(true)));
 
-        dispatcher.Stop();
+        dispatcher.Shutdown();
     }
 
     [Test]
@@ -35,7 +35,7 @@ public class DispatcherTests
         Assert.Catch<OperationCanceledException>(
             () => dispatcher.Invoke(() => 100, ct: new(true)));
 
-        dispatcher.Stop();
+        dispatcher.Shutdown();
     }
 
     [Test]
@@ -46,7 +46,7 @@ public class DispatcherTests
         Assert.CatchAsync<OperationCanceledException>(
             async () => await dispatcher.InvokeAsync(() => { }, ct: new(true)));
 
-        dispatcher.Stop();
+        dispatcher.Shutdown();
     }
 
     [Test]
@@ -57,7 +57,7 @@ public class DispatcherTests
         Assert.CatchAsync<OperationCanceledException>(
             async () => await dispatcher.InvokeAsync(async () => await Task.Delay(100), ct: new(true)));
 
-        dispatcher.Stop();
+        dispatcher.Shutdown();
     }
 
     [Test]
@@ -68,7 +68,7 @@ public class DispatcherTests
         Assert.CatchAsync<OperationCanceledException>(
             async () => await dispatcher.InvokeAsync(() => 100, ct: new(true)));
 
-        dispatcher.Stop();
+        dispatcher.Shutdown();
     }
 
     [Test]
@@ -79,6 +79,6 @@ public class DispatcherTests
         Assert.CatchAsync<OperationCanceledException>(
             async () => await dispatcher.InvokeAsync(async () => await Task.FromResult(100), ct: new(true)));
 
-        dispatcher.Stop();
+        dispatcher.Shutdown();
     }
 }
