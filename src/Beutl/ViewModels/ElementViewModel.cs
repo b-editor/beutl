@@ -83,7 +83,7 @@ public sealed class ElementViewModel : IDisposable
             .AddTo(_disposables);
 
         SplitByCurrentFrame
-            .Subscribe(_ => OnSplit(Scene.CurrentFrame))
+            .Subscribe(_ => OnSplit(timeline.EditorContext.CurrentTime.Value))
             .AddTo(_disposables);
 
         Cut.Subscribe(OnCut)

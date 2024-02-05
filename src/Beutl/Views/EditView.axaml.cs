@@ -298,7 +298,7 @@ Error:
                     t.Item3.RenderTransform = t.Item2.RenderTransform = new ImmutableTransform(t.matrix.ToAvaMatrix());
                     if (DataContext is EditViewModel vm)
                     {
-                        int width = vm.Scene.Width;
+                        int width = vm.Scene.FrameSize.Width;
                         if (width == 0) return;
                         double actualWidth = t.Item2.Bounds.Width * t.matrix.M11;
                         double pixelSize = actualWidth / width;

@@ -59,7 +59,7 @@ public class Renderer : IRenderer
 
     public RenderScene RenderScene { get; }
 
-    public event EventHandler<TimeSpan>? RenderInvalidated;
+    protected InstanceClock InternalClock => _instanceClock;
 
     public void Dispose()
     {
@@ -76,14 +76,6 @@ public class Renderer : IRenderer
 
     protected virtual void OnDispose(bool disposing)
     {
-    }
-
-    public void RaiseInvalidated(TimeSpan timeSpan)
-    {
-        if (!IsGraphicsRendering)
-        {
-            RenderInvalidated?.Invoke(this, timeSpan);
-        }
     }
 
     [Obsolete("Use Render(TimeSpan) and Snapshot() instead of RenderGraphics.")]

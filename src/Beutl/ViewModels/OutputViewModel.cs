@@ -443,7 +443,7 @@ public sealed class OutputViewModel : IOutputContext
                 else
                 {
                     _isIndeterminate.Value = false;
-                    VideoEncoderSettings videoSettings = VideoSettings.ToSettings(new PixelSize(scene.Width, scene.Height));
+                    VideoEncoderSettings videoSettings = VideoSettings.ToSettings(scene.FrameSize);
                     AudioEncoderSettings audioSettings = AudioSettings.ToSettings();
 
                     TimeSpan duration = scene.Duration;
@@ -458,10 +458,10 @@ public sealed class OutputViewModel : IOutputContext
 
                     try
                     {
-                        IRenderer renderer = scene.Renderer;
+                        using var renderer = new SceneRenderer(scene);
                         OutputVideo(frames, frameRateD, renderer, writer);
 
-                        IComposer composer = scene.Composer;
+                        using var composer = new SceneComposer(scene, renderer);
                         OutputAudio(samples, composer, writer);
                     }
                     finally
@@ -492,7 +492,7 @@ public sealed class OutputViewModel : IOutputContext
         }
     }
 
-    private void OutputVideo(double frames, double frameRate, IRenderer renderer, MediaWriter writer)
+    private void OutputVideo(double frames, double frameRate, SceneRenderer renderer, MediaWriter writer)
     {
         RenderCacheContext? cacheContext = renderer.GetCacheContext();
         RenderCacheOptions? restoreCacheOptions = null;
@@ -539,7 +539,7 @@ public sealed class OutputViewModel : IOutputContext
         }
     }
 
-    private void OutputAudio(double samples, IComposer composer, MediaWriter writer)
+    private void OutputAudio(double samples, SceneComposer composer, MediaWriter writer)
     {
         for (double i = 0; i < samples; i++)
         {

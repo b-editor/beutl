@@ -48,7 +48,7 @@ public sealed class TakeAfterOperator : SourceOperator
             int end = _element.ZIndex + _count;
 
             // elementsはソートされている
-            List<Element> elements = renderer.GraphicsEvaluator.CurrentElements;
+            List<Element> elements = renderer.CurrentElements;
             for (int i = 0; i < elements.Count; i++)
             {
                 Element item = elements[i];
