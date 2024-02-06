@@ -32,41 +32,6 @@ public sealed class MFDecodingExtension : DecodingExtension
         if (OperatingSystem.IsWindows())
         {
             DecoderRegistry.Register(GetDecoderInfo());
-
-            MFThread.Dispatcher.Invoke(() =>
-            {
-                Thread.CurrentThread.IsBackground = true;
-                Thread.CurrentThread.Name = "Beutl.MediaFoundation";
-                MediaManager.Startup();
-            });
-
-            if (Application.Current?.ApplicationLifetime is IControlledApplicationLifetime lifetime)
-            {
-                lifetime.Exit += OnApplicationExit;
-            }
-
-            AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         }
-    }
-
-    private void OnApplicationExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
-    {
-        Shutdown();
-    }
-
-    private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
-    {
-        Shutdown();
-    }
-
-    private void Shutdown()
-    {
-        MFThread.Dispatcher.Invoke(() =>
-        {
-            MediaManager.Shutdown();
-        });
-        MFThread.Dispatcher.Stop();
-
-        AppDomain.CurrentDomain.UnhandledException -= OnUnhandledException;
     }
 }

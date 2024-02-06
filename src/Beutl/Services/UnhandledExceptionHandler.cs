@@ -74,7 +74,7 @@ public static class UnhandledExceptionHandler
 
             SharedGPUContext.Shutdown();
             SharedGRContext.Shutdown();
-            RenderThread.Dispatcher.Stop();
+            RenderThread.Dispatcher.Shutdown();
 
             s_exited = true;
         }
