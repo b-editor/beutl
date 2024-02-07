@@ -146,7 +146,9 @@ public sealed class RenderCacheContext : IDisposable
 
         // nodeをキャッシュ
         Rect bounds = (node as ISupportRenderCache)?.TransformBoundsForCache(cache) ?? node.Bounds;
-        PixelSize size = new((int)Math.Ceiling(bounds.Width), (int)Math.Ceiling(bounds.Height));
+        //bounds = bounds.Inflate(5);
+        PixelRect boundsInPixels = PixelRect.FromRect(bounds);
+        PixelSize size = boundsInPixels.Size;
         if (size.Width <= 0 || size.Height <= 0)
             return;
 
@@ -159,7 +161,7 @@ public sealed class RenderCacheContext : IDisposable
 
         using (ImmediateCanvas canvas = factory.CreateCanvas(surface, true))
         {
-            using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
+            using (canvas.PushTransform(Matrix.CreateTranslation(-boundsInPixels.X, -boundsInPixels.Y)))
             {
                 if (node is ISupportRenderCache supportRenderCache)
                 {
@@ -174,7 +176,7 @@ public sealed class RenderCacheContext : IDisposable
 
         using (var surfaceRef = Ref<SKSurface>.Create(surface))
         {
-            cache.StoreCache(surfaceRef, bounds);
+            cache.StoreCache(surfaceRef, boundsInPixels.ToRect(1));
         }
 
         Debug.WriteLine($"[RenderCache:Created] '{node}'");
