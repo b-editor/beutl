@@ -422,6 +422,40 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
     internal void DrawSKPath(SKPath skPath, bool strokeOnly, IBrush? fill, IPen? pen)
     {
+        void DrawStrokeLarge(float thickness, Rect rect)
+        {
+            float maxAspect = Math.Max(rect.Width, rect.Height);
+            if (maxAspect < thickness)
+            {
+                using var strokePath = new SKPath();
+                _sharedStrokePaint.StrokeWidth = maxAspect;
+                SKPath? prev = null;
+                while (maxAspect < thickness)
+                {
+                    SKPath tmp = _sharedStrokePaint.GetFillPath(prev ?? skPath);
+                    strokePath.AddPath(tmp);
+
+                    prev = tmp;
+                    thickness -= maxAspect;
+                }
+
+                if (prev != null)
+                {
+                    _sharedStrokePaint.StrokeWidth = thickness;
+                    using SKPath tmp2 = _sharedStrokePaint.GetFillPath(prev);
+                    strokePath.AddPath(tmp2);
+                }
+
+                _sharedStrokePaint.IsStroke = false;
+
+                Canvas.DrawPath(strokePath, _sharedStrokePaint);
+            }
+            else
+            {
+                Canvas.DrawPath(skPath, _sharedStrokePaint);
+            }
+        }
+
         Rect rect = skPath.Bounds.ToGraphicsRect();
 
         if (!strokeOnly)
@@ -433,10 +467,14 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         if (pen != null && pen.Thickness != 0)
         {
             ConfigureStrokePaint(rect, pen);
+
             switch (pen.StrokeAlignment)
             {
                 case StrokeAlignment.Center:
-                    Canvas.DrawPath(skPath, _sharedStrokePaint);
+                    {
+                        float thickness = pen.Thickness;
+                        DrawStrokeLarge(thickness, rect);
+                    }
                     break;
 
                 case StrokeAlignment.Inside:
@@ -447,10 +485,15 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
                     break;
 
                 case StrokeAlignment.Outside:
-                    Canvas.Save();
-                    Canvas.ClipPath(skPath, SKClipOperation.Difference, true);
-                    Canvas.DrawPath(skPath, _sharedStrokePaint);
-                    Canvas.Restore();
+                    {
+                        Canvas.Save();
+                        Canvas.ClipPath(skPath, SKClipOperation.Difference, true);
+
+                        float thickness = pen.Thickness * 2;
+                        DrawStrokeLarge(thickness, rect);
+
+                        Canvas.Restore();
+                    }
                     break;
             }
         }
@@ -619,6 +662,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         if (pen != null && pen.Thickness != 0)
         {
             float thickness = pen.Thickness;
+
             switch (pen.StrokeAlignment)
             {
                 case StrokeAlignment.Center:
@@ -627,10 +671,13 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
                 case StrokeAlignment.Outside:
                     rect = rect.Inflate(thickness);
-                    goto case StrokeAlignment.Inside;
+                    thickness *= 2;
+                    break;
 
                 case StrokeAlignment.Inside:
                     thickness *= 2;
+                    float maxAspect = Math.Max(rect.Width, rect.Height);
+                    thickness = Math.Min(thickness, maxAspect);
                     break;
 
                 default:
