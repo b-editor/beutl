@@ -381,20 +381,17 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
         var typeface = new Typeface(text.Font, text.Style, text.Weight);
         SKTypeface sktypeface = typeface.ToSkia();
-        _sharedFillPaint.Reset();
-        _sharedFillPaint.TextSize = text.Size;
-        _sharedFillPaint.Typeface = sktypeface;
+        using var font = new SKFont(sktypeface, text.Size);
 
         using var shaper = new SKShaper(sktypeface);
         using var buffer = new HarfBuzzSharp.Buffer();
         buffer.AddUtf16(text.Text.AsSpan());
         buffer.GuessSegmentProperties();
 
-        SKShaper.Result result = shaper.Shape(buffer, _sharedFillPaint);
+        SKShaper.Result result = shaper.Shape(buffer, font);
 
         // create the text blob
         using var builder = new SKTextBlobBuilder();
-        using SKFont font = _sharedFillPaint.ToFont();
         SKPositionedRunBuffer run = builder.AllocatePositionedRun(font, result.Codepoints.Length);
 
         // copy the glyphs

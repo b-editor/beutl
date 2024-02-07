@@ -27,8 +27,8 @@
     <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.49-beta" />
     <PackageVersion Include="NAudio.Wasapi" Version="2.2.1" />
     <PackageVersion Include="Nerdbank.GitVersioning" Version="3.6.133" />
-    <PackageVersion Include="HarfBuzzSharp" Version="7.3.0.1" />
-    <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="7.3.0.1" />
+    <PackageVersion Include="HarfBuzzSharp" Version="8.3.0-preview.1.8" />
+    <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.0-preview.1.8" />
     <PackageVersion Include="ILGPU" Version="1.5.1" />
     <PackageVersion Include="Kokuban" Version="0.2.0" />
     <PackageVersion Include="Kurukuru" Version="1.4.2" />
@@ -67,9 +67,9 @@
     <PackageVersion Include="SharpDX.Direct3D9" Version="4.2.0" />
     <PackageVersion Include="SharpDX.MediaFoundation" Version="4.2.0" />
     <PackageVersion Include="Sharprompt" Version="2.4.5" />
-    <PackageVersion Include="SkiaSharp" Version="2.88.7" />
-    <PackageVersion Include="SkiaSharp.HarfBuzz" Version="2.88.7" />
-    <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="2.88.7" />
+    <PackageVersion Include="SkiaSharp" Version="3.0.0-preview.1.8" />
+    <PackageVersion Include="SkiaSharp.HarfBuzz" Version="3.0.0-preview.1.8" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.0.0-preview.1.8" />
     <PackageVersion Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
     <PackageVersion Include="System.Interactive" Version="6.0.1" />
     <PackageVersion Include="System.Interactive.Async" Version="6.0.1" />

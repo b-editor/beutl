@@ -162,7 +162,7 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
         AppendSkiaFilter(
             data: (xChannelSelector, yChannelSelector, scale, child),
             factory: static (t, input, activator)
-                => SKImageFilter.CreateDisplacementMapEffect(t.xChannelSelector, t.yChannelSelector, t.scale, activator.Activate(t.child), input),
+                => SKImageFilter.CreateDisplacementMapEffect(t.xChannelSelector, t.yChannelSelector, t.scale, activator.Activate(t.child)!, input),
             transformBounds: static (data, bounds) => bounds.Inflate(data.scale / 2));
     }
 
@@ -259,7 +259,7 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     {
         AppendSkiaFilter(
             (matrix, bitmapInterpolationMode),
-            (data, input, _) => SKImageFilter.CreateMatrix(data.matrix.ToSKMatrix(), data.bitmapInterpolationMode.ToSKFilterQuality(), input),
+            (data, input, _) => SKImageFilter.CreateMatrix(data.matrix.ToSKMatrix(), data.bitmapInterpolationMode.ToSKSamplingOptions(), input),
             (data, rect) => rect.TransformToAABB(data.matrix));
     }
 

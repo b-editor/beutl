@@ -249,12 +249,14 @@ public readonly struct BrushConstructor(Size targetSize, IBrush? brush, BlendMod
             SKCanvas canvas = intermediate.Canvas;
             using var ipaint = new SKPaint();
             {
-                ipaint.FilterQuality = tileBrush.BitmapInterpolationMode.ToSKFilterQuality();
+                var samplingOptions = tileBrush.BitmapInterpolationMode.ToSKSamplingOptions();
+                using var transformFilter = SKImageFilter.CreateMatrix(calc.IntermediateTransform.ToSKMatrix(), samplingOptions);
+                ipaint.ImageFilter = transformFilter;
 
                 canvas.Clear();
                 canvas.Save();
                 canvas.ClipRect(calc.IntermediateClip.ToSKRect());
-                canvas.SetMatrix(calc.IntermediateTransform.ToSKMatrix());
+                //canvas.SetMatrix(calc.IntermediateTransform.ToSKMatrix());
 
                 if (surface != null)
                     canvas.DrawSurface(surface, default, ipaint);
