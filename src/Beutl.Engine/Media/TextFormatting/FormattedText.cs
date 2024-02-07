@@ -83,23 +83,22 @@ public struct FormattedText : IEquatable<FormattedText>
 
     internal Point AddToSKPath(SKPath path, Point point)
     {
-        SKTypeface typeface = new Typeface(Font, Style, Weight).ToSkia();
-        using SKPaint paint = new()
-        {
-            TextSize = Size,
-            Typeface = typeface
-        };
+        using SKFont font = this.ToSKFont();
 
-        using var shaper = new SKShaper(typeface);
+        using var shaper = new SKShaper(font.Typeface);
         using var buffer = new HarfBuzzSharp.Buffer();
         buffer.AddUtf16(Text.AsSpan());
         buffer.GuessSegmentProperties();
 
+        using SKPaint paint = new()
+        {
+            TextSize = Size,
+            Typeface = font.Typeface
+        };
         SKShaper.Result result = shaper.Shape(buffer, paint);
 
         // create the text blob
         using var builder = new SKTextBlobBuilder();
-        using SKFont font = paint.ToFont();
         SKPositionedRunBuffer run = builder.AllocatePositionedRun(font, result.Codepoints.Length);
 
         // copy the glyphs
@@ -130,21 +129,21 @@ public struct FormattedText : IEquatable<FormattedText>
 
     private (FontMetrics, Size) Measure()
     {
-        SKTypeface typeface = new Typeface(Font, Style, Weight).ToSkia();
-        using SKPaint paint = new()
-        {
-            TextSize = Size,
-            Typeface = typeface
-        };
+        using SKFont font = this.ToSKFont();
 
-        using var shaper = new SKShaper(typeface);
+        using var shaper = new SKShaper(font.Typeface);
         using var buffer = new HarfBuzzSharp.Buffer();
         buffer.AddUtf16(Text.AsSpan());
         buffer.GuessSegmentProperties();
 
+        using SKPaint paint = new()
+        {
+            TextSize = Size,
+            Typeface = font.Typeface
+        };
         SKShaper.Result result = shaper.Shape(buffer, paint);
 
-        FontMetrics fontMetrics = paint.FontMetrics.ToFontMetrics();
+        FontMetrics fontMetrics = font.Metrics.ToFontMetrics();
         float w = result.Width;
         var size = new Size(
             w + (buffer.Length - 1) * Spacing,
