@@ -5,7 +5,7 @@ namespace Beutl.Graphics.Rendering;
 
 // Todo: bounds,HitTest
 public sealed class TextNode(FormattedText text, IBrush? fill, IPen? pen)
-    : BrushDrawNode(fill, pen, PenHelper.CalculateBoundsWithStrokeCap(PenHelper.GetBounds(new(new Point(0, text.Metrics.Ascent), text.Bounds), pen), pen))
+    : BrushDrawNode(fill, pen, text.ActualBounds)
 {
     public FormattedText Text { get; private set; } = text;
 

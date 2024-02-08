@@ -1,8 +1,5 @@
-﻿#define USE_ARRAY_POOL
-
-using System.Buffers;
+﻿using System.Buffers;
 using System.Collections;
-using System.Text.Json.Nodes;
 
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
@@ -52,9 +49,10 @@ public class TextElements : IReadOnlyList<TextElement>, IAffectsRender
         return _array.GetEnumerator();
     }
 
-    public readonly struct LineEnumerable
+    public class LineEnumerable
     {
         private readonly TextElement[] _array;
+        private FormattedText[]? _formattedTexts;
 
         internal LineEnumerable(TextElement[] array)
         {
@@ -69,14 +67,16 @@ public class TextElements : IReadOnlyList<TextElement>, IAffectsRender
                 count += item.CountElements();
             }
 
-            FormattedText[] buffer =
-#if USE_ARRAY_POOL
-                ArrayPool<FormattedText>.Shared.Rent(count)
-#else
-                new FormattedText_[count]
-#endif
-                ;
-            Span<FormattedText> span = buffer;
+            if (_formattedTexts?.Length != count)
+            {
+                _formattedTexts = new FormattedText[count];
+                foreach (ref FormattedText item in _formattedTexts.AsSpan())
+                {
+                    item = new FormattedText();
+                }
+            }
+
+            Span<FormattedText> span = _formattedTexts;
             bool startWithNewLine = false;
 
             foreach (TextElement item in _array)
@@ -85,7 +85,7 @@ public class TextElements : IReadOnlyList<TextElement>, IAffectsRender
                 span = span.Slice(ct);
             }
 
-            return new LineEnumerator(buffer, count);
+            return new LineEnumerator(_formattedTexts, count);
         }
     }
 
@@ -115,7 +115,7 @@ public class TextElements : IReadOnlyList<TextElement>, IAffectsRender
 
             while (index < _arrayCount)
             {
-                ref FormattedText item = ref _array[index];
+                FormattedText item = _array[index];
                 if (item.BeginOnNewLine/* || index + 1 >= _arrayCount*/)
                 {
                     break;
@@ -140,13 +140,6 @@ public class TextElements : IReadOnlyList<TextElement>, IAffectsRender
 
         public void Dispose()
         {
-#if USE_ARRAY_POOL
-
-            if (_array != null)
-            {
-                ArrayPool<FormattedText>.Shared.Return(_array);
-            }
-#endif
             _array = null;
         }
     }

@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 
 using Beutl.Graphics;
+using Beutl.Reactive;
 
 using SkiaSharp;
 using SkiaSharp.HarfBuzz;
@@ -8,7 +9,7 @@ using SkiaSharp.HarfBuzz;
 namespace Beutl.Media.TextFormatting;
 
 [DebuggerDisplay("{Text}")]
-public struct FormattedText : IEquatable<FormattedText>
+public class FormattedText : IEquatable<FormattedText>
 {
     private FontWeight _weight = FontWeight.Regular;
     private FontStyle _style = FontStyle.Normal;
@@ -17,8 +18,13 @@ public struct FormattedText : IEquatable<FormattedText>
     private float _spacing = 0;
     private StringSpan _text = StringSpan.Empty;
     private FontMetrics _metrics = default;
-    private Size _bounds = default;
+    private Rect _bounds = default;
+    private Rect _actualBounds;
     private bool _isDirty = false;
+    private IPen? _pen;
+    private SKTextBlob? _textBlob;
+    private SKPath? _fillPath;
+    private SKPath? _strokePath;
 
     public FormattedText()
     {
@@ -75,12 +81,41 @@ public struct FormattedText : IEquatable<FormattedText>
 
     public IBrush? Brush { get; set; }
 
-    public IPen? Pen { get; set; }
+    public IPen? Pen
+    {
+        get => _pen;
+        set => SetProperty(ref _pen, value);
+    }
 
-    public FontMetrics Metrics => MeasureAndSetField().Metrics;
+    public FontMetrics Metrics
+    {
+        get
+        {
+            MeasureAndSetField();
+            return _metrics;
+        }
+    }
 
-    public Size Bounds => MeasureAndSetField().Bounds;
+    public Rect Bounds
+    {
+        get
+        {
+            MeasureAndSetField();
+            return _bounds;
+        }
+    }
 
+    // Strokeを含めた境界線
+    public Rect ActualBounds
+    {
+        get
+        {
+            MeasureAndSetField();
+            return _actualBounds;
+        }
+    }
+
+    // テスト用
     internal Point AddToSKPath(SKPath path, Point point)
     {
         using SKFont font = this.ToSKFont();
@@ -127,7 +162,25 @@ public struct FormattedText : IEquatable<FormattedText>
         return point;
     }
 
-    private (FontMetrics, Size) Measure()
+    internal SKPath GetFillPath()
+    {
+        MeasureAndSetField();
+        return _fillPath!;
+    }
+
+    internal SKPath? GetStrokePath()
+    {
+        MeasureAndSetField();
+        return _strokePath;
+    }
+
+    internal SKTextBlob GetTextBlob()
+    {
+        MeasureAndSetField();
+        return _textBlob!;
+    }
+
+    private void Measure()
     {
         using SKFont font = this.ToSKFont();
 
@@ -139,17 +192,148 @@ public struct FormattedText : IEquatable<FormattedText>
         using SKPaint paint = new()
         {
             TextSize = Size,
-            Typeface = font.Typeface
+            Typeface = font.Typeface,
         };
         SKShaper.Result result = shaper.Shape(buffer, paint);
 
-        FontMetrics fontMetrics = font.Metrics.ToFontMetrics();
-        float w = result.Width;
-        var size = new Size(
-            w + (buffer.Length - 1) * Spacing,
-            fontMetrics.Descent - fontMetrics.Ascent);
+        // create the text blob
+        using var builder = new SKTextBlobBuilder();
+        SKPositionedRunBuffer run = builder.AllocatePositionedRun(font, result.Codepoints.Length);
 
-        return (fontMetrics, size);
+        var fillPath = new SKPath();
+        Span<ushort> glyphs = run.GetGlyphSpan();
+        Span<SKPoint> positions = run.GetPositionSpan();
+        for (int i = 0; i < result.Codepoints.Length; i++)
+        {
+            glyphs[i] = (ushort)result.Codepoints[i];
+
+            SKPoint point = result.Points[i];
+            point.X += i * Spacing;
+            positions[i] = point;
+
+            using SKPath tmp = font.GetGlyphPath(glyphs[i]);
+            fillPath.AddPath(tmp, point.X, point.Y);
+        }
+
+        SKPath? strokePath = null;
+        Rect bounds = fillPath.TightBounds.ToGraphicsRect();
+        Rect actualBounds = bounds;
+        SKTextBlob textBlob = builder.Build();
+
+        if (result.Codepoints.Length > 0)
+        {
+            if (Pen != null && Pen.Thickness > 0)
+            {
+                ConfigureStrokePaint(paint, actualBounds.Size);
+                float maxAspect = Math.Max(actualBounds.Width, actualBounds.Height);
+                float thickness = Pen.Thickness;
+                if (Pen.StrokeAlignment == StrokeAlignment.Outside)
+                {
+                    thickness /= 2;
+                }
+                else if (Pen.StrokeAlignment == StrokeAlignment.Inside)
+                {
+                    thickness = paint.StrokeWidth;
+                }
+
+                if (maxAspect < thickness)
+                {
+                    strokePath = new SKPath();
+                    paint.StrokeWidth = maxAspect;
+                    SKPath? prev = null;
+                    try
+                    {
+                        while (maxAspect < thickness)
+                        {
+                            SKPath tmp = paint.GetFillPath(prev ?? fillPath);
+                            strokePath.AddPath(tmp);
+
+                            prev?.Dispose();
+                            prev = tmp;
+                            thickness -= maxAspect;
+                        }
+
+                        if (prev != null)
+                        {
+                            paint.StrokeWidth = thickness;
+                            using SKPath tmp2 = paint.GetFillPath(prev);
+                            strokePath.AddPath(tmp2);
+                        }
+
+                        paint.IsStroke = false;
+                        actualBounds = strokePath.TightBounds.ToGraphicsRect();
+                    }
+                    finally
+                    {
+                        prev?.Dispose();
+                    }
+                }
+                else
+                {
+                    strokePath = paint.GetFillPath(fillPath);
+                    if (Pen.StrokeAlignment != StrokeAlignment.Inside)
+                    {
+                        actualBounds = strokePath.TightBounds.ToGraphicsRect();
+                    }
+                }
+            }
+        }
+
+        (_metrics, _bounds, _actualBounds) = (font.Metrics.ToFontMetrics(), bounds, actualBounds);
+
+        (_textBlob, _fillPath, _strokePath).DisposeAll();
+        (_textBlob, _fillPath, _strokePath) = (textBlob, fillPath, strokePath);
+    }
+
+    private void ConfigureStrokePaint(SKPaint paint, Size size)
+    {
+        paint.Reset();
+
+        if (Pen != null && Pen.Thickness != 0)
+        {
+            float thickness = Pen.Thickness;
+
+            switch (Pen.StrokeAlignment)
+            {
+                case StrokeAlignment.Outside:
+                    thickness *= 2;
+                    break;
+
+                case StrokeAlignment.Inside:
+                    thickness *= 2;
+                    float maxAspect = Math.Max(size.Width, size.Height);
+                    thickness = Math.Min(thickness, maxAspect);
+                    break;
+
+                default:
+                    break;
+            }
+
+            paint.IsStroke = true;
+            paint.StrokeWidth = thickness;
+            paint.StrokeCap = (SKStrokeCap)Pen.StrokeCap;
+            paint.StrokeJoin = (SKStrokeJoin)Pen.StrokeJoin;
+            paint.StrokeMiter = Pen.MiterLimit;
+            if (Pen.DashArray != null && Pen.DashArray.Count > 0)
+            {
+                IReadOnlyList<float> srcDashes = Pen.DashArray;
+
+                int count = srcDashes.Count % 2 == 0 ? srcDashes.Count : srcDashes.Count * 2;
+
+                float[] dashesArray = new float[count];
+
+                for (int i = 0; i < count; ++i)
+                {
+                    dashesArray[i] = (float)srcDashes[i % srcDashes.Count] * thickness;
+                }
+
+                float offset = (float)(Pen.DashOffset * thickness);
+
+                var pe = SKPathEffect.CreateDash(dashesArray, offset);
+
+                paint.PathEffect = pe;
+            }
+        }
     }
 
     private void SetProperty<T>(ref T field, T value)
@@ -161,15 +345,13 @@ public struct FormattedText : IEquatable<FormattedText>
         }
     }
 
-    private (FontMetrics Metrics, Size Bounds) MeasureAndSetField()
+    private void MeasureAndSetField()
     {
         if (_isDirty)
         {
-            (_metrics, _bounds) = Measure();
+            Measure();
             _isDirty = false;
         }
-
-        return (_metrics, _bounds);
     }
 
     public override bool Equals(object? obj)
@@ -177,9 +359,17 @@ public struct FormattedText : IEquatable<FormattedText>
         return obj is FormattedText text && Equals(text);
     }
 
-    public bool Equals(FormattedText other)
+    public bool Equals(FormattedText? other)
     {
-        return Weight == other.Weight && Style == other.Style && Font.Equals(other.Font) && Size == other.Size && Spacing == other.Spacing && Text.Equals(other.Text) && BeginOnNewLine == other.BeginOnNewLine && EqualityComparer<IBrush>.Default.Equals(Brush, other.Brush);
+        return Weight == other?.Weight
+            && Style == other?.Style
+            && Font.Equals(other?.Font)
+            && Size == other?.Size
+            && Spacing == other?.Spacing
+            && Text.Equals(other?.Text)
+            && BeginOnNewLine == other?.BeginOnNewLine
+            && EqualityComparer<IBrush>.Default.Equals(Brush, other?.Brush)
+            && EqualityComparer<IPen>.Default.Equals(Pen, other?.Pen);
     }
 
     public override int GetHashCode()
@@ -193,6 +383,7 @@ public struct FormattedText : IEquatable<FormattedText>
         hash.Add(Text);
         hash.Add(BeginOnNewLine);
         hash.Add(Brush);
+        hash.Add(Pen);
         return hash.ToHashCode();
     }
 
