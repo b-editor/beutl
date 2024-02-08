@@ -335,26 +335,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         SKPath filled = text.GetFillPath()!;
         SKPath stroke = text.GetStrokePath()!;
 
-        switch (pen!.StrokeAlignment)
-        {
-            case StrokeAlignment.Center:
-                Canvas.DrawPath(stroke, _sharedStrokePaint);
-                break;
-
-            case StrokeAlignment.Inside:
-                Canvas.Save();
-                Canvas.ClipPath(filled, SKClipOperation.Intersect, true);
-                Canvas.DrawPath(stroke, _sharedStrokePaint);
-                Canvas.Restore();
-                break;
-
-            case StrokeAlignment.Outside:
-                Canvas.Save();
-                Canvas.ClipPath(filled, SKClipOperation.Difference, true);
-                Canvas.DrawPath(stroke, _sharedStrokePaint);
-                Canvas.Restore();
-                break;
-        }
+        Canvas.DrawPath(stroke, _sharedStrokePaint);
     }
 
     public void DrawText(FormattedText text, IBrush? fill, IPen? pen)
@@ -376,40 +357,6 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
     internal void DrawSKPath(SKPath skPath, bool strokeOnly, IBrush? fill, IPen? pen)
     {
-        void DrawStrokeLarge(float thickness, Rect rect)
-        {
-            float maxAspect = Math.Max(rect.Width, rect.Height);
-            if (maxAspect < thickness)
-            {
-                using var strokePath = new SKPath();
-                _sharedStrokePaint.StrokeWidth = maxAspect;
-                SKPath? prev = null;
-                while (maxAspect < thickness)
-                {
-                    SKPath tmp = _sharedStrokePaint.GetFillPath(prev ?? skPath);
-                    strokePath.AddPath(tmp);
-
-                    prev = tmp;
-                    thickness -= maxAspect;
-                }
-
-                if (prev != null)
-                {
-                    _sharedStrokePaint.StrokeWidth = thickness;
-                    using SKPath tmp2 = _sharedStrokePaint.GetFillPath(prev);
-                    strokePath.AddPath(tmp2);
-                }
-
-                _sharedStrokePaint.IsStroke = false;
-
-                Canvas.DrawPath(strokePath, _sharedStrokePaint);
-            }
-            else
-            {
-                Canvas.DrawPath(skPath, _sharedStrokePaint);
-            }
-        }
-
         Rect rect = skPath.Bounds.ToGraphicsRect();
 
         if (!strokeOnly)
@@ -418,38 +365,13 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
             Canvas.DrawPath(skPath, _sharedFillPaint);
         }
 
-        if (pen != null && pen.Thickness != 0)
+        if (pen != null && pen.Thickness > 0)
         {
             ConfigureStrokePaint(rect, pen);
 
-            switch (pen.StrokeAlignment)
-            {
-                case StrokeAlignment.Center:
-                    {
-                        float thickness = pen.Thickness;
-                        DrawStrokeLarge(thickness, rect);
-                    }
-                    break;
-
-                case StrokeAlignment.Inside:
-                    Canvas.Save();
-                    Canvas.ClipPath(skPath, SKClipOperation.Intersect, true);
-                    Canvas.DrawPath(skPath, _sharedStrokePaint);
-                    Canvas.Restore();
-                    break;
-
-                case StrokeAlignment.Outside:
-                    {
-                        Canvas.Save();
-                        Canvas.ClipPath(skPath, SKClipOperation.Difference, true);
-
-                        float thickness = pen.Thickness * 2;
-                        DrawStrokeLarge(thickness, rect);
-
-                        Canvas.Restore();
-                    }
-                    break;
-            }
+            using SKPath strokePath = PenHelper.CreateStrokePath(skPath, pen, rect);
+            _sharedStrokePaint.IsStroke = false;
+            Canvas.DrawPath(strokePath, _sharedStrokePaint);
         }
     }
 
@@ -457,7 +379,19 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     {
         VerifyAccess();
         SKPath skPath = geometry.GetNativeObject();
-        DrawSKPath(skPath, false, fill, pen);
+
+        Rect rect = skPath.Bounds.ToGraphicsRect();
+
+        ConfigureFillPaint(rect.Size, fill);
+        Canvas.DrawPath(skPath, _sharedFillPaint);
+
+        if (pen != null && pen.Thickness > 0)
+        {
+            ConfigureStrokePaint(rect, pen);
+            _sharedStrokePaint.IsStroke = false;
+            SKPath? stroke = geometry.GetStrokePath(pen);
+            Canvas.DrawPath(stroke, _sharedStrokePaint);
+        }
     }
 
     public unsafe Bitmap<Bgra8888> GetBitmap()
