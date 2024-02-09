@@ -30,7 +30,6 @@ public class TextElement : Animatable, IAffectsRender
     private IBrush? _brush;
     private IPen? _pen = null;
     private bool _ignoreLineBreaks;
-    private FormattedText _formattedText;
 
     static TextElement()
     {
@@ -154,7 +153,7 @@ public class TextElement : Animatable, IAffectsRender
                     newBrush.Invalidated += OnAffectsRenderInvalidated;
 
                 goto RaiseInvalidated;
-                
+
             case nameof(Pen) when args is CorePropertyChangedEventArgs<IPen?> args2:
                 if (args2.OldValue is IAffectsRender oldPen)
                     oldPen.Invalidated -= OnAffectsRenderInvalidated;
@@ -201,8 +200,8 @@ public class TextElement : Animatable, IAffectsRender
 
             if (isReturnCode || isLast)
             {
-                ref FormattedText item = ref span[ii];
-                SetFields(ref item, new StringSpan(_text, prevIdx, (isReturnCode ? i : nextIdx) - prevIdx));
+                FormattedText item = span[ii];
+                SetFields(item, new StringSpan(_text, prevIdx, (isReturnCode ? i : nextIdx) - prevIdx));
                 item.BeginOnNewLine = nextReturn;
                 nextReturn = !_ignoreLineBreaks && isReturnCode;
 
@@ -237,7 +236,7 @@ public class TextElement : Animatable, IAffectsRender
             bool isReturnCode = c is '\n' or '\r';
             bool isLast = nextIdx == _text.Length;
 
-            if (isReturnCode | isLast)
+            if (isReturnCode || isLast)
             {
                 if (c is '\r'
                     && nextIdx < _text.Length
@@ -253,18 +252,16 @@ public class TextElement : Animatable, IAffectsRender
         return count;
     }
 
-    private void SetFields(ref FormattedText text, StringSpan s)
+    private void SetFields(FormattedText text, StringSpan s)
     {
-        _formattedText.Weight = _fontWeight;
-        _formattedText.Style = _fontStyle;
-        _formattedText.Font = _fontFamily;
-        _formattedText.Size = _size;
-        _formattedText.Spacing = _spacing;
-        _formattedText.Text = s;
-        _formattedText.Brush = Brush;
-        _formattedText.Pen = Pen;
-
-        text = _formattedText;
+        text.Weight = _fontWeight;
+        text.Style = _fontStyle;
+        text.Font = _fontFamily;
+        text.Size = _size;
+        text.Spacing = _spacing;
+        text.Text = s;
+        text.Brush = Brush;
+        text.Pen = Pen;
     }
 }
 

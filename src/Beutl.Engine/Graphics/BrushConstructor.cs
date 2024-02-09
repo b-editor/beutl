@@ -22,6 +22,9 @@ public readonly struct BrushConstructor(Size targetSize, IBrush? brush, BlendMod
         float opacity = (Brush?.Opacity ?? 0) / 100f;
         paint.IsAntialias = true;
         paint.BlendMode = (SKBlendMode)BlendMode;
+        paint.HintingLevel = SKPaintHinting.Full;
+        paint.LcdRenderText = true;
+        paint.SubpixelText = true;
 
         paint.Color = new SKColor(255, 255, 255, (byte)(255 * opacity));
 

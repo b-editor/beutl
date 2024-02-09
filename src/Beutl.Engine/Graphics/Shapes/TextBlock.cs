@@ -170,12 +170,17 @@ public class TextBlock : Drawable
 
         if (_elements != null)
         {
+            float lastDescent = 0f;
             foreach (Span<FormattedText> line in _elements.Lines)
             {
                 Size bounds = MeasureLine(line);
                 width = MathF.Max(bounds.Width, width);
                 height += bounds.Height;
+
+                lastDescent = MinDescent(line);
             }
+
+            height -= lastDescent;
         }
 
         return new Size(width, height);
@@ -198,7 +203,7 @@ public class TextBlock : Drawable
                 if (item.Text.Length > 0)
                 {
                     point += new Point(prevRight + item.Spacing / 2, 0);
-                    Size elementBounds = item.Bounds;
+                    Rect elementBounds = item.Bounds;
 
                     item.AddToSKPath(skpath, point);
 
@@ -222,21 +227,32 @@ public class TextBlock : Drawable
             {
                 Size lineBounds = MeasureLine(line);
                 float ascent = MinAscent(line);
+                float descent = MinDescent(line);
 
-                using (canvas.PushTransform(Matrix.CreateTranslation(0, prevBottom - ascent)))
+                using (canvas.PushTransform(Matrix.CreateTranslation(0, prevBottom - ascent - descent)))
                 {
                     float prevRight = 0;
                     foreach (FormattedText item in line)
                     {
                         if (item.Text.Length > 0)
                         {
+                            Rect elementBounds = item.Bounds;
+
+                            if (prevRight == 0)
+                            {
+                                prevRight -= elementBounds.Left;
+                            }
+
                             using (canvas.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, 0)))
                             {
-                                Size elementBounds = item.Bounds;
-
                                 canvas.DrawText(item, item.Brush ?? Fill, item.Pen ?? Pen);
 
                                 prevRight += elementBounds.Width + item.Spacing;
+                            }
+
+                            if (prevRight != 0)
+                            {
+                                prevRight += elementBounds.Left;
                             }
                         }
                     }
@@ -286,15 +302,20 @@ public class TextBlock : Drawable
         float width = 0;
         float height = 0;
 
-        foreach (FormattedText element in items)
+        foreach (FormattedText item in items)
         {
-            if (element.Text.Length > 0)
+            if (item.Text.Length > 0)
             {
-                Size bounds = element.Bounds;
-                width += bounds.Width;
-                width += element.Spacing;
+                Rect bounds = item.Bounds;
+                if (width != 0)
+                {
+                    width += bounds.Left;
+                }
 
-                height = MathF.Max(bounds.Height, height);
+                width += bounds.Width;
+                width += item.Spacing;
+
+                height = MathF.Max(item.Metrics.Leading + item.Metrics.Descent - item.Metrics.Ascent, height);
             }
         }
 
@@ -310,6 +331,17 @@ public class TextBlock : Drawable
         }
 
         return ascent;
+    }
+
+    private static float MinDescent(Span<FormattedText> items)
+    {
+        float descent = float.MaxValue;
+        foreach (FormattedText item in items)
+        {
+            descent = MathF.Min(item.Metrics.Descent, descent);
+        }
+
+        return descent;
     }
 
     public override void ApplyAnimations(IClock clock)

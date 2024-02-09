@@ -1,11 +1,12 @@
 ﻿using Beutl.Media;
 using Beutl.Media.TextFormatting;
 
+using SkiaSharp;
+
 namespace Beutl.Graphics.Rendering;
 
-// Todo: bounds,HitTest
 public sealed class TextNode(FormattedText text, IBrush? fill, IPen? pen)
-    : BrushDrawNode(fill, pen, new(new Point(0, text.Metrics.Ascent), text.Bounds))
+    : BrushDrawNode(fill, pen, text.ActualBounds)
 {
     public FormattedText Text { get; private set; } = text;
 
@@ -23,6 +24,13 @@ public sealed class TextNode(FormattedText text, IBrush? fill, IPen? pen)
 
     public override bool HitTest(Point point)
     {
-        return Bounds.ContainsExclusive(point);
+        SKPath fill = Text.GetFillPath();
+        if (Fill != null && fill.Contains(point.X, point.Y))
+        {
+            return true;
+        }
+
+        SKPath? stroke = Text.GetStrokePath();
+        return stroke?.Contains(point.X, point.Y) == true;
     }
 }
