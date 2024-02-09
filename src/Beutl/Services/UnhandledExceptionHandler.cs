@@ -70,11 +70,12 @@ public static class UnhandledExceptionHandler
         if (!s_exited)
         {
             GlobalConfiguration.Instance.Save(GlobalConfiguration.DefaultFilePath);
-            BeutlApplication.Current.LoggerFactory.Dispose();
 
             SharedGPUContext.Shutdown();
             SharedGRContext.Shutdown();
             RenderThread.Dispatcher.Shutdown();
+
+            BeutlApplication.Current.LoggerFactory.Dispose();
 
             s_exited = true;
         }
